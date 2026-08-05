@@ -1,12 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
 import type { RuntimeToolResult } from "@vetta/runtime-core/kernel";
 import { describe, expect, it, vi } from "vitest";
-import {
-	adaptCodingAgentToolRegistration,
-	type CodingAgentRuntimeToolRegistration,
-	type LegacyCodingAgentTool,
-} from "../../src/adapters/runtime-core/index.js";
-import { createKbListTagsTool } from "../../src/core/tools/kb-list-tags/index.js";
+import { adaptCodingAgentToolRegistration, type LegacyCodingAgentTool } from "../../src/adapters/runtime-core/index.js";
 
 const inputSchema = Type.Object({
 	value: Type.String(),
@@ -79,14 +74,5 @@ describe("Greenfield AgentTool adapter", () => {
 			agentModes: ["work"],
 			category: "kb-read",
 		});
-	});
-
-	it("keeps the legacy knowledge tool capability contract", () => {
-		const registration: CodingAgentRuntimeToolRegistration = adaptCodingAgentToolRegistration(createKbListTagsTool());
-
-		expect(registration.tool.name).toBe("kb_list_available_tags");
-		expect(registration.scopeUse).toContain("cli");
-		expect(registration.requires).toEqual(["knowledge"]);
-		expect(registration.category).toBe("kb-read");
 	});
 });

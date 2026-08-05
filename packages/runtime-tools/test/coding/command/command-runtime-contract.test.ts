@@ -4,23 +4,27 @@ import { join } from "node:path";
 import { createCodingAgentForegroundCommandHost } from "@vetta/coding-agent/host";
 import { describe, expect, it } from "vitest";
 import {
-	type BashOperations,
-	type BashToolOptions,
-	createBashTool as createLegacyBashTool,
-} from "../../../../coding-agent/src/core/tools/bash/index.js";
-import { createShellTool as createLegacyShellTool } from "../../../../coding-agent/src/core/tools/shell/index.js";
-import {
+	type CommandSpawnHook,
 	type CommandToolExecutor,
+	CommandToolInputSchema,
 	createBashToolRegistration,
 	createForegroundCommandToolExecutor,
 	createShellToolRegistration,
+	type ForegroundCommandOperations,
 	getBashToolScopes,
 	getShellToolScopes,
 } from "../../../src/coding/index.js";
 
 type CommandName = "bash" | "shell";
 
-function createOperations(output: string, exitCode = 0): BashOperations {
+interface CommandFixtureOptions {
+	readonly operations?: ForegroundCommandOperations;
+	readonly commandPrefix?: string;
+	readonly spawnHook?: CommandSpawnHook;
+	readonly blockUntilSec?: number;
+}
+
+function createOperations(output: string, exitCode = 0): ForegroundCommandOperations {
 	return {
 		async exec(_command, _cwd, options) {
 			options.onData(Buffer.from(output));
@@ -29,11 +33,7 @@ function createOperations(output: string, exitCode = 0): BashOperations {
 	};
 }
 
-function createLegacyTool(name: CommandName, cwd: string, options: BashToolOptions) {
-	return name === "bash" ? createLegacyBashTool(cwd, options) : createLegacyShellTool(cwd, options);
-}
-
-function createRuntimeRegistration(name: CommandName, cwd: string, toolOptions: BashToolOptions) {
+function createRuntimeRegistration(name: CommandName, cwd: string, toolOptions: CommandFixtureOptions) {
 	const host = createCodingAgentForegroundCommandHost(cwd);
 	const executor = createForegroundCommandToolExecutor({
 		...host,
@@ -48,10 +48,10 @@ function createRuntimeRegistration(name: CommandName, cwd: string, toolOptions: 
 }
 
 describe.each(["bash", "shell"] as const)("runtime %s command adapter", (toolName) => {
-	it("preserves the legacy definition, scope, output, details, and updates", async () => {
+	it("keeps the public definition, scope, output, details, and updates", async () => {
 		const cwd = "C:/workspace";
 		const calls: Array<{ readonly command: string; readonly cwd: string; readonly marker?: string }> = [];
-		const toolOptions: BashToolOptions = {
+		const toolOptions: CommandFixtureOptions = {
 			operations: {
 				async exec(command, operationCwd, options) {
 					calls.push({ command, cwd: operationCwd, marker: options.env?.COMMAND_CONTRACT_MARKER });
@@ -67,31 +67,19 @@ describe.each(["bash", "shell"] as const)("runtime %s command adapter", (toolNam
 				env: { ...context.env, COMMAND_CONTRACT_MARKER: "present" },
 			}),
 		};
-		const legacy = createLegacyTool(toolName, cwd, toolOptions);
 		const runtime = createRuntimeRegistration(toolName, cwd, toolOptions);
 
-		expect({
-			name: runtime.tool.name,
-			label: runtime.tool.label,
-			description: runtime.tool.description,
-			schema: runtime.tool.inputSchema,
-			scopeUse: runtime.scopeUse,
-			category: runtime.category,
-		}).toEqual({
-			name: legacy.name,
-			label: legacy.label,
-			description: legacy.description,
-			schema: legacy.parameters,
-			scopeUse: legacy.scope_use,
-			category: legacy.category,
+		expect(runtime.tool).toMatchObject({
+			name: toolName,
+			label: toolName,
+			inputSchema: CommandToolInputSchema,
 		});
+		expect(runtime.tool.description).toContain("Foreground vs background");
+		expect(runtime.scopeUse).toEqual(toolName === "bash" ? getBashToolScopes() : getShellToolScopes());
+		expect(runtime.category).toBe("core");
 
 		const input = { command: "echo command", timeout: 7 };
-		const legacyUpdates: unknown[] = [];
 		const runtimeUpdates: unknown[] = [];
-		const legacyResult = await legacy.execute("legacy-call", input, undefined, (update) => {
-			legacyUpdates.push(update);
-		});
 		const runtimeResult = await runtime.tool.execute({
 			sessionId: "session-1",
 			turnId: "turn-1",
@@ -101,10 +89,9 @@ describe.each(["bash", "shell"] as const)("runtime %s command adapter", (toolNam
 			onUpdate: (update) => runtimeUpdates.push(update),
 		});
 
-		expect(runtimeResult).toEqual(legacyResult);
-		expect(runtimeUpdates).toEqual(legacyUpdates);
+		expect(runtimeResult).toEqual({ content: [{ type: "text", text: "command output\n" }], details: undefined });
+		expect(runtimeUpdates).toEqual([{ content: [{ type: "text", text: "command output\n" }], details: {} }]);
 		expect(calls).toEqual([
-			{ command: "echo prefix\necho command\necho hook", cwd: "C:/spawn-cwd", marker: "present" },
 			{ command: "echo prefix\necho command\necho hook", cwd: "C:/spawn-cwd", marker: "present" },
 		]);
 	});
@@ -114,7 +101,7 @@ describe.each(["bash", "shell"] as const)("runtime %s command adapter", (toolNam
 		const protectedDirectory = join(cwd, ".vetta", "skills");
 		const protectedFile = join(protectedDirectory, "changed.txt");
 		mkdirSync(protectedDirectory, { recursive: true });
-		const toolOptions: BashToolOptions = {
+		const toolOptions: CommandFixtureOptions = {
 			operations: {
 				async exec(_command, _cwd, options) {
 					writeFileSync(protectedFile, "changed");
@@ -125,9 +112,6 @@ describe.each(["bash", "shell"] as const)("runtime %s command adapter", (toolNam
 		};
 
 		try {
-			const legacy = createLegacyTool(toolName, cwd, toolOptions);
-			const legacyResult = await legacy.execute("legacy-protected", { command: "write-protected" });
-			rmSync(protectedFile);
 			const runtime = createRuntimeRegistration(toolName, cwd, toolOptions);
 			const runtimeResult = await runtime.tool.execute({
 				sessionId: "session-1",
@@ -136,7 +120,9 @@ describe.each(["bash", "shell"] as const)("runtime %s command adapter", (toolNam
 				input: { command: "write-protected" },
 				signal: new AbortController().signal,
 			});
-			expect(runtimeResult).toEqual(legacyResult);
+			expect(runtimeResult.content[0]).toMatchObject({
+				text: expect.stringContaining("WARNING: The following files inside skill/scene directories"),
+			});
 		} finally {
 			rmSync(cwd, { recursive: true, force: true });
 		}
@@ -144,14 +130,10 @@ describe.each(["bash", "shell"] as const)("runtime %s command adapter", (toolNam
 
 	it("preserves non-zero exit and unavailable background errors", async () => {
 		const cwd = "C:/workspace";
-		const failingOptions: BashToolOptions = { operations: createOperations("failure output", 2) };
-		const legacy = createLegacyTool(toolName, cwd, failingOptions);
+		const failingOptions: CommandFixtureOptions = { operations: createOperations("failure output", 2) };
 		const runtime = createRuntimeRegistration(toolName, cwd, failingOptions);
 		const signal = new AbortController().signal;
 
-		await expect(legacy.execute("legacy-failure", { command: "fail" })).rejects.toThrow(
-			"failure output\n\nCommand exited with code 2",
-		);
 		await expect(
 			runtime.tool.execute({
 				sessionId: "session-1",
@@ -161,9 +143,6 @@ describe.each(["bash", "shell"] as const)("runtime %s command adapter", (toolNam
 				signal,
 			}),
 		).rejects.toThrow("failure output\n\nCommand exited with code 2");
-		await expect(legacy.execute("legacy-background", { command: "serve", run_in_background: true })).rejects.toThrow(
-			"Background execution is not available in this session",
-		);
 		await expect(
 			runtime.tool.execute({
 				sessionId: "session-1",
@@ -180,7 +159,7 @@ describe.each(["bash", "shell"] as const)("runtime %s command adapter", (toolNam
 		try {
 			writeFileSync(join(cwd, "报告-最终.txt"), "content");
 			const capturedCommands: string[] = [];
-			const pathOptions: BashToolOptions = {
+			const pathOptions: CommandFixtureOptions = {
 				operations: {
 					async exec(command, _cwd, options) {
 						capturedCommands.push(command);
@@ -189,10 +168,8 @@ describe.each(["bash", "shell"] as const)("runtime %s command adapter", (toolNam
 					},
 				},
 			};
-			const legacyPath = createLegacyTool(toolName, cwd, pathOptions);
 			const runtimePath = createRuntimeRegistration(toolName, cwd, pathOptions);
 			const input = { command: 'read "报告 - 最终.txt"' };
-			const legacyResult = await legacyPath.execute("legacy-path", input);
 			const runtimeResult = await runtimePath.tool.execute({
 				sessionId: "session-1",
 				turnId: "turn-1",
@@ -200,14 +177,13 @@ describe.each(["bash", "shell"] as const)("runtime %s command adapter", (toolNam
 				input,
 				signal: new AbortController().signal,
 			});
-			expect(runtimeResult).toEqual(legacyResult);
-			expect(capturedCommands).toEqual(['read "报告-最终.txt"', 'read "报告-最终.txt"']);
+			expect(runtimeResult.content[0]).toMatchObject({ text: expect.stringContaining("Auto-corrected path") });
+			expect(runtimeResult.details).toMatchObject({ pathCorrections: [{ original: "报告 - 最终.txt" }] });
+			expect(capturedCommands).toEqual(['read "报告-最终.txt"']);
 
 			const largeOutput = Array.from({ length: 2_002 }, (_, index) => `line-${index}`).join("\n");
-			const truncationOptions: BashToolOptions = { operations: createOperations(largeOutput) };
-			const legacyTruncation = createLegacyTool(toolName, cwd, truncationOptions);
+			const truncationOptions: CommandFixtureOptions = { operations: createOperations(largeOutput) };
 			const runtimeTruncation = createRuntimeRegistration(toolName, cwd, truncationOptions);
-			const legacyTruncated = await legacyTruncation.execute("legacy-truncation", { command: "many-lines" });
 			const runtimeTruncated = await runtimeTruncation.tool.execute({
 				sessionId: "session-1",
 				turnId: "turn-1",
@@ -215,19 +191,20 @@ describe.each(["bash", "shell"] as const)("runtime %s command adapter", (toolNam
 				input: { command: "many-lines" },
 				signal: new AbortController().signal,
 			});
-			expect(runtimeTruncated).toEqual(legacyTruncated);
+			expect(runtimeTruncated.details).toMatchObject({
+				truncation: { truncated: true, truncatedBy: "lines", totalLines: 2_002, outputLines: 2_000 },
+			});
+			expect(runtimeTruncated.content[0]).toMatchObject({ text: expect.stringContaining("Showing lines 3-2002") });
 
 			for (const errorMessage of ["timeout:3", "aborted"]) {
-				const errorOptions: BashToolOptions = {
+				const errorOptions: CommandFixtureOptions = {
 					operations: {
 						async exec() {
 							throw new Error(errorMessage);
 						},
 					},
 				};
-				const legacyError = createLegacyTool(toolName, cwd, errorOptions);
 				const runtimeError = createRuntimeRegistration(toolName, cwd, errorOptions);
-				const legacyPromise = legacyError.execute("legacy-error", { command: "fail", timeout: 3 });
 				const runtimePromise = runtimeError.tool.execute({
 					sessionId: "session-1",
 					turnId: "turn-1",
@@ -235,22 +212,15 @@ describe.each(["bash", "shell"] as const)("runtime %s command adapter", (toolNam
 					input: { command: "fail", timeout: 3 },
 					signal: new AbortController().signal,
 				});
-				await expect(runtimePromise).rejects.toThrow(await getErrorMessage(legacyPromise));
+				await expect(runtimePromise).rejects.toThrow(
+					errorMessage === "timeout:3" ? "Command timed out after 3 seconds" : "Command aborted",
+				);
 			}
 		} finally {
 			rmSync(cwd, { recursive: true, force: true });
 		}
 	});
 });
-
-async function getErrorMessage(promise: Promise<unknown>): Promise<string> {
-	try {
-		await promise;
-		throw new Error("Expected command execution to fail");
-	} catch (error) {
-		return error instanceof Error ? error.message : String(error);
-	}
-}
 
 describe("runtime command registration", () => {
 	it("keeps bash and shell platform scopes mutually exclusive", () => {

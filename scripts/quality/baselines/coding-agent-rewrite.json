@@ -1,5 +1,5 @@
 {
-	"version": 4,
+	"version": 5,
 	"oldImplementationEdges": [
 		{
 			"path": "packages/coding-agent/src/adapters/runtime-core/greenfield-extension-action-host.ts",
@@ -68,21 +68,6 @@
 		},
 		{
 			"path": "packages/coding-agent/src/index.ts",
-			"specifier": "./core/background-tasks/index.js",
-			"names": [
-				"BackgroundTaskEndedBy",
-				"BackgroundTaskEvent",
-				"BackgroundTaskListener",
-				"BackgroundTaskManager",
-				"BackgroundTaskSnapshot",
-				"BackgroundTaskStatus",
-				"buildTaskNotification"
-			],
-			"category": "old-core",
-			"domain": "background-tasks"
-		},
-		{
-			"path": "packages/coding-agent/src/index.ts",
 			"specifier": "./core/concurrency-limit.js",
 			"names": [
 				"Limiter",
@@ -114,7 +99,6 @@
 	],
 	"runtimeBackedges": [],
 	"oldImplementationFiles": [
-		"packages/coding-agent/src/core/background-tasks/index.ts",
 		"packages/coding-agent/src/core/concurrency-limit.ts",
 		"packages/coding-agent/src/core/event-bus.ts",
 		"packages/coding-agent/src/core/footer-data-provider.ts",
@@ -124,46 +108,8 @@
 		"packages/coding-agent/src/core/index.ts",
 		"packages/coding-agent/src/core/keybindings.ts",
 		"packages/coding-agent/src/core/session-lock.ts",
-		"packages/coding-agent/src/core/session/tool-scope.ts",
 		"packages/coding-agent/src/core/slash-commands.ts",
-		"packages/coding-agent/src/core/timings.ts",
-		"packages/coding-agent/src/core/todo-store.ts",
-		"packages/coding-agent/src/core/tools/anchors.ts",
-		"packages/coding-agent/src/core/tools/ask-user-question/index.ts",
-		"packages/coding-agent/src/core/tools/bash/index.ts",
-		"packages/coding-agent/src/core/tools/current-time/index.ts",
-		"packages/coding-agent/src/core/tools/description.ts",
-		"packages/coding-agent/src/core/tools/descriptions-data.ts",
-		"packages/coding-agent/src/core/tools/doc-to-pdf/index.ts",
-		"packages/coding-agent/src/core/tools/edit-diff.ts",
-		"packages/coding-agent/src/core/tools/edit/index.ts",
-		"packages/coding-agent/src/core/tools/exec-subprocess.ts",
-		"packages/coding-agent/src/core/tools/extract-text-from-img/index.ts",
-		"packages/coding-agent/src/core/tools/extract-text-from-pdf/index.ts",
-		"packages/coding-agent/src/core/tools/find/index.ts",
-		"packages/coding-agent/src/core/tools/glob/index.ts",
-		"packages/coding-agent/src/core/tools/grep/index.ts",
-		"packages/coding-agent/src/core/tools/html-to-pdf/index.ts",
-		"packages/coding-agent/src/core/tools/index.ts",
-		"packages/coding-agent/src/core/tools/invoke-skill/index.ts",
-		"packages/coding-agent/src/core/tools/kb-filter-by-tags/index.ts",
-		"packages/coding-agent/src/core/tools/kb-list-tags/index.ts",
-		"packages/coding-agent/src/core/tools/kb-write-page/index.ts",
-		"packages/coding-agent/src/core/tools/ls/index.ts",
-		"packages/coding-agent/src/core/tools/ocr-concurrency.ts",
-		"packages/coding-agent/src/core/tools/path-utils.ts",
-		"packages/coding-agent/src/core/tools/progress/index.ts",
-		"packages/coding-agent/src/core/tools/read/index.ts",
-		"packages/coding-agent/src/core/tools/render-pdf-page/index.ts",
-		"packages/coding-agent/src/core/tools/shell/index.ts",
-		"packages/coding-agent/src/core/tools/task-output/index.ts",
-		"packages/coding-agent/src/core/tools/task-stop/index.ts",
-		"packages/coding-agent/src/core/tools/todo/index.ts",
-		"packages/coding-agent/src/core/tools/tool-call-description.ts",
-		"packages/coding-agent/src/core/tools/tool-search/index.ts",
-		"packages/coding-agent/src/core/tools/tree/index.ts",
-		"packages/coding-agent/src/core/tools/truncate.ts",
-		"packages/coding-agent/src/core/tools/write/index.ts"
+		"packages/coding-agent/src/core/timings.ts"
 	],
 	"compatibilityExports": [],
 	"legacyCoreExports": [],
@@ -171,5 +117,6 @@
 	"oversizedStableExtensionModules": [],
 	"oversizedStableResourceModules": [],
 	"legacyHtmlExportReferences": [],
-	"legacyMemoryReferences": []
+	"legacyMemoryReferences": [],
+	"retiredToolReferences": []
 }

@@ -5,7 +5,7 @@ import {
 	renderAnchoredLines,
 	renderAnchorRegion,
 	validateAnchor,
-} from "../src/core/tools/anchors.js";
+} from "../../../src/coding/shared/anchors.js";
 
 describe("anchorLineHash", () => {
 	test("4 base36 chars, whitespace-insensitive", () => {

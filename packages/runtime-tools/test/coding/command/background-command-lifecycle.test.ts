@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
 	type BackgroundCommandOutput,
 	type BackgroundCommandOutputStore,
@@ -187,5 +187,28 @@ describe("background command lifecycle", () => {
 		expect(service.list().map(({ id }) => id)).toEqual([running.id]);
 		expect(service.clearFinished()).toBe(0);
 		expect(events.at(-1)).toBe("tasks_cleared");
+	});
+
+	it("isolates event and notification observers", () => {
+		const { processOperations, service } = createControlledService();
+		const events: string[] = [];
+		const notifications: string[] = [];
+		const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+		service.subscribe(() => {
+			throw new Error("event observer failed");
+		});
+		service.subscribe((event) => events.push(event.type));
+		service.subscribeNotifications(() => {
+			throw new Error("notification observer failed");
+		});
+		service.subscribeNotifications((task) => notifications.push(task.id));
+
+		const task = service.spawn({ command: "observed", cwd: "C:/workspace", env: {} });
+		processOperations.exit("observed", 0);
+
+		expect(events).toEqual(["task_started", "task_ended"]);
+		expect(notifications).toEqual([task.id]);
+		expect(warning).toHaveBeenCalledTimes(3);
+		warning.mockRestore();
 	});
 });

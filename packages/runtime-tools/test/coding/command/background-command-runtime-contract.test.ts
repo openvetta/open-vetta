@@ -4,15 +4,6 @@ import {
 } from "@vetta/coding-agent/host";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-	BackgroundTaskManager,
-	type BackgroundTaskSnapshot,
-	buildTaskNotification,
-} from "../../../../coding-agent/src/core/background-tasks/index.js";
-import { createBashTool as createLegacyBashTool } from "../../../../coding-agent/src/core/tools/bash/index.js";
-import { createShellTool as createLegacyShellTool } from "../../../../coding-agent/src/core/tools/shell/index.js";
-import { createTaskOutputTool as createLegacyTaskOutputTool } from "../../../../coding-agent/src/core/tools/task-output/index.js";
-import { createTaskStopTool as createLegacyTaskStopTool } from "../../../../coding-agent/src/core/tools/task-stop/index.js";
-import {
 	type BackgroundCommandService,
 	type BackgroundCommandSnapshot,
 	buildBackgroundCommandNotification,
@@ -27,34 +18,24 @@ import {
 
 type CommandName = "bash" | "shell";
 
-const managers: BackgroundTaskManager[] = [];
 const services: BackgroundCommandService[] = [];
 
 afterEach(async () => {
-	for (const manager of managers) manager.killAll();
 	for (const service of services) service.dispose();
 	await new Promise((resolve) => setTimeout(resolve, 50));
-	managers.length = 0;
 	services.length = 0;
 });
 
-function createManager(): BackgroundTaskManager {
-	const manager = new BackgroundTaskManager();
-	managers.push(manager);
-	return manager;
-}
-
-function createLegacyCommandTool(name: CommandName, manager: BackgroundTaskManager, blockUntilSec: number) {
-	const options = { backgroundTasks: manager, blockUntilSec };
-	return name === "bash"
-		? createLegacyBashTool(process.cwd(), options)
-		: createLegacyShellTool(process.cwd(), options);
+function createRuntimeBackgroundService(): BackgroundCommandService {
+	const service = createBackgroundCommandService(createCodingAgentBackgroundCommandHost());
+	services.push(service);
+	return service;
 }
 
 function createRuntimeCommandTool(
 	name: CommandName,
 	blockUntilSec: number,
-	onNotification?: (task: Parameters<typeof buildBackgroundCommandNotification>[0]) => void,
+	onNotification?: (task: BackgroundCommandSnapshot) => void,
 ) {
 	const host = createCodingAgentForegroundCommandHost(process.cwd());
 	const backgroundService = createRuntimeBackgroundService();
@@ -75,12 +56,6 @@ function createRuntimeCommandTool(
 	};
 }
 
-function createRuntimeBackgroundService(): BackgroundCommandService {
-	const service = createBackgroundCommandService(createCodingAgentBackgroundCommandHost());
-	services.push(service);
-	return service;
-}
-
 function runtimeRequest(input: { command: string; timeout?: number; run_in_background?: boolean }) {
 	return {
 		sessionId: "session-1",
@@ -91,273 +66,155 @@ function runtimeRequest(input: { command: string; timeout?: number; run_in_backg
 	};
 }
 
-function normalizeTaskArtifacts(value: unknown): unknown {
-	return JSON.parse(
-		JSON.stringify(value, (key, nestedValue) =>
-			key === "startedAt" || key === "endedAt" ? "<timestamp>" : nestedValue,
-		).replace(/vetta-task-b\d+-[0-9a-f]+\.log/g, "vetta-task-<id>.log"),
-	);
-}
-
 function localNodeCommand(script: string): string {
 	const executable = `"${process.execPath}"`;
 	return `${process.platform === "win32" ? "& " : ""}${executable} -e "${script}"`;
 }
 
-async function waitForCompletion(
-	owner: {
-		wait(taskId: string, options: { maxMs: number }): Promise<{ stillRunning: boolean }>;
-	},
-	taskId: string,
-): Promise<void> {
-	const result = await owner.wait(taskId, { maxMs: 10_000 });
+async function waitForCompletion(service: BackgroundCommandService, taskId: string): Promise<void> {
+	const result = await service.wait(taskId, { maxMs: 10_000 });
 	expect(result.stillRunning).toBe(false);
 	await new Promise((resolve) => setTimeout(resolve, 20));
 }
 
+async function waitForOutput(service: BackgroundCommandService, taskId: string, expected: string): Promise<void> {
+	const deadline = Date.now() + 2_000;
+	while (!(service.get(taskId)?.tail.includes(expected) ?? false)) {
+		if (Date.now() >= deadline) throw new Error(`Timed out waiting for task output: ${expected}`);
+		await new Promise((resolve) => setTimeout(resolve, 20));
+	}
+}
+
 describe.each(["bash", "shell"] as const)("runtime %s background command", (toolName) => {
-	it("preserves explicit background execution and completion notification", async () => {
-		const legacyManager = createManager();
-		const legacyNotifications: BackgroundTaskSnapshot[] = [];
-		const runtimeNotifications: BackgroundCommandSnapshot[] = [];
-		legacyManager.onNotify = (task) => legacyNotifications.push(task);
-		const legacy = createLegacyCommandTool(toolName, legacyManager, 5);
-		const runtime = createRuntimeCommandTool(toolName, 5, (task) => runtimeNotifications.push(task));
-		const input = {
-			command: localNodeCommand("process.stdout.write('background-ok')"),
-			run_in_background: true,
-		};
-
-		const legacyResult = await legacy.execute("tool-call-1", input);
-		const runtimeResult = await runtime.tool.execute(runtimeRequest(input));
-		expect(normalizeTaskArtifacts(runtimeResult)).toEqual(normalizeTaskArtifacts(legacyResult));
-
-		await Promise.all([waitForCompletion(legacyManager, "b1"), waitForCompletion(runtime.backgroundService, "b1")]);
-		expect(normalizeTaskArtifacts(runtimeNotifications)).toEqual(normalizeTaskArtifacts(legacyNotifications));
-		expect(normalizeTaskArtifacts(buildBackgroundCommandNotification(runtimeNotifications[0]))).toEqual(
-			normalizeTaskArtifacts(buildTaskNotification(legacyNotifications[0])),
+	it("runs explicitly in the background and emits one completion notification", async () => {
+		const notifications: BackgroundCommandSnapshot[] = [];
+		const runtime = createRuntimeCommandTool(toolName, 5, (task) => notifications.push(task));
+		const result = await runtime.tool.execute(
+			runtimeRequest({
+				command: localNodeCommand("process.stdout.write('background-ok')"),
+				run_in_background: true,
+			}),
 		);
-	});
 
-	it("preserves inline completion and soft-wait auto-promotion", async () => {
-		const quickCommand = localNodeCommand("process.stdout.write('inline-ok')");
-		const legacyQuickManager = createManager();
-		const legacyQuickNotifications: BackgroundTaskSnapshot[] = [];
-		const runtimeQuickNotifications: BackgroundCommandSnapshot[] = [];
-		legacyQuickManager.onNotify = (task) => legacyQuickNotifications.push(task);
-		const legacyQuick = createLegacyCommandTool(toolName, legacyQuickManager, 5);
-		const runtimeQuick = createRuntimeCommandTool(toolName, 5, (task) => runtimeQuickNotifications.push(task));
-		const legacyQuickResult = await legacyQuick.execute("tool-call-1", { command: quickCommand });
-		const runtimeQuickResult = await runtimeQuick.tool.execute(runtimeRequest({ command: quickCommand }));
-		expect(normalizeTaskArtifacts(runtimeQuickResult)).toEqual(normalizeTaskArtifacts(legacyQuickResult));
-		expect(runtimeQuickNotifications).toEqual(legacyQuickNotifications);
-
-		const longCommand = localNodeCommand("setTimeout(() => {}, 300)");
-		const legacyManager = createManager();
-		const legacyNotifications: BackgroundTaskSnapshot[] = [];
-		const runtimeNotifications: BackgroundCommandSnapshot[] = [];
-		legacyManager.onNotify = (task) => legacyNotifications.push(task);
-		const legacyLong = createLegacyCommandTool(toolName, legacyManager, 0.05);
-		const runtimeLong = createRuntimeCommandTool(toolName, 0.05, (task) => runtimeNotifications.push(task));
-		const legacyUpdates: unknown[] = [];
-		const runtimeUpdates: unknown[] = [];
-		const legacyLongResult = await legacyLong.execute(
-			"tool-call-1",
-			{ command: longCommand },
-			undefined,
-			(update) => {
-				legacyUpdates.push(update);
-			},
-		);
-		const runtimeLongResult = await runtimeLong.tool.execute({
-			...runtimeRequest({ command: longCommand }),
-			onUpdate: (update) => runtimeUpdates.push(update),
+		expect(result.content[0]).toMatchObject({
+			text: expect.stringContaining("Command running in background with task ID: b1"),
 		});
-
-		expect(normalizeTaskArtifacts(runtimeLongResult)).toEqual(normalizeTaskArtifacts(legacyLongResult));
-		expect(normalizeTaskArtifacts(runtimeUpdates)).toEqual(normalizeTaskArtifacts(legacyUpdates));
-		expect(runtimeLong.backgroundService.get("b1")?.status).toBe("running");
-		await Promise.all([
-			waitForCompletion(legacyManager, "b1"),
-			waitForCompletion(runtimeLong.backgroundService, "b1"),
-		]);
-		expect(normalizeTaskArtifacts(runtimeNotifications)).toEqual(normalizeTaskArtifacts(legacyNotifications));
+		expect(result.details).toMatchObject({ backgroundTaskId: "b1" });
+		await waitForCompletion(runtime.backgroundService, "b1");
+		expect(notifications).toHaveLength(1);
+		expect(notifications[0]).toMatchObject({ id: "b1", status: "completed", exitCode: 0, tail: "background-ok" });
+		expect(buildBackgroundCommandNotification(notifications[0])).toContain("<status>completed</status>");
 	});
 
-	it("preserves inline background-service failures and line truncation", async () => {
-		const failingCommand = localNodeCommand("process.stderr.write('background-failure');process.exit(2)");
-		const legacyFailure = createLegacyCommandTool(toolName, createManager(), 5);
-		const runtimeFailure = createRuntimeCommandTool(toolName, 5);
-		const legacyFailurePromise = legacyFailure.execute("tool-call-1", { command: failingCommand });
-		const runtimeFailurePromise = runtimeFailure.tool.execute(runtimeRequest({ command: failingCommand }));
-		const [legacyFailureResult, runtimeFailureResult] = await Promise.allSettled([
-			legacyFailurePromise,
-			runtimeFailurePromise,
-		]);
-		expect(legacyFailureResult.status).toBe("rejected");
-		expect(runtimeFailureResult.status).toBe("rejected");
-		if (legacyFailureResult.status !== "rejected" || runtimeFailureResult.status !== "rejected") {
-			throw new Error("Expected both command executions to fail");
-		}
-		expect(runtimeFailureResult.reason).toEqual(legacyFailureResult.reason);
-
-		const truncatingCommand = localNodeCommand(
-			"process.stdout.write(Array.from({length:2002},(_,i)=>'line-'+i).join('\\n'))",
+	it("returns quick output inline and auto-promotes a long command", async () => {
+		const quickNotifications: BackgroundCommandSnapshot[] = [];
+		const quick = createRuntimeCommandTool(toolName, 5, (task) => quickNotifications.push(task));
+		const quickResult = await quick.tool.execute(
+			runtimeRequest({ command: localNodeCommand("process.stdout.write('inline-ok')") }),
 		);
-		const legacyTruncation = createLegacyCommandTool(toolName, createManager(), 5);
-		const runtimeTruncation = createRuntimeCommandTool(toolName, 5);
-		const legacyResult = await legacyTruncation.execute("tool-call-1", { command: truncatingCommand });
-		const runtimeResult = await runtimeTruncation.tool.execute(runtimeRequest({ command: truncatingCommand }));
-		expect(normalizeTaskArtifacts(runtimeResult)).toEqual(normalizeTaskArtifacts(legacyResult));
+		expect(quickResult.content).toEqual([{ type: "text", text: "inline-ok" }]);
+		expect(quickNotifications).toEqual([]);
+
+		const promotedNotifications: BackgroundCommandSnapshot[] = [];
+		const promoted = createRuntimeCommandTool(toolName, 0.05, (task) => promotedNotifications.push(task));
+		const promotedResult = await promoted.tool.execute({
+			...runtimeRequest({ command: localNodeCommand("setTimeout(() => {}, 300)") }),
+		});
+		expect(promotedResult.content[0]).toMatchObject({ text: expect.stringContaining("auto-promoted") });
+		expect(promotedResult.details).toMatchObject({ backgroundTaskId: "b1", autoPromoted: true });
+		expect(promoted.backgroundService.get("b1")?.status).toBe("running");
+		await waitForCompletion(promoted.backgroundService, "b1");
+		expect(promotedNotifications).toHaveLength(1);
+	});
+
+	it("preserves failure and truncation behavior", async () => {
+		const failing = createRuntimeCommandTool(toolName, 5);
+		await expect(
+			failing.tool.execute(
+				runtimeRequest({ command: localNodeCommand("process.stderr.write('background-failure');process.exit(2)") }),
+			),
+		).rejects.toThrow("background-failure");
+
+		const truncating = createRuntimeCommandTool(toolName, 5);
+		const result = await truncating.tool.execute(
+			runtimeRequest({
+				command: localNodeCommand("process.stdout.write(Array.from({length:2002},(_,i)=>'line-'+i).join('\\n'))"),
+			}),
+		);
+		expect(result.details).toMatchObject({ truncation: { truncated: true, truncatedBy: "lines" } });
+		expect(result.content[0]).toMatchObject({ text: expect.stringContaining("line-2001") });
 	});
 });
 
 describe("runtime background task tools", () => {
-	it("preserves completed, failed, and killed notification formatting", () => {
-		const cases: BackgroundTaskSnapshot[] = [
-			{
-				id: "b1",
-				command: "echo done",
-				cwd: "C:/workspace",
-				status: "completed",
-				outputFile: "C:/tmp/task.log",
-				exitCode: 0,
-				startedAt: 1,
-				endedAt: 2,
-				toolCallId: "tool-call-1",
-				tail: "done",
-			},
-			{
-				id: "b2",
-				command: "exit 2",
-				cwd: "C:/workspace",
-				status: "failed",
-				outputFile: "C:/tmp/task.log",
-				exitCode: 2,
-				startedAt: 1,
-				endedAt: 2,
-				tail: "failed",
-			},
-			{
-				id: "b3",
-				command: "serve",
-				cwd: "C:/workspace",
-				status: "killed",
-				outputFile: "C:/tmp/task.log",
-				exitCode: undefined,
-				startedAt: 1,
-				endedAt: 2,
-				tail: "",
-				endedBy: "user",
-			},
-			{
-				id: "b4",
-				command: "watch",
-				cwd: "C:/workspace",
-				status: "killed",
-				outputFile: "C:/tmp/task.log",
-				exitCode: undefined,
-				startedAt: 1,
-				endedAt: 2,
-				tail: "",
-				endedBy: "agent",
-			},
-		];
-
-		for (const task of cases) {
-			expect(buildBackgroundCommandNotification(task)).toBe(buildTaskNotification(task));
-		}
+	it("formats terminal notifications without an implementation oracle", () => {
+		const completed: BackgroundCommandSnapshot = {
+			id: "b1",
+			command: "echo done",
+			cwd: "C:/workspace",
+			status: "completed",
+			outputFile: "C:/tmp/task.log",
+			exitCode: 0,
+			startedAt: 1,
+			endedAt: 2,
+			toolCallId: "tool-call-1",
+			tail: "done",
+		};
+		expect(buildBackgroundCommandNotification(completed)).toBe(
+			[
+				"<task-notification>",
+				"<task-id>b1</task-id>",
+				"<tool-use-id>tool-call-1</tool-use-id>",
+				"<status>completed</status>",
+				"<output-file>C:/tmp/task.log</output-file>",
+				'<summary>Background command "echo done" completed (exit code 0)</summary>',
+				"</task-notification>",
+				"",
+				"Use the task_output tool to read the command output if needed.",
+			].join("\n"),
+		);
 	});
 
-	it("preserves definitions, registration metadata, completed output, and incremental cursor behavior", async () => {
-		const legacyManager = createManager();
+	it("reads output incrementally and stops running tasks", async () => {
 		const service = createRuntimeBackgroundService();
-		const legacy = createLegacyTaskOutputTool({ getManager: () => legacyManager });
-		const runtime = createTaskOutputToolRegistration({ backgroundService: service });
-
-		expect({
-			name: runtime.tool.name,
-			label: runtime.tool.label,
-			description: runtime.tool.description,
-			schema: runtime.tool.inputSchema,
-			scopeUse: runtime.scopeUse,
-			requires: runtime.requires,
-			category: runtime.category,
-		}).toEqual({
-			name: legacy.name,
-			label: legacy.label,
-			description: legacy.description,
-			schema: legacy.parameters,
-			scopeUse: legacy.scope_use,
-			requires: legacy.requires,
-			category: legacy.category,
-		});
-
-		const command = localNodeCommand("process.stdout.write('task-output-ok')");
-		legacyManager.spawn({ command, cwd: process.cwd(), env: { ...process.env } });
+		const command = localNodeCommand("process.stdout.write('task-output-ok');setTimeout(() => {}, 30000)");
 		service.spawn({ command, cwd: process.cwd(), env: { ...process.env } });
-		await Promise.all([waitForCompletion(legacyManager, "b1"), waitForCompletion(service, "b1")]);
+		await waitForOutput(service, "b1", "task-output-ok");
 
-		const legacyFirst = await legacy.execute("legacy-output", { task_id: "b1", from_start: true });
-		const runtimeFirst = await runtime.tool.execute({
+		const outputTool = createTaskOutputToolRegistration({ backgroundService: service }).tool;
+		const first = await outputTool.execute({
 			sessionId: "session-1",
 			turnId: "turn-1",
 			toolCallId: "runtime-output",
 			input: { task_id: "b1", from_start: true },
 			signal: new AbortController().signal,
 		});
-		expect(normalizeTaskArtifacts(runtimeFirst)).toEqual(normalizeTaskArtifacts(legacyFirst));
-
-		const legacySecond = await legacy.execute("legacy-output-2", { task_id: "b1" });
-		const runtimeSecond = await runtime.tool.execute({
+		expect(first.content[0]).toMatchObject({ text: expect.stringContaining("task-output-ok") });
+		const second = await outputTool.execute({
 			sessionId: "session-1",
 			turnId: "turn-1",
 			toolCallId: "runtime-output-2",
 			input: { task_id: "b1" },
 			signal: new AbortController().signal,
 		});
-		expect(normalizeTaskArtifacts(runtimeSecond)).toEqual(normalizeTaskArtifacts(legacySecond));
-	});
+		expect(second.content[0]).toMatchObject({ text: expect.stringContaining("no new output since last read") });
 
-	it("preserves task_stop running, completed, and missing-task behavior", async () => {
-		const legacyManager = createManager();
-		const service = createRuntimeBackgroundService();
-		const legacy = createLegacyTaskStopTool({ getManager: () => legacyManager });
-		const runtime = createTaskStopToolRegistration({ backgroundService: service });
-		const command = localNodeCommand("setTimeout(() => {}, 30000)");
-		legacyManager.spawn({ command, cwd: process.cwd(), env: { ...process.env } });
-		service.spawn({ command, cwd: process.cwd(), env: { ...process.env } });
-
-		const legacyRunning = await legacy.execute("legacy-stop", { task_id: "b1" });
-		const runtimeRunning = await runtime.tool.execute({
+		const stopTool = createTaskStopToolRegistration({ backgroundService: service }).tool;
+		const stopped = await stopTool.execute({
 			sessionId: "session-1",
 			turnId: "turn-1",
 			toolCallId: "runtime-stop",
 			input: { task_id: "b1" },
 			signal: new AbortController().signal,
 		});
-		expect(runtimeRunning).toEqual(legacyRunning);
-		await Promise.all([waitForCompletion(legacyManager, "b1"), waitForCompletion(service, "b1")]);
-
-		const legacyCompleted = await legacy.execute("legacy-stop-completed", { task_id: "b1" });
-		const runtimeCompleted = await runtime.tool.execute({
-			sessionId: "session-1",
-			turnId: "turn-1",
-			toolCallId: "runtime-stop-completed",
-			input: { task_id: "b1" },
-			signal: new AbortController().signal,
-		});
-		expect(runtimeCompleted).toEqual(legacyCompleted);
-		expect(normalizeTaskArtifacts(service.get("b1"))).toEqual(normalizeTaskArtifacts(legacyManager.get("b1")));
-
-		await expect(legacy.execute("legacy-stop-missing", { task_id: "missing" })).rejects.toThrow(
-			'Background task "missing" not found.',
-		);
+		expect(stopped.content[0]).toMatchObject({ text: expect.stringContaining("Sent kill signal to task b1") });
+		await waitForCompletion(service, "b1");
+		expect(service.get("b1")).toMatchObject({ status: "killed", endedBy: "agent" });
 		await expect(
-			runtime.tool.execute({
+			outputTool.execute({
 				sessionId: "session-1",
 				turnId: "turn-1",
-				toolCallId: "runtime-stop-missing",
+				toolCallId: "runtime-missing",
 				input: { task_id: "missing" },
 				signal: new AbortController().signal,
 			}),

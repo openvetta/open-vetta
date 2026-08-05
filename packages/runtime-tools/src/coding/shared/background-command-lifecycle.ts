@@ -37,8 +37,18 @@ export function createBackgroundCommandService(host: BackgroundCommandHost): Bac
 	const notificationListeners: Array<(task: BackgroundCommandSnapshot) => void> = [];
 	let counter = 0;
 
+	const notifyObservers = <T>(observers: Array<(value: T) => void>, value: T): void => {
+		for (const observer of observers) {
+			try {
+				observer(value);
+			} catch (error) {
+				console.warn("Background command observer failed.", error);
+			}
+		}
+	};
+
 	const emit = (event: BackgroundCommandEvent): void => {
-		for (const listener of listeners) listener(event);
+		notifyObservers(listeners, event);
 	};
 
 	const scheduleOutputEvent = (task: BackgroundCommandTask): void => {
@@ -82,7 +92,7 @@ export function createBackgroundCommandService(host: BackgroundCommandHost): Bac
 		const shouldNotify = !task.notifyOnlyIfPromoted || task.promoted;
 		if (shouldNotify && !task.notified) {
 			task.notified = true;
-			for (const listener of notificationListeners) listener({ ...task.snapshot });
+			notifyObservers(notificationListeners, { ...task.snapshot });
 		}
 	};
 

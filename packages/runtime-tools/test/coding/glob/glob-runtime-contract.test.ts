@@ -2,11 +2,13 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createGlobTool as createLegacyGlobTool } from "../../../../coding-agent/src/core/tools/glob/index.js";
 import {
 	createGlobTool,
 	createGlobToolRegistration,
+	GLOB_TOOL_CATEGORY,
+	GLOB_TOOL_DESCRIPTION,
 	GLOB_TOOL_SCOPES,
+	GlobToolInputSchema,
 	selectCodingToolsForScope,
 } from "../../../src/coding/index.js";
 
@@ -32,34 +34,22 @@ function operations() {
 }
 
 describe("runtime glob tool", () => {
-	it("preserves the legacy definition and scenario exposure", () => {
-		const legacy = createLegacyGlobTool(process.cwd());
+	it("keeps the public definition and scenario exposure", () => {
 		const runtime = createGlobToolRegistration(process.cwd(), { operations: operations() });
-
-		expect({
-			name: runtime.tool.name,
-			label: runtime.tool.label,
-			description: runtime.tool.description,
-			schema: runtime.tool.inputSchema,
-			scopeUse: runtime.scopeUse,
-			category: runtime.category,
-		}).toEqual({
-			name: legacy.name,
-			label: legacy.label,
-			description: legacy.description,
-			schema: legacy.parameters,
-			scopeUse: legacy.scope_use,
-			category: legacy.category,
+		expect(runtime.tool).toMatchObject({
+			name: "glob",
+			label: "glob",
+			description: GLOB_TOOL_DESCRIPTION,
+			inputSchema: GlobToolInputSchema,
 		});
 		expect(runtime.scopeUse).toEqual(GLOB_TOOL_SCOPES);
+		expect(runtime.category).toBe(GLOB_TOOL_CATEGORY);
 		expect(selectCodingToolsForScope([runtime], "project").map(({ name }) => name)).toEqual(["glob"]);
 	});
 
 	it("preserves deduplication, relative paths, directory markers, and result details", async () => {
-		const legacy = createLegacyGlobTool("C:/workspace", { operations: operations() });
 		const runtime = createGlobTool("C:/workspace", { operations: operations() });
 		const input = { pattern: "**/*.ts", path: "." };
-		const legacyResult = await legacy.execute("legacy-glob", input);
 		const runtimeResult = await runtime.execute({
 			sessionId: "session-1",
 			turnId: "turn-1",
@@ -68,7 +58,6 @@ describe("runtime glob tool", () => {
 			signal: new AbortController().signal,
 		});
 
-		expect(runtimeResult.content).toEqual(legacyResult.content);
 		expect(runtimeResult).toMatchObject({
 			content: [{ type: "text", text: "src/index.ts\nsrc/components/" }],
 			details: {
@@ -116,10 +105,8 @@ describe("runtime glob tool", () => {
 			writeFileSync(join(directory, "src", "kept.ts"), "export {};\n");
 			writeFileSync(join(directory, "ignored.ts"), "ignored\n");
 
-			const legacy = createLegacyGlobTool(directory);
 			const runtime = createGlobTool(directory);
 			const input = { pattern: join(directory, "**", "*.ts") };
-			const legacyResult = await legacy.execute("legacy-glob", input);
 			const runtimeResult = await runtime.execute({
 				sessionId: "session-1",
 				turnId: "turn-1",
@@ -128,7 +115,6 @@ describe("runtime glob tool", () => {
 				signal: new AbortController().signal,
 			});
 
-			expect(runtimeResult.content).toEqual(legacyResult.content);
 			expect(runtimeResult.content).toEqual([{ type: "text", text: "src/kept.ts" }]);
 		} finally {
 			rmSync(directory, { recursive: true, force: true });

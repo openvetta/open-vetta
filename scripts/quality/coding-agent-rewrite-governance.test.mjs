@@ -150,6 +150,24 @@ describe("Coding Agent rewrite progress gate", () => {
 		expect(summarizeCodingAgentRewriteState(actual).legacyMemoryReferences).toBe(2);
 	});
 
+	it("rejects retired Tool paths and description generation even if baselined", () => {
+		const actual = stateFrom([
+			{
+				path: "packages/coding-agent/src/host/tool-host.ts",
+				text: [
+					'import { createReadTool } from "../core/tools/read/index.js";',
+					'const generator = "generate-tool-descriptions";',
+				].join("\n"),
+			},
+		]);
+
+		expect(findCodingAgentRewriteProgressViolations(actual, actual)).toEqual([
+			"packages/coding-agent/src/host/tool-host.ts:1: retired Tool implementation reference (core/tools/)",
+			"packages/coding-agent/src/host/tool-host.ts:2: retired Tool implementation reference (generate-tool-descriptions)",
+		]);
+		expect(summarizeCodingAgentRewriteState(actual).retiredToolReferences).toBe(2);
+	});
+
 	it("rejects new edges, accepts an exact baseline and reports stale entries after removal", () => {
 		const baseline = stateFrom([
 			{
@@ -161,13 +179,13 @@ describe("Coding Agent rewrite progress gate", () => {
 			...sourceFiles(baseline),
 			{
 				path: "packages/coding-agent/src/host/tool-host.ts",
-				text: 'import { createReadTool } from "../core/tools/read/index.js";',
+				text: 'import { KeybindingsManager } from "../core/keybindings.js";',
 			},
 		]);
 
 		expect(findCodingAgentRewriteProgressViolations(baseline, baseline)).toEqual([]);
 		expect(findCodingAgentRewriteProgressViolations(newEdge, baseline)).toEqual([
-			"packages/coding-agent/src/host/tool-host.ts: new old implementation dependency (../core/tools/read/index.js)",
+			"packages/coding-agent/src/host/tool-host.ts: new old implementation dependency (../core/keybindings.js)",
 		]);
 		expect(findCodingAgentRewriteProgressViolations(emptyState(), baseline)).toContain(
 			"packages/coding-agent/src/host/session-host.ts: stale old implementation dependency baseline (../core/settings-manager.js)",

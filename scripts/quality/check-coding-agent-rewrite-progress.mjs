@@ -31,6 +31,14 @@ const FORBIDDEN_LEGACY_MEMORY_MARKERS = Object.freeze([
 	"core/tools/memory/",
 	"greenfield-memory-rollover-orchestrator",
 ]);
+const FORBIDDEN_RETIRED_TOOL_MARKERS = Object.freeze([
+	"core/tools/",
+	"core/background-tasks/",
+	"core/session/tool-scope",
+	"core/todo-store",
+	"generate-tool-descriptions",
+	"generate:descriptions",
+]);
 const RUNTIME_PACKAGE_PREFIXES = Object.freeze([
 	"packages/runtime-core/src/",
 	"packages/runtime-tools/src/",
@@ -116,9 +124,15 @@ export function collectCodingAgentRewriteState({
 			(left, right) =>
 				left.path.localeCompare(right.path) || left.line - right.line || left.marker.localeCompare(right.marker),
 		);
+	const retiredToolReferences = governedFiles
+		.flatMap((file) => collectForbiddenReferences(file, FORBIDDEN_RETIRED_TOOL_MARKERS))
+		.sort(
+			(left, right) =>
+				left.path.localeCompare(right.path) || left.line - right.line || left.marker.localeCompare(right.marker),
+		);
 
 	return Object.freeze({
-		version: 4,
+		version: 5,
 		oldImplementationEdges,
 		runtimeBackedges,
 		oldImplementationFiles,
@@ -129,6 +143,7 @@ export function collectCodingAgentRewriteState({
 		oversizedStableResourceModules,
 		legacyHtmlExportReferences,
 		legacyMemoryReferences,
+		retiredToolReferences,
 	});
 }
 
@@ -155,6 +170,11 @@ export function findCodingAgentRewriteProgressViolations(actual, baseline) {
 	}
 	for (const reference of actual.legacyMemoryReferences) {
 		violations.push(`${reference.path}:${reference.line}: forbidden Legacy Memory reference (${reference.marker})`);
+	}
+	for (const reference of actual.retiredToolReferences) {
+		violations.push(
+			`${reference.path}:${reference.line}: retired Tool implementation reference (${reference.marker})`,
+		);
 	}
 	if (baseline.version !== actual.version) {
 		violations.push(`rewrite baseline version differs (${baseline.version} !== ${actual.version})`);
@@ -208,6 +228,7 @@ export function summarizeCodingAgentRewriteState(state) {
 		legacyExampleImports: state.legacyExampleImports.length,
 		legacyHtmlExportReferences: state.legacyHtmlExportReferences.length,
 		legacyMemoryReferences: state.legacyMemoryReferences.length,
+		retiredToolReferences: state.retiredToolReferences.length,
 		retainedFormatBoundaries: RETAINED_LEGACY_FORMAT_BOUNDARIES.length,
 		formatBoundaryOldImplementationEdges: state.oldImplementationEdges.filter((edge) =>
 			formatBoundarySet.has(edge.path),
@@ -383,6 +404,10 @@ function readCurrentState() {
 			path: rel(filePath),
 			text: readText(filePath),
 		})),
+		...walkFiles(join(repoRoot, "packages/coding-agent/scripts")).map((filePath) => ({
+			path: rel(filePath),
+			text: readText(filePath),
+		})),
 		{ path: rel(codingAgentPackagePath), text: codingAgentPackageText },
 		{
 			path: "scripts/build-binaries.sh",
@@ -426,7 +451,7 @@ if (isDirectRun(import.meta.url)) {
 					.map(([domain, count]) => `${domain}=${count}`)
 					.join(", ");
 				ok(
-					`[coding-agent-rewrite] ok (old implementation edges=${summary.oldImplementationEdges}/0, Runtime backedges=${summary.runtimeBackedges}/0, old files=${summary.oldImplementationFiles}/0, compatibility exports=${summary.compatibilityExports}/0, legacy core exports=${summary.legacyCoreExports}/0, legacy examples=${summary.legacyExampleImports}/0, Legacy HTML export references=${summary.legacyHtmlExportReferences}/0, Legacy Memory references=${summary.legacyMemoryReferences}/0, retained format boundaries=${summary.retainedFormatBoundaries}, format-to-old edges=${summary.formatBoundaryOldImplementationEdges}/0; domains: ${domains || "none"})`,
+					`[coding-agent-rewrite] ok (old implementation edges=${summary.oldImplementationEdges}/0, Runtime backedges=${summary.runtimeBackedges}/0, old files=${summary.oldImplementationFiles}/0, compatibility exports=${summary.compatibilityExports}/0, legacy core exports=${summary.legacyCoreExports}/0, legacy examples=${summary.legacyExampleImports}/0, Legacy HTML export references=${summary.legacyHtmlExportReferences}/0, Legacy Memory references=${summary.legacyMemoryReferences}/0, retired Tool references=${summary.retiredToolReferences}/0, retained format boundaries=${summary.retainedFormatBoundaries}, format-to-old edges=${summary.formatBoundaryOldImplementationEdges}/0; domains: ${domains || "none"})`,
 				);
 			}
 		}

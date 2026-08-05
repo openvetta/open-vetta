@@ -2,11 +2,13 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createGrepTool as createLegacyGrepTool } from "../../../../coding-agent/src/core/tools/grep/index.js";
 import {
 	createGrepTool,
 	createGrepToolRegistration,
+	GREP_TOOL_CATEGORY,
+	GREP_TOOL_DESCRIPTION,
 	GREP_TOOL_SCOPES,
+	GrepToolInputSchema,
 	selectCodingToolsForScope,
 } from "../../../src/coding/index.js";
 
@@ -19,26 +21,16 @@ describe("runtime grep tool", () => {
 		}
 	});
 
-	it("preserves the legacy definition and registration metadata", () => {
-		const legacy = createLegacyGrepTool(process.cwd());
+	it("keeps the public definition and registration metadata", () => {
 		const runtime = createGrepToolRegistration(process.cwd(), { rgPath: "rg" });
-
-		expect({
-			name: runtime.tool.name,
-			label: runtime.tool.label,
-			description: runtime.tool.description,
-			schema: runtime.tool.inputSchema,
-			scopeUse: runtime.scopeUse,
-			category: runtime.category,
-		}).toEqual({
-			name: legacy.name,
-			label: legacy.label,
-			description: legacy.description,
-			schema: legacy.parameters,
-			scopeUse: legacy.scope_use,
-			category: legacy.category,
+		expect(runtime.tool).toMatchObject({
+			name: "grep",
+			label: "grep",
+			description: GREP_TOOL_DESCRIPTION,
+			inputSchema: GrepToolInputSchema,
 		});
 		expect(runtime.scopeUse).toEqual(GREP_TOOL_SCOPES);
+		expect(runtime.category).toBe(GREP_TOOL_CATEGORY);
 		expect(selectCodingToolsForScope([runtime], "project").map(({ name }) => name)).toEqual(["grep"]);
 	});
 
@@ -105,10 +97,8 @@ describe("runtime grep tool", () => {
 		const filePath = join(directory, "context.txt");
 		writeFileSync(filePath, ["before", "match one", "after", "middle", "match two", "after two"].join("\n"));
 
-		const legacy = createLegacyGrepTool(directory);
 		const runtime = createGrepTool(directory, { rgPath: "rg" });
 		const input = { pattern: "match", path: filePath, limit: 1, context: 1 };
-		const legacyResult = await legacy.execute("legacy-grep", input);
 		const runtimeResult = await runtime.execute({
 			sessionId: "session-1",
 			turnId: "turn-1",
@@ -117,7 +107,15 @@ describe("runtime grep tool", () => {
 			signal: new AbortController().signal,
 		});
 
-		expect(runtimeResult).toEqual(legacyResult);
+		expect(runtimeResult.content).toEqual([
+			{
+				type: "text",
+				text: expect.stringMatching(
+					/^context\.txt-1:[0-9a-z]{4}- before\ncontext\.txt:2:[0-9a-z]{4}: match one\ncontext\.txt-3:[0-9a-z]{4}- after\n\n\[1 matches limit reached\. Use limit=2 for more, or refine pattern\]$/,
+				),
+			},
+		]);
+		expect(runtimeResult.details).toMatchObject({ matchLimitReached: 1 });
 	});
 
 	it("keeps cancellation at the runtime tool boundary", async () => {

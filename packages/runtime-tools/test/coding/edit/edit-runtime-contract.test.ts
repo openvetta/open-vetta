@@ -4,14 +4,16 @@ import { join } from "node:path";
 import { createCodingAgentEditPathPolicy } from "@vetta/coding-agent/host";
 import { afterEach, describe, expect, it } from "vitest";
 import { getKnowledgeDir } from "../../../../coding-agent/src/config.js";
-import { createEditTool as createLegacyEditTool } from "../../../../coding-agent/src/core/tools/edit/index.js";
 import {
 	createEditTool,
 	createEditToolRegistration,
+	EDIT_TOOL_CATEGORY,
+	EDIT_TOOL_DESCRIPTION,
 	EDIT_TOOL_SCOPES,
 	type EditOperations,
 	type EditPathPolicy,
 	type EditToolInput,
+	EditToolInputSchema,
 	selectCodingToolsForScope,
 } from "../../../src/coding/index.js";
 import { anchorLineHash } from "../../../src/coding/shared/anchors.js";
@@ -62,40 +64,27 @@ async function compareExactEdit(options: {
 	readonly newText: string;
 	readonly expected: string;
 }): Promise<void> {
-	const legacyDirectory = createTemporaryDirectory(`legacy-${options.label}`);
-	const runtimeDirectory = createTemporaryDirectory(`runtime-${options.label}`);
-	writeFileSync(join(legacyDirectory, "file.txt"), options.initial);
+	const runtimeDirectory = createTemporaryDirectory(options.label);
 	writeFileSync(join(runtimeDirectory, "file.txt"), options.initial);
 	const input = { path: "file.txt", oldText: options.oldText, newText: options.newText };
-	const legacyResult = await createLegacyEditTool(legacyDirectory).execute("legacy-edit", input);
 	const runtimeResult = await createEditTool(runtimeDirectory, { pathPolicy: permissivePathPolicy }).execute(
 		runtimeRequest(input),
 	);
-	expect(runtimeResult).toEqual(legacyResult);
+	expect(runtimeResult.content[0]).toMatchObject({ text: "Successfully replaced text in file.txt." });
 	expect(readFileSync(join(runtimeDirectory, "file.txt"), "utf-8")).toBe(options.expected);
-	expect(readFileSync(join(legacyDirectory, "file.txt"), "utf-8")).toBe(options.expected);
 }
 
 describe("runtime edit tool", () => {
-	it("preserves the legacy definition, registration metadata, and full default scope", () => {
-		const legacy = createLegacyEditTool(process.cwd());
+	it("keeps the public definition, registration metadata, and full default scope", () => {
 		const runtime = createEditToolRegistration(process.cwd(), { pathPolicy: permissivePathPolicy });
-		expect({
-			name: runtime.tool.name,
-			label: runtime.tool.label,
-			description: runtime.tool.description,
-			schema: runtime.tool.inputSchema,
-			scopeUse: runtime.scopeUse,
-			category: runtime.category,
-		}).toEqual({
-			name: legacy.name,
-			label: legacy.label,
-			description: legacy.description,
-			schema: legacy.parameters,
-			scopeUse: legacy.scope_use,
-			category: legacy.category,
+		expect(runtime.tool).toMatchObject({
+			name: "edit",
+			label: "edit",
+			description: EDIT_TOOL_DESCRIPTION,
+			inputSchema: EditToolInputSchema,
 		});
 		expect(runtime.scopeUse).toEqual(EDIT_TOOL_SCOPES);
+		expect(runtime.category).toBe(EDIT_TOOL_CATEGORY);
 		for (const scope of EDIT_TOOL_SCOPES) {
 			expect(selectCodingToolsForScope([runtime], scope)).toEqual([runtime.tool]);
 		}
@@ -152,24 +141,25 @@ describe("runtime edit tool", () => {
 			newText: "same",
 		},
 	])("preserves exact-text rejection for $label", async ({ label, initial, oldText, newText }) => {
-		const legacyDirectory = createTemporaryDirectory(`legacy-error-${label}`);
-		const runtimeDirectory = createTemporaryDirectory(`runtime-error-${label}`);
-		writeFileSync(join(legacyDirectory, "file.txt"), initial);
+		const runtimeDirectory = createTemporaryDirectory(`error-${label}`);
 		writeFileSync(join(runtimeDirectory, "file.txt"), initial);
 		const input = { path: "file.txt", oldText, newText };
-		const legacyError = await errorMessage(createLegacyEditTool(legacyDirectory).execute("legacy-edit", input));
 		const runtimeError = await errorMessage(
 			createEditTool(runtimeDirectory, { pathPolicy: permissivePathPolicy }).execute(runtimeRequest(input)),
 		);
-		expect(runtimeError).toBe(legacyError);
+		expect(runtimeError).toMatch(
+			label === "missing text"
+				? /Could not find the exact text/
+				: label === "duplicate text"
+					? /Found 2 occurrences/
+					: /No changes made/,
+		);
 		expect(readFileSync(join(runtimeDirectory, "file.txt"), "utf-8")).toBe(initial);
 	});
 
 	it("preserves atomic multi-anchor replacement, insertion, receipts, and diff details", async () => {
 		const initial = ["const a = 1;", "const b = 2;", "const c = 3;", "const d = 4;"].join("\n");
-		const legacyDirectory = createTemporaryDirectory("legacy-anchor-batch");
-		const runtimeDirectory = createTemporaryDirectory("runtime-anchor-batch");
-		writeFileSync(join(legacyDirectory, "file.ts"), initial);
+		const runtimeDirectory = createTemporaryDirectory("anchor-batch");
 		writeFileSync(join(runtimeDirectory, "file.ts"), initial);
 		const input = {
 			path: "file.ts",
@@ -178,11 +168,10 @@ describe("runtime edit tool", () => {
 				{ anchor: anchor("const c = 3;", 3), new_text: "const afterC = 30;", insert_after: true },
 			],
 		};
-		const legacyResult = await createLegacyEditTool(legacyDirectory).execute("legacy-edit", input);
 		const runtimeResult = await createEditTool(runtimeDirectory, { pathPolicy: permissivePathPolicy }).execute(
 			runtimeRequest(input),
 		);
-		expect(runtimeResult).toEqual(legacyResult);
+		expect(runtimeResult.details).toMatchObject({ appliedEdits: 2 });
 		expect(readFileSync(join(runtimeDirectory, "file.ts"), "utf-8")).toBe(
 			[
 				"const a = 10;",
@@ -196,10 +185,8 @@ describe("runtime edit tool", () => {
 	});
 
 	it("preserves shifted and unique bare-hash anchor recovery", async () => {
-		const legacyDirectory = createTemporaryDirectory("legacy-anchor-recovery");
-		const runtimeDirectory = createTemporaryDirectory("runtime-anchor-recovery");
+		const runtimeDirectory = createTemporaryDirectory("anchor-recovery");
 		const initial = ["a", "b", "c", "d"].join("\n");
-		writeFileSync(join(legacyDirectory, "file.txt"), initial);
 		writeFileSync(join(runtimeDirectory, "file.txt"), initial);
 		const input = {
 			path: "file.txt",
@@ -208,11 +195,10 @@ describe("runtime edit tool", () => {
 				{ anchor: anchorLineHash("d"), new_text: "D" },
 			],
 		};
-		const legacyResult = await createLegacyEditTool(legacyDirectory).execute("legacy-edit", input);
 		const runtimeResult = await createEditTool(runtimeDirectory, { pathPolicy: permissivePathPolicy }).execute(
 			runtimeRequest(input),
 		);
-		expect(runtimeResult).toEqual(legacyResult);
+		expect(runtimeResult.content[0]).toMatchObject({ text: expect.stringContaining("Applied 2 anchor edit(s)") });
 		expect(readFileSync(join(runtimeDirectory, "file.txt"), "utf-8")).toBe("a\nb\nC\nD");
 	});
 
@@ -254,15 +240,12 @@ describe("runtime edit tool", () => {
 			},
 		},
 	])("preserves anchor rejection and atomicity for $label", async ({ label, initial, input }) => {
-		const legacyDirectory = createTemporaryDirectory(`legacy-${label}`);
-		const runtimeDirectory = createTemporaryDirectory(`runtime-${label}`);
-		writeFileSync(join(legacyDirectory, "file.ts"), initial);
+		const runtimeDirectory = createTemporaryDirectory(label);
 		writeFileSync(join(runtimeDirectory, "file.ts"), initial);
-		const legacyError = await errorMessage(createLegacyEditTool(legacyDirectory).execute("legacy-edit", input));
 		const runtimeError = await errorMessage(
 			createEditTool(runtimeDirectory, { pathPolicy: permissivePathPolicy }).execute(runtimeRequest(input)),
 		);
-		expect(runtimeError).toBe(legacyError);
+		expect(runtimeError).toMatch(/stale|overlap|closing/i);
 		expect(readFileSync(join(runtimeDirectory, "file.ts"), "utf-8")).toBe(initial);
 	});
 
@@ -273,26 +256,22 @@ describe("runtime edit tool", () => {
 	])("preserves mode and payload validation for %#", async (input) => {
 		const directory = createTemporaryDirectory("payload");
 		writeFileSync(join(directory, "file.txt"), "a");
-		const legacyError = await errorMessage(createLegacyEditTool(directory).execute("legacy-edit", input));
 		const runtimeError = await errorMessage(
 			createEditTool(directory, { pathPolicy: permissivePathPolicy }).execute(runtimeRequest(input)),
 		);
-		expect(runtimeError).toBe(legacyError);
+		expect(runtimeError).toMatch(/not both|missing edit payload|edits array is empty/i);
 	});
 
 	it("preserves fuzzy existing-path resolution without rewriting path-like replacement text", async () => {
-		const legacyDirectory = createTemporaryDirectory("legacy-path");
-		const runtimeDirectory = createTemporaryDirectory("runtime-path");
+		const runtimeDirectory = createTemporaryDirectory("path");
 		const exactName = "招标文件-发布稿.txt";
 		const requestedName = "招标文件 - 发布稿.txt";
-		writeFileSync(join(legacyDirectory, exactName), 'const path = "old.docx";\n');
 		writeFileSync(join(runtimeDirectory, exactName), 'const path = "old.docx";\n');
 		const input = { path: requestedName, oldText: '"old.docx"', newText: '"招标文件 - 发布稿.docx"' };
-		const legacyResult = await createLegacyEditTool(legacyDirectory).execute("legacy-edit", input);
 		const runtimeResult = await createEditTool(runtimeDirectory, { pathPolicy: permissivePathPolicy }).execute(
 			runtimeRequest(input),
 		);
-		expect(runtimeResult).toEqual(legacyResult);
+		expect(runtimeResult.content[0]).toMatchObject({ text: expect.stringContaining("Successfully replaced text") });
 		expect(readFileSync(join(runtimeDirectory, exactName), "utf-8")).toContain('"招标文件 - 发布稿.docx"');
 	});
 
@@ -301,22 +280,20 @@ describe("runtime edit tool", () => {
 		async (path) => {
 			const cwd = createTemporaryDirectory("protected");
 			const input = { path, oldText: "a", newText: "b" };
-			const legacyError = await errorMessage(createLegacyEditTool(cwd).execute("legacy-edit", input));
 			const runtimeError = await errorMessage(
 				createEditTool(cwd, { pathPolicy: createCodingAgentEditPathPolicy(cwd) }).execute(runtimeRequest(input)),
 			);
-			expect(runtimeError).toBe(legacyError);
+			expect(runtimeError).toContain("inside a skill/scene directory");
 		},
 	);
 
 	it("preserves knowledge wiki rejection", async () => {
 		const cwd = createTemporaryDirectory("wiki");
 		const input = { path: join(getKnowledgeDir(), "wiki", "page.md"), oldText: "a", newText: "b" };
-		const legacyError = await errorMessage(createLegacyEditTool(cwd).execute("legacy-edit", input));
 		const runtimeError = await errorMessage(
 			createEditTool(cwd, { pathPolicy: createCodingAgentEditPathPolicy(cwd) }).execute(runtimeRequest(input)),
 		);
-		expect(runtimeError).toBe(legacyError);
+		expect(runtimeError).toContain("managed exclusively by kb_write_page");
 	});
 
 	it("preserves exact-mode operation order and early cancellation", async () => {

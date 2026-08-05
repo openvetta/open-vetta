@@ -1,9 +1,9 @@
+import { createReadTool } from "@vetta/runtime-tools/coding";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { processFileArguments } from "../src/cli/file-processor.js";
-import { createReadTool } from "../src/core/tools/read/index.js";
 import { SettingsRuntime } from "../src/settings/index.js";
 
 // 1x1 red PNG image as base64 (smallest valid PNG)
@@ -59,8 +59,7 @@ describe("blockImages setting", () => {
 			const imagePath = join(testDir, "test.png");
 			writeFileSync(imagePath, Buffer.from(TINY_PNG_BASE64, "base64"));
 
-			const tool = createReadTool(testDir);
-			const result = await tool.execute("test-1", { path: imagePath });
+			const result = await executeRead(testDir, "test-1", imagePath);
 
 			// Should have text note + image content
 			expect(result.content.length).toBeGreaterThanOrEqual(1);
@@ -73,8 +72,7 @@ describe("blockImages setting", () => {
 			const textPath = join(testDir, "test.txt");
 			writeFileSync(textPath, "Hello, world!");
 
-			const tool = createReadTool(testDir);
-			const result = await tool.execute("test-2", { path: textPath });
+			const result = await executeRead(testDir, "test-2", textPath);
 
 			expect(result.content).toHaveLength(1);
 			expect(result.content[0].type).toBe("text");
@@ -118,3 +116,13 @@ describe("blockImages setting", () => {
 		});
 	});
 });
+
+function executeRead(cwd: string, toolCallId: string, path: string) {
+	return createReadTool(cwd).execute({
+		sessionId: "test-session",
+		turnId: "test-turn",
+		toolCallId,
+		input: { path },
+		signal: new AbortController().signal,
+	});
+}

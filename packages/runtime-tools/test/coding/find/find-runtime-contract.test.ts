@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createFindTool as createLegacyFindTool } from "../../../../coding-agent/src/core/tools/find/index.js";
 import {
 	createFindTool,
 	createFindToolRegistration,
+	FIND_TOOL_CATEGORY,
+	FIND_TOOL_DESCRIPTION,
 	FIND_TOOL_SCOPES,
+	FindToolInputSchema,
 	selectCodingToolRegistrations,
 	selectCodingToolsForScope,
 } from "../../../src/coding/index.js";
@@ -26,26 +28,16 @@ function operations() {
 }
 
 describe("runtime find tool", () => {
-	it("preserves the legacy definition and empty default scope", () => {
-		const legacy = createLegacyFindTool(process.cwd());
+	it("keeps the public definition and empty default scope", () => {
 		const runtime = createFindToolRegistration(process.cwd(), { operations: operations() });
-
-		expect({
-			name: runtime.tool.name,
-			label: runtime.tool.label,
-			description: runtime.tool.description,
-			schema: runtime.tool.inputSchema,
-			scopeUse: runtime.scopeUse,
-			category: runtime.category,
-		}).toEqual({
-			name: legacy.name,
-			label: legacy.label,
-			description: legacy.description,
-			schema: legacy.parameters,
-			scopeUse: legacy.scope_use,
-			category: legacy.category,
+		expect(runtime.tool).toMatchObject({
+			name: "find",
+			label: "find",
+			description: FIND_TOOL_DESCRIPTION,
+			inputSchema: FindToolInputSchema,
 		});
 		expect(runtime.scopeUse).toEqual(FIND_TOOL_SCOPES);
+		expect(runtime.category).toBe(FIND_TOOL_CATEGORY);
 		expect(selectCodingToolsForScope([runtime], "project")).toEqual([]);
 	});
 
@@ -99,11 +91,9 @@ describe("runtime find tool", () => {
 	});
 
 	it("preserves custom operation results, relative paths, and empty results", async () => {
-		const legacy = createLegacyFindTool("C:/workspace", { operations: operations() });
 		const runtime = createFindTool("C:/workspace", { operations: operations() });
 		const input = { pattern: "**/*", path: "." };
 
-		const legacyResult = await legacy.execute("legacy-find", input);
 		const runtimeResult = await runtime.execute({
 			sessionId: "session-1",
 			turnId: "turn-1",
@@ -112,7 +102,6 @@ describe("runtime find tool", () => {
 			signal: new AbortController().signal,
 		});
 
-		expect(runtimeResult).toEqual(legacyResult);
 		expect(runtimeResult.content).toEqual([
 			{
 				type: "text",

@@ -2,8 +2,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { anchorLineHash } from "../src/core/tools/anchors.js";
-import { createEditTool } from "../src/core/tools/edit/index.js";
+import { createEditTool, type EditToolDetails, type EditToolInput } from "../../../src/coding/index.js";
+import { anchorLineHash } from "../../../src/coding/shared/anchors.js";
 
 describe("edit tool anchor mode", () => {
 	let dir: string;
@@ -20,7 +20,22 @@ describe("edit tool anchor mode", () => {
 	});
 
 	const anchorFor = (content: string, line: number) => `${line}:${anchorLineHash(content)}`;
-	const tool = () => createEditTool(dir);
+	const tool = () => {
+		const runtimeTool = createEditTool(dir, {
+			pathPolicy: { getRejectionReason: () => undefined },
+		});
+		return {
+			execute(toolCallId: string, input: EditToolInput) {
+				return runtimeTool.execute({
+					sessionId: "test-session",
+					turnId: "test-turn",
+					toolCallId,
+					input,
+					signal: new AbortController().signal,
+				});
+			},
+		};
+	};
 
 	test("replaces a single anchored line", async () => {
 		const result = await tool().execute("t", {
@@ -28,7 +43,7 @@ describe("edit tool anchor mode", () => {
 			edits: [{ anchor: anchorFor("const b = 2;", 2), new_text: "const b = 20;" }],
 		});
 		expect(readFileSync(file, "utf-8").split("\n")[1]).toBe("const b = 20;");
-		expect(result.details?.appliedEdits).toBe(1);
+		expect((result.details as EditToolDetails).appliedEdits).toBe(1);
 		expect((result.content[0] as { type: "text"; text: string }).text).toContain("Fresh anchors");
 	});
 
@@ -205,7 +220,7 @@ describe("edit tool anchor mode", () => {
 			newText: "const c = 33;",
 		});
 		expect(readFileSync(file, "utf-8").split("\n")[2]).toBe("const c = 33;");
-		expect(result.details?.diff).toContain("const c = 33;");
+		expect((result.details as EditToolDetails).diff).toContain("const c = 33;");
 	});
 
 	test("preserves CRLF line endings", async () => {

@@ -130,6 +130,7 @@
 ### Removed
 
 - **移除「全局/周边模型」运行时 API 与配置字段**：`ModelRegistry.getPeripheralModel()` / `getPeripheralReasoningLevel()` 下线；`models.json` schema 不再包含 `peripheralModel*`。加载时剥离旧文件中的残留键，周边任务改由 runtime-core 自动选模。
+- **移除旧 Tool 实现与描述生成链**：删除 `coding-agent/src/core/tools`、旧后台任务管理器、旧 Tool 兼容类型及 `generate:descriptions`；内置工具继续由 `@vetta/runtime-tools/coding` 提供，工具名称、TypeBox schema、scope、requires、输出、错误、取消和后台任务行为保持不变。
 
 ### Fixed
 

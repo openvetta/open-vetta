@@ -61,4 +61,3 @@ export {
 	type ToolCategory,
 } from "../profiles/index.js";
 export { createEventBus, type EventBus, type EventBusController } from "./event-bus.js";
-export type { CodingAgentTool } from "./session/tool-scope.js";

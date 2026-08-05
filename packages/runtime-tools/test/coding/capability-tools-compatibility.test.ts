@@ -1,19 +1,15 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { TSchema } from "@sinclair/typebox";
 import type { RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
 import { listAvailableTags, queryByTags, writeWikiPage } from "@vetta/runtime-knowledge";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { TodoStore } from "../../../coding-agent/src/core/todo-store.js";
-import { createAskUserQuestionTool as createLegacyAskUserQuestionTool } from "../../../coding-agent/src/core/tools/ask-user-question/index.js";
-import { createInvokeSkillTool as createLegacyInvokeSkillTool } from "../../../coding-agent/src/core/tools/invoke-skill/index.js";
-import { createKbFilterByTagsTool as createLegacyKbFilterByTagsTool } from "../../../coding-agent/src/core/tools/kb-filter-by-tags/index.js";
-import { createKbListTagsTool as createLegacyKbListTagsTool } from "../../../coding-agent/src/core/tools/kb-list-tags/index.js";
-import { createTodoTool as createLegacyTodoTool } from "../../../coding-agent/src/core/tools/todo/index.js";
-import { createToolSearchTool as createLegacyToolSearchTool } from "../../../coding-agent/src/core/tools/tool-search/index.js";
-import { stripFrontmatter } from "../../../coding-agent/src/utils/frontmatter.js";
 import {
+	ASK_USER_QUESTION_TOOL_CATEGORY,
+	ASK_USER_QUESTION_TOOL_DESCRIPTION,
+	ASK_USER_QUESTION_TOOL_REQUIRES,
+	ASK_USER_QUESTION_TOOL_SCOPES,
+	AskUserQuestionToolInputSchema,
 	type CodingToolRegistration,
 	createAskUserQuestionToolRegistration,
 	createInvokeSkillToolRegistration,
@@ -22,22 +18,47 @@ import {
 	createMemoryToolRegistration,
 	createTodoToolRegistration,
 	createToolSearchToolRegistration,
+	INVOKE_SKILL_TOOL_CATEGORY,
+	INVOKE_SKILL_TOOL_DESCRIPTION,
+	INVOKE_SKILL_TOOL_SCOPES,
+	InvokeSkillToolInputSchema,
+	KB_FILTER_BY_TAGS_TOOL_CATEGORY,
+	KB_FILTER_BY_TAGS_TOOL_DESCRIPTION,
+	KB_FILTER_BY_TAGS_TOOL_REQUIRES,
+	KB_FILTER_BY_TAGS_TOOL_SCOPES,
+	KB_LIST_TAGS_TOOL_CATEGORY,
+	KB_LIST_TAGS_TOOL_DESCRIPTION,
+	KB_LIST_TAGS_TOOL_REQUIRES,
+	KB_LIST_TAGS_TOOL_SCOPES,
+	KbFilterByTagsToolInputSchema,
+	KbListTagsToolInputSchema,
 	MEMORY_TOOL_CATEGORY,
 	MEMORY_TOOL_DESCRIPTION,
 	MEMORY_TOOL_SCOPES,
 	MemoryToolInputSchema,
 	type MemoryToolOperations,
 	scoreDeferredTools,
+	TODO_TOOL_CATEGORY,
+	TODO_TOOL_DESCRIPTION,
+	TODO_TOOL_SCOPES,
+	TOOL_SEARCH_TOOL_CATEGORY,
+	TOOL_SEARCH_TOOL_DESCRIPTION,
+	TOOL_SEARCH_TOOL_SCOPES,
+	TodoToolInputSchema,
+	type TodoToolItem,
+	type TodoToolStatus,
+	type TodoToolStore,
+	ToolSearchToolInputSchema,
 } from "../../src/coding/index.js";
 
-interface LegacyToolDefinition {
+interface ExpectedRegistration {
 	readonly name: string;
 	readonly label: string;
 	readonly description: string;
-	readonly parameters: TSchema;
-	readonly scope_use?: readonly string[];
+	readonly schema: Readonly<Record<string, unknown>>;
+	readonly scopeUse: readonly string[];
 	readonly requires?: readonly string[];
-	readonly category?: string;
+	readonly category: string;
 }
 
 const signal = new AbortController().signal;
@@ -74,25 +95,41 @@ describe("native capability tool compatibility", () => {
 		const ask = async () => ({ cancelled: true, answers: [] });
 		const skill = createSkill();
 		const search = () => ({ activated: [], alreadyActive: [], totalDeferred: 0 });
-		const todoStore = new TodoStore();
+		const todoStore = new TestTodoStore();
 		const memoryOperations = createInMemoryMemoryOperations();
 		const knowledgeOperations = createKnowledgeOperations();
 
-		expectRegistrationMatchesLegacy(
-			createAskUserQuestionToolRegistration({ ask }),
-			createLegacyAskUserQuestionTool({ ask }),
-		);
-		expectRegistrationMatchesLegacy(
+		expectRegistration(createAskUserQuestionToolRegistration({ ask }), {
+			name: "ask_user_question",
+			label: "Ask User",
+			description: ASK_USER_QUESTION_TOOL_DESCRIPTION,
+			schema: AskUserQuestionToolInputSchema,
+			scopeUse: ASK_USER_QUESTION_TOOL_SCOPES,
+			requires: ASK_USER_QUESTION_TOOL_REQUIRES,
+			category: ASK_USER_QUESTION_TOOL_CATEGORY,
+		});
+		expectRegistration(
 			createInvokeSkillToolRegistration({
 				getSkills: () => [skill],
-				readBody: ({ content }) => stripFrontmatter(content),
+				readBody: () => "Follow the PDF workflow.",
 			}),
-			createLegacyInvokeSkillTool({ getSkills: () => [skill] }),
+			{
+				name: "invoke_skill",
+				label: "invoke_skill",
+				description: INVOKE_SKILL_TOOL_DESCRIPTION,
+				schema: InvokeSkillToolInputSchema,
+				scopeUse: INVOKE_SKILL_TOOL_SCOPES,
+				category: INVOKE_SKILL_TOOL_CATEGORY,
+			},
 		);
-		expectRegistrationMatchesLegacy(
-			createToolSearchToolRegistration({ search }),
-			createLegacyToolSearchTool({ search }),
-		);
+		expectRegistration(createToolSearchToolRegistration({ search }), {
+			name: "tool_search",
+			label: "Tool Search",
+			description: TOOL_SEARCH_TOOL_DESCRIPTION,
+			schema: ToolSearchToolInputSchema,
+			scopeUse: TOOL_SEARCH_TOOL_SCOPES,
+			category: TOOL_SEARCH_TOOL_CATEGORY,
+		});
 		const memory = createMemoryToolRegistration({ operations: memoryOperations });
 		expect({
 			name: memory.tool.name,
@@ -109,18 +146,32 @@ describe("native capability tool compatibility", () => {
 			scopeUse: MEMORY_TOOL_SCOPES,
 			category: MEMORY_TOOL_CATEGORY,
 		});
-		expectRegistrationMatchesLegacy(
-			createTodoToolRegistration({ getTodoStore: () => todoStore }),
-			createLegacyTodoTool({ getTodoStore: () => todoStore }),
-		);
-		expectRegistrationMatchesLegacy(
-			createKbListTagsToolRegistration({ operations: knowledgeOperations }),
-			createLegacyKbListTagsTool(testRoot),
-		);
-		expectRegistrationMatchesLegacy(
-			createKbFilterByTagsToolRegistration({ operations: knowledgeOperations }),
-			createLegacyKbFilterByTagsTool(testRoot),
-		);
+		expectRegistration(createTodoToolRegistration({ getTodoStore: () => todoStore }), {
+			name: "todo",
+			label: "todo",
+			description: TODO_TOOL_DESCRIPTION,
+			schema: TodoToolInputSchema,
+			scopeUse: TODO_TOOL_SCOPES,
+			category: TODO_TOOL_CATEGORY,
+		});
+		expectRegistration(createKbListTagsToolRegistration({ operations: knowledgeOperations }), {
+			name: "kb_list_available_tags",
+			label: "KB List Tags",
+			description: KB_LIST_TAGS_TOOL_DESCRIPTION,
+			schema: KbListTagsToolInputSchema,
+			scopeUse: KB_LIST_TAGS_TOOL_SCOPES,
+			requires: KB_LIST_TAGS_TOOL_REQUIRES,
+			category: KB_LIST_TAGS_TOOL_CATEGORY,
+		});
+		expectRegistration(createKbFilterByTagsToolRegistration({ operations: knowledgeOperations }), {
+			name: "kb_filter_by_tags",
+			label: "KB Filter by Tags",
+			description: KB_FILTER_BY_TAGS_TOOL_DESCRIPTION,
+			schema: KbFilterByTagsToolInputSchema,
+			scopeUse: KB_FILTER_BY_TAGS_TOOL_SCOPES,
+			requires: KB_FILTER_BY_TAGS_TOOL_REQUIRES,
+			category: KB_FILTER_BY_TAGS_TOOL_CATEGORY,
+		});
 	});
 
 	it("keeps ask_user_question answer and cancellation results", async () => {
@@ -141,21 +192,35 @@ describe("native capability tool compatibility", () => {
 				},
 			],
 		};
-		const legacy = createLegacyAskUserQuestionTool({ ask });
 		const runtime = createAskUserQuestionToolRegistration({ ask }).tool;
-		expect(await executeRuntime(runtime, input)).toEqual(await legacy.execute("legacy", input, signal));
+		expect(await executeRuntime(runtime, input)).toEqual({
+			content: [
+				{
+					type: "text",
+					text: 'User has answered your questions: "Choose?"="First". You can now continue with the user\'s answers in mind.',
+				},
+			],
+			details: { cancelled: false, answers: [{ question: "Choose?", answers: ["First"] }] },
+		});
 	});
 
 	it("keeps invoke_skill success, missing, and read-error results", async () => {
 		const skill = createSkill();
-		const legacy = createLegacyInvokeSkillTool({ getSkills: () => [skill] });
 		const runtime = createInvokeSkillToolRegistration({
 			getSkills: () => [skill],
-			readBody: ({ content }) => stripFrontmatter(content),
+			readBody: () => "Follow the PDF workflow.",
 		}).tool;
-		for (const input of [{ name: "pdf", args: "source.pdf" }, { name: "missing" }]) {
-			expect(await executeRuntime(runtime, input)).toEqual(await legacy.execute("legacy", input, signal));
-		}
+		const success = await executeRuntime(runtime, { name: "pdf", args: "source.pdf" });
+		expect(success.content[0]).toMatchObject({
+			type: "text",
+			text: expect.stringContaining('<skill name="pdf" location="C:/skills/pdf/SKILL.md">'),
+		});
+		expect(success.content[0]).toMatchObject({ text: expect.stringContaining("User arguments: source.pdf") });
+		expect(success.details).toEqual({ skillName: "pdf", skillLocation: "C:/skills/pdf/SKILL.md" });
+		expect(await executeRuntime(runtime, { name: "missing" })).toEqual({
+			content: [{ type: "text", text: 'Error: Skill "missing" not found. Available skills: pdf' }],
+			details: { skillName: "missing", skillLocation: "" },
+		});
 	});
 
 	it("keeps deferred tool scoring, activation output, and max-result clamping", async () => {
@@ -171,11 +236,23 @@ describe("native capability tool compatibility", () => {
 			calls.push(maxResults);
 			return { activated: [entries[0]], alreadyActive: [entries[1].name], totalDeferred: entries.length };
 		};
-		const legacy = createLegacyToolSearchTool({ search });
 		const runtime = createToolSearchToolRegistration({ search }).tool;
 		const input = { query: "issue", max_results: 99 };
-		expect(await executeRuntime(runtime, input)).toEqual(await legacy.execute("legacy", input, signal));
-		expect(calls).toEqual([10, 10]);
+		expect(await executeRuntime(runtime, input)).toEqual({
+			content: [
+				{
+					type: "text",
+					text: "Activated 1 MCP tool(s) — callable from now on:\n- github_issue: Manage repository issues\nAlready active: notion_page",
+				},
+			],
+			details: {
+				query: "issue",
+				activated: [entries[0]],
+				alreadyActive: ["notion_page"],
+				totalDeferred: 2,
+			},
+		});
+		expect(calls).toEqual([10]);
 	});
 
 	it("keeps memory add and replace state transitions", async () => {
@@ -200,9 +277,7 @@ describe("native capability tool compatibility", () => {
 	});
 
 	it("keeps todo creation, update, listing, and clear behavior", async () => {
-		const legacyStore = new TodoStore();
-		const runtimeStore = new TodoStore();
-		const legacy = createLegacyTodoTool({ getTodoStore: () => legacyStore });
+		const runtimeStore = new TestTodoStore();
 		const runtime = createTodoToolRegistration({ getTodoStore: () => runtimeStore }).tool;
 		const inputs = [
 			{ action: "create" as const, items: ["First", "Second"] },
@@ -210,27 +285,51 @@ describe("native capability tool compatibility", () => {
 			{ action: "list" as const },
 			{ action: "clear" as const },
 		];
-		for (const input of inputs) {
-			expect(await executeRuntime(runtime, input)).toEqual(await legacy.execute("legacy", input, signal));
-		}
+		const results = [];
+		for (const input of inputs) results.push(await executeRuntime(runtime, input));
+		expect(results.map((result) => result.details)).toEqual([
+			{ action: "create" },
+			{ action: "update" },
+			{ action: "list" },
+			{ action: "clear" },
+		]);
+		expect(results[0]?.content[0]).toMatchObject({ text: expect.stringContaining("Created 2 todo items") });
+		expect(results[1]?.content[0]).toMatchObject({ text: expect.stringContaining("Updated #1 → in_progress") });
+		expect(results[2]?.content[0]).toMatchObject({ text: expect.stringContaining("[~] #1 First") });
+		expect(results[3]?.content[0]).toMatchObject({ text: expect.stringContaining("Cleared all todo items") });
+		expect(runtimeStore.getAll()).toEqual([]);
 	});
 
 	it("keeps knowledge tag listing and filtering results", async () => {
 		const operations = createKnowledgeOperations();
-		const legacyList = createLegacyKbListTagsTool(testRoot);
 		const runtimeList = createKbListTagsToolRegistration({ operations }).tool;
-		expect(await executeRuntime(runtimeList, {})).toEqual(await legacyList.execute("legacy", {}, signal));
+		expect(await executeRuntime(runtimeList, {})).toEqual({
+			content: [{ type: "text", text: "kb_list_available_tags — 2 tag(s):\n- runtime (1)\n- tool (1)" }],
+			details: {
+				tags: [
+					{ tag: "runtime", count: 1 },
+					{ tag: "tool", count: 1 },
+				],
+			},
+		});
 
-		const legacyFilter = createLegacyKbFilterByTagsTool(testRoot);
 		const runtimeFilter = createKbFilterByTagsToolRegistration({ operations }).tool;
 		const input = { all: ["runtime"] };
-		expect(await executeRuntime(runtimeFilter, input)).toEqual(await legacyFilter.execute("legacy", input, signal));
+		const result = await executeRuntime(runtimeFilter, input);
+		expect(result.content[0]).toMatchObject({
+			type: "text",
+			text: expect.stringContaining("kb_filter_by_tags matched 1 page(s)"),
+		});
+		expect(result.details).toMatchObject({
+			count: 1,
+			pages: [{ id: "page-1", title: "Runtime Tool", tags: ["runtime", "tool"] }],
+		});
 	});
 });
 
-function expectRegistrationMatchesLegacy<TInput extends object>(
+function expectRegistration<TInput extends object>(
 	registration: CodingToolRegistration<TInput>,
-	legacy: LegacyToolDefinition,
+	expected: ExpectedRegistration,
 ): void {
 	expect({
 		name: registration.tool.name,
@@ -240,15 +339,7 @@ function expectRegistrationMatchesLegacy<TInput extends object>(
 		scopeUse: registration.scopeUse,
 		requires: registration.requires,
 		category: registration.category,
-	}).toEqual({
-		name: legacy.name,
-		label: legacy.label,
-		description: legacy.description,
-		schema: legacy.parameters,
-		scopeUse: legacy.scope_use ?? [],
-		requires: legacy.requires,
-		category: legacy.category ?? "",
-	});
+	}).toEqual(expected);
 }
 
 async function executeRuntime<TInput extends object>(tool: RuntimeToolDefinition<TInput>, input: TInput) {
@@ -272,6 +363,41 @@ function createSkill() {
 		disableModelInvocation: false,
 		content: "---\nname: pdf\n---\nFollow the PDF workflow.",
 	};
+}
+
+class TestTodoStore implements TodoToolStore {
+	private items: TodoToolItem[] = [];
+	private nextId = 1;
+
+	getAll(): readonly TodoToolItem[] {
+		return this.items;
+	}
+
+	isLocked(): boolean {
+		return false;
+	}
+
+	getLockSource(): string | null {
+		return null;
+	}
+
+	createMany(contents: string[]): readonly TodoToolItem[] {
+		const created = contents.map((content) => ({ id: this.nextId++, content, status: "pending" as const }));
+		this.items.push(...created);
+		return created;
+	}
+
+	update(id: number, status: TodoToolStatus): TodoToolItem | undefined {
+		const index = this.items.findIndex((item) => item.id === id);
+		if (index < 0) return undefined;
+		const updated = { ...this.items[index], status };
+		this.items[index] = updated;
+		return updated;
+	}
+
+	clear(): void {
+		this.items = [];
+	}
 }
 
 function createKnowledgeOperations() {

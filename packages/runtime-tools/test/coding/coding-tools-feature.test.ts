@@ -13,10 +13,8 @@ import {
 	type TurnEngineEvent,
 } from "@vetta/runtime-core/kernel";
 import { describe, expect, it } from "vitest";
-import { BackgroundTaskManager } from "../../../coding-agent/src/core/background-tasks/index.js";
-import { ALL_SCENARIOS, resolveActiveToolNames } from "../../../coding-agent/src/core/session/tool-scope.js";
-import { createTaskOutputTool } from "../../../coding-agent/src/core/tools/task-output/index.js";
 import {
+	CODING_TOOL_SCOPES,
 	type CodingToolActivation,
 	type CodingToolCatalog,
 	CURRENT_TIME_TOOL_CATEGORY,
@@ -36,6 +34,8 @@ import {
 	READ_TOOL_SCOPES,
 	selectCodingToolRegistrations,
 	selectCodingToolsForScope,
+	TASK_OUTPUT_TOOL_REQUIRES,
+	TASK_OUTPUT_TOOL_SCOPES,
 } from "../../src/coding/index.js";
 
 class SnapshotIdGenerator implements IdGenerator {
@@ -279,33 +279,32 @@ describe("greenfield coding tools feature", () => {
 		).toEqual(["background_only"]);
 	});
 
-	it("matches the legacy requires contract for background task tools", () => {
-		const manager = new BackgroundTaskManager();
-		const legacyTool = createTaskOutputTool({ getManager: () => manager });
+	it("requires the background-task capability in every declared task-output scope", () => {
 		const baseRegistration = createCurrentTimeToolRegistration();
 		const runtimeRegistration = {
 			...baseRegistration,
 			tool: {
 				...baseRegistration.tool,
-				name: legacyTool.name,
+				name: "task_output",
 			},
-			requires: ["bg-tasks"] as const,
+			scopeUse: TASK_OUTPUT_TOOL_SCOPES,
+			requires: TASK_OUTPUT_TOOL_REQUIRES,
 		};
 
-		for (const scenario of ALL_SCENARIOS) {
+		for (const scenario of CODING_TOOL_SCOPES) {
 			expect(
 				selectCodingToolRegistrations([runtimeRegistration], {
 					mode: "scope",
 					scope: scenario,
 				}).map(({ tool }) => tool.name),
-			).toEqual(resolveActiveToolNames(scenario, [legacyTool], new Set()));
+			).toEqual([]);
 			expect(
 				selectCodingToolRegistrations([runtimeRegistration], {
 					mode: "scope",
 					scope: scenario,
 					capabilities: new Set(["bg-tasks"]),
 				}).map(({ tool }) => tool.name),
-			).toEqual(resolveActiveToolNames(scenario, [legacyTool], new Set(["bg-tasks"])));
+			).toEqual(TASK_OUTPUT_TOOL_SCOPES.includes(scenario) ? ["task_output"] : []);
 		}
 	});
 

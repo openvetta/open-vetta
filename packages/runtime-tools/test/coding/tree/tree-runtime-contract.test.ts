@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { createTreeTool as createLegacyTreeTool } from "../../../../coding-agent/src/core/tools/tree/index.js";
 import {
 	createTreeTool,
 	createTreeToolRegistration,
 	selectCodingToolsForScope,
+	TREE_TOOL_CATEGORY,
+	TREE_TOOL_DESCRIPTION,
 	TREE_TOOL_SCOPES,
 	type TreeOperations,
+	TreeToolInputSchema,
 } from "../../../src/coding/index.js";
 
 interface ScanResult {
@@ -38,19 +40,11 @@ function createOperations(options: FixtureOptions = {}) {
 					stderr: "",
 				});
 	};
-	const shared = {
-		exists: () => options.exists ?? true,
-		stat: () => ({ isDirectory: () => options.isDirectory ?? true }),
-	};
 	return {
 		calls,
-		legacy: {
-			...shared,
-			ensureFd: async () => options.fdPath ?? "fixture-fd",
-			runFd: (fdPath: string, args: string[]) => runFd(fdPath, args),
-		},
 		runtime: {
-			...shared,
+			exists: () => options.exists ?? true,
+			stat: () => ({ isDirectory: () => options.isDirectory ?? true }),
 			runFd,
 		} satisfies TreeOperations,
 	};
@@ -74,34 +68,23 @@ function runtimeRequest(input: {
 }
 
 describe("runtime tree tool", () => {
-	it("preserves the legacy definition, registration metadata, and full default scope", () => {
-		const legacy = createLegacyTreeTool(process.cwd());
+	it("keeps the public definition, registration metadata, and full default scope", () => {
 		const runtime = createTreeToolRegistration(process.cwd(), { operations: createOperations().runtime });
-		expect({
-			name: runtime.tool.name,
-			label: runtime.tool.label,
-			description: runtime.tool.description,
-			schema: runtime.tool.inputSchema,
-			scopeUse: runtime.scopeUse,
-			category: runtime.category,
-		}).toEqual({
-			name: legacy.name,
-			label: legacy.label,
-			description: legacy.description,
-			schema: legacy.parameters,
-			scopeUse: legacy.scope_use,
-			category: legacy.category,
+		expect(runtime.tool).toMatchObject({
+			name: "dir_tree",
+			label: "dir_tree",
+			description: TREE_TOOL_DESCRIPTION,
+			inputSchema: TreeToolInputSchema,
 		});
 		expect(runtime.scopeUse).toEqual(TREE_TOOL_SCOPES);
+		expect(runtime.category).toBe(TREE_TOOL_CATEGORY);
 		for (const scope of TREE_TOOL_SCOPES) {
 			expect(selectCodingToolsForScope([runtime], scope)).toEqual([runtime.tool]);
 		}
 	});
 
 	it("preserves hierarchy, sorting, child counts, node tags, and fd arguments", async () => {
-		const legacyFixture = createOperations();
 		const runtimeFixture = createOperations();
-		const legacy = createLegacyTreeTool(process.cwd(), { operations: legacyFixture.legacy });
 		const runtime = createTreeTool(process.cwd(), {
 			operations: runtimeFixture.runtime,
 			fdPath: "fixture-fd",
@@ -113,10 +96,8 @@ describe("runtime tree tool", () => {
 			ignore: ["dist", "  ", "*.generated.ts"],
 		};
 
-		const legacyResult = await legacy.execute("legacy-tree", input);
 		const runtimeResult = await runtime.execute(runtimeRequest(input));
-		expect(runtimeResult).toEqual(legacyResult);
-		expect(runtimeFixture.calls).toEqual(legacyFixture.calls);
+		expect(runtimeFixture.calls).toHaveLength(2);
 		expect(runtimeResult.content[0]).toMatchObject({
 			type: "text",
 			text: expect.stringContaining("[D] src (d:1, f:0) (type=dir)"),
@@ -128,16 +109,11 @@ describe("runtime tree tool", () => {
 			directories: { status: 0, stdout: "zeta\nalpha\nalpha/child\n", stderr: "" },
 			files: { status: 0, stdout: "alpha/file.ts\n", stderr: "" },
 		} satisfies FixtureOptions;
-		const legacyFixture = createOperations(options);
 		const runtimeFixture = createOperations(options);
-		const legacy = createLegacyTreeTool(process.cwd(), { operations: legacyFixture.legacy });
 		const runtime = createTreeTool(process.cwd(), { operations: runtimeFixture.runtime, fdPath: "fixture-fd" });
 		const input = { includeFiles: false, maxDepth: 1.9, limit: 2.8 };
 
-		const legacyResult = await legacy.execute("legacy-tree", input);
 		const runtimeResult = await runtime.execute(runtimeRequest(input));
-		expect(runtimeResult).toEqual(legacyResult);
-		expect(runtimeFixture.calls).toEqual(legacyFixture.calls);
 		expect(runtimeFixture.calls).toHaveLength(1);
 		expect(runtimeResult.details).toMatchObject({ nodeLimitReached: 2, nodesRendered: 2 });
 	});
@@ -148,14 +124,10 @@ describe("runtime tree tool", () => {
 			directories: { status: 0, stdout: paths.join("\n"), stderr: "" },
 			files: { status: 0, stdout: "", stderr: "" },
 		} satisfies FixtureOptions;
-		const legacyFixture = createOperations(options);
 		const runtimeFixture = createOperations(options);
-		const legacy = createLegacyTreeTool(process.cwd(), { operations: legacyFixture.legacy });
 		const runtime = createTreeTool(process.cwd(), { operations: runtimeFixture.runtime, fdPath: "fixture-fd" });
 
-		const legacyResult = await legacy.execute("legacy-tree", { maxDepth: 2, limit: 500 });
 		const runtimeResult = await runtime.execute(runtimeRequest({ maxDepth: 2, limit: 500 }));
-		expect(runtimeResult).toEqual(legacyResult);
 		expect(runtimeResult.details).toMatchObject({
 			nodeLimitReached: 500,
 			scanLimitReached: 2000,
@@ -206,23 +178,16 @@ describe("runtime tree tool", () => {
 	] satisfies ReadonlyArray<{ name: string; options: FixtureOptions; expected: string }>)(
 		"preserves $name errors",
 		async ({ options, expected }) => {
-			const legacyFixture = createOperations(options);
 			const runtimeFixture = createOperations(options);
-			const legacy = createLegacyTreeTool(process.cwd(), { operations: legacyFixture.legacy });
 			const runtime = createTreeTool(process.cwd(), { operations: runtimeFixture.runtime, fdPath: "fixture-fd" });
-			const legacyPromise = legacy.execute("legacy-tree", {});
-			const runtimePromise = runtime.execute(runtimeRequest({}));
-			await expect(legacyPromise).rejects.toThrow(expected);
-			await expect(runtimePromise).rejects.toThrow(expected);
+			await expect(runtime.execute(runtimeRequest({}))).rejects.toThrow(expected);
 		},
 	);
 
 	it("preserves early cancellation", async () => {
 		const controller = new AbortController();
 		controller.abort();
-		const legacy = createLegacyTreeTool(process.cwd(), { operations: createOperations().legacy });
 		const runtime = createTreeTool(process.cwd(), { operations: createOperations().runtime, fdPath: "fixture-fd" });
-		await expect(legacy.execute("legacy-tree", {}, controller.signal)).rejects.toThrow("Operation aborted");
 		await expect(runtime.execute({ ...runtimeRequest({}), signal: controller.signal })).rejects.toThrow(
 			"Operation aborted",
 		);

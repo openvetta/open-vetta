@@ -40,16 +40,6 @@ export {
 } from "./compaction/index.js";
 // Config paths
 export { DEFAULT_SERVER_URL, getAgentDir, VERSION } from "./config.js";
-// Background bash tasks (run_in_background)
-export {
-	type BackgroundTaskEndedBy,
-	type BackgroundTaskEvent,
-	type BackgroundTaskListener,
-	BackgroundTaskManager,
-	type BackgroundTaskSnapshot,
-	type BackgroundTaskStatus,
-	buildTaskNotification,
-} from "./core/background-tasks/index.js";
 // Concurrency limiter (shared by OCR throttle and KB processing session pool)
 export { createLimiter, type Limiter } from "./core/concurrency-limit.js";
 export { createEventBus, type EventBus, type EventBusController } from "./core/event-bus.js";
