@@ -17,7 +17,6 @@ import {
 	createCodingAgentPluginMcpRuntime,
 } from "../adapters/runtime-core/greenfield.js";
 import { CodingAgentGreenfieldSdkActiveSessionCapabilityHost } from "../adapters/runtime-core/greenfield-sdk-active-session-capability-host.js";
-import { CodingAgentLegacySessionSetupSeedImporter } from "../adapters/runtime-core/legacy-session-setup-seed-importer.js";
 import { type CodingAgentAuthRuntime, createCodingAgentAuthRuntime } from "../auth/index.js";
 import { isCodingAgentBuiltInToolName } from "../composition/coding-agent-built-in-tool-names.js";
 import type { GreenfieldSdkActiveSession } from "../composition/greenfield-sdk-runtime-contract.js";
@@ -49,6 +48,7 @@ import {
 	type CreateCodingAgentSessionOptions,
 	type CreateCodingAgentSessionResult,
 } from "../public-api/sdk/index.js";
+import { createCodingAgentSessionSetupSeedInitializer } from "../sessions/setup/session-setup-seed-initializer.js";
 import { SettingsRuntime } from "../settings/index.js";
 import { createCodingAgentSessionResourceRuntime } from "./coding-agent-resource-runtime.js";
 import { CodingAgentSdkBashAdapter } from "./coding-agent-sdk-bash-adapter.js";
@@ -504,13 +504,11 @@ async function createGreenfieldAgentSessionInternal(
 				settingsManager,
 				clearExecutionContext: (sessionId) => composition.clearSessionExecutionContext(sessionId),
 			});
-			const setupImporter = new CodingAgentLegacySessionSetupSeedImporter();
 			return new CodingAgentGreenfieldSdkActiveSessionCapabilityHost({
 				sessionHost,
 				bash,
 				treeNavigation,
-				createSessionSetupInitializer: (setup) =>
-					setupImporter.createInitializer((sessionManager) => setup(sessionManager)),
+				createSessionSetupInitializer: createCodingAgentSessionSetupSeedInitializer,
 			});
 		},
 		onSessionClosed,

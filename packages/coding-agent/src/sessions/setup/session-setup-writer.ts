@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { writeFileSync } from "node:fs";
 import type { AgentMessage, ToolPhase } from "@vetta/agent-core";
 import type { ImageContent, TextContent } from "@vetta/ai";
-import type { ExtensionSessionWriter } from "../../../extensions/index.js";
+import type { ExtensionSessionWriter } from "../../extensions/index.js";
 import {
 	CODING_AGENT_SESSION_VIEW_VERSION,
 	type CodingAgentSessionEntry,
@@ -10,33 +9,41 @@ import {
 	type CodingAgentSessionTreeNode,
 	projectCodingAgentSessionTree,
 	readCodingAgentSessionBranch,
-} from "../../../sessions/index.js";
+} from "../index.js";
 
-export interface LegacySessionSetupWriterOptions {
+export interface CodingAgentSessionSetupWriterOptions {
 	readonly cwd: string;
+	readonly createdAt: number;
 	readonly sessionDirectory: string;
 	readonly sessionPath: string;
+	readonly sessionId: string;
 	readonly parentSession?: string;
+	readonly onSnapshotChanged?: (snapshot: CodingAgentSessionSetupSnapshot) => void;
 }
 
-/** Temporary compatibility writer used only while executing Extension newSession.setup. */
-export class LegacySessionSetupWriter implements ExtensionSessionWriter {
+export interface CodingAgentSessionSetupSnapshot {
+	readonly entries: readonly CodingAgentSessionEntry[];
+	readonly activeLeafId: string | null;
+	readonly name?: string;
+}
+
+/** In-memory extension setup view for a native, file-backed Conversation target. */
+export class CodingAgentSessionSetupWriter implements ExtensionSessionWriter {
 	private readonly header: CodingAgentSessionHeader;
 	private readonly entries: CodingAgentSessionEntry[] = [];
 	private readonly byId = new Map<string, CodingAgentSessionEntry>();
 	private readonly labels = new Map<string, string>();
 	private leafId: string | null = null;
 
-	constructor(private readonly options: LegacySessionSetupWriterOptions) {
+	constructor(private readonly options: CodingAgentSessionSetupWriterOptions) {
 		this.header = {
 			type: "session",
 			version: CODING_AGENT_SESSION_VIEW_VERSION,
-			id: randomUUID(),
-			timestamp: new Date().toISOString(),
+			id: options.sessionId,
+			timestamp: new Date(options.createdAt).toISOString(),
 			cwd: options.cwd,
 			parentSession: options.parentSession,
 		};
-		this.persistSnapshot();
 	}
 
 	getCwd(): string {
@@ -202,7 +209,11 @@ export class LegacySessionSetupWriter implements ExtensionSessionWriter {
 		this.entries.push(entry);
 		this.byId.set(entry.id, entry);
 		this.leafId = entry.id;
-		this.persistSnapshot();
+		this.options.onSnapshotChanged?.({
+			entries: this.entries,
+			activeLeafId: this.leafId,
+			name: this.getSessionName(),
+		});
 		return entry.id;
 	}
 
@@ -216,13 +227,5 @@ export class LegacySessionSetupWriter implements ExtensionSessionWriter {
 			if (!this.byId.has(id)) return id;
 		}
 		return randomUUID();
-	}
-
-	private persistSnapshot(): void {
-		writeFileSync(
-			this.options.sessionPath,
-			`${[this.header, ...this.entries].map((entry) => JSON.stringify(entry)).join("\n")}\n`,
-			"utf8",
-		);
 	}
 }

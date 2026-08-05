@@ -547,6 +547,17 @@ export const ConversationDocumentEntrySchema = Type.Union([
 	),
 ]);
 
+export const ConversationSeedRecordSchema = Type.Object(
+	{
+		recordType: Type.Literal("conversation.seed"),
+		schemaVersion: Type.Literal(CONVERSATION_SCHEMA_VERSION),
+		entries: Type.Array(ConversationDocumentEntrySchema),
+		activeLeafId: Type.Union([Type.String(), Type.Null()]),
+		name: Type.Optional(Type.String()),
+	},
+	{ additionalProperties: false },
+);
+
 export const ConversationContinuationSeedRecordSchema = Type.Object(
 	{
 		recordType: Type.Literal("conversation.continuation.seed"),
@@ -605,6 +616,7 @@ export type ReadConversationFileHeader = Static<typeof ConversationFileHeaderSch
 export type ConversationEventRecord = Static<typeof CurrentConversationEventRecordSchema>;
 export type ReadConversationEventRecord = Static<typeof ConversationEventRecordSchema>;
 export type ConversationDocumentOperationRecord = Static<typeof ConversationDocumentOperationRecordSchema>;
+export type ConversationSeedRecord = Static<typeof ConversationSeedRecordSchema>;
 export type ConversationContinuationSeedRecord = Static<typeof ConversationContinuationSeedRecordSchema>;
 export type ConversationImportSeedRecord = Static<typeof ConversationImportSeedRecordSchema>;
 export type ConversationSnapshotRecord = Static<typeof ConversationSnapshotRecordSchema>;
@@ -619,6 +631,10 @@ export function isConversationEventRecord(value: unknown): value is ReadConversa
 
 export function isConversationDocumentOperationRecord(value: unknown): value is ConversationDocumentOperationRecord {
 	return Value.Check(ConversationDocumentOperationRecordSchema, value);
+}
+
+export function isConversationSeedRecord(value: unknown): value is ConversationSeedRecord {
+	return Value.Check(ConversationSeedRecordSchema, value);
 }
 
 export function isConversationContinuationSeedRecord(value: unknown): value is ConversationContinuationSeedRecord {

@@ -1,9 +1,9 @@
 export {
-	type CodingAgentGreenfieldSessionSeedImport,
-	type CodingAgentGreenfieldSessionSeedImporter,
-	type CodingAgentLegacySessionSetup,
-	CodingAgentLegacySessionSetupSeedImporter,
-} from "../adapters/runtime-core/legacy-session-setup-seed-importer.js";
+	type CodingAgentSessionSetup,
+	type CodingAgentSessionSetupSeedInput,
+	createCodingAgentSessionSetupSeedInitializer,
+	initializeCodingAgentSessionSetupSeed,
+} from "../sessions/setup/session-setup-seed-initializer.js";
 export { ConversationOwnershipBinding } from "./conversation-ownership-binding.js";
 export {
 	CodingAgentGreenfieldActiveSessionHost,

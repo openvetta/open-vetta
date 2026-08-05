@@ -4,6 +4,7 @@ import {
 	findLayeredBuildOrderViolations,
 	parseBuildPackageOrder,
 } from "./check-build-order.mjs";
+import { findLegacySetupSeedViolations } from "./check-legacy-execution-retirement.mjs";
 import { findPackageBoundaryViolations, findPackageManifestBoundaryViolations } from "./check-package-boundaries.mjs";
 import { batchPaths, createQuickCheckPlan, isBiomeGlobalTrigger } from "./check-quick.mjs";
 import { findStandaloneCliBuildViolations } from "./check-standalone-cli-build.mjs";
@@ -534,12 +535,6 @@ describe("package boundary analysis", () => {
 				'import { migrateLegacySessionToV2 } from "@vetta/runtime-storage/conversation";',
 			),
 		).not.toEqual([]);
-		expect(
-			findPackageBoundaryViolations(
-				"packages/coding-agent/src/adapters/runtime-core/legacy-session-setup-seed-importer.ts",
-				'import { SessionManager } from "../../core/session-manager/index.js";',
-			),
-		).toEqual([]);
 		expect(findPackageBoundaryViolations(hostPath, "type Runtime = GreenfieldRuntimeComposition;")).toHaveLength(1);
 		expect(
 			findPackageBoundaryViolations(hostPath, "type Runtime = CodingAgentGreenfieldSessionTransitionRuntimePort;"),
@@ -909,6 +904,34 @@ describe("package boundary analysis", () => {
 				'import { agentLoopContinue } from "@vetta/agent-core";',
 			),
 		).toEqual([]);
+	});
+});
+
+describe("Legacy Session setup seed retirement", () => {
+	it("allows only the explicit historical migration adapter", () => {
+		expect(
+			findLegacySetupSeedViolations([
+				{
+					path: "packages/coding-agent/src/adapters/runtime-core/coding-agent-legacy-session-migration.ts",
+					text: "return migrateLegacySessionToV2(options);",
+				},
+			]),
+		).toEqual([]);
+	});
+
+	it("rejects generated Legacy setup writers and migration detours", () => {
+		expect(
+			findLegacySetupSeedViolations([
+				{
+					path: "packages/coding-agent/src/sessions/setup/reintroduced-writer.ts",
+					text: "new LegacySessionSetupWriter();",
+				},
+				{
+					path: "packages/coding-agent/src/sessions/setup/reintroduced-migration.ts",
+					text: "await migrateLegacySessionToV2(options);",
+				},
+			]),
+		).toHaveLength(2);
 	});
 });
 

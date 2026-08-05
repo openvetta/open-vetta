@@ -47,7 +47,7 @@ import { GreenfieldExtensionSessionHost } from "../agent-runtime/greenfield-exte
 import { GreenfieldPrintSessionAdapter } from "../greenfield-print-session-adapter.js";
 import {
 	CodingAgentGreenfieldActiveSessionHost,
-	CodingAgentLegacySessionSetupSeedImporter,
+	createCodingAgentSessionSetupSeedInitializer,
 	createGreenfieldRuntimeComposition,
 	type GreenfieldCliSessionOptions,
 	type GreenfieldRuntimeComposition,
@@ -430,11 +430,10 @@ async function prepareGreenfieldRuntimeHost(
 				runtime!.refreshExtensionTools(extensionsResult.extensions);
 			},
 		});
-		const sessionSetupSeedImporter = new CodingAgentLegacySessionSetupSeedImporter();
 		const extensionCommandActions = createCodingAgentGreenfieldExtensionCommandActions({
 			waitForIdle: () => activeSessionHost!.waitForIdle(),
 			newSession: (newSessionOptions) => activeSessionHost!.newSession(newSessionOptions),
-			createSessionSetupInitializer: (setup) => sessionSetupSeedImporter.createInitializer(setup),
+			createSessionSetupInitializer: createCodingAgentSessionSetupSeedInitializer,
 			fork: (entryId) => activeSessionHost!.fork(entryId),
 			navigateTree: (targetId, navigateOptions) => branchNavigationHost.navigateTree(targetId, navigateOptions),
 			switchSession: (targetPath) => activeSessionHost!.switchSession(targetPath),

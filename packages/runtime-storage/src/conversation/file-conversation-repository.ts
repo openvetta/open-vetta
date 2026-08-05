@@ -508,7 +508,7 @@ export class FileConversationRepository
 			parentEntryId: entryId,
 		};
 		const finalEntries = new Map(branch.map((entry) => [entry.id, entry]));
-		const sourceSeed = file.continuationSeed ?? file.importSeed;
+		const sourceSeed = file.seed ?? file.continuationSeed ?? file.importSeed;
 		const sourceSeedEntryIds = new Set(sourceSeed?.entries.map((entry) => entry.id) ?? []);
 		const seedEntries = rewriteForkSeedEntries(
 			document,

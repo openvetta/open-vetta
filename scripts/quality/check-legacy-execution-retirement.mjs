@@ -58,6 +58,8 @@ export const RETIRED_LEGACY_EXECUTION_FILES = Object.freeze([
 ]);
 
 export const RETIRED_LEGACY_SESSION_SUPPORT_FILES = Object.freeze([
+	"packages/coding-agent/src/adapters/runtime-core/legacy-session-format/setup-writer.ts",
+	"packages/coding-agent/src/adapters/runtime-core/legacy-session-setup-seed-importer.ts",
 	"packages/coding-agent/src/core/agent-mode.ts",
 	"packages/coding-agent/src/core/mode-prompt.ts",
 	"packages/coding-agent/src/core/modes-data.ts",
@@ -88,11 +90,16 @@ const LEGACY_EXECUTION_SYMBOL_KINDS = new Map([
 	["createDesktopLegacyExecutionCompatibility", "desktop-legacy-execution-activation"],
 ]);
 
+const LEGACY_SETUP_SEED_SYMBOL = /\b(?:CodingAgentLegacySessionSetupSeedImporter|LegacySessionSetupWriter)\b/u;
+const LEGACY_SESSION_MIGRATION_ADAPTER =
+	"packages/coding-agent/src/adapters/runtime-core/coding-agent-legacy-session-migration.ts";
+
 export function findLegacyExecutionRetirementViolations(
 	files,
 	{ cliAppBin, codingAgentBin, requireBaseline = false, packageExports } = {},
 ) {
 	const violations = [];
+	violations.push(...findLegacySetupSeedViolations(files));
 	const sourcePaths = new Set(files.map((file) => file.path));
 	const classifiedEdges = files.flatMap((file) =>
 		collectModuleEdges(file.path, file.text).flatMap((moduleEdge) =>
@@ -164,6 +171,20 @@ export function findLegacyExecutionRetirementViolations(
 		violations.push(...findLegacySessionCompatibilityShimViolations(files));
 	}
 
+	return violations;
+}
+
+/** Native Extension setup must never be routed back through generated Legacy JSONL. */
+export function findLegacySetupSeedViolations(files) {
+	const violations = [];
+	for (const file of files) {
+		if (LEGACY_SETUP_SEED_SYMBOL.test(file.text)) {
+			violations.push(`${file.path}: retired Legacy Session setup seed implementation was restored`);
+		}
+		if (file.path !== LEGACY_SESSION_MIGRATION_ADAPTER && /\bmigrateLegacySessionToV2\b/u.test(file.text)) {
+			violations.push(`${file.path}: native Session setup must not use Legacy Session migration`);
+		}
+	}
 	return violations;
 }
 
@@ -458,7 +479,7 @@ if (isDirectRun(import.meta.url)) {
 		const productCoreEdges = collectGreenfieldProductCoreEdges(files);
 		const productCoreSummary = summarizeGreenfieldProductCoreEdges(productCoreEdges);
 		ok(
-			`[legacy-execution] ok (${LEGACY_EXECUTION_EDGE_BASELINE.length} execution edge(s), ${RETAINED_LEGACY_FORMAT_BOUNDARIES.length} retained format boundary(s), ${productCoreEdges.length} Greenfield product-core edge(s): adapter=${productCoreSummary["product-adapter"]}, composition=${productCoreSummary["composition-wiring"]}, rpc=${productCoreSummary["rpc-host-adapter"]}, sdk=${productCoreSummary["sdk-compatibility"]})`,
+			`[legacy-execution] ok (${LEGACY_EXECUTION_EDGE_BASELINE.length} execution edge(s), 0 native setup migration edge(s), ${RETAINED_LEGACY_FORMAT_BOUNDARIES.length} retained format boundary(s), ${productCoreEdges.length} Greenfield product-core edge(s): adapter=${productCoreSummary["product-adapter"]}, composition=${productCoreSummary["composition-wiring"]}, rpc=${productCoreSummary["rpc-host-adapter"]}, sdk=${productCoreSummary["sdk-compatibility"]})`,
 		);
 	}
 }

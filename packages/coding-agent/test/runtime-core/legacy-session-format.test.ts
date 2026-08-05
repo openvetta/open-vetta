@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { UserMessage } from "@vetta/ai";
@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { LegacyRuntimeSessionCatalog } from "../../src/adapters/runtime-core/legacy-session-format/catalog.js";
 import { LegacyRuntimeSessionFileHistoryReader } from "../../src/adapters/runtime-core/legacy-session-format/history-reader.js";
 import { acquireLegacySessionFormatLease } from "../../src/adapters/runtime-core/legacy-session-format/lease.js";
-import { LegacySessionSetupWriter } from "../../src/adapters/runtime-core/legacy-session-format/setup-writer.js";
 
 describe("Legacy session format boundary", () => {
 	const temporaryDirectories: string[] = [];
@@ -66,27 +65,6 @@ describe("Legacy session format boundary", () => {
 		const third = acquireLegacySessionFormatLease(sessionPath);
 		expect(third.kind).toBe("acquired");
 		if (third.kind === "acquired") third.lease.release();
-	});
-
-	it("provides the existing setup writer behavior without SessionManager", () => {
-		const directory = createTemporaryDirectory(temporaryDirectories);
-		const sessionPath = join(directory, "setup.jsonl");
-		const writer = new LegacySessionSetupWriter({
-			cwd: "C:\\workspace",
-			sessionDirectory: directory,
-			sessionPath,
-			parentSession: "parent.jsonl",
-		});
-
-		expect(writer.isPersisted()).toBe(true);
-		const messageId = writer.appendMessage(userMessage("seed prompt"));
-		writer.appendLabelChange(messageId, "seed");
-		writer.appendSessionInfo("  seeded session  ");
-
-		expect(writer.getLabel(messageId)).toBe("seed");
-		expect(writer.getSessionName()).toBe("seeded session");
-		expect(writer.getHeader().parentSession).toBe("parent.jsonl");
-		expect(readFileSync(sessionPath, "utf8")).toContain('"type":"session_info"');
 	});
 });
 

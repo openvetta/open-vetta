@@ -19,11 +19,13 @@ import {
 	type ConversationEventRecord,
 	type ConversationFileHeader,
 	type ConversationImportSeedRecord,
+	type ConversationSeedRecord,
 	isConversationContinuationSeedRecord,
 	isConversationDocumentOperationRecord,
 	isConversationEventRecord,
 	isConversationFileHeader,
 	isConversationImportSeedRecord,
+	isConversationSeedRecord,
 	isStoredSessionEvent,
 	type ReadConversationEventRecord,
 	type ReadConversationFileHeader,
@@ -33,6 +35,7 @@ type ConversationBodyRecord = ReadConversationEventRecord | ConversationDocument
 
 export interface ParsedConversationFile {
 	readonly header: ReadConversationFileHeader;
+	readonly seed?: ConversationSeedRecord;
 	readonly continuationSeed?: ConversationContinuationSeedRecord;
 	readonly importSeed?: ConversationImportSeedRecord;
 	readonly records: readonly ConversationBodyRecord[];
@@ -49,15 +52,36 @@ export function parseConversationFile(text: string, sessionId: string): ParsedCo
 	const eventRecords: ReadConversationEventRecord[] = [];
 	const conversationRecords: ConversationBodyRecord[] = [];
 	const documentEntryIds = new Set<string>();
+	let seed: ConversationSeedRecord | undefined;
 	let continuationSeed: ConversationContinuationSeedRecord | undefined;
 	let importSeed: ConversationImportSeedRecord | undefined;
 	let expectedEventSequence = 1;
 	for (let index = 0; index < body.length; index += 1) {
 		const record = body[index];
+		if (isConversationSeedRecord(record)) {
+			if (
+				header.schemaVersion !== CONVERSATION_SCHEMA_VERSION ||
+				index !== 0 ||
+				seed ||
+				continuationSeed ||
+				importSeed
+			) {
+				throw corruptConversation(sessionId, `invalid seed at line ${index + 2}`);
+			}
+			seed = record;
+			for (const entry of record.entries) {
+				if (documentEntryIds.has(entry.id)) {
+					throw corruptConversation(sessionId, `duplicate seed entry at line ${index + 2}`);
+				}
+				documentEntryIds.add(entry.id);
+			}
+			continue;
+		}
 		if (isConversationContinuationSeedRecord(record)) {
 			if (
 				header.schemaVersion !== CONVERSATION_SCHEMA_VERSION ||
 				index !== 0 ||
+				seed ||
 				continuationSeed ||
 				importSeed ||
 				header.parentSessionPath !== record.sourceSessionPath ||
@@ -75,7 +99,13 @@ export function parseConversationFile(text: string, sessionId: string): ParsedCo
 			continue;
 		}
 		if (isConversationImportSeedRecord(record)) {
-			if (header.schemaVersion !== CONVERSATION_SCHEMA_VERSION || index !== 0 || continuationSeed || importSeed) {
+			if (
+				header.schemaVersion !== CONVERSATION_SCHEMA_VERSION ||
+				index !== 0 ||
+				seed ||
+				continuationSeed ||
+				importSeed
+			) {
 				throw corruptConversation(sessionId, `invalid import seed at line ${index + 2}`);
 			}
 			importSeed = record;
@@ -133,16 +163,19 @@ export function parseConversationFile(text: string, sessionId: string): ParsedCo
 		eventRecords.push(record);
 		conversationRecords.push(record);
 	}
-	const seed = continuationSeed ?? importSeed;
-	if (seed) {
+	const initialSeed = seed ?? continuationSeed ?? importSeed;
+	if (initialSeed) {
 		try {
-			assertConversationDocumentGraph(seed.entries as readonly ConversationDocumentEntry[], seed.activeLeafId);
+			assertConversationDocumentGraph(
+				initialSeed.entries as readonly ConversationDocumentEntry[],
+				initialSeed.activeLeafId,
+			);
 		} catch (error) {
 			throw corruptConversation(sessionId, "invalid conversation seed graph", error);
 		}
 	}
 
-	return { header, continuationSeed, importSeed, records: conversationRecords, eventRecords };
+	return { header, seed, continuationSeed, importSeed, records: conversationRecords, eventRecords };
 }
 
 function documentOperationEntryId(record: ConversationDocumentOperationRecord): string | undefined {
@@ -182,6 +215,7 @@ export function serializeConversationLine(
 		| ReadConversationEventRecord
 		| ConversationContinuationSeedRecord
 		| ConversationImportSeedRecord
+		| ConversationSeedRecord
 		| ConversationDocumentOperationRecord,
 ): string {
 	return `${JSON.stringify(value)}\n`;
@@ -212,16 +246,17 @@ export function documentFromFile(sessionId: string, file: ParsedConversationFile
 			: {}),
 	};
 	try {
-		const seed = file.continuationSeed ?? file.importSeed;
-		let document = seed
+		const initialSeed = file.seed ?? file.continuationSeed ?? file.importSeed;
+		let document = initialSeed
 			? createSeededConversationDocument(
 					identity,
-					seed.entries as readonly ConversationDocumentEntry[],
-					seed.activeLeafId,
+					initialSeed.entries as readonly ConversationDocumentEntry[],
+					initialSeed.activeLeafId,
 				)
 			: createEmptyConversationDocument(identity);
-		if (file.importSeed?.name !== undefined) {
-			document = { ...document, name: file.importSeed.name };
+		const seedName = file.seed?.name ?? file.importSeed?.name;
+		if (seedName !== undefined) {
+			document = { ...document, name: seedName };
 		}
 		for (const record of file.records) {
 			if (record.recordType === "conversation.event") {

@@ -8,12 +8,12 @@ import type {
 	SessionEvent,
 } from "@vetta/runtime-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CodingAgentLegacySessionSetupSeedImporter } from "../../src/adapters/runtime-core/legacy-session-setup-seed-importer.js";
 import {
 	CodingAgentGreenfieldActiveSessionHost,
 	type CodingAgentGreenfieldPreparedSessionBinding,
 } from "../../src/composition/greenfield-active-session-transition-host.js";
 import type { GreenfieldRuntimeComposition } from "../../src/composition/greenfield-runtime-composition.js";
+import { createCodingAgentSessionSetupSeedInitializer } from "../../src/sessions/setup/session-setup-seed-initializer.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -200,7 +200,7 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 		expect(fixture.lifecycleOrder.filter((entry) => entry === "finalize:next")).toHaveLength(2);
 	});
 
-	it("runs Extension setup against a real persisted SessionManager and imports it before activation", async () => {
+	it("publishes Extension setup as a native V2 seed before activation", async () => {
 		const fixture = await createFixture();
 		const next = createSession("created", fixture.sessionPath("created"));
 		fixture.resume.mockResolvedValueOnce(next.session);
@@ -209,17 +209,16 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 		await expect(
 			fixture.host.newSession({
 				parentSession: fixture.initial.path,
-				seedInitializer: new CodingAgentLegacySessionSetupSeedImporter().createInitializer(
-					async (sessionManager) => {
-						expect(sessionManager.isPersisted()).toBe(true);
-						setupSessionFile = sessionManager.getSessionFile();
-						sessionManager.appendMessage({
-							role: "user",
-							content: [{ type: "text", text: "setup context" }],
-							timestamp: 10,
-						});
-					},
-				),
+				seedInitializer: createCodingAgentSessionSetupSeedInitializer(async (sessionManager) => {
+					expect(sessionManager.isPersisted()).toBe(true);
+					setupSessionFile = sessionManager.getSessionFile();
+					expect(sessionManager.getSessionId()).toBe("created");
+					sessionManager.appendMessage({
+						role: "user",
+						content: [{ type: "text", text: "setup context" }],
+						timestamp: 10,
+					});
+				}),
 			}),
 		).resolves.toEqual({ cancelled: false });
 
@@ -227,9 +226,11 @@ describe("CodingAgentGreenfieldActiveSessionHost", () => {
 		expect(fixture.resume).toHaveBeenCalledWith(
 			expect.objectContaining({ sessionId: "created", parentSessionPath: fixture.initial.path }),
 		);
-		const imported = await readFile(fixture.sessionPath("created"), "utf8");
-		expect(imported).toContain('"recordType":"conversation.import.seed"');
-		expect(imported).toContain("setup context");
+		expect(setupSessionFile).toBe(fixture.sessionPath("created"));
+		const seeded = await readFile(fixture.sessionPath("created"), "utf8");
+		expect(seeded).toContain('"recordType":"conversation.seed"');
+		expect(seeded).not.toContain('"recordType":"conversation.import.seed"');
+		expect(seeded).toContain("setup context");
 	});
 
 	it("removes a created fork and restores the source session when rebinding fails", async () => {

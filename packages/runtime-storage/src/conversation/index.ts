@@ -5,6 +5,16 @@ export {
 	type FileConversationOwnershipManagerOptions,
 } from "./conversation-ownership-lease.js";
 export {
+	type ConversationSeedDraft,
+	type ConversationSeedDraftOptions,
+	type ConversationSeedPublicationOptions,
+	type ConversationSeedPublicationResult,
+	type ConversationSeedSnapshot,
+	createConversationSeedDraft,
+	publishConversationSeed,
+	resolveConversationFilePath,
+} from "./conversation-seed-publisher.js";
+export {
 	CONVERSATION_STORAGE_ERROR_CODES,
 	ConversationOwnershipConflictError,
 	type ConversationOwnershipHolder,
