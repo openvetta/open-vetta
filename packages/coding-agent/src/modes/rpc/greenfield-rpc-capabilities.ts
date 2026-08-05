@@ -3,11 +3,11 @@ import { type Api, type AssistantMessage, type Model, supportsXhigh } from "@vet
 import type { ConversationDocument, RuntimeSessionContextDeliveryController } from "@vetta/runtime-core";
 import { projectCodingAgentGreenfieldMessages } from "../../adapters/runtime-core/greenfield-agent-message-context-projector.js";
 import { CODING_AGENT_LEGACY_AGENT_MESSAGE_CONTEXT_TYPE } from "../../adapters/runtime-core/legacy-session-import-normalizer.js";
-import { type BashResult, executeBash } from "../../core/bash-executor.js";
 import { exportConversationDocumentToHtml } from "../../core/export-html/index.js";
+import type { HostBashExecutor } from "../../host/command-execution/index.js";
 import { type BashExecutionMessage, bashExecutionToText } from "../../model-context/index.js";
 import type { RpcBashCapability } from "./rpc-session-capabilities.js";
-import type { SessionStats } from "./rpc-types.js";
+import type { RpcBashResult, SessionStats } from "./rpc-types.js";
 
 export {
 	CodingAgentGreenfieldTurnRetryController as GreenfieldRpcRetryController,
@@ -17,6 +17,7 @@ export {
 } from "../../adapters/runtime-core/greenfield-turn-retry-controller.js";
 
 export interface GreenfieldRpcBashCapabilityOptions {
+	readonly executor: HostBashExecutor;
 	readonly readContextDeliveryController: () => RuntimeSessionContextDeliveryController;
 	readonly readShellCommandPrefix: () => string | undefined;
 }
@@ -27,7 +28,7 @@ export class GreenfieldRpcBashCapability implements RpcBashCapability {
 
 	constructor(private readonly options: GreenfieldRpcBashCapabilityOptions) {}
 
-	async execute(command: string, signal?: AbortSignal): Promise<BashResult> {
+	async execute(command: string, signal?: AbortSignal): Promise<RpcBashResult> {
 		signal?.throwIfAborted();
 		const controller = new AbortController();
 		this.activeController = controller;
@@ -36,7 +37,7 @@ export class GreenfieldRpcBashCapability implements RpcBashCapability {
 		const prefix = this.options.readShellCommandPrefix();
 		const resolvedCommand = prefix ? `${prefix}\n${command}` : command;
 		try {
-			const result = await executeBash(resolvedCommand, { signal: controller.signal });
+			const result = await this.options.executor.execute(resolvedCommand, { signal: controller.signal });
 			const message: BashExecutionMessage = {
 				role: "bashExecution",
 				command,

@@ -8,11 +8,19 @@
 import type { AgentMessage, ThinkingLevel } from "@vetta/agent-core";
 import type { ImageContent, Model } from "@vetta/ai";
 import type { CompactionResult } from "../../compaction/index.js";
-import type { BashResult } from "../../core/bash-executor.js";
 import type { CodingAgentSessionStats } from "../../public-api/sdk/index.js";
 import type { RpcStartupFailure } from "./rpc-startup-failure.js";
 
 export type SessionStats = CodingAgentSessionStats;
+
+/** RPC 线协议中的 Bash 执行结果；与具体宿主实现解耦。 */
+export interface RpcBashResult {
+	readonly output: string;
+	readonly exitCode: number | undefined;
+	readonly cancelled: boolean;
+	readonly truncated: boolean;
+	readonly fullOutputPath?: string;
+}
 
 // ============================================================================
 // RPC Commands (stdin)
@@ -203,7 +211,7 @@ export type RpcResponse =
 	| { id?: string; type: "response"; command: "abort_retry"; success: true }
 
 	// Bash
-	| { id?: string; type: "response"; command: "bash"; success: true; data: BashResult }
+	| { id?: string; type: "response"; command: "bash"; success: true; data: RpcBashResult }
 	| { id?: string; type: "response"; command: "abort_bash"; success: true }
 
 	// Session

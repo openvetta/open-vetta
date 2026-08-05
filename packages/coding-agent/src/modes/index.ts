@@ -39,6 +39,7 @@ export {
 	stringifyRpcStartupFailure,
 } from "./rpc/rpc-startup-failure.js";
 export type {
+	RpcBashResult,
 	RpcCommand,
 	RpcResponse,
 	RpcRuntimeDecision,

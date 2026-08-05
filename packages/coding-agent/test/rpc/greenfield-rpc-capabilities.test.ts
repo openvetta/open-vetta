@@ -1,10 +1,48 @@
+import type { RuntimeSessionContextDeliveryController } from "@vetta/runtime-core";
 import { describe, expect, it, vi } from "vitest";
+import type { HostBashExecutor } from "../../src/host/command-execution/index.js";
 import {
+	GreenfieldRpcBashCapability,
 	GreenfieldRpcRetryController,
 	type GreenfieldRpcRetryEvent,
 } from "../../src/modes/rpc/greenfield-rpc-capabilities.js";
 
 describe("Greenfield RPC capabilities", () => {
+	it("executes user Bash through the injected host boundary and records the unchanged RPC result", async () => {
+		const result = {
+			output: "rpc output",
+			exitCode: 7,
+			cancelled: false,
+			truncated: false,
+		} as const;
+		const executor: HostBashExecutor = {
+			execute: vi.fn(async () => result),
+			executeWithOperations: vi.fn(async () => result),
+		};
+		const deliver = vi.fn(async () => {});
+		const bash = new GreenfieldRpcBashCapability({
+			executor,
+			readContextDeliveryController: () => ({ deliver }) as unknown as RuntimeSessionContextDeliveryController,
+			readShellCommandPrefix: () => "prefix",
+		});
+
+		await expect(bash.execute("command")).resolves.toEqual(result);
+		expect(executor.execute).toHaveBeenCalledWith(
+			"prefix\ncommand",
+			expect.objectContaining({ signal: expect.any(AbortSignal) }),
+		);
+		expect(deliver).toHaveBeenCalledWith(
+			[
+				expect.objectContaining({
+					type: "vetta.legacy_agent_message",
+					modelVisible: true,
+					display: true,
+				}),
+			],
+			"record",
+		);
+	});
+
 	it("retries retryable turn failures without depending on Legacy session state", async () => {
 		let enabled = true;
 		const events: GreenfieldRpcRetryEvent[] = [];

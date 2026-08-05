@@ -60,6 +60,5 @@ export {
 	type ToolCapability,
 	type ToolCategory,
 } from "../profiles/index.js";
-export { type BashExecutorOptions, type BashResult, executeBash, executeBashWithOperations } from "./bash-executor.js";
 export { createEventBus, type EventBus, type EventBusController } from "./event-bus.js";
 export type { CodingAgentTool } from "./session/tool-scope.js";

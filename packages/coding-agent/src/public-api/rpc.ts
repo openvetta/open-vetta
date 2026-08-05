@@ -9,6 +9,7 @@ export {
 	type GreenfieldRpcRetrySettings,
 	type ImHostBridge,
 	isRpcStartupFailure,
+	type RpcBashResult,
 	type RpcExtensionIncompatibilityFailure,
 	type RpcRuntimeDecision,
 	type RpcSessionCapabilities,

@@ -55,6 +55,7 @@ import {
 	projectCodingAgentSkillInfo,
 } from "./coding-agent-sdk-resource-source-adapter.js";
 import { resolveCodingAgentSessionDir } from "./coding-agent-session-storage.js";
+import { createHostBashExecutor } from "./command-execution/index.js";
 
 export const CODING_AGENT_SDK_HOST_ERROR_CODES = {
 	NO_MODEL: "greenfield_sdk_no_model",
@@ -488,6 +489,7 @@ async function createGreenfieldAgentSessionInternal(
 		},
 		createActiveCapabilityHost: ({ sessionHost, composition }) => {
 			const bash = new CodingAgentSdkBashAdapter({
+				executor: createHostBashExecutor(),
 				readShellCommandPrefix: () => settingsManager.getShellCommandPrefix(),
 			});
 			bash.bindEvents(sessionHost);

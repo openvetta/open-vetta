@@ -7,11 +7,13 @@
 import { AuthStorage } from "../core/auth-storage.js";
 import { createCodingAgentHostFromSessionFactory } from "../host/coding-agent-host.js";
 import { createCodingAgentSessionFromPublicOptions } from "../host/coding-agent-sdk-host-adapter.js";
+import { createHostBashExecutor } from "../host/command-execution/index.js";
 import { type CodingAgentModelRuntime, createCodingAgentModelRuntime } from "../models/index.js";
 import { SettingsRuntime } from "../settings/index.js";
 import type { CodingAgentHost, CodingAgentHostSessionDefaults } from "./sdk/index.js";
 
-export { AuthStorage, createCodingAgentModelRuntime, SettingsRuntime };
+export { AuthStorage, createCodingAgentModelRuntime, createHostBashExecutor, SettingsRuntime };
+export type { HostBashExecutor } from "../host/command-execution/index.js";
 export type { CodingAgentModelRuntime };
 
 export interface CreateCodingAgentHostWithServicesOptions {

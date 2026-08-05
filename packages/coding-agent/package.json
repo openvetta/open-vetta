@@ -84,10 +84,6 @@
 		"./runtime-host/greenfield": {
 			"types": "./dist/adapters/runtime-core/greenfield.d.ts",
 			"import": "./dist/adapters/runtime-core/greenfield.js"
-		},
-		"./core/host/executable-resolver.js": {
-			"types": "./dist/core/host/executable-resolver.d.ts",
-			"import": "./dist/core/host/executable-resolver.js"
 		}
 	},
 	"files": [

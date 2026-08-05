@@ -9,8 +9,14 @@ import * as readline from "node:readline";
 import type { AgentEvent, AgentMessage, ThinkingLevel } from "@vetta/agent-core";
 import type { ImageContent } from "@vetta/ai";
 import type { CompactionResult } from "../../compaction/index.js";
-import type { BashResult } from "../../core/bash-executor.js";
-import type { RpcCommand, RpcResponse, RpcSessionState, RpcSlashCommand, SessionStats } from "./rpc-types.js";
+import type {
+	RpcBashResult,
+	RpcCommand,
+	RpcResponse,
+	RpcSessionState,
+	RpcSlashCommand,
+	SessionStats,
+} from "./rpc-types.js";
 
 // ============================================================================
 // Types
@@ -311,7 +317,7 @@ export class RpcClient {
 	/**
 	 * Execute a bash command.
 	 */
-	async bash(command: string): Promise<BashResult> {
+	async bash(command: string): Promise<RpcBashResult> {
 		const response = await this.send({ type: "bash", command });
 		return this.getData(response);
 	}

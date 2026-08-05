@@ -1,9 +1,8 @@
 import type { AgentMessage, ThinkingLevel } from "@vetta/agent-core";
 import type { Api, ImageContent, Model } from "@vetta/ai";
 import type { CompactionResult } from "../../compaction/index.js";
-import type { BashResult } from "../../core/bash-executor.js";
 import type { ExtensionUIContext, ExtensionUIDialogOptions, ExtensionWidgetOptions } from "../../extensions/index.js";
-import type { RpcCommandType, RpcSessionState, RpcSlashCommand, SessionStats } from "./rpc-types.js";
+import type { RpcBashResult, RpcCommandType, RpcSessionState, RpcSlashCommand, SessionStats } from "./rpc-types.js";
 
 export type RpcSessionProfileId = "greenfield" | "greenfield-im";
 
@@ -104,7 +103,7 @@ export interface RpcRetryCapability {
 }
 
 export interface RpcBashCapability {
-	execute(command: string, signal?: AbortSignal): Promise<BashResult>;
+	execute(command: string, signal?: AbortSignal): Promise<RpcBashResult>;
 	abort(): void;
 }
 

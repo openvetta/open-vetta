@@ -188,6 +188,7 @@ export {
 	type GreenfieldRpcRetrySettings,
 	type ImHostBridge,
 	type PrintModeOptions,
+	type RpcBashResult,
 	type RpcSessionCapabilities,
 	type RpcSessionInitialization,
 	type RpcSessionProfile,

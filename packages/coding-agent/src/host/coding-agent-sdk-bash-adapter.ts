@@ -2,10 +2,11 @@ import type { GreenfieldRuntimeSession, SessionEvent } from "@vetta/runtime-core
 import type { CodingAgentGreenfieldSdkBashPort } from "../adapters/runtime-core/greenfield-sdk-active-session-capability-host.js";
 import { CODING_AGENT_LEGACY_AGENT_MESSAGE_CONTEXT_TYPE } from "../adapters/runtime-core/legacy-session-import-normalizer.js";
 import type { CodingAgentGreenfieldActiveSessionHost } from "../composition/greenfield-active-session-transition-host.js";
-import { type BashResult, executeBash, executeBashWithOperations } from "../core/bash-executor.js";
 import { type BashExecutionMessage, bashExecutionToText } from "../model-context/index.js";
+import type { HostBashExecutor, HostBashResult } from "./command-execution/index.js";
 
 export interface CodingAgentSdkBashAdapterOptions {
+	readonly executor: HostBashExecutor;
 	readonly readShellCommandPrefix: () => string | undefined;
 }
 
@@ -15,7 +16,7 @@ export class CodingAgentSdkBashAdapter implements CodingAgentGreenfieldSdkBashPo
 		| {
 				readonly sessionId: string;
 				readonly controller: AbortController;
-				readonly operation: Promise<BashResult>;
+				readonly operation: Promise<HostBashResult>;
 		  }
 		| undefined;
 	private readonly pending = new Map<string, BashExecutionMessage[]>();
@@ -37,15 +38,18 @@ export class CodingAgentSdkBashAdapter implements CodingAgentGreenfieldSdkBashPo
 		command: string,
 		onChunk?: (chunk: string) => void,
 		options?: Parameters<CodingAgentGreenfieldSdkBashPort["execute"]>[3],
-	): Promise<BashResult> {
+	): Promise<HostBashResult> {
 		if (this.active) throw new Error("A Greenfield SDK Bash command is already running");
 		const controller = new AbortController();
 		const prefix = this.options.readShellCommandPrefix();
 		const resolvedCommand = prefix ? `${prefix}\n${command}` : command;
 		const cwd = session.createCoreAssembly().workspaceView.readWorkingDirectory() ?? process.cwd();
 		const operation = options?.operations
-			? executeBashWithOperations(resolvedCommand, cwd, options.operations, { onChunk, signal: controller.signal })
-			: executeBash(resolvedCommand, { onChunk, signal: controller.signal });
+			? this.options.executor.executeWithOperations(resolvedCommand, cwd, options.operations, {
+					onChunk,
+					signal: controller.signal,
+				})
+			: this.options.executor.execute(resolvedCommand, { onChunk, signal: controller.signal });
 		this.active = { sessionId: session.sessionId, controller, operation };
 		try {
 			const result = await operation;
@@ -66,7 +70,7 @@ export class CodingAgentSdkBashAdapter implements CodingAgentGreenfieldSdkBashPo
 	record(
 		session: GreenfieldRuntimeSession,
 		command: string,
-		result: BashResult,
+		result: HostBashResult,
 		options?: { readonly excludeFromContext?: boolean },
 	): Promise<void> {
 		return deliverBashMessage(session, toBashMessage(command, result, options?.excludeFromContext));
@@ -116,7 +120,7 @@ export class CodingAgentSdkBashAdapter implements CodingAgentGreenfieldSdkBashPo
 	}
 }
 
-function toBashMessage(command: string, result: BashResult, excludeFromContext: boolean | undefined) {
+function toBashMessage(command: string, result: HostBashResult, excludeFromContext: boolean | undefined) {
 	return {
 		role: "bashExecution" as const,
 		command,

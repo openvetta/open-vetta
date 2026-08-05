@@ -1,11 +1,15 @@
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
 import { describe, expect, it, vi } from "vitest";
 import { CodingAgentSdkBashAdapter } from "../../src/host/coding-agent-sdk-bash-adapter.js";
+import { createHostBashExecutor } from "../../src/host/command-execution/index.js";
 
 describe("CodingAgentSdkBashAdapter", () => {
 	it("streams custom Bash operations and persists the result through Session context delivery", async () => {
 		const fixture = createSession(false);
-		const adapter = new CodingAgentSdkBashAdapter({ readShellCommandPrefix: () => "prefix" });
+		const adapter = new CodingAgentSdkBashAdapter({
+			executor: createHostBashExecutor(),
+			readShellCommandPrefix: () => "prefix",
+		});
 		const chunks: string[] = [];
 
 		const result = await adapter.execute(fixture.session, "command", (chunk) => chunks.push(chunk), {
@@ -35,7 +39,10 @@ describe("CodingAgentSdkBashAdapter", () => {
 
 	it("queues a result during streaming and flushes it before an identity transition", async () => {
 		const fixture = createSession(true);
-		const adapter = new CodingAgentSdkBashAdapter({ readShellCommandPrefix: () => undefined });
+		const adapter = new CodingAgentSdkBashAdapter({
+			executor: createHostBashExecutor(),
+			readShellCommandPrefix: () => undefined,
+		});
 
 		await adapter.execute(fixture.session, "command", undefined, {
 			operations: { exec: async () => ({ exitCode: 0 }) },
@@ -51,7 +58,10 @@ describe("CodingAgentSdkBashAdapter", () => {
 
 	it("aborts and waits for the active command during identity quiescence", async () => {
 		const fixture = createSession(false);
-		const adapter = new CodingAgentSdkBashAdapter({ readShellCommandPrefix: () => undefined });
+		const adapter = new CodingAgentSdkBashAdapter({
+			executor: createHostBashExecutor(),
+			readShellCommandPrefix: () => undefined,
+		});
 		const running = adapter.execute(fixture.session, "command", undefined, {
 			operations: {
 				exec: async (_command, _cwd, { signal }) =>

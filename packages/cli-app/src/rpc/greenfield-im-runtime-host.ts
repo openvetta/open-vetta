@@ -13,6 +13,7 @@ import {
 } from "@vetta/coding-agent/bootstrap";
 import { getVettaHomePath } from "@vetta/coding-agent/config";
 import { buildDefaultHookConfigLayers } from "@vetta/coding-agent/hooks";
+import { createHostBashExecutor } from "@vetta/coding-agent/host-services";
 import {
 	GREENFIELD_FULL_RPC_PROFILE,
 	GreenfieldRpcBashCapability,
@@ -469,6 +470,7 @@ async function prepareGreenfieldRuntimeHost(
 			return prepared;
 		}
 		const bash = new GreenfieldRpcBashCapability({
+			executor: createHostBashExecutor(),
 			readContextDeliveryController: () =>
 				agentSessionHost.readSession().createCoreAssembly().contextDeliveryController,
 			readShellCommandPrefix: () => bootstrap.settingsManager.getShellCommandPrefix(),

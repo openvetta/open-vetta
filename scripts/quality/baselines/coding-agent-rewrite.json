@@ -106,17 +106,6 @@
 			"domain": "timings"
 		},
 		{
-			"path": "packages/coding-agent/src/host/coding-agent-sdk-bash-adapter.ts",
-			"specifier": "../core/bash-executor.js",
-			"names": [
-				"BashResult",
-				"executeBash",
-				"executeBashWithOperations"
-			],
-			"category": "old-core",
-			"domain": "bash-executor"
-		},
-		{
 			"path": "packages/coding-agent/src/host/coding-agent-sdk-host-adapter.ts",
 			"specifier": "../core/auth-storage.js",
 			"names": [
@@ -224,49 +213,12 @@
 		},
 		{
 			"path": "packages/coding-agent/src/modes/rpc/greenfield-rpc-capabilities.ts",
-			"specifier": "../../core/bash-executor.js",
-			"names": [
-				"BashResult",
-				"executeBash"
-			],
-			"category": "old-core",
-			"domain": "bash-executor"
-		},
-		{
-			"path": "packages/coding-agent/src/modes/rpc/greenfield-rpc-capabilities.ts",
 			"specifier": "../../core/export-html/index.js",
 			"names": [
 				"exportConversationDocumentToHtml"
 			],
 			"category": "old-core",
 			"domain": "export-html"
-		},
-		{
-			"path": "packages/coding-agent/src/modes/rpc/rpc-client.ts",
-			"specifier": "../../core/bash-executor.js",
-			"names": [
-				"BashResult"
-			],
-			"category": "old-core",
-			"domain": "bash-executor"
-		},
-		{
-			"path": "packages/coding-agent/src/modes/rpc/rpc-session-capabilities.ts",
-			"specifier": "../../core/bash-executor.js",
-			"names": [
-				"BashResult"
-			],
-			"category": "old-core",
-			"domain": "bash-executor"
-		},
-		{
-			"path": "packages/coding-agent/src/modes/rpc/rpc-types.ts",
-			"specifier": "../../core/bash-executor.js",
-			"names": [
-				"BashResult"
-			],
-			"category": "old-core",
-			"domain": "bash-executor"
 		},
 		{
 			"path": "packages/coding-agent/src/public-api/host-services.ts",
@@ -282,10 +234,8 @@
 	"oldImplementationFiles": [
 		"packages/coding-agent/src/core/auth-storage.ts",
 		"packages/coding-agent/src/core/background-tasks/index.ts",
-		"packages/coding-agent/src/core/bash-executor.ts",
 		"packages/coding-agent/src/core/concurrency-limit.ts",
 		"packages/coding-agent/src/core/event-bus.ts",
-		"packages/coding-agent/src/core/exec.ts",
 		"packages/coding-agent/src/core/export-html/ansi-to-html.ts",
 		"packages/coding-agent/src/core/export-html/index.ts",
 		"packages/coding-agent/src/core/export-html/template.js",
@@ -295,7 +245,6 @@
 		"packages/coding-agent/src/core/footer-data-provider.ts",
 		"packages/coding-agent/src/core/hooks/index.ts",
 		"packages/coding-agent/src/core/hooks/tool-wrapper.ts",
-		"packages/coding-agent/src/core/host/executable-resolver.ts",
 		"packages/coding-agent/src/core/image-budget.ts",
 		"packages/coding-agent/src/core/index.ts",
 		"packages/coding-agent/src/core/keybindings.ts",
@@ -346,9 +295,7 @@
 		"packages/coding-agent/src/core/tools/write/index.ts"
 	],
 	"compatibilityExports": [],
-	"legacyCoreExports": [
-		"./core/host/executable-resolver.js"
-	],
+	"legacyCoreExports": [],
 	"legacyExampleImports": [],
 	"oversizedStableExtensionModules": [],
 	"oversizedStableResourceModules": []
