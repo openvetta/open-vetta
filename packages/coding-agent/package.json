@@ -88,14 +88,6 @@
 		"./composition": {
 			"types": "./dist/composition/index.d.ts",
 			"import": "./dist/composition/index.js"
-		},
-		"./runtime-host": {
-			"types": "./dist/adapters/runtime-core/index.d.ts",
-			"import": "./dist/adapters/runtime-core/index.js"
-		},
-		"./runtime-host/greenfield": {
-			"types": "./dist/adapters/runtime-core/greenfield.d.ts",
-			"import": "./dist/adapters/runtime-core/greenfield.js"
 		}
 	},
 	"files": [

@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, Message, Model } from "@vetta/ai";
-import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/runtime-host/greenfield";
+import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/host-services";
 import { type HistoryEntry, RuntimeHost, type SessionEvent } from "@vetta/runtime-core";
 import { afterEach, describe, expect, it } from "vitest";
 import {

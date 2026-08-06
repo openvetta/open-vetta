@@ -9,19 +9,18 @@ import {
 	type Message,
 	type Model,
 } from "@vetta/ai";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { CodingAgentTodoRuntime } from "../../src/adapters/runtime-core/greenfield-todo-runtime.js";
+import { createGreenfieldRuntimeComposition, type GreenfieldRuntimeComposition } from "../../src/composition/index.js";
 import {
-	type CodingAgentPluginRuntimeSource,
-	type CodingAgentRuntimeModelSource,
-	CodingAgentTodoRuntime,
 	type EcosystemHookEvent,
 	emptyHookDispatchOutcome,
 	type HookDispatchOutcome,
-} from "@vetta/coding-agent/runtime-host/greenfield";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-	createGreenfieldRuntimeComposition,
-	type GreenfieldRuntimeComposition,
-} from "../src/greenfield-runtime-composition.js";
+} from "../../src/public-api/hooks.js";
+import type {
+	CodingAgentPluginRuntimeSource,
+	CodingAgentRuntimeModelSource,
+} from "../../src/public-api/host-services.js";
 
 describe("Greenfield continuation orchestration", () => {
 	const temporaryDirectories: string[] = [];

@@ -36,10 +36,6 @@
 			"@vetta/coding-agent/rpc": ["./packages/coding-agent/src/public-api/rpc.ts"],
 			"@vetta/coding-agent/runtime": ["./packages/coding-agent/src/public-api/runtime.ts"],
 			"@vetta/coding-agent/sdk": ["./packages/coding-agent/src/public-api/sdk.ts"],
-			"@vetta/coding-agent/runtime-host": ["./packages/coding-agent/src/adapters/runtime-core/index.ts"],
-			"@vetta/coding-agent/runtime-host/greenfield": [
-				"./packages/coding-agent/src/adapters/runtime-core/greenfield.ts"
-			],
 			"@vetta/coding-agent/*": ["./packages/coding-agent/src/*"],
 			"@vetta/ai": ["./packages/ai/src/index.ts"],
 			"@vetta/ai/*": ["./packages/ai/src/*"],

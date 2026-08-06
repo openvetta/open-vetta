@@ -1,6 +1,6 @@
 import { existsSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { getSceneDir } from "../../config.js";
+import { CONFIG_DIR_NAME, getSceneDir } from "../../config.js";
 import {
 	createExtensionEventBus,
 	createExtensionRuntime,
@@ -15,6 +15,7 @@ import type {
 	SessionResourceRuntimeOptions,
 } from "../contracts/resource-runtime.js";
 import type { ResolvedResourcePath, ResourcePathMetadata } from "../contracts/resource-source.js";
+import { isResourceEnabledByOverrides } from "../packages/resource-patterns.js";
 import type { PromptTemplate } from "../prompts/index.js";
 import type { Skill } from "../skills/index.js";
 import { discoverPromptFile, loadProjectContextFiles, resolvePromptInput } from "./context-resources.js";
@@ -230,21 +231,43 @@ class DefaultSessionResourceRuntime implements SessionResourceRuntime {
 		paths: string[],
 		extensionPaths: Array<{ path: string; metadata: ResourcePathMetadata }> = [],
 	): void {
+		const resolvedPaths = this.options.noSkills
+			? paths
+			: this.merge(
+					[resolve(this.options.cwd, CONFIG_DIR_NAME, "skills"), join(this.options.agentDir, "skills")],
+					paths,
+				);
 		const result = loadSkillResources({
 			cwd: this.options.cwd,
 			agentDir: this.options.agentDir,
-			paths,
+			paths: resolvedPaths,
 			includeAgentSkills: this.options.includeAgentSkills ?? true,
 			disabled: this.options.noSkills ?? false,
 			override: this.options.skillsOverride,
 		});
-		this.skills = result.skills;
+		this.skills = this.filterDefaultSkillOverrides(result.skills);
 		this.skillDiagnostics = result.diagnostics;
 		this.metadata.apply(
 			extensionPaths,
 			this.skills.map((skill) => skill.filePath),
 		);
 		for (const skill of this.skills) this.metadata.addDefault(skill.filePath);
+	}
+
+	private filterDefaultSkillOverrides(skills: Skill[]): Skill[] {
+		if (!this.options.settings) return skills;
+		const projectSettings = this.options.settings.getProjectSettings();
+		const globalSettings = this.options.settings.getGlobalSettings();
+		const projectBaseDir = resolve(this.options.cwd, CONFIG_DIR_NAME);
+		return skills.filter((skill) => {
+			if (skill.source === "project") {
+				return isResourceEnabledByOverrides(skill.filePath, projectSettings.skills ?? [], projectBaseDir);
+			}
+			if (skill.source === "user") {
+				return isResourceEnabledByOverrides(skill.filePath, globalSettings.skills ?? [], this.options.agentDir);
+			}
+			return true;
+		});
 	}
 
 	private updatePrompts(

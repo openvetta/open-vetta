@@ -9,7 +9,7 @@ import {
 	type Message,
 	type Model,
 } from "@vetta/ai";
-import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/runtime-host/greenfield";
+import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/host-services";
 import { assessRuntimeHostSessionAssembly } from "@vetta/runtime-core";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -40,6 +40,7 @@ describe("Greenfield Subagent Runtime composition", () => {
 		const composition = await createGreenfieldRuntimeComposition({
 			conversationDir,
 			cwd: workspace,
+			enableSubagents: true,
 			modelRegistry: modelRegistry(),
 			initialModel: MODEL,
 			initialThinkingLevel: "off",
@@ -147,6 +148,7 @@ describe("Greenfield Subagent Runtime composition", () => {
 		const composition = await createGreenfieldRuntimeComposition({
 			conversationDir,
 			cwd: workspace,
+			enableSubagents: true,
 			modelRegistry: modelRegistry(),
 			initialModel: MODEL,
 			initialThinkingLevel: "off",
@@ -228,6 +230,7 @@ describe("Greenfield Subagent Runtime composition", () => {
 		const initialComposition = await createGreenfieldRuntimeComposition({
 			conversationDir,
 			cwd: workspace,
+			enableSubagents: true,
 			modelRegistry: modelRegistry(),
 			initialModel: MODEL,
 			initialThinkingLevel: "off",
@@ -284,6 +287,7 @@ describe("Greenfield Subagent Runtime composition", () => {
 		const resumedComposition = await createGreenfieldRuntimeComposition({
 			conversationDir,
 			cwd: workspace,
+			enableSubagents: true,
 			modelRegistry: modelRegistry(),
 			initialModel: MODEL,
 			initialThinkingLevel: "off",
@@ -377,6 +381,7 @@ describe("Greenfield Subagent Runtime composition", () => {
 		const missingComposition = await createGreenfieldRuntimeComposition({
 			conversationDir,
 			cwd: workspace,
+			enableSubagents: true,
 			modelRegistry: modelRegistry(),
 			initialModel: MODEL,
 			initialThinkingLevel: "off",

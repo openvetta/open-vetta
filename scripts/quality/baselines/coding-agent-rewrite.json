@@ -1,10 +1,11 @@
 {
-	"version": 5,
+	"version": 6,
 	"oldImplementationEdges": [],
 	"runtimeBackedges": [],
 	"oldImplementationFiles": [],
 	"compatibilityExports": [],
 	"legacyCoreExports": [],
+	"runtimeHostExports": [],
 	"legacyExampleImports": [],
 	"oversizedStableExtensionModules": [],
 	"oversizedStableResourceModules": [],

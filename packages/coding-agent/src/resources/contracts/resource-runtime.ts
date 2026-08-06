@@ -3,7 +3,7 @@ import type { Theme } from "../../modes/interactive/theme/theme.js";
 import type { PromptTemplate } from "../prompts/index.js";
 import type { Skill } from "../skills/index.js";
 import type { ResourceDiagnostic } from "./diagnostics.js";
-import type { ResourcePackageRuntime, ResourcePathMetadata } from "./resource-source.js";
+import type { ResourcePackageRuntime, ResourcePathMetadata, ResourceSettingsPort } from "./resource-source.js";
 
 export interface ResourceExtensionPaths {
 	skillPaths?: Array<{ path: string; metadata: ResourcePathMetadata }>;
@@ -32,6 +32,7 @@ export interface SessionResourceRuntimeOptions {
 	cwd: string;
 	agentDir: string;
 	packages: ResourcePackageRuntime;
+	settings?: ResourceSettingsPort;
 	eventBus?: EventBus;
 	additionalExtensionPaths?: string[];
 	additionalSkillPaths?: string[];

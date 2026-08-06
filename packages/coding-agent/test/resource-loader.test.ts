@@ -76,6 +76,37 @@ Skill content here.`,
 			expect(skills.some((s) => s.name === "test-skill")).toBe(true);
 		});
 
+		it("should refresh a project skill directory created after session initialization", async () => {
+			const loader = createCodingAgentSessionResourceRuntime({ cwd, agentDir });
+			await loader.reload();
+			const skillDirectory = join(cwd, CONFIG_DIR_NAME, "skills", "dynamic-project-skill");
+			const skillPath = join(skillDirectory, "SKILL.md");
+
+			expect(loader.refreshSkillsIfChanged()).toBe(false);
+			mkdirSync(skillDirectory, { recursive: true });
+			writeFileSync(
+				skillPath,
+				"---\nname: dynamic-project-skill\ndescription: Dynamic version one\n---\nVersion one",
+			);
+			expect(loader.refreshSkillsIfChanged()).toBe(true);
+			expect(loader.getSkills().skills.find((skill) => skill.name === "dynamic-project-skill")?.description).toBe(
+				"Dynamic version one",
+			);
+
+			writeFileSync(
+				skillPath,
+				"---\nname: dynamic-project-skill\ndescription: Dynamic version two changed\n---\nVersion two changed",
+			);
+			expect(loader.refreshSkillsIfChanged()).toBe(true);
+			expect(loader.getSkills().skills.find((skill) => skill.name === "dynamic-project-skill")?.description).toBe(
+				"Dynamic version two changed",
+			);
+
+			rmSync(skillDirectory, { recursive: true, force: true });
+			expect(loader.refreshSkillsIfChanged()).toBe(true);
+			expect(loader.getSkills().skills.some((skill) => skill.name === "dynamic-project-skill")).toBe(false);
+		});
+
 		it("should ignore extra markdown files in auto-discovered skill dirs", async () => {
 			const skillDir = join(agentDir, "skills", "pi-skills", "browser-tools");
 			mkdirSync(skillDir, { recursive: true });

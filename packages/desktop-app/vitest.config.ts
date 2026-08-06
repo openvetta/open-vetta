@@ -11,14 +11,6 @@ export default defineConfig({
 			{ find: "@vetta/ai", replacement: resolve(__dirname, "../ai/src/index.ts") },
 			{ find: "@vetta/agent-core", replacement: resolve(__dirname, "../agent/src/index.ts") },
 			{
-				find: "@vetta/coding-agent/runtime-host/greenfield",
-				replacement: resolve(__dirname, "../coding-agent/src/adapters/runtime-core/greenfield.ts"),
-			},
-			{
-				find: "@vetta/coding-agent/runtime-host",
-				replacement: resolve(__dirname, "../coding-agent/src/adapters/runtime-core/index.ts"),
-			},
-			{
 				find: "@vetta/coding-agent/host",
 				replacement: resolve(__dirname, "../coding-agent/src/adapters/runtime-tools/index.ts"),
 			},

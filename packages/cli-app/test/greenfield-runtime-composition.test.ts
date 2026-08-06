@@ -2,10 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Api, type AssistantMessage, type AssistantMessageEvent, EventStream, type Model } from "@vetta/ai";
-import {
-	type CodingAgentRuntimeModelSource,
-	renderCodingAgentMcpToolsInstruction,
-} from "@vetta/coding-agent/runtime-host/greenfield";
+import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/host-services";
 import { assessRuntimeHostSessionAssembly } from "@vetta/runtime-core";
 import {
 	createMcpServerRuntimeToolSource,
@@ -578,7 +575,9 @@ describe("Greenfield runtime composition", () => {
 		const second = await composition.backend.create({ sessionId: "deferred-second" });
 
 		await first.prompt({ text: "activate topic 15" });
-		expect(modelCalls[0]?.systemPrompt).toContain(renderCodingAgentMcpToolsInstruction(fixture.descriptors, true));
+		expect(modelCalls[0]?.systemPrompt).toContain("MCP (Model Context Protocol) tools:");
+		expect(modelCalls[0]?.systemPrompt).toContain("- mcp_search_tool_15: Lookup topic-15");
+		expect(modelCalls[0]?.systemPrompt).toContain("**MCP tool usage (deferred)**");
 		expect(modelCalls[0]?.messages).toEqual(["activate topic 15"]);
 		expect(modelCalls[0]?.tools.map(({ name }) => name)).toEqual(["tool_search"]);
 		expect(modelCalls[1]?.tools.map(({ name }) => name)).toEqual(["mcp_search_tool_15", "tool_search"]);
@@ -612,6 +611,7 @@ describe("Greenfield runtime composition", () => {
 		let rootCalls = 0;
 		const composition = await createGreenfieldRuntimeComposition({
 			conversationDir: conversations,
+			enableSubagents: true,
 			modelRegistry: modelRegistry(),
 			initialModel: MODEL,
 			initialThinkingLevel: "off",
@@ -689,7 +689,8 @@ describe("Greenfield runtime composition", () => {
 
 		await session.prompt({ text: "use the selected MCP tool" });
 
-		expect(calls[0]?.systemPrompt).toContain(renderCodingAgentMcpToolsInstruction([fixture.descriptors[15]!], false));
+		expect(calls[0]?.systemPrompt).toContain("- mcp_search_tool_15: Lookup topic-15");
+		expect(calls[0]?.systemPrompt).not.toContain("**MCP tool usage (deferred)**");
 		expect(calls[0]?.tools).toEqual(["mcp_search_tool_15"]);
 		await session.dispose();
 	});

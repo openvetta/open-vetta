@@ -146,5 +146,8 @@ describe("coding-agent public subpaths", () => {
 		expect(Reflect.has(exports as object, "./knowledge")).toBe(false);
 		expect(Object.keys(exports).filter((key) => key.startsWith("./compat/"))).toEqual([]);
 		expect(Object.keys(exports).filter((key) => key.startsWith("./legacy/"))).toEqual([]);
+		expect(
+			Object.keys(exports).filter((key) => key === "./runtime-host" || key.startsWith("./runtime-host/")),
+		).toEqual([]);
 	});
 });

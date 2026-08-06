@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import type { ActionRpcRuntime } from "@vetta/action-rpc";
 import { ACTION_RPC_ENDPOINT_FILE_ENV } from "@vetta/action-rpc";
 import type { Api, Model } from "@vetta/ai";
-import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/runtime-host/greenfield";
+import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/host-services";
 import { CatalogRoutedRuntimeSessionAccessResolver, RuntimeHost } from "@vetta/runtime-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -70,6 +70,7 @@ vi.mock("../../sandbox/capability.js", () => ({
 }));
 
 const cliPath = fileURLToPath(new URL("../../../../../cli-app/src/cli.ts", import.meta.url));
+const repositoryRoot = fileURLToPath(new URL("../../../../../..", import.meta.url));
 const firstPrompt = "Reply with exactly DESKTOP_CLI_CANARY_FIRST.";
 const secondPrompt = "Reply with exactly DESKTOP_CLI_CANARY_SECOND.";
 
@@ -273,7 +274,7 @@ async function runVettaDebug(endpointFilePath: string, debugId: string, input: u
 async function runCli(args: readonly string[], env: NodeJS.ProcessEnv): Promise<CliResult> {
 	return await new Promise<CliResult>((resolve, reject) => {
 		const child = spawn("bun", [cliPath, ...args], {
-			cwd: fileURLToPath(new URL("../../../../../../..", import.meta.url)),
+			cwd: repositoryRoot,
 			env,
 			stdio: ["ignore", "pipe", "pipe"],
 			windowsHide: true,

@@ -6,8 +6,6 @@ import {
 	createCodingAgentHistoricalSessionCatalog,
 	createCodingAgentHistoricalSessionFileHistoryReader,
 } from "@vetta/coding-agent/historical-sessions";
-import { CodingAgentSharedModelController, type CodingAgentSharedModelSource } from "@vetta/coding-agent/runtime-host";
-import { describe, expect, it, vi } from "vitest";
 import {
 	CatalogRoutedRuntimeSessionAccessResolver,
 	CompositeRuntimeSessionCatalog,
@@ -15,14 +13,19 @@ import {
 	RuntimeHost,
 	type RuntimeSessionCatalog,
 	type RuntimeSessionFileHistoryReader,
-} from "../../src/index.js";
+} from "@vetta/runtime-core";
+import { describe, expect, it, vi } from "vitest";
+import {
+	type CodingAgentSharedModelSource,
+	createCodingAgentSharedModelController,
+} from "../../src/public-api/host-services.js";
 
 describe("runtime host process services", () => {
 	it("delegates shared model auth refresh and background refresh", async () => {
 		const setServerToken = vi.fn();
 		const loadRemoteModels = vi.fn(async (): Promise<"unauthorized" | undefined> => undefined);
 		const source: CodingAgentSharedModelSource = { setServerToken, loadRemoteModels };
-		const controller = new CodingAgentSharedModelController(source);
+		const controller = createCodingAgentSharedModelController(source);
 
 		await controller.refreshAuth("token");
 		controller.refreshInBackground();

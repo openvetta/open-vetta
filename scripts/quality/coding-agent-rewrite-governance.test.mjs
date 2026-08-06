@@ -192,7 +192,7 @@ describe("Coding Agent rewrite progress gate", () => {
 		);
 	});
 
-	it("tracks old files, compatibility exports, core exports and legacy SDK examples independently", () => {
+	it("tracks old files, retired exports and legacy SDK examples independently", () => {
 		const state = collectCodingAgentRewriteState({
 			productionFiles: [
 				{ path: "packages/coding-agent/src/core/agent-session.ts", text: "export class AgentSession {}" },
@@ -207,6 +207,7 @@ describe("Coding Agent rewrite progress gate", () => {
 				exports: {
 					"./compat/runtime-tools": "./dist/compat.js",
 					"./core/private.js": "./dist/core/private.js",
+					"./runtime-host": "./dist/adapters/runtime-core/index.js",
 				},
 			},
 		});
@@ -214,6 +215,7 @@ describe("Coding Agent rewrite progress gate", () => {
 		expect(state.oldImplementationFiles).toEqual(["packages/coding-agent/src/core/agent-session.ts"]);
 		expect(state.compatibilityExports).toEqual(["./compat/runtime-tools"]);
 		expect(state.legacyCoreExports).toEqual(["./core/private.js"]);
+		expect(state.runtimeHostExports).toEqual(["./runtime-host"]);
 		expect(state.legacyExampleImports).toHaveLength(1);
 	});
 });

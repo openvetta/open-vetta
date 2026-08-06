@@ -1,7 +1,7 @@
 import type {
-	CodingAgentGreenfieldExtensionEventHost,
-	CodingAgentGreenfieldExtensionInitialization,
-} from "@vetta/coding-agent/runtime-host/greenfield";
+	CodingAgentRuntimeExtensionEventHost,
+	CodingAgentRuntimeExtensionInitialization,
+} from "@vetta/coding-agent/runtime";
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
 import { describe, expect, it, vi } from "vitest";
 import { GreenfieldExtensionSessionHost } from "../src/agent-runtime/greenfield-extension-session-host.js";
@@ -23,7 +23,7 @@ describe("GreenfieldExtensionSessionHost initialization rollback", () => {
 			rebindRuntimeActions: vi.fn(() => order.push("previous:rebind-actions")),
 			rebindRuntimeBindings: vi.fn(() => order.push("previous:rebind-bindings")),
 			dispose: vi.fn(async () => undefined),
-		} as unknown as CodingAgentGreenfieldExtensionEventHost;
+		} as unknown as CodingAgentRuntimeExtensionEventHost;
 		const next = {
 			runner: {
 				emit: vi.fn(async (event: { readonly type: string }) => {
@@ -38,10 +38,10 @@ describe("GreenfieldExtensionSessionHost initialization rollback", () => {
 				order.push("next:dispose");
 				throw cleanupError;
 			}),
-		} as unknown as CodingAgentGreenfieldExtensionEventHost;
+		} as unknown as CodingAgentRuntimeExtensionEventHost;
 		const host = new GreenfieldExtensionSessionHost(previous, () => next);
 		await host.initialize({
-			uiContext: {} as NonNullable<CodingAgentGreenfieldExtensionInitialization["uiContext"]>,
+			uiContext: {} as NonNullable<CodingAgentRuntimeExtensionInitialization["uiContext"]>,
 			shutdownHandler: vi.fn(),
 			onError: vi.fn(),
 		});

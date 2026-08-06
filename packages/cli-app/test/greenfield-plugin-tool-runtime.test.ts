@@ -9,12 +9,8 @@ import {
 	type Message,
 	type Model,
 } from "@vetta/ai";
-import type {
-	CodingAgentPluginRuntimeSource,
-	CodingAgentRuntimeModelSource,
-	EcosystemHookEvent,
-} from "@vetta/coding-agent/runtime-host/greenfield";
-import { emptyHookDispatchOutcome } from "@vetta/coding-agent/runtime-host/greenfield";
+import { type EcosystemHookEvent, emptyHookDispatchOutcome } from "@vetta/coding-agent/hooks";
+import type { CodingAgentPluginRuntimeSource, CodingAgentRuntimeModelSource } from "@vetta/coding-agent/host-services";
 import { afterEach, describe, expect, it } from "vitest";
 import {
 	createGreenfieldRuntimeComposition,

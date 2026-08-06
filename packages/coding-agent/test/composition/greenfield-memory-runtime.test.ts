@@ -2,17 +2,11 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Api, type AssistantMessage, type AssistantMessageEvent, EventStream, type Model } from "@vetta/ai";
-import {
-	type CodingAgentMemoryFlushInput,
-	CodingAgentMemoryRolloverOrchestrator,
-	type CodingAgentRuntimeModelSource,
-} from "@vetta/coding-agent/runtime-host/greenfield";
 import { FileConversationRepository } from "@vetta/runtime-storage/conversation";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-	createGreenfieldRuntimeComposition,
-	type GreenfieldRuntimeComposition,
-} from "../src/greenfield-runtime-composition.js";
+import { createGreenfieldRuntimeComposition, type GreenfieldRuntimeComposition } from "../../src/composition/index.js";
+import { type CodingAgentMemoryFlushInput, CodingAgentMemoryRolloverOrchestrator } from "../../src/memory/index.js";
+import type { CodingAgentRuntimeModelSource } from "../../src/public-api/host-services.js";
 
 const temporaryRoots: string[] = [];
 const compositions: GreenfieldRuntimeComposition[] = [];

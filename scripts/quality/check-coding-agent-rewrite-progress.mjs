@@ -84,6 +84,9 @@ export function collectCodingAgentRewriteState({
 	const legacyCoreExports = Object.keys(codingAgentPackageJson.exports ?? {})
 		.filter((exportName) => exportName.startsWith("./core/"))
 		.sort();
+	const runtimeHostExports = Object.keys(codingAgentPackageJson.exports ?? {})
+		.filter((exportName) => exportName === "./runtime-host" || exportName.startsWith("./runtime-host/"))
+		.sort();
 	const legacyExampleImports = sdkExampleFiles
 		.flatMap((file) => collectModuleEdges(file.path, file.text))
 		.filter(
@@ -132,12 +135,13 @@ export function collectCodingAgentRewriteState({
 		);
 
 	return Object.freeze({
-		version: 5,
+		version: 6,
 		oldImplementationEdges,
 		runtimeBackedges,
 		oldImplementationFiles,
 		compatibilityExports,
 		legacyCoreExports,
+		runtimeHostExports,
 		legacyExampleImports,
 		oversizedStableExtensionModules,
 		oversizedStableResourceModules,
@@ -204,6 +208,12 @@ export function findCodingAgentRewriteProgressViolations(actual, baseline) {
 		baseline.legacyCoreExports,
 		violations,
 	);
+	compareBaselineValues(
+		"retired Runtime Host package export",
+		actual.runtimeHostExports,
+		baseline.runtimeHostExports,
+		violations,
+	);
 	compareBaselineRecords(
 		"legacy SDK example import",
 		actual.legacyExampleImports,
@@ -225,6 +235,7 @@ export function summarizeCodingAgentRewriteState(state) {
 		oldImplementationFiles: state.oldImplementationFiles.length,
 		compatibilityExports: state.compatibilityExports.length,
 		legacyCoreExports: state.legacyCoreExports.length,
+		runtimeHostExports: state.runtimeHostExports.length,
 		legacyExampleImports: state.legacyExampleImports.length,
 		legacyHtmlExportReferences: state.legacyHtmlExportReferences.length,
 		legacyMemoryReferences: state.legacyMemoryReferences.length,
@@ -451,7 +462,7 @@ if (isDirectRun(import.meta.url)) {
 					.map(([domain, count]) => `${domain}=${count}`)
 					.join(", ");
 				ok(
-					`[coding-agent-rewrite] ok (old implementation edges=${summary.oldImplementationEdges}/0, Runtime backedges=${summary.runtimeBackedges}/0, old files=${summary.oldImplementationFiles}/0, compatibility exports=${summary.compatibilityExports}/0, legacy core exports=${summary.legacyCoreExports}/0, legacy examples=${summary.legacyExampleImports}/0, Legacy HTML export references=${summary.legacyHtmlExportReferences}/0, Legacy Memory references=${summary.legacyMemoryReferences}/0, retired Tool references=${summary.retiredToolReferences}/0, retained format boundaries=${summary.retainedFormatBoundaries}, format-to-old edges=${summary.formatBoundaryOldImplementationEdges}/0; domains: ${domains || "none"})`,
+					`[coding-agent-rewrite] ok (old implementation edges=${summary.oldImplementationEdges}/0, Runtime backedges=${summary.runtimeBackedges}/0, old files=${summary.oldImplementationFiles}/0, compatibility exports=${summary.compatibilityExports}/0, legacy core exports=${summary.legacyCoreExports}/0, Runtime Host exports=${summary.runtimeHostExports}/0, legacy examples=${summary.legacyExampleImports}/0, Legacy HTML export references=${summary.legacyHtmlExportReferences}/0, Legacy Memory references=${summary.legacyMemoryReferences}/0, retired Tool references=${summary.retiredToolReferences}/0, retained format boundaries=${summary.retainedFormatBoundaries}, format-to-old edges=${summary.formatBoundaryOldImplementationEdges}/0; domains: ${domains || "none"})`,
 				);
 			}
 		}

@@ -99,6 +99,8 @@ const RETIRED_CODING_AGENT_TOOL_EXPORTS = new Set([
 	"writeTool",
 ]);
 
+const RETIRED_CODING_AGENT_RUNTIME_HOST = "@vetta/coding-agent/runtime-host";
+
 function isLibFile(posixPath) {
 	return LIB_PREFIXES.some((prefix) => posixPath.startsWith(prefix));
 }
@@ -1099,6 +1101,23 @@ function checkAgentCoreImports(posixPath, specifiers, findings) {
 	}
 }
 
+function checkRetiredCodingAgentRuntimeHost(posixPath, text, specifiers, findings) {
+	const retiredImports = specifiers.filter(
+		(specifier) =>
+			specifier === RETIRED_CODING_AGENT_RUNTIME_HOST ||
+			specifier.startsWith(`${RETIRED_CODING_AGENT_RUNTIME_HOST}/`),
+	);
+	if (retiredImports.length > 0 && findings.length === 0) {
+		findings.push(`${posixPath}: retired Coding Agent Runtime Host import (${retiredImports[0]})`);
+	}
+
+	const isResolutionConfig =
+		posixPath === "tsconfig.json" || posixPath.endsWith("/tsconfig.json") || posixPath.endsWith("/vitest.config.ts");
+	if (isResolutionConfig && text.includes(RETIRED_CODING_AGENT_RUNTIME_HOST)) {
+		findings.push(`${posixPath}: retired Coding Agent Runtime Host resolution alias`);
+	}
+}
+
 export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	const findings = [];
 	const specifiers = collectImportSpecifiers(posixPath, text);
@@ -1139,6 +1158,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkWorkspaceManifestImports(posixPath, specifiers, options.manifest, findings);
 	checkRuntimeCoreImports(posixPath, specifiers, findings);
 	checkAgentCoreImports(posixPath, specifiers, findings);
+	checkRetiredCodingAgentRuntimeHost(posixPath, text, specifiers, findings);
 	return findings;
 }
 
@@ -1153,6 +1173,10 @@ export function findPackageManifestBoundaryViolations(manifest) {
 		if (Object.hasOwn(exports, key)) {
 			findings.push(`packages/coding-agent/package.json: retired ${key} export must stay deleted`);
 		}
+	}
+	for (const key of Object.keys(exports)) {
+		if (key !== "./runtime-host" && !key.startsWith("./runtime-host/")) continue;
+		findings.push(`packages/coding-agent/package.json: retired ${key} export must stay deleted`);
 	}
 	return findings;
 }
@@ -1186,6 +1210,9 @@ const roots = [
 export function main() {
 	const findings = [];
 	let scanned = 0;
+	const rootTsconfigPath = join(repoRoot, "tsconfig.json");
+	findings.push(...findPackageBoundaryViolations("tsconfig.json", readText(rootTsconfigPath)));
+	scanned += 1;
 
 	for (const root of roots) {
 		let manifest;

@@ -51,7 +51,7 @@ export function createCodingAgentSessionResourceRuntime(
 ): SessionResourceRuntime {
 	const cwd = options.cwd ?? process.cwd();
 	const agentDir = options.agentDir ?? getAgentDir();
-	const packages =
-		options.packages ?? createCodingAgentResourcePackageRuntime({ cwd, agentDir, settings: options.settings });
-	return createSessionResourceRuntime({ ...options, cwd, agentDir, packages });
+	const settings = options.settings ?? SettingsRuntime.create(cwd, agentDir);
+	const packages = options.packages ?? createCodingAgentResourcePackageRuntime({ cwd, agentDir, settings });
+	return createSessionResourceRuntime({ ...options, cwd, agentDir, packages, settings });
 }

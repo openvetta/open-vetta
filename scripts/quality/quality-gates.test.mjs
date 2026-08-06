@@ -242,6 +242,33 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 	});
 
+	it("keeps the retired Coding Agent Runtime Host public resolution deleted", () => {
+		expect(
+			findPackageBoundaryViolations(
+				"packages/cli-app/test/example.test.ts",
+				'import { createHost } from "@vetta/coding-agent/runtime-host/greenfield";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/cli-app/vitest.config.ts",
+				'const alias = { "@vetta/coding-agent/runtime-host": "../coding-agent/src/adapters/runtime-core" };',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/cli-app/test/example.test.ts",
+				'import { createCodingAgentTurnExecutor } from "@vetta/coding-agent/runtime";',
+			),
+		).toEqual([]);
+		expect(
+			findPackageManifestBoundaryViolations({
+				name: "@vetta/coding-agent",
+				exports: { "./runtime-host": "./dist/adapters/runtime-core/index.js" },
+			}),
+		).toHaveLength(1);
+	});
+
 	it("keeps greenfield product modules independent from legacy startup symbols", () => {
 		const source = "const startup = runLegacyAgentWithBootstrap;";
 		expect(

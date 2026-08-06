@@ -16,6 +16,7 @@ import {
 	type CodingAgentPluginMcpToolSurface,
 	createCodingAgentPluginMcpRuntime,
 } from "../adapters/runtime-core/greenfield-plugin-mcp-runtime.js";
+import type { CodingAgentPluginRuntimeSource } from "../adapters/runtime-core/greenfield-plugin-run-orchestrator.js";
 import {
 	CodingAgentSharedModelController,
 	type CodingAgentSharedModelSource,
@@ -48,6 +49,7 @@ export type {
 	CodingAgentPluginMcpCompositionOptions,
 	CodingAgentPluginMcpRuntimeOptions,
 	CodingAgentPluginMcpToolSurface,
+	CodingAgentPluginRuntimeSource,
 	CodingAgentRuntimeModelSource,
 	CodingAgentSharedModelSource,
 };

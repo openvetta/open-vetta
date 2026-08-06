@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Api, type AssistantMessage, type AssistantMessageEvent, EventStream, type Model } from "@vetta/ai";
-import { createCodingAgentPluginMcpRuntime } from "@vetta/coding-agent/runtime-host/greenfield";
+import { createCodingAgentPluginMcpRuntime } from "@vetta/coding-agent/host-services";
 import type { AgentPluginRuntimeConfig } from "@vetta/runtime-core";
 import type {
 	McpClientHandle,
@@ -122,6 +122,7 @@ describe("Greenfield session-local plugin MCP", () => {
 		let rootCalls = 0;
 		const composition = await createGreenfieldRuntimeComposition({
 			conversationDir,
+			enableSubagents: true,
 			modelRegistry: modelRegistry(),
 			initialModel: MODEL,
 			initialThinkingLevel: "off",

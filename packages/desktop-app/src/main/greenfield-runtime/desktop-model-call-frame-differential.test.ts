@@ -3,12 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, Model } from "@vetta/ai";
 import { ENV_AGENT_DIR } from "@vetta/coding-agent/config.js";
-import { ALL_SCENARIOS } from "@vetta/coding-agent/profile";
 import {
+	type CodingAgentRuntimeModelSource,
 	createCodingAgentMcpRuntimeToolSource,
 	createCodingAgentPluginMcpRuntime,
-} from "@vetta/coding-agent/runtime-host";
-import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/runtime-host/greenfield";
+} from "@vetta/coding-agent/host-services";
+import { ALL_SCENARIOS } from "@vetta/coding-agent/profile";
 import { type AgentPluginRuntimeConfig, type ConversationScenario, RuntimeHost } from "@vetta/runtime-core";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
