@@ -14,6 +14,7 @@ const VIRTUAL_MODULES: Record<string, unknown> = {
 	"@vetta/agent-core": bundledAgentCore,
 	"@vetta/ai": bundledAi,
 	"@vetta/coding-agent": bundledCodingAgent,
+	"@vetta/coding-agent/extensions": bundledCodingAgent,
 };
 
 const require = createRequire(import.meta.url);

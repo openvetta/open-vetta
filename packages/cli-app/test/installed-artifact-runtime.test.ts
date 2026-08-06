@@ -877,7 +877,11 @@ describe("installed standalone CLI artifact", () => {
 			fixture,
 			"combined-extension.ts",
 			`import { appendFileSync } from "node:fs";
+			import { createEventBus as createRootEventBus } from "@vetta/coding-agent";
+			import { createEventBus as createExtensionEventBus } from "@vetta/coding-agent/extensions";
 			export default function(pi) {
+				createRootEventBus().clear();
+				createExtensionEventBus().clear();
 				pi.on("session_start", async () => {});
 				pi.registerCommand("extension-audit", {
 					handler: async () => appendFileSync(${JSON.stringify(commandAuditPath)}, "executed", "utf8"),

@@ -55,12 +55,18 @@ interface FrameWaiter {
 
 const sourceEntryPath = fileURLToPath(new URL("../../src/agent-rpc-cli.ts", import.meta.url));
 const repositoryRoot = fileURLToPath(new URL("../../../..", import.meta.url));
+const testBundleRoot = join(repositoryRoot, "node_modules", ".cache");
 
 export async function buildAgentRpcExecutable(): Promise<AgentRpcExecutable> {
-	const directory = await mkdtemp(join(tmpdir(), "vetta-agent-rpc-executable-"));
+	await mkdir(testBundleRoot, { recursive: true });
+	const directory = await mkdtemp(join(testBundleRoot, "vetta-agent-rpc-"));
 	const path = join(directory, "agent-rpc.mjs");
 	try {
-		await runCommand("bun", ["build", sourceEntryPath, "--target", "bun", "--outfile", path], repositoryRoot);
+		await runCommand(
+			"bun",
+			["build", sourceEntryPath, "--target", "bun", "--external", "@mariozechner/jiti", "--outfile", path],
+			repositoryRoot,
+		);
 		await copyFile(join(repositoryRoot, "packages", "coding-agent", "package.json"), join(directory, "package.json"));
 		return {
 			path,
