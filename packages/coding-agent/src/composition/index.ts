@@ -1,8 +1,6 @@
 export {
 	type CodingAgentSessionSetup,
-	type CodingAgentSessionSetupSeedInput,
 	createCodingAgentSessionSetupSeedInitializer,
-	initializeCodingAgentSessionSetupSeed,
 } from "../sessions/setup/session-setup-seed-initializer.js";
 export {
 	CodingAgentGreenfieldActiveSessionHost,
@@ -43,11 +41,6 @@ export type {
 	KnowledgeProcessingSessionRequest,
 	KnowledgeProcessingUsage,
 } from "./knowledge-processing-contract.js";
-export {
-	type CodingToolsRuntimeComposition,
-	type CodingToolsRuntimeCompositionOptions,
-	createCodingToolsRuntimeComposition,
-} from "./runtime-tools-composition.js";
 export {
 	CodingAgentExtensionSessionHost,
 	CodingAgentProcessSessionHost,

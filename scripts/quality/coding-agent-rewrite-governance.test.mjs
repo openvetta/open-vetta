@@ -275,6 +275,28 @@ describe("Coding Agent rewrite progress gate", () => {
 		});
 	});
 
+	it("freezes the Composition public surface and rejects external deep imports", () => {
+		const actual = stateFrom([
+			{
+				path: "packages/coding-agent/src/composition/index.ts",
+				text: 'export { createCodingToolsRuntimeComposition } from "./runtime-tools-composition.js";',
+			},
+			{
+				path: "packages/cli-app/src/runtime.ts",
+				text: 'import { internalFactory } from "@vetta/coding-agent/composition/private";',
+			},
+		]);
+
+		expect(findCodingAgentRewriteProgressViolations(actual, actual)).toEqual([
+			"packages/coding-agent/src/composition/index.ts: unapproved Composition public export (createCodingToolsRuntimeComposition)",
+			"packages/cli-app/src/runtime.ts:1: external consumer deep-imports Coding Agent Composition (@vetta/coding-agent/composition/)",
+		]);
+		expect(summarizeCodingAgentRewriteState(actual)).toMatchObject({
+			compositionPublicExports: 1,
+			externalCompositionDeepImports: 1,
+		});
+	});
+
 	it("rejects new edges, accepts an exact baseline and reports stale entries after removal", () => {
 		const baseline = stateFrom([
 			{

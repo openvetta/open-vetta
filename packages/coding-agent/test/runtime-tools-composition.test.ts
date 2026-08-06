@@ -1,7 +1,11 @@
-import { createCodingToolsRuntimeComposition } from "@vetta/coding-agent/composition";
-import { ALL_SCENARIOS } from "@vetta/coding-agent/profile";
 import { describe, expect, it } from "vitest";
-import { legacyRuntimeContract } from "./support/legacy-runtime-contract.js";
+import { createCodingToolsRuntimeComposition } from "../src/composition/runtime-tools-composition.js";
+import { ALL_SCENARIOS } from "../src/profiles/index.js";
+
+const DEFAULT_TOOL_NAMES = {
+	win32: ["current_time", "dir_tree", "edit", "glob", "grep", "read", "shell", "task_output", "task_stop", "write"],
+	posix: ["bash", "current_time", "dir_tree", "edit", "glob", "grep", "read", "task_output", "task_stop", "write"],
+} as const;
 
 function modelCallContext(signal = new AbortController().signal) {
 	return {
@@ -11,7 +15,7 @@ function modelCallContext(signal = new AbortController().signal) {
 	};
 }
 
-describe("CLI Runtime Tools Composition Root", () => {
+describe("Coding Tools Runtime Composition Root", () => {
 	it("registers and compiles the default CLI coding tools without downloading", async () => {
 		const calls: Array<{ readonly tool: "fd" | "rg"; readonly silent: boolean | undefined }> = [];
 		const composition = createCodingToolsRuntimeComposition({
@@ -28,31 +32,7 @@ describe("CLI Runtime Tools Composition Root", () => {
 			if (!provider) throw new Error("expected coding tools model call provider");
 			const contribution = await provider.contribute(modelCallContext());
 			expect(contribution.tools?.map(({ name }) => name)).toEqual(
-				process.platform === "win32"
-					? [
-							"current_time",
-							"dir_tree",
-							"edit",
-							"glob",
-							"grep",
-							"read",
-							"shell",
-							"task_output",
-							"task_stop",
-							"write",
-						]
-					: [
-							"bash",
-							"current_time",
-							"dir_tree",
-							"edit",
-							"glob",
-							"grep",
-							"read",
-							"task_output",
-							"task_stop",
-							"write",
-						],
+				process.platform === "win32" ? DEFAULT_TOOL_NAMES.win32 : DEFAULT_TOOL_NAMES.posix,
 			);
 			await expect(composition.executableResolver.resolve("rg")).resolves.toBeUndefined();
 			expect(calls).toEqual([{ tool: "rg", silent: true }]);
@@ -85,9 +65,8 @@ describe("CLI Runtime Tools Composition Root", () => {
 	});
 
 	it.each(ALL_SCENARIOS)("matches the frozen active tool contract for %s", async (scenario) => {
-		const cwd = "C:/workspace";
 		const composition = createCodingToolsRuntimeComposition({
-			cwd,
+			cwd: "C:/workspace",
 			activation: { mode: "scope", scope: scenario, capabilities: new Set(["bg-tasks"]) },
 			ensureTool: async () => undefined,
 		});
@@ -98,10 +77,7 @@ describe("CLI Runtime Tools Composition Root", () => {
 			if (!provider) throw new Error("expected coding tools model call provider");
 			const contribution = await provider.contribute(modelCallContext());
 			const runtimeToolNames = contribution.tools?.map(({ name }) => name).sort();
-			const expected =
-				process.platform === "win32"
-					? legacyRuntimeContract.tools.defaultNames.win32
-					: legacyRuntimeContract.tools.defaultNames.posix;
+			const expected = process.platform === "win32" ? DEFAULT_TOOL_NAMES.win32 : DEFAULT_TOOL_NAMES.posix;
 			expect(runtimeToolNames).toEqual([...expected].sort());
 		} finally {
 			await compiled.dispose();
