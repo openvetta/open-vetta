@@ -44,6 +44,10 @@ export default defineConfig({
 				replacement: resolve(__dirname, "../coding-agent/src/public-api/host-services.ts"),
 			},
 			{
+				find: "@vetta/coding-agent/historical-sessions",
+				replacement: resolve(__dirname, "../coding-agent/src/public-api/historical-sessions.ts"),
+			},
+			{
 				find: "@vetta/coding-agent/profile",
 				replacement: resolve(__dirname, "../coding-agent/src/public-api/profile.ts"),
 			},
@@ -58,6 +62,10 @@ export default defineConfig({
 			{
 				find: "@vetta/coding-agent/rpc",
 				replacement: resolve(__dirname, "../coding-agent/src/public-api/rpc.ts"),
+			},
+			{
+				find: "@vetta/coding-agent/runtime",
+				replacement: resolve(__dirname, "../coding-agent/src/public-api/runtime.ts"),
 			},
 			{ find: /^@vetta\/coding-agent\/(.+)\.js$/, replacement: `${codingAgentSrc}/$1.ts` },
 			{ find: "@vetta/coding-agent", replacement: resolve(__dirname, "../coding-agent/src/index.ts") },

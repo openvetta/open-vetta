@@ -2,7 +2,6 @@ import type { CodingAgentHostBootstrap } from "@vetta/coding-agent/bootstrap";
 import { type CodingAgentHtmlExportRuntime, createCodingAgentHtmlExportRuntime } from "@vetta/coding-agent/export-html";
 import {
 	exportGreenfieldRpcConversation,
-	type GreenfieldRpcRetryController,
 	type GreenfieldRpcRetryEvent,
 	type RpcRuntimeDecision,
 	type RpcSessionCapabilities,
@@ -12,10 +11,12 @@ import {
 	readGreenfieldRpcAgentMessages,
 } from "@vetta/coding-agent/rpc";
 import {
-	type CodingAgentGreenfieldExtensionCommandHost,
-	CodingAgentGreenfieldSessionCapabilityHost,
-	type CodingAgentGreenfieldTurnExecutor,
-} from "@vetta/coding-agent/runtime-host/greenfield";
+	type CodingAgentRuntimeExtensionCommandHost,
+	type CodingAgentSessionCapabilityHost,
+	type CodingAgentTurnExecutor,
+	type CodingAgentTurnRetryController,
+	createCodingAgentSessionCapabilityHost,
+} from "@vetta/coding-agent/runtime";
 import { type GreenfieldRuntimeSession, type HistoryEntry, RetryableCleanup } from "@vetta/runtime-core";
 import { type CodingToolRegistration, createImSendAttachmentToolRegistration } from "@vetta/runtime-tools/coding";
 import type {
@@ -42,13 +43,13 @@ export interface GreenfieldRpcSessionAdapterOptions {
 	readonly resourceLoader: GreenfieldResourceLoader;
 	readonly runtimeDecision?: RpcRuntimeDecision;
 	readonly htmlExporter?: CodingAgentHtmlExportRuntime;
-	readonly retryController?: GreenfieldRpcRetryController;
-	readonly turnExecutor?: Pick<CodingAgentGreenfieldTurnExecutor, "prompt">;
+	readonly retryController?: CodingAgentTurnRetryController;
+	readonly turnExecutor?: Pick<CodingAgentTurnExecutor, "prompt">;
 	readonly disposeSessionResources?: boolean;
 	readonly bash?: RpcSessionCapabilities["bash"];
 	readonly readAvailableModels?: NonNullable<RpcSessionCapabilities["model"]>["readAvailableModels"];
 	readonly extensionCommandHost?: Pick<
-		CodingAgentGreenfieldExtensionCommandHost,
+		CodingAgentRuntimeExtensionCommandHost,
 		"readCommands" | "throwIfExtensionCommand" | "tryExecute"
 	>;
 	readonly createHostToolRegistration?: (
@@ -76,10 +77,10 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 	private readonly runtimeBackend: GreenfieldRpcSessionAdapterOptions["runtimeBackend"];
 	private readonly runtimeDecision: RpcRuntimeDecision;
 	private readonly htmlExporter: CodingAgentHtmlExportRuntime;
-	private readonly retryController: GreenfieldRpcRetryController | undefined;
+	private readonly retryController: CodingAgentTurnRetryController | undefined;
 	private readonly turnExecutor: GreenfieldRpcSessionAdapterOptions["turnExecutor"];
 	private readonly readAvailableModels: NonNullable<GreenfieldRpcSessionAdapterOptions["readAvailableModels"]>;
-	private readonly sessionCapabilities: CodingAgentGreenfieldSessionCapabilityHost;
+	private readonly sessionCapabilities: CodingAgentSessionCapabilityHost;
 	private readonly extensionCommandHost: GreenfieldRpcSessionAdapterOptions["extensionCommandHost"];
 	private readonly createHostToolRegistration: NonNullable<
 		GreenfieldRpcSessionAdapterOptions["createHostToolRegistration"]
@@ -107,7 +108,7 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 		this.bash = options.bash;
 		this.readAvailableModels =
 			options.readAvailableModels ?? (async () => this.readCore().modelView.readAvailableModels());
-		this.sessionCapabilities = new CodingAgentGreenfieldSessionCapabilityHost({
+		this.sessionCapabilities = createCodingAgentSessionCapabilityHost({
 			readSession: () => this.readSession(),
 			readAvailableModels: this.readAvailableModels,
 			retryController: options.retryController,

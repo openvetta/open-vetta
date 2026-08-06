@@ -967,10 +967,22 @@ function checkCodingAgentCompactionBoundary(posixPath, specifiers, findings) {
 function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings) {
 	const isProductionSource = posixPath.includes("/src/") && !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(posixPath);
 	if (!isProductionSource) return;
+	const historicalSessionPublicSubpath = "@vetta/coding-agent/historical-sessions";
+	const historicalSessionConsumers = new Set([
+		"packages/cli-app/src/rpc/cli-session-format-compatibility.ts",
+		"packages/cli-app/src/rpc/greenfield-im-legacy-session-migration.ts",
+		"packages/cli-app/src/session-compatibility-error.ts",
+		"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-session-format-compatibility.ts",
+		"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-session-migration-backend.ts",
+	]);
 
 	for (const specifier of specifiers) {
-		if (!specifier.startsWith("@vetta/coding-agent/legacy/")) continue;
-		findings.push(`${posixPath}: production Legacy subpath import is outside the compatibility allowlist`);
+		if (specifier.startsWith("@vetta/coding-agent/legacy/")) {
+			findings.push(`${posixPath}: production Legacy subpath import is outside the compatibility allowlist`);
+		}
+		if (specifier === historicalSessionPublicSubpath && !historicalSessionConsumers.has(posixPath)) {
+			findings.push(`${posixPath}: historical Session public surface is outside the host compatibility allowlist`);
+		}
 	}
 
 	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
@@ -1003,14 +1015,34 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 			}
 		}
 	}
+	const historicalRuntimeHostSurfaces = new Set([
+		"packages/coding-agent/src/adapters/runtime-core/index.ts",
+		"packages/coding-agent/src/adapters/runtime-core/greenfield.ts",
+	]);
+	const historicalRuntimeHostSymbols = new Set([
+		"acquireLegacySessionFormatLease",
+		"CODING_AGENT_LEGACY_AGENT_MESSAGE_CONTEXT_TYPE",
+		"LegacyRuntimeSessionCatalog",
+		"LegacyRuntimeSessionFileHistoryReader",
+		"LegacySessionFormatLeaseResult",
+		"normalizeCodingAgentLegacySessionEntry",
+		"restoreCodingAgentLegacyAgentMessageEntry",
+		"CodingAgentLegacySessionIncompatibilityCode",
+		"CodingAgentLegacySessionMigration",
+		"CodingAgentLegacySessionMigrationIncompatible",
+		"CodingAgentLegacySessionMigrationSuccess",
+		"migrateCodingAgentLegacySession",
+	]);
+	if (historicalRuntimeHostSurfaces.has(posixPath)) {
+		for (const symbol of usedSymbols) {
+			if (historicalRuntimeHostSymbols.has(symbol)) {
+				findings.push(`${posixPath}: Runtime Host must not expose historical Session symbol ${symbol}`);
+			}
+		}
+	}
 	if (isLegacyFormatModule) return;
 
-	const isCodingAgentAdapter = posixPath.startsWith("packages/coding-agent/src/adapters/runtime-core/");
-	if (isCodingAgentAdapter) return;
-
-	const desktopFormatCompatibility =
-		"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-session-format-compatibility.ts";
-	const cliFormatCompatibility = "packages/cli-app/src/rpc/cli-session-format-compatibility.ts";
+	const historicalSessionFacade = "packages/coding-agent/src/public-api/historical-sessions.ts";
 	const protectedSymbols = new Set([
 		"createLegacyRuntimeHostOptions",
 		"LegacyCodingAgentSessionBackend",
@@ -1020,11 +1052,10 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 	]);
 	for (const symbol of usedSymbols) {
 		if (!protectedSymbols.has(symbol)) continue;
-		const isAllowedDesktopFormat =
-			(symbol === "LegacyRuntimeSessionCatalog" || symbol === "LegacyRuntimeSessionFileHistoryReader") &&
-			posixPath === desktopFormatCompatibility;
-		const isAllowedCliFormat = symbol === "LegacyRuntimeSessionCatalog" && posixPath === cliFormatCompatibility;
-		if (isAllowedDesktopFormat || isAllowedCliFormat) continue;
+		const isFacadeImplementation =
+			posixPath === historicalSessionFacade &&
+			(symbol === "LegacyRuntimeSessionCatalog" || symbol === "LegacyRuntimeSessionFileHistoryReader");
+		if (isFacadeImplementation) continue;
 		findings.push(`${posixPath}: Legacy Runtime adapter ${symbol} is outside the compatibility allowlist`);
 	}
 }

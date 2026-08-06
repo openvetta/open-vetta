@@ -13,7 +13,11 @@ import {
 } from "@vetta/coding-agent/bootstrap";
 import { getVettaHomePath } from "@vetta/coding-agent/config";
 import type { CodingAgentHtmlExportRuntime } from "@vetta/coding-agent/export-html";
-import { createHostBashExecutor } from "@vetta/coding-agent/host-services";
+import {
+	createCodingAgentMcpRuntimeToolSource,
+	createCodingAgentPluginMcpRuntime,
+	createHostBashExecutor,
+} from "@vetta/coding-agent/host-services";
 import {
 	GREENFIELD_FULL_RPC_PROFILE,
 	GreenfieldRpcBashCapability,
@@ -22,15 +26,13 @@ import {
 	runRpcModeWithCapabilities,
 } from "@vetta/coding-agent/rpc";
 import {
-	CodingAgentGreenfieldBranchNavigationHost,
-	CodingAgentGreenfieldExtensionEventHost,
-	CodingAgentGreenfieldResourceReloadHost,
-	type CodingAgentPluginRuntimeSource,
+	type CodingAgentRuntimeExtensionEventHost,
 	createCodingAgentCompactionExtensionRuntime,
-	createCodingAgentGreenfieldExtensionCommandActions,
-	createCodingAgentMcpRuntimeToolSource,
-	createCodingAgentPluginMcpRuntime,
-} from "@vetta/coding-agent/runtime-host/greenfield";
+	createCodingAgentRuntimeBranchNavigationHost,
+	createCodingAgentRuntimeExtensionCommandActions,
+	createCodingAgentRuntimeExtensionEventHost,
+	createCodingAgentRuntimeResourceReloadHost,
+} from "@vetta/coding-agent/runtime";
 import { buildDefaultHookConfigLayers } from "@vetta/ecosystem-adapter";
 import {
 	type GreenfieldRuntimeSession,
@@ -51,6 +53,7 @@ import {
 	createGreenfieldRuntimeComposition,
 	type GreenfieldCliSessionOptions,
 	type GreenfieldRuntimeComposition,
+	type GreenfieldRuntimeCompositionOptions,
 } from "../greenfield-runtime-composition.js";
 import { resolveGreenfieldSessionIdFromPath } from "./greenfield-conversation-path.js";
 import {
@@ -132,9 +135,7 @@ export interface PrepareGreenfieldImRuntimeHostOptions {
 	readonly htmlExporter?: CodingAgentHtmlExportRuntime;
 	readonly createSessionId?: () => string;
 	readonly ownership?: FileConversationOwnershipManagerOptions;
-	readonly createPluginRuntime?: (
-		sessionOptions: GreenfieldCliSessionOptions,
-	) => CodingAgentPluginRuntimeSource | undefined;
+	readonly createPluginRuntime?: GreenfieldRuntimeCompositionOptions["createPluginRuntime"];
 }
 
 export type PrepareGreenfieldRpcRuntimeHostOptions = PrepareGreenfieldImRuntimeHostOptions;
@@ -296,7 +297,7 @@ async function prepareGreenfieldRuntimeHost(
 
 	let runtime: GreenfieldRuntimeComposition | undefined;
 	let session: GreenfieldRuntimeSession | undefined;
-	let extensionEventHost: CodingAgentGreenfieldExtensionEventHost | undefined;
+	let extensionEventHost: CodingAgentRuntimeExtensionEventHost | undefined;
 	let activeSessionHost: CodingAgentGreenfieldActiveSessionHost | undefined;
 	let extensionSessionHost: GreenfieldExtensionSessionHost | undefined;
 	let dismissRuntimeRollback: (() => void) | undefined;
@@ -363,7 +364,7 @@ async function prepareGreenfieldRuntimeHost(
 			bindingOptions?: { readonly replaceExisting?: boolean },
 		) => {
 			const extensionsResult = bootstrap.resourceLoader.getExtensions();
-			return new CodingAgentGreenfieldExtensionEventHost({
+			return createCodingAgentRuntimeExtensionEventHost({
 				extensions: extensionsResult.extensions,
 				runtime: extensionsResult.runtime,
 				cwd: bootstrap.cwd,
@@ -407,13 +408,13 @@ async function prepareGreenfieldRuntimeHost(
 			id: "active-session-host",
 			rollback: () => acquiredActiveSessionHost.dispose(),
 		});
-		const branchNavigationHost = new CodingAgentGreenfieldBranchNavigationHost({
+		const branchNavigationHost = createCodingAgentRuntimeBranchNavigationHost({
 			withActiveSession: (operation) => activeSessionHost!.runActiveSessionMutation(operation),
 			readRunner: () => extensionSessionHost!.readRunner(),
 			settingsManager: bootstrap.settingsManager,
 			clearExecutionContext: (targetSessionId) => runtime!.clearSessionExecutionContext(targetSessionId),
 		});
-		const resourceReloadHost = new CodingAgentGreenfieldResourceReloadHost({
+		const resourceReloadHost = createCodingAgentRuntimeResourceReloadHost({
 			settingsManager: bootstrap.settingsManager,
 			resourceLoader: bootstrap.resourceLoader,
 			runWithExtensionLifecycle: (operation) =>
@@ -430,7 +431,7 @@ async function prepareGreenfieldRuntimeHost(
 				runtime!.refreshExtensionTools(extensionsResult.extensions);
 			},
 		});
-		const extensionCommandActions = createCodingAgentGreenfieldExtensionCommandActions({
+		const extensionCommandActions = createCodingAgentRuntimeExtensionCommandActions({
 			waitForIdle: () => activeSessionHost!.waitForIdle(),
 			newSession: (newSessionOptions) => activeSessionHost!.newSession(newSessionOptions),
 			createSessionSetupInitializer: createCodingAgentSessionSetupSeedInitializer,

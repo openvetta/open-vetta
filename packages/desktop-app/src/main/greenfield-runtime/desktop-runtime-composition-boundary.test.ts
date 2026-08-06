@@ -15,20 +15,25 @@ describe("Desktop Runtime composition boundary", () => {
 	it("keeps deprecated coding-agent subpaths out of the production composition", () => {
 		for (const [name, source] of Object.entries(productionSources)) {
 			expect(source, name).not.toContain("@vetta/coding-agent/legacy/");
+			expect(source, name).not.toContain("@vetta/coding-agent/runtime-host");
 		}
 	});
 
 	it("keeps Legacy format migration without a production execution backend", () => {
 		expect(productionSources.legacyFormatCompatibility).not.toContain("LegacyCodingAgentSessionBackend");
-		expect(productionSources.legacyFormatCompatibility).toContain("LegacyRuntimeSessionCatalog");
-		expect(productionSources.legacyFormatCompatibility).toContain("LegacyRuntimeSessionFileHistoryReader");
+		expect(productionSources.legacyFormatCompatibility).toContain("createCodingAgentHistoricalSessionCatalog");
+		expect(productionSources.legacyFormatCompatibility).toContain(
+			"createCodingAgentHistoricalSessionFileHistoryReader",
+		);
+		expect(productionSources.legacyFormatCompatibility).not.toContain("LegacyRuntimeSessionCatalog");
+		expect(productionSources.legacyFormatCompatibility).not.toContain("LegacyRuntimeSessionFileHistoryReader");
 		expect(productionSources.composition).not.toContain("LegacyCodingAgentSessionBackend");
 		expect(productionSources.composition).not.toContain("createDesktopLegacyExecutionCompatibility");
 		expect(productionSources.composition).toContain("DesktopLegacySessionMigrationBackend");
 		expect(productionSources.composition).toContain("createDesktopLegacySessionFormatCompatibility");
-		expect(productionSources.composition).toContain("CodingAgentSharedModelController");
+		expect(productionSources.composition).toContain("createCodingAgentSharedModelController");
 		expect(productionSources.legacyMigrationBackend).not.toContain("LegacyCodingAgentSessionBackend");
-		expect(productionSources.legacyMigrationBackend).toContain("migrateCodingAgentLegacySession");
+		expect(productionSources.legacyMigrationBackend).toContain("migrateCodingAgentHistoricalSession");
 		expect(productionSources.knowledgeFactory).not.toContain("createLegacyKnowledgeProcessingSessionFactory");
 	});
 

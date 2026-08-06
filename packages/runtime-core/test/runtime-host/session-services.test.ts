@@ -3,11 +3,10 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-	CodingAgentSharedModelController,
-	type CodingAgentSharedModelSource,
-	LegacyRuntimeSessionCatalog,
-	LegacyRuntimeSessionFileHistoryReader,
-} from "@vetta/coding-agent/runtime-host";
+	createCodingAgentHistoricalSessionCatalog,
+	createCodingAgentHistoricalSessionFileHistoryReader,
+} from "@vetta/coding-agent/historical-sessions";
+import { CodingAgentSharedModelController, type CodingAgentSharedModelSource } from "@vetta/coding-agent/runtime-host";
 import { describe, expect, it, vi } from "vitest";
 import {
 	CatalogRoutedRuntimeSessionAccessResolver,
@@ -212,8 +211,8 @@ describe("runtime host process services", () => {
 				"utf8",
 			);
 
-			const catalog = new LegacyRuntimeSessionCatalog();
-			const historyReader = new LegacyRuntimeSessionFileHistoryReader();
+			const catalog = createCodingAgentHistoricalSessionCatalog();
+			const historyReader = createCodingAgentHistoricalSessionFileHistoryReader();
 			const listed = await catalog.listSessions(root, sessionDir);
 			expect(listed).toHaveLength(1);
 			expect(listed[0]).toMatchObject({ path: sessionPath, cwd: root, firstMessage: "hello" });

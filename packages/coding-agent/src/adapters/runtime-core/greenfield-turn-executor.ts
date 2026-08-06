@@ -1,6 +1,6 @@
 import type { ImageContent } from "@vetta/ai";
 import type { GreenfieldRuntimeSession } from "@vetta/runtime-core";
-import type { CodingAgentGreenfieldTurnRetryController } from "./greenfield-turn-retry-controller.js";
+import type { CodingAgentGreenfieldTurnRetryControllerPort } from "./greenfield-turn-retry-controller.js";
 
 export interface CodingAgentGreenfieldTurnSessionHost {
 	startActiveSessionOperation<T>(operation: (session: GreenfieldRuntimeSession) => Promise<T>): Promise<T>;
@@ -13,7 +13,7 @@ export interface CodingAgentGreenfieldTurnCommandHost {
 
 export interface CodingAgentGreenfieldTurnExecutorOptions {
 	readonly sessionHost: CodingAgentGreenfieldTurnSessionHost;
-	readonly retryController: CodingAgentGreenfieldTurnRetryController;
+	readonly retryController: CodingAgentGreenfieldTurnRetryControllerPort;
 	readonly commandHost?: CodingAgentGreenfieldTurnCommandHost;
 }
 

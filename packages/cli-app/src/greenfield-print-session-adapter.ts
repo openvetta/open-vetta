@@ -1,13 +1,13 @@
 import type { PrintExtensionError, PrintSessionCapabilities } from "@vetta/coding-agent/bootstrap";
 import {
-	CodingAgentGreenfieldExtensionObservationAdapter,
-	type CodingAgentGreenfieldTurnExecutor,
-	projectCodingAgentGreenfieldMessages,
-} from "@vetta/coding-agent/runtime-host/greenfield";
+	type CodingAgentTurnExecutor,
+	createCodingAgentRuntimeExtensionObservationAdapter,
+	projectCodingAgentRuntimeMessages,
+} from "@vetta/coding-agent/runtime";
 import type { GreenfieldRuntimeSession, RuntimeSessionExecutionObservation, SessionEvent } from "@vetta/runtime-core";
 
 interface GreenfieldPrintSessionHost {
-	readonly turnExecutor: Pick<CodingAgentGreenfieldTurnExecutor, "prompt">;
+	readonly turnExecutor: Pick<CodingAgentTurnExecutor, "prompt">;
 	readSession(): GreenfieldRuntimeSession;
 	initializeExtensions(input: { readonly onError: (error: PrintExtensionError) => void }): Promise<void>;
 	subscribe(listener: (event: SessionEvent) => void): () => void;
@@ -44,7 +44,7 @@ export class GreenfieldPrintSessionAdapter implements PrintSessionCapabilities {
 	}
 
 	subscribe(listener: (event: unknown) => void): () => void {
-		const observationAdapter = new CodingAgentGreenfieldExtensionObservationAdapter(async (event) => listener(event));
+		const observationAdapter = createCodingAgentRuntimeExtensionObservationAdapter(async (event) => listener(event));
 		const removeObservations = this.options.sessionHost.subscribeExecutionObservations((observation) =>
 			observationAdapter.observe(observation),
 		);
@@ -68,7 +68,7 @@ export class GreenfieldPrintSessionAdapter implements PrintSessionCapabilities {
 	}
 
 	readMessages(): ReturnType<PrintSessionCapabilities["readMessages"]> {
-		return projectCodingAgentGreenfieldMessages(this.readDocument());
+		return projectCodingAgentRuntimeMessages(this.readDocument());
 	}
 
 	dispose(): Promise<void> {

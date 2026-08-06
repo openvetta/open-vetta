@@ -1,7 +1,6 @@
 import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
-import { acquireLegacySessionFormatLease } from "@vetta/coding-agent/runtime-host";
 import { ConversationOwnershipConflictError } from "@vetta/runtime-storage/conversation";
 import { afterEach, describe, expect, it } from "vitest";
 import { migrateGreenfieldImLegacySession } from "../src/rpc/greenfield-im-legacy-session-migration.js";
@@ -101,9 +100,13 @@ describe("Greenfield IM Legacy session migration", () => {
 
 	it("reports a neutral ownership conflict while another Legacy owner holds the source lock", async () => {
 		const fixture = await createFixture(legacySession("locked"));
-		const held = acquireLegacySessionFormatLease(fixture.sourcePath);
-		if (held.kind !== "acquired") throw new Error("Expected test lease");
 		const canonicalSourcePath = await realpath(fixture.sourcePath);
+		const lockPath = `${canonicalSourcePath}.lock`;
+		await writeFile(
+			lockPath,
+			JSON.stringify({ pid: process.pid, hostname: hostname(), openedAt: new Date().toISOString() }),
+			"utf8",
+		);
 
 		try {
 			const migration = migrateGreenfieldImLegacySession(fixture.sourcePath, fixture.targetRootDir);
@@ -119,7 +122,7 @@ describe("Greenfield IM Legacy session migration", () => {
 				},
 			});
 		} finally {
-			held.lease.release();
+			await rm(lockPath, { force: true });
 		}
 	});
 

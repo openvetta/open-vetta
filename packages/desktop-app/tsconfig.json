@@ -39,10 +39,14 @@
 			"@vetta/coding-agent/concurrency": ["../coding-agent/src/concurrency/index.ts"],
 			"@vetta/coding-agent/extensions": ["../coding-agent/src/public-api/extensions.ts"],
 			"@vetta/coding-agent/host-services": ["../coding-agent/src/public-api/host-services.ts"],
+			"@vetta/coding-agent/historical-sessions": [
+				"../coding-agent/src/public-api/historical-sessions.ts"
+			],
 			"@vetta/coding-agent/profile": ["../coding-agent/src/public-api/profile.ts"],
 			"@vetta/coding-agent/product-prompt": ["../coding-agent/src/public-api/product-prompt.ts"],
 			"@vetta/coding-agent/resources": ["../coding-agent/src/public-api/resources.ts"],
 			"@vetta/coding-agent/rpc": ["../coding-agent/src/public-api/rpc.ts"],
+			"@vetta/coding-agent/runtime": ["../coding-agent/src/public-api/runtime.ts"],
 			"@vetta/coding-agent/runtime-host": ["../coding-agent/src/adapters/runtime-core/index.ts"],
 			"@vetta/coding-agent/runtime-host/greenfield": [
 				"../coding-agent/src/adapters/runtime-core/greenfield.ts"

@@ -1,10 +1,12 @@
 import {
-	type CodingAgentGreenfieldExtensionInitialization,
-	CodingAgentGreenfieldTurnExecutor,
-	CodingAgentGreenfieldTurnRetryController,
-	type CodingAgentGreenfieldTurnRetryEvent,
-	type CodingAgentGreenfieldTurnRetrySettings,
-} from "@vetta/coding-agent/runtime-host/greenfield";
+	type CodingAgentRuntimeExtensionInitialization,
+	type CodingAgentTurnExecutor,
+	type CodingAgentTurnRetryController,
+	type CodingAgentTurnRetryEvent,
+	type CodingAgentTurnRetrySettings,
+	createCodingAgentTurnExecutor,
+	createCodingAgentTurnRetryController,
+} from "@vetta/coding-agent/runtime";
 import {
 	type GreenfieldRuntimeSession,
 	RetryableCleanup,
@@ -23,28 +25,28 @@ export interface GreenfieldAgentSessionHostOptions {
 	readonly activeSessionHost: CodingAgentGreenfieldActiveSessionHost;
 	readonly extensionSessionHost: GreenfieldExtensionSessionHost;
 	readonly mcpSource: ManagedMcpRuntimeToolSource;
-	readonly readRetrySettings: () => CodingAgentGreenfieldTurnRetrySettings;
+	readonly readRetrySettings: () => CodingAgentTurnRetrySettings;
 	readonly setRetryEnabled: (enabled: boolean) => void;
 }
 
 /** Runtime、活动 Session、Extension、MCP、Turn 与最终清理的中立进程宿主。 */
 export class GreenfieldAgentSessionHost {
 	readonly runtime: GreenfieldRuntimeComposition;
-	readonly retryController: CodingAgentGreenfieldTurnRetryController;
-	readonly turnExecutor: CodingAgentGreenfieldTurnExecutor;
-	private readonly retryListeners = new Set<(event: CodingAgentGreenfieldTurnRetryEvent) => void>();
+	readonly retryController: CodingAgentTurnRetryController;
+	readonly turnExecutor: CodingAgentTurnExecutor;
+	private readonly retryListeners = new Set<(event: CodingAgentTurnRetryEvent) => void>();
 	private readonly cleanup = new RetryableCleanup();
 
 	constructor(private readonly options: GreenfieldAgentSessionHostOptions) {
 		this.runtime = options.runtime;
-		this.retryController = new CodingAgentGreenfieldTurnRetryController({
+		this.retryController = createCodingAgentTurnRetryController({
 			readSettings: options.readRetrySettings,
 			setEnabled: options.setRetryEnabled,
 			emit: (event) => {
 				for (const listener of this.retryListeners) listener(event);
 			},
 		});
-		this.turnExecutor = new CodingAgentGreenfieldTurnExecutor({
+		this.turnExecutor = createCodingAgentTurnExecutor({
 			sessionHost: options.activeSessionHost,
 			retryController: this.retryController,
 			commandHost: options.extensionSessionHost,
@@ -86,12 +88,12 @@ export class GreenfieldAgentSessionHost {
 		return this.options.activeSessionHost.subscribeExecutionObservations(listener);
 	}
 
-	subscribeRetryEvents(listener: (event: CodingAgentGreenfieldTurnRetryEvent) => void): () => void {
+	subscribeRetryEvents(listener: (event: CodingAgentTurnRetryEvent) => void): () => void {
 		this.retryListeners.add(listener);
 		return () => this.retryListeners.delete(listener);
 	}
 
-	initializeExtensions(input: CodingAgentGreenfieldExtensionInitialization): Promise<void> {
+	initializeExtensions(input: CodingAgentRuntimeExtensionInitialization): Promise<void> {
 		return this.options.extensionSessionHost.initialize(input);
 	}
 

@@ -90,7 +90,10 @@ export function findLayeredBuildOrderViolations(packageConfigs, layers, manifest
 		for (const [dependencyName, range] of Object.entries(productionDependencies)) {
 			if (typeof range !== "string" || !range.startsWith("workspace:")) continue;
 			const dependencyKey = keysByPackageName.get(dependencyName);
-			if (!dependencyKey) continue;
+			if (!dependencyKey) {
+				violations.push(`${key} workspace dependency ${dependencyName} is missing from package configs`);
+				continue;
+			}
 			const dependencyLayer = layerByKey.get(dependencyKey);
 			if (dependencyLayer !== undefined && dependencyLayer < consumerLayer) continue;
 			violations.push(`${key} is not in a later build layer than its workspace dependency ${dependencyKey}`);

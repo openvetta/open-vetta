@@ -1,8 +1,8 @@
 import { dirname, resolve } from "node:path";
 import {
-	type CodingAgentLegacySessionMigrationIncompatible,
-	migrateCodingAgentLegacySession,
-} from "@vetta/coding-agent/runtime-host";
+	type CodingAgentHistoricalSessionMigrationIncompatible,
+	migrateCodingAgentHistoricalSession,
+} from "@vetta/coding-agent/historical-sessions";
 import type {
 	RuntimeHostSessionAssembly,
 	RuntimeHostSessionBackend,
@@ -10,7 +10,7 @@ import type {
 } from "@vetta/runtime-core";
 
 export class DesktopLegacySessionCompatibilityError extends Error {
-	constructor(readonly incompatibility: CodingAgentLegacySessionMigrationIncompatible) {
+	constructor(readonly incompatibility: CodingAgentHistoricalSessionMigrationIncompatible) {
 		super(`${incompatibility.errorCode}: Legacy session cannot be resumed safely`);
 		this.name = "DesktopLegacySessionCompatibilityError";
 	}
@@ -24,7 +24,7 @@ export class DesktopLegacySessionMigrationBackend implements RuntimeHostSessionB
 		const sourcePath = request.sessionPath?.trim();
 		if (!sourcePath) throw new Error("Legacy session migration requires a source path");
 		const targetRootDir = resolve(request.sessionDir ?? dirname(sourcePath));
-		const migration = await migrateCodingAgentLegacySession(sourcePath, targetRootDir);
+		const migration = await migrateCodingAgentHistoricalSession(sourcePath, targetRootDir);
 		if (migration.kind === "session-incompatible") {
 			throw new DesktopLegacySessionCompatibilityError(migration);
 		}

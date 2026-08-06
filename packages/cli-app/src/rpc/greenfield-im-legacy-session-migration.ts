@@ -1,6 +1,6 @@
 export {
-	type CodingAgentLegacySessionMigration as GreenfieldImLegacySessionMigration,
-	type CodingAgentLegacySessionMigrationIncompatible as GreenfieldImLegacySessionMigrationIncompatible,
-	type CodingAgentLegacySessionMigrationSuccess as GreenfieldImLegacySessionMigrationSuccess,
-	migrateCodingAgentLegacySession as migrateGreenfieldImLegacySession,
-} from "@vetta/coding-agent/runtime-host";
+	type CodingAgentHistoricalSessionMigration as GreenfieldImLegacySessionMigration,
+	type CodingAgentHistoricalSessionMigrationIncompatible as GreenfieldImLegacySessionMigrationIncompatible,
+	type CodingAgentHistoricalSessionMigrationSuccess as GreenfieldImLegacySessionMigrationSuccess,
+	migrateCodingAgentHistoricalSession as migrateGreenfieldImLegacySession,
+} from "@vetta/coding-agent/historical-sessions";

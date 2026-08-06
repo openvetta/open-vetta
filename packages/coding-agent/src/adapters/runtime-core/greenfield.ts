@@ -18,11 +18,6 @@ export {
 } from "../../memory/index.js";
 export type { CodingAgentModelRuntime } from "../../models/index.js";
 export {
-	CODING_AGENT_LEGACY_AGENT_MESSAGE_CONTEXT_TYPE,
-	normalizeCodingAgentLegacySessionEntry,
-	restoreCodingAgentLegacyAgentMessageEntry,
-} from "../../sessions/legacy/index.js";
-export {
 	type CodingAgentMcpRuntimeToolSourceOptions,
 	createCodingAgentMcpRuntimeToolSource,
 	decorateCodingAgentMcpRuntimeTool,

@@ -25,8 +25,20 @@ export interface CodingAgentGreenfieldTurnRetryControllerOptions {
 	readonly emit: (event: CodingAgentGreenfieldTurnRetryEvent) => void;
 }
 
+export interface CodingAgentGreenfieldTurnRetryControllerPort {
+	readonly retryAttempt: number;
+	readonly isRetrying: boolean;
+	setAutoRetryEnabled(enabled: boolean): void;
+	abortRetry(): void;
+	run<T>(
+		executeInitial: () => Promise<T>,
+		executeRetry: () => Promise<T>,
+		readFailure: (result: T) => string | undefined,
+	): Promise<T>;
+}
+
 /** Greenfield Turn 级重试编排；不依赖 RPC transport 或具体 Session 实现。 */
-export class CodingAgentGreenfieldTurnRetryController {
+export class CodingAgentGreenfieldTurnRetryController implements CodingAgentGreenfieldTurnRetryControllerPort {
 	private abortController: AbortController | undefined;
 	private attempt = 0;
 

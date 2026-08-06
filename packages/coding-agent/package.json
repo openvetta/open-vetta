@@ -21,6 +21,10 @@
 			"types": "./dist/public-api/host-services.d.ts",
 			"import": "./dist/public-api/host-services.js"
 		},
+		"./historical-sessions": {
+			"types": "./dist/public-api/historical-sessions.d.ts",
+			"import": "./dist/public-api/historical-sessions.js"
+		},
 		"./bootstrap": {
 			"types": "./dist/public-api/bootstrap.d.ts",
 			"import": "./dist/public-api/bootstrap.js"
@@ -64,6 +68,10 @@
 		"./rpc": {
 			"types": "./dist/public-api/rpc.d.ts",
 			"import": "./dist/public-api/rpc.js"
+		},
+		"./runtime": {
+			"types": "./dist/public-api/runtime.d.ts",
+			"import": "./dist/public-api/runtime.js"
 		},
 		"./sdk": {
 			"types": "./dist/public-api/sdk.d.ts",

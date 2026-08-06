@@ -9,7 +9,13 @@ import { runCodingAgentCliControl } from "../src/public-api/cli-control.js";
 import { createCodingAgentHtmlExportRuntime } from "../src/public-api/export-html.js";
 import { ExtensionRunner } from "../src/public-api/extensions.js";
 import {
+	createCodingAgentHistoricalSessionCatalog,
+	createCodingAgentHistoricalSessionFileHistoryReader,
+	migrateCodingAgentHistoricalSession,
+} from "../src/public-api/historical-sessions.js";
+import {
 	createCodingAgentModelRuntime,
+	createCodingAgentSharedModelController,
 	AuthStorage as HostAuthStorage,
 	SettingsRuntime as HostSettingsRuntime,
 } from "../src/public-api/host-services.js";
@@ -21,6 +27,11 @@ import {
 	GREENFIELD_IM_RPC_PROFILE,
 	runRpcModeWithCapabilities,
 } from "../src/public-api/rpc.js";
+import {
+	createCodingAgentRuntimeExtensionCommandHost,
+	createCodingAgentSessionCapabilityHost,
+	createCodingAgentTurnExecutor,
+} from "../src/public-api/runtime.js";
 import { createCodingAgentSession } from "../src/public-api/sdk.js";
 import { SettingsRuntime } from "../src/public-api/settings.js";
 
@@ -40,11 +51,18 @@ describe("coding-agent public subpaths", () => {
 		expect(createExtensionEventBus).toBe(root.createEventBus);
 		expect(HostAuthStorage).toBe(root.AuthStorage);
 		expect(createCodingAgentModelRuntime).toBeTypeOf("function");
+		expect(createCodingAgentSharedModelController).toBeTypeOf("function");
 		expect(Reflect.has(root, "ModelRegistry")).toBe(false);
 		expect(HostSettingsRuntime).toBe(SettingsRuntime);
 		expect(ExtensionRunner).toBe(root.ExtensionRunner);
 		expect(runCodingAgentCliControl).toBeTypeOf("function");
 		expect(createCodingAgentHtmlExportRuntime).toBeTypeOf("function");
+		expect(createCodingAgentHistoricalSessionCatalog).toBeTypeOf("function");
+		expect(createCodingAgentHistoricalSessionFileHistoryReader).toBeTypeOf("function");
+		expect(migrateCodingAgentHistoricalSession).toBeTypeOf("function");
+		expect(createCodingAgentRuntimeExtensionCommandHost).toBeTypeOf("function");
+		expect(createCodingAgentSessionCapabilityHost).toBeTypeOf("function");
+		expect(createCodingAgentTurnExecutor).toBeTypeOf("function");
 		expect(createCodingAgentSession).toBeTypeOf("function");
 		expect(Reflect.has(root, "createAgentSession")).toBe(false);
 		expect(Reflect.has(root, "SettingsRuntime")).toBe(false);
@@ -91,6 +109,10 @@ describe("coding-agent public subpaths", () => {
 				types: "./dist/public-api/host-services.d.ts",
 				import: "./dist/public-api/host-services.js",
 			},
+			"./historical-sessions": {
+				types: "./dist/public-api/historical-sessions.d.ts",
+				import: "./dist/public-api/historical-sessions.js",
+			},
 			"./profile": {
 				types: "./dist/public-api/profile.d.ts",
 				import: "./dist/public-api/profile.js",
@@ -102,6 +124,10 @@ describe("coding-agent public subpaths", () => {
 			"./resources": {
 				types: "./dist/public-api/resources.d.ts",
 				import: "./dist/public-api/resources.js",
+			},
+			"./runtime": {
+				types: "./dist/public-api/runtime.d.ts",
+				import: "./dist/public-api/runtime.js",
 			},
 			"./rpc": {
 				types: "./dist/public-api/rpc.d.ts",

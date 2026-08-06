@@ -11,6 +11,9 @@ export default defineConfig({
 			"@vetta/coding-agent/host-services": fileURLToPath(
 				new URL("../coding-agent/src/public-api/host-services.ts", import.meta.url),
 			),
+			"@vetta/coding-agent/historical-sessions": fileURLToPath(
+				new URL("../coding-agent/src/public-api/historical-sessions.ts", import.meta.url),
+			),
 			"@vetta/coding-agent/runtime-host": fileURLToPath(
 				new URL("../coding-agent/src/adapters/runtime-core/index.ts", import.meta.url),
 			),

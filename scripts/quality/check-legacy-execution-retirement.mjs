@@ -26,10 +26,13 @@ export const LEGACY_FORMAT_BOUNDARY_GROUPS = Object.freeze({
 	]),
 	hostAdapters: Object.freeze([
 		"packages/cli-app/src/rpc/cli-session-format-compatibility.ts",
+		"packages/cli-app/src/rpc/greenfield-im-legacy-session-migration.ts",
+		"packages/cli-app/src/session-compatibility-error.ts",
 		"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-session-format-compatibility.ts",
 		"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-session-migration-backend.ts",
 	]),
 	moduleEntries: Object.freeze([`${LEGACY_FORMAT_DOMAIN_PREFIX}index.ts`]),
+	publicEntries: Object.freeze(["packages/coding-agent/src/public-api/historical-sessions.ts"]),
 });
 
 export const RETAINED_LEGACY_FORMAT_BOUNDARIES = Object.freeze(Object.values(LEGACY_FORMAT_BOUNDARY_GROUPS).flat());
@@ -56,6 +59,20 @@ export const GREENFIELD_PRODUCT_CORE_EDGE_BUDGET = Object.freeze({
 
 const PUBLIC_CODING_AGENT_SDK_FORBIDDEN_NAMES =
 	/\b(?:(?:Greenfield|Legacy)[A-Za-z0-9_]*|ModelRegistry|ResourceLoader|SessionManager|SettingsManager)\b/;
+
+const EXTERNAL_RUNTIME_HOST_SPECIFIER = "@vetta/coding-agent/runtime-host";
+const EXTERNAL_CONCRETE_RUNTIME_ADAPTER_NAMES = new Set([
+	"CodingAgentGreenfieldBranchNavigationHost",
+	"CodingAgentGreenfieldExtensionCommandHost",
+	"CodingAgentGreenfieldExtensionEventHost",
+	"CodingAgentGreenfieldExtensionObservationAdapter",
+	"CodingAgentGreenfieldResourceReloadHost",
+	"CodingAgentGreenfieldSessionCapabilityHost",
+	"CodingAgentGreenfieldTurnExecutor",
+	"CodingAgentGreenfieldTurnRetryController",
+	"createCodingAgentGreenfieldExtensionCommandActions",
+	"projectCodingAgentGreenfieldMessages",
+]);
 
 export const RETIRED_LEGACY_EXECUTION_FILES = Object.freeze([
 	"packages/coding-agent/src/core/agent-session.ts",
@@ -296,6 +313,34 @@ export function findRetiredLegacySessionTestImportViolations(files) {
 		.map((file) => `${file.path}: test imports a retired Legacy Session implementation`);
 }
 
+export function collectExternalRuntimeHostEdges(files) {
+	return collectExternalRuntimeModuleEdges(files).filter(
+		(edge) =>
+			edge.specifier === EXTERNAL_RUNTIME_HOST_SPECIFIER ||
+			edge.specifier.startsWith(`${EXTERNAL_RUNTIME_HOST_SPECIFIER}/`),
+	);
+}
+
+export function collectExternalConcreteRuntimeAdapterImports(files) {
+	return collectExternalRuntimeModuleEdges(files).flatMap((edge) =>
+		edge.names
+			.filter((name) => EXTERNAL_CONCRETE_RUNTIME_ADAPTER_NAMES.has(name))
+			.map((name) => ({ path: edge.path, specifier: edge.specifier, name })),
+	);
+}
+
+export function findRuntimePublicBoundaryViolations(files) {
+	return [
+		...collectExternalRuntimeHostEdges(files).map(
+			(edge) =>
+				`${edge.path}: external Runtime host must use @vetta/coding-agent/runtime or @vetta/coding-agent/host-services (${edge.specifier})`,
+		),
+		...collectExternalConcreteRuntimeAdapterImports(files).map(
+			(edge) => `${edge.path}: external Runtime host imports concrete adapter (${edge.name} from ${edge.specifier})`,
+		),
+	];
+}
+
 function collectDeclaredModuleSpecifiers(path, text) {
 	const sourceFile = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, scriptKind(path));
 	const specifiers = [];
@@ -448,6 +493,14 @@ function collectModuleEdges(path, text) {
 	return edges;
 }
 
+function collectExternalRuntimeModuleEdges(files) {
+	return files
+		.filter(
+			(file) => file.path.startsWith("packages/cli-app/src/") || file.path.startsWith("packages/desktop-app/src/"),
+		)
+		.flatMap((file) => collectModuleEdges(file.path, file.text));
+}
+
 function collectImportNames(clause) {
 	if (!clause) return [];
 	const names = [];
@@ -557,14 +610,17 @@ if (isDirectRun(import.meta.url)) {
 	});
 	violations.push(...findGreenfieldProductCoreBoundaryViolations(files));
 	violations.push(...findGreenfieldSdkBoundaryViolations(files));
+	violations.push(...findRuntimePublicBoundaryViolations(files));
 	violations.push(...findRetiredLegacySessionTestImportViolations(readCodingAgentTests()));
 	if (violations.length > 0) {
 		for (const violation of violations) fail(`[legacy-execution] ${violation}`);
 	} else {
 		const productCoreEdges = collectGreenfieldProductCoreEdges(files);
 		const productCoreSummary = summarizeGreenfieldProductCoreEdges(productCoreEdges);
+		const externalRuntimeHostEdges = collectExternalRuntimeHostEdges(files);
+		const externalConcreteRuntimeAdapters = collectExternalConcreteRuntimeAdapterImports(files);
 		ok(
-			`[legacy-execution] ok (${LEGACY_EXECUTION_EDGE_BASELINE.length} execution edge(s), 0 native setup migration edge(s), ${RETAINED_LEGACY_FORMAT_BOUNDARIES.length} retained format boundary(s): readers=${LEGACY_FORMAT_BOUNDARY_GROUPS.readers.length}, migrations=${LEGACY_FORMAT_BOUNDARY_GROUPS.migrations.length}, host=${LEGACY_FORMAT_BOUNDARY_GROUPS.hostAdapters.length}, entries=${LEGACY_FORMAT_BOUNDARY_GROUPS.moduleEntries.length}, unclassified=0, data-mutations=${LEGACY_SESSION_DATA_MUTATION_BASELINE.reduce((total, item) => total + item.count, 0)}; ${productCoreEdges.length} Greenfield product-core edge(s): adapter=${productCoreSummary["product-adapter"]}, composition=${productCoreSummary["composition-wiring"]}, rpc=${productCoreSummary["rpc-host-adapter"]}, sdk=${productCoreSummary["sdk-compatibility"]})`,
+			`[legacy-execution] ok (${LEGACY_EXECUTION_EDGE_BASELINE.length} execution edge(s), 0 native setup migration edge(s), ${RETAINED_LEGACY_FORMAT_BOUNDARIES.length} retained format boundary(s): readers=${LEGACY_FORMAT_BOUNDARY_GROUPS.readers.length}, migrations=${LEGACY_FORMAT_BOUNDARY_GROUPS.migrations.length}, host=${LEGACY_FORMAT_BOUNDARY_GROUPS.hostAdapters.length}, entries=${LEGACY_FORMAT_BOUNDARY_GROUPS.moduleEntries.length}, public=${LEGACY_FORMAT_BOUNDARY_GROUPS.publicEntries.length}, unclassified=0, data-mutations=${LEGACY_SESSION_DATA_MUTATION_BASELINE.reduce((total, item) => total + item.count, 0)}; ${productCoreEdges.length} Greenfield product-core edge(s): adapter=${productCoreSummary["product-adapter"]}, composition=${productCoreSummary["composition-wiring"]}, rpc=${productCoreSummary["rpc-host-adapter"]}, sdk=${productCoreSummary["sdk-compatibility"]}; ${externalRuntimeHostEdges.length} external runtime-host edge(s), ${externalConcreteRuntimeAdapters.length} external concrete Runtime adapter import(s))`,
 		);
 	}
 }

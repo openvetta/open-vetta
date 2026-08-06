@@ -1,6 +1,6 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
+import { hostname } from "node:os";
 import { join } from "node:path";
-import { acquireLegacySessionFormatLease } from "@vetta/coding-agent/runtime-host";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { migrateGreenfieldImLegacySession } from "../src/rpc/greenfield-im-legacy-session-migration.js";
 import {
@@ -37,8 +37,12 @@ describe("Legacy session fallback narrowing", () => {
 	it("reports a startup ownership conflict instead of retrying a locked Legacy source on Legacy Runtime", async () => {
 		const fixture = await createFixture();
 		const sourcePath = await writeLegacySession(fixture, "locked source");
-		const held = acquireLegacySessionFormatLease(sourcePath);
-		if (held.kind !== "acquired") throw new Error("Expected test lease");
+		const lockPath = `${sourcePath}.lock`;
+		await writeFile(
+			lockPath,
+			JSON.stringify({ pid: process.pid, hostname: hostname(), openedAt: new Date().toISOString() }),
+			"utf8",
+		);
 
 		try {
 			const childProcess = startRpc(fixture, ["--session", sourcePath]);
@@ -61,7 +65,7 @@ describe("Legacy session fallback narrowing", () => {
 			expect(childProcess.stderr).not.toContain("fallback=legacy-session");
 			expect(childProcess.stderr).not.toContain("effective=legacy");
 		} finally {
-			held.lease.release();
+			await rm(lockPath, { force: true });
 		}
 	});
 

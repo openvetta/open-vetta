@@ -17,22 +17,6 @@ export {
 } from "../../memory/index.js";
 export type { CodingAgentModelRuntime } from "../../models/index.js";
 export {
-	acquireLegacySessionFormatLease,
-	CODING_AGENT_LEGACY_AGENT_MESSAGE_CONTEXT_TYPE,
-	LegacyRuntimeSessionCatalog,
-	LegacyRuntimeSessionFileHistoryReader,
-	type LegacySessionFormatLeaseResult,
-	normalizeCodingAgentLegacySessionEntry,
-	restoreCodingAgentLegacyAgentMessageEntry,
-} from "../../sessions/legacy/index.js";
-export {
-	type CodingAgentLegacySessionIncompatibilityCode,
-	type CodingAgentLegacySessionMigration,
-	type CodingAgentLegacySessionMigrationIncompatible,
-	type CodingAgentLegacySessionMigrationSuccess,
-	migrateCodingAgentLegacySession,
-} from "../../sessions/legacy/migration.js";
-export {
 	ASSISTANT_TURN_TIMING_TYPE,
 	branchFromFileEntries,
 	type EntriesToHistoryOptions,

@@ -1,9 +1,25 @@
 /**
  * Coding Agent 的宿主侧状态服务适配器。
  *
- * Greenfield Runtime 只通过窄 Port 消费这些资源；Desktop Composition Root
+ * Runtime 只通过窄 Port 消费这些资源；Desktop Composition Root
  * 可以在进程边界创建并持有具体实现。
  */
+import type { RuntimeSharedModelController } from "@vetta/runtime-core";
+import {
+	type CodingAgentMcpRuntimeToolSourceOptions,
+	createCodingAgentMcpRuntimeToolSource,
+} from "../adapters/runtime-core/coding-agent-mcp-runtime-source.js";
+import type { CodingAgentRuntimeModelSource } from "../adapters/runtime-core/greenfield-model-runtime-adapter.js";
+import {
+	type CodingAgentPluginMcpCompositionOptions,
+	type CodingAgentPluginMcpRuntimeOptions,
+	type CodingAgentPluginMcpToolSurface,
+	createCodingAgentPluginMcpRuntime,
+} from "../adapters/runtime-core/greenfield-plugin-mcp-runtime.js";
+import {
+	CodingAgentSharedModelController,
+	type CodingAgentSharedModelSource,
+} from "../adapters/runtime-core/shared-model-controller.js";
 import { AuthStorage, type CodingAgentAuthRuntime, createCodingAgentAuthRuntime } from "../auth/index.js";
 import { type CodingAgentHtmlExportRuntime, createCodingAgentHtmlExportRuntime } from "../export-html/index.js";
 import { createCodingAgentHostFromSessionFactory } from "../host/coding-agent-host.js";
@@ -17,12 +33,30 @@ export {
 	AuthStorage,
 	createCodingAgentAuthRuntime,
 	createCodingAgentHtmlExportRuntime,
+	createCodingAgentMcpRuntimeToolSource,
 	createCodingAgentModelRuntime,
+	createCodingAgentPluginMcpRuntime,
 	createHostBashExecutor,
 	SettingsRuntime,
 };
 export type { HostBashExecutor } from "../host/command-execution/index.js";
-export type { CodingAgentAuthRuntime, CodingAgentHtmlExportRuntime, CodingAgentModelRuntime };
+export type {
+	CodingAgentAuthRuntime,
+	CodingAgentHtmlExportRuntime,
+	CodingAgentMcpRuntimeToolSourceOptions,
+	CodingAgentModelRuntime,
+	CodingAgentPluginMcpCompositionOptions,
+	CodingAgentPluginMcpRuntimeOptions,
+	CodingAgentPluginMcpToolSurface,
+	CodingAgentRuntimeModelSource,
+	CodingAgentSharedModelSource,
+};
+
+export function createCodingAgentSharedModelController(
+	models: CodingAgentSharedModelSource,
+): RuntimeSharedModelController {
+	return new CodingAgentSharedModelController(models);
+}
 
 export interface CreateCodingAgentHostWithServicesOptions {
 	readonly authStorage?: CodingAgentAuthRuntime;

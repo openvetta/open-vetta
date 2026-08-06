@@ -1,10 +1,10 @@
 import { join } from "node:path";
 import { getAgentDir } from "@vetta/coding-agent/config";
 import {
-	CodingAgentSharedModelController,
 	createCodingAgentMcpRuntimeToolSource,
 	createCodingAgentPluginMcpRuntime,
-} from "@vetta/coding-agent/runtime-host";
+	createCodingAgentSharedModelController,
+} from "@vetta/coding-agent/host-services";
 import {
 	FileConversationRuntimeSessionFileHistoryReader,
 	type RuntimeConversationSessionRoot,
@@ -153,7 +153,7 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 					},
 				},
 			]),
-			sharedModelController: new CodingAgentSharedModelController(modelRuntime),
+			sharedModelController: createCodingAgentSharedModelController(modelRuntime),
 			userQuestionHandler,
 		}),
 	};

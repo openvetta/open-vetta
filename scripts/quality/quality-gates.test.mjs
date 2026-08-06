@@ -471,15 +471,21 @@ describe("package boundary analysis", () => {
 		expect(
 			findPackageBoundaryViolations(
 				"packages/desktop-app/src/main/greenfield-runtime/desktop-legacy-session-format-compatibility.ts",
-				'import { LegacyRuntimeSessionCatalog } from "@vetta/coding-agent/runtime-host";',
+				'import { createCodingAgentHistoricalSessionCatalog } from "@vetta/coding-agent/historical-sessions";',
 			),
 		).toEqual([]);
 		expect(
 			findPackageBoundaryViolations(
 				"packages/cli-app/src/rpc/cli-session-format-compatibility.ts",
-				'import { LegacyRuntimeSessionCatalog } from "@vetta/coding-agent/runtime-host";',
+				'import { createCodingAgentHistoricalSessionCatalog } from "@vetta/coding-agent/historical-sessions";',
 			),
 		).toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/desktop-app/src/main/new-consumer.ts",
+				'import { createCodingAgentHistoricalSessionCatalog } from "@vetta/coding-agent/historical-sessions";',
+			),
+		).toHaveLength(1);
 		expect(
 			findPackageBoundaryViolations(
 				"packages/desktop-app/src/main/new-consumer.ts",
@@ -506,6 +512,18 @@ describe("package boundary analysis", () => {
 		).toHaveLength(1);
 		expect(
 			findPackageBoundaryViolations(
+				"packages/coding-agent/src/adapters/runtime-core/index.ts",
+				'export { LegacyRuntimeSessionCatalog } from "../../sessions/legacy/index.js";',
+			),
+		).toHaveLength(2);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/coding-agent/src/public-api/historical-sessions.ts",
+				'import { LegacyRuntimeSessionCatalog } from "../sessions/legacy/catalog.js";',
+			),
+		).toEqual([]);
+		expect(
+			findPackageBoundaryViolations(
 				"packages/coding-agent/src/sessions/legacy/catalog.ts",
 				'import { createAgentSession } from "../../../core/sdk.js";',
 			),
@@ -521,7 +539,7 @@ describe("package boundary analysis", () => {
 				"packages/coding-agent/src/adapters/runtime-core/composition.ts",
 				"export function createLegacyRuntimeHostOptions() {}",
 			),
-		).toEqual([]);
+		).toHaveLength(1);
 	});
 
 	it("keeps the Greenfield active-session transaction host independent from Legacy session construction", () => {

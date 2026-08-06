@@ -3,10 +3,7 @@ import type { Message } from "@vetta/ai";
 import type { RuntimeMessageEnvelope } from "@vetta/runtime-core";
 import type { ConversationDocument, ConversationDocumentEntry } from "@vetta/runtime-core/conversation";
 import { describe, expect, it } from "vitest";
-import {
-	CodingAgentGreenfieldAgentMessageContextProjector,
-	normalizeCodingAgentLegacySessionEntry,
-} from "../../src/adapters/runtime-core/greenfield.js";
+import { CodingAgentGreenfieldAgentMessageContextProjector } from "../../src/adapters/runtime-core/greenfield.js";
 import {
 	COMPACTION_SUMMARY_PREFIX,
 	COMPACTION_SUMMARY_SUFFIX,
@@ -14,6 +11,7 @@ import {
 	PROMPT_RESOURCE_REFERENCE_TYPE,
 } from "../../src/model-context/index.js";
 import { type CodingAgentSessionEntry, projectCodingAgentSessionDocumentEntry } from "../../src/sessions/index.js";
+import { normalizeCodingAgentLegacySessionEntry } from "../../src/sessions/legacy/entry-normalizer.js";
 
 describe("Coding Agent Legacy session import normalizer", () => {
 	it("uses the same Conversation projection policy for native and historical entries", () => {

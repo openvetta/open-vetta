@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+	collectExternalConcreteRuntimeAdapterImports,
+	collectExternalRuntimeHostEdges,
 	collectGreenfieldProductCoreEdges,
 	collectGreenfieldSharedCoreImports,
 	collectLegacySessionDataMutations,
@@ -10,6 +12,7 @@ import {
 	findLegacyFormatBoundaryClassificationViolations,
 	findLegacySessionCompatibilityShimViolations,
 	findRetiredLegacySessionTestImportViolations,
+	findRuntimePublicBoundaryViolations,
 	GREENFIELD_PRODUCT_CORE_EDGE_BUDGET,
 	LEGACY_EXECUTION_EDGE_BASELINE,
 	LEGACY_FORMAT_BOUNDARY_GROUPS,
@@ -107,6 +110,26 @@ describe("Legacy execution retirement gate", () => {
 		).toEqual([]);
 	});
 
+	it("keeps external hosts on the stable Runtime public boundary", () => {
+		const oldHostImport = {
+			path: "packages/cli-app/src/example.ts",
+			text: 'import { createHost } from "@vetta/coding-agent/runtime-host/greenfield";',
+		};
+		const concreteAdapterImport = {
+			path: "packages/desktop-app/src/main/example.ts",
+			text: 'import { CodingAgentGreenfieldTurnExecutor } from "@vetta/coding-agent/composition";',
+		};
+		const stableRuntimeImport = {
+			path: "packages/cli-app/src/stable.ts",
+			text: 'import { createCodingAgentTurnExecutor } from "@vetta/coding-agent/runtime";',
+		};
+
+		expect(collectExternalRuntimeHostEdges([oldHostImport])).toHaveLength(1);
+		expect(collectExternalConcreteRuntimeAdapterImports([concreteAdapterImport])).toHaveLength(1);
+		expect(findRuntimePublicBoundaryViolations([oldHostImport, concreteAdapterImport])).toHaveLength(2);
+		expect(findRuntimePublicBoundaryViolations([stableRuntimeImport])).toEqual([]);
+	});
+
 	it("keeps retained Legacy format readers independent from execution", () => {
 		const violations = findLegacyExecutionRetirementViolations([
 			{
@@ -125,6 +148,7 @@ describe("Legacy execution retirement gate", () => {
 			migrations: expect.any(Array),
 			hostAdapters: expect.any(Array),
 			moduleEntries: expect.any(Array),
+			publicEntries: expect.any(Array),
 		});
 		expect(
 			findLegacyFormatBoundaryClassificationViolations([

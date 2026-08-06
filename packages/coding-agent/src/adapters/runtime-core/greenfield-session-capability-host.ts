@@ -22,6 +22,7 @@ import type {
 import { projectCodingAgentGreenfieldMessages } from "./greenfield-agent-message-context-projector.js";
 import {
 	CodingAgentGreenfieldTurnRetryController,
+	type CodingAgentGreenfieldTurnRetryControllerPort,
 	type CodingAgentGreenfieldTurnRetrySettings,
 } from "./greenfield-turn-retry-controller.js";
 
@@ -44,7 +45,7 @@ export interface CodingAgentGreenfieldSessionCapabilityHostOptions {
 	readonly scopedModels?: readonly GreenfieldSdkScopedModel[];
 	readonly initialAgentMode?: string;
 	readonly settings?: CodingAgentGreenfieldSessionCapabilitySettings;
-	readonly retryController?: CodingAgentGreenfieldTurnRetryController;
+	readonly retryController?: CodingAgentGreenfieldTurnRetryControllerPort;
 	readonly reconfigureCustomTools?: (customTools: readonly GreenfieldSdkCustomToolDefinition[] | undefined) => void;
 	readonly beforePrompt?: () => Promise<void> | void;
 	readonly readSystemPrompt?: () => string;
@@ -63,7 +64,7 @@ export interface CodingAgentGreenfieldSessionCapabilityHostOptions {
 export class CodingAgentGreenfieldSessionCapabilityHost implements GreenfieldSdkSessionCapabilityPort {
 	private scopedModels: GreenfieldSdkScopedModel[];
 	private agentMode: string | undefined;
-	private readonly retryController: CodingAgentGreenfieldTurnRetryController | undefined;
+	private readonly retryController: CodingAgentGreenfieldTurnRetryControllerPort | undefined;
 	private readonly retryListeners = new Set<(event: GreenfieldSdkRetryEvent) => void>();
 
 	constructor(private readonly options: CodingAgentGreenfieldSessionCapabilityHostOptions) {
