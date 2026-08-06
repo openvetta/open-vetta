@@ -7,16 +7,14 @@ import { classifyAgentCliIntent } from "./agent-cli-intent.js";
 import { ExtensionCompatibilityError } from "./extension-compatibility-error.js";
 import { createCliRuntimeSessionCatalog } from "./rpc/cli-session-format-compatibility.js";
 import {
-	type GreenfieldImFallbackReason,
+	type GreenfieldRpcFallbackReason,
 	prepareGreenfieldImRuntimeHost,
-	runGreenfieldImRuntimeHost,
-} from "./rpc/greenfield-im-runtime-host.js";
-import {
 	prepareGreenfieldPrintRuntimeHost,
 	prepareGreenfieldRpcRuntimeHost,
+	runGreenfieldImRuntimeHost,
 	runGreenfieldPrintRuntimeHost,
 	runGreenfieldRpcRuntimeHost,
-} from "./rpc/greenfield-rpc-runtime-host.js";
+} from "./rpc/runtime-host/greenfield-runtime-host.js";
 import { SessionCompatibilityError } from "./session-compatibility-error.js";
 
 export type AgentRuntimeBackend = "legacy" | "greenfield" | "greenfield-im";
@@ -28,7 +26,7 @@ export interface AgentRuntimeSelection {
 }
 
 export interface AgentRuntimeDecision extends RpcRuntimeDecision {
-	readonly fallbackReason?: GreenfieldImFallbackReason;
+	readonly fallbackReason?: GreenfieldRpcFallbackReason;
 }
 
 export interface AgentRuntimeExtensionFallbackDiagnostics {

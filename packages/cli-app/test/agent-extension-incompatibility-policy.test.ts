@@ -28,14 +28,11 @@ vi.mock("../src/rpc/cli-session-format-compatibility.js", () => ({
 	createCliRuntimeSessionCatalog: () => ({}),
 }));
 
-vi.mock("../src/rpc/greenfield-im-runtime-host.js", () => ({
+vi.mock("../src/rpc/runtime-host/greenfield-runtime-host.js", () => ({
 	prepareGreenfieldImRuntimeHost: runtimeMocks.prepareIm,
-	runGreenfieldImRuntimeHost: runtimeMocks.runGreenfieldIm,
-}));
-
-vi.mock("../src/rpc/greenfield-rpc-runtime-host.js", () => ({
 	prepareGreenfieldPrintRuntimeHost: runtimeMocks.preparePrint,
 	prepareGreenfieldRpcRuntimeHost: runtimeMocks.prepareRpc,
+	runGreenfieldImRuntimeHost: runtimeMocks.runGreenfieldIm,
 	runGreenfieldPrintRuntimeHost: runtimeMocks.runGreenfieldPrint,
 	runGreenfieldRpcRuntimeHost: runtimeMocks.runGreenfieldRpc,
 }));

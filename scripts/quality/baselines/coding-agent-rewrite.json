@@ -1,5 +1,5 @@
 {
-	"version": 8,
+	"version": 9,
 	"oldImplementationEdges": [],
 	"runtimeBackedges": [],
 	"oldImplementationFiles": [],
@@ -19,5 +19,9 @@
 	"desktopCliCompositionEdges": [],
 	"retiredCliSessionHostFiles": [],
 	"retiredCliSessionHostReferences": [],
-	"codingAgentSessionHostProtocolReferences": []
+	"codingAgentSessionHostProtocolReferences": [],
+	"retiredCliRuntimeHostFiles": [],
+	"retiredCliRuntimeHostReferences": [],
+	"runtimeHostEntryOwnershipReferences": [],
+	"cliSessionAssemblyProtocolReferences": []
 }

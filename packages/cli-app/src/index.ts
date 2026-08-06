@@ -13,18 +13,19 @@ export {
 	GreenfieldImRpcSessionAdapter,
 	type GreenfieldImRpcSessionAdapterOptions,
 } from "./rpc/greenfield-im-rpc-session-adapter.js";
+export { installRpcStdoutGuard, type RpcStdoutGuard } from "./rpc/rpc-stdout-guard.js";
 export {
 	type CreateGreenfieldImRuntimeHostOptions,
 	createGreenfieldImRuntimeHost,
 	GREENFIELD_IM_EXTENSION_EVENT_PROFILE,
-	type GreenfieldImFallbackReason,
-	type GreenfieldImRuntimeHostExtensionIncompatible,
-	type GreenfieldImRuntimeHostFallback,
-	type GreenfieldImRuntimeHostPreparation,
-	type GreenfieldImRuntimeHostReady,
-	type PrepareGreenfieldImRuntimeHostOptions,
+	type GreenfieldRpcFallbackReason,
+	type GreenfieldRpcRuntimeHostExtensionIncompatible,
+	type GreenfieldRpcRuntimeHostFallback,
+	type GreenfieldRpcRuntimeHostPreparation,
+	type GreenfieldRpcRuntimeHostReady,
+	type GreenfieldRpcRuntimeHostSessionIncompatible,
+	type PrepareGreenfieldRuntimeHostOptions,
 	prepareGreenfieldImRuntimeHost,
 	runGreenfieldImRuntimeHost,
-} from "./rpc/greenfield-im-runtime-host.js";
-export { installRpcStdoutGuard, type RpcStdoutGuard } from "./rpc/rpc-stdout-guard.js";
+} from "./rpc/runtime-host/greenfield-runtime-host.js";
 export { runCli } from "./run-cli.js";

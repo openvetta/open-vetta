@@ -8,12 +8,12 @@ import { CONVERSATION_STORAGE_ERROR_CODES } from "@vetta/runtime-storage/convers
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createCliRuntimeSessionCatalog } from "../src/rpc/cli-session-format-compatibility.js";
 import {
-	type GreenfieldImRuntimeHostReady,
+	type GreenfieldRpcRuntimeHostReady,
 	prepareGreenfieldImRuntimeHost,
-} from "../src/rpc/greenfield-im-runtime-host.js";
+} from "../src/rpc/runtime-host/greenfield-runtime-host.js";
 
 const temporaryDirectories: string[] = [];
-const preparedHosts: GreenfieldImRuntimeHostReady[] = [];
+const preparedHosts: GreenfieldRpcRuntimeHostReady[] = [];
 
 afterEach(async () => {
 	for (const prepared of preparedHosts.splice(0).reverse()) await prepared.capabilities.dispose();
@@ -613,7 +613,7 @@ function extensionLifecycleGlobal(): typeof globalThis & {
 	return globalThis;
 }
 
-async function initialize(result: GreenfieldImRuntimeHostReady): Promise<void> {
+async function initialize(result: GreenfieldRpcRuntimeHostReady): Promise<void> {
 	await result.capabilities.initialize({
 		uiContext: {} as RpcSessionInitialization["uiContext"],
 		hostBridge: { sendAttachment: vi.fn(async () => ({})) },

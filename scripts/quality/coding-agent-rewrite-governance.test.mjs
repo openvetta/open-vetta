@@ -245,6 +245,36 @@ describe("Coding Agent rewrite progress gate", () => {
 		});
 	});
 
+	it("keeps the CLI Runtime Host split into orchestration, assembly and protocol capabilities", () => {
+		const actual = stateFrom([
+			{
+				path: "packages/cli-app/src/rpc/greenfield-im-runtime-host.ts",
+				text: "export type GreenfieldImRuntimeHostReady = {};",
+			},
+			{
+				path: "packages/cli-app/src/rpc/runtime-host/greenfield-runtime-host.ts",
+				text: "const sessionHost = new CodingAgentProcessSessionHost({});",
+			},
+			{
+				path: "packages/cli-app/src/rpc/runtime-host/greenfield-cli-session-assembly.ts",
+				text: "const capabilities: RpcSessionCapabilities = session;",
+			},
+		]);
+
+		expect(findCodingAgentRewriteProgressViolations(actual, actual)).toEqual([
+			"packages/cli-app/src/rpc/greenfield-im-runtime-host.ts: retired CLI Runtime Host file must stay deleted",
+			"packages/cli-app/src/rpc/greenfield-im-runtime-host.ts:1: retired CLI Runtime Host reference (GreenfieldImRuntimeHostReady)",
+			"packages/cli-app/src/rpc/runtime-host/greenfield-runtime-host.ts:1: CLI Runtime Host entry owns extracted runtime resources (new CodingAgentProcessSessionHost)",
+			"packages/cli-app/src/rpc/runtime-host/greenfield-cli-session-assembly.ts:1: CLI Session assembly depends on protocol capabilities (RpcSessionCapabilities)",
+		]);
+		expect(summarizeCodingAgentRewriteState(actual)).toMatchObject({
+			retiredCliRuntimeHostFiles: 1,
+			retiredCliRuntimeHostReferences: 1,
+			runtimeHostEntryOwnershipReferences: 1,
+			cliSessionAssemblyProtocolReferences: 1,
+		});
+	});
+
 	it("rejects new edges, accepts an exact baseline and reports stale entries after removal", () => {
 		const baseline = stateFrom([
 			{
