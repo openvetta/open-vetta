@@ -28,7 +28,6 @@ export const workspacePackages = {
 	"runtime-tools": { dir: "packages/runtime-tools" },
 	"runtime-storage": { dir: "packages/runtime-storage" },
 	"runtime-mcp": { dir: "packages/runtime-mcp" },
-	"runtime-composition": { dir: "packages/runtime-composition" },
 	"cli-app": { dir: "packages/cli-app" },
 };
 
@@ -50,7 +49,6 @@ export const workspaceLayers = [
 	["runtime-mcp"],
 	["runtime-tools", "runtime-storage"],
 	["coding-agent"],
-	["runtime-composition"],
 	["cli-app"],
 ];
 

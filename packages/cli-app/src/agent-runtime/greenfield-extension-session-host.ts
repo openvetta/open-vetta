@@ -1,3 +1,7 @@
+import type {
+	CodingAgentGreenfieldPreparedSessionBinding,
+	CodingAgentGreenfieldSessionTransition,
+} from "@vetta/coding-agent/composition";
 import {
 	type CodingAgentRuntimeExtensionCommandContextActions,
 	type CodingAgentRuntimeExtensionCommandHost,
@@ -6,10 +10,6 @@ import {
 	createCodingAgentRuntimeExtensionCommandHost,
 } from "@vetta/coding-agent/runtime";
 import { type GreenfieldRuntimeSession, InitializationRollbackScope, RetryableCleanup } from "@vetta/runtime-core";
-import type {
-	CodingAgentGreenfieldPreparedSessionBinding,
-	CodingAgentGreenfieldSessionTransition,
-} from "../greenfield-runtime-composition.js";
 
 type GreenfieldExtensionEventHostFactory = (
 	session: GreenfieldRuntimeSession,

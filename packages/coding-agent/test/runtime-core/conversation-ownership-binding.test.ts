@@ -1,6 +1,6 @@
 import type { ConversationOwnershipLease, ConversationOwnershipManager } from "@vetta/runtime-storage/conversation";
 import { describe, expect, it } from "vitest";
-import { ConversationOwnershipBinding } from "../src/conversation-ownership-binding.js";
+import { ConversationOwnershipBinding } from "../../src/composition/conversation-ownership-binding.js";
 
 describe("ConversationOwnershipBinding", () => {
 	it("acquires the rollover target before releasing the source", async () => {

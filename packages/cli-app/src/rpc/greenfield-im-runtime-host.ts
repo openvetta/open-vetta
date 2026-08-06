@@ -11,6 +11,15 @@ import {
 	resolveCodingAgentInitialModel,
 	runPrintMode,
 } from "@vetta/coding-agent/bootstrap";
+import {
+	CodingAgentGreenfieldActiveSessionHost,
+	createCodingAgentSessionSetupSeedInitializer,
+	createGreenfieldRuntimeComposition,
+	type GreenfieldCliSessionOptions,
+	type GreenfieldRuntimeComposition,
+	type GreenfieldRuntimeCompositionOptions,
+	resolveGreenfieldSessionIdFromPath,
+} from "@vetta/coding-agent/composition";
 import { getVettaHomePath } from "@vetta/coding-agent/config";
 import type { CodingAgentHtmlExportRuntime } from "@vetta/coding-agent/export-html";
 import {
@@ -47,15 +56,6 @@ import {
 import { GreenfieldAgentSessionHost } from "../agent-runtime/greenfield-agent-session-host.js";
 import { GreenfieldExtensionSessionHost } from "../agent-runtime/greenfield-extension-session-host.js";
 import { GreenfieldPrintSessionAdapter } from "../greenfield-print-session-adapter.js";
-import {
-	CodingAgentGreenfieldActiveSessionHost,
-	createCodingAgentSessionSetupSeedInitializer,
-	createGreenfieldRuntimeComposition,
-	type GreenfieldCliSessionOptions,
-	type GreenfieldRuntimeComposition,
-	type GreenfieldRuntimeCompositionOptions,
-} from "../greenfield-runtime-composition.js";
-import { resolveGreenfieldSessionIdFromPath } from "./greenfield-conversation-path.js";
 import {
 	type GreenfieldImLegacySessionMigration,
 	type GreenfieldImLegacySessionMigrationIncompatible,

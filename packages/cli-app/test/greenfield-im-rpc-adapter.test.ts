@@ -1,10 +1,9 @@
 import { join } from "node:path";
+import { type GreenfieldRuntimeComposition, resolveGreenfieldSessionIdFromPath } from "@vetta/coding-agent/composition";
 import type { RpcSessionInitialization, RpcSessionState } from "@vetta/coding-agent/rpc";
 import type { GreenfieldRuntimeSession, GreenfieldRuntimeSessionCoreAssembly, SessionEvent } from "@vetta/runtime-core";
 import type { CodingToolRegistration } from "@vetta/runtime-tools/coding";
 import { describe, expect, test, vi } from "vitest";
-import type { GreenfieldRuntimeComposition } from "../src/greenfield-runtime-composition.js";
-import { resolveGreenfieldSessionIdFromPath } from "../src/rpc/greenfield-conversation-path.js";
 import { GreenfieldImRpcEventAdapter } from "../src/rpc/greenfield-im-rpc-events.js";
 import { GreenfieldImRpcSessionAdapter } from "../src/rpc/greenfield-im-rpc-session-adapter.js";
 

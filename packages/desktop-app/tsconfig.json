@@ -56,8 +56,6 @@
 			"@vetta/runtime-mcp/*": ["../runtime-mcp/src/*"],
 			"@vetta/runtime-knowledge": ["../runtime-knowledge/src/index.ts"],
 			"@vetta/runtime-knowledge/*": ["../runtime-knowledge/src/*"],
-			"@vetta/runtime-composition": ["../runtime-composition/src/index.ts"],
-			"@vetta/runtime-composition/*": ["../runtime-composition/src/*"],
 			"@vetta/runtime-storage": ["../runtime-storage/src/index.ts"],
 			"@vetta/runtime-storage/*": ["../runtime-storage/src/*"],
 			"@vetta/runtime-subagents": ["../runtime-subagents/src/index.ts"],

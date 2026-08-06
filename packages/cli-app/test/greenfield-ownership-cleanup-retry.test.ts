@@ -2,10 +2,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, Model } from "@vetta/ai";
+import { createGreenfieldRuntimeComposition } from "@vetta/coding-agent/composition";
 import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/host-services";
 import type { ConversationOwnershipManager } from "@vetta/runtime-storage/conversation";
 import { describe, expect, it } from "vitest";
-import { createGreenfieldRuntimeComposition } from "../src/greenfield-runtime-composition.js";
 
 describe("Greenfield ownership cleanup retry", () => {
 	it("releases failed initialization ownership before the same Session is started again", async () => {

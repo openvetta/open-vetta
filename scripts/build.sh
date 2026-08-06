@@ -80,12 +80,7 @@ build_layer4() {
   build_pkg packages/coding-agent
 }
 
-# ── Layer 5: forwarding package ──
-build_layer5() {
-  build_pkg packages/runtime-composition
-}
-
-# ── Layer 6: apps ──
+# ── Layer 5: apps ──
 build_apps() {
   build_pkg packages/cli-app
   build_pkg packages/desktop-app
@@ -113,9 +108,8 @@ build_libs() {
   build_layer0
   build_layer1
   build_layer2
-  build_layer3
-  build_layer4
-  build_layer5
+	build_layer3
+	build_layer4
 }
 
 build_all() {

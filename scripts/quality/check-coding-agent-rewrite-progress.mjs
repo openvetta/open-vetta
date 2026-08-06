@@ -13,6 +13,29 @@ import { fail, isDirectRun, ok, readText, rel, repoRoot, toPosix, walkFiles } fr
 export const REWRITE_BASELINE_PATH = "scripts/quality/baselines/coding-agent-rewrite.json";
 
 const OLD_CORE_PREFIX = "packages/coding-agent/src/core/";
+const RETIRED_RUNTIME_COMPOSITION_PREFIX = "packages/runtime-composition/";
+const RETIRED_RUNTIME_COMPOSITION_MARKER = "@vetta/runtime-composition";
+const RETIRED_CLI_COMPOSITION_FORWARDERS = Object.freeze([
+	"packages/cli-app/src/conversation-ownership-binding.ts",
+	"packages/cli-app/src/greenfield-runtime-composition.ts",
+	"packages/cli-app/src/greenfield-runtime-host-session-backend.ts",
+	"packages/cli-app/src/greenfield-session-execution-runtime.ts",
+	"packages/cli-app/src/greenfield-session-peripherals.ts",
+	"packages/cli-app/src/greenfield-subagent-child.ts",
+	"packages/cli-app/src/greenfield-subagent-runtime.ts",
+	"packages/cli-app/src/greenfield-subagent-state-persistence.ts",
+	"packages/cli-app/src/rpc/greenfield-conversation-path.ts",
+	"packages/cli-app/src/runtime-tools-composition.ts",
+]);
+const CLI_COMPOSITION_TYPE_NAMES = new Set([
+	"CodingAgentGreenfieldActiveSessionHost",
+	"CodingToolsRuntimeComposition",
+	"GreenfieldCliSessionOptions",
+	"GreenfieldRuntimeComposition",
+	"GreenfieldRuntimeCompositionOptions",
+	"GreenfieldRuntimeHostSessionBackend",
+	"resolveGreenfieldSessionIdFromPath",
+]);
 const STABLE_EXTENSION_CONTRACT_PREFIX = "packages/coding-agent/src/extensions/";
 const STABLE_RESOURCE_DOMAIN_PREFIX = "packages/coding-agent/src/resources/";
 const STABLE_EXTENSION_CONTRACT_AGGREGATE = `${STABLE_EXTENSION_CONTRACT_PREFIX}contracts.ts`;
@@ -133,9 +156,39 @@ export function collectCodingAgentRewriteState({
 			(left, right) =>
 				left.path.localeCompare(right.path) || left.line - right.line || left.marker.localeCompare(right.marker),
 		);
+	const retiredRuntimeCompositionFiles = governedFiles
+		.map((file) => file.path)
+		.filter((path) => path.startsWith(RETIRED_RUNTIME_COMPOSITION_PREFIX))
+		.sort();
+	const retiredRuntimeCompositionReferences = governedFiles
+		.flatMap((file) => collectForbiddenReferences(file, [RETIRED_RUNTIME_COMPOSITION_MARKER]))
+		.sort(
+			(left, right) =>
+				left.path.localeCompare(right.path) || left.line - right.line || left.marker.localeCompare(right.marker),
+		);
+	const cliCompositionForwarders = productionFiles
+		.map((file) => file.path)
+		.filter((path) => RETIRED_CLI_COMPOSITION_FORWARDERS.includes(path))
+		.sort();
+	const cliCompositionPublicEdges = moduleEdges
+		.filter(
+			(edge) =>
+				edge.path === "packages/cli-app/src/index.ts" && edge.specifier === "@vetta/coding-agent/composition",
+		)
+		.map(toBaselineEdge)
+		.sort(compareRecords);
+	const desktopCliCompositionEdges = moduleEdges
+		.filter(
+			(edge) =>
+				edge.path.startsWith("packages/desktop-app/src/") &&
+				edge.specifier === "@vetta/cli-app" &&
+				edge.names.some((name) => CLI_COMPOSITION_TYPE_NAMES.has(name)),
+		)
+		.map(toBaselineEdge)
+		.sort(compareRecords);
 
 	return Object.freeze({
-		version: 6,
+		version: 7,
 		oldImplementationEdges,
 		runtimeBackedges,
 		oldImplementationFiles,
@@ -148,6 +201,11 @@ export function collectCodingAgentRewriteState({
 		legacyHtmlExportReferences,
 		legacyMemoryReferences,
 		retiredToolReferences,
+		retiredRuntimeCompositionFiles,
+		retiredRuntimeCompositionReferences,
+		cliCompositionForwarders,
+		cliCompositionPublicEdges,
+		desktopCliCompositionEdges,
 	});
 }
 
@@ -179,6 +237,23 @@ export function findCodingAgentRewriteProgressViolations(actual, baseline) {
 		violations.push(
 			`${reference.path}:${reference.line}: retired Tool implementation reference (${reference.marker})`,
 		);
+	}
+	for (const path of actual.retiredRuntimeCompositionFiles) {
+		violations.push(`${path}: retired runtime-composition package file must stay deleted`);
+	}
+	for (const reference of actual.retiredRuntimeCompositionReferences) {
+		violations.push(
+			`${reference.path}:${reference.line}: retired runtime-composition reference (${reference.marker})`,
+		);
+	}
+	for (const path of actual.cliCompositionForwarders) {
+		violations.push(`${path}: retired CLI composition forwarding module must stay deleted`);
+	}
+	for (const edge of actual.cliCompositionPublicEdges) {
+		violations.push(`${edge.path}: CLI public API must not re-export Coding Agent composition`);
+	}
+	for (const edge of actual.desktopCliCompositionEdges) {
+		violations.push(`${edge.path}: Desktop must import Coding Agent composition contracts from their owner`);
 	}
 	if (baseline.version !== actual.version) {
 		violations.push(`rewrite baseline version differs (${baseline.version} !== ${actual.version})`);
@@ -240,6 +315,11 @@ export function summarizeCodingAgentRewriteState(state) {
 		legacyHtmlExportReferences: state.legacyHtmlExportReferences.length,
 		legacyMemoryReferences: state.legacyMemoryReferences.length,
 		retiredToolReferences: state.retiredToolReferences.length,
+		retiredRuntimeCompositionFiles: state.retiredRuntimeCompositionFiles.length,
+		retiredRuntimeCompositionReferences: state.retiredRuntimeCompositionReferences.length,
+		cliCompositionForwarders: state.cliCompositionForwarders.length,
+		cliCompositionPublicEdges: state.cliCompositionPublicEdges.length,
+		desktopCliCompositionEdges: state.desktopCliCompositionEdges.length,
 		retainedFormatBoundaries: RETAINED_LEGACY_FORMAT_BOUNDARIES.length,
 		formatBoundaryOldImplementationEdges: state.oldImplementationEdges.filter((edge) =>
 			formatBoundarySet.has(edge.path),
@@ -420,6 +500,7 @@ function readCurrentState() {
 			text: readText(filePath),
 		})),
 		{ path: rel(codingAgentPackagePath), text: codingAgentPackageText },
+		...readGovernedConfigurationFiles(),
 		{
 			path: "scripts/build-binaries.sh",
 			text: readText(join(repoRoot, "scripts/build-binaries.sh")),
@@ -431,6 +512,20 @@ function readCurrentState() {
 		codingAgentPackageJson,
 		governedFiles,
 	});
+}
+
+function readGovernedConfigurationFiles() {
+	return [
+		"package.json",
+		"tsconfig.json",
+		"scripts/build.sh",
+		"packages/cli-app/package.json",
+		"packages/cli-app/vitest.config.ts",
+		"packages/desktop-app/package.json",
+		"packages/desktop-app/tsconfig.json",
+		"packages/desktop-app/vitest.config.ts",
+		"packages/desktop-app/scripts/build-workspace-prereqs.mjs",
+	].map((path) => ({ path, text: readText(join(repoRoot, path)) }));
 }
 
 function readSourceFiles(relativePath) {
@@ -462,7 +557,7 @@ if (isDirectRun(import.meta.url)) {
 					.map(([domain, count]) => `${domain}=${count}`)
 					.join(", ");
 				ok(
-					`[coding-agent-rewrite] ok (old implementation edges=${summary.oldImplementationEdges}/0, Runtime backedges=${summary.runtimeBackedges}/0, old files=${summary.oldImplementationFiles}/0, compatibility exports=${summary.compatibilityExports}/0, legacy core exports=${summary.legacyCoreExports}/0, Runtime Host exports=${summary.runtimeHostExports}/0, legacy examples=${summary.legacyExampleImports}/0, Legacy HTML export references=${summary.legacyHtmlExportReferences}/0, Legacy Memory references=${summary.legacyMemoryReferences}/0, retired Tool references=${summary.retiredToolReferences}/0, retained format boundaries=${summary.retainedFormatBoundaries}, format-to-old edges=${summary.formatBoundaryOldImplementationEdges}/0; domains: ${domains || "none"})`,
+					`[coding-agent-rewrite] ok (old implementation edges=${summary.oldImplementationEdges}/0, Runtime backedges=${summary.runtimeBackedges}/0, old files=${summary.oldImplementationFiles}/0, compatibility exports=${summary.compatibilityExports}/0, legacy core exports=${summary.legacyCoreExports}/0, Runtime Host exports=${summary.runtimeHostExports}/0, legacy examples=${summary.legacyExampleImports}/0, Legacy HTML export references=${summary.legacyHtmlExportReferences}/0, Legacy Memory references=${summary.legacyMemoryReferences}/0, retired Tool references=${summary.retiredToolReferences}/0, retired runtime-composition files=${summary.retiredRuntimeCompositionFiles}/0, references=${summary.retiredRuntimeCompositionReferences}/0, CLI composition forwarders=${summary.cliCompositionForwarders}/0, CLI public composition edges=${summary.cliCompositionPublicEdges}/0, Desktop-to-CLI composition edges=${summary.desktopCliCompositionEdges}/0, retained format boundaries=${summary.retainedFormatBoundaries}, format-to-old edges=${summary.formatBoundaryOldImplementationEdges}/0; domains: ${domains || "none"})`,
 				);
 			}
 		}

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
 	GreenfieldBackgroundWorkController,
 	GreenfieldSessionConfigurationState,
-} from "../src/greenfield-session-peripherals.js";
+} from "../../src/composition/greenfield-session-peripherals.js";
 
 describe("Greenfield session peripherals", () => {
 	it("shares mutable agent and plugin configuration while binding queue modes to the Kernel session", async () => {

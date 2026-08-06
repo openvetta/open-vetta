@@ -30,7 +30,6 @@ const LIB_PREFIXES = [
 	"packages/runtime-storage/",
 	"packages/runtime-mcp/",
 	"packages/runtime-telemetry/",
-	"packages/runtime-composition/",
 	"packages/action-rpc/",
 	"packages/toolkit/",
 	"packages/theme-sdk/",
@@ -43,7 +42,6 @@ const LIB_PREFIXES = [
 
 const MANIFEST_TRUTH_PACKAGE_NAMES = new Set([
 	"@vetta/coding-agent",
-	"@vetta/runtime-composition",
 	"@vetta/runtime-knowledge",
 	"@vetta/runtime-storage",
 	"@vetta/runtime-tools",
@@ -97,6 +95,19 @@ const RETIRED_CODING_AGENT_TOOL_EXPORTS = new Set([
 	"shellTool",
 	"treeTool",
 	"writeTool",
+]);
+
+const RETIRED_CLI_COMPOSITION_FORWARDERS = new Set([
+	"packages/cli-app/src/conversation-ownership-binding.ts",
+	"packages/cli-app/src/greenfield-runtime-composition.ts",
+	"packages/cli-app/src/greenfield-runtime-host-session-backend.ts",
+	"packages/cli-app/src/greenfield-session-execution-runtime.ts",
+	"packages/cli-app/src/greenfield-session-peripherals.ts",
+	"packages/cli-app/src/greenfield-subagent-child.ts",
+	"packages/cli-app/src/greenfield-subagent-runtime.ts",
+	"packages/cli-app/src/greenfield-subagent-state-persistence.ts",
+	"packages/cli-app/src/rpc/greenfield-conversation-path.ts",
+	"packages/cli-app/src/runtime-tools-composition.ts",
 ]);
 
 const RETIRED_CODING_AGENT_RUNTIME_HOST = "@vetta/coding-agent/runtime-host";
@@ -299,8 +310,7 @@ function checkGreenfieldRuntimeImports(posixPath, specifiers, findings) {
 function checkGreenfieldLegacyStartupSymbols(posixPath, text, findings) {
 	const isGreenfieldProductModule =
 		posixPath.startsWith("packages/cli-app/src/rpc/greenfield") ||
-		posixPath.startsWith("packages/coding-agent/src/composition/") ||
-		posixPath.startsWith("packages/runtime-composition/src/");
+		posixPath.startsWith("packages/coding-agent/src/composition/");
 	if (!isGreenfieldProductModule) return;
 
 	const sourceFile = ts.createSourceFile(posixPath, text, ts.ScriptTarget.Latest, true, scriptKind(posixPath));
@@ -851,19 +861,27 @@ function checkRetiredAutomaticLegacyFallback(posixPath, text, findings) {
 	}
 }
 
-function checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings) {
-	if (!posixPath.startsWith("packages/runtime-composition/src/")) return;
-	if (
-		posixPath !== "packages/runtime-composition/src/index.ts" &&
-		posixPath !== "packages/runtime-composition/src/artifact-manifest.ts"
-	) {
-		findings.push(`${posixPath}: runtime-composition is a compatibility facade and must not own implementations`);
-		return;
+function checkRetiredCompositionBoundaries(posixPath, text, specifiers, findings) {
+	if (posixPath.startsWith("packages/runtime-composition/")) {
+		findings.push(`${posixPath}: retired runtime-composition package must stay deleted`);
 	}
-	if (posixPath !== "packages/runtime-composition/src/index.ts") return;
-	for (const specifier of specifiers) {
-		if (specifier === "@vetta/coding-agent/composition" || specifier === "./artifact-manifest.js") continue;
-		findings.push(`${posixPath}: runtime-composition may only forward coding-agent composition (${specifier})`);
+	if (text.includes("@vetta/runtime-composition")) {
+		findings.push(`${posixPath}: retired @vetta/runtime-composition reference must stay deleted`);
+	}
+	if (RETIRED_CLI_COMPOSITION_FORWARDERS.has(posixPath)) {
+		findings.push(`${posixPath}: retired CLI composition forwarding module must stay deleted`);
+	}
+	if (posixPath === "packages/cli-app/src/index.ts" && specifiers.includes("@vetta/coding-agent/composition")) {
+		findings.push(`${posixPath}: CLI public API must not re-export Coding Agent composition`);
+	}
+	if (
+		posixPath.startsWith("packages/desktop-app/src/") &&
+		specifiers.includes("@vetta/cli-app") &&
+		/\b(?:CodingAgentGreenfieldActiveSessionHost|CodingToolsRuntimeComposition|GreenfieldCliSessionOptions|GreenfieldRuntimeComposition(?:Options)?|GreenfieldRuntimeHostSessionBackend|resolveGreenfieldSessionIdFromPath)\b/.test(
+			text,
+		)
+	) {
+		findings.push(`${posixPath}: Desktop must import Coding Agent composition contracts from their owner`);
 	}
 }
 
@@ -1148,7 +1166,7 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 	checkGreenfieldChildCompositionPolicyBoundary(posixPath, text, findings);
 	checkGreenfieldRuntimeHostControlSurfaceBoundary(posixPath, text, findings);
 	checkRetiredAutomaticLegacyFallback(posixPath, text, findings);
-	checkRuntimeCompositionCompatibilityFacade(posixPath, specifiers, findings);
+	checkRetiredCompositionBoundaries(posixPath, text, specifiers, findings);
 	checkCodingAgentRootImports(posixPath, specifiers, findings);
 	checkCodingAgentToolPublicSurfaceBoundary(posixPath, text, findings);
 	checkRetiredCodingAgentKnowledgeSurface(posixPath, specifiers, findings);
@@ -1163,9 +1181,22 @@ export function findPackageBoundaryViolations(posixPath, text, options = {}) {
 }
 
 export function findPackageManifestBoundaryViolations(manifest) {
-	if (manifest?.name !== "@vetta/coding-agent") return [];
-	const exports = manifest.exports ?? {};
 	const findings = [];
+	if (!manifest) return findings;
+	if (manifest.name === "@vetta/runtime-composition") {
+		findings.push("packages/runtime-composition/package.json: retired package must stay deleted");
+	}
+	const dependencyGroups = [
+		manifest.dependencies,
+		manifest.devDependencies,
+		manifest.optionalDependencies,
+		manifest.peerDependencies,
+	];
+	if (dependencyGroups.some((dependencies) => Object.hasOwn(dependencies ?? {}, "@vetta/runtime-composition"))) {
+		findings.push(`${manifest.name ?? "workspace package"}: retired @vetta/runtime-composition dependency`);
+	}
+	if (manifest.name !== "@vetta/coding-agent") return findings;
+	const exports = manifest.exports ?? {};
 	if (Object.hasOwn(exports, "./knowledge")) {
 		findings.push("packages/coding-agent/package.json: retired ./knowledge export must stay deleted");
 	}
@@ -1194,7 +1225,6 @@ const roots = [
 	join(repoRoot, "packages/runtime-storage"),
 	join(repoRoot, "packages/runtime-mcp"),
 	join(repoRoot, "packages/runtime-telemetry"),
-	join(repoRoot, "packages/runtime-composition"),
 	join(repoRoot, "packages/action-rpc"),
 	join(repoRoot, "packages/toolkit"),
 	join(repoRoot, "packages/theme-sdk"),

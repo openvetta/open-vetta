@@ -4,7 +4,6 @@ export {
 	createCodingAgentSessionSetupSeedInitializer,
 	initializeCodingAgentSessionSetupSeed,
 } from "../sessions/setup/session-setup-seed-initializer.js";
-export { ConversationOwnershipBinding } from "./conversation-ownership-binding.js";
 export {
 	CodingAgentGreenfieldActiveSessionHost,
 	type CodingAgentGreenfieldActiveSessionHostOptions,
@@ -38,33 +37,6 @@ export {
 	GreenfieldRuntimeHostSessionBackend,
 	type GreenfieldRuntimeHostSessionBackendOptions,
 } from "./greenfield-runtime-host-session-backend.js";
-export {
-	GreenfieldSessionExecutionRuntime,
-	type GreenfieldSessionExecutionRuntimeOptions,
-} from "./greenfield-session-execution-runtime.js";
-export {
-	type GreenfieldAgentPluginReconfiguration,
-	GreenfieldBackgroundWorkController,
-	GreenfieldSessionConfigurationState,
-	type GreenfieldSubagentWorkRuntime,
-} from "./greenfield-session-peripherals.js";
-export {
-	createGreenfieldSubagentChildHandle,
-	type GreenfieldSubagentChildHandleOptions,
-	readTodoProgress,
-} from "./greenfield-subagent-child.js";
-export {
-	GREENFIELD_SUBAGENT_TYPE_EXPLORER,
-	GREENFIELD_SUBAGENT_TYPE_WORKFLOW,
-	type GreenfieldSubagentProfile,
-	GreenfieldSubagentRuntime,
-	type GreenfieldSubagentRuntimeOptions,
-} from "./greenfield-subagent-runtime.js";
-export {
-	GREENFIELD_SUBAGENT_STATE_CUSTOM_TYPE,
-	GreenfieldSubagentStatePersistence,
-	type GreenfieldSubagentStatePersistenceOptions,
-} from "./greenfield-subagent-state-persistence.js";
 export type {
 	KnowledgeProcessingPageWriter,
 	KnowledgeProcessingSession,

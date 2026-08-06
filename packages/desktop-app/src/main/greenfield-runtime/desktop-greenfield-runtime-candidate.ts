@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import type { GreenfieldCliSessionOptions, GreenfieldRuntimeCompositionOptions } from "@vetta/cli-app";
+import type { GreenfieldCliSessionOptions, GreenfieldRuntimeCompositionOptions } from "@vetta/coding-agent/composition";
 import { FileConversationRuntimeSessionCatalog } from "@vetta/runtime-storage/conversation";
 import {
 	type AgentPluginContinuationInvoker,

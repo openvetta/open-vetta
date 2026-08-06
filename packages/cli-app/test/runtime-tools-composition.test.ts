@@ -1,6 +1,6 @@
+import { createCodingToolsRuntimeComposition } from "@vetta/coding-agent/composition";
 import { ALL_SCENARIOS } from "@vetta/coding-agent/profile";
 import { describe, expect, it } from "vitest";
-import { createCodingToolsRuntimeComposition } from "../src/runtime-tools-composition.js";
 import { legacyRuntimeContract } from "./support/legacy-runtime-contract.js";
 
 function modelCallContext(signal = new AbortController().signal) {

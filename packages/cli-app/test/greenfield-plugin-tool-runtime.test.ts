@@ -9,13 +9,10 @@ import {
 	type Message,
 	type Model,
 } from "@vetta/ai";
+import { createGreenfieldRuntimeComposition, type GreenfieldRuntimeComposition } from "@vetta/coding-agent/composition";
 import { type EcosystemHookEvent, emptyHookDispatchOutcome } from "@vetta/coding-agent/hooks";
 import type { CodingAgentPluginRuntimeSource, CodingAgentRuntimeModelSource } from "@vetta/coding-agent/host-services";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-	createGreenfieldRuntimeComposition,
-	type GreenfieldRuntimeComposition,
-} from "../src/greenfield-runtime-composition.js";
 
 describe("Greenfield Plugin Tool runtime composition", () => {
 	const temporaryDirectories: string[] = [];

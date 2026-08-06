@@ -1,3 +1,7 @@
+import type {
+	CodingAgentGreenfieldActiveSessionHost,
+	GreenfieldRuntimeComposition,
+} from "@vetta/coding-agent/composition";
 import {
 	type CodingAgentRuntimeExtensionInitialization,
 	type CodingAgentTurnExecutor,
@@ -14,10 +18,6 @@ import {
 	type SessionEvent,
 } from "@vetta/runtime-core";
 import type { ManagedMcpRuntimeToolSource } from "@vetta/runtime-mcp";
-import type {
-	CodingAgentGreenfieldActiveSessionHost,
-	GreenfieldRuntimeComposition,
-} from "../greenfield-runtime-composition.js";
 import type { GreenfieldExtensionSessionHost } from "./greenfield-extension-session-host.js";
 
 export interface GreenfieldAgentSessionHostOptions {

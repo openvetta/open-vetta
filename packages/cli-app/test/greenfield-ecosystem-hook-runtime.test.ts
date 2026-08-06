@@ -9,16 +9,16 @@ import {
 	type Message,
 	type Model,
 } from "@vetta/ai";
-import { type EcosystemHookEvent, emptyHookDispatchOutcome, type HookDispatchOutcome } from "@vetta/coding-agent/hooks";
-import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/host-services";
-import type { GreenfieldRuntimeSession, RuntimeSessionCatalog } from "@vetta/runtime-core";
-import { afterEach, describe, expect, it } from "vitest";
 import {
 	CodingAgentGreenfieldActiveSessionHost,
 	type CodingAgentGreenfieldSessionTransitionLifecycle,
 	createGreenfieldRuntimeComposition,
 	type GreenfieldRuntimeComposition,
-} from "../src/greenfield-runtime-composition.js";
+} from "@vetta/coding-agent/composition";
+import { type EcosystemHookEvent, emptyHookDispatchOutcome, type HookDispatchOutcome } from "@vetta/coding-agent/hooks";
+import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/host-services";
+import type { GreenfieldRuntimeSession, RuntimeSessionCatalog } from "@vetta/runtime-core";
+import { afterEach, describe, expect, it } from "vitest";
 
 describe("Greenfield Session-local Ecosystem Hook Runtime", () => {
 	const temporaryDirectories: string[] = [];

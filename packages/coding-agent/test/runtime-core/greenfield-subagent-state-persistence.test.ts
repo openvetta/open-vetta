@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
 	GREENFIELD_SUBAGENT_STATE_CUSTOM_TYPE,
 	GreenfieldSubagentStatePersistence,
-} from "../src/greenfield-subagent-state-persistence.js";
+} from "../../src/composition/greenfield-subagent-state-persistence.js";
 
 describe("GreenfieldSubagentStatePersistence", () => {
 	it("folds versioned state events across the parent document and rejects invalid payloads locally", async () => {

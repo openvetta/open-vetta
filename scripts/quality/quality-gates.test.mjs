@@ -204,7 +204,7 @@ describe("package boundary analysis", () => {
 				"packages/desktop-app/src/main/runtime.ts",
 				'import { createRuntime } from "@vetta/runtime-composition";',
 			),
-		).toEqual([]);
+		).toHaveLength(1);
 	});
 
 	it("keeps the greenfield runtime kernel independent from coding-agent", () => {
@@ -276,7 +276,7 @@ describe("package boundary analysis", () => {
 		).toHaveLength(1);
 		expect(
 			findPackageBoundaryViolations("packages/runtime-composition/src/greenfield-runtime-composition.ts", source),
-		).toHaveLength(2);
+		).toHaveLength(1);
 		expect(
 			findPackageBoundaryViolations(
 				"packages/coding-agent/src/composition/greenfield-runtime-composition.ts",
@@ -353,15 +353,39 @@ describe("package boundary analysis", () => {
 		).toEqual([]);
 	});
 
-	it("keeps runtime-composition as a compatibility-only forwarding package", () => {
+	it("keeps the retired runtime-composition package and CLI forwarding layer deleted", () => {
 		expect(
 			findPackageBoundaryViolations(
 				"packages/runtime-composition/src/index.ts",
 				'export * from "@vetta/coding-agent/composition";',
 			),
-		).toEqual([]);
+		).toHaveLength(1);
 		expect(
 			findPackageBoundaryViolations("packages/runtime-composition/src/new-runtime.ts", "export const runtime = {};"),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/cli-app/src/greenfield-runtime-composition.ts",
+				'export * from "@vetta/coding-agent/composition";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/cli-app/src/index.ts",
+				'export * from "@vetta/coding-agent/composition";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageBoundaryViolations(
+				"packages/desktop-app/src/main/runtime.ts",
+				'import type { GreenfieldRuntimeCompositionOptions } from "@vetta/cli-app";',
+			),
+		).toHaveLength(1);
+		expect(
+			findPackageManifestBoundaryViolations({
+				name: "@vetta/desktop-app",
+				dependencies: { "@vetta/runtime-composition": "workspace:*" },
+			}),
 		).toHaveLength(1);
 	});
 

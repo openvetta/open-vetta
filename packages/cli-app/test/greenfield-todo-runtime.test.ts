@@ -2,13 +2,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Api, type AssistantMessage, type AssistantMessageEvent, EventStream, type Model } from "@vetta/ai";
+import { createGreenfieldRuntimeComposition, type GreenfieldRuntimeComposition } from "@vetta/coding-agent/composition";
 import type { CodingAgentRuntimeModelSource } from "@vetta/coding-agent/host-services";
 import type { GreenfieldRuntimeSession, RuntimeSessionTodoController } from "@vetta/runtime-core";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-	createGreenfieldRuntimeComposition,
-	type GreenfieldRuntimeComposition,
-} from "../src/greenfield-runtime-composition.js";
 
 describe("Greenfield Todo Runtime composition", () => {
 	const directories: string[] = [];

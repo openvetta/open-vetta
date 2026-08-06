@@ -2,7 +2,7 @@ import type { RuntimeSessionObservationEvent } from "@vetta/runtime-core";
 import type { AgentSession, ModelCallContributionContext, SessionContextRecord } from "@vetta/runtime-core/kernel";
 import type { CodingToolCatalogEntry } from "@vetta/runtime-tools/coding";
 import { describe, expect, it } from "vitest";
-import { GreenfieldSessionExecutionRuntime } from "../src/greenfield-session-execution-runtime.js";
+import { GreenfieldSessionExecutionRuntime } from "../../src/composition/greenfield-session-execution-runtime.js";
 
 describe("GreenfieldSessionExecutionRuntime", () => {
 	it("switches execution mode per session and reports the real busy state", async () => {

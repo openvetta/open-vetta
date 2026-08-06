@@ -1,5 +1,5 @@
 {
-	"version": 6,
+	"version": 7,
 	"oldImplementationEdges": [],
 	"runtimeBackedges": [],
 	"oldImplementationFiles": [],
@@ -11,5 +11,10 @@
 	"oversizedStableResourceModules": [],
 	"legacyHtmlExportReferences": [],
 	"legacyMemoryReferences": [],
-	"retiredToolReferences": []
+	"retiredToolReferences": [],
+	"retiredRuntimeCompositionFiles": [],
+	"retiredRuntimeCompositionReferences": [],
+	"cliCompositionForwarders": [],
+	"cliCompositionPublicEdges": [],
+	"desktopCliCompositionEdges": []
 }

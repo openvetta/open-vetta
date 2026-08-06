@@ -1,4 +1,8 @@
 import type { CodingAgentHostBootstrap } from "@vetta/coding-agent/bootstrap";
+import type {
+	CodingAgentGreenfieldActiveSessionHost,
+	GreenfieldRuntimeComposition,
+} from "@vetta/coding-agent/composition";
 import { type CodingAgentHtmlExportRuntime, createCodingAgentHtmlExportRuntime } from "@vetta/coding-agent/export-html";
 import {
 	exportGreenfieldRpcConversation,
@@ -19,10 +23,6 @@ import {
 } from "@vetta/coding-agent/runtime";
 import { type GreenfieldRuntimeSession, type HistoryEntry, RetryableCleanup } from "@vetta/runtime-core";
 import { type CodingToolRegistration, createImSendAttachmentToolRegistration } from "@vetta/runtime-tools/coding";
-import type {
-	CodingAgentGreenfieldActiveSessionHost,
-	GreenfieldRuntimeComposition,
-} from "../greenfield-runtime-composition.js";
 import { GreenfieldRpcEventAdapter } from "./greenfield-rpc-events.js";
 
 type GreenfieldResourceLoader = Pick<CodingAgentHostBootstrap["resourceLoader"], "getPrompts" | "getSkills">;

@@ -168,6 +168,58 @@ describe("Coding Agent rewrite progress gate", () => {
 		expect(summarizeCodingAgentRewriteState(actual).retiredToolReferences).toBe(2);
 	});
 
+	it("keeps the retired composition package and forwarding dependency edges at zero", () => {
+		const actual = stateFrom([
+			{
+				path: "packages/runtime-composition/src/index.ts",
+				text: 'export * from "@vetta/coding-agent/composition";',
+			},
+			{
+				path: "packages/cli-app/src/greenfield-runtime-composition.ts",
+				text: 'export * from "@vetta/coding-agent/composition";',
+			},
+			{
+				path: "packages/cli-app/src/index.ts",
+				text: 'export { createGreenfieldRuntimeComposition } from "@vetta/coding-agent/composition";',
+			},
+			{
+				path: "packages/desktop-app/src/main/runtime.ts",
+				text: 'import type { GreenfieldRuntimeCompositionOptions } from "@vetta/cli-app";',
+			},
+		]);
+
+		expect(findCodingAgentRewriteProgressViolations(actual, actual)).toEqual([
+			"packages/runtime-composition/src/index.ts: retired runtime-composition package file must stay deleted",
+			"packages/cli-app/src/greenfield-runtime-composition.ts: retired CLI composition forwarding module must stay deleted",
+			"packages/cli-app/src/index.ts: CLI public API must not re-export Coding Agent composition",
+			"packages/desktop-app/src/main/runtime.ts: Desktop must import Coding Agent composition contracts from their owner",
+		]);
+		expect(summarizeCodingAgentRewriteState(actual)).toMatchObject({
+			retiredRuntimeCompositionFiles: 1,
+			cliCompositionForwarders: 1,
+			cliCompositionPublicEdges: 1,
+			desktopCliCompositionEdges: 1,
+		});
+	});
+
+	it("rejects retired runtime-composition dependency references outside source files", () => {
+		const actual = collectCodingAgentRewriteState({
+			productionFiles: [],
+			sdkExampleFiles: [],
+			codingAgentPackageJson: { exports: {} },
+			governedFiles: [
+				{
+					path: "packages/desktop-app/package.json",
+					text: '"@vetta/runtime-composition": "workspace:*"',
+				},
+			],
+		});
+
+		expect(findCodingAgentRewriteProgressViolations(actual, actual)).toEqual([
+			"packages/desktop-app/package.json:1: retired runtime-composition reference (@vetta/runtime-composition)",
+		]);
+	});
+
 	it("rejects new edges, accepts an exact baseline and reports stale entries after removal", () => {
 		const baseline = stateFrom([
 			{
