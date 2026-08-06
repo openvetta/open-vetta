@@ -33,6 +33,7 @@
 
 ### Changed
 
+- **CLI / Desktop / IM Greenfield 跨宿主验收门禁**：新增统一 `verify:agent-hosts`，运行 Coding Agent、CLI 与 Desktop 全量功能测试，并以规范独立 Vetta CLI 产物驱动 IM Gateway 的真实 HostClient；验收 Greenfield IM Runtime 决策、真实 `read` Tool Loop、Session 持久化、跨进程恢复和 ownership lock 释放。生产 Runtime、协议和用户可观察功能不变。
 - **Runtime Port 单一事实源闭环**：Model、Prompt、Plugin、Extension、Compaction、Tool/Todo 等 Composition 稳定 Port 现在只在 `src/runtime-contracts` 定义；Adapter 改为消费或实现这些合同，Composition 与公共 API 不再从 Adapter 获取稳定类型。原 Adapter 类型导入路径通过重导出保持兼容，所有工厂、参数、动态刷新和用户可观察行为不变，并新增常驻所有权守卫防止重复声明、跨层类型导入或实现脱离 Port。
 - **Composition 输入合同按职责拆分**：`GreenfieldRuntimeCompositionOptions` 现在由 Environment、Conversation、Model、Tool、Subagent、Prompt、Plugin、Extension、Context 和 Observability 十个职责分面组成；模型、Prompt、Plugin MCP、Todo、Extension 与 Compaction 依赖改为稳定结构 Port，公开合同不再导入具体 Runtime Adapter。现有参数名、CLI/Desktop 装配、动态 Source/Factory、Session 生命周期和用户可观察行为保持不变，并新增常驻架构守卫防止合同重新耦合 Adapter 或膨胀为单文件。
 - **旧 Session 执行闭包收口**：Session/RPC/SDK 的统计、存储意图、活动会话切换和 Extension 只读视图改为稳定合同；旧 JSONL 仅通过独立格式 Reader 供导出和迁移使用。结构耦合测试已替换为 Greenfield 行为测试，治理门禁拒绝恢复旧 Session 源码或测试导入。

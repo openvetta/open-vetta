@@ -57,6 +57,7 @@
 		"verify:ui:runtime-diff": "bun run --cwd packages/desktop-app verify:ui:runtime-diff",
 		"verify:artifact:installed": "bun run --cwd packages/cli-app verify:artifact:installed",
 		"verify:runtime-cutover": "bun run --cwd packages/cli-app verify:runtime-cutover",
+		"verify:agent-hosts": "bun scripts/verify-coding-agent-hosts.mjs",
 		"check:lint": "bunx @biomejs/biome check --error-on-warnings .",
 		"check:lint:fix": "bunx @biomejs/biome check --write --error-on-warnings .",
 		"check:types": "tsgo --noEmit && bun run --cwd packages/cli-app typecheck && bunx tsc --noEmit -p packages/desktop-app/tsconfig.json && bun run --cwd packages/admin check",

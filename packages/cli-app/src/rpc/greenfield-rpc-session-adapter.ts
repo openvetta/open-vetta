@@ -67,7 +67,7 @@ export class GreenfieldRpcSessionAdapter implements RpcSessionCapabilities {
 	readonly context;
 	readonly memory;
 	readonly retry;
-	readonly bash;
+	readonly bash: RpcSessionCapabilities["bash"];
 	readonly session;
 	readonly commands: GreenfieldCommandDiscoveryCapability;
 
