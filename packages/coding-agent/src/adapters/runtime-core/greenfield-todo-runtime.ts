@@ -12,6 +12,7 @@ import {
 	createTodoToolRegistration,
 	type TodoToolInput,
 } from "@vetta/runtime-tools/coding";
+import type { CodingAgentTodoRuntime as CodingAgentTodoRuntimePort } from "../../runtime-contracts/index.js";
 import {
 	parseTodoSnapshot,
 	TODO_SNAPSHOT_TYPE,
@@ -185,7 +186,7 @@ export class CodingAgentTodoRuntime implements GreenfieldRuntimeDocumentParticip
 }
 
 export function createCodingAgentTodoRuntimeToolRegistration(
-	runtime: CodingAgentTodoRuntime,
+	runtime: CodingAgentTodoRuntimePort,
 ): CodingToolRegistration<TodoToolInput> {
 	const registration = createTodoToolRegistration({
 		getTodoStore: () => runtime,

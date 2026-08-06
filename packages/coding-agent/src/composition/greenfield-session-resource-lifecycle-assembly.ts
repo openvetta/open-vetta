@@ -13,12 +13,14 @@ import type {
 	CodingAgentGreenfieldExtensionEventBridge,
 	CodingAgentMemoryController,
 	CodingAgentMemoryRolloverRuntime,
-	CodingAgentPluginMcpRuntime,
-	CodingAgentRuntimeToolRegistration,
-	CodingAgentTodoRuntime,
 } from "../adapters/runtime-core/greenfield.js";
 import type { CodingAgentGreenfieldConversationContextOverlay } from "../adapters/runtime-core/greenfield-conversation-context-overlay.js";
 import type { CodingAgentGreenfieldExtensionToolRuntime } from "../adapters/runtime-core/greenfield-extension-tool-runtime.js";
+import type {
+	CodingAgentPluginMcpRuntime,
+	CodingAgentRuntimeToolRegistration,
+	CodingAgentTodoRuntime,
+} from "../runtime-contracts/index.js";
 import type { GreenfieldSessionExecutionRuntime } from "./greenfield-session-execution-runtime.js";
 import type { GreenfieldSessionConfigurationState } from "./greenfield-session-peripherals.js";
 import type { GreenfieldSessionMarkerIndex, GreenfieldSessionValueIndex } from "./greenfield-session-resource-index.js";

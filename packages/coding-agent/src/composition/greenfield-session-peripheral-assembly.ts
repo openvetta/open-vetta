@@ -11,17 +11,20 @@ import { type CodingToolActivation, selectCodingToolRegistrations } from "@vetta
 import {
 	CodingAgentMemoryRolloverOrchestrator,
 	type CodingAgentMemoryRolloverRuntime,
-	type CodingAgentPluginMcpRuntime,
-	type CodingAgentPluginRuntimeSource,
-	type CodingAgentRuntimeToolRegistration,
-	CodingAgentTodoRuntime,
 	createCodingAgentAskUserQuestionRuntimeFeature,
 	createCodingAgentGreenfieldProductToolFeature,
 	createCodingAgentGreenfieldProductToolRegistrations,
 	createCodingAgentMemoryRuntimeFeature,
 	createCodingAgentTodoRuntimeFeature,
 	createCodingAgentTodoRuntimeToolRegistration,
+	CodingAgentTodoRuntime as DefaultCodingAgentTodoRuntime,
 } from "../adapters/runtime-core/greenfield.js";
+import type {
+	CodingAgentPluginMcpRuntime,
+	CodingAgentPluginRuntimeSource,
+	CodingAgentRuntimeToolRegistration,
+	CodingAgentTodoRuntime,
+} from "../runtime-contracts/index.js";
 import { createCodingAgentKnowledgeWriteOperations } from "./coding-agent-knowledge-runtime.js";
 import type { GreenfieldMcpSessionCoordinator } from "./greenfield-mcp-session-coordinator.js";
 import type { GreenfieldRuntimeSessionOptions } from "./greenfield-runtime-composition-contract.js";
@@ -186,7 +189,7 @@ export async function createGreenfieldSessionPeripheralAssembly(
 			},
 		});
 	}
-	const todoRuntime = profile.createTodoRuntime?.(sessionOptions) ?? new CodingAgentTodoRuntime();
+	const todoRuntime = profile.createTodoRuntime?.(sessionOptions) ?? new DefaultCodingAgentTodoRuntime();
 	options.trackTodoRuntime(todoRuntime);
 	options.deferRollback({
 		id: "todo-runtime",

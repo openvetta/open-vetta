@@ -9,7 +9,7 @@ import {
 	type McpRuntimeToolView,
 } from "@vetta/runtime-mcp";
 import type { CodingToolActivation } from "@vetta/runtime-tools/coding";
-import type { CodingAgentPluginMcpRuntime } from "../adapters/runtime-core/greenfield.js";
+import type { CodingAgentPluginMcpRuntime } from "../runtime-contracts/index.js";
 import type { GreenfieldSessionMarkerIndex, GreenfieldSessionValueIndex } from "./greenfield-session-resource-index.js";
 
 export interface GreenfieldMcpSessionIndexes {

@@ -11,12 +11,14 @@ import {
 	CODING_AGENT_ASK_USER_QUESTION_TOOL_NAME,
 	type CodingAgentGreenfieldContextRuntime,
 	type CodingAgentMemoryRolloverRuntime,
-	type CodingAgentPluginMcpRuntime,
-	type CodingAgentRuntimeToolRegistration,
-	type CodingAgentTodoRuntime,
 	isCodingAgentAskUserQuestionEnabled,
 } from "../adapters/runtime-core/greenfield.js";
 import type { CodingAgentGreenfieldExtensionToolRuntime } from "../adapters/runtime-core/greenfield-extension-tool-runtime.js";
+import type {
+	CodingAgentPluginMcpRuntime,
+	CodingAgentRuntimeToolRegistration,
+	CodingAgentTodoRuntime,
+} from "../runtime-contracts/index.js";
 import type { GreenfieldSessionExecutionRuntime } from "./greenfield-session-execution-runtime.js";
 import {
 	GreenfieldBackgroundWorkController,

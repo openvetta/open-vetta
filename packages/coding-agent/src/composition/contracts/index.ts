@@ -1,21 +1,21 @@
-/** Internal thin facade for Composition contract imports. */
 export type {
-	GreenfieldInitialTodoLockSource,
-	GreenfieldRuntimeComposition,
 	GreenfieldRuntimeCompositionOptions,
 	GreenfieldRuntimeContextOptions,
 	GreenfieldRuntimeConversationOptions,
 	GreenfieldRuntimeEnvironmentOptions,
-	GreenfieldRuntimeExtensionControls,
 	GreenfieldRuntimeExtensionOptions,
 	GreenfieldRuntimeModelOptions,
 	GreenfieldRuntimeObservabilityOptions,
 	GreenfieldRuntimePluginOptions,
 	GreenfieldRuntimePromptOptions,
+	GreenfieldRuntimeSubagentOptions,
+	GreenfieldRuntimeToolOptions,
+} from "./runtime-composition-options.js";
+export type {
+	GreenfieldRuntimeComposition,
+	GreenfieldRuntimeExtensionControls,
 	GreenfieldRuntimeSessionControls,
 	GreenfieldRuntimeSessionHookLifecycle,
-	GreenfieldRuntimeSessionOptions,
-	GreenfieldRuntimeSubagentOptions,
 	GreenfieldRuntimeToolAccess,
-	GreenfieldRuntimeToolOptions,
-} from "./contracts/index.js";
+} from "./runtime-composition-result.js";
+export type { GreenfieldInitialTodoLockSource, GreenfieldRuntimeSessionOptions } from "./runtime-session-options.js";

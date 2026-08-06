@@ -33,6 +33,7 @@
 
 ### Changed
 
+- **Composition 输入合同按职责拆分**：`GreenfieldRuntimeCompositionOptions` 现在由 Environment、Conversation、Model、Tool、Subagent、Prompt、Plugin、Extension、Context 和 Observability 十个职责分面组成；模型、Prompt、Plugin MCP、Todo、Extension 与 Compaction 依赖改为稳定结构 Port，公开合同不再导入具体 Runtime Adapter。现有参数名、CLI/Desktop 装配、动态 Source/Factory、Session 生命周期和用户可观察行为保持不变，并新增常驻架构守卫防止合同重新耦合 Adapter 或膨胀为单文件。
 - **旧 Session 执行闭包收口**：Session/RPC/SDK 的统计、存储意图、活动会话切换和 Extension 只读视图改为稳定合同；旧 JSONL 仅通过独立格式 Reader 供导出和迁移使用。结构耦合测试已替换为 Greenfield 行为测试，治理门禁拒绝恢复旧 Session 源码或测试导入。
 - **Session Read Model 与 Legacy 格式隔离**：新增不依赖旧 `SessionManager` 的 Session Entry/View/Writer 合同及分支、Tree、Label、模型上下文与 Compaction 纯投影；Greenfield、Extension、SDK 快照和旧 JSONL Catalog/History/Lease/setup 兼容均切换到新边界。原生持久化继续由 `runtime-storage` 持有，会话目录、历史、锁、Extension setup 和用户可观察行为保持不变。
 - **Settings 域包内重写**：全局/项目设置的读取、合并、迁移、锁定写入、局部刷新和调用方视图拆入 `src/settings` 的独立合同、Schema、Storage、State 与 View；TypeBox 只用于持久化 JSON 边界校验，未知字段和并发外部编辑继续保留。全部生产调用方已迁移到 `SettingsRuntime`，旧 1041 行 `core/settings-manager.ts` 已删除，用户设置格式和运行时行为保持不变。

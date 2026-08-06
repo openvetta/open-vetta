@@ -13,10 +13,10 @@ import {
 	renderSystemPromptDraft,
 	type SystemPromptDraft,
 } from "../../model-context/index.js";
+import type { CodingAgentPluginMcpRuntime } from "../../runtime-contracts/index.js";
 import type { CodingAgentGreenfieldExtensionEventBridge } from "./greenfield-extension-event-bridge.js";
 import type { CodingAgentGreenfieldExtensionToolRuntime } from "./greenfield-extension-tool-runtime.js";
 import { wrapRuntimeToolsWithEcosystemHooks } from "./greenfield-hook-tool-wrapper.js";
-import type { CodingAgentPluginMcpRuntime } from "./greenfield-plugin-mcp-runtime.js";
 import type { CodingAgentPluginRunOrchestrator } from "./greenfield-plugin-run-orchestrator.js";
 import type { CodingAgentPluginToolRuntime } from "./greenfield-plugin-tool-runtime.js";
 

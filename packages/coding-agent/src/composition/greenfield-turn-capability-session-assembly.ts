@@ -17,25 +17,27 @@ import {
 	CodingAgentGreenfieldPromptAdapter,
 	type CodingAgentMemoryRolloverRuntime,
 	CodingAgentModelCallFrameComposer,
-	type CodingAgentPluginMcpRuntime,
 	CodingAgentPluginRunOrchestrator,
-	type CodingAgentPluginRuntimeSource,
 	type CodingAgentPluginToolActivation,
 	CodingAgentPluginToolRuntime,
-	type CodingAgentPromptResourceResolver,
-	type CodingAgentPromptResourceSource,
 	CodingAgentPromptRuntime,
-	type CodingAgentPromptSettingsSource,
-	type CodingAgentRuntimeToolRegistration,
 	CodingAgentStopHookContinuationSource,
-	type CodingAgentSystemPromptOptionsResolver,
 	CodingAgentTodoContinuationSource,
-	type CodingAgentTodoRuntime,
 	createCodingAgentInvokeSkillRuntimeFeature,
 	createCodingAgentPromptResourceResolver,
 	createCodingAgentPromptRuntime,
 } from "../adapters/runtime-core/greenfield.js";
 import type { CodingAgentGreenfieldExtensionToolRuntime } from "../adapters/runtime-core/greenfield-extension-tool-runtime.js";
+import type {
+	CodingAgentPluginMcpRuntime,
+	CodingAgentPluginRuntimeSource,
+	CodingAgentPromptResourceResolver,
+	CodingAgentPromptResourceSource,
+	CodingAgentPromptSettingsSource,
+	CodingAgentRuntimeToolRegistration,
+	CodingAgentSystemPromptOptionsResolver,
+	CodingAgentTodoRuntime,
+} from "../runtime-contracts/index.js";
 import type { GreenfieldSessionExecutionRuntime } from "./greenfield-session-execution-runtime.js";
 import type { GreenfieldSubagentRuntime } from "./greenfield-subagent-runtime.js";
 import type { CodingToolsRuntimeComposition } from "./runtime-tools-composition.js";
