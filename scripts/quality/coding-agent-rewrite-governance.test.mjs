@@ -297,6 +297,33 @@ describe("Coding Agent rewrite progress gate", () => {
 		});
 	});
 
+	it("keeps the package root limited to the stable Extension facade", () => {
+		const stable = stateFrom([
+			{
+				path: "packages/coding-agent/src/index.ts",
+				text: 'export * from "./public-api/extensions.js";',
+			},
+		]);
+		const expanded = stateFrom([
+			{
+				path: "packages/coding-agent/src/index.ts",
+				text: [
+					'export * from "./public-api/extensions.js";',
+					'export { runRpcModeWithCapabilities } from "./modes/index.js";',
+				].join("\n"),
+			},
+		]);
+
+		expect(findCodingAgentRewriteProgressViolations(stable, stable)).toEqual([]);
+		expect(findCodingAgentRewriteProgressViolations(expanded, expanded)).toContain(
+			"packages/coding-agent/src/index.ts: package root may only export the stable Extension facade (./modes/index.js)",
+		);
+		expect(summarizeCodingAgentRewriteState(expanded)).toMatchObject({
+			codingAgentRootExportEdges: 2,
+			codingAgentRootDisallowedExportEdges: 1,
+		});
+	});
+
 	it("rejects new edges, accepts an exact baseline and reports stale entries after removal", () => {
 		const baseline = stateFrom([
 			{
@@ -375,7 +402,15 @@ describe("Coding Agent implementation record gate", () => {
 
 function stateFrom(productionFiles) {
 	return collectCodingAgentRewriteState({
-		productionFiles,
+		productionFiles: productionFiles.some((file) => file.path === "packages/coding-agent/src/index.ts")
+			? productionFiles
+			: [
+					...productionFiles,
+					{
+						path: "packages/coding-agent/src/index.ts",
+						text: 'export * from "./public-api/extensions.js";',
+					},
+				],
 		sdkExampleFiles: [],
 		codingAgentPackageJson: { exports: {} },
 	});

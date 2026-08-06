@@ -413,8 +413,9 @@ const { session } = await createCodingAgentSession({
 await session.prompt("What files are in the current directory?");
 ```
 
-See the [stable SDK reference](docs/stable-sdk.md), the retained
-[package-root compatibility reference](docs/sdk.md), and [examples/sdk/](examples/sdk/).
+See the [SDK entrypoint guide](docs/sdk.md), the [stable SDK reference](docs/stable-sdk.md), and
+[examples/sdk/](examples/sdk/). The package root is reserved for the stable Extension API; SDK, RPC, host,
+settings, profile, and resource integrations use their explicit subpaths.
 
 ### RPC Mode
 

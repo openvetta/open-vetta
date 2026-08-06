@@ -1,5 +1,5 @@
 {
-	"version": 10,
+	"version": 11,
 	"oldImplementationEdges": [],
 	"runtimeBackedges": [],
 	"oldImplementationFiles": [],
@@ -60,5 +60,15 @@
 		"createGreenfieldRuntimeComposition",
 		"resolveGreenfieldSessionIdFromPath"
 	],
-	"externalCompositionDeepImports": []
+	"externalCompositionDeepImports": [],
+	"codingAgentRootExportEdges": [
+		{
+			"path": "packages/coding-agent/src/index.ts",
+			"specifier": "./public-api/extensions.js",
+			"names": [
+				"*"
+			]
+		}
+	],
+	"codingAgentRootDisallowedExportEdges": []
 }

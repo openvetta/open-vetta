@@ -7,7 +7,7 @@ import * as root from "../src/index.js";
 import { createAgentCliBootstrap, createCodingAgentHostBootstrap } from "../src/public-api/bootstrap.js";
 import { runCodingAgentCliControl } from "../src/public-api/cli-control.js";
 import { createCodingAgentHtmlExportRuntime } from "../src/public-api/export-html.js";
-import { ExtensionRunner } from "../src/public-api/extensions.js";
+import * as extensionApi from "../src/public-api/extensions.js";
 import {
 	createCodingAgentHistoricalSessionCatalog,
 	createCodingAgentHistoricalSessionFileHistoryReader,
@@ -36,25 +36,37 @@ import { createCodingAgentSession } from "../src/public-api/sdk.js";
 import { SettingsRuntime } from "../src/public-api/settings.js";
 
 describe("coding-agent public subpaths", () => {
-	it("forwards existing root APIs without wrapping or replacing behavior", () => {
-		expect(createAgentCliBootstrap).toBe(root.createAgentCliBootstrap);
-		expect(createCodingAgentHostBootstrap).toBe(root.createCodingAgentHostBootstrap);
-		expect(runRpcModeWithCapabilities).toBe(root.runRpcModeWithCapabilities);
-		expect(GREENFIELD_IM_RPC_PROFILE).toBe(root.GREENFIELD_IM_RPC_PROFILE);
-		expect(GREENFIELD_FULL_RPC_PROFILE).toBe(root.GREENFIELD_FULL_RPC_PROFILE);
-		expect(ALL_SCENARIOS).toBe(root.ALL_SCENARIOS);
-		expect(PERSONAS).toBe(root.PERSONAS);
-		expect(config.getAgentDir).toBe(root.getAgentDir);
+	it("keeps the package root identical to the stable Extension facade", () => {
+		expect(Object.keys(root).sort()).toEqual(Object.keys(extensionApi).sort());
+		expect(root.ExtensionRunner).toBe(extensionApi.ExtensionRunner);
+		expect(root.convertToLlm).toBe(extensionApi.convertToLlm);
+		expect(root.serializeConversation).toBe(extensionApi.serializeConversation);
+		expect(root.highlightCode).toBe(extensionApi.highlightCode);
+		expect(root.getLanguageFromPath).toBe(extensionApi.getLanguageFromPath);
+		expect(root.initTheme).toBe(extensionApi.initTheme);
+		expect(root.Theme).toBe(extensionApi.Theme);
+		expect(Reflect.has(root, "createCodingAgentSession")).toBe(false);
+		expect(Reflect.has(root, "runRpcModeWithCapabilities")).toBe(false);
+		expect(Reflect.has(root, "AuthStorage")).toBe(false);
+		expect(Reflect.has(root, "SettingsRuntime")).toBe(false);
+	});
+
+	it("keeps non-Extension capabilities available from explicit subpaths", () => {
+		expect(createAgentCliBootstrap).toBeTypeOf("function");
+		expect(createCodingAgentHostBootstrap).toBeTypeOf("function");
+		expect(runRpcModeWithCapabilities).toBeTypeOf("function");
+		expect(GREENFIELD_IM_RPC_PROFILE.id).toBe("greenfield-im");
+		expect(GREENFIELD_FULL_RPC_PROFILE.id).toBe("greenfield");
+		expect(ALL_SCENARIOS.length).toBeGreaterThan(0);
+		expect(PERSONAS.length).toBeGreaterThan(0);
+		expect(config.getAgentDir).toBeTypeOf("function");
 		expect(createCodingAgentSessionResourceRuntime).toBeTypeOf("function");
-		expect(Reflect.has(root, "DefaultResourceLoader")).toBe(false);
-		expect(createLimiter).toBe(root.createLimiter);
-		expect(createExtensionEventBus).toBe(root.createEventBus);
-		expect(HostAuthStorage).toBe(root.AuthStorage);
+		expect(createLimiter).toBeTypeOf("function");
+		expect(createExtensionEventBus).toBeTypeOf("function");
+		expect(HostAuthStorage).toBeTypeOf("function");
 		expect(createCodingAgentModelRuntime).toBeTypeOf("function");
 		expect(createCodingAgentSharedModelController).toBeTypeOf("function");
-		expect(Reflect.has(root, "ModelRegistry")).toBe(false);
 		expect(HostSettingsRuntime).toBe(SettingsRuntime);
-		expect(ExtensionRunner).toBe(root.ExtensionRunner);
 		expect(runCodingAgentCliControl).toBeTypeOf("function");
 		expect(createCodingAgentHtmlExportRuntime).toBeTypeOf("function");
 		expect(createCodingAgentHistoricalSessionCatalog).toBeTypeOf("function");
@@ -64,8 +76,6 @@ describe("coding-agent public subpaths", () => {
 		expect(createCodingAgentSessionCapabilityHost).toBeTypeOf("function");
 		expect(createCodingAgentTurnExecutor).toBeTypeOf("function");
 		expect(createCodingAgentSession).toBeTypeOf("function");
-		expect(Reflect.has(root, "createAgentSession")).toBe(false);
-		expect(Reflect.has(root, "SettingsRuntime")).toBe(false);
 		expect(VETTA_CLI_GUIDANCE).toContain("vetta action search");
 	});
 
