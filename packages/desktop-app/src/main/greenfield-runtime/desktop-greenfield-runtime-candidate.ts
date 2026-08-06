@@ -1,5 +1,8 @@
 import { resolve } from "node:path";
-import type { GreenfieldCliSessionOptions, GreenfieldRuntimeCompositionOptions } from "@vetta/coding-agent/composition";
+import type {
+	GreenfieldRuntimeCompositionOptions,
+	GreenfieldRuntimeSessionOptions,
+} from "@vetta/coding-agent/composition";
 import { FileConversationRuntimeSessionCatalog } from "@vetta/runtime-storage/conversation";
 import {
 	type AgentPluginContinuationInvoker,
@@ -16,7 +19,7 @@ import {
 import { DesktopGreenfieldRuntimeBackendPool } from "./desktop-greenfield-runtime-backend-pool.js";
 
 export type DesktopGreenfieldSessionOptions = Pick<
-	GreenfieldCliSessionOptions,
+	GreenfieldRuntimeSessionOptions,
 	| "cwd"
 	| "model"
 	| "thinkingLevel"

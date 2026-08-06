@@ -171,9 +171,6 @@ export interface GreenfieldRuntimeCompositionOptions {
 	) => CodingAgentMemoryRolloverRuntime;
 }
 
-/** @deprecated 使用宿主无关的 GreenfieldRuntimeSessionOptions。 */
-export type GreenfieldCliSessionOptions = GreenfieldRuntimeSessionOptions;
-
 export interface GreenfieldRuntimeSessionHookLifecycle {
 	end(sessionId: string, cause: SessionEndCause): Promise<void>;
 	start(sessionId: string, source: SessionStartSource): void;

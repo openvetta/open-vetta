@@ -20,6 +20,7 @@ const BUILT_IN_MODELS: readonly Model<Api>[] = [
 	model("openrouter", "anthropic/claude-sonnet-4", "openai-completions"),
 	model("openrouter", "anthropic/claude-opus-4", "openai-completions"),
 ];
+const NO_AUTH_PLACEHOLDER = "no-auth-needed-for-local-provider";
 
 function model(provider: string, id: string, api: Api = "anthropic-messages"): Model<Api> {
 	return {
@@ -41,6 +42,22 @@ function createCodingAgentModelRuntime(
 	options: CreateCodingAgentModelRuntimeOptions,
 ): CodingAgentModelRuntime {
 	return createModelRuntime(credentials, { ...options, builtInModels: BUILT_IN_MODELS });
+}
+
+function quoteShellArgument(value: string): string {
+	if (process.platform === "win32") return `"${value.replaceAll('"', '""')}"`;
+	return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+function createNodeConfigCommand(
+	directory: string,
+	name: string,
+	source: string,
+	args: readonly string[] = [],
+): string {
+	const scriptPath = join(directory, `${name}.cjs`);
+	writeFileSync(scriptPath, source);
+	return `!${[process.execPath, scriptPath, ...args].map(quoteShellArgument).join(" ")}`;
 }
 
 describe("CodingAgentModelRuntime", () => {
@@ -598,7 +615,9 @@ describe("CodingAgentModelRuntime", () => {
 
 		test("apiKey with ! prefix trims whitespace from command output", async () => {
 			writeRawModelsJson({
-				"custom-provider": providerWithApiKey("!echo '  spaced-key  '"),
+				"custom-provider": providerWithApiKey(
+					createNodeConfigCommand(tempDir, "spaced-key", 'process.stdout.write("  spaced-key  ");'),
+				),
 			});
 
 			const registry = createCodingAgentModelRuntime(authStorage, { modelsJsonPath });
@@ -609,7 +628,9 @@ describe("CodingAgentModelRuntime", () => {
 
 		test("apiKey with ! prefix handles multiline output (uses trimmed result)", async () => {
 			writeRawModelsJson({
-				"custom-provider": providerWithApiKey("!printf 'line1\\nline2'"),
+				"custom-provider": providerWithApiKey(
+					createNodeConfigCommand(tempDir, "multiline-key", 'process.stdout.write("line1\\nline2");'),
+				),
 			});
 
 			const registry = createCodingAgentModelRuntime(authStorage, { modelsJsonPath });
@@ -618,18 +639,20 @@ describe("CodingAgentModelRuntime", () => {
 			expect(apiKey).toBe("line1\nline2");
 		});
 
-		test("apiKey with ! prefix returns undefined on command failure", async () => {
+		test("apiKey with ! prefix falls back to the custom-provider placeholder on command failure", async () => {
 			writeRawModelsJson({
-				"custom-provider": providerWithApiKey("!exit 1"),
+				"custom-provider": providerWithApiKey(
+					createNodeConfigCommand(tempDir, "failed-key", "process.exitCode = 1;"),
+				),
 			});
 
 			const registry = createCodingAgentModelRuntime(authStorage, { modelsJsonPath });
 			const apiKey = await registry.getApiKeyForProvider("custom-provider");
 
-			expect(apiKey).toBeUndefined();
+			expect(apiKey).toBe(NO_AUTH_PLACEHOLDER);
 		});
 
-		test("apiKey with ! prefix returns undefined on nonexistent command", async () => {
+		test("apiKey with ! prefix falls back to the custom-provider placeholder for an unknown command", async () => {
 			writeRawModelsJson({
 				"custom-provider": providerWithApiKey("!nonexistent-command-12345"),
 			});
@@ -637,18 +660,20 @@ describe("CodingAgentModelRuntime", () => {
 			const registry = createCodingAgentModelRuntime(authStorage, { modelsJsonPath });
 			const apiKey = await registry.getApiKeyForProvider("custom-provider");
 
-			expect(apiKey).toBeUndefined();
+			expect(apiKey).toBe(NO_AUTH_PLACEHOLDER);
 		});
 
-		test("apiKey with ! prefix returns undefined on empty output", async () => {
+		test("apiKey with ! prefix falls back to the custom-provider placeholder on empty output", async () => {
 			writeRawModelsJson({
-				"custom-provider": providerWithApiKey("!printf ''"),
+				"custom-provider": providerWithApiKey(
+					createNodeConfigCommand(tempDir, "empty-key", "process.stdout.write('');"),
+				),
 			});
 
 			const registry = createCodingAgentModelRuntime(authStorage, { modelsJsonPath });
 			const apiKey = await registry.getApiKeyForProvider("custom-provider");
 
-			expect(apiKey).toBeUndefined();
+			expect(apiKey).toBe(NO_AUTH_PLACEHOLDER);
 		});
 
 		test("apiKey as environment variable name resolves to env value", async () => {
@@ -688,8 +713,18 @@ describe("CodingAgentModelRuntime", () => {
 		});
 
 		test("apiKey command can use shell features like pipes", async () => {
+			const producer = createNodeConfigCommand(
+				tempDir,
+				"pipe-producer",
+				'process.stdout.write("hello world");',
+			).slice(1);
+			const consumer = createNodeConfigCommand(
+				tempDir,
+				"pipe-consumer",
+				"process.stdin.setEncoding('utf8'); let input = ''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => process.stdout.write(input.replaceAll(' ', '-')));",
+			).slice(1);
 			writeRawModelsJson({
-				"custom-provider": providerWithApiKey("!echo 'hello world' | tr ' ' '-'"),
+				"custom-provider": providerWithApiKey(`!${producer} | ${consumer}`),
 			});
 
 			const registry = createCodingAgentModelRuntime(authStorage, { modelsJsonPath });
@@ -704,7 +739,7 @@ describe("CodingAgentModelRuntime", () => {
 				const counterFile = join(tempDir, "counter");
 				writeFileSync(counterFile, "0");
 
-				const command = `!sh -c 'count=$(cat ${counterFile}); echo $((count + 1)) > ${counterFile}; echo "key-value"'`;
+				const command = createCounterCommand(tempDir, counterFile, "increment-counter");
 				writeRawModelsJson({
 					"custom-provider": providerWithApiKey(command),
 				});
@@ -725,7 +760,7 @@ describe("CodingAgentModelRuntime", () => {
 				const counterFile = join(tempDir, "counter");
 				writeFileSync(counterFile, "0");
 
-				const command = `!sh -c 'count=$(cat ${counterFile}); echo $((count + 1)) > ${counterFile}; echo "key-value"'`;
+				const command = createCounterCommand(tempDir, counterFile, "persisted-counter");
 				writeRawModelsJson({
 					"custom-provider": providerWithApiKey(command),
 				});
@@ -746,7 +781,7 @@ describe("CodingAgentModelRuntime", () => {
 				const counterFile = join(tempDir, "counter");
 				writeFileSync(counterFile, "0");
 
-				const command = `!sh -c 'count=$(cat ${counterFile}); echo $((count + 1)) > ${counterFile}; echo "key-value"'`;
+				const command = createCounterCommand(tempDir, counterFile, "cleared-counter");
 				writeRawModelsJson({
 					"custom-provider": providerWithApiKey(command),
 				});
@@ -778,23 +813,23 @@ describe("CodingAgentModelRuntime", () => {
 				expect(keyB).toBe("key-b");
 			});
 
-			test("failed commands are cached (not retried)", async () => {
+			test("failed commands fall back and are cached without retry", async () => {
 				const counterFile = join(tempDir, "counter");
 				writeFileSync(counterFile, "0");
 
-				const command = `!sh -c 'count=$(cat ${counterFile}); echo $((count + 1)) > ${counterFile}; exit 1'`;
+				const command = createCounterCommand(tempDir, counterFile, "failed-counter", true);
 				writeRawModelsJson({
 					"custom-provider": providerWithApiKey(command),
 				});
 
 				const registry = createCodingAgentModelRuntime(authStorage, { modelsJsonPath });
 
-				// Call multiple times - all should return undefined
+				// Call multiple times - all should use the custom-provider fallback.
 				const key1 = await registry.getApiKeyForProvider("custom-provider");
 				const key2 = await registry.getApiKeyForProvider("custom-provider");
 
-				expect(key1).toBeUndefined();
-				expect(key2).toBeUndefined();
+				expect(key1).toBe(NO_AUTH_PLACEHOLDER);
+				expect(key2).toBe(NO_AUTH_PLACEHOLDER);
 
 				// Command should have only run once despite failures
 				const count = parseInt(readFileSync(counterFile, "utf-8").trim(), 10);
@@ -833,3 +868,18 @@ describe("CodingAgentModelRuntime", () => {
 		});
 	});
 });
+
+function createCounterCommand(directory: string, counterFile: string, name: string, fail = false): string {
+	return createNodeConfigCommand(
+		directory,
+		name,
+		[
+			'const { readFileSync, writeFileSync } = require("node:fs");',
+			"const counterFile = process.argv[2];",
+			'const count = Number.parseInt(readFileSync(counterFile, "utf8"), 10);',
+			'writeFileSync(counterFile, String(count + 1), "utf8");',
+			fail ? "process.exitCode = 1;" : 'process.stdout.write("key-value");',
+		].join("\n"),
+		[counterFile],
+	);
+}

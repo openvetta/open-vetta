@@ -28,6 +28,7 @@ describe("Greenfield session initialization profile", () => {
 			"createPluginMcpRuntime",
 			"createPluginRuntime",
 			"createPromptResourceResolver",
+			"createSubagentChildFactory",
 			"createSystemPromptOptionsResolver",
 			"createTodoRuntime",
 			"enableSubagents",
@@ -43,6 +44,7 @@ describe("Greenfield session initialization profile", () => {
 			"resolvePromptResource",
 			"resolveSystemPromptOptions",
 			"subagentMaxConcurrent",
+			"subagentTypeRegistry",
 			"systemPromptAdvertisedToolNames",
 		]);
 		expect(profile.promptResourceSource).toBe(promptResourceSource);

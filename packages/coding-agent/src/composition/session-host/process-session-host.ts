@@ -1,16 +1,3 @@
-import type {
-	CodingAgentGreenfieldActiveSessionHost,
-	GreenfieldRuntimeComposition,
-} from "@vetta/coding-agent/composition";
-import {
-	type CodingAgentRuntimeExtensionInitialization,
-	type CodingAgentTurnExecutor,
-	type CodingAgentTurnRetryController,
-	type CodingAgentTurnRetryEvent,
-	type CodingAgentTurnRetrySettings,
-	createCodingAgentTurnExecutor,
-	createCodingAgentTurnRetryController,
-} from "@vetta/coding-agent/runtime";
 import {
 	type GreenfieldRuntimeSession,
 	RetryableCleanup,
@@ -18,26 +5,36 @@ import {
 	type SessionEvent,
 } from "@vetta/runtime-core";
 import type { ManagedMcpRuntimeToolSource } from "@vetta/runtime-mcp";
-import type { GreenfieldExtensionSessionHost } from "./greenfield-extension-session-host.js";
+import type {
+	CodingAgentRuntimeExtensionInitialization,
+	CodingAgentTurnExecutor,
+	CodingAgentTurnRetryController,
+	CodingAgentTurnRetryEvent,
+	CodingAgentTurnRetrySettings,
+} from "../../public-api/runtime.js";
+import { createCodingAgentTurnExecutor, createCodingAgentTurnRetryController } from "../../public-api/runtime.js";
+import type { CodingAgentGreenfieldActiveSessionHost } from "../greenfield-active-session-transition-host.js";
+import type { GreenfieldRuntimeComposition } from "../greenfield-runtime-composition-contract.js";
+import type { CodingAgentExtensionSessionHost } from "./extension-session-host.js";
 
-export interface GreenfieldAgentSessionHostOptions {
+export interface CodingAgentProcessSessionHostOptions {
 	readonly runtime: GreenfieldRuntimeComposition;
 	readonly activeSessionHost: CodingAgentGreenfieldActiveSessionHost;
-	readonly extensionSessionHost: GreenfieldExtensionSessionHost;
+	readonly extensionSessionHost: CodingAgentExtensionSessionHost;
 	readonly mcpSource: ManagedMcpRuntimeToolSource;
 	readonly readRetrySettings: () => CodingAgentTurnRetrySettings;
 	readonly setRetryEnabled: (enabled: boolean) => void;
 }
 
-/** Runtime、活动 Session、Extension、MCP、Turn 与最终清理的中立进程宿主。 */
-export class GreenfieldAgentSessionHost {
+/** Runtime、活动 Session、Extension、MCP、Turn 与最终清理的进程宿主。 */
+export class CodingAgentProcessSessionHost {
 	readonly runtime: GreenfieldRuntimeComposition;
 	readonly retryController: CodingAgentTurnRetryController;
 	readonly turnExecutor: CodingAgentTurnExecutor;
 	private readonly retryListeners = new Set<(event: CodingAgentTurnRetryEvent) => void>();
 	private readonly cleanup = new RetryableCleanup();
 
-	constructor(private readonly options: GreenfieldAgentSessionHostOptions) {
+	constructor(private readonly options: CodingAgentProcessSessionHostOptions) {
 		this.runtime = options.runtime;
 		this.retryController = createCodingAgentTurnRetryController({
 			readSettings: options.readRetrySettings,
@@ -115,6 +112,6 @@ export class GreenfieldAgentSessionHost {
 
 	async dispose(): Promise<void> {
 		this.retryListeners.clear();
-		await this.cleanup.run("Failed to dispose Greenfield Agent Session Host");
+		await this.cleanup.run("Failed to dispose Coding Agent Process Session Host");
 	}
 }

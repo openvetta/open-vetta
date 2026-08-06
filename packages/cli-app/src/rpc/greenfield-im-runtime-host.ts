@@ -12,12 +12,14 @@ import {
 	runPrintMode,
 } from "@vetta/coding-agent/bootstrap";
 import {
+	CodingAgentExtensionSessionHost,
 	CodingAgentGreenfieldActiveSessionHost,
+	CodingAgentProcessSessionHost,
 	createCodingAgentSessionSetupSeedInitializer,
 	createGreenfieldRuntimeComposition,
-	type GreenfieldCliSessionOptions,
 	type GreenfieldRuntimeComposition,
 	type GreenfieldRuntimeCompositionOptions,
+	type GreenfieldRuntimeSessionOptions,
 	resolveGreenfieldSessionIdFromPath,
 } from "@vetta/coding-agent/composition";
 import { getVettaHomePath } from "@vetta/coding-agent/config";
@@ -53,8 +55,6 @@ import {
 	FileConversationOwnershipManager,
 	type FileConversationOwnershipManagerOptions,
 } from "@vetta/runtime-storage/conversation";
-import { GreenfieldAgentSessionHost } from "../agent-runtime/greenfield-agent-session-host.js";
-import { GreenfieldExtensionSessionHost } from "../agent-runtime/greenfield-extension-session-host.js";
 import { GreenfieldPrintSessionAdapter } from "../greenfield-print-session-adapter.js";
 import {
 	type GreenfieldImLegacySessionMigration,
@@ -299,7 +299,7 @@ async function prepareGreenfieldRuntimeHost(
 	let session: GreenfieldRuntimeSession | undefined;
 	let extensionEventHost: CodingAgentRuntimeExtensionEventHost | undefined;
 	let activeSessionHost: CodingAgentGreenfieldActiveSessionHost | undefined;
-	let extensionSessionHost: GreenfieldExtensionSessionHost | undefined;
+	let extensionSessionHost: CodingAgentExtensionSessionHost | undefined;
 	let dismissRuntimeRollback: (() => void) | undefined;
 	let dismissSessionRollback: (() => void) | undefined;
 	let dismissExtensionRollback: (() => void) | undefined;
@@ -342,7 +342,7 @@ async function prepareGreenfieldRuntimeHost(
 			id: "runtime-composition",
 			rollback: () => acquiredRuntime.dispose(),
 		});
-		const sessionOptions: GreenfieldCliSessionOptions = {
+		const sessionOptions: GreenfieldRuntimeSessionOptions = {
 			sessionId,
 			cwd: bootstrap.cwd,
 			memoryMode: parsed.memoryMode || parsed.memoryFile !== undefined,
@@ -381,7 +381,7 @@ async function prepareGreenfieldRuntimeHost(
 			id: "extension-event-host",
 			rollback: () => acquiredExtensionEventHost.dispose(),
 		});
-		extensionSessionHost = new GreenfieldExtensionSessionHost(extensionEventHost, createExtensionEventHost);
+		extensionSessionHost = new CodingAgentExtensionSessionHost(extensionEventHost, createExtensionEventHost);
 		dismissExtensionEventRollback();
 		const acquiredExtensionSessionHost = extensionSessionHost;
 		dismissExtensionRollback = rollback.defer({
@@ -441,7 +441,7 @@ async function prepareGreenfieldRuntimeHost(
 			reload: () => activeSessionHost!.runActiveSessionMutation(() => resourceReloadHost.reload()),
 		});
 		extensionSessionHost.bindCommandContext(extensionCommandActions);
-		const agentSessionHost = new GreenfieldAgentSessionHost({
+		const agentSessionHost = new CodingAgentProcessSessionHost({
 			runtime,
 			activeSessionHost,
 			extensionSessionHost,
@@ -617,7 +617,7 @@ class GreenfieldRpcRuntimeHostCapabilities implements RpcSessionCapabilities {
 
 	constructor(
 		private readonly adapter: GreenfieldRpcSessionAdapter,
-		private readonly sessionHost: GreenfieldAgentSessionHost,
+		private readonly sessionHost: CodingAgentProcessSessionHost,
 	) {
 		this.profile = adapter.profile;
 		this.turn = adapter.turn;

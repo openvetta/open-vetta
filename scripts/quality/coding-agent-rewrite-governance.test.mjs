@@ -220,6 +220,31 @@ describe("Coding Agent rewrite progress gate", () => {
 		]);
 	});
 
+	it("keeps neutral Session Hosts out of CLI and free of protocol dependencies", () => {
+		const actual = stateFrom([
+			{
+				path: "packages/cli-app/src/agent-runtime/greenfield-agent-session-host.ts",
+				text: "export class GreenfieldAgentSessionHost {}",
+			},
+			{
+				path: "packages/coding-agent/src/composition/session-host/process-session-host.ts",
+				text: 'import type { RpcSessionCapabilities } from "@vetta/cli-app";',
+			},
+		]);
+
+		expect(findCodingAgentRewriteProgressViolations(actual, actual)).toEqual([
+			"packages/cli-app/src/agent-runtime/greenfield-agent-session-host.ts: retired CLI Session Host file must stay deleted",
+			"packages/cli-app/src/agent-runtime/greenfield-agent-session-host.ts:1: retired CLI Session Host reference (GreenfieldAgentSessionHost)",
+			"packages/coding-agent/src/composition/session-host/process-session-host.ts:1: Coding Agent Session Host depends on CLI protocol (@vetta/cli-app)",
+			"packages/coding-agent/src/composition/session-host/process-session-host.ts:1: Coding Agent Session Host depends on CLI protocol (RpcSessionCapabilities)",
+		]);
+		expect(summarizeCodingAgentRewriteState(actual)).toMatchObject({
+			retiredCliSessionHostFiles: 1,
+			retiredCliSessionHostReferences: 1,
+			codingAgentSessionHostProtocolReferences: 2,
+		});
+	});
+
 	it("rejects new edges, accepts an exact baseline and reports stale entries after removal", () => {
 		const baseline = stateFrom([
 			{

@@ -19,7 +19,6 @@ import type {
 } from "./greenfield-runtime-composition-contract.js";
 
 export type {
-	GreenfieldCliSessionOptions,
 	GreenfieldInitialTodoLockSource,
 	GreenfieldRuntimeComposition,
 	GreenfieldRuntimeCompositionOptions,

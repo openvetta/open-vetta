@@ -23,7 +23,6 @@ export {
 } from "./greenfield-knowledge-processing-session.js";
 export {
 	createGreenfieldRuntimeComposition,
-	type GreenfieldCliSessionOptions,
 	type GreenfieldInitialTodoLockSource,
 	type GreenfieldRuntimeComposition,
 	type GreenfieldRuntimeCompositionOptions,
@@ -49,3 +48,8 @@ export {
 	type CodingToolsRuntimeCompositionOptions,
 	createCodingToolsRuntimeComposition,
 } from "./runtime-tools-composition.js";
+export {
+	CodingAgentExtensionSessionHost,
+	CodingAgentProcessSessionHost,
+	type CodingAgentProcessSessionHostOptions,
+} from "./session-host/index.js";

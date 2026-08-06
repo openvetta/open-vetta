@@ -262,12 +262,13 @@ describe("Greenfield Subagent session assembly", () => {
 				includeTodo: false,
 			},
 		});
+		const signal = new AbortController().signal;
 		await expect(
 			spawnTool.execute({
 				sessionId: "parent",
 				turnId: "turn-after-register",
 				toolCallId: "spawn-after-register",
-				signal: new AbortController().signal,
+				signal,
 				input: request,
 			}),
 		).resolves.toBeDefined();
@@ -276,7 +277,7 @@ describe("Greenfield Subagent session assembly", () => {
 			expect.objectContaining({ agentType: "reviewer", taskName: "review_repo" }),
 			expect.objectContaining({ id: "reviewer" }),
 			[],
-			undefined,
+			expect.any(AbortSignal),
 		);
 
 		await runtime.dispose();

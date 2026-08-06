@@ -1,42 +1,37 @@
+import { type GreenfieldRuntimeSession, InitializationRollbackScope, RetryableCleanup } from "@vetta/runtime-core";
+import type {
+	CodingAgentRuntimeExtensionCommandContextActions,
+	CodingAgentRuntimeExtensionCommandHost,
+	CodingAgentRuntimeExtensionEventHost,
+	CodingAgentRuntimeExtensionInitialization,
+} from "../../public-api/runtime/extensions.js";
+import { createCodingAgentRuntimeExtensionCommandHost } from "../../public-api/runtime/extensions.js";
 import type {
 	CodingAgentGreenfieldPreparedSessionBinding,
 	CodingAgentGreenfieldSessionTransition,
-} from "@vetta/coding-agent/composition";
-import {
-	type CodingAgentRuntimeExtensionCommandContextActions,
-	type CodingAgentRuntimeExtensionCommandHost,
-	type CodingAgentRuntimeExtensionEventHost,
-	type CodingAgentRuntimeExtensionInitialization,
-	createCodingAgentRuntimeExtensionCommandHost,
-} from "@vetta/coding-agent/runtime";
-import { type GreenfieldRuntimeSession, InitializationRollbackScope, RetryableCleanup } from "@vetta/runtime-core";
+} from "../greenfield-active-session-transition-host.js";
 
-type GreenfieldExtensionEventHostFactory = (
+type CodingAgentExtensionEventHostFactory = (
 	session: GreenfieldRuntimeSession,
 	options?: { readonly replaceExisting?: boolean },
 ) => CodingAgentRuntimeExtensionEventHost;
 
-interface GreenfieldExtensionSessionBinding {
+interface CodingAgentExtensionSessionBinding {
 	readonly events: CodingAgentRuntimeExtensionEventHost;
 	readonly commands?: CodingAgentRuntimeExtensionCommandHost;
 }
 
-/**
- * Extension 的 Session 级动态绑定控制器。
- *
- * 对外保持稳定的命令与生命周期入口；切换 Session 时一次性替换事件 Runner 和命令
- * Host，RPC Adapter 不持有某个具体 Session 的实现。
- */
-export class GreenfieldExtensionSessionHost {
+/** Extension 的 Session 级动态绑定控制器。 */
+export class CodingAgentExtensionSessionHost {
 	private initialization: CodingAgentRuntimeExtensionInitialization | undefined;
 	private commandActions: CodingAgentRuntimeExtensionCommandContextActions | undefined;
-	private current: GreenfieldExtensionSessionBinding;
+	private current: CodingAgentExtensionSessionBinding;
 	private readonly cleanup = new RetryableCleanup();
 	private cleanupPrepared = false;
 
 	constructor(
 		initial: CodingAgentRuntimeExtensionEventHost,
-		private readonly createHost: GreenfieldExtensionEventHostFactory,
+		private readonly createHost: CodingAgentExtensionEventHostFactory,
 	) {
 		this.current = { events: initial };
 	}
@@ -97,7 +92,7 @@ export class GreenfieldExtensionSessionHost {
 	): Promise<CodingAgentGreenfieldPreparedSessionBinding> {
 		const previous = this.current;
 		const events = this.createHost(transition.next);
-		const next: GreenfieldExtensionSessionBinding = {
+		const next: CodingAgentExtensionSessionBinding = {
 			events,
 			commands: this.commandActions
 				? createCodingAgentRuntimeExtensionCommandHost({ runner: events.runner, actions: this.commandActions })
@@ -151,7 +146,7 @@ export class GreenfieldExtensionSessionHost {
 	async reload(session: GreenfieldRuntimeSession, operation: () => Promise<void>): Promise<void> {
 		const previous = this.current;
 		const rollback = new InitializationRollbackScope();
-		let next: GreenfieldExtensionSessionBinding | undefined;
+		let next: CodingAgentExtensionSessionBinding | undefined;
 		let replacementAttempted = false;
 		try {
 			if (this.initialization) {
