@@ -22,7 +22,7 @@ export const CATALOG_TTL_MS = 12 * 60 * 60 * 1000;
  * 新加的预设服务商就会一直显示 0 个模型(最长 12 小时)。+1 让老缓存整份作废,
  * 先退到随包快照(已含新家)再后台重拉。
  */
-const CATALOG_VERSION = 3;
+const CATALOG_VERSION = 4;
 
 /** 预设标识 → models.dev 的 provider key。 */
 const PROVIDER_KEYS: Record<string, string> = {
@@ -35,6 +35,7 @@ const PROVIDER_KEYS: Record<string, string> = {
 	grok: "xai",
 	// 千问走国际站 endpoint,目录也取国际站那份(国内站是 alibaba-cn,模型清单不同)。
 	qwen: "alibaba",
+	novita: "novita-ai",
 };
 
 interface RawModel {

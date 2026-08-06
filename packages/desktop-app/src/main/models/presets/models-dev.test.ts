@@ -154,6 +154,7 @@ describe("随包内置快照", () => {
 			"gemini",
 			"grok",
 			"kimi",
+			"novita",
 			"openai",
 			"qwen",
 			"zai",

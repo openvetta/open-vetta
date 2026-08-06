@@ -96,6 +96,15 @@ export const PRESET_PROVIDERS: readonly PresetProviderDef[] = [
 		fetcher: "gemini",
 		isChatModel: (id) => !NON_CHAT.test(id),
 	},
+	{
+		id: "novita",
+		displayName: "Novita AI",
+		icon: "novita",
+		api: "openai-completions",
+		baseUrl: "https://api.novita.ai/openai/v1",
+		fetcher: "openai-compatible",
+		isChatModel: (id) => !NON_CHAT.test(id),
+	},
 ];
 
 export function getPresetProvider(id: string): PresetProviderDef | undefined {

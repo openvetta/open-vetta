@@ -169,6 +169,17 @@ describe("fetchPresetModels", () => {
 		expect(result.error).toMatchObject({ code: "http-status", params: { status: 503 } });
 	});
 
+	it("Novita 走 openai-compatible,拉取 baseUrl 下的 /models", async () => {
+		const fetchImpl = stubFetch((url) => {
+			expect(url).toBe("https://api.novita.ai/openai/v1/models");
+			return { data: [{ id: "zai-org/glm-5" }, { id: "moonshotai/kimi-k3" }] };
+		});
+
+		const result = await fetchPresetModels(def("novita"), "sk-test", fetchImpl);
+
+		expect(result.models.map((model) => model.id)).toEqual(["moonshotai/kimi-k3", "zai-org/glm-5"]);
+	});
+
 	it("空列表算作错误,调用方据此保留旧快照", async () => {
 		const fetchImpl = stubFetch(() => ({ data: [] }));
 
