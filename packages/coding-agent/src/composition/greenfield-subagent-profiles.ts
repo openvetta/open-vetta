@@ -1,6 +1,6 @@
 import { type SubagentTypeDefinition, SubagentTypeRegistry } from "@vetta/runtime-subagents";
 import type { CodingToolActivation } from "@vetta/runtime-tools/coding";
-import type { CodingAgentRuntimeToolRegistration } from "../adapters/runtime-core/greenfield.js";
+import type { CodingAgentRuntimeToolRegistration } from "../runtime-contracts/index.js";
 
 export const GREENFIELD_SUBAGENT_TYPE_EXPLORER = "explorer";
 export const GREENFIELD_SUBAGENT_TYPE_WORKFLOW = "workflow";

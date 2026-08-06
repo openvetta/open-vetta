@@ -2,7 +2,7 @@ import type {
 	CodingAgentGreenfieldExtensionRunnerPort,
 	CodingAgentGreenfieldExtensionToolSource,
 	CodingAgentGreenfieldSessionToolRegistration,
-} from "../adapters/runtime-core/greenfield-extension-contract.js";
+} from "../runtime-contracts/index.js";
 import type { GreenfieldRuntimeExtensionControls } from "./greenfield-runtime-composition-contract.js";
 import type { GreenfieldSessionResourceIndexes } from "./greenfield-session-resource-lifecycle-assembly.js";
 

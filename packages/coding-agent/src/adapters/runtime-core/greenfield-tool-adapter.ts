@@ -1,8 +1,8 @@
 import type { Static, TSchema } from "@sinclair/typebox";
 import type { AgentTool } from "@vetta/agent-core";
-import type { RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
 import type { EcosystemHookAwareTool } from "../../extensions/runtime/ecosystem-hook-tool-wrapper.js";
 import type { ConversationScenario, ToolCategory } from "../../profiles/index.js";
+import type { CodingAgentRuntimeToolRegistration } from "../../runtime-contracts/index.js";
 import type { EcosystemHookAwareRuntimeTool } from "./greenfield-hook-tool-wrapper.js";
 
 export type LegacyCodingAgentTool<TParameters extends TSchema = TSchema, TDetails = unknown> = AgentTool<
@@ -11,14 +11,7 @@ export type LegacyCodingAgentTool<TParameters extends TSchema = TSchema, TDetail
 	ConversationScenario
 >;
 
-export interface CodingAgentRuntimeToolRegistration {
-	readonly tool: RuntimeToolDefinition;
-	readonly scopeUse: readonly ConversationScenario[];
-	readonly requires?: readonly string[];
-	readonly agentModes?: readonly string[];
-	readonly modelOrder?: number;
-	readonly category: ToolCategory;
-}
+export type { CodingAgentRuntimeToolRegistration } from "../../runtime-contracts/index.js";
 
 export interface AdaptCodingAgentToolRegistrationOptions {
 	readonly modelOrder?: number;

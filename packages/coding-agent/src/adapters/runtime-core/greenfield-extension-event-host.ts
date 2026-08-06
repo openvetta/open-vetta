@@ -10,14 +10,12 @@ import type {
 import { ExtensionRunner } from "../../extensions/index.js";
 import type { CodingAgentModelRuntime } from "../../models/index.js";
 import type { ResourceExtensionPaths, SessionResourceRuntime } from "../../resources/index.js";
+import type { CodingAgentGreenfieldExtensionEventBinding } from "../../runtime-contracts/index.js";
 import { CodingAgentGreenfieldExtensionActionHost } from "./greenfield-extension-action-host.js";
 import { CodingAgentGreenfieldExtensionObservationAdapter } from "./greenfield-extension-observation-adapter.js";
 import { createGreenfieldReadonlySessionManager } from "./greenfield-readonly-session-manager.js";
 
-export interface CodingAgentGreenfieldExtensionEventBinding {
-	readSystemPrompt(): string;
-	dispose(): void;
-}
+export type { CodingAgentGreenfieldExtensionEventBinding } from "../../runtime-contracts/index.js";
 
 export interface CodingAgentGreenfieldExtensionEventHostOptions {
 	readonly extensions: readonly Extension[];

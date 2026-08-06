@@ -4,30 +4,22 @@ import {
 } from "../../host/coding-agent-resource-runtime.js";
 import type { CodingAgentMemoryPromptState } from "../../memory/index.js";
 import type { AgentPluginRuntimeConfig } from "../../model-context/index.js";
-import {
-	type PersonalizationSettingsSource,
-	resolveSystemPromptOptionsFromSources,
-} from "../../model-context/index.js";
+import { resolveSystemPromptOptionsFromSources } from "../../model-context/index.js";
 import type { ConversationScenario } from "../../profiles/index.js";
 import type { SessionResourceRuntime } from "../../resources/index.js";
-import { SettingsRuntime } from "../../settings/index.js";
 import type {
 	CodingAgentModelCallPromptContext,
-	CodingAgentSystemPromptOptions,
+	CodingAgentPromptResourceSource,
+	CodingAgentPromptSettingsSource,
 	CodingAgentSystemPromptOptionsResolver,
-} from "./greenfield-model-call-composer.js";
+} from "../../runtime-contracts/index.js";
+import { SettingsRuntime } from "../../settings/index.js";
+import type { CodingAgentSystemPromptOptions } from "./greenfield-model-call-composer.js";
 
-export interface CodingAgentPromptSettingsSource extends PersonalizationSettingsSource {
-	reloadPersonalizationSettings(): void;
-	reloadImageSettings?(): void;
-	getBlockImages?(): boolean;
-	getMaxRecentImages?(): number;
-}
-
-export type CodingAgentPromptResourceSource = Pick<
-	SessionResourceRuntime,
-	"getAgentsFiles" | "getAppendSystemPrompt" | "getSkills" | "getSystemPrompt" | "refreshSkillsIfChanged"
->;
+export type {
+	CodingAgentPromptResourceSource,
+	CodingAgentPromptSettingsSource,
+} from "../../runtime-contracts/index.js";
 
 export type CodingAgentPromptMemoryState = CodingAgentMemoryPromptState;
 

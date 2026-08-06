@@ -13,7 +13,10 @@ import {
 	renderSystemPromptDraft,
 	type SystemPromptDraft,
 } from "../../model-context/index.js";
-import type { CodingAgentPluginMcpRuntime } from "../../runtime-contracts/index.js";
+import type {
+	CodingAgentPluginMcpRuntime,
+	CodingAgentSystemPromptOptionsResolver,
+} from "../../runtime-contracts/index.js";
 import type { CodingAgentGreenfieldExtensionEventBridge } from "./greenfield-extension-event-bridge.js";
 import type { CodingAgentGreenfieldExtensionToolRuntime } from "./greenfield-extension-tool-runtime.js";
 import { wrapRuntimeToolsWithEcosystemHooks } from "./greenfield-hook-tool-wrapper.js";
@@ -22,13 +25,10 @@ import type { CodingAgentPluginToolRuntime } from "./greenfield-plugin-tool-runt
 
 export type CodingAgentSystemPromptOptions = Omit<BuildSystemPromptOptions, "selectedTools">;
 
-export interface CodingAgentModelCallPromptContext extends ModelCallFrameCompositionContext {
-	readonly activeToolNames: readonly string[];
-}
-
-export type CodingAgentSystemPromptOptionsResolver = (
-	context: CodingAgentModelCallPromptContext,
-) => Promise<CodingAgentSystemPromptOptions> | CodingAgentSystemPromptOptions;
+export type {
+	CodingAgentModelCallPromptContext,
+	CodingAgentSystemPromptOptionsResolver,
+} from "../../runtime-contracts/index.js";
 
 export interface CodingAgentModelCallFrameComposerOptions {
 	readonly resolveSystemPromptOptions: CodingAgentSystemPromptOptionsResolver;

@@ -1,9 +1,9 @@
 export {
 	type CodingAgentCompactionExtensionInput,
 	type CodingAgentCompactionExtensionResult,
-	type CodingAgentCompactionExtensionRuntime,
 	createCodingAgentCompactionExtensionRuntime,
 } from "../adapters/runtime-core/greenfield-compaction-extension-runtime.js";
+export type { CodingAgentCompactionExtensionRuntime } from "../runtime-contracts/index.js";
 export {
 	type CodingAgentRuntimeExtensionCommandActionPorts,
 	type CodingAgentRuntimeExtensionCommandContextActions,

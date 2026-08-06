@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type {
 	ConversationDocument,
-	GreenfieldRuntimeDocumentParticipant,
 	GreenfieldRuntimeDocumentParticipantContext,
 	RuntimeSessionTodoController,
 } from "@vetta/runtime-core";
@@ -35,7 +34,7 @@ export interface CodingAgentTodoRuntimeOptions {
  * Tool、Continuation、Prompt Scene 与宿主 Controller 都读取同一个 TodoStore；
  * Runtime Core 仅通过通用 Conversation Document participant 保存 custom entry。
  */
-export class CodingAgentTodoRuntime implements GreenfieldRuntimeDocumentParticipant, RuntimeSessionTodoController {
+export class CodingAgentTodoRuntime implements CodingAgentTodoRuntimePort {
 	private readonly state: TodoState;
 	private readonly createEntryId: () => string;
 	private readonly now: () => number;

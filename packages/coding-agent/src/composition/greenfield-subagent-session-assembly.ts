@@ -21,7 +21,7 @@ import type {
 	SubagentTypeRegistryLike,
 } from "@vetta/runtime-subagents";
 import type { CodingToolActivation } from "@vetta/runtime-tools/coding";
-import type { CodingAgentRuntimeToolRegistration } from "../adapters/runtime-core/greenfield.js";
+import type { CodingAgentRuntimeToolRegistration } from "../runtime-contracts/index.js";
 import { createGreenfieldSubagentChildHandle } from "./greenfield-subagent-child.js";
 import { type GreenfieldSubagentProfile, GreenfieldSubagentRuntime } from "./greenfield-subagent-runtime.js";
 

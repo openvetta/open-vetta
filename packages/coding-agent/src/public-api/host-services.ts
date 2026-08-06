@@ -9,14 +9,12 @@ import {
 	type CodingAgentMcpRuntimeToolSourceOptions,
 	createCodingAgentMcpRuntimeToolSource,
 } from "../adapters/runtime-core/coding-agent-mcp-runtime-source.js";
-import type { CodingAgentRuntimeModelSource } from "../adapters/runtime-core/greenfield-model-runtime-adapter.js";
 import {
 	type CodingAgentPluginMcpCompositionOptions,
 	type CodingAgentPluginMcpRuntimeOptions,
 	type CodingAgentPluginMcpToolSurface,
 	createCodingAgentPluginMcpRuntime,
 } from "../adapters/runtime-core/greenfield-plugin-mcp-runtime.js";
-import type { CodingAgentPluginRuntimeSource } from "../adapters/runtime-core/greenfield-plugin-run-orchestrator.js";
 import {
 	CodingAgentSharedModelController,
 	type CodingAgentSharedModelSource,
@@ -27,6 +25,7 @@ import { createCodingAgentHostFromSessionFactory } from "../host/coding-agent-ho
 import { createCodingAgentSessionFromPublicOptions } from "../host/coding-agent-sdk-host-adapter.js";
 import { createHostBashExecutor } from "../host/command-execution/index.js";
 import { type CodingAgentModelRuntime, createCodingAgentModelRuntime } from "../models/index.js";
+import type { CodingAgentPluginRuntimeSource, CodingAgentRuntimeModelSource } from "../runtime-contracts/index.js";
 import { SettingsRuntime } from "../settings/index.js";
 import type { CodingAgentHost, CodingAgentHostSessionDefaults } from "./sdk/index.js";
 

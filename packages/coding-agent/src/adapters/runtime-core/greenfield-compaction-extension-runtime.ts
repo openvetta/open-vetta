@@ -1,10 +1,15 @@
 import type { CompactionPreparation, CompactionResult } from "../../compaction/index.js";
 import type { SessionBeforeCompactResult } from "../../extensions/index.js";
 import type {
+	CodingAgentCompactionExtensionRuntime,
+	CodingAgentGreenfieldExtensionRunnerPort,
+} from "../../runtime-contracts/index.js";
+import type {
 	CodingAgentCompactionEntry as CompactionEntry,
 	CodingAgentSessionEntry as SessionEntry,
 } from "../../sessions/index.js";
-import type { CodingAgentGreenfieldExtensionRunnerPort } from "./greenfield-extension-contract.js";
+
+export type { CodingAgentCompactionExtensionRuntime } from "../../runtime-contracts/index.js";
 
 export interface CodingAgentCompactionExtensionInput {
 	readonly preparation: CompactionPreparation;
@@ -21,14 +26,6 @@ export interface CodingAgentCompactionExtensionResult {
 export interface CodingAgentCompactionCommittedInput {
 	readonly compactionEntry: CompactionEntry;
 	readonly fromExtension: boolean;
-}
-
-/** Coding Context Runtime 使用的窄 Extension 边界。 */
-export interface CodingAgentCompactionExtensionRuntime {
-	beforeCompaction(
-		input: CodingAgentCompactionExtensionInput,
-	): Promise<CodingAgentCompactionExtensionResult | undefined>;
-	afterCompaction(input: CodingAgentCompactionCommittedInput): Promise<void>;
 }
 
 type CompactionExtensionRunner = Pick<CodingAgentGreenfieldExtensionRunnerPort, "emit" | "hasHandlers">;

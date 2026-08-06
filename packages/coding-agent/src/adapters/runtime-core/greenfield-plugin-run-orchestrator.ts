@@ -7,18 +7,16 @@ import type {
 } from "@vetta/runtime-core/kernel";
 import type {
 	AgentPluginContinuationContribution,
-	AgentPluginContinuationInvoker,
 	AgentPluginContinuationResult,
 	AgentPluginRuntimeConfig,
 	AgentPluginRuntimeEffect,
 	AgentPluginSystemPromptInvocation,
-	AgentPluginSystemPromptInvoker,
 	AgentPluginToolInvocation,
-	AgentPluginToolInvoker,
 	SystemPromptDraft,
 	SystemPromptOperation,
 } from "../../model-context/index.js";
 import { applySystemPromptOperations, renderSystemPromptDraft } from "../../model-context/index.js";
+import type { CodingAgentPluginRuntimeSource } from "../../runtime-contracts/index.js";
 import {
 	validatePluginContinuationHandlerResult,
 	validatePluginRuntimeEffects,
@@ -27,12 +25,7 @@ import {
 const DEFAULT_PLUGIN_PROVIDER_TIMEOUT_MS = 3_000;
 const DEFAULT_MAX_PLUGIN_CONTINUATIONS_PER_TURN = 8;
 
-export interface CodingAgentPluginRuntimeSource {
-	readonly readAgentPlugins: () => AgentPluginRuntimeConfig | undefined;
-	readonly invokeSystemPrompt?: AgentPluginSystemPromptInvoker;
-	readonly invokeContinuation?: AgentPluginContinuationInvoker;
-	readonly invokeTool?: AgentPluginToolInvoker;
-}
+export type { CodingAgentPluginRuntimeSource } from "../../runtime-contracts/index.js";
 
 export interface CodingAgentPluginProviderFailure {
 	readonly kind: "system-prompt" | "continuation";

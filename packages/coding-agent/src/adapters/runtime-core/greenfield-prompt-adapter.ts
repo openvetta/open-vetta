@@ -7,7 +7,6 @@ import type {
 	GreenfieldPromptPreparationContext,
 	PromptAttachmentRef,
 	PromptRequest,
-	PromptResourceRef,
 } from "@vetta/runtime-core";
 import type { SessionContextRecord } from "@vetta/runtime-core/kernel";
 import type { InputSource } from "../../extensions/index.js";
@@ -16,22 +15,18 @@ import {
 	PROMPT_ATTACHMENT_REFERENCE_TYPE,
 	PROMPT_RESOURCE_REFERENCE_TYPE,
 } from "../../model-context/index.js";
+import type {
+	CodingAgentPromptResourceExpansion,
+	CodingAgentPromptResourceResolver,
+} from "../../runtime-contracts/index.js";
 import type { CodingAgentGreenfieldExtensionEventBridge } from "./greenfield-extension-event-bridge.js";
 
 export const CODING_AGENT_EXTENSION_INPUT_SOURCE_METADATA_KEY = "codingAgentExtensionInputSource";
 
-export interface CodingAgentPromptResourceExpansion {
-	readonly text: string;
-	readonly promptRef?: PromptResourceRef;
-	readonly skillInjection?: string;
-	readonly sceneInjection?: string;
-}
-
-export type CodingAgentPromptResourceResolver = (
-	text: string,
-	promptRef: PromptResourceRef,
-	context: GreenfieldPromptPreparationContext,
-) => Promise<CodingAgentPromptResourceExpansion> | CodingAgentPromptResourceExpansion;
+export type {
+	CodingAgentPromptResourceExpansion,
+	CodingAgentPromptResourceResolver,
+} from "../../runtime-contracts/index.js";
 
 export interface CodingAgentGreenfieldPromptAdapterOptions {
 	readonly now?: () => number;

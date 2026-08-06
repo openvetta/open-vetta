@@ -16,6 +16,7 @@ import {
 } from "@vetta/runtime-mcp";
 import type { AgentPluginRuntimeConfig } from "../../model-context/index.js";
 import { matchesAgentMode } from "../../profiles/index.js";
+import type { CodingAgentPluginMcpRuntime as CodingAgentPluginMcpRuntimePort } from "../../runtime-contracts/index.js";
 import { decorateCodingAgentMcpRuntimeTool } from "./coding-agent-mcp-runtime-source.js";
 import { type CodingAgentMcpSupervisorOptions, createCodingAgentMcpSupervisor } from "./coding-agent-mcp-supervisor.js";
 
@@ -35,7 +36,7 @@ export interface CodingAgentPluginMcpCompositionOptions {
 }
 
 /** Session-local plugin MCP runtime; file-backed MCP remains owned by the shared composition source. */
-export class CodingAgentPluginMcpRuntime {
+export class CodingAgentPluginMcpRuntime implements CodingAgentPluginMcpRuntimePort {
 	private readonly tools = new Map<string, RuntimeToolDefinition>();
 	private readonly synchronizer;
 	private serverModes = new Map<string, readonly string[]>();

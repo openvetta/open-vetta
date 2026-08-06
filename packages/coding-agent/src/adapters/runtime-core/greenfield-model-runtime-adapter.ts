@@ -1,14 +1,8 @@
 import type { Api, Model } from "@vetta/ai";
 import type { RuntimeModelCatalog, RuntimeModelCredentialResolver } from "@vetta/runtime-core";
+import type { CodingAgentRuntimeModelSource } from "../../runtime-contracts/index.js";
 
-export interface CodingAgentRuntimeModelSource {
-	refresh(): void;
-	getAvailable(): readonly Model<Api>[];
-	find(provider: string, modelId: string): Model<Api> | undefined;
-	getApiKey(model: Model<Api>): Promise<string | undefined>;
-	setServerToken(token: string | undefined): void;
-	loadRemoteModels(): Promise<"unauthorized" | undefined>;
-}
+export type { CodingAgentRuntimeModelSource } from "../../runtime-contracts/index.js";
 
 export class CodingAgentRuntimeModelAdapter implements RuntimeModelCatalog, RuntimeModelCredentialResolver {
 	constructor(private readonly models: CodingAgentRuntimeModelSource) {}
