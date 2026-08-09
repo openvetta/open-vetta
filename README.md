@@ -26,7 +26,8 @@
 
 ## What This Is
 
-Open Vetta is the open-source edition of Vetta, an AI agent built for real work.
+Your local-first AI agent for real work.
+Open Vetta is an open-source desktop AI agent for coding, documents, data, workflows, and creative tasks. Bring your own models and tools through BYOK, MCP, skills, and plugins — with your data kept under your control.
 
 Designed for professional and coding workflows, it helps individuals and teams build AI agents
 that are customizable, extensible, and under their control. Whether you are working with
