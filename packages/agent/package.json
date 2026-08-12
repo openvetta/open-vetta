@@ -32,7 +32,7 @@
 	"license": "Apache-2.0",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/badlogic/pi-mono.git",
+		"url": "git+https://github.com/sikongyue/open-vetta.git",
 		"directory": "packages/agent"
 	},
 	"engines": {
