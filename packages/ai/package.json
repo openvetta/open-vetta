@@ -60,7 +60,7 @@
 	"license": "Apache-2.0",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/sikongyue/open-vetta.git",
+		"url": "git+https://github.com/openvetta/open-vetta.git",
 		"directory": "packages/ai"
 	},
 	"engines": {
