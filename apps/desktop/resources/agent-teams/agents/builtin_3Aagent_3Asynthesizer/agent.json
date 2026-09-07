@@ -1,9 +1,9 @@
 {
-	"id": "builtin:agent:researcher",
+	"id": "builtin:agent:synthesizer",
 	"revision": 1,
-	"name": "Researcher",
-	"mentionHandle": "researcher",
-	"blueprintId": "researcher",
+	"name": "Synthesizer",
+	"mentionHandle": "synthesizer",
+	"blueprintId": "synthesizer",
 	"abilities": {
 		"selectionMode": "all",
 		"skills": [],

@@ -1,9 +1,9 @@
 {
-	"id": "builtin:agent:researcher",
+	"id": "builtin:agent:translator",
 	"revision": 1,
-	"name": "Researcher",
-	"mentionHandle": "researcher",
-	"blueprintId": "researcher",
+	"name": "Translator",
+	"mentionHandle": "translator",
+	"blueprintId": "translator",
 	"abilities": {
 		"selectionMode": "all",
 		"skills": [],

@@ -1,9 +1,9 @@
 {
-	"id": "builtin:agent:researcher",
+	"id": "builtin:agent:auditor",
 	"revision": 1,
-	"name": "Researcher",
-	"mentionHandle": "researcher",
-	"blueprintId": "researcher",
+	"name": "Auditor",
+	"mentionHandle": "auditor",
+	"blueprintId": "auditor",
 	"abilities": {
 		"selectionMode": "all",
 		"skills": [],
