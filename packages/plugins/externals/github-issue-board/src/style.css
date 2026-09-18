@@ -1,0 +1,12 @@
+/* 导入 theme 层 + utilities 层（不要 preflight，避免 reset 污染宿主全局）。 */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* 无 preflight（避免污染宿主全局），插件子树内自己补 border-box，
+   否则 h-full + padding 会按 content-box 撑破容器。 */
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}

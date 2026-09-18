@@ -290,3 +290,17 @@ Desktop 主进程部分目录还有更细规则；修改对应目录时必须继
 - 能由 lint、类型、测试或架构守卫可靠验证的硬规则，应优先实现机械检查；本文件说明意图和正确入口，不替代自动化门禁。
 - 新增路径和命令前确认其真实存在。架构、脚本或目录变更使本文件过时时，应在同一变更中同步更新。
 - 定期删除模型已能从代码推断、从未影响决策或已经失效的说明，避免关键约束被长文本稀释。
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in this repo's GitHub Issues (`gh` CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.

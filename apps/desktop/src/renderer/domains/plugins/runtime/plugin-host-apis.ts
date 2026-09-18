@@ -45,6 +45,10 @@ export function createConversationApi(plugin: InstalledPlugin, disposers: Array<
 			permissions.require("agent.session.write");
 			return pluginHostBridge.conversation.createSession(cwd, options);
 		},
+		openSession: async (input) => {
+			permissions.require("agent.session.write");
+			return pluginHostBridge.conversation.openSession(input);
+		},
 		insertText: (text) => {
 			permissions.require("agent.session.write");
 			pluginHostBridge.conversation.insertText(text);

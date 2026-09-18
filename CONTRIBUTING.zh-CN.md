@@ -17,7 +17,7 @@
 | 给桌面加一个插件 | 插件包 | [`packages/plugins/`](packages/plugins/) · 手册 [`docs/plugin/`](docs/plugin/) · 公开指南 [docs.openvetta.com/plugins](https://docs.openvetta.com/plugins/getting-started/) | 一个包 + `plugin.json` |
 | 沉淀一种可复用的工作方式 | Skill | [`packages/skill-presets/`](packages/skill-presets/) 或 GitHub 市场源，见 [`docs/open-marketplace.md`](docs/open-marketplace.md) | 一个带 `SKILL.md` 的目录 |
 | 换一套外观 | 主题 | [`packages/themes/`](packages/themes/) · [`docs/theme/`](docs/theme/) · [主题指南](https://docs.openvetta.com/themes/getting-started/) | 一个主题包 |
-| 发布可安装能力 | 市场条目 | [`openvetta/vetta-official-marketplace`](https://github.com/openvetta/vetta-official-marketplace)，格式见 [开放市场文档](docs/open-marketplace.md) | 一个目录 + 清单行 |
+| 发布可安装能力 | 市场条目 | [`qqzhangyanhua/vetta-official-marketplace`](https://github.com/qqzhangyanhua/vetta-official-marketplace)，格式见 [开放市场文档](docs/open-marketplace.md) | 一个目录 + 清单行 |
 | 改进产品或开发者文档 | 文档页 | [`apps/docs-site/content/docs/`](apps/docs-site/content/docs/) | 一篇 MDX |
 | 翻译界面文案 | i18n 词条 | 桌面端语言包；用户可见文案不得硬编码 | 一个 PR |
 | 修 bug 或加产品功能 | 代码 | 已经拥有该行为的 `apps/` 或 `packages/` | 正常 PR |
