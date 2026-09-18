@@ -208,7 +208,7 @@ The update source is build configuration and is independent of the operating sys
 Both editions read the `VETTA_OPEN_MARKETPLACE_REPOSITORY` Variable, optionally overridden by the
 `marketplace_repository` input on manual runs. If neither is configured, no GitHub source is bundled.
 To include the official source in an open-source distribution, set the Variable to
-`https://github.com/openvetta/vetta-official-marketplace`; no code changes are needed.
+`https://github.com/qqzhangyanhua/vetta-official-marketplace`; no code changes are needed.
 An unconfigured commercial build uses only the cloud marketplace.
 
 **A fork with no Variables set produces an open-source build.** For an official commercial build, put these on Settings → Environments → `desktop-production` → Environment variables (credentials stay in Environment secrets):

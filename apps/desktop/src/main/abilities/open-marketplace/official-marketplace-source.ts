@@ -7,5 +7,5 @@
 
 /** 内置来源的固定 id：缓存目录、升级对账和默认 IPC 参数都以它为准。 */
 export const DEFAULT_MARKETPLACE_SOURCE_ID = "vetta-official";
-export const OFFICIAL_MARKETPLACE_REPOSITORY = "https://github.com/openvetta/vetta-official-marketplace";
+export const OFFICIAL_MARKETPLACE_REPOSITORY = "https://github.com/qqzhangyanhua/vetta-official-marketplace";
 export const OFFICIAL_MARKETPLACE_NAME = "Vetta Official";

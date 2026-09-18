@@ -203,7 +203,7 @@ VETTA_UPDATE_URL=https://releases.openvetta.com/desktop/test
 
 GitHub 能力源在两种版本中均读取 `VETTA_OPEN_MARKETPLACE_REPOSITORY` Variable，手动运行时可由
 `marketplace_repository` 表单覆盖；均未配置就不内置 GitHub 源。想随开源包提供官方仓库时，将 Variable
-设为 `https://github.com/openvetta/vetta-official-marketplace`，不用修改代码。商业版未配置时只有云市场。
+设为 `https://github.com/qqzhangyanhua/vetta-official-marketplace`，不用修改代码。商业版未配置时只有云市场。
 
 **fork 不配任何 Variables 就得到开源版构建。** 官方商业版把这些放到 Settings → Environments → `desktop-production` → Environment variables（密钥走 Environment secrets）：
 
