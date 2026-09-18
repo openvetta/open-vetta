@@ -110,5 +110,10 @@ export interface DesktopModelsApi {
 	probe(ref: { provider: string; model: string }): Promise<{ ok: boolean; message?: string; error?: string }>;
 	/** 拉取本地自定义 provider 的 `GET {baseUrl}/models`,返回上游模型 id 列表,用于快速填写模型配置。 */
 	fetchProviderModels(providerName: string): Promise<{ models: string[]; error?: string }>;
+	loginOAuth(providerId: string): Promise<{ ok: boolean; cancelled?: boolean; error?: string }>;
+	logoutOAuth(providerId: string): Promise<void>;
+	oauthStatus(): Promise<{ grok: boolean }>;
+	cancelOAuth(): Promise<void>;
+	onOAuthDevice(handler: (info: { url: string; userCode: string }) => void): () => void;
 	onChanged(handler: (event: { providerIds: string[] }) => void): () => void;
 }

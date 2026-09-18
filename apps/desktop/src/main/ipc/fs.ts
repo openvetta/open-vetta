@@ -72,6 +72,7 @@ import { fetchProviderModels } from "../models/fetch-models.js";
 import { getDesktopModelSettingsService, onDesktopModelSettingsChanged } from "../models/model-settings-host.js";
 import type { ModelsConfig } from "../models/model-settings-service.js";
 import { probeModelProvider } from "../models/probe.js";
+import { getDesktopProviderOAuthService } from "../models/provider-oauth-host.js";
 import { getLinuxSandboxCapability, getSandboxCapability, type SandboxCapability } from "../sandbox/capability.js";
 import { getDesktopShortcutService } from "../shortcuts/shortcut-service.js";
 
@@ -148,6 +149,10 @@ const CHANNELS = {
 	MODELS_COPY_API_KEY: "vetta:models:copy-api-key",
 	MODELS_PROBE: "vetta:models:probe",
 	MODELS_FETCH_PROVIDER_MODELS: "vetta:models:fetch-provider-models",
+	MODELS_OAUTH_LOGIN: "vetta:models:oauth-login",
+	MODELS_OAUTH_LOGOUT: "vetta:models:oauth-logout",
+	MODELS_OAUTH_STATUS: "vetta:models:oauth-status",
+	MODELS_OAUTH_CANCEL: "vetta:models:oauth-cancel",
 	MCP_GET: "vetta:mcp:get",
 	MCP_SET: "vetta:mcp:set",
 	MCP_LOGIN: "vetta:mcp:login",
@@ -474,6 +479,24 @@ export function registerFsIpc(): () => void {
 		return probeModelProvider(ref);
 	});
 
+	ipcMain.handle(CHANNELS.MODELS_OAUTH_LOGIN, async (event, providerId: unknown) => {
+		assertNonEmptyString(providerId, "providerId");
+		return getDesktopProviderOAuthService().login(providerId.trim(), {
+			onDeviceCode: (info) => {
+				if (!event.sender.isDestroyed()) event.sender.send("vetta:models:oauth-device", info);
+			},
+		});
+	});
+	ipcMain.handle(CHANNELS.MODELS_OAUTH_LOGOUT, async (_event, providerId: unknown) => {
+		assertNonEmptyString(providerId, "providerId");
+		await getDesktopProviderOAuthService().logout(providerId.trim());
+	});
+	ipcMain.handle(CHANNELS.MODELS_OAUTH_STATUS, async () => {
+		return getDesktopProviderOAuthService().status();
+	});
+	ipcMain.handle(CHANNELS.MODELS_OAUTH_CANCEL, async () => {
+		getDesktopProviderOAuthService().cancel();
+	});
 	ipcMain.handle(CHANNELS.MODELS_FETCH_PROVIDER_MODELS, async (_event, providerName: unknown) => {
 		if (typeof providerName !== "string" || !providerName.trim()) throw new Error("Invalid provider name");
 		return fetchProviderModels(providerName.trim());
@@ -612,6 +635,10 @@ export function registerFsIpc(): () => void {
 		ipcMain.removeHandler(CHANNELS.CONFIG_GET);
 		ipcMain.removeHandler(CHANNELS.CONFIG_SET);
 		ipcMain.removeHandler(CHANNELS.MODELS_GET);
+		ipcMain.removeHandler(CHANNELS.MODELS_OAUTH_LOGIN);
+		ipcMain.removeHandler(CHANNELS.MODELS_OAUTH_LOGOUT);
+		ipcMain.removeHandler(CHANNELS.MODELS_OAUTH_STATUS);
+		ipcMain.removeHandler(CHANNELS.MODELS_OAUTH_CANCEL);
 		ipcMain.removeHandler(CHANNELS.MODELS_SET);
 		ipcMain.removeHandler(CHANNELS.MODELS_COPY_API_KEY);
 		ipcMain.removeHandler(CHANNELS.MODELS_PROBE);

@@ -3,6 +3,8 @@ import { showToast } from "@shared/store/toast-atoms";
 import type { TFunction } from "i18next";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { GROK_PRESET_PROVIDER_ID } from "../../../../shared/grok-oauth.js";
+import type { GrokSubscriptionDialogState } from "./GrokSubscriptionDialog";
 import { isInvalidKey, translatePresetError } from "./translatePresetError";
 
 type ProviderEntry = ModelsConfigData["providers"][string];
@@ -81,6 +83,14 @@ export interface PresetProvidersSectionModel {
 	/** 手动重拉公共目录(models.dev)。 */
 	refreshingCatalog: boolean;
 	onRefreshCatalog: () => Promise<void>;
+	grokLoggedIn: boolean;
+	grokBusy: boolean;
+	grokDialog: GrokSubscriptionDialogState;
+	onGrokLogin: () => Promise<void>;
+	onGrokLogout: () => Promise<void>;
+	onGrokDialogCancel: () => void;
+	onGrokOpenPage: () => void;
+	onGrokCopyCode: () => void;
 }
 
 export function usePresetProvidersSectionModel({
@@ -102,6 +112,14 @@ export function usePresetProvidersSectionModel({
 	const [refreshingId, setRefreshingId] = useState<string | null>(null);
 	const [modelsErrors, setModelsErrors] = useState<Record<string, string>>({});
 	const [refreshingCatalog, setRefreshingCatalog] = useState(false);
+	const [grokLoggedIn, setGrokLoggedIn] = useState(false);
+	const [grokBusy, setGrokBusy] = useState(false);
+	const [grokDialog, setGrokDialog] = useState<GrokSubscriptionDialogState>({
+		open: false,
+		userCode: "",
+		url: "",
+		error: null,
+	});
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -128,8 +146,11 @@ export function usePresetProvidersSectionModel({
 	}, [i18n.language, t]);
 
 	useEffect(() => {
+		void window.vetta.models.oauthStatus().then((status) => setGrokLoggedIn(status.grok));
+	}, []);
+
+	useEffect(() => {
 		void load();
-		// 目录是后台刷新的:拉到新数据后重新列一遍,不必让用户手动重试。
 		return window.vetta.models.onPresetsUpdated(() => void load());
 	}, [load]);
 
@@ -327,6 +348,10 @@ export function usePresetProvidersSectionModel({
 
 	const remove = useCallback(
 		async (row: PresetProviderRow): Promise<void> => {
+			if (row.id === GROK_PRESET_PROVIDER_ID && grokLoggedIn) {
+				await window.vetta.models.logoutOAuth(GROK_PRESET_PROVIDER_ID);
+				setGrokLoggedIn(false);
+			}
 			const providers = { ...config.providers };
 			delete providers[row.id];
 			const defaultModel = config.defaultModel?.startsWith(`${row.id}/`) ? undefined : config.defaultModel;
@@ -340,8 +365,67 @@ export function usePresetProvidersSectionModel({
 				return next;
 			});
 		},
-		[config, openId, saveConfig, t],
+		[config, grokLoggedIn, openId, saveConfig, t],
 	);
+
+	const onGrokLogin = useCallback(async (): Promise<void> => {
+		setGrokBusy(true);
+		setGrokDialog({ open: true, userCode: "", url: "", error: null });
+		const stop = window.vetta.models.onOAuthDevice((info) => {
+			setGrokDialog({ open: true, userCode: info.userCode, url: info.url, error: null });
+		});
+		try {
+			const result = await window.vetta.models.loginOAuth(GROK_PRESET_PROVIDER_ID);
+			if (result.ok) {
+				setGrokLoggedIn(true);
+				setGrokDialog({ open: false, userCode: "", url: "", error: null });
+				showToast({ variant: "success", message: t("grokSubscriptionSignedIn") });
+				return;
+			}
+			if (result.cancelled) {
+				setGrokDialog({ open: false, userCode: "", url: "", error: null });
+				return;
+			}
+			setGrokDialog((current) => ({
+				...current,
+				open: true,
+				error: result.error ?? t("grokSubscriptionFailed"),
+			}));
+		} catch (error) {
+			setGrokDialog((current) => ({
+				...current,
+				open: true,
+				error: error instanceof Error ? error.message : t("grokSubscriptionFailed"),
+			}));
+		} finally {
+			stop();
+			setGrokBusy(false);
+		}
+	}, [t]);
+
+	const onGrokLogout = useCallback(async (): Promise<void> => {
+		setGrokBusy(true);
+		try {
+			await window.vetta.models.logoutOAuth(GROK_PRESET_PROVIDER_ID);
+			setGrokLoggedIn(false);
+		} finally {
+			setGrokBusy(false);
+		}
+	}, []);
+
+	const onGrokDialogCancel = useCallback((): void => {
+		void window.vetta.models.cancelOAuth();
+		setGrokDialog({ open: false, userCode: "", url: "", error: null });
+		setGrokBusy(false);
+	}, []);
+
+	const onGrokOpenPage = useCallback((): void => {
+		if (grokDialog.url) void window.vetta.auth.openExternal(grokDialog.url);
+	}, [grokDialog.url]);
+
+	const onGrokCopyCode = useCallback((): void => {
+		if (grokDialog.userCode) void navigator.clipboard.writeText(grokDialog.userCode);
+	}, [grokDialog.userCode]);
 
 	return {
 		rows,
@@ -384,6 +468,14 @@ export function usePresetProvidersSectionModel({
 		onCopyApiKey: copyApiKey,
 		refreshingCatalog,
 		onRefreshCatalog: refreshCatalog,
+		grokLoggedIn,
+		grokBusy,
+		grokDialog,
+		onGrokLogin,
+		onGrokLogout,
+		onGrokDialogCancel,
+		onGrokOpenPage,
+		onGrokCopyCode,
 	};
 }
 

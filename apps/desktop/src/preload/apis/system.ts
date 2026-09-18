@@ -213,6 +213,11 @@ export function createSystemApi(
 			onPresetsUpdated: (handler) => onIpcVoidEvent(ipc, "vetta:models:presets-updated", handler),
 			probe: (ref) => ipc.invoke("vetta:models:probe", ref),
 			fetchProviderModels: (providerName) => ipc.invoke("vetta:models:fetch-provider-models", providerName),
+			loginOAuth: (providerId) => ipc.invoke("vetta:models:oauth-login", providerId),
+			logoutOAuth: (providerId) => ipc.invoke("vetta:models:oauth-logout", providerId),
+			oauthStatus: () => ipc.invoke("vetta:models:oauth-status"),
+			cancelOAuth: () => ipc.invoke("vetta:models:oauth-cancel"),
+			onOAuthDevice: (handler) => onIpcEvent(ipc, "vetta:models:oauth-device", handler),
 			onChanged: (handler) => onIpcEvent(ipc, "vetta:models:changed", handler),
 		},
 		mcp: {

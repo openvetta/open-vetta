@@ -1030,6 +1030,7 @@ Several providers require OAuth authentication instead of static API keys:
 - **GitHub Copilot** (Copilot subscription)
 - **Google Gemini CLI** (Gemini 2.0/2.5 via Google Cloud Code Assist; free tier or paid subscription)
 - **Antigravity** (Free Gemini 3, Claude, GPT-OSS via Google Cloud)
+- **xAI** (SuperGrok / X Premium subscription; device-code login)
 
 For paid Cloud Code Assist subscriptions, set `GOOGLE_CLOUD_PROJECT` or `GOOGLE_CLOUD_PROJECT_ID` to your project ID.
 
@@ -1095,13 +1096,14 @@ import {
   loginGitHubCopilot,
   loginGeminiCli,
   loginAntigravity,
+  loginXai,
 
   // Token management
   refreshOAuthToken,   // (provider, credentials) => new credentials
   getOAuthApiKey,      // (provider, credentialsMap) => { newCredentials, apiKey } | null
 
   // Types
-  type OAuthProvider,  // 'anthropic' | 'openai-codex' | 'github-copilot' | 'google-gemini-cli' | 'google-antigravity'
+  type OAuthProvider,  // 'anthropic' | 'openai-codex' | 'github-copilot' | 'google-gemini-cli' | 'google-antigravity' | 'xai'
   type OAuthCredentials,
 } from '@vetta/ai';
 ```

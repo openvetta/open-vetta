@@ -18,6 +18,7 @@ export function PresetProviderRow({
 	onRemove,
 	onRefreshModels,
 	onCopyApiKey,
+	subscriptionLogin,
 }: {
 	row: PresetProviderRowModel;
 	draftKey: string;
@@ -30,6 +31,14 @@ export function PresetProviderRow({
 	onRemove: (row: PresetProviderRowModel) => Promise<void>;
 	onRefreshModels: (row: PresetProviderRowModel) => Promise<void>;
 	onCopyApiKey: (row: PresetProviderRowModel) => Promise<void>;
+	subscriptionLogin?: {
+		readonly loggedIn: boolean;
+		readonly busy: boolean;
+		readonly loginLabel: string;
+		readonly logoutLabel: string;
+		readonly onLogin: () => void;
+		readonly onLogout: () => void;
+	};
 }): JSX.Element {
 	return (
 		<PresetProviderRowView
@@ -46,6 +55,7 @@ export function PresetProviderRow({
 			onCopyApiKey={() => void onCopyApiKey(row)}
 			icon={<ProviderIcon symbol={row.icon} className="h-7 w-7 shrink-0" />}
 			modelsList={<PresetProviderModelsList row={row} labels={labels} />}
+			subscriptionLogin={subscriptionLogin}
 		/>
 	);
 }

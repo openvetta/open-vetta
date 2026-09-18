@@ -28,8 +28,9 @@ export { antigravityOAuthProvider, loginAntigravity, refreshAntigravityToken } f
 export { geminiCliOAuthProvider, loginGeminiCli, refreshGoogleCloudToken } from "./google-gemini-cli.js";
 // OpenAI Codex (ChatGPT OAuth)
 export { loginOpenAICodex, openaiCodexOAuthProvider, refreshOpenAICodexToken } from "./openai-codex.js";
-
 export * from "./types.js";
+// xAI (Grok/X subscription)
+export { loginXai, refreshXaiToken, xaiOAuthProvider } from "./xai.js";
 
 // ============================================================================
 // Provider Registry
@@ -41,6 +42,7 @@ import { antigravityOAuthProvider } from "./google-antigravity.js";
 import { geminiCliOAuthProvider } from "./google-gemini-cli.js";
 import { openaiCodexOAuthProvider } from "./openai-codex.js";
 import type { OAuthCredentials, OAuthProviderId, OAuthProviderInfo, OAuthProviderInterface } from "./types.js";
+import { xaiOAuthProvider } from "./xai.js";
 
 const oauthProviderRegistry = new Map<string, OAuthProviderInterface>([
 	[anthropicOAuthProvider.id, anthropicOAuthProvider],
@@ -48,6 +50,7 @@ const oauthProviderRegistry = new Map<string, OAuthProviderInterface>([
 	[geminiCliOAuthProvider.id, geminiCliOAuthProvider],
 	[antigravityOAuthProvider.id, antigravityOAuthProvider],
 	[openaiCodexOAuthProvider.id, openaiCodexOAuthProvider],
+	[xaiOAuthProvider.id, xaiOAuthProvider],
 ]);
 
 /**

@@ -4,6 +4,7 @@
 
 ### Added
 
+- xAI 支持 SuperGrok / X Premium 的 Device Code OAuth（`loginXai` / `xaiOAuthProvider`），与 API Key 并存；登录后 access token 作为 `api.x.ai` Bearer。
 - `StreamOptions` 支持独立 `promptCacheKey`；OpenAI、Azure 与 Codex Responses 请求优先用它选择缓存分区，未提供时保持 `sessionId` 回退，连接/会话身份不变。
 - 工具参数校验失败新增公开的 `ToolArgumentsValidationError` 与结构化 `issues`；跨 UI/日志边界可使用
   `formatToolArgumentValidationIssues()` 返回不含原始参数的字段级摘要，原有详细 `message` 保持兼容。

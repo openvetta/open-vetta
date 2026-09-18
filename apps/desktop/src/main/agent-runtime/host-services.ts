@@ -44,6 +44,12 @@ export function getOrCreateSharedModelRuntime(): CodingAgentModelRuntime {
 	return runtime;
 }
 
+export function getSharedModelAuth(): CodingAgentAuthRuntime {
+	getOrCreateSharedModelRuntime();
+	if (!sharedModelAuth) throw new Error("Shared model auth was not initialized");
+	return sharedModelAuth;
+}
+
 export function syncSharedModelRuntimeCredentials(
 	credentials: ModelCredentialStore,
 	providers: Record<string, { credentialRef?: string }>,

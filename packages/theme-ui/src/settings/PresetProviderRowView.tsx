@@ -59,6 +59,14 @@ export interface PresetProviderRowViewProps {
 	readonly onCopyApiKey: () => void;
 	readonly icon: ReactNode;
 	readonly modelsList?: ReactNode;
+	readonly subscriptionLogin?: {
+		readonly loggedIn: boolean;
+		readonly busy: boolean;
+		readonly loginLabel: string;
+		readonly logoutLabel: string;
+		readonly onLogin: () => void;
+		readonly onLogout: () => void;
+	};
 }
 
 export function PresetProviderRowView({
@@ -75,6 +83,7 @@ export function PresetProviderRowView({
 	onCopyApiKey,
 	icon,
 	modelsList,
+	subscriptionLogin,
 }: PresetProviderRowViewProps): JSX.Element {
 	// 已下线的旧条目不在内置目录里,给不了 key 也拉不到模型。
 	const canEditKey = !row.offline;
@@ -233,6 +242,29 @@ export function PresetProviderRowView({
 								animate={{ opacity: 1, transition: FADE_IN }}
 								exit={{ opacity: 0, transition: FADE_OUT }}
 							>
+								{subscriptionLogin && !subscriptionLogin.loggedIn && (
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={subscriptionLogin.onLogin}
+										disabled={subscriptionLogin.busy || saving}
+										title={subscriptionLogin.loginLabel}
+									>
+										{subscriptionLogin.loginLabel}
+									</Button>
+								)}
+								{subscriptionLogin?.loggedIn && (
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={subscriptionLogin.onLogout}
+										disabled={subscriptionLogin.busy || saving}
+										title={subscriptionLogin.logoutLabel}
+										className="text-muted-foreground hover:text-foreground"
+									>
+										{subscriptionLogin.logoutLabel}
+									</Button>
+								)}
 								{row.adopted && !row.offline && (
 									<Button
 										variant="ghost"
