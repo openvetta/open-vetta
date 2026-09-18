@@ -1,0 +1,7 @@
+{
+	"plugin.name": "GitHub Issue Board",
+	"plugin.description": "Import open GitHub issues from a public repo, add manual tasks, and run them one by one with an Agent in your local project.",
+	"view.board.label": "Issue Board",
+	"view.board.description": "Import GitHub issues and run them one by one",
+	"board.title": "GitHub Issue Board"
+}

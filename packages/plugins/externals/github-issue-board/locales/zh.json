@@ -1,0 +1,7 @@
+{
+	"plugin.name": "GitHub Issue 任务台",
+	"plugin.description": "拉取公开仓库的 GitHub issue，连同手动任务一起排队，逐条交给 Agent 在本地项目执行。",
+	"view.board.label": "任务台",
+	"view.board.description": "从 GitHub issue 导入待办并逐条执行",
+	"board.title": "GitHub Issue 任务台"
+}

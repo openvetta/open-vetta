@@ -1,0 +1,26 @@
+{
+	"id": "github-issue-board",
+	"name": "%plugin.name%",
+	"version": "0.1.0",
+	"defaultLocale": "zh",
+	"pluginApiVersion": "^2.0.0",
+	"entry": "dist/mf-manifest.json",
+	"moduleFederation": {
+		"remoteName": "github_issue_board",
+		"expose": "./plugin"
+	},
+	"styles": ["dist/style.css"],
+	"permissions": [
+		"ui.slot.workspace-view",
+		"network.fetch",
+		"agent.session.read",
+		"agent.session.write",
+		"storage.read",
+		"storage.write"
+	],
+	"network": {
+		"allowedHosts": ["api.github.com"]
+	},
+	"description": "%plugin.description%",
+	"author": "Vetta"
+}
