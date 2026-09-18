@@ -4,6 +4,12 @@ export {
 	type ExternalRuntimeSessionCatalogOptions,
 } from "./catalog.js";
 export {
+	EXTERNAL_ORIGIN_MARKER_TYPE,
+	EXTERNAL_SESSION_HISTORY_UNAVAILABLE,
+	OMITTED_REASONING_MARKER_TYPE,
+	SKIPPED_TRUNCATED_LINES_MARKER_TYPE,
+} from "./grok-conversation.js";
+export {
 	type ResolveGrokSessionsDirectoryInput,
 	resolveGrokSessionsDirectory,
 } from "./grok-session-directory.js";
@@ -17,4 +23,5 @@ export {
 	GROK_TOOL_ID,
 	MAX_UNAVAILABLE_EXTERNAL_SESSIONS,
 } from "./grok-summary.js";
+export { ExternalRuntimeSessionFileHistoryReader } from "./history-reader.js";
 export type { ExternalSessionDirectoryEntry, ExternalSessionFileHost } from "./host-contracts.js";

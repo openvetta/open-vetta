@@ -172,11 +172,13 @@ export type {
 	CompactionBoundaryViewProps,
 	ForkOriginBannerViewProps,
 	ModelSwitchBoundaryViewProps,
+	SessionSourceBannerViewProps,
 } from "./MessageBoundaryViews";
 export {
 	CompactionBoundaryView,
 	ForkOriginBannerView,
 	ModelSwitchBoundaryView,
+	SessionSourceBannerView,
 } from "./MessageBoundaryViews";
 export type {
 	MessageCardsTabItem,

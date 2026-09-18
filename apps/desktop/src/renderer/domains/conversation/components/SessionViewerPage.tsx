@@ -14,8 +14,8 @@ import { ChatExportHost } from "./ChatExportHost";
 import { MessageList } from "./MessageList";
 
 /**
- * Read-only viewer for sessions the desktop app does not own (currently
- * IM sessions written by im-gateway).
+ * Read-only viewer for sessions the desktop app does not own
+ * (IM sessions written by im-gateway, and external-tool records such as Grok).
  */
 export function SessionViewerPage(): JSX.Element {
 	const { t } = useTranslation("chat");
@@ -106,6 +106,7 @@ export function SessionViewerPage(): JSX.Element {
 					/>
 				) : null
 			}
+			sourceBannerLabel={model.sourceBannerLabel}
 			messageList={
 				<MessageList
 					messages={model.messages}

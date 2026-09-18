@@ -18,6 +18,7 @@ import { createCodingAgentHtmlExportRuntime } from "../src/public-api/export-htm
 import * as extensionApi from "../src/public-api/extensions.js";
 import {
 	createCodingAgentExternalSessionCatalog,
+	createCodingAgentExternalSessionFileHistoryReader,
 	resolveGrokSessionsDirectory,
 } from "../src/public-api/external-sessions.js";
 import {
@@ -108,6 +109,7 @@ describe("coding-agent public subpaths", () => {
 		expect(migrateCodingAgentHistoricalSession).toBeTypeOf("function");
 		expect(resolveGrokSessionsDirectory).toBeTypeOf("function");
 		expect(createCodingAgentExternalSessionCatalog).toBeTypeOf("function");
+		expect(createCodingAgentExternalSessionFileHistoryReader).toBeTypeOf("function");
 		expect(createCodingAgentRuntimeExtensionCommandHost).toBeTypeOf("function");
 		expect(createCodingAgentSessionCapabilityHost).toBeTypeOf("function");
 		expect(createCodingAgentTurnExecutor).toBeTypeOf("function");

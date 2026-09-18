@@ -804,7 +804,14 @@
 			"noPath": "未指定会话路径"
 		},
 		"error": {
-			"loadPrefix": "加载失败："
+			"loadPrefix": "加载失败：",
+			"corruptedHeader": "会话头部已损坏，无法查看",
+			"unsupportedVersion": "会话格式版本不受支持，无法查看"
+		},
+		"omittedReasoning": "已省略 {{count}} 条模型推理",
+		"sourceBanner": {
+			"grok": "这是来自 Grok 的只读记录，不会改动原会话，也不能在这里继续对话。",
+			"unknown": "这是来自外部工具的只读记录，不会改动原会话，也不能在这里继续对话。"
 		},
 		"export": {
 			"defaultTitle": "Vetta 会话"

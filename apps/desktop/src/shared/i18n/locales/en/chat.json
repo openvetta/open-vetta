@@ -804,7 +804,14 @@
 			"noPath": "No session path specified"
 		},
 		"error": {
-			"loadPrefix": "Failed to load: "
+			"loadPrefix": "Failed to load: ",
+			"corruptedHeader": "This session header is damaged and cannot be opened",
+			"unsupportedVersion": "This session format is not supported and cannot be opened"
+		},
+		"omittedReasoning": "{{count}} reasoning traces were omitted",
+		"sourceBanner": {
+			"grok": "This is a read-only Grok record. The original session will not be changed, and you cannot continue the chat here.",
+			"unknown": "This is a read-only record from another tool. The original session will not be changed, and you cannot continue the chat here."
 		},
 		"export": {
 			"defaultTitle": "Vetta Session"

@@ -1,17 +1,13 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type * as Jotai from "jotai";
-import type * as ThemeChat from "@vetta-org/theme-ui/chat";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SessionViewerPage } from "./SessionViewerPage";
 
 const captured = vi.hoisted(() => ({
 	setHeader: vi.fn(),
-	onStartExport: vi.fn(),
-	onTogglePanel: vi.fn(),
 	feed: vi.fn(),
 }));
 
@@ -21,28 +17,24 @@ vi.mock("jotai", async (importOriginal) => ({
 }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("@vetta-org/theme-sdk/appearance", () => ({ useThemeSurface: () => undefined }));
-vi.mock("@vetta-org/theme-ui/chat", async (importOriginal) => ({
-	...(await importOriginal<typeof ThemeChat>()),
-	SessionViewerPageView: ({ messageList }: { messageList: ReactNode }) => <main>{messageList}</main>,
-}));
 vi.mock("@domains/activity-panel/components/ActivityPanel", () => ({ ActivityPanel: () => <aside /> }));
 vi.mock("../hooks/useSessionViewerPageModel", () => ({
 	useSessionViewerPageModel: () => ({
-		path: "C:/sessions/example.jsonl",
+		path: "/tmp/grok/sessions/demo/a/summary.json",
 		error: null,
 		messages: [{ id: "message-1" }],
 		exporting: false,
-		exportTitle: "Example",
+		exportTitle: "Fix the login bug",
 		isKnowledge: false,
-		isIm: true,
-		imCwd: "C:/sessions",
+		isIm: false,
+		imCwd: "",
 		kbCwd: "",
 		panelOpen: false,
 		emptyPathLabel: "empty",
 		errorPrefix: "error",
-		sourceBannerLabel: null,
-		onStartExport: captured.onStartExport,
-		onTogglePanel: captured.onTogglePanel,
+		sourceBannerLabel: "sessionViewer.sourceBanner.grok",
+		onStartExport: vi.fn(),
+		onTogglePanel: vi.fn(),
 		onExportFinished: vi.fn(),
 	}),
 }));
@@ -59,25 +51,19 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
-describe("SessionViewerPage header composition", () => {
-	it("mounts viewer actions in the page header and wires their commands", async () => {
+describe("SessionViewerPage external source banner", () => {
+	it("shows a page-level Grok source banner instead of opening an interactive chat", () => {
 		render(<SessionViewerPage />);
+		expect(screen.getByRole("status").textContent).toContain("sessionViewer.sourceBanner.grok");
+		const header = captured.setHeader.mock.calls.find(([value]) => value !== null)?.[0];
+		expect(header).toBeTruthy();
+		render(header);
+		expect(screen.getByText("sessionViewer.badge.readOnly")).toBeTruthy();
 		expect(captured.feed).toHaveBeenCalledWith(
 			expect.objectContaining({
-				workspace: expect.objectContaining({ id: "C:/sessions", cwd: "C:/sessions" }),
-				sessionId: "C:/sessions/example.jsonl",
+				sessionId: "/tmp/grok/sessions/demo/a/summary.json",
 				isStreaming: false,
 			}),
 		);
-		const header = captured.setHeader.mock.calls.find(([value]) => value !== null)?.[0];
-		expect(header).toBeTruthy();
-
-		render(header);
-		expect(screen.getByText("sessionViewer.badge.liveUpdate")).toBeTruthy();
-		await userEvent.click(screen.getByTitle("sessionViewer.exportButton.title"));
-		await userEvent.click(screen.getByTitle("sessionViewer.panelToggleButton.titleOpen"));
-
-		expect(captured.onStartExport).toHaveBeenCalledOnce();
-		expect(captured.onTogglePanel).toHaveBeenCalledOnce();
 	});
 });

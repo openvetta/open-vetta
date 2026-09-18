@@ -7,9 +7,16 @@ import {
 	knowledgeProcessingCwdAtom,
 } from "@shared/store/atoms";
 import { useParams } from "@tanstack/react-router";
+import type { HistoryEntry } from "@vetta/runtime-core";
+import type { TFunction } from "i18next";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+	EXTERNAL_ORIGIN_MARKER_TYPE,
+	EXTERNAL_SESSION_HISTORY_UNAVAILABLE,
+	GROK_TOOL_ID,
+} from "../external-history-display";
 import { fullHistoryToChat } from "../services/chat-service";
 
 /**
@@ -35,6 +42,7 @@ export interface SessionViewerPageModel {
 	panelOpen: boolean;
 	emptyPathLabel: string;
 	errorPrefix: string;
+	sourceBannerLabel: string | null;
 	onStartExport: () => void;
 	onTogglePanel: () => void;
 	onExportFinished: () => void;
@@ -48,6 +56,7 @@ export function useSessionViewerPageModel(): SessionViewerPageModel {
 
 	const [messages, setMessages] = useState<ChatConversationItem[]>([]);
 	const [error, setError] = useState<string | null>(null);
+	const [sourceBannerLabel, setSourceBannerLabel] = useState<string | null>(null);
 	const [exporting, setExporting] = useState(false);
 	const imCwd = useAtomValue(defaultImConversationCwdAtom);
 	const kbCwd = useAtomValue(knowledgeProcessingCwdAtom);
@@ -82,14 +91,16 @@ export function useSessionViewerPageModel(): SessionViewerPageModel {
 			try {
 				const initial = await window.vetta.session.openViewer(path);
 				if (cancelled) return;
+				setSourceBannerLabel(resolveSourceBannerLabel(initial.history, t));
 				setMessages(fullHistoryToChat(initial.history));
 
 				unsubscribe = await window.vetta.session.subscribeViewer(path, (snapshot) => {
+					setSourceBannerLabel(resolveSourceBannerLabel(snapshot.history, t));
 					setMessages(fullHistoryToChat(snapshot.history));
 				});
 				if (cancelled) unsubscribe?.();
 			} catch (err) {
-				if (!cancelled) setError((err as Error).message);
+				if (!cancelled) setError(mapViewerLoadError((err as Error).message, t));
 			}
 		})();
 
@@ -97,7 +108,7 @@ export function useSessionViewerPageModel(): SessionViewerPageModel {
 			cancelled = true;
 			unsubscribe?.();
 		};
-	}, [path]);
+	}, [path, t]);
 
 	return {
 		path,
@@ -112,8 +123,32 @@ export function useSessionViewerPageModel(): SessionViewerPageModel {
 		panelOpen,
 		emptyPathLabel: t("sessionViewer.emptyState.noPath"),
 		errorPrefix: t("sessionViewer.error.loadPrefix"),
+		sourceBannerLabel,
 		onStartExport: handleStartExport,
 		onTogglePanel: handleTogglePanel,
 		onExportFinished: handleExportFinished,
 	};
+}
+
+function resolveSourceBannerLabel(history: readonly HistoryEntry[], t: TFunction<"chat">): string | null {
+	const marker = history.find(
+		(entry) => entry.type === "custom_marker" && entry.customType === EXTERNAL_ORIGIN_MARKER_TYPE,
+	);
+	if (!marker || marker.type !== "custom_marker") return null;
+	const details = marker.details;
+	const tool =
+		details && typeof details === "object" && !Array.isArray(details) && "tool" in details ? details.tool : undefined;
+	if (tool === GROK_TOOL_ID) return t("sessionViewer.sourceBanner.grok");
+	if (typeof tool === "string" && tool.trim()) return t("sessionViewer.sourceBanner.unknown");
+	return null;
+}
+
+function mapViewerLoadError(message: string, t: TFunction<"chat">): string {
+	if (message === EXTERNAL_SESSION_HISTORY_UNAVAILABLE.corrupted_header) {
+		return t("sessionViewer.error.corruptedHeader");
+	}
+	if (message === EXTERNAL_SESSION_HISTORY_UNAVAILABLE.unsupported_version) {
+		return t("sessionViewer.error.unsupportedVersion");
+	}
+	return message;
 }

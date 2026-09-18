@@ -261,6 +261,7 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 			platformServices.pathServices.normalize,
 		),
 		sessionFileHistoryReader: new CompositeRuntimeSessionFileHistoryReader([
+			externalFormat.sessionFileHistoryReader,
 			historicalFormat.sessionFileHistoryReader,
 			new FileConversationRuntimeSessionFileHistoryReader(),
 		]),

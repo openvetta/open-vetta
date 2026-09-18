@@ -222,4 +222,47 @@ describe("sidebar conversation selection", () => {
 			"Renamed team",
 		));
 	});
+
+	it("does not offer rename or delete for an external Grok session", () => {
+		const store = createStore();
+		const grokSession: SidebarConversationInfo = {
+			kind: "conversation",
+			id: "grok-1",
+			path: "/tmp/grok/sessions/demo/a/summary.json",
+			cwd: "/workspace/demo",
+			name: "Fix the login bug",
+			firstMessage: "Fix the login bug",
+			modifiedAt: 4,
+			origin: { tool: "grok", path: "/tmp/grok/sessions/demo/a/summary.json" },
+			access: { readHistory: true, resume: false, rename: false, delete: false },
+		};
+		const { result } = renderHook(
+			() =>
+				useDefaultSessionListModel({
+					activeSessionPath: "",
+					activeTeamSessionId: "",
+					cwd: "/tmp/grok/sessions",
+					filter: "external",
+					onRenameSession: noop,
+					onSelectSession: noop,
+					sessions: [grokSession],
+				}),
+			{ wrapper: ({ children }) => <Provider store={store}>{children}</Provider> },
+		);
+
+		act(() =>
+			result.current.actions.openContextMenu(
+				{ clientX: 12, clientY: 18 } as React.MouseEvent,
+				grokSession,
+			),
+		);
+
+		expect(store.get(sessionContextMenuAtom)).toEqual({
+			x: 12,
+			y: 18,
+			session: grokSession,
+			allowMutations: false,
+			canTag: false,
+		});
+	});
 });

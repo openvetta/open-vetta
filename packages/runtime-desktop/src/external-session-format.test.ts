@@ -30,6 +30,15 @@ describe("Desktop external session format", () => {
 		]);
 		expect(await format.sessionCatalog.listProjects()).toEqual([]);
 		await expect(format.sessionCatalog.renameSession(sidecarPath, "nope")).rejects.toThrow(/read-only/i);
+		expect(format.sessionFileHistoryReader.canRead(sidecarPath)).toBe(true);
+		expect(format.sessionFileHistoryReader.read(sidecarPath).history).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					type: "message",
+					message: expect.objectContaining({ role: "user", content: "Read-only preview." }),
+				}),
+			]),
+		);
 	});
 });
 
@@ -50,6 +59,14 @@ function writeSidecar(root: string): string {
 			null,
 			2,
 		)}\n`,
+	);
+	writeFileSync(
+		join(sessionDir, "chat_history.jsonl"),
+		`${JSON.stringify({
+			type: "user",
+			prompt_index: 0,
+			content: [{ type: "text", text: "<user_query>\nRead-only preview.\n</user_query>" }],
+		})}\n`,
 	);
 	return sidecarPath;
 }
