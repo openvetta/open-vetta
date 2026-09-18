@@ -1,7 +1,12 @@
 import { useActiveConversation, type PluginContext } from "@vetta-org/plugin-sdk";
 import { type JSX, useEffect, useRef, useState } from "react";
 import {
+	resolveGithubRepoFromProject,
+	type ResolveGithubRepoError,
+} from "./git-remote";
+import {
 	fetchOpenGithubIssues,
+	githubFetchError,
 	ISSUE_COMMIT_INSTRUCTION,
 	mapGithubIssueItems,
 	type GithubFetchErrorKind,
@@ -21,6 +26,12 @@ const FETCH_ERROR_KEY: Record<GithubFetchErrorKind, string> = {
 	"rate-limit": "board.error.rateLimit",
 	"not-found": "board.error.notFound",
 	"non-json": "board.error.nonJson",
+};
+
+const RESOLVE_ERROR_KEY: Record<ResolveGithubRepoError, string> = {
+	"no-project": "board.error.noProject",
+	"not-git": "board.error.notGit",
+	"no-github-remote": "board.error.noGithubRemote",
 };
 
 const FIELD =
@@ -50,7 +61,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const t = ctx.i18n.t;
 	const ready = state !== null;
 	const busy = state !== null && hasRunningTask(state);
-	const canFetch = ready && !fetching && owner.trim() !== "" && repo.trim() !== "";
+	const canFetch = ready && !fetching;
 
 	useEffect(() => {
 		cancelledRef.current = false;
@@ -81,18 +92,34 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	}
 
 	async function handleFetch(): Promise<void> {
-		const ownerName = owner.trim();
-		const repoName = repo.trim();
-		if (!ownerName || !repoName || state === null || fetching) return;
-		const withTarget = { ...state, repoTarget: { owner: ownerName, repo: repoName } };
+		if (state === null || fetching) return;
 		setFetching(true);
 		try {
+			let ownerName = owner.trim();
+			let repoName = repo.trim();
+			if (!ownerName || !repoName) {
+				const resolved = await resolveGithubRepoFromProject({
+					command: ctx.command,
+					cwd: conversation.cwd,
+				});
+				if (!resolved.ok) {
+					ctx.ui.notify({ message: t(RESOLVE_ERROR_KEY[resolved.error]) });
+					return;
+				}
+				ownerName = resolved.target.owner;
+				repoName = resolved.target.repo;
+				setOwner(ownerName);
+				setRepo(repoName);
+			}
+			const withTarget = { ...state, repoTarget: { owner: ownerName, repo: repoName } };
 			await persist(withTarget);
-			const result = await fetchOpenGithubIssues(ctx.network, ownerName, repoName);
-			if ("error" in result) {
-				ctx.ui.notify({ message: t(FETCH_ERROR_KEY[result.error]), variant: "error" });
+			const result = await fetchOpenGithubIssues(ctx.network, ownerName, repoName, ctx.command);
+			const fetchError = githubFetchError(result);
+			if (fetchError) {
+				ctx.ui.notify({ message: t(FETCH_ERROR_KEY[fetchError]), variant: "error" });
 				return;
 			}
+			if (typeof result !== "object" || result === null || !("items" in result)) return;
 			await persist(
 				addIssueTasks(
 					withTarget,
@@ -178,6 +205,11 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 					{t("board.fetch")}
 				</button>
 			</form>
+			<p className="truncate text-xs text-muted-foreground">
+				{conversation.cwd
+					? t("board.project.current", { path: conversation.cwd })
+					: t("board.project.none")}
+			</p>
 			<form
 				className="flex flex-col gap-2"
 				onSubmit={(event) => {

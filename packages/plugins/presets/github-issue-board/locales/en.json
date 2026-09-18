@@ -24,9 +24,13 @@
 	"board.repo.ownerPlaceholder": "owner",
 	"board.repo.namePlaceholder": "repo",
 	"board.fetch": "Fetch issues",
-	"board.error.rateLimit": "GitHub unauthenticated rate limit is exhausted. Try again later.",
+	"board.project.current": "Current project: {{path}}",
+	"board.project.none": "No project is open. Open a local repository in the sidebar, then fetch.",
+	"board.error.rateLimit": "GitHub unauthenticated rate limit is exhausted. If GitHub CLI is installed, run gh auth login and fetch again.",
 	"board.error.notFound": "Repository not found or private.",
 	"board.error.nonJson": "GitHub returned an unexpected, non-JSON error.",
 	"board.error.openSession": "Could not open the conversation.",
-	"board.error.noProject": "Open a project first"
+	"board.error.noProject": "Open a project first",
+	"board.error.notGit": "The current folder is not a Git repository.",
+	"board.error.noGithubRemote": "The current project has no GitHub remote."
 }

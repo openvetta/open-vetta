@@ -15,9 +15,11 @@
 		"network.fetch",
 		"agent.session.read",
 		"agent.session.write",
+		"agent.command.run",
 		"storage.read",
 		"storage.write"
 	],
+	"commands": ["git", "gh"],
 	"network": {
 		"allowedHosts": ["api.github.com"]
 	},

@@ -11,6 +11,11 @@ const tenants = JSON.parse(
 const developmentPluginIds = tenants.profiles.development.common;
 const productionPluginIds = tenants.profiles.production.common;
 
+test("common ships github-issue-board with Desktop", () => {
+	assert.ok(developmentPluginIds.includes("github-issue-board"));
+	assert.ok(productionPluginIds.includes("github-issue-board"));
+});
+
 test("common keeps the full plugin set in development", () => {
 	const tenant = resolveSystemPluginSelection("common", "development");
 

@@ -24,9 +24,13 @@
 	"board.repo.ownerPlaceholder": "owner",
 	"board.repo.namePlaceholder": "repo",
 	"board.fetch": "拉取 Issues",
-	"board.error.rateLimit": "GitHub 未认证限流已用尽，请稍后再试。",
+	"board.project.current": "当前项目：{{path}}",
+	"board.project.none": "还没有打开项目。先在侧边栏打开一个本地仓库，再点拉取。",
+	"board.error.rateLimit": "GitHub 未认证限流已用尽。若本机已安装 GitHub CLI，先执行 gh auth login 再拉取。",
 	"board.error.notFound": "仓库不存在或为私有仓库。",
 	"board.error.nonJson": "GitHub 返回了无法解析的错误。",
 	"board.error.openSession": "打开对话页失败。",
-	"board.error.noProject": "请先打开一个项目"
+	"board.error.noProject": "请先打开一个项目",
+	"board.error.notGit": "当前目录不是 Git 仓库。",
+	"board.error.noGithubRemote": "当前项目没有 GitHub 远程地址。"
 }

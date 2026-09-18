@@ -7,6 +7,7 @@ import {
 	__setPluginHostBridge,
 	type ConversationEvent,
 	type ConversationState,
+	type PluginCommandApi,
 	type PluginContext,
 	type PluginConversationApi,
 	type PluginNetworkRequest,
@@ -38,7 +39,12 @@ const COPY: Record<string, string> = {
 	"board.repo.owner": "Owner",
 	"board.repo.name": "Repository",
 	"board.fetch": "Fetch issues",
+	"board.project.current": "Current project: {{path}}",
+	"board.project.none": "No project is open. Open a local repository in the sidebar, then fetch.",
 	"board.error.notFound": "Repository not found or private.",
+	"board.error.nonJson": "GitHub returned an unexpected, non-JSON error.",
+	"board.error.noGithubRemote": "The current project has no GitHub remote.",
+	"board.error.notGit": "The current folder is not a Git repository.",
 	"board.openSession": "Open conversation",
 };
 
@@ -54,11 +60,20 @@ function installHostBridge(conversation: ConversationState): void {
 }
 
 /** Minimal host context: only what activate() and the board view actually touch. */
+function interpolate(text: string, params?: Record<string, string | number>): string {
+	if (!params) return text;
+	return text.replace(/\{\{(\w+)\}\}/g, (match, name: string) =>
+		name in params ? String(params[name]) : match,
+	);
+}
+
 function fakeContext(options?: {
 	cwd?: string | null;
 	hangSend?: boolean;
 	issues?: unknown[];
 	networkResponse?: PluginNetworkResponse;
+	gitRemote?: { stdout: string; exitCode: number };
+	ghApi?: { stdout: string; stderr?: string; exitCode: number };
 }) {
 	const registered: RegisteredView[] = [];
 	const files = new Map<string, string>();
@@ -93,10 +108,24 @@ function fakeContext(options?: {
 		return { status: "sent" as const };
 	});
 	const openSession = vi.fn(async () => undefined);
+	const runCommand = vi.fn(async (file: string) => {
+		if (file === "gh") {
+			if (options?.ghApi) {
+				return { stderr: "", ...options.ghApi };
+			}
+			throw new Error("Command failed to start: gh (ENOENT)");
+		}
+		return {
+			stdout: options?.gitRemote?.stdout ?? "",
+			stderr: "",
+			exitCode: options?.gitRemote?.exitCode ?? 0,
+		};
+	});
 	const ctx = {
 		i18n: {
 			locale: "en",
-			t: (key: string) => COPY[key] ?? key,
+			t: (key: string, params?: Record<string, string | number>) =>
+				interpolate(COPY[key] ?? key, params),
 			onChange: () => ({ dispose: () => {} }),
 		},
 		ui: {
@@ -120,6 +149,7 @@ function fakeContext(options?: {
 			},
 		},
 		storage,
+		command: { run: runCommand } as unknown as PluginCommandApi,
 		network: {
 			request: async (request: PluginNetworkRequest) => {
 				requests.push(request);
@@ -134,7 +164,7 @@ function fakeContext(options?: {
 			},
 		},
 	} as unknown as PluginContext;
-	return { ctx, registered, notifications, createSession, sendPrompt, openSession, requests };
+	return { ctx, registered, notifications, createSession, sendPrompt, openSession, requests, runCommand };
 }
 
 function boardView(registered: RegisteredView[]) {
@@ -176,9 +206,20 @@ async function fillRepo(owner: string, repo: string): Promise<void> {
 	fireEvent.change(await readyRepoField(COPY["board.repo.name"] ?? "Repository"), { target: { value: repo } });
 }
 
+async function readyFetchButton(): Promise<HTMLElement> {
+	return waitFor(() => {
+		const button = screen.getByRole("button", { name: COPY["board.fetch"] });
+		if (!(button instanceof HTMLButtonElement) || button.disabled) {
+			throw new Error("fetch button is not ready");
+		}
+		return button;
+	});
+}
+
 async function fetchIssues(): Promise<void> {
+	const button = await readyFetchButton();
 	await act(async () => {
-		fireEvent.click(screen.getByRole("button", { name: COPY["board.fetch"] }));
+		fireEvent.click(button);
 	});
 }
 
@@ -377,5 +418,112 @@ describe("GitHub Issue board view", () => {
 
 		expect(notifications).toContain(COPY["board.error.notFound"]);
 		expect(screen.queryByRole("cell", { name: "Fix login" })).toBeNull();
+	});
+
+	it("fetches issues from the current project's GitHub remote without typing owner/repo", async () => {
+		const { ctx, registered, requests, runCommand } = fakeContext({
+			gitRemote: {
+				stdout: "origin\tgit@github.com:acme/app.git (fetch)\n",
+				exitCode: 0,
+			},
+			issues: [
+				{
+					number: 10,
+					title: "Fix login",
+					html_url: "https://github.com/acme/app/issues/10",
+					body: "The button does nothing.",
+					updated_at: "2026-01-02T03:04:05Z",
+				},
+			],
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		expect(await screen.findByText("Current project: /repo")).toBeTruthy();
+		await fetchIssues();
+
+		expect(runCommand).toHaveBeenCalledWith("git", ["remote", "-v"], {
+			cwd: "/repo",
+			timeoutMs: 8_000,
+		});
+		expect(screen.getByRole("cell", { name: "Fix login" })).toBeTruthy();
+		expect(requests[0]?.url).toBe("https://api.github.com/repos/acme/app/issues?state=open&per_page=30");
+		expect((await readyRepoField(COPY["board.repo.owner"] ?? "Owner")).value).toBe("acme");
+		expect((await readyRepoField(COPY["board.repo.name"] ?? "Repository")).value).toBe("app");
+	});
+
+	it("fetches issues through the local gh login without calling the unauthenticated API", async () => {
+		const issue = {
+			number: 10,
+			title: "Fix login",
+			html_url: "https://github.com/acme/app/issues/10",
+			body: "The button does nothing.",
+			updated_at: "2026-01-02T03:04:05Z",
+		};
+		const { ctx, registered, requests, runCommand } = fakeContext({
+			gitRemote: {
+				stdout: "origin\tgit@github.com:acme/app.git (fetch)\n",
+				exitCode: 0,
+			},
+			ghApi: { stdout: JSON.stringify([issue]), exitCode: 0 },
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await fetchIssues();
+
+		expect(runCommand).toHaveBeenCalledWith(
+			"gh",
+			["api", "repos/acme/app/issues?state=open&per_page=30"],
+			{
+				timeoutMs: 20_000,
+				env: { GH_PROMPT_DISABLED: "1", GH_NO_UPDATE_NOTIFIER: "1" },
+			},
+		);
+		expect(requests).toHaveLength(0);
+		expect(screen.getByRole("cell", { name: "Fix login" })).toBeTruthy();
+	});
+
+	it("shows a fetch error instead of crashing when gh returns an unreadable body", async () => {
+		const { ctx, registered, notifications } = fakeContext({
+			ghApi: { stdout: "unknown shorthand flag: 'F' in -F", exitCode: 1 },
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await fillRepo("acme", "app");
+		await fetchIssues();
+
+		expect(notifications).toContain(COPY["board.error.nonJson"]);
+		expect(screen.queryByRole("cell", { name: "Fix login" })).toBeNull();
+	});
+
+	it("prompts to open a project when fetching without a cwd or GitHub remote", async () => {
+		const missingProject = fakeContext({ cwd: null });
+		plugin.activate(missingProject.ctx);
+		const missingView = boardView(missingProject.registered);
+		render(<missingView.component pluginId="github-issue-board" viewId="board" />);
+
+		expect(await screen.findByText(COPY["board.project.none"] ?? "")).toBeTruthy();
+		await fetchIssues();
+		expect(missingProject.notifications).toContain(COPY["board.error.noProject"]);
+		expect(missingProject.requests).toHaveLength(0);
+		expect(missingProject.runCommand).not.toHaveBeenCalled();
+
+		cleanup();
+
+		const noGithub = fakeContext({
+			gitRemote: { stdout: "origin\tgit@gitlab.com:acme/app.git (fetch)\n", exitCode: 0 },
+		});
+		plugin.activate(noGithub.ctx);
+		const noGithubView = boardView(noGithub.registered);
+		render(<noGithubView.component pluginId="github-issue-board" viewId="board" />);
+
+		await fetchIssues();
+		expect(noGithub.notifications).toContain(COPY["board.error.noGithubRemote"]);
+		expect(noGithub.requests).toHaveLength(0);
 	});
 });

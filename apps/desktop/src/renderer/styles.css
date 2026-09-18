@@ -27,6 +27,7 @@
 @source inline("icon-[solar--smartphone-2-linear]");
 @source inline("icon-[solar--video-frame-play-horizontal-linear]");
 @source inline("icon-[solar--widget-2-linear]");
+@source inline("icon-[solar--checklist-linear]");
 
 @custom-variant dark (&:is([data-mode="dark"] *));
 /* Radix sets data-state="open"|"closed"; @vetta-org/ui uses data-open:/data-closed: utilities. */

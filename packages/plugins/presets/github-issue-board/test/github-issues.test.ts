@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { PluginCommandApi, PluginNetworkApi } from "@vetta-org/plugin-sdk";
 import {
+	fetchOpenGithubIssues,
 	ISSUE_COMMIT_INSTRUCTION,
 	ISSUE_PROMPT_MAX_CHARS,
+	mapGhApiError,
 	mapGithubFetchError,
 	mapGithubIssueItems,
 } from "../src/github-issues";
@@ -112,5 +115,92 @@ describe("mapGithubFetchError", () => {
 				body: "<html>Bad Gateway</html>",
 			}),
 		).toBe("non-json");
+	});
+});
+
+describe("mapGhApiError", () => {
+	it("maps gh HTTP failures, and treats missing login as unavailable", () => {
+		expect(mapGhApiError("", "gh: HTTP 404")).toBe("not-found");
+		expect(mapGhApiError('{"message":"API rate limit exceeded"}', "")).toBe("rate-limit");
+		expect(mapGhApiError("", "gh: To get started with GitHub CLI, please run: `gh auth login`")).toBe(
+			"unavailable",
+		);
+	});
+});
+
+describe("fetchOpenGithubIssues", () => {
+	const issue = issueJson();
+
+	it("uses the local gh login instead of the unauthenticated API", async () => {
+		const network = { request: vi.fn() } as unknown as PluginNetworkApi;
+		const command = {
+			run: vi.fn(async () => ({
+				stdout: JSON.stringify([issue]),
+				stderr: "",
+				exitCode: 0,
+			})),
+		} as unknown as PluginCommandApi;
+
+		await expect(fetchOpenGithubIssues(network, "acme", "app", command)).resolves.toEqual({
+			items: [issue],
+		});
+		expect(network.request).not.toHaveBeenCalled();
+		expect(command.run).toHaveBeenCalledWith(
+			"gh",
+			["api", "repos/acme/app/issues?state=open&per_page=30"],
+			{
+				timeoutMs: 20_000,
+				env: { GH_PROMPT_DISABLED: "1", GH_NO_UPDATE_NOTIFIER: "1" },
+			},
+		);
+	});
+
+	it("falls back to the unauthenticated API when gh is missing or not logged in", async () => {
+		const network = {
+			request: vi.fn(async () => ({
+				ok: true,
+				status: 200,
+				statusText: "OK",
+				headers: {},
+				body: [issue],
+			})),
+		} as unknown as PluginNetworkApi;
+		const missing = {
+			run: vi.fn(async () => {
+				throw new Error("Command failed to start: gh (ENOENT)");
+			}),
+		} as unknown as PluginCommandApi;
+
+		await expect(fetchOpenGithubIssues(network, "acme", "app", missing)).resolves.toEqual({
+			items: [issue],
+		});
+
+		const loggedOut = {
+			run: vi.fn(async () => ({
+				stdout: "",
+				stderr: "gh: To get started with GitHub CLI, please run: `gh auth login`",
+				exitCode: 1,
+			})),
+		} as unknown as PluginCommandApi;
+		await expect(fetchOpenGithubIssues(network, "acme", "app", loggedOut)).resolves.toEqual({
+			items: [issue],
+		});
+		expect(network.request).toHaveBeenCalledTimes(2);
+	});
+
+	it("returns a structured error when gh exits with an unreadable body", async () => {
+		const network = { request: vi.fn() } as unknown as PluginNetworkApi;
+		const command = {
+			run: vi.fn(async () => ({
+				stdout: "unknown shorthand flag: 'F' in -F",
+				stderr: "",
+				exitCode: 1,
+			})),
+		} as unknown as PluginCommandApi;
+
+		await expect(fetchOpenGithubIssues(network, "acme", "app", command)).resolves.toEqual({
+			error: "non-json",
+		});
+		expect(network.request).not.toHaveBeenCalled();
 	});
 });
