@@ -9,13 +9,15 @@ import { useSessionViewerContinueFrom } from "./useSessionViewerContinueFrom.js"
 
 const captured = vi.hoisted(() => ({
 	continueFromExternal: vi.fn(),
+	findExternalImports: vi.fn(),
 	selectFolder: vi.fn(),
 	openSession: vi.fn(),
 }));
 
 vi.mock("react-i18next", () => ({
 	useTranslation: () => ({
-		t: (key: string, options?: { path?: string }) => (options?.path ? `${key}:${options.path}` : key),
+		t: (key: string, options?: { path?: string; name?: string }) =>
+			options?.name ? `${key}:${options.name}` : options?.path ? `${key}:${options.path}` : key,
 	}),
 }));
 
@@ -24,6 +26,7 @@ const SESSION_PATH = "/tmp/grok/sessions/demo/a/summary.json";
 afterEach(() => {
 	vi.clearAllMocks();
 	captured.continueFromExternal.mockReset();
+	captured.findExternalImports.mockReset().mockResolvedValue(undefined);
 	captured.selectFolder.mockReset();
 	captured.openSession.mockReset();
 	openSessionFnRef.current = null;
@@ -43,6 +46,7 @@ describe("useSessionViewerContinueFrom", () => {
 		openSessionFnRef.current = captured.openSession;
 
 		act(() => result.current.onContinue());
+		await waitFor(() => expect(store.get(confirmDialogAtom)?.title).toBe("sessionViewer.continueFrom.quotaTitle"));
 
 		const confirmation = store.get(confirmDialogAtom);
 		expect(captured.continueFromExternal).not.toHaveBeenCalled();
@@ -59,10 +63,11 @@ describe("useSessionViewerContinueFrom", () => {
 		);
 	});
 
-	it("does not start continue-from when the quota warning is cancelled", () => {
+	it("does not start continue-from when the quota warning is cancelled", async () => {
 		const { store, result } = renderContinueFrom();
 
 		act(() => result.current.onContinue());
+		await waitFor(() => expect(store.get(confirmDialogAtom)?.title).toBe("sessionViewer.continueFrom.quotaTitle"));
 		store.get(confirmDialogAtom)?.onCancel?.();
 
 		expect(captured.continueFromExternal).not.toHaveBeenCalled();
@@ -85,6 +90,7 @@ describe("useSessionViewerContinueFrom", () => {
 		openSessionFnRef.current = captured.openSession;
 
 		act(() => result.current.onContinue());
+		await waitFor(() => expect(store.get(confirmDialogAtom)?.title).toBe("sessionViewer.continueFrom.quotaTitle"));
 		act(() => store.get(confirmDialogAtom)?.onConfirm(false));
 		await waitFor(() => expect(store.get(confirmDialogAtom)?.title).toBe("sessionViewer.continueFrom.cwdMissingTitle"));
 		expect(captured.continueFromExternal).toHaveBeenCalledTimes(1);
@@ -107,10 +113,76 @@ describe("useSessionViewerContinueFrom", () => {
 		captured.continueFromExternal.mockRejectedValue(new Error("EXTERNAL_SESSION_CONTINUE_NO_DEFAULT_MODEL"));
 
 		act(() => result.current.onContinue());
+		await waitFor(() => expect(store.get(confirmDialogAtom)?.title).toBe("sessionViewer.continueFrom.quotaTitle"));
 		act(() => store.get(confirmDialogAtom)?.onConfirm(false));
 
 		await waitFor(() => expect(result.current.error).toBe("sessionViewer.continueFrom.error.noDefaultModel"));
 		expect(captured.openSession).not.toHaveBeenCalled();
+	});
+
+	it("asks whether to open the existing import or create another session", async () => {
+		const { store, result } = renderContinueFrom();
+		captured.findExternalImports.mockResolvedValue({
+			sessionId: "already-1",
+			sessionPath: "/tmp/vetta/already.conversation.jsonl",
+			cwd: "/workspace",
+			importedAt: 1,
+			name: "Fix the login bug",
+		});
+		openSessionFnRef.current = captured.openSession;
+
+		act(() => result.current.onContinue());
+		await waitFor(() => expect(store.get(confirmDialogAtom)?.title).toBe("sessionViewer.continueFrom.duplicateTitle"));
+		expect(captured.continueFromExternal).not.toHaveBeenCalled();
+
+		const confirmation = store.get(confirmDialogAtom);
+		expect(confirmation).toMatchObject({
+			message: "sessionViewer.continueFrom.duplicateMessageNamed:Fix the login bug",
+			confirmLabel: "sessionViewer.continueFrom.duplicateOpenExisting",
+			secondaryLabel: "sessionViewer.continueFrom.duplicateCreateNew",
+			cancelLabel: "sessionViewer.continueFrom.duplicateCancel",
+		});
+
+		act(() => confirmation?.onConfirm(false));
+		await waitFor(() =>
+			expect(captured.openSession).toHaveBeenCalledWith("/workspace", "/tmp/vetta/already.conversation.jsonl"),
+		);
+		expect(captured.continueFromExternal).not.toHaveBeenCalled();
+	});
+
+	it("creates another session after the user chooses to continue anyway", async () => {
+		const { store, result } = renderContinueFrom();
+		captured.findExternalImports.mockResolvedValue({
+			sessionId: "already-1",
+			sessionPath: "/tmp/vetta/already.conversation.jsonl",
+			cwd: "/workspace",
+			importedAt: 1,
+		});
+		captured.continueFromExternal.mockResolvedValue({
+			kind: "created",
+			sessionId: "continued-2",
+			sessionPath: "/tmp/vetta/continued.conversation.jsonl",
+			cwd: "/workspace",
+			usedCache: true,
+			importedFrom: { tool: "grok", path: SESSION_PATH, importedAt: 2 },
+		});
+		openSessionFnRef.current = captured.openSession;
+
+		act(() => result.current.onContinue());
+		await waitFor(() => expect(store.get(confirmDialogAtom)?.onSecondary).toBeTypeOf("function"));
+		act(() => store.get(confirmDialogAtom)?.onSecondary?.());
+		await waitFor(() => expect(store.get(confirmDialogAtom)?.title).toBe("sessionViewer.continueFrom.quotaTitle"));
+		act(() => store.get(confirmDialogAtom)?.onConfirm(false));
+
+		await waitFor(() =>
+			expect(captured.continueFromExternal).toHaveBeenCalledWith({
+				sessionPath: SESSION_PATH,
+				forceCreate: true,
+			}),
+		);
+		await waitFor(() =>
+			expect(captured.openSession).toHaveBeenCalledWith("/workspace", "/tmp/vetta/continued.conversation.jsonl"),
+		);
 	});
 });
 
@@ -119,7 +191,10 @@ function renderContinueFrom(enabled = true) {
 	Object.defineProperty(window, "vetta", {
 		configurable: true,
 		value: {
-			session: { continueFromExternal: captured.continueFromExternal },
+			session: {
+				continueFromExternal: captured.continueFromExternal,
+				findExternalImports: captured.findExternalImports,
+			},
 			dialog: { selectFolder: captured.selectFolder },
 		},
 	});

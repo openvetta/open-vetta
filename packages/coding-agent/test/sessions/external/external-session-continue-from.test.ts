@@ -1,4 +1,14 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
+import {
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	statSync,
+	utimesSync,
+	writeFileSync,
+} from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -6,7 +16,9 @@ import { publishConversationSeed } from "@vetta/runtime-node/conversation";
 import { afterEach, describe, expect, it } from "vitest";
 import {
 	createCodingAgentExternalSessionContinueFrom,
+	type ExistingImportedExternalSession,
 	type ExternalSessionFileHost,
+	type ExternalSessionOriginSnapshot,
 	GROK_CONVERSATION_BODY_NAME,
 	GROK_SUMMARY_SIDECAR_NAME,
 	GROK_TOOL_ID,
@@ -155,10 +167,158 @@ describe("external session continue-from public entry", () => {
 		});
 		expect(created).toMatchObject({ kind: "created", cwd: overrideCwd });
 	});
+
+	it("returns the latest imported session instead of silently creating another", async () => {
+		const { sidecarPath } = createGrokWorkspace();
+		const existing: ExistingImportedExternalSession = {
+			sessionId: "already-2",
+			sessionPath: "/tmp/vetta/already-later.conversation.jsonl",
+			cwd: "/workspace",
+			importedAt: IMPORTED_AT,
+			name: "Fix the login bug",
+		};
+		const older: ExistingImportedExternalSession = {
+			sessionId: "already-1",
+			sessionPath: "/tmp/vetta/already-earlier.conversation.jsonl",
+			cwd: "/workspace",
+			importedAt: IMPORTED_AT - 1_000,
+		};
+		const modelCalls: unknown[] = [];
+		const persisted: unknown[] = [];
+		const snapshots: string[] = [];
+		const continueFrom = createContinueFrom({
+			files: createTestHost(),
+			modelCalls,
+			importedSessions: [older, existing],
+			onPersist: (input) => {
+				persisted.push(input);
+			},
+			onCopy: (snapshot) => {
+				snapshots.push(snapshot.root);
+			},
+		});
+
+		await expect(continueFrom({ sessionPath: sidecarPath, modelKey: MODEL_KEY })).resolves.toEqual({
+			kind: "already_imported",
+			existing,
+		});
+		expect(modelCalls).toEqual([]);
+		expect(persisted).toEqual([]);
+		expect(snapshots).toEqual([]);
+	});
+
+	it("creates another session when the user forces a new import of the same source", async () => {
+		const { sidecarPath } = createGrokWorkspace();
+		const continueFrom = createContinueFrom({
+			files: createTestHost(),
+			modelCalls: [],
+			importedSessions: [
+				{
+					sessionId: "already-1",
+					sessionPath: "/tmp/vetta/already.conversation.jsonl",
+					cwd: "/workspace",
+					importedAt: IMPORTED_AT,
+				},
+			],
+		});
+
+		const result = await continueFrom({
+			sessionPath: sidecarPath,
+			modelKey: MODEL_KEY,
+			forceCreate: true,
+		});
+		expect(result).toMatchObject({ kind: "created" });
+	});
+
+	it("parses the copied snapshot instead of live files that change after the copy", async () => {
+		const { sidecarPath } = createGrokWorkspace();
+		const modelCalls: Array<{ prompt: string }> = [];
+		const continueFrom = createContinueFrom({
+			files: createTestHost(),
+			modelCalls,
+			onCopy: (snapshot) => {
+				if (!snapshot.bodyPath) throw new Error("expected copied conversation body");
+				writeFileSync(
+					snapshot.bodyPath,
+					`${JSON.stringify({
+						type: "user",
+						prompt_index: 0,
+						content: [{ type: "text", text: "<user_query>\nDISTINCTIVE_SNAPSHOT_TURN\n</user_query>" }],
+					})}\n${JSON.stringify({
+						type: "assistant",
+						content: "Snapshot assistant turn.",
+						model_id: "grok-code",
+					})}\n`,
+				);
+			},
+		});
+
+		const result = await continueFrom({ sessionPath: sidecarPath, modelKey: MODEL_KEY });
+		expect(result.kind).toBe("created");
+		const prompt = modelCalls[0]?.prompt ?? "";
+		expect(prompt).toContain("DISTINCTIVE_SNAPSHOT_TURN");
+		expect(prompt).not.toContain("Fix the login redirect.");
+		if (result.kind === "created") {
+			expect(readFileSync(result.sessionPath, "utf8")).not.toContain("external-origin");
+		}
+	});
+
+	it("deletes the snapshot when persist fails so no orphan files remain", async () => {
+		const { sidecarPath } = createGrokWorkspace();
+		const deleted: string[] = [];
+		let snapshotRoot = "";
+		const continueFrom = createContinueFrom({
+			files: createTestHost(),
+			modelCalls: [],
+			onCopy: (snapshot) => {
+				snapshotRoot = snapshot.root;
+			},
+			onDelete: (sessionId) => {
+				deleted.push(sessionId);
+			},
+			persistError: new Error("persist failed"),
+		});
+
+		await expect(continueFrom({ sessionPath: sidecarPath, modelKey: MODEL_KEY })).rejects.toThrow("persist failed");
+		expect(deleted).toEqual(["continued-1"]);
+		expect(existsSync(snapshotRoot)).toBe(false);
+	});
+
+	it("deletes the snapshot when the trusted cwd is missing", async () => {
+		const { sidecarPath } = createGrokWorkspace({ cwd: "/missing/trusted/project" });
+		const deleted: string[] = [];
+		let snapshotRoot = "";
+		const continueFrom = createContinueFrom({
+			files: createTestHost(),
+			modelCalls: [],
+			onCopy: (snapshot) => {
+				snapshotRoot = snapshot.root;
+			},
+			onDelete: (sessionId) => {
+				deleted.push(sessionId);
+			},
+		});
+
+		await expect(continueFrom({ sessionPath: sidecarPath, modelKey: MODEL_KEY })).resolves.toEqual({
+			kind: "cwd_missing",
+			suggestedCwd: "/missing/trusted/project",
+		});
+		expect(deleted).toEqual(["continued-1"]);
+		expect(existsSync(snapshotRoot)).toBe(false);
+	});
 });
 
-function createContinueFrom(input: { readonly files: ExternalSessionFileHost; readonly modelCalls: unknown[] }) {
+function createContinueFrom(input: {
+	readonly files: ExternalSessionFileHost;
+	readonly modelCalls: unknown[];
+	readonly importedSessions?: readonly ExistingImportedExternalSession[];
+	readonly onCopy?: (snapshot: ExternalSessionOriginSnapshot) => void;
+	readonly onDelete?: (sessionId: string) => void;
+	readonly onPersist?: (input: { readonly sessionId: string }) => void;
+	readonly persistError?: Error;
+}) {
 	const cache = new Map<string, string>();
+	const snapshotRoots = new Map<string, string>();
 	let sessionSequence = 0;
 	return createCodingAgentExternalSessionContinueFrom({
 		files: input.files,
@@ -170,17 +330,42 @@ function createContinueFrom(input: { readonly files: ExternalSessionFileHost; re
 				cache.set(key, briefing);
 			},
 		},
+		async findImportedSessions() {
+			return input.importedSessions ?? [];
+		},
+		async copyOriginSnapshot(request) {
+			const root = mkdtempSync(join(tmpdir(), "vetta-continue-snapshot-"));
+			temporaryDirectories.push(root);
+			snapshotRoots.set(request.sessionId, root);
+			copyFileSync(request.sourceSidecarPath, join(root, basename(request.sourceSidecarPath)));
+			const bodyPath = request.sourceBodyPath ? join(root, basename(request.sourceBodyPath)) : undefined;
+			if (request.sourceBodyPath && bodyPath) copyFileSync(request.sourceBodyPath, bodyPath);
+			const snapshot: ExternalSessionOriginSnapshot = {
+				sessionId: request.sessionId,
+				root,
+				sidecarPath: join(root, basename(request.sourceSidecarPath)),
+				...(bodyPath ? { bodyPath } : {}),
+			};
+			input.onCopy?.(snapshot);
+			return snapshot;
+		},
+		async deleteOriginSnapshot(sessionId) {
+			input.onDelete?.(sessionId);
+			const root = snapshotRoots.get(sessionId);
+			if (root) rmSync(root, { recursive: true, force: true });
+		},
 		async generateBriefing(request) {
 			input.modelCalls.push(request);
 			return MODEL_BRIEFING;
 		},
 		async persistSeededSession(seed) {
+			input.onPersist?.(seed);
+			if (input.persistError) throw input.persistError;
 			const targetRootDir = mkdtempSync(join(tmpdir(), "vetta-continue-session-"));
 			temporaryDirectories.push(targetRootDir);
-			sessionSequence += 1;
 			const published = await publishConversationSeed({
 				targetRootDir,
-				targetSessionId: `continued-${sessionSequence}`,
+				targetSessionId: seed.sessionId,
 				createdAt: IMPORTED_AT,
 				cwd: seed.cwd,
 				entries: seed.entries,
@@ -190,6 +375,10 @@ function createContinueFrom(input: { readonly files: ExternalSessionFileHost; re
 			return { sessionId: published.targetSessionId, sessionPath: published.targetPath };
 		},
 		now: () => IMPORTED_AT,
+		createSessionId: () => {
+			sessionSequence += 1;
+			return `continued-${sessionSequence}`;
+		},
 		createEntryId: (() => {
 			let sequence = 0;
 			return () => {

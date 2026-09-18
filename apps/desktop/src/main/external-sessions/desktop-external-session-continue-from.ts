@@ -1,17 +1,23 @@
-import { createHash, randomUUID } from "node:crypto";
-import { readFile, stat, writeFile } from "node:fs/promises";
-import { basename } from "node:path";
+import { createHash } from "node:crypto";
+import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { basename, join } from "node:path";
 import { completeSimple } from "@vetta/ai";
 import { resolveCodingAgentSessionDir } from "@vetta/coding-agent/bootstrap";
+import { getAgentDir } from "@vetta/coding-agent/config";
 import {
 	createCodingAgentExternalSessionContinueFrom,
+	type ExistingImportedExternalSession,
 	type ExternalSessionBriefingCache,
 	type ExternalSessionContinuePersistInput,
 	type ExternalSessionContinueRequest,
 	type ExternalSessionContinueResult,
 	type ExternalSessionFileHost,
+	type ExternalSessionOriginSnapshot,
+	GROK_TOOL_ID,
+	pickLatestImportedSession,
 } from "@vetta/coding-agent/external-sessions";
 import { publishConversationSeed } from "@vetta/runtime-node/conversation";
+import { createNodeResultArtifactStorage, resolveNodeSessionArtifactDirectory } from "@vetta/runtime-node/host";
 import { getOrCreateSharedModelRuntime } from "../agent-runtime/host-services.js";
 import { getApplicationCacheService } from "../cache/application-cache-service.js";
 import { readDesktopConfig, writeDesktopConfig } from "../config/desktop-config-store.js";
@@ -20,7 +26,11 @@ import { allowProjectRoot, createFilesystemDirectory } from "../filesystem/files
 import { getDesktopModelSettingsService } from "../models/model-settings-host.js";
 import { broadcastProjectsChanged } from "../projects/project-events.js";
 import { ProjectService } from "../projects/project-service.js";
-import { getDesktopExternalSessionFormat } from "./desktop-external-session-format.js";
+
+export type { ExistingImportedExternalSession, ExternalSessionContinueRequest, ExternalSessionContinueResult };
+export { GROK_TOOL_ID, pickLatestImportedSession };
+
+export const EXTERNAL_ORIGIN_SNAPSHOT_DIR = "external-origin";
 
 const BRIEFING_CACHE_NAMESPACE = "external-briefing";
 
@@ -32,6 +42,16 @@ export const DESKTOP_CONTINUE_FROM_ERROR = {
 export interface DesktopExternalSessionContinueFromPorts {
 	readonly files: ExternalSessionFileHost;
 	readonly cache: ExternalSessionBriefingCache;
+	readonly findImportedSessions: (source: {
+		readonly tool: string;
+		readonly path: string;
+	}) => Promise<readonly ExistingImportedExternalSession[]>;
+	readonly copyOriginSnapshot: (input: {
+		readonly sessionId: string;
+		readonly sourceSidecarPath: string;
+		readonly sourceBodyPath?: string;
+	}) => Promise<ExternalSessionOriginSnapshot>;
+	readonly deleteOriginSnapshot: (sessionId: string) => Promise<void>;
 	readonly generateBriefing: (input: {
 		readonly modelKey: string;
 		readonly prompt: string;
@@ -43,6 +63,7 @@ export interface DesktopExternalSessionContinueFromPorts {
 	readonly resolveDefaultModelKey: () => Promise<string>;
 	readonly now?: () => number;
 	readonly createEntryId?: () => string;
+	readonly createSessionId?: () => string;
 }
 
 export function createDesktopExternalSessionContinueFrom(
@@ -81,11 +102,10 @@ export async function persistDesktopExternalSessionContinueSeed(
 	ports: {
 		readonly resolveSessionDir?: (cwd: string) => string;
 		readonly ensureProject?: (cwd: string) => Promise<void>;
-		readonly createSessionId?: () => string;
 		readonly now?: () => number;
 	} = {},
 ): Promise<{ readonly sessionId: string; readonly sessionPath: string }> {
-	const sessionId = ports.createSessionId?.() ?? randomUUID();
+	const sessionId = input.sessionId;
 	const targetRootDir = (ports.resolveSessionDir ?? resolveCodingAgentSessionDir)(input.cwd);
 	const published = await publishConversationSeed({
 		targetRootDir,
@@ -133,21 +153,6 @@ export async function generateDesktopExternalSessionBriefing(input: {
 	return text;
 }
 
-export function getDesktopExternalSessionContinueFrom(): (
-	request: Omit<ExternalSessionContinueRequest, "modelKey">,
-) => Promise<ExternalSessionContinueResult> {
-	desktopContinueFrom ??= createDesktopExternalSessionContinueFrom({
-		files: getDesktopExternalSessionFormat().host,
-		cache: createApplicationExternalBriefingCache(),
-		generateBriefing: generateDesktopExternalSessionBriefing,
-		persistSeededSession: persistDesktopExternalSessionContinueSeed,
-		resolveDefaultModelKey: resolveDesktopContinueFromModelKey,
-	});
-	return desktopContinueFrom;
-}
-
-let desktopContinueFrom: ReturnType<typeof createDesktopExternalSessionContinueFrom> | undefined;
-
 export async function ensureContinueFromProject(cwd: string): Promise<void> {
 	const projects = new ProjectService({
 		allowProjectRoot,
@@ -164,6 +169,79 @@ export async function ensureContinueFromProject(cwd: string): Promise<void> {
 		},
 	});
 	await projects.open(cwd, basename(cwd));
+}
+
+export async function findDesktopImportedExternalSessions(
+	source: {
+		readonly tool: string;
+		readonly path: string;
+	},
+	ports: {
+		readonly listProjects: () => Promise<readonly { readonly cwd: string }[]>;
+		readonly listSessions: (cwd: string) => Promise<
+			readonly {
+				readonly id: string;
+				readonly path: string;
+				readonly cwd: string;
+				readonly name?: string;
+				readonly importedFrom?: { readonly tool: string; readonly path: string; readonly importedAt: number };
+			}[]
+		>;
+		readonly samePath: (left: string, right: string) => boolean;
+	},
+): Promise<ExistingImportedExternalSession[]> {
+	const matches: ExistingImportedExternalSession[] = [];
+	for (const project of await ports.listProjects()) {
+		for (const session of await ports.listSessions(project.cwd)) {
+			const importedFrom = session.importedFrom;
+			if (!importedFrom || importedFrom.tool !== source.tool) continue;
+			if (!ports.samePath(importedFrom.path, source.path)) continue;
+			matches.push({
+				sessionId: session.id,
+				sessionPath: session.path,
+				cwd: session.cwd,
+				importedAt: importedFrom.importedAt,
+				...(session.name === undefined ? {} : { name: session.name }),
+			});
+		}
+	}
+	return matches;
+}
+
+export function createDesktopExternalOriginSnapshotPorts(agentDir = getAgentDir()): {
+	readonly copyOriginSnapshot: DesktopExternalSessionContinueFromPorts["copyOriginSnapshot"];
+	readonly deleteOriginSnapshot: DesktopExternalSessionContinueFromPorts["deleteOriginSnapshot"];
+} {
+	const codingRoot = join(agentDir, "tool-results");
+	const storage = createNodeResultArtifactStorage({
+		codingRoot,
+		mcpRoot: join(agentDir, "mcp-results"),
+	});
+	return {
+		async copyOriginSnapshot(input) {
+			const root = join(
+				resolveNodeSessionArtifactDirectory(codingRoot, input.sessionId),
+				EXTERNAL_ORIGIN_SNAPSHOT_DIR,
+			);
+			await mkdir(root, { recursive: true });
+			const sidecarPath = join(root, basename(input.sourceSidecarPath));
+			await copyFile(input.sourceSidecarPath, sidecarPath);
+			if (!input.sourceBodyPath) {
+				return { sessionId: input.sessionId, root, sidecarPath };
+			}
+			const bodyPath = join(root, basename(input.sourceBodyPath));
+			try {
+				await copyFile(input.sourceBodyPath, bodyPath);
+			} catch (error) {
+				if (isNotFound(error)) return { sessionId: input.sessionId, root, sidecarPath };
+				throw error;
+			}
+			return { sessionId: input.sessionId, root, sidecarPath, bodyPath };
+		},
+		async deleteOriginSnapshot(sessionId) {
+			await storage.cleaner.deleteSessionArtifacts(sessionId);
+		},
+	};
 }
 
 function hashBriefingCacheKey(key: string): string {

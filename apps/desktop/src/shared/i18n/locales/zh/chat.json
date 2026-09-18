@@ -838,6 +838,12 @@
 			"cwdMissingMessage": "记录里的工作目录「{{path}}」已经找不到。请重新选择一个目录，新会话会建在那里。",
 			"cwdMissingConfirm": "选择目录",
 			"cwdMissingCancel": "取消",
+			"duplicateTitle": "已经接着干过",
+			"duplicateMessage": "这条记录已经导入过一个 Vetta 会话。可以直接打开已有的，也可以再新建一个，从同一个起点试试另一个方向。",
+			"duplicateMessageNamed": "这条记录已经导入过会话「{{name}}」。可以直接打开已有的，也可以再新建一个，从同一个起点试试另一个方向。",
+			"duplicateOpenExisting": "打开已有",
+			"duplicateCreateNew": "仍然新建",
+			"duplicateCancel": "取消",
 			"error": {
 				"noDefaultModel": "还没有设置默认模型，无法生成提要",
 				"emptyBriefing": "模型没有生成可用的前情提要，请重试",

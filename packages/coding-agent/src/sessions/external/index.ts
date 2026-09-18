@@ -5,11 +5,14 @@ export {
 } from "./catalog.js";
 export {
 	createCodingAgentExternalSessionContinueFrom,
+	type ExistingImportedExternalSession,
 	type ExternalSessionBriefingCache,
 	type ExternalSessionContinuePersistInput,
 	type ExternalSessionContinuePorts,
 	type ExternalSessionContinueRequest,
 	type ExternalSessionContinueResult,
+	type ExternalSessionOriginSnapshot,
+	pickLatestImportedSession,
 } from "./continue-from.js";
 export {
 	EXTERNAL_ORIGIN_MARKER_TYPE,

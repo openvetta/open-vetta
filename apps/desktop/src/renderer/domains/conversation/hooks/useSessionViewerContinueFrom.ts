@@ -31,21 +31,34 @@ export function useSessionViewerContinueFrom(input: {
 	const onContinue = useCallback(() => {
 		if (!input.enabled || !input.sessionPath || continuing) return;
 		setError(null);
-		setConfirm({
-			title: t("sessionViewer.continueFrom.quotaTitle"),
-			message: t("sessionViewer.continueFrom.quotaMessage"),
-			confirmLabel: t("sessionViewer.continueFrom.quotaConfirm"),
-			cancelLabel: t("sessionViewer.continueFrom.quotaCancel"),
-			onConfirm: () => {
-				void runContinueFrom({
+		void (async () => {
+			setContinuing(true);
+			try {
+				const existing = await window.vetta.session.findExternalImports({ sessionPath: input.sessionPath });
+				setContinuing(false);
+				if (existing) {
+					askAboutExistingImport({
+						existing,
+						sessionPath: input.sessionPath,
+						t,
+						setContinuing,
+						setError,
+						setConfirm,
+					});
+					return;
+				}
+				askQuotaThenContinue({
 					sessionPath: input.sessionPath,
 					t,
 					setContinuing,
 					setError,
 					setConfirm,
 				});
-			},
-		});
+			} catch (error) {
+				setContinuing(false);
+				setError(mapContinueFromError(error, t));
+			}
+		})();
 	}, [continuing, input.enabled, input.sessionPath, setConfirm, t]);
 
 	return {
@@ -56,9 +69,54 @@ export function useSessionViewerContinueFrom(input: {
 	};
 }
 
+function askAboutExistingImport(input: {
+	readonly existing: Extract<ContinueFromResult, { kind: "already_imported" }>["existing"];
+	readonly sessionPath: string;
+	readonly t: TFunction<"chat">;
+	readonly setContinuing: (value: boolean) => void;
+	readonly setError: (value: string | null) => void;
+	readonly setConfirm: (value: ConfirmDialogState | null) => void;
+}): void {
+	input.setConfirm({
+		title: input.t("sessionViewer.continueFrom.duplicateTitle"),
+		message: input.existing.name
+			? input.t("sessionViewer.continueFrom.duplicateMessageNamed", { name: input.existing.name })
+			: input.t("sessionViewer.continueFrom.duplicateMessage"),
+		confirmLabel: input.t("sessionViewer.continueFrom.duplicateOpenExisting"),
+		secondaryLabel: input.t("sessionViewer.continueFrom.duplicateCreateNew"),
+		cancelLabel: input.t("sessionViewer.continueFrom.duplicateCancel"),
+		onConfirm: () => {
+			void openExistingSession(input.existing, input);
+		},
+		onSecondary: () => {
+			askQuotaThenContinue({ ...input, forceCreate: true });
+		},
+	});
+}
+
+function askQuotaThenContinue(input: {
+	readonly sessionPath: string;
+	readonly forceCreate?: boolean;
+	readonly t: TFunction<"chat">;
+	readonly setContinuing: (value: boolean) => void;
+	readonly setError: (value: string | null) => void;
+	readonly setConfirm: (value: ConfirmDialogState | null) => void;
+}): void {
+	input.setConfirm({
+		title: input.t("sessionViewer.continueFrom.quotaTitle"),
+		message: input.t("sessionViewer.continueFrom.quotaMessage"),
+		confirmLabel: input.t("sessionViewer.continueFrom.quotaConfirm"),
+		cancelLabel: input.t("sessionViewer.continueFrom.quotaCancel"),
+		onConfirm: () => {
+			void runContinueFrom(input);
+		},
+	});
+}
+
 async function runContinueFrom(input: {
 	readonly sessionPath: string;
 	readonly cwdOverride?: string;
+	readonly forceCreate?: boolean;
 	readonly t: TFunction<"chat">;
 	readonly setContinuing: (value: boolean) => void;
 	readonly setError: (value: string | null) => void;
@@ -69,7 +127,12 @@ async function runContinueFrom(input: {
 		const result = await window.vetta.session.continueFromExternal({
 			sessionPath: input.sessionPath,
 			...(input.cwdOverride === undefined ? {} : { cwdOverride: input.cwdOverride }),
+			...(input.forceCreate ? { forceCreate: true } : {}),
 		});
+		if (result.kind === "already_imported") {
+			askAboutExistingImport({ ...input, existing: result.existing });
+			return;
+		}
 		if (result.kind === "cwd_missing") {
 			await recoverMissingCwd(result, input);
 			return;
@@ -118,7 +181,21 @@ function askForReplacementCwd(
 	});
 }
 
-async function openCreatedSession(result: Extract<ContinueFromResult, { kind: "created" }>): Promise<void> {
+async function openExistingSession(
+	existing: { readonly cwd: string; readonly sessionPath: string },
+	input: {
+		readonly t: TFunction<"chat">;
+		readonly setError: (value: string | null) => void;
+	},
+): Promise<void> {
+	try {
+		await openCreatedSession(existing);
+	} catch (error) {
+		input.setError(mapContinueFromError(error, input.t));
+	}
+}
+
+async function openCreatedSession(result: { readonly cwd: string; readonly sessionPath: string }): Promise<void> {
 	const openSession = openSessionFnRef.current;
 	if (!openSession) throw new Error("OPEN_SESSION_UNAVAILABLE");
 	await openSession(result.cwd, result.sessionPath);

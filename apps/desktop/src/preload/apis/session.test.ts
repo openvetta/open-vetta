@@ -94,4 +94,16 @@ describe("createSessionApi trace propagation", () => {
 			cwdOverride: "/picked",
 		});
 	});
+
+	it("forwards find-external-imports requests through the dedicated channel", async () => {
+		const invoke = vi.fn(async () => undefined);
+		const ipc = { invoke } as unknown as IpcRenderer;
+		const session = createSessionApi(ipc).session;
+
+		await session.findExternalImports({ sessionPath: "/tmp/grok/summary.json" });
+
+		expect(invoke).toHaveBeenCalledWith("vetta:session:find-external-imports", {
+			sessionPath: "/tmp/grok/summary.json",
+		});
+	});
 });

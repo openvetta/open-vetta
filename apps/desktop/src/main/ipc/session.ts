@@ -60,7 +60,10 @@ import { isConversationSubCwd, readSessionCwdFromHeader } from "../conversations
 import { listRuntimeSessionProjects, listSessionHistory } from "../conversations/session-query-service.js";
 import { getDesktopUserQuestionBroker } from "../conversations/user-question-broker.js";
 import { type DebugRequestData, writeDebugRequest } from "../debug-writer.js";
-import { getDesktopExternalSessionContinueFrom } from "../external-sessions/desktop-external-session-continue-from.js";
+import {
+	getDesktopExternalSessionContinueFrom,
+	lookupDesktopExternalImport,
+} from "../external-sessions/desktop-external-session-continue-from-host.js";
 import { getAppLogger } from "../logger.js";
 import { getDesktopMcpAppRegistry } from "../mcp/mcp-app-runtime.js";
 import { getDesktopMcpTaskCoordinator, getDesktopMcpTaskRegistry } from "../mcp/mcp-task-runtime.js";
@@ -235,6 +238,7 @@ const CHANNELS = {
 	VIEWER_UNSUBSCRIBE: "vetta:session:viewer-unsubscribe",
 	VIEWER_EVENT: "vetta:session:viewer-event",
 	CONTINUE_FROM_EXTERNAL: "vetta:session:continue-from-external",
+	FIND_EXTERNAL_IMPORTS: "vetta:session:find-external-imports",
 	PLUGIN_TOOL_REQUEST: PLUGIN_CONTRIBUTION_CHANNELS.TOOL_REQUEST,
 	PLUGIN_TOOL_RESPONSE: PLUGIN_CONTRIBUTION_CHANNELS.TOOL_RESPONSE,
 	PLUGIN_HOST_READY: PLUGIN_CONTRIBUTION_CHANNELS.HOST_READY,
@@ -1688,12 +1692,26 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		}
 		const sessionPath = "sessionPath" in request ? request.sessionPath : undefined;
 		const cwdOverride = "cwdOverride" in request ? request.cwdOverride : undefined;
+		const forceCreate = "forceCreate" in request ? request.forceCreate : undefined;
 		assertNonEmptyString(sessionPath, "sessionPath");
 		if (cwdOverride !== undefined) assertNonEmptyString(cwdOverride, "cwdOverride");
+		if (forceCreate !== undefined && typeof forceCreate !== "boolean") {
+			throw new Error("Invalid continue-from request");
+		}
 		return getDesktopExternalSessionContinueFrom()({
 			sessionPath,
 			...(typeof cwdOverride === "string" ? { cwdOverride } : {}),
+			...(forceCreate === true ? { forceCreate: true } : {}),
 		});
+	});
+
+	ipcMain.handle(CHANNELS.FIND_EXTERNAL_IMPORTS, async (_event, request: unknown) => {
+		if (request === null || typeof request !== "object") {
+			throw new Error("Invalid continue-from request");
+		}
+		const sessionPath = "sessionPath" in request ? request.sessionPath : undefined;
+		assertNonEmptyString(sessionPath, "sessionPath");
+		return lookupDesktopExternalImport(sessionPath);
 	});
 
 	ipcMain.handle(CHANNELS.VIEWER_SUBSCRIBE, async (_event, path: unknown) => {

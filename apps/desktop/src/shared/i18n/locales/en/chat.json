@@ -838,6 +838,12 @@
 			"cwdMissingMessage": "The working folder stored in this record ({{path}}) no longer exists. Choose another folder for the new session.",
 			"cwdMissingConfirm": "Choose folder",
 			"cwdMissingCancel": "Cancel",
+			"duplicateTitle": "Already continued from here",
+			"duplicateMessage": "This record already has a Vetta session. Open the existing one, or create another and try a different direction from the same starting point.",
+			"duplicateMessageNamed": "This record already has a Vetta session named “{{name}}”. Open the existing one, or create another and try a different direction from the same starting point.",
+			"duplicateOpenExisting": "Open existing",
+			"duplicateCreateNew": "Create another",
+			"duplicateCancel": "Cancel",
 			"error": {
 				"noDefaultModel": "No default model is set, so a briefing cannot be generated",
 				"emptyBriefing": "The model did not return a usable briefing. Try again.",

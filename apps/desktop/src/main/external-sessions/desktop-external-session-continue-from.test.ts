@@ -7,12 +7,16 @@ import {
 	GROK_TOOL_ID,
 } from "@vetta/coding-agent/external-sessions";
 import { createDesktopExternalSessionFormat } from "@vetta/runtime-desktop";
+import { createNodeResultArtifactStorage, resolveNodeSessionArtifactDirectory } from "@vetta/runtime-node/host";
 import { afterEach, describe, expect, it } from "vitest";
 import { ApplicationCacheService } from "../cache/application-cache-service.js";
 import { onConversationListChanged } from "../conversations/conversation-list-events.js";
 import {
 	createApplicationExternalBriefingCache,
+	createDesktopExternalOriginSnapshotPorts,
 	createDesktopExternalSessionContinueFrom,
+	EXTERNAL_ORIGIN_SNAPSHOT_DIR,
+	findDesktopImportedExternalSessions,
 	persistDesktopExternalSessionContinueSeed,
 } from "./desktop-external-session-continue-from.js";
 
@@ -42,6 +46,8 @@ describe("desktop external session continue-from host", () => {
 		const continueFrom = createDesktopExternalSessionContinueFrom({
 			files: createDesktopExternalSessionFormat({ resolveSessionsDirectory: () => undefined }).host,
 			cache: createApplicationExternalBriefingCache(new ApplicationCacheService(cacheRoot)),
+			findImportedSessions: async () => [],
+			...createDesktopExternalOriginSnapshotPorts(createTemporaryDirectory("vetta-continue-artifacts-")),
 			async generateBriefing(request) {
 				modelCalls.push({ modelKey: request.modelKey, prompt: request.prompt });
 				return MODEL_BRIEFING;
@@ -52,11 +58,11 @@ describe("desktop external session continue-from host", () => {
 					ensureProject: async (projectCwd) => {
 						openedProjects.push(projectCwd);
 					},
-					createSessionId: () => "continued-from-grok",
 					now: () => IMPORTED_AT,
 				}),
 			resolveDefaultModelKey: async () => MODEL_KEY,
 			now: () => IMPORTED_AT,
+			createSessionId: () => "continued-from-grok",
 			createEntryId: (() => {
 				let sequence = 0;
 				return () => {
@@ -106,6 +112,8 @@ describe("desktop external session continue-from host", () => {
 		const continueFrom = createDesktopExternalSessionContinueFrom({
 			files: createDesktopExternalSessionFormat({ resolveSessionsDirectory: () => undefined }).host,
 			cache: createApplicationExternalBriefingCache(new ApplicationCacheService(cacheRoot)),
+			findImportedSessions: async () => [],
+			...createDesktopExternalOriginSnapshotPorts(createTemporaryDirectory("vetta-continue-artifacts-")),
 			async generateBriefing(request) {
 				modelCalls.push(request);
 				return MODEL_BRIEFING;
@@ -114,9 +122,9 @@ describe("desktop external session continue-from host", () => {
 				persistDesktopExternalSessionContinueSeed(input, {
 					resolveSessionDir: () => sessionDir,
 					ensureProject: async () => undefined,
-					createSessionId: () => `continued-${modelCalls.length}-${Date.now()}`,
 				}),
 			resolveDefaultModelKey: async () => MODEL_KEY,
+			createSessionId: () => `continued-${modelCalls.length}-${Date.now()}`,
 		});
 
 		const first = await continueFrom({ sessionPath: sidecarPath });
@@ -125,6 +133,135 @@ describe("desktop external session continue-from host", () => {
 		expect(second).toMatchObject({ kind: "created", usedCache: true });
 		expect(modelCalls).toHaveLength(1);
 		expect(existsSync(join(cacheRoot, "external-briefing"))).toBe(true);
+	});
+
+	it("returns an existing import instead of creating another session", async () => {
+		const { sidecarPath, sessionDir } = createGrokWorkspace();
+		const existing = {
+			sessionId: "already-1",
+			sessionPath: "/tmp/vetta/already.conversation.jsonl",
+			cwd: "/workspace",
+			importedAt: IMPORTED_AT,
+		};
+		const modelCalls: unknown[] = [];
+		const continueFrom = createDesktopExternalSessionContinueFrom({
+			files: createDesktopExternalSessionFormat({ resolveSessionsDirectory: () => undefined }).host,
+			cache: createApplicationExternalBriefingCache(
+				new ApplicationCacheService(createTemporaryDirectory("vetta-continue-cache-")),
+			),
+			findImportedSessions: async () => [existing],
+			...createDesktopExternalOriginSnapshotPorts(createTemporaryDirectory("vetta-continue-artifacts-")),
+			async generateBriefing(request) {
+				modelCalls.push(request);
+				return MODEL_BRIEFING;
+			},
+			persistSeededSession: (input) =>
+				persistDesktopExternalSessionContinueSeed(input, {
+					resolveSessionDir: () => sessionDir,
+					ensureProject: async () => undefined,
+				}),
+			resolveDefaultModelKey: async () => MODEL_KEY,
+		});
+
+		await expect(continueFrom({ sessionPath: sidecarPath })).resolves.toEqual({
+			kind: "already_imported",
+			existing,
+		});
+		expect(modelCalls).toEqual([]);
+	});
+
+	it("stores the origin snapshot in the session artifact directory and reclaims it with the existing cleaner", async () => {
+		const { sidecarPath, originalSidecar, originalBody, sessionDir } = createGrokWorkspace();
+		const agentDir = createTemporaryDirectory("vetta-continue-artifacts-");
+		const continueFrom = createDesktopExternalSessionContinueFrom({
+			files: createDesktopExternalSessionFormat({ resolveSessionsDirectory: () => undefined }).host,
+			cache: createApplicationExternalBriefingCache(
+				new ApplicationCacheService(createTemporaryDirectory("vetta-continue-cache-")),
+			),
+			findImportedSessions: async () => [],
+			...createDesktopExternalOriginSnapshotPorts(agentDir),
+			async generateBriefing() {
+				return MODEL_BRIEFING;
+			},
+			persistSeededSession: (input) =>
+				persistDesktopExternalSessionContinueSeed(input, {
+					resolveSessionDir: () => sessionDir,
+					ensureProject: async () => undefined,
+				}),
+			resolveDefaultModelKey: async () => MODEL_KEY,
+			createSessionId: () => "continued-from-grok",
+		});
+
+		const result = await continueFrom({ sessionPath: sidecarPath });
+		expect(result.kind).toBe("created");
+		const snapshotSidecar = join(
+			resolveNodeSessionArtifactDirectory(join(agentDir, "tool-results"), "continued-from-grok"),
+			EXTERNAL_ORIGIN_SNAPSHOT_DIR,
+			GROK_SUMMARY_SIDECAR_NAME,
+		);
+		const snapshotBody = join(
+			resolveNodeSessionArtifactDirectory(join(agentDir, "tool-results"), "continued-from-grok"),
+			EXTERNAL_ORIGIN_SNAPSHOT_DIR,
+			GROK_CONVERSATION_BODY_NAME,
+		);
+		expect(readFileSync(snapshotSidecar, "utf8")).toBe(originalSidecar);
+		expect(readFileSync(snapshotBody, "utf8")).toBe(originalBody);
+		if (result.kind === "created") {
+			expect(readFileSync(result.sessionPath, "utf8")).not.toContain(snapshotSidecar);
+		}
+
+		const storage = createNodeResultArtifactStorage({
+			codingRoot: join(agentDir, "tool-results"),
+			mcpRoot: join(agentDir, "mcp-results"),
+		});
+		await storage.cleaner.deleteSessionArtifacts("continued-from-grok");
+		expect(existsSync(snapshotSidecar)).toBe(false);
+		expect(existsSync(snapshotBody)).toBe(false);
+	});
+
+	it("finds imported Vetta sessions by import source path", async () => {
+		const sourcePath = "/tmp/grok/sessions/demo/summary.json";
+		const matches = await findDesktopImportedExternalSessions(
+			{ tool: GROK_TOOL_ID, path: sourcePath },
+			{
+				listProjects: async () => [{ cwd: "/workspace-a" }, { cwd: "/workspace-b" }],
+				listSessions: async (cwd) =>
+					cwd === "/workspace-a"
+						? [
+								{
+									id: "native",
+									path: "/tmp/vetta/native.conversation.jsonl",
+									cwd,
+								},
+								{
+									id: "imported",
+									path: "/tmp/vetta/imported.conversation.jsonl",
+									cwd,
+									name: "Fix the login bug",
+									importedFrom: { tool: GROK_TOOL_ID, path: sourcePath, importedAt: IMPORTED_AT },
+								},
+							]
+						: [
+								{
+									id: "other-tool",
+									path: "/tmp/vetta/other.conversation.jsonl",
+									cwd,
+									importedFrom: { tool: "codex", path: sourcePath, importedAt: IMPORTED_AT },
+								},
+							],
+				samePath: (left, right) => left === right,
+			},
+		);
+
+		expect(matches).toEqual([
+			{
+				sessionId: "imported",
+				sessionPath: "/tmp/vetta/imported.conversation.jsonl",
+				cwd: "/workspace-a",
+				importedAt: IMPORTED_AT,
+				name: "Fix the login bug",
+			},
+		]);
 	});
 });
 

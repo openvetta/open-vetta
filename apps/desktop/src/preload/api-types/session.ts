@@ -281,7 +281,17 @@ export interface DesktopSessionApi {
 	continueFromExternal(request: {
 		readonly sessionPath: string;
 		readonly cwdOverride?: string;
+		readonly forceCreate?: boolean;
 	}): Promise<DesktopExternalSessionContinueResult>;
+	findExternalImports(request: { readonly sessionPath: string }): Promise<DesktopExternalImportedSession | undefined>;
+}
+
+export interface DesktopExternalImportedSession {
+	readonly sessionId: string;
+	readonly sessionPath: string;
+	readonly cwd: string;
+	readonly importedAt: number;
+	readonly name?: string;
 }
 
 export type DesktopExternalSessionContinueResult =
@@ -296,6 +306,10 @@ export type DesktopExternalSessionContinueResult =
 				readonly importedAt: number;
 			};
 			readonly usedCache: boolean;
+	  }
+	| {
+			readonly kind: "already_imported";
+			readonly existing: DesktopExternalImportedSession;
 	  }
 	| {
 			readonly kind: "cwd_missing";

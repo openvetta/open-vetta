@@ -23,7 +23,7 @@ abstract class NodeFileResultArtifactStore<Request extends ResultArtifactWriteRe
 	}
 
 	protected async writeArtifact(request: Request, nameSegments: readonly string[]): Promise<{ reference: string }> {
-		const directory = join(this.root, safeResultArtifactSegment(request.sessionId));
+		const directory = resolveNodeSessionArtifactDirectory(this.root, request.sessionId);
 		await mkdir(directory, { recursive: true });
 		const fileName = `${nameSegments.map(safeResultArtifactSegment).join("-")}-${randomUUID()}.json`;
 		const targetPath = join(directory, fileName);
@@ -39,7 +39,7 @@ abstract class NodeFileResultArtifactStore<Request extends ResultArtifactWriteRe
 	}
 
 	deleteSessionArtifacts(sessionId: string): Promise<void> {
-		return rm(join(this.root, safeResultArtifactSegment(sessionId)), { force: true, recursive: true });
+		return rm(resolveNodeSessionArtifactDirectory(this.root, sessionId), { force: true, recursive: true });
 	}
 }
 
@@ -88,6 +88,10 @@ export function createNodeResultArtifactStorage(options: NodeResultArtifactStora
 		mcp,
 		cleaner: new CompositeNodeSessionArtifactCleaner([coding, mcp]),
 	};
+}
+
+export function resolveNodeSessionArtifactDirectory(root: string, sessionId: string): string {
+	return join(resolve(root), safeResultArtifactSegment(sessionId));
 }
 
 function safeResultArtifactSegment(value: string): string {
