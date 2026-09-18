@@ -9,7 +9,10 @@ let previousHome: string | undefined;
 
 /** desktop-config.json 的路径在模块加载时算好，所以每个用例重置模块并重设 VETTA_HOME。 */
 async function loadStoreWithConfig(config: Record<string, unknown> | undefined): Promise<{
-	readDesktopConfig: () => Promise<{ defaultAgentMode?: string }>;
+	readDesktopConfig: () => Promise<{
+		defaultAgentMode?: string;
+		sessionImport?: { grokEnabled?: boolean; grokSessionDir?: string };
+	}>;
 }> {
 	const home = await mkdtemp(join(tmpdir(), "vetta-config-"));
 	temporaryRoots.push(home);
@@ -50,5 +53,26 @@ describe("defaultAgentMode 兼容旧字段名", () => {
 	it("配置文件不存在时回落 work", async () => {
 		const store = await loadStoreWithConfig(undefined);
 		expect((await store.readDesktopConfig()).defaultAgentMode).toBe("work");
+	});
+});
+
+describe("sessionImport 默认关闭", () => {
+	it("缺字段时 Grok 导入保持关闭", async () => {
+		const store = await loadStoreWithConfig({});
+		expect((await store.readDesktopConfig()).sessionImport).toEqual({ grokEnabled: false });
+	});
+
+	it("打开开关后读回为开启", async () => {
+		const store = await loadStoreWithConfig({
+			sessionImport: { grokEnabled: true, grokSessionDir: "~/custom-grok/sessions" },
+		});
+		const config = await store.readDesktopConfig();
+		expect(config.sessionImport?.grokEnabled).toBe(true);
+		expect(config.sessionImport?.grokSessionDir).toMatch(/custom-grok[/\\]sessions$/);
+	});
+
+	it("非 true 的开关值一律视为关闭", async () => {
+		const store = await loadStoreWithConfig({ sessionImport: { grokEnabled: "yes" } });
+		expect((await store.readDesktopConfig()).sessionImport).toEqual({ grokEnabled: false });
 	});
 });

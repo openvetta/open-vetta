@@ -1,22 +1,30 @@
+import { MotionSelect, SettingHeading, SettingRow, SettingSection } from "@vetta-org/theme-ui/settings";
 import { Button } from "@vetta-org/ui";
 import { Switch } from "@vetta-org/ui";
 import { useMemo } from "react";
 import { SettingsAiAssist } from "../ai-assist";
 import { SETTINGS_SECTION } from "../registry";
-import { MotionSelect, SettingHeading, SettingRow, SettingSection } from "@vetta-org/theme-ui/settings";
-import type { AgentSettingsModel } from "./useAgentSettingsModel";
-import { RuntimeConfigurationSections } from "./RuntimeConfigurationSections";
-import type { RuntimeConfigurationModel } from "./useRuntimeConfigurationModel";
+import { ExternalSessionImportSettingsSection } from "./ExternalSessionImportSettingsSection";
 import { ImageGenerationSettingsSection } from "./ImageGenerationSettingsSection";
+import { RuntimeConfigurationSections } from "./RuntimeConfigurationSections";
+import type { AgentSettingsModel } from "./useAgentSettingsModel";
+import type { ExternalSessionImportSettingsModel } from "./useExternalSessionImportSettingsModel";
 import type { ImageGenerationSettingsModel } from "./useImageGenerationSettingsModel";
+import type { RuntimeConfigurationModel } from "./useRuntimeConfigurationModel";
 
 export interface AgentSettingsViewProps {
 	model: AgentSettingsModel;
 	imageGeneration: ImageGenerationSettingsModel;
+	sessionImport: ExternalSessionImportSettingsModel;
 	runtimeConfiguration: RuntimeConfigurationModel;
 }
 
-export function AgentSettingsView({ model, imageGeneration, runtimeConfiguration }: AgentSettingsViewProps): JSX.Element {
+export function AgentSettingsView({
+	model,
+	imageGeneration,
+	sessionImport,
+	runtimeConfiguration,
+}: AgentSettingsViewProps): JSX.Element {
 	const personaOptions = useMemo(
 		() => model.personas.map((persona) => ({ value: persona.id, label: persona.label })),
 		[model.personas],
@@ -88,6 +96,8 @@ export function AgentSettingsView({ model, imageGeneration, runtimeConfiguration
 			</div>
 
 			<ImageGenerationSettingsSection model={imageGeneration} />
+
+			<ExternalSessionImportSettingsSection model={sessionImport} />
 
 			<div>
 				<SettingSection title={model.labels.sections.experimental} section={SETTINGS_SECTION["agent-experimental"]}>

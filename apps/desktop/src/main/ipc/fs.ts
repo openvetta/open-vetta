@@ -40,6 +40,7 @@ import {
 	normalizeImageGeneration,
 	normalizeKnowledgeBase,
 	normalizeQuickPanel,
+	normalizeSessionImport,
 	normalizeShortcuts,
 	type ProjectEntry,
 	persistVettaCliPaths,
@@ -47,8 +48,10 @@ import {
 	type QuickPanelTrigger,
 	readConfigSync,
 	readDesktopConfig,
+	type SessionImportConfig,
 	writeDesktopConfig,
 } from "../config/desktop-config-store.js";
+import { detectGrokSessionsDirectory } from "../external-sessions/grok-session-locator.js";
 import {
 	allowProjectRoot,
 	createFilesystemDirectory,
@@ -93,6 +96,8 @@ export interface DesktopConfigSnapshot extends DesktopConfig {
 	defaultImConversationCwd: string;
 	/** 知识库加工特殊项目的绝对路径（~/.vetta/knowledges/processing_records）。 */
 	knowledgeProcessingCwd: string;
+	/** 自动探测到的 Grok 会话目录；探测失败时缺省。不写入 desktop-config。 */
+	grokSessionsDirectory?: string;
 }
 
 export {
@@ -109,6 +114,7 @@ export {
 	type KnowledgeBaseConfig,
 	persistVettaCliPaths,
 	type ProjectEntry,
+	type SessionImportConfig,
 	type QuickPanelConfig,
 	type QuickPanelTrigger,
 	readConfigSync,
@@ -397,6 +403,7 @@ export function registerFsIpc(): () => void {
 			defaultConversationCwd: DEFAULT_CONVERSATION_CWD,
 			defaultImConversationCwd: DEFAULT_IM_CONVERSATION_CWD,
 			knowledgeProcessingCwd: KB_PROCESSING_CWD,
+			grokSessionsDirectory: detectGrokSessionsDirectory().path,
 		};
 	});
 
@@ -429,6 +436,10 @@ export function registerFsIpc(): () => void {
 				patch.imageGeneration !== undefined
 					? normalizeImageGeneration({ ...current.imageGeneration, ...patch.imageGeneration })
 					: current.imageGeneration,
+			sessionImport:
+				patch.sessionImport !== undefined
+					? normalizeSessionImport({ ...current.sessionImport, ...patch.sessionImport })
+					: current.sessionImport,
 			knowledgeBase:
 				patch.knowledgeBase !== undefined
 					? normalizeKnowledgeBase({ ...current.knowledgeBase, ...patch.knowledgeBase })
