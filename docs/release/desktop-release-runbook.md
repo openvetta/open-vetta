@@ -13,6 +13,7 @@
 - [真实安装升级 workflow](../../.github/workflows/desktop-upgrade-e2e.yml)
 - [真实安装升级脚本](../../apps/desktop/scripts/desktop-upgrade-e2e.mjs)
 - [Desktop 打包与更新脚本说明](../../apps/desktop/scripts/README.md)
+- [Linux 原生安装包与依赖](../desktop/linux-installation.md)
 - [Windows 更新与 R2 细节](../desktop/windows-auto-update.md)
 - [macOS 更新、签名与公证](../desktop/macos-auto-update.md)
 

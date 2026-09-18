@@ -13,6 +13,24 @@ const upgradeWorkflow = readFileSync(
 );
 
 describe("Desktop release workflow contracts", () => {
+	it("carries Linux native packages from the release build into GitHub Release assets", () => {
+		const buildJob = workflow.slice(workflow.indexOf("\n  build:"), workflow.indexOf("\n  publish-r2:"));
+		const publishJob = workflow.slice(workflow.indexOf("\n  publish-github:"));
+		expect(buildJob).toContain("command: dist:linux");
+		for (const extension of ["deb", "rpm"]) {
+			expect(buildJob).toContain(`apps/desktop/release/*.${extension}`);
+		}
+		expect(buildJob).toContain("xz-utils rpm");
+		expect(buildJob).toContain("node scripts/verify-linux-packages.mjs");
+		expect(buildJob.indexOf("node scripts/verify-linux-packages.mjs")).toBeLessThan(
+			buildJob.indexOf("uses: actions/upload-artifact@v4"),
+		);
+		expect(publishJob).toContain("pattern: desktop-*");
+		expect(publishJob).toContain("merge-multiple: true");
+		expect(publishJob).toContain("find apps/desktop/release -maxdepth 1 -type f -print0");
+		expect(publishJob).toContain('xargs -0 gh release upload "' + "$" + '{TAG}" --clobber');
+	});
+
 	it("runs quality and packaging tests before the platform matrix", () => {
 		expect(workflow).toContain("  quality:");
 		expect(workflow).toContain("run: bun run check");

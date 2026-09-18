@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { linuxPackagingConfig } from "./linux-packaging-config.mjs";
 
 const buildStageDir = join(tmpdir(), "vetta-desktop-build");
 const builderConfigPath = join(buildStageDir, "electron-builder.json");
@@ -23,7 +24,7 @@ const archArgMap = {
 };
 
 const defaultTargetsByPlatform = {
-	linux: ["AppImage"],
+	linux: linuxPackagingConfig.linux.target,
 	mac: ["dmg", "zip"],
 	win: ["inno"],
 };
@@ -125,9 +126,9 @@ export function resolveElectronBuilderPublishMode(explicitMode) {
 	return publishMode;
 }
 
-function main() {
+export function main(argv = process.argv.slice(2)) {
 	assertBuildStageExists();
-	const cliOptions = parseCliOptions(process.argv.slice(2));
+	const cliOptions = parseCliOptions(argv);
 
 	const platform = cliOptions.platform || resolveDefaultPlatform();
 	if (!(platform in platformArgMap)) {

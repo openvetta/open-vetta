@@ -231,7 +231,10 @@ electron-builder 会随各平台产物生成更新清单：
 
 - Windows：`latest.yml`、Inno Setup 安装包与 blockmap。应用运行时由 Inno Setup 静默安装到新版本目录，重启时由稳定启动器切换版本。
 - macOS：`latest-mac.yml`、ZIP/DMG 与 blockmap。签名并公证后由 Squirrel.Mac 原位替换应用；客户端会等到原生 `update-downloaded` 事件后才显示“可重启”，不会把“ZIP 下载完成”误当成“更新已可安装”。
-- Linux：`latest-linux.yml`、AppImage 与 blockmap。
+- Linux：`latest-linux.yml`、AppImage 与 blockmap，以及 DEB（amd64）和 RPM（x86_64）安装包。
+  默认 `dist:linux` / Linux 上的 `dist:opensource` 同时构建三种格式；CI 通过
+  `verify-linux-packages.mjs` 校验原生包后，将它们连同更新产物上传到 GitHub Release。
+  安装、依赖与定向构建命令见 [Linux 安装与构建](../../../docs/desktop/linux-installation.md)。
 
 ### 发布到 R2
 

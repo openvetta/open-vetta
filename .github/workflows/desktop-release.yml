@@ -274,7 +274,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y build-essential libcap-dev meson ninja-build pkg-config xz-utils
+          sudo apt-get install --no-install-recommends -y build-essential libcap-dev meson ninja-build pkg-config xz-utils rpm
 
       - name: Install Linux Electron runtime dependencies
         if: runner.os == 'Linux'
@@ -400,6 +400,11 @@ jobs:
         working-directory: apps/desktop
         run: bun run ${{ matrix.verify }}
 
+      - name: Verify Linux native packages
+        if: runner.os == 'Linux'
+        working-directory: apps/desktop
+        run: node scripts/verify-linux-packages.mjs
+
       - name: Run packaged app and updater E2E
         working-directory: apps/desktop
         env:
@@ -434,8 +439,10 @@ jobs:
           path: |
             apps/desktop/release/*.AppImage
             apps/desktop/release/*.blockmap
+            apps/desktop/release/*.deb
             apps/desktop/release/*.dmg
             apps/desktop/release/*.exe
+            apps/desktop/release/*.rpm
             apps/desktop/release/*.zip
             apps/desktop/release/latest*.yml
 

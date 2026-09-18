@@ -86,7 +86,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y build-essential libcap-dev meson ninja-build pkg-config xz-utils
+          sudo apt-get install --no-install-recommends -y build-essential libcap-dev meson ninja-build pkg-config xz-utils rpm
 
       - name: Install Linux Electron runtime dependencies
         if: runner.os == 'Linux'
@@ -104,6 +104,11 @@ jobs:
           VETTA_UPDATE_GITHUB_REPO: open-vetta
           VETTA_UPDATE_PROVIDER: github
         run: bun run ${{ matrix.build-command }}
+
+      - name: Verify Linux native packages
+        if: runner.os == 'Linux'
+        working-directory: apps/desktop
+        run: node scripts/verify-linux-packages.mjs
 
       - name: Run packaged Electron smoke and updater E2E
         working-directory: apps/desktop

@@ -7,6 +7,7 @@ import { resolveBuildResourceFilters } from "./build-resource-filters.mjs";
 import { validateDesktopBuildEnvironment } from "./desktop-build-environment.mjs";
 import { DESKTOP_BUILD_OUTPUTS } from "./desktop-packaging-layout.mjs";
 import { loadBuildEnv } from "./load-build-env.mjs";
+import { linuxPackagingConfig } from "./linux-packaging-config.mjs";
 import { resolvePackagedNativeDependencies } from "./packaged-native-dependencies.mjs";
 import { resolveReleaseInfo } from "./resolve-release-info.mjs";
 import { prepareSpeechModels, SPEECH_MODEL_RESOURCE_ROOT } from "./fetch-speech-models.mjs";
@@ -273,6 +274,7 @@ const appPkg = {
 	version: appVersion,
 	description: "Vetta Desktop App",
 	author: "Vetta",
+	homepage: "https://github.com/openvetta/open-vetta",
 	type: "module",
 	main: "main/index.js",
 	dependencies: Object.fromEntries(externalDepInfos.map(({ dep, version }) => [dep, version])),
@@ -788,11 +790,7 @@ const builderConfig = {
 		artifactName: "${productName}-${version}-win-${arch}.${ext}",
 		icon: "build/icon.ico",
 	},
-	linux: {
-		target: ["AppImage"],
-		category: "Utility",
-		icon: "build/icon.png",
-	},
+	...linuxPackagingConfig,
 	// Sidecar binaries are picked up from the staged ./im-gateway dir
 	// (populated above by the cross-build step).
 	extraResources,
