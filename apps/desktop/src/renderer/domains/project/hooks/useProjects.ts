@@ -72,7 +72,10 @@ function sessionListsEqual(a: readonly SessionInfo[], b: readonly SessionInfo[])
 			left.name !== right.name ||
 			left.firstMessage !== right.firstMessage ||
 			left.modifiedAt !== right.modifiedAt ||
-			left.cwd !== right.cwd
+			left.cwd !== right.cwd ||
+			left.origin?.tool !== right.origin?.tool ||
+			left.origin?.path !== right.origin?.path ||
+			left.unavailableReason !== right.unavailableReason
 		) {
 			return false;
 		}

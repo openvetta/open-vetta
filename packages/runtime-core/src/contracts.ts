@@ -339,6 +339,12 @@ export interface ProjectInfo {
 	sessionCount: number;
 }
 
+/** 外部工具会话的来源：工具标识与原始路径。不含导入时间。 */
+export interface SessionHistoryOrigin {
+	readonly tool: string;
+	readonly path: string;
+}
+
 export interface SessionHistoryInfo {
 	id: string;
 	path: string;
@@ -354,6 +360,10 @@ export interface SessionHistoryInfo {
 	parentSessionPath?: string;
 	/** User entry id in the parent session this fork was created from. */
 	parentEntryId?: string;
+	/** 外部工具会话溯源；缺省读作 Vetta 原生。 */
+	origin?: SessionHistoryOrigin;
+	/** 列表仍展示但不可用的原因码；缺省表示条目可用。 */
+	unavailableReason?: string;
 }
 
 export type SessionExecutionMode = "sandbox" | "full-access";

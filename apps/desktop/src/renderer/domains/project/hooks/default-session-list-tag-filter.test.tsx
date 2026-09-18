@@ -80,4 +80,71 @@ describe("useDefaultSessionListModel tag filtering", () => {
 		// 标签档下照样提供「开始新对话」——新建的会话会继承当前标签。
 		expect(result.current.actions.emptyAction).toBeDefined();
 	});
+
+	it("renders external Grok items with title, activity time, and source", () => {
+		const store = createStore();
+		const wrapper = ({ children }: { children: ReactNode }) => <Provider store={store}>{children}</Provider>;
+		const grokSession: SidebarConversationInfo = {
+			kind: "conversation",
+			id: "grok-1",
+			path: "/tmp/grok/sessions/demo/a/summary.json",
+			cwd: "/workspace/demo",
+			name: "Fix the login bug",
+			firstMessage: "Fix the login bug",
+			modifiedAt: Date.now() - 2 * 60 * 60 * 1000,
+			origin: { tool: "grok", path: "/tmp/grok/sessions/demo/a/summary.json" },
+			access: { readHistory: true, resume: false, rename: false, delete: false },
+		};
+		const { result } = renderHook(
+			() =>
+				useDefaultSessionListModel({
+					activeSessionPath: "",
+					activeTeamSessionId: "",
+					cwd: "/tmp/grok/sessions",
+					filter: "external",
+					onNewSession: () => {},
+					onRenameSession: () => {},
+					onSelectSession: () => {},
+					sessions: [grokSession],
+				}),
+			{ wrapper },
+		);
+		expect(result.current.sessions[0]?.label).toBe("Fix the login bug");
+		expect(result.current.sessions[0]?.caption).toBe("sidebar.time.hours · sidebar.external.sourceGrok");
+		expect(result.current.actions.emptyAction).toBeUndefined();
+		expect(result.current.labels.emptyAction).toBeUndefined();
+	});
+
+	it("shows a capped unavailable reason for a damaged Grok sidecar", () => {
+		const store = createStore();
+		const wrapper = ({ children }: { children: ReactNode }) => <Provider store={store}>{children}</Provider>;
+		const broken: SidebarConversationInfo = {
+			kind: "conversation",
+			id: "broken",
+			path: "/tmp/grok/sessions/demo/b/summary.json",
+			cwd: "",
+			firstMessage: "",
+			modifiedAt: Date.now(),
+			origin: { tool: "grok", path: "/tmp/grok/sessions/demo/b/summary.json" },
+			unavailableReason: "corrupted_header",
+			access: { readHistory: false, resume: false, rename: false, delete: false },
+		};
+		const { result } = renderHook(
+			() =>
+				useDefaultSessionListModel({
+					activeSessionPath: "",
+					activeTeamSessionId: "",
+					cwd: "/tmp/grok/sessions",
+					filter: "external",
+					onNewSession: () => {},
+					onRenameSession: () => {},
+					onSelectSession: () => {},
+					sessions: [broken],
+				}),
+			{ wrapper },
+		);
+		expect(result.current.sessions[0]?.caption).toBe(
+			"sidebar.external.corruptedHeader · sidebar.external.sourceGrok",
+		);
+	});
 });

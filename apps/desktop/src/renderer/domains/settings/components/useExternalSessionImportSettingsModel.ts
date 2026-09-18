@@ -1,3 +1,5 @@
+import { grokSessionImportEnabledAtom, grokSessionsDirectoryAtom } from "@shared/store/atoms";
+import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { recordSettingsUsage } from "./recordSettingsUsage";
@@ -22,6 +24,8 @@ export interface ExternalSessionImportSettingsModel {
 
 export function useExternalSessionImportSettingsModel(): ExternalSessionImportSettingsModel {
 	const { t } = useTranslation("settings");
+	const setGrokSessionImportEnabled = useSetAtom(grokSessionImportEnabledAtom);
+	const setGrokSessionsDirectory = useSetAtom(grokSessionsDirectoryAtom);
 	const [grokEnabled, setGrokEnabled] = useState(false);
 	const [detectedPath, setDetectedPath] = useState<string | undefined>();
 	const [manualPath, setManualPath] = useState<string | undefined>();
@@ -29,26 +33,34 @@ export function useExternalSessionImportSettingsModel(): ExternalSessionImportSe
 
 	useEffect(() => {
 		void window.vetta.config.get().then((config) => {
-			setGrokEnabled(config.sessionImport?.grokEnabled === true);
+			const enabled = config.sessionImport?.grokEnabled === true;
+			setGrokEnabled(enabled);
+			setGrokSessionImportEnabled(enabled);
 			setDetectedPath(config.grokSessionsDirectory);
 			setManualPath(config.sessionImport?.grokSessionDir);
+			setGrokSessionsDirectory(config.grokSessionsDirectory ?? config.sessionImport?.grokSessionDir ?? "");
 			setLoading(false);
 		});
-	}, []);
+	}, [setGrokSessionImportEnabled, setGrokSessionsDirectory]);
 
-	const toggleGrokEnabled = useCallback((checked: boolean) => {
-		setGrokEnabled(checked);
-		void window.vetta.config.set({ sessionImport: { grokEnabled: checked } });
-		recordSettingsUsage({ tab: "agent", action: checked ? "enabled" : "disabled", target: "grok-session-import" });
-	}, []);
+	const toggleGrokEnabled = useCallback(
+		(checked: boolean) => {
+			setGrokEnabled(checked);
+			setGrokSessionImportEnabled(checked);
+			void window.vetta.config.set({ sessionImport: { grokEnabled: checked } });
+			recordSettingsUsage({ tab: "agent", action: checked ? "enabled" : "disabled", target: "grok-session-import" });
+		},
+		[setGrokSessionImportEnabled],
+	);
 
 	const specifyGrokSessionDir = useCallback(async () => {
 		const selected = await window.vetta.dialog.selectFolder();
 		if (!selected) return;
 		setManualPath(selected);
+		setGrokSessionsDirectory(selected);
 		void window.vetta.config.set({ sessionImport: { grokSessionDir: selected } });
 		recordSettingsUsage({ tab: "agent", action: "selected", target: "grok-session-dir" });
-	}, []);
+	}, [setGrokSessionsDirectory]);
 
 	const grokDisplayPath = detectedPath ?? manualPath;
 	const canSpecifyGrokPath = !loading && !detectedPath;

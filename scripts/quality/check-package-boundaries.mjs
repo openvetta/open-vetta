@@ -1310,7 +1310,13 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 		"packages/runtime-desktop/src/historical-session-format.ts",
 		"packages/runtime-desktop/src/historical-session-import-backend.ts",
 	]);
-	const externalSessionConsumers = new Set(["apps/desktop/src/main/external-sessions/grok-session-locator.ts"]);
+	const externalSessionConsumers = new Set([
+		"apps/desktop/src/main/agent-runtime/composition.ts",
+		"apps/desktop/src/main/conversations/desktop-conversation-service.ts",
+		"apps/desktop/src/main/external-sessions/grok-session-locator.ts",
+		"packages/runtime-desktop/src/external-session-format.ts",
+		"packages/runtime-desktop/src/external-session-host.ts",
+	]);
 
 	for (const specifier of specifiers) {
 		if (specifier.startsWith("@vetta/coding-agent/legacy/")) {

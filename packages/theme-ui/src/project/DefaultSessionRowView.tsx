@@ -19,6 +19,8 @@ export interface DefaultSessionRowViewProps {
 	sessionPath?: string;
 	/** Tooltip / secondary label (e.g. forked-from preview). */
 	titleExtra?: string;
+	/** Same-row trailing meta, e.g. last activity and source tool. */
+	caption?: string;
 	/** Session was forked from another session. */
 	forked?: boolean;
 	/** Tag colors carried by this conversation; replaces the leading icon when present. */
@@ -42,6 +44,7 @@ export const DefaultSessionRowView = memo(function DefaultSessionRowView({
 	trailingAvatarUrls,
 	sessionPath,
 	titleExtra,
+	caption,
 	forked,
 	onOpenContextMenu,
 	onRename,
@@ -117,6 +120,9 @@ export const DefaultSessionRowView = memo(function DefaultSessionRowView({
 					>
 						{label}
 					</span>
+					{caption ? (
+						<span className="shrink-0 text-[11px] text-muted-foreground/80">{caption}</span>
+					) : null}
 					{trailingAvatarUrls && trailingAvatarUrls.length > 0 ? (
 						<AvatarStackView avatarUrls={trailingAvatarUrls} />
 					) : null}

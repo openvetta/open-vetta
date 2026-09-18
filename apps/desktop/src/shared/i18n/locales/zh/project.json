@@ -40,9 +40,11 @@
 			"emptyDescription": "开始一段新对话后，历史会显示在这里",
 			"emptyAction": "开始新对话",
 			"emptyClawTitle": "还没有 Claw 记录",
+			"emptyExternalTitle": "还没有外部工具会话",
 			"emptyTagTitle": "该标签下暂无会话",
 			"emptyTagDescription": "可以从会话右键菜单为它打上这个标签",
-			"emptyClawDescription": "通过微信、飞书等渠道与 Claw 对话后，记录会出现在这里"
+			"emptyClawDescription": "通过微信、飞书等渠道与 Claw 对话后，记录会出现在这里",
+			"emptyExternalDescription": "最近 30 天里在 Grok 中产生的会话会出现在这里"
 		},
 		"teams": {
 			"title": "团队",
@@ -52,6 +54,11 @@
 		"session": {
 			"forkedTooltip": "由其他会话分叉而来",
 			"untitledTeam": "新团队会话"
+		},
+		"external": {
+			"sourceGrok": "Grok",
+			"unsupportedVersion": "格式版本不支持",
+			"corruptedHeader": "会话头部损坏"
 		},
 		"dialogs": {
 			"deleteSessionTitle": "确认删除会话",
@@ -86,7 +93,8 @@
 		"batch": "批量任务",
 		"conversation": "对话",
 		"team": "团队",
-		"claw": "Claw"
+		"claw": "Claw",
+		"external": "外部工具"
 	},
 	"actions": {
 		"newProject": "新建项目",

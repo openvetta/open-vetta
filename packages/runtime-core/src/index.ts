@@ -26,6 +26,7 @@ export type {
 	SessionExtensionEvent,
 	SessionFacade,
 	SessionHistoryInfo,
+	SessionHistoryOrigin,
 	SessionLifecycleEvent,
 	SessionStateSnapshot,
 	SettingsPatch,

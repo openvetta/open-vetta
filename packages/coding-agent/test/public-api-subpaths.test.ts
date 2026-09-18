@@ -16,7 +16,10 @@ import { CODING_AGENT_SDK_HOST_ERROR_CODES, createCodingAgentBootstrap } from ".
 import { VETTA_CLI_GUIDANCE } from "../src/public-api/cli-guidance.js";
 import { createCodingAgentHtmlExportRuntime } from "../src/public-api/export-html.js";
 import * as extensionApi from "../src/public-api/extensions.js";
-import { resolveGrokSessionsDirectory } from "../src/public-api/external-sessions.js";
+import {
+	createCodingAgentExternalSessionCatalog,
+	resolveGrokSessionsDirectory,
+} from "../src/public-api/external-sessions.js";
 import {
 	createCodingAgentHistoricalSessionCatalog,
 	createCodingAgentHistoricalSessionFileHistoryReader,
@@ -104,6 +107,7 @@ describe("coding-agent public subpaths", () => {
 		expect(createCodingAgentHistoricalSessionFileHistoryReader).toBeTypeOf("function");
 		expect(migrateCodingAgentHistoricalSession).toBeTypeOf("function");
 		expect(resolveGrokSessionsDirectory).toBeTypeOf("function");
+		expect(createCodingAgentExternalSessionCatalog).toBeTypeOf("function");
 		expect(createCodingAgentRuntimeExtensionCommandHost).toBeTypeOf("function");
 		expect(createCodingAgentSessionCapabilityHost).toBeTypeOf("function");
 		expect(createCodingAgentTurnExecutor).toBeTypeOf("function");

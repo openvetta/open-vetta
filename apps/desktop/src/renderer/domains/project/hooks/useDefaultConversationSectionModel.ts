@@ -22,7 +22,7 @@ export function useDefaultConversationSectionModel({
 			more: t("actions.more"),
 			newSession: t("sidebar.nav.newSession"),
 		},
-		showNewSession: defaultConversationFilter !== "claw",
+		showNewSession: defaultConversationFilter !== "claw" && defaultConversationFilter !== "external",
 		actions: {
 			newSession: () => onNewSession(project.cwd),
 			openContextMenu: (event: React.MouseEvent) => {
