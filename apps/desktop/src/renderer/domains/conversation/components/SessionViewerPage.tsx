@@ -6,6 +6,7 @@ import { useActiveSessionRuntimeIds } from "@shared/workspace/active-session-run
 import { createActivityWorkspace } from "@shared/workspace/activity-workspace";
 import { useThemeSurface } from "@vetta-org/theme-sdk/appearance";
 import { SessionViewerPageView } from "@vetta-org/theme-ui/chat";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useSetAtom } from "jotai";
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -17,9 +18,12 @@ import { MessageList } from "./MessageList";
 /**
  * Read-only viewer for sessions the desktop app does not own
  * (IM sessions written by im-gateway, and external-tool records such as Grok).
+ * Read-only viewer for external and child sessions.
  */
 export function SessionViewerPage(): JSX.Element {
 	const { t } = useTranslation("chat");
+	const navigate = useNavigate();
+	const isSubagent = useSearch({ strict: false }).origin === "subagent";
 	const activeRuntimeIds = useActiveSessionRuntimeIds();
 	const surface = useThemeSurface("chat.sessionViewerPage");
 	const model = useSessionViewerPageModel();
@@ -39,7 +43,8 @@ export function SessionViewerPage(): JSX.Element {
 	const header = useMemo(
 		() => (
 			<div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-				<span className="hidden truncate sm:inline">{t("sessionViewer.header.subtitle")}</span>
+				{isSubagent ? <Button size="sm" variant="ghost" onClick={() => void navigate({ to: "/" })}>{t("subagentCard.back")}</Button> : null}
+				<span className="hidden truncate sm:inline">{t(isSubagent ? "subagentCard.viewerSubtitle" : "sessionViewer.header.subtitle")}</span>
 				<span
 					className={
 						model.isIm
@@ -104,12 +109,14 @@ export function SessionViewerPage(): JSX.Element {
 			continueFrom.enabled,
 			continueFrom.error,
 			continueFrom.onContinue,
+			isSubagent,
 			model.exporting,
 			model.isIm,
 			model.messages.length,
 			model.onStartExport,
 			model.onTogglePanel,
 			model.panelOpen,
+			navigate,
 			t,
 		],
 	);

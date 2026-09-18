@@ -29,7 +29,7 @@ import {
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { NewSessionHeroIdentity } from "@vetta-org/theme-ui";
 import { useAtomValue, useSetAtom } from "jotai";
-import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TeamChatActions, TeamChatViewModel } from "../../connectors/team/teamChatModel";
 import { useSkillList } from "../../hooks/useSkillList";
@@ -48,6 +48,7 @@ import {
 import { createNewSessionTargetStrategyRegistry } from "./target-strategy";
 import { useNewSessionActivityPanel } from "./useNewSessionActivityPanel";
 import { type NewSessionContextBlockModel, useNewSessionContextBlock } from "./useNewSessionContextBlock";
+import { useNewSessionHeroEntry } from "./useNewSessionHeroEntry";
 import { useNewSessionSend } from "./useNewSessionSend";
 import { useNewSessionTargetIdentity } from "./useNewSessionTargetIdentity";
 import { useNewSessionTeamDraft } from "./useNewSessionTeamDraft";
@@ -124,8 +125,7 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 			: t("chat:newSession.projectContext", { name: contextName });
 
 	// Hero 首帧即挂载（仅用 opacity 入场），避免 idle 延迟插入导致输入栏被顶动。
-	const [mounted, setMounted] = useState(false);
-	const [avatarAutoplay, setAvatarAutoplay] = useState(false);
+	const { mounted, avatarAutoplay } = useNewSessionHeroEntry(decodedCwd);
 	const [commandPanelExpanded, setCommandPanelExpanded] = useState(false);
 	const { open: activityOpen, toggle: handleToggleActivity } = useNewSessionActivityPanel(
 		projectSelection.activityPanelCwd,
@@ -291,23 +291,6 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 			setHeaderTitleHidden(false);
 		};
 	}, [contextLabel, setHeaderTitle, setHeaderTitleBadge, setHeaderTitleHidden, t]);
-
-	useEffect(() => {
-		// decodedCwd 是路由切换的 hero 重播 key；effect body 不需要读取其值。
-		void decodedCwd;
-		setMounted(false);
-		setAvatarAutoplay(false);
-		const mountTimer = window.setTimeout(() => {
-			startTransition(() => setMounted(true));
-		}, 30);
-		const autoplayTimer = window.setTimeout(() => {
-			startTransition(() => setAvatarAutoplay(true));
-		}, 300);
-		return () => {
-			window.clearTimeout(mountTimer);
-			window.clearTimeout(autoplayTimer);
-		};
-	}, [decodedCwd]);
 
 	useEffect(() => {
 		void window.vetta.window.isAlwaysOnTop().then(setPinned);

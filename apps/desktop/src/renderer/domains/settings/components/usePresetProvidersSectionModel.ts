@@ -57,6 +57,10 @@ export interface PresetProvidersSectionLabels {
 	encryptedApiKeyPlaceholder: string;
 	save: string;
 	noModels: string;
+	noMatchingModels: string;
+	searchModels: (provider: string) => string;
+	clearModelSearch: string;
+	modelListLabel: (provider: string) => string;
 	thinking: string;
 	perMillionTokens: string;
 	refreshModels: string;
@@ -183,14 +187,7 @@ export function usePresetProvidersSectionModel({
 			const adopted = config.providers[row.id]?.source === "template";
 			return {
 				...row,
-				modelRows: row.models.map((model) => ({
-					id: model.id,
-					name: model.name || model.id,
-					contextWindow: model.contextWindow,
-					hasVision: model.input?.includes("image") ?? false,
-					hasReasoning: Boolean(model.reasoning),
-					price: formatPrice(model.cost, t),
-				})),
+				modelRows: row.models.map((model) => toModelRow(model, t)),
 				adopted,
 				isOpen: openId === row.id,
 				isExpanded: expandedId === row.id,
@@ -452,6 +449,10 @@ export function usePresetProvidersSectionModel({
 			encryptedApiKeyPlaceholder: t("replaceApiKeyPlaceholder"),
 			save: t("save"),
 			noModels: t("noModels"),
+			noMatchingModels: t("noMatchingModels"),
+			searchModels: (provider: string) => t("searchModels", { provider }),
+			clearModelSearch: t("clearModelSearch"),
+			modelListLabel: (provider: string) => t("modelListLabel", { provider }),
 			thinking: t("thinking"),
 			perMillionTokens: t("perMillionTokens"),
 			refreshModels: t("refreshModels"),
@@ -476,6 +477,20 @@ export function usePresetProvidersSectionModel({
 		onGrokDialogCancel,
 		onGrokOpenPage,
 		onGrokCopyCode,
+	};
+}
+
+function toModelRow(
+	model: NonNullable<ProviderEntry["models"]>[number],
+	t: TFunction<"settings">,
+): PresetProviderModelRow {
+	return {
+		id: model.id,
+		name: model.name || model.id,
+		contextWindow: model.contextWindow,
+		hasVision: model.input?.includes("image") ?? false,
+		hasReasoning: Boolean(model.reasoning),
+		price: formatPrice(model.cost, t),
 	};
 }
 

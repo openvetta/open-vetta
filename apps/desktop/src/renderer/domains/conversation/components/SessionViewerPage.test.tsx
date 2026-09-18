@@ -13,6 +13,13 @@ const captured = vi.hoisted(() => ({
 	onStartExport: vi.fn(),
 	onTogglePanel: vi.fn(),
 	feed: vi.fn(),
+	navigate: vi.fn(),
+	origin: undefined as "subagent" | undefined,
+}));
+
+vi.mock("@tanstack/react-router", () => ({
+	useNavigate: () => captured.navigate,
+	useSearch: () => ({ origin: captured.origin }),
 }));
 
 vi.mock("jotai", async (importOriginal) => ({
@@ -66,9 +73,19 @@ vi.mock("./MessageList", () => ({
 afterEach(() => {
 	cleanup();
 	vi.clearAllMocks();
+	captured.origin = undefined;
 });
 
 describe("SessionViewerPage header composition", () => {
+	it("shows a back action for a subagent transcript", async () => {
+		captured.origin = "subagent";
+		render(<SessionViewerPage />);
+		const header = captured.setHeader.mock.calls.find(([value]) => value !== null)?.[0];
+		render(header);
+		await userEvent.click(screen.getByText("subagentCard.back"));
+		expect(captured.navigate).toHaveBeenCalledWith({ to: "/" });
+	});
+
 	it("mounts viewer actions in the page header and wires their commands", async () => {
 		render(<SessionViewerPage />);
 		expect(captured.feed).toHaveBeenCalledWith(
