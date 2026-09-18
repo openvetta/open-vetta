@@ -64,6 +64,17 @@ describe("toolLabel", () => {
 		});
 	});
 
+	it("shows a folded Grok tool target on the collapsed row", () => {
+		expect(toolLabel(block("Read", { path: "/tmp/missing.test.ts" }))).toEqual({
+			name: "Read",
+			detail: "/tmp/missing.test.ts",
+		});
+		expect(toolLabel(block("search", { target: "login redirect" }))).toEqual({
+			name: "search",
+			detail: "login redirect",
+		});
+	});
+
 	it("uses the call description for MCP tools in Work mode", () => {
 		expect(
 			toolLabel(block("mcp_github_search_code", { description: "查找重复会话的实现", path: "src" }), true),

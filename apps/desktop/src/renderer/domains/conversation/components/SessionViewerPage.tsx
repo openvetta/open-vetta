@@ -9,19 +9,24 @@ import { SessionViewerPageView } from "@vetta-org/theme-ui/chat";
 import { useSetAtom } from "jotai";
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useSessionViewerContinueFrom } from "../hooks/useSessionViewerContinueFrom";
 import { useSessionViewerPageModel } from "../hooks/useSessionViewerPageModel";
 import { ChatExportHost } from "./ChatExportHost";
 import { MessageList } from "./MessageList";
 
 /**
- * Read-only viewer for sessions the desktop app does not own (currently
- * IM sessions written by im-gateway).
+ * Read-only viewer for sessions the desktop app does not own
+ * (IM sessions written by im-gateway, and external-tool records such as Grok).
  */
 export function SessionViewerPage(): JSX.Element {
 	const { t } = useTranslation("chat");
 	const activeRuntimeIds = useActiveSessionRuntimeIds();
 	const surface = useThemeSurface("chat.sessionViewerPage");
 	const model = useSessionViewerPageModel();
+	const continueFrom = useSessionViewerContinueFrom({
+		sessionPath: model.path,
+		enabled: model.canContinueFrom,
+	});
 	const setHeaderRight = useSetAtom(pageHeaderRightSlotAtom);
 	const workspace = useMemo(() => {
 		const cwd = model.kbCwd || model.imCwd || null;
@@ -44,6 +49,26 @@ export function SessionViewerPage(): JSX.Element {
 				>
 					{model.isIm ? t("sessionViewer.badge.liveUpdate") : t("sessionViewer.badge.readOnly")}
 				</span>
+				{continueFrom.enabled ? (
+					<>
+						<Button
+							size="xs"
+							variant="outline"
+							disabled={continueFrom.continuing || model.messages.length === 0}
+							title={t("sessionViewer.continueFrom.actionTitle")}
+							onClick={continueFrom.onContinue}
+						>
+							{continueFrom.continuing
+								? t("sessionViewer.continueFrom.working")
+								: t("sessionViewer.continueFrom.action")}
+						</Button>
+						{continueFrom.error ? (
+							<span className="max-w-[16rem] truncate text-[11px] text-destructive" role="alert">
+								{continueFrom.error}
+							</span>
+						) : null}
+					</>
+				) : null}
 				<Button
 					size="icon-xs"
 					variant="ghost"
@@ -75,6 +100,10 @@ export function SessionViewerPage(): JSX.Element {
 			</div>
 		),
 		[
+			continueFrom.continuing,
+			continueFrom.enabled,
+			continueFrom.error,
+			continueFrom.onContinue,
 			model.exporting,
 			model.isIm,
 			model.messages.length,
@@ -106,6 +135,7 @@ export function SessionViewerPage(): JSX.Element {
 					/>
 				) : null
 			}
+			sourceBannerLabel={model.sourceBannerLabel}
 			messageList={
 				<MessageList
 					messages={model.messages}

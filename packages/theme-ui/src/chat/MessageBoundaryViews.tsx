@@ -1,5 +1,22 @@
 import type { JSX } from "react";
 
+export interface SessionSourceBannerViewProps {
+	label: string;
+}
+
+/** Page-level notice that this transcript came from another tool and is read-only. */
+export function SessionSourceBannerView({ label }: SessionSourceBannerViewProps): JSX.Element {
+	return (
+		<div
+			role="status"
+			className="flex shrink-0 items-center gap-2 border-b border-border/50 bg-muted/30 px-4 py-2 text-[12px] text-muted-foreground"
+		>
+			<span className="icon-[solar--info-circle-linear] h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+			<span>{label}</span>
+		</div>
+	);
+}
+
 export interface CompactionBoundaryViewProps {
 	label: string;
 }

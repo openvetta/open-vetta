@@ -86,6 +86,10 @@ export default defineConfig({
 				replacement: resolve(__dirname, "../../packages/coding-agent/src/public-api/historical-sessions.ts"),
 			},
 			{
+				find: "@vetta/coding-agent/external-sessions",
+				replacement: resolve(__dirname, "../../packages/coding-agent/src/public-api/external-sessions.ts"),
+			},
+			{
 				find: "@vetta/coding-agent/profile",
 				replacement: resolve(__dirname, "../../packages/coding-agent/src/public-api/profile.ts"),
 			},

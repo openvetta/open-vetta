@@ -81,4 +81,29 @@ describe("createSessionApi trace propagation", () => {
 			limit: 20,
 		});
 	});
+
+	it("forwards continue-from-external requests through the dedicated channel", async () => {
+		const invoke = vi.fn(async () => ({ kind: "cwd_missing", suggestedCwd: "/missing" }));
+		const ipc = { invoke } as unknown as IpcRenderer;
+		const session = createSessionApi(ipc).session;
+
+		await session.continueFromExternal({ sessionPath: "/tmp/grok/summary.json", cwdOverride: "/picked" });
+
+		expect(invoke).toHaveBeenCalledWith("vetta:session:continue-from-external", {
+			sessionPath: "/tmp/grok/summary.json",
+			cwdOverride: "/picked",
+		});
+	});
+
+	it("forwards find-external-imports requests through the dedicated channel", async () => {
+		const invoke = vi.fn(async () => undefined);
+		const ipc = { invoke } as unknown as IpcRenderer;
+		const session = createSessionApi(ipc).session;
+
+		await session.findExternalImports({ sessionPath: "/tmp/grok/summary.json" });
+
+		expect(invoke).toHaveBeenCalledWith("vetta:session:find-external-imports", {
+			sessionPath: "/tmp/grok/summary.json",
+		});
+	});
 });

@@ -82,6 +82,29 @@ await ctx.conversation.sendPrompt("处理画布上新贴的备注");
 
 `openSession({ cwd, sessionPath })` 打开**已经存在**的会话并跳到对话页。`sessionPath` 用 `createSession` 返回值里的同名字段（会话文件路径，跨重启稳定），不要用运行时 `id`。需要 `agent.session.write`。不会新建会话。外置插件应走这条 API；`official.sessions.open` 仅官方来源插件可用。
 
+## 官方后台会话：`official.sessions.list` 的来源
+
+`official.sessions.list(cwd, options?)` 列出某目录下的历史会话，按 `modifiedAt` 倒序。这是官方来源插件才能调用的后台编排 API，普通插件会被宿主拒绝。
+
+**默认只返回 Vetta 原生会话。** 不要依赖「可续聊」这一位去滤掉外部工具会话：它们在访问位上是只读，但续作能力真实存在，看板这类按会话派单的插件一旦拿到它们，就可能把任务发进一个陌生会话。这个默认值是安全底线，不是便利选择；既有 `list(cwd)` 调用的行为因此不变，也不需要为此发版。
+
+需要外部工具会话时，必须显式声明来源：
+
+```ts
+const nativeOnly = await ctx.official.sessions.list(cwd);
+const externalOnly = await ctx.official.sessions.list(cwd, { origin: "external" });
+const both = await ctx.official.sessions.list(cwd, { origin: ["vetta", "external"] });
+```
+
+外部条目会带 `origin: { tool, path }`（工具标识与原始路径，不含导入时间）。插件不要盲展示这两项：它们是溯源信息，不是标题。
+
+**失败时怎么降级**
+
+- 条目没有 `origin`、字段不完整或空白：一律读作 Vetta 原生。用 `resolveOfficialSessionOrigin(session.origin)`，不要自己判断「有没有这个字段」。
+- 旧宿主不会带 `origin`，也不会认 `options.origin`。缺字段的条目按原生处理；把第二个参数传给旧宿主是多余但无害的，真正要外部会话时先确认当前 SDK / 宿主已支持。
+- 无法识别的 `origin` 取值按缺省处理：只返回 Vetta 原生，不会因此扩大结果集。
+- 清单 Schema 没有因此新增字段，`pluginApiVersion` 不用升。
+
 ## 注册 Agent 工具
 
 `ctx.agent.registerTool` 让插件用 JS 注册一个 **agent 可见的工具**：coding-agent 只看到工具 shell（schema + 描述），实际执行经 IPC 回到你的 renderer handler。需要 `agent.tools.register`（注册）+ `agent.toolHandler.execute`（执行）。返回 `Disposable`。

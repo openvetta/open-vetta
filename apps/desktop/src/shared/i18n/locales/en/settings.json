@@ -610,6 +610,15 @@
     "apply": "Apply",
     "applied": "Applied",
     "saving": "Saving",
+    "sessionImport": {
+      "description": "Off by default. When enabled, Vetta only reads sessions from that tool and never writes them back.",
+      "detectedPath": "Will read: {{path}}",
+      "grok": "Grok",
+      "loading": "Looking for the Grok session directory…",
+      "manualPath": "Specified: {{path}}",
+      "notDetected": "Could not find Grok's default session directory. If you keep the data elsewhere, you can choose a path.",
+      "specifyPath": "Choose folder"
+    },
     "imageGeneration": {
       "auto": "Automatic",
       "description": "Choose the default model Agent uses to generate or edit images; Automatic follows available services.",
@@ -1151,6 +1160,7 @@
   "section_archived-list": "Archived List",
   "section_agent-personalization": "Personalization",
   "section_agent-images": "Images",
+  "section_agent-session-import": "External tool session import",
   "section_agent-experimental": "Experimental",
   "section_agent-runtime": "Runtime",
   "section_knowledge-processing": "Background Processing",

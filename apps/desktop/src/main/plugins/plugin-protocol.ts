@@ -120,6 +120,7 @@ export const useTranslation = sdk.useTranslation;
 export const __PluginI18nContext = sdk.__PluginI18nContext;
 export const interpolatePluginText = sdk.interpolatePluginText;
 export const resolveCatalogKey = sdk.resolveCatalogKey;
+export const resolveOfficialSessionOrigin = sdk.resolveOfficialSessionOrigin;
 export const resolvePluginText = sdk.resolvePluginText;
 export const readJsonFile = sdk.readJsonFile;
 export const writeJsonFile = sdk.writeJsonFile;

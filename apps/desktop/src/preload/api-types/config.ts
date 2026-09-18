@@ -47,6 +47,15 @@ export interface DesktopConfigData {
 		/** 适配通用 Agent Skill 开关。发现 ~/.agents/skills 与 <cwd>/.agents/skills，缺省开。 */
 		agentSkills?: boolean;
 	};
+	/** 外部工具会话导入。缺省全关。 */
+	sessionImport?: {
+		/** 是否读取 Grok 会话。缺省关。 */
+		grokEnabled?: boolean;
+		/** 仅在自动探测失败时由用户指定的 Grok 会话目录。 */
+		grokSessionDir?: string;
+	};
+	/** 自动探测到的 Grok 会话目录；探测失败时缺省。由主进程注入，不写入配置文件。 */
+	grokSessionsDirectory?: string;
 	/** 图片生成 Provider 偏好；空值表示自动选择。 */
 	imageGeneration?: {
 		textToImageProviderId?: string | null;

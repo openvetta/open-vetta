@@ -10,6 +10,7 @@ import {
 	FileConversationRepository,
 	FileConversationRuntimeSessionCatalog,
 	FileConversationRuntimeSessionFileHistoryReader,
+	publishConversationSeed,
 } from "../../src/conversation/index.js";
 
 const temporaryRoots: string[] = [];
@@ -52,6 +53,54 @@ describe("Greenfield runtime session services", () => {
 			{ id: "newer", modifiedAt: 220 },
 			{ id: "older", modifiedAt: 120 },
 		]);
+	});
+
+	it("projects importedFrom from an external continue-from seed without treating it as origin", async () => {
+		const rootDir = await createTemporaryRoot();
+		const cwd = join(rootDir, "workspace");
+		const importedFrom = {
+			tool: "grok",
+			path: "/tmp/grok/sessions/demo/a/summary.json",
+			importedAt: 1_779_000_000_000,
+		};
+		await publishConversationSeed({
+			targetRootDir: rootDir,
+			targetSessionId: "imported",
+			createdAt: 10,
+			cwd,
+			name: "Continued from Grok",
+			activeLeafId: "ready",
+			entries: [
+				{
+					type: "compaction",
+					id: "briefing",
+					parentId: null,
+					timestamp: "2026-09-18T00:00:00.000Z",
+					summary: "Continue the login fix.",
+					firstKeptEntryId: "ready",
+					tokensBefore: 0,
+					reason: "manual",
+				},
+				{
+					type: "custom",
+					id: "ready",
+					parentId: "briefing",
+					timestamp: "2026-09-18T00:00:00.000Z",
+					customType: "external_import_source",
+					data: importedFrom,
+				},
+			],
+		});
+
+		const catalog = new FileConversationRuntimeSessionCatalog();
+		const [session] = await catalog.listSessions(cwd, rootDir);
+		expect(session).toMatchObject({
+			id: "imported",
+			cwd,
+			name: "Continued from Grok",
+			importedFrom,
+		});
+		expect(session?.origin).toBeUndefined();
 	});
 
 	it("falls back to file modification time when a session has no conversation messages", async () => {

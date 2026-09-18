@@ -21,6 +21,11 @@ export const CompactionBoundary = memo(function CompactionBoundary() {
 	return <CompactionBoundaryView label={t("messageList.compactionBoundary")} />;
 });
 
+const OmittedReasoningNote = memo(function OmittedReasoningNote({ count }: { count: number }) {
+	const { t } = useTranslation("chat");
+	return <CompactionBoundaryView label={t("sessionViewer.omittedReasoning", { count })} />;
+});
+
 export const ModelSwitchBoundary = memo(function ModelSwitchBoundary({ label }: { label: string }) {
 	const { t } = useTranslation("chat");
 	// t includes name interpolation — pass preformatted label from host
@@ -61,6 +66,9 @@ export const DefaultMessageItem = memo(function DefaultMessageItem({
 }: MessageItemProps) {
 	if (message.kind === "event") {
 		if (message.event.kind === "compaction") return <CompactionBoundary />;
+		if (message.event.kind === "omitted_reasoning") {
+			return <OmittedReasoningNote count={message.event.count} />;
+		}
 		if (message.event.kind === "team-member-summary") {
 			return <TeamMemberReplyCard event={message.event} onOpen={onTeamMemberOpen} />;
 		}

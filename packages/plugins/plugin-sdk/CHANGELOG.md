@@ -4,6 +4,7 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+- **`official.sessions.list()` 默认不返回外部工具会话**。外部会话在访问位上是只读，但续作能力真实存在；存量插件若靠「可续聊」过滤，仍可能把任务派进一个陌生会话。因此来源必须显式声明（`origin: "external"` 或 `["vetta", "external"]`），条目才携带 `origin.tool` / `origin.path`。缺字段或不完整一律读作 Vetta 原生，与 `access` 缺字段读 `false` 同一条 fail-safe。清单未变，不推 Plugin API 版本；`list(cwd)` 的既有调用行为不变。
 - `ctx.conversation.openSession({ cwd, sessionPath })`：打开插件自己 `createSession` 记下的已有会话并跳到对话页。外置插件不能用 `official.sessions.open`（官方来源门控）。权限同 `createSession`（`agent.session.write`）。纯运行期 API，不涉及清单字段，`pluginApiVersion` 不变。
 
 - **`official.dialog.openDirectory()`**：打开原生目录选择框，用户取消返回 `null`。与 `openFiles` 相反——选中的目录会加入宿主项目授权根（与侧边栏「打开项目」相同），之后官方插件可以对该路径执行已声明的 `ctx.command.run`（例如 `git remote -v`）。不会把目录写入工作台项目列表。仅官方来源插件可用。纯运行期 API，不涉及清单字段，`pluginApiVersion` 不变。

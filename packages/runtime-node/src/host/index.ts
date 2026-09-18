@@ -69,6 +69,7 @@ export {
 	type NodeResultArtifactStorage,
 	type NodeResultArtifactStorageOptions,
 	type NodeSessionArtifactStore,
+	resolveNodeSessionArtifactDirectory,
 } from "./result-artifact-storage.js";
 export { nodeRuntimeHostPathServices, nodeRuntimeQueueSidecarStore } from "./runtime-host-services.js";
 export { NodeScopedTextStorage } from "./scoped-text-storage.js";

@@ -26,6 +26,14 @@ vi.mock("@vetta-org/theme-ui/chat", async (importOriginal) => ({
 	SessionViewerPageView: ({ messageList }: { messageList: ReactNode }) => <main>{messageList}</main>,
 }));
 vi.mock("@domains/activity-panel/components/ActivityPanel", () => ({ ActivityPanel: () => <aside /> }));
+vi.mock("../hooks/useSessionViewerContinueFrom", () => ({
+	useSessionViewerContinueFrom: () => ({
+		enabled: false,
+		continuing: false,
+		error: null,
+		onContinue: vi.fn(),
+	}),
+}));
 vi.mock("../hooks/useSessionViewerPageModel", () => ({
 	useSessionViewerPageModel: () => ({
 		path: "C:/sessions/example.jsonl",
@@ -40,6 +48,8 @@ vi.mock("../hooks/useSessionViewerPageModel", () => ({
 		panelOpen: false,
 		emptyPathLabel: "empty",
 		errorPrefix: "error",
+		sourceBannerLabel: null,
+		canContinueFrom: false,
 		onStartExport: captured.onStartExport,
 		onTogglePanel: captured.onTogglePanel,
 		onExportFinished: vi.fn(),

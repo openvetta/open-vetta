@@ -37,7 +37,7 @@ Runtime 和应用提供产品 Feature、策略、默认配置和稳定产品 API
 - 产品能力域不得依赖 `composition/` 实现、`adapters/` 或 Public API facade。
 - Adapter 可以依赖稳定合同，但不得反向控制 Composition，也不得复制 Runtime 域实现。
 - `src/core/`、`src/compat/` 和旧执行入口属于退役架构，不得恢复。
-- 历史格式兼容只能位于 `sessions/legacy/` 等明确的数据边界，不得成为活动 Agent 执行路径。
+- 历史格式兼容只能位于 `sessions/legacy/`；外部工具会话只能位于 `sessions/external/`。两者都是只读数据边界，不得成为活动 Agent 执行路径。
 
 ## 关键目录
 

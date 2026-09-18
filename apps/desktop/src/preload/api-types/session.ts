@@ -274,4 +274,44 @@ export interface DesktopSessionApi {
 	 * function — caller MUST call it on unmount to release the fs.watch.
 	 */
 	subscribeViewer(path: string, handler: (snapshot: { history: HistoryEntry[] }) => void): Promise<() => void>;
+	/**
+	 * Generate a briefing from a read-only external session and create a new Vetta session.
+	 * Does not modify the original external files.
+	 */
+	continueFromExternal(request: {
+		readonly sessionPath: string;
+		readonly cwdOverride?: string;
+		readonly forceCreate?: boolean;
+	}): Promise<DesktopExternalSessionContinueResult>;
+	findExternalImports(request: { readonly sessionPath: string }): Promise<DesktopExternalImportedSession | undefined>;
 }
+
+export interface DesktopExternalImportedSession {
+	readonly sessionId: string;
+	readonly sessionPath: string;
+	readonly cwd: string;
+	readonly importedAt: number;
+	readonly name?: string;
+}
+
+export type DesktopExternalSessionContinueResult =
+	| {
+			readonly kind: "created";
+			readonly sessionId: string;
+			readonly sessionPath: string;
+			readonly cwd: string;
+			readonly importedFrom: {
+				readonly tool: string;
+				readonly path: string;
+				readonly importedAt: number;
+			};
+			readonly usedCache: boolean;
+	  }
+	| {
+			readonly kind: "already_imported";
+			readonly existing: DesktopExternalImportedSession;
+	  }
+	| {
+			readonly kind: "cwd_missing";
+			readonly suggestedCwd: string;
+	  };

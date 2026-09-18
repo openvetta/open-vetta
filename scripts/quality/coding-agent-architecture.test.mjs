@@ -289,6 +289,35 @@ describe("Coding Agent architecture gate", () => {
 		);
 	});
 
+	it("keeps external session format policy independent from Node and Agent execution", () => {
+		const nodeFile = createState([
+			{
+				path: `${SOURCE_ROOT}/sessions/external/catalog.ts`,
+				text: 'import { readFileSync } from "node:fs";',
+			},
+		]);
+		const execution = createState([
+			{
+				path: `${SOURCE_ROOT}/sessions/external/catalog.ts`,
+				text: 'import { createCodingAgentSession } from "../../public-api/sdk.js";',
+			},
+		]);
+		const allowed = createState([
+			{
+				path: `${SOURCE_ROOT}/sessions/external/grok-session-directory.ts`,
+				text: "export function resolveGrokSessionsDirectory() { return '.grok/sessions'; }",
+			},
+		]);
+
+		expect(findCodingAgentArchitectureViolations(nodeFile)).toContain(
+			`${SOURCE_ROOT}/sessions/external/catalog.ts:1: external format policy must consume host-provided file operations`,
+		);
+		expect(findCodingAgentArchitectureViolations(execution)).toContain(
+			`${SOURCE_ROOT}/sessions/external/catalog.ts:1: external format boundary depends on Agent execution (../../public-api/sdk.js)`,
+		);
+		expect(findCodingAgentArchitectureViolations(allowed)).toEqual([]);
+	});
+
 	it("keeps portable product domains independent from Node platform capabilities", () => {
 		const nodeImport = createState([
 			{

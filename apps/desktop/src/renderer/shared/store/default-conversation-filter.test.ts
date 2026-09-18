@@ -15,6 +15,16 @@ describe("default conversation filter", () => {
 		).toBe("claw");
 	});
 
+	it("persists the external-tools filter", () => {
+		const store = createStore();
+		store.set(defaultConversationFilterAtom, "external");
+		expect(
+			parseDefaultConversationFilter(
+				JSON.parse(localStorage.getItem("vetta-default-conversation-filter") as string),
+			),
+		).toBe("external");
+	});
+
 	it("falls back to the conversation filter for unusable stored values", () => {
 		expect(parseDefaultConversationFilter(null)).toBe("conversation");
 		expect(parseDefaultConversationFilter([])).toBe("conversation");

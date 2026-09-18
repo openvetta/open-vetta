@@ -11,13 +11,21 @@ export function useConfirmDialogModel(): ConfirmDialogViewProps {
 	const overlayRef = useRef<HTMLDivElement>(null);
 
 	const onCancel = useCallback(() => {
-		state?.onCancel?.();
-		setState(null);
+		const current = state;
+		current?.onCancel?.();
+		setState((latest) => (latest === current ? null : latest));
 	}, [setState, state]);
 
 	const onConfirm = useCallback(() => {
-		state?.onConfirm(state.checkbox?.checked ?? false);
-		setState(null);
+		const current = state;
+		current?.onConfirm(current.checkbox?.checked ?? false);
+		setState((latest) => (latest === current ? null : latest));
+	}, [setState, state]);
+
+	const onSecondary = useCallback(() => {
+		const current = state;
+		current?.onSecondary?.();
+		setState((latest) => (latest === current ? null : latest));
 	}, [setState, state]);
 
 	const onCheckboxCheckedChange = useCallback(
@@ -38,8 +46,9 @@ export function useConfirmDialogModel(): ConfirmDialogViewProps {
 			{
 				key: "escape",
 				run: () => {
-					state?.onCancel?.();
-					setState(null);
+					const current = state;
+					current?.onCancel?.();
+					setState((latest) => (latest === current ? null : latest));
 				},
 			},
 		],
@@ -54,6 +63,7 @@ export function useConfirmDialogModel(): ConfirmDialogViewProps {
 			onCancel,
 			onCheckboxCheckedChange,
 			onConfirm,
+			onSecondary,
 			overlayRef,
 			state: state
 				? {
@@ -61,11 +71,12 @@ export function useConfirmDialogModel(): ConfirmDialogViewProps {
 						checkbox: state.checkbox,
 						confirmLabel: state.confirmLabel,
 						message: state.message,
+						secondaryLabel: state.secondaryLabel,
 						title: state.title,
 						variant: state.variant,
 					}
 				: null,
 		}),
-		[onCancel, onCheckboxCheckedChange, onConfirm, state, t],
+		[onCancel, onCheckboxCheckedChange, onConfirm, onSecondary, state, t],
 	);
 }

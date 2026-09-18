@@ -40,9 +40,11 @@
 			"emptyDescription": "Start a new chat and it will show up here",
 			"emptyAction": "Start a chat",
 			"emptyClawTitle": "No Claw records yet",
+			"emptyExternalTitle": "No external-tool sessions yet",
 			"emptyTagTitle": "No conversations with this tag",
 			"emptyTagDescription": "Tag a conversation from its context menu",
-			"emptyClawDescription": "Chat with Claw via WeChat, Feishu, and other channels to see records here"
+			"emptyClawDescription": "Chat with Claw via WeChat, Feishu, and other channels to see records here",
+			"emptyExternalDescription": "Grok sessions from the last 30 days will appear here"
 		},
 		"teams": {
 			"title": "Teams",
@@ -52,6 +54,11 @@
 		"session": {
 			"forkedTooltip": "Forked from another session",
 			"untitledTeam": "New team conversation"
+		},
+		"external": {
+			"sourceGrok": "Grok",
+			"unsupportedVersion": "Unsupported format version",
+			"corruptedHeader": "Session header is damaged"
 		},
 		"dialogs": {
 			"deleteSessionTitle": "Delete session",
@@ -86,7 +93,8 @@
 		"batch": "Batch",
 		"conversation": "Chat",
 		"team": "Teams",
-		"claw": "Claw"
+		"claw": "Claw",
+		"external": "External tools"
 	},
 	"actions": {
 		"newProject": "New Project",

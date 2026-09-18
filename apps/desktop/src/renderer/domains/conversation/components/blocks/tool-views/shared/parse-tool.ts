@@ -208,6 +208,26 @@ export function toolLabel(block: ToolCallBlock, aliased = false): { name: string
 		}
 	}
 
+	if (!detail) {
+		for (const key of [
+			"target",
+			"command",
+			"path",
+			"file_path",
+			"query",
+			"url",
+			"uri",
+			"pattern",
+			"input",
+		] as const) {
+			const candidate = args[key];
+			if (typeof candidate === "string" && candidate.trim()) {
+				detail = candidate.trim();
+				break;
+			}
+		}
+	}
+
 	return composeToolLabel(displayName, detail, description, aliased);
 }
 

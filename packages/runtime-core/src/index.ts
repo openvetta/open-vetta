@@ -25,7 +25,9 @@ export type {
 	SessionExecutionMode,
 	SessionExtensionEvent,
 	SessionFacade,
+	SessionHistoryImportSource,
 	SessionHistoryInfo,
+	SessionHistoryOrigin,
 	SessionLifecycleEvent,
 	SessionStateSnapshot,
 	SettingsPatch,
@@ -36,6 +38,7 @@ export type {
 	ToolUpdateEvent,
 	UsageUpdateEvent,
 } from "./contracts.js";
+export { EXTERNAL_IMPORT_SOURCE_MARKER_TYPE } from "./contracts.js";
 export {
 	applyConversationDocumentCommand,
 	type ConversationAgentAuthorReference,

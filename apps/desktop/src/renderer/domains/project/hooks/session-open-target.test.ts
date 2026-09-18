@@ -21,6 +21,13 @@ const CLAW_ACCESS: SessionInfo["access"] = {
 	delete: true,
 };
 
+const EXTERNAL_ACCESS: SessionInfo["access"] = {
+	readHistory: true,
+	resume: false,
+	rename: false,
+	delete: false,
+};
+
 const DESKTOP_ACCESS: SessionInfo["access"] = {
 	readHistory: true,
 	resume: true,
@@ -32,6 +39,11 @@ describe("resolveSessionOpenTarget", () => {
 	it("Claw 会话进只读 viewer", () => {
 		const sessions = [session("/im/a.jsonl", CLAW_ACCESS)];
 		expect(resolveSessionOpenTarget(sessions, "/im/a.jsonl")).toBe("viewer");
+	});
+
+	it("外部工具会话进只读 viewer", () => {
+		const sessions = [session("/grok/summary.json", EXTERNAL_ACCESS)];
+		expect(resolveSessionOpenTarget(sessions, "/grok/summary.json")).toBe("viewer");
 	});
 
 	it("桌面会话走交互式恢复", () => {

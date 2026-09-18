@@ -45,6 +45,8 @@ export interface DesktopConfig {
 	defaultAgentMode?: string;
 	experimental?: ExperimentalConfig;
 	imageGeneration?: ImageGenerationConfig;
+	/** 外部工具会话导入。缺省全关，打开前不扫描外部对话。 */
+	sessionImport?: SessionImportConfig;
 	knowledgeBase?: KnowledgeBaseConfig;
 	shortcuts?: ShortcutsConfig;
 	quickPanel?: QuickPanelConfig;
@@ -68,6 +70,13 @@ export type QuickPanelTrigger = "none" | "mod" | "alt" | "shift";
 export interface QuickPanelConfig {
 	trigger?: QuickPanelTrigger;
 	postSendBehavior?: "foreground" | "background";
+}
+
+export interface SessionImportConfig {
+	/** 是否读取 Grok 会话目录。缺省关。 */
+	grokEnabled?: boolean;
+	/** 仅在自动探测失败时由用户指定的 Grok 会话目录。 */
+	grokSessionDir?: string;
 }
 
 export interface KnowledgeBaseConfig {
@@ -97,6 +106,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	notificationsEnabled: true,
 	experimental: { vettaCli: true, agentSkills: true },
 	imageGeneration: {},
+	sessionImport: { grokEnabled: false },
 	shortcuts: { bindings: {} },
 	quickPanel: { trigger: "none", postSendBehavior: "foreground" },
 	appshot: { enabled: false, gesture: "both-shift" },
@@ -188,6 +198,21 @@ export function normalizeExperimental(value: unknown): ExperimentalConfig {
 	};
 }
 
+export function normalizeSessionImport(value: unknown): SessionImportConfig {
+	if (typeof value !== "object" || value === null) {
+		return { grokEnabled: false };
+	}
+	const input = value as Record<string, unknown>;
+	const grokSessionDir =
+		typeof input.grokSessionDir === "string" && input.grokSessionDir.trim().length > 0
+			? expandTildePath(input.grokSessionDir.trim())
+			: undefined;
+	return {
+		grokEnabled: input.grokEnabled === true,
+		grokSessionDir,
+	};
+}
+
 export function normalizeImageGeneration(value: unknown): ImageGenerationConfig {
 	if (typeof value !== "object" || value === null) return {};
 	const input = value as Record<string, unknown>;
@@ -247,6 +272,7 @@ function parseDesktopConfig(parsed: Record<string, unknown>): DesktopConfig {
 		language: isLanguagePreference(parsed.language) ? parsed.language : undefined,
 		experimental: normalizeExperimental(parsed.experimental),
 		imageGeneration: normalizeImageGeneration(parsed.imageGeneration),
+		sessionImport: normalizeSessionImport(parsed.sessionImport),
 		knowledgeBase: normalizeKnowledgeBase(parsed.knowledgeBase),
 		shortcuts: normalizeShortcuts(parsed.shortcuts),
 		quickPanel: normalizeQuickPanel(parsed.quickPanel),

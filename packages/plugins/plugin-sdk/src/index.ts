@@ -214,6 +214,9 @@ export type {
 	PluginOfficialOpenFilesOptions,
 	PluginOfficialOpenedFile,
 	PluginOfficialSessionAccess,
+	PluginOfficialSessionOrigin,
+	PluginOfficialSessionOriginKind,
+	PluginOfficialSessionListOptions,
 	PluginOfficialSessionRunningEvent,
 	PluginOfficialSessionSummary,
 	PluginOfficialPluginSummary,
@@ -221,6 +224,7 @@ export type {
 	PluginOfficialKnowledgeProcessingSettings,
 	PluginOfficialApi,
 } from "./official.js";
+export { resolveOfficialSessionOrigin } from "./official.js";
 
 // Files / command / images / secrets
 export type {

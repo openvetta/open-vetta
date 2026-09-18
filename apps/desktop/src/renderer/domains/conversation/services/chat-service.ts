@@ -20,6 +20,7 @@ import type { Usage } from "@vetta/ai";
 import type { HistoryEntry, PromptAttachmentRef, PromptResourceRef } from "@vetta/runtime-core";
 import { readMcpAppAttachment, selectMcpMediaCandidates } from "@vetta/runtime-mcp/browser";
 import type { CardDescriptor } from "@vetta-org/plugin-sdk";
+import { OMITTED_REASONING_MARKER_TYPE } from "../external-history-display";
 import { classifyChatError } from "./classifyChatError";
 
 export function toChatErrorDetails(
@@ -581,6 +582,23 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatConversationItem
 			continue;
 		}
 
+		if (entry.type === "custom_marker" && entry.customType === OMITTED_REASONING_MARKER_TYPE) {
+			const count =
+				entry.details &&
+				typeof entry.details === "object" &&
+				!Array.isArray(entry.details) &&
+				"count" in entry.details
+					? entry.details.count
+					: undefined;
+			if (typeof count === "number" && count > 0) {
+				messages.push({
+					kind: "event",
+					id: `hist-omitted-reasoning-${messages.length}`,
+					event: { kind: "omitted_reasoning", count },
+				});
+			}
+			continue;
+		}
 		if (entry.type === "custom_marker" && entry.customType === "settings_assist_instruction") {
 			const details = entry.details;
 			const tabId =
@@ -744,7 +762,8 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatConversationItem
 		} else if (m.role === "toolResult" && m.toolCallId) {
 			const block = toolCallIndex.get(String(m.toolCallId));
 			if (block) {
-				block.result = extractText(m.content);
+				const resultText = extractText(m.content);
+				if (resultText) block.result = resultText;
 				block.imagePreviews = extractToolImagePreviews(m.content, m.details);
 				block.imagePreview = block.imagePreviews[0];
 				block.audioPreviews = extractToolAudioPreviews(m.content, m.details);

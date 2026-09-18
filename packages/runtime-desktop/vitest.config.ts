@@ -47,6 +47,12 @@ export default defineConfig({
 				),
 			},
 			{
+				find: "@vetta/coding-agent/external-sessions",
+				replacement: fileURLToPath(
+					new URL("../coding-agent/src/public-api/external-sessions.ts", import.meta.url),
+				),
+			},
+			{
 				find: "@vetta/coding-agent/hooks",
 				replacement: fileURLToPath(new URL("../coding-agent/src/public-api/hooks.ts", import.meta.url)),
 			},

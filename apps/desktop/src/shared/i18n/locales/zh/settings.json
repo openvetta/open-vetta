@@ -610,6 +610,15 @@
     "apply": "应用",
     "applied": "已应用",
     "saving": "保存中",
+    "sessionImport": {
+      "description": "默认关闭。打开后，Vetta 只会读取对应工具的会话记录，不会改写那些文件。",
+      "detectedPath": "将读取：{{path}}",
+      "grok": "Grok",
+      "loading": "正在查找 Grok 会话目录…",
+      "manualPath": "已指定：{{path}}",
+      "notDetected": "没有找到 Grok 的默认会话目录。如果你把数据放在了别处，可以指定路径。",
+      "specifyPath": "指定目录"
+    },
     "imageGeneration": {
       "auto": "自动选择",
       "description": "选择 Agent 生成或编辑图片时使用的默认模型；自动选择会跟随可用服务。",
@@ -1151,6 +1160,7 @@
   "section_archived-list": "归档列表",
   "section_agent-personalization": "个性化",
   "section_agent-images": "图片",
+  "section_agent-session-import": "外部工具会话导入",
   "section_agent-experimental": "扩展功能",
   "section_agent-runtime": "运行时",
   "section_knowledge-processing": "后台加工",

@@ -1310,6 +1310,14 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 		"packages/runtime-desktop/src/historical-session-format.ts",
 		"packages/runtime-desktop/src/historical-session-import-backend.ts",
 	]);
+	const externalSessionConsumers = new Set([
+		"apps/desktop/src/main/agent-runtime/composition.ts",
+		"apps/desktop/src/main/conversations/desktop-conversation-service.ts",
+		"apps/desktop/src/main/external-sessions/desktop-external-session-continue-from.ts",
+		"apps/desktop/src/main/external-sessions/grok-session-locator.ts",
+		"packages/runtime-desktop/src/external-session-format.ts",
+		"packages/runtime-desktop/src/external-session-host.ts",
+	]);
 
 	for (const specifier of specifiers) {
 		if (specifier.startsWith("@vetta/coding-agent/legacy/")) {
@@ -1317,6 +1325,9 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 		}
 		if (specifier === historicalSessionPublicSubpath && !historicalSessionConsumers.has(posixPath)) {
 			findings.push(`${posixPath}: historical Session public surface is outside the host compatibility allowlist`);
+		}
+		if (specifier === "@vetta/coding-agent/external-sessions" && !externalSessionConsumers.has(posixPath)) {
+			findings.push(`${posixPath}: external Session public surface is outside the host compatibility allowlist`);
 		}
 	}
 
@@ -1337,16 +1348,21 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 	}
 
 	const isLegacyFormatModule = posixPath.startsWith("packages/coding-agent/src/sessions/legacy/");
-	if (isLegacyFormatModule) {
+	const isExternalFormatModule = posixPath.startsWith("packages/coding-agent/src/sessions/external/");
+	if (isLegacyFormatModule || isExternalFormatModule) {
 		const forbiddenImportFragments = ["agent-session", "/sdk", "legacy-session-backend"];
 		for (const specifier of specifiers) {
 			if (forbiddenImportFragments.some((fragment) => specifier.includes(fragment))) {
-				findings.push(`${posixPath}: Legacy session-format modules must not import execution code (${specifier})`);
+				findings.push(
+					`${posixPath}: ${isExternalFormatModule ? "External" : "Legacy"} session-format modules must not import execution code (${specifier})`,
+				);
 			}
 		}
 		for (const symbol of ["AgentSession", "createAgentSession", "LegacyCodingAgentSessionBackend", "ModelRegistry"]) {
 			if (usedSymbols.has(symbol)) {
-				findings.push(`${posixPath}: Legacy session-format modules must not use execution symbol ${symbol}`);
+				findings.push(
+					`${posixPath}: ${isExternalFormatModule ? "External" : "Legacy"} session-format modules must not use execution symbol ${symbol}`,
+				);
 			}
 		}
 	}
@@ -1375,7 +1391,7 @@ function checkCodingAgentLegacyBoundaries(posixPath, text, specifiers, findings)
 			}
 		}
 	}
-	if (isLegacyFormatModule) return;
+	if (isLegacyFormatModule || isExternalFormatModule) return;
 
 	const historicalSessionFacade = "packages/coding-agent/src/public-api/historical-sessions.ts";
 	const protectedSymbols = new Set([
