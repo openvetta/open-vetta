@@ -9,6 +9,8 @@ import {
 	type ConversationState,
 	type PluginContext,
 	type PluginConversationApi,
+	type PluginNetworkRequest,
+	type PluginNetworkResponse,
 	type PluginStorageApi,
 } from "@vetta-org/plugin-sdk";
 import plugin from "../src/index";
@@ -27,11 +29,16 @@ const COPY: Record<string, string> = {
 	"board.queue.source": "Source",
 	"board.queue.status": "Status",
 	"board.source.manual": "Manual",
+	"board.source.issue": "Issue",
 	"board.status.pending": "Pending",
 	"board.status.running": "Running",
 	"board.status.completed": "Completed",
 	"board.run": "Run",
 	"board.error.noProject": "Open a project first",
+	"board.repo.owner": "Owner",
+	"board.repo.name": "Repository",
+	"board.fetch": "Fetch issues",
+	"board.error.notFound": "Repository not found or private.",
 };
 
 function installHostBridge(conversation: ConversationState): void {
@@ -46,11 +53,17 @@ function installHostBridge(conversation: ConversationState): void {
 }
 
 /** Minimal host context: only what activate() and the board view actually touch. */
-function fakeContext(options?: { cwd?: string | null; hangSend?: boolean }) {
+function fakeContext(options?: {
+	cwd?: string | null;
+	hangSend?: boolean;
+	issues?: unknown[];
+	networkResponse?: PluginNetworkResponse;
+}) {
 	const registered: RegisteredView[] = [];
 	const files = new Map<string, string>();
 	const notifications: string[] = [];
 	const listeners = new Set<(event: ConversationEvent) => void>();
+	const requests: PluginNetworkRequest[] = [];
 	const cwd = options?.cwd === undefined ? "/repo" : options.cwd;
 	installHostBridge({
 		id: cwd ? "active" : null,
@@ -104,8 +117,21 @@ function fakeContext(options?: { cwd?: string | null; hangSend?: boolean }) {
 			},
 		},
 		storage,
+		network: {
+			request: async (request: PluginNetworkRequest) => {
+				requests.push(request);
+				if (options?.networkResponse) return options.networkResponse;
+				return {
+					ok: true,
+					status: 200,
+					statusText: "OK",
+					headers: {},
+					body: options?.issues ?? [],
+				};
+			},
+		},
 	} as unknown as PluginContext;
-	return { ctx, registered, notifications, createSession, sendPrompt };
+	return { ctx, registered, notifications, createSession, sendPrompt, requests };
 }
 
 function boardView(registered: RegisteredView[]) {
@@ -129,6 +155,27 @@ async function addTask(prompt: string): Promise<void> {
 	fireEvent.change(input, { target: { value: prompt } });
 	await act(async () => {
 		fireEvent.click(screen.getByRole("button", { name: COPY["board.add"] }));
+	});
+}
+
+async function readyRepoField(label: string): Promise<HTMLInputElement> {
+	return waitFor(() => {
+		const field = screen.getByRole("textbox", { name: label });
+		if (!(field instanceof HTMLInputElement) || field.disabled) {
+			throw new Error(`${label} is not ready`);
+		}
+		return field;
+	});
+}
+
+async function fillRepo(owner: string, repo: string): Promise<void> {
+	fireEvent.change(await readyRepoField(COPY["board.repo.owner"] ?? "Owner"), { target: { value: owner } });
+	fireEvent.change(await readyRepoField(COPY["board.repo.name"] ?? "Repository"), { target: { value: repo } });
+}
+
+async function fetchIssues(): Promise<void> {
+	await act(async () => {
+		fireEvent.click(screen.getByRole("button", { name: COPY["board.fetch"] }));
 	});
 }
 
@@ -236,5 +283,72 @@ describe("GitHub Issue board view", () => {
 		});
 		expect(createSession).toHaveBeenCalledWith("/repo");
 		expect(sendPrompt).toHaveBeenCalledWith("Fix the login button");
+	});
+
+	it("imports open issues from the filled repo and does not enqueue duplicates", async () => {
+		const { ctx, registered, requests } = fakeContext({
+			issues: [
+				{
+					number: 10,
+					title: "Fix login",
+					html_url: "https://github.com/acme/app/issues/10",
+					body: "The button does nothing.",
+					updated_at: "2026-01-02T03:04:05Z",
+				},
+				{
+					number: 11,
+					title: "Add feature",
+					html_url: "https://github.com/acme/app/pull/11",
+					body: "A pull request.",
+					updated_at: "2026-01-03T00:00:00Z",
+					pull_request: { url: "https://api.github.com/repos/acme/app/pulls/11" },
+				},
+			],
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		const first = render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await fillRepo("acme", "app");
+		await fetchIssues();
+
+		expect(screen.getByRole("cell", { name: "Fix login" })).toBeTruthy();
+		expect(within(taskRow("Fix login")).getByRole("cell", { name: COPY["board.source.issue"] })).toBeTruthy();
+		expect(within(taskRow("Fix login")).getByRole("cell", { name: COPY["board.status.pending"] })).toBeTruthy();
+		expect(screen.queryByRole("cell", { name: "Add feature" })).toBeNull();
+		expect(requests[0]?.url).toBe("https://api.github.com/repos/acme/app/issues?state=open&per_page=30");
+		expect(requests[0]?.headers?.Authorization).toBeUndefined();
+
+		await fetchIssues();
+		expect(screen.getAllByRole("cell", { name: "Fix login" })).toHaveLength(1);
+
+		first.unmount();
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+		await waitFor(() => {
+			expect(screen.getByRole("cell", { name: "Fix login" })).toBeTruthy();
+		});
+		expect((await readyRepoField(COPY["board.repo.owner"] ?? "Owner")).value).toBe("acme");
+		expect((await readyRepoField(COPY["board.repo.name"] ?? "Repository")).value).toBe("app");
+	});
+
+	it("notifies when the filled repository is missing or private", async () => {
+		const { ctx, registered, notifications } = fakeContext({
+			networkResponse: {
+				ok: false,
+				status: 404,
+				statusText: "Not Found",
+				headers: {},
+				body: { message: "Not Found" },
+			},
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await fillRepo("nope", "missing");
+		await fetchIssues();
+
+		expect(notifications).toContain(COPY["board.error.notFound"]);
+		expect(screen.queryByRole("cell", { name: "Fix login" })).toBeNull();
 	});
 });

@@ -18,5 +18,13 @@
 	"board.status.failed": "失败",
 	"board.queue.actions": "操作",
 	"board.run": "运行",
+	"board.repo.owner": "所有者",
+	"board.repo.name": "仓库",
+	"board.repo.ownerPlaceholder": "owner",
+	"board.repo.namePlaceholder": "repo",
+	"board.fetch": "拉取 Issues",
+	"board.error.rateLimit": "GitHub 未认证限流已用尽，请稍后再试。",
+	"board.error.notFound": "仓库不存在或为私有仓库。",
+	"board.error.nonJson": "GitHub 返回了无法解析的错误。",
 	"board.error.noProject": "请先打开一个项目"
 }

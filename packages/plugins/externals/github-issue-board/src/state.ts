@@ -120,6 +120,26 @@ export function addManualTask(
 	return { ...state, tasks: [...state.tasks, task] };
 }
 
+function issueIdentity(source: Extract<GithubTaskSource, { kind: "issue" }>): string {
+	return `${source.owner}/${source.repo}/${source.issueNumber}`;
+}
+
+export function addIssueTasks(state: PluginState, tasks: GithubTask[]): PluginState {
+	const seen = new Set(
+		state.tasks.flatMap((task) => (task.source.kind === "issue" ? [issueIdentity(task.source)] : [])),
+	);
+	const incoming: GithubTask[] = [];
+	for (const task of tasks) {
+		if (task.source.kind !== "issue") continue;
+		const key = issueIdentity(task.source);
+		if (seen.has(key)) continue;
+		seen.add(key);
+		incoming.push(task);
+	}
+	if (incoming.length === 0) return state;
+	return { ...state, tasks: [...state.tasks, ...incoming] };
+}
+
 export function setTaskStatus(
 	state: PluginState,
 	taskId: string,

@@ -6,9 +6,9 @@ import "./style.css";
 /**
  * GitHub Issue 任务台：跨会话的整页工作台。
  *
- * 本包打通手动入队、持久化队列，以及点「运行」后新建 Agent 会话执行并把状态
- * 按 turn-end 流转。拉取 GitHub issue 由后续 ticket 填入。没有模块级运行态，
- * 也不提供 `deactivate()`——注册的贡献由宿主统一处置。
+ * 本包打通手动入队、从公开仓库拉取开放 issue、持久化队列，以及点「运行」后
+ * 新建 Agent 会话执行并把状态按 turn-end 流转。没有模块级运行态，也不提供
+ * `deactivate()`——注册的贡献由宿主统一处置。
  */
 export default definePlugin({
 	activate(ctx) {
