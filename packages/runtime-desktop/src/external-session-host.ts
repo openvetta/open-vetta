@@ -28,6 +28,10 @@ export function createDesktopExternalSessionHost(options: DesktopExternalSession
 			}));
 		},
 		statModifiedAt: async (path) => (await stat(path)).mtimeMs,
+		statFile: async (path) => {
+			const info = await stat(path);
+			return { mtimeMs: info.mtimeMs, size: info.size };
+		},
 		samePath: (left, right) => resolve(left) === resolve(right),
 	};
 }

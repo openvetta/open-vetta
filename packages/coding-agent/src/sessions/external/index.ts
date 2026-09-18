@@ -4,8 +4,17 @@ export {
 	type ExternalRuntimeSessionCatalogOptions,
 } from "./catalog.js";
 export {
+	createCodingAgentExternalSessionContinueFrom,
+	type ExternalSessionBriefingCache,
+	type ExternalSessionContinuePersistInput,
+	type ExternalSessionContinuePorts,
+	type ExternalSessionContinueRequest,
+	type ExternalSessionContinueResult,
+} from "./continue-from.js";
+export {
 	EXTERNAL_ORIGIN_MARKER_TYPE,
 	EXTERNAL_SESSION_HISTORY_UNAVAILABLE,
+	type GrokBriefingRound,
 	OMITTED_REASONING_MARKER_TYPE,
 	SKIPPED_TRUNCATED_LINES_MARKER_TYPE,
 } from "./grok-conversation.js";

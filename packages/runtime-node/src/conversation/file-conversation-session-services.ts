@@ -6,6 +6,7 @@ import type {
 	ProjectInfo,
 	RuntimeSessionCatalog,
 	RuntimeSessionFileHistoryReader,
+	SessionHistoryImportSource,
 	SessionHistoryInfo,
 } from "@vetta/runtime-core";
 import { projectConversationDocumentHistory } from "@vetta/runtime-core/conversation";
@@ -198,6 +199,7 @@ async function readSessionHistoryInfo(sessionPath: string, fallbackCwd: string):
 		return Math.max(latest ?? 0, message.timestamp);
 	}, undefined);
 	const modifiedAt = lastMessageActivityAt ?? (await stat(sessionPath)).mtimeMs;
+	const importedFrom = readImportedFrom(document);
 	return {
 		id: header.sessionId,
 		path: resolve(sessionPath),
@@ -209,7 +211,24 @@ async function readSessionHistoryInfo(sessionPath: string, fallbackCwd: string):
 		lastMessagePreview,
 		parentSessionPath: document.identity.parentSessionPath,
 		parentEntryId: document.identity.parentEntryId,
+		...(importedFrom ? { importedFrom } : {}),
 	};
+}
+
+function readImportedFrom(document: {
+	readonly entries: readonly { readonly type: string; readonly customType?: string; readonly data?: unknown }[];
+}): SessionHistoryImportSource | undefined {
+	for (const entry of document.entries) {
+		if (entry.type !== "custom" || entry.customType !== "external_import_source") continue;
+		const data = entry.data;
+		if (typeof data !== "object" || data === null) continue;
+		const record = data as Record<string, unknown>;
+		if (typeof record.tool !== "string" || !record.tool.trim()) continue;
+		if (typeof record.path !== "string" || !record.path.trim()) continue;
+		if (typeof record.importedAt !== "number" || !Number.isFinite(record.importedAt)) continue;
+		return { tool: record.tool.trim(), path: record.path.trim(), importedAt: record.importedAt };
+	}
+	return undefined;
 }
 
 function extractMessageText(content: unknown): string | undefined {

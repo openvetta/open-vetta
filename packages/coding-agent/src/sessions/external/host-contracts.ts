@@ -14,5 +14,6 @@ export interface ExternalSessionFileHost {
 	readPrefixLines(path: string, maxLines: number): string;
 	readDirectory(path: string): Promise<readonly ExternalSessionDirectoryEntry[]>;
 	statModifiedAt(path: string): Promise<number>;
+	statFile(path: string): Promise<{ readonly mtimeMs: number; readonly size: number }>;
 	samePath(left: string, right: string): boolean;
 }

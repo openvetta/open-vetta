@@ -43,6 +43,7 @@ export interface SessionViewerPageModel {
 	emptyPathLabel: string;
 	errorPrefix: string;
 	sourceBannerLabel: string | null;
+	canContinueFrom: boolean;
 	onStartExport: () => void;
 	onTogglePanel: () => void;
 	onExportFinished: () => void;
@@ -57,6 +58,7 @@ export function useSessionViewerPageModel(): SessionViewerPageModel {
 	const [messages, setMessages] = useState<ChatConversationItem[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [sourceBannerLabel, setSourceBannerLabel] = useState<string | null>(null);
+	const [canContinueFrom, setCanContinueFrom] = useState(false);
 	const [exporting, setExporting] = useState(false);
 	const imCwd = useAtomValue(defaultImConversationCwdAtom);
 	const kbCwd = useAtomValue(knowledgeProcessingCwdAtom);
@@ -87,15 +89,18 @@ export function useSessionViewerPageModel(): SessionViewerPageModel {
 		let cancelled = false;
 		let unsubscribe: (() => void) | undefined;
 
+		setCanContinueFrom(false);
 		(async () => {
 			try {
 				const initial = await window.vetta.session.openViewer(path);
 				if (cancelled) return;
 				setSourceBannerLabel(resolveSourceBannerLabel(initial.history, t));
+				setCanContinueFrom(isGrokExternalHistory(initial.history));
 				setMessages(fullHistoryToChat(initial.history));
 
 				unsubscribe = await window.vetta.session.subscribeViewer(path, (snapshot) => {
 					setSourceBannerLabel(resolveSourceBannerLabel(snapshot.history, t));
+					setCanContinueFrom(isGrokExternalHistory(snapshot.history));
 					setMessages(fullHistoryToChat(snapshot.history));
 				});
 				if (cancelled) unsubscribe?.();
@@ -124,6 +129,7 @@ export function useSessionViewerPageModel(): SessionViewerPageModel {
 		emptyPathLabel: t("sessionViewer.emptyState.noPath"),
 		errorPrefix: t("sessionViewer.error.loadPrefix"),
 		sourceBannerLabel,
+		canContinueFrom,
 		onStartExport: handleStartExport,
 		onTogglePanel: handleTogglePanel,
 		onExportFinished: handleExportFinished,
@@ -131,16 +137,25 @@ export function useSessionViewerPageModel(): SessionViewerPageModel {
 }
 
 function resolveSourceBannerLabel(history: readonly HistoryEntry[], t: TFunction<"chat">): string | null {
-	const marker = history.find(
-		(entry) => entry.type === "custom_marker" && entry.customType === EXTERNAL_ORIGIN_MARKER_TYPE,
-	);
-	if (!marker || marker.type !== "custom_marker") return null;
-	const details = marker.details;
-	const tool =
-		details && typeof details === "object" && !Array.isArray(details) && "tool" in details ? details.tool : undefined;
+	const tool = readExternalOriginTool(history);
 	if (tool === GROK_TOOL_ID) return t("sessionViewer.sourceBanner.grok");
 	if (typeof tool === "string" && tool.trim()) return t("sessionViewer.sourceBanner.unknown");
 	return null;
+}
+
+function isGrokExternalHistory(history: readonly HistoryEntry[]): boolean {
+	return readExternalOriginTool(history) === GROK_TOOL_ID;
+}
+
+function readExternalOriginTool(history: readonly HistoryEntry[]): unknown {
+	const marker = history.find(
+		(entry) => entry.type === "custom_marker" && entry.customType === EXTERNAL_ORIGIN_MARKER_TYPE,
+	);
+	if (!marker || marker.type !== "custom_marker") return undefined;
+	const details = marker.details;
+	return details && typeof details === "object" && !Array.isArray(details) && "tool" in details
+		? details.tool
+		: undefined;
 }
 
 function mapViewerLoadError(message: string, t: TFunction<"chat">): string {

@@ -345,6 +345,19 @@ export interface SessionHistoryOrigin {
 	readonly path: string;
 }
 
+/**
+ * 从外部工具续作导入的 Vetta 会话溯源。含导入时间，与外部条目的 `origin` 不同。
+ * 落在文档自定义条目里，customType 为 {@link EXTERNAL_IMPORT_SOURCE_MARKER_TYPE}。
+ */
+export interface SessionHistoryImportSource {
+	readonly tool: string;
+	readonly path: string;
+	readonly importedAt: number;
+}
+
+/** Conversation Document 自定义条目：新 Vetta 会话的导入来源。 */
+export const EXTERNAL_IMPORT_SOURCE_MARKER_TYPE = "external_import_source";
+
 export interface SessionHistoryInfo {
 	id: string;
 	path: string;
@@ -362,6 +375,8 @@ export interface SessionHistoryInfo {
 	parentEntryId?: string;
 	/** 外部工具会话溯源；缺省读作 Vetta 原生。 */
 	origin?: SessionHistoryOrigin;
+	/** 续作导入来源；仅 Vetta 原生会话在从外部工具接着干之后才有。 */
+	importedFrom?: SessionHistoryImportSource;
 	/** 列表仍展示但不可用的原因码；缺省表示条目可用。 */
 	unavailableReason?: string;
 }

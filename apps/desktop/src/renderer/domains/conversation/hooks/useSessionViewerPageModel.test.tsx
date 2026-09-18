@@ -79,6 +79,7 @@ describe("useSessionViewerPageModel external Grok viewer", () => {
 		});
 
 		await waitFor(() => expect(result.current.sourceBannerLabel).toBe("sessionViewer.sourceBanner.grok"));
+		expect(result.current.canContinueFrom).toBe(true);
 		expect(captured.openViewer).toHaveBeenCalledWith(captured.path);
 		expect(result.current.messages.map((message) => message.kind)).toEqual(["user", "event", "agent"]);
 		expect(result.current.messages[1]).toMatchObject({
@@ -107,6 +108,7 @@ describe("useSessionViewerPageModel external Grok viewer", () => {
 
 		await waitFor(() => expect(result.current.error).toBe("sessionViewer.error.corruptedHeader"));
 		expect(result.current.sourceBannerLabel).toBeNull();
+		expect(result.current.canContinueFrom).toBe(false);
 		expect(result.current.messages).toEqual([]);
 	});
 });

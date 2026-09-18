@@ -81,6 +81,7 @@ const CHANNELS = {
 	VIEWER_SUBSCRIBE: "vetta:session:viewer-subscribe",
 	VIEWER_UNSUBSCRIBE: "vetta:session:viewer-unsubscribe",
 	VIEWER_EVENT: "vetta:session:viewer-event",
+	CONTINUE_FROM_EXTERNAL: "vetta:session:continue-from-external",
 } as const;
 
 export function createSessionApi(ipc: IpcRenderer): Pick<DesktopApi, "session"> {
@@ -178,6 +179,7 @@ export function createSessionApi(ipc: IpcRenderer): Pick<DesktopApi, "session"> 
 				subscribeById(ipc, CHANNELS.VIEWER_SUBSCRIBE, CHANNELS.VIEWER_EVENT, CHANNELS.VIEWER_UNSUBSCRIBE, handler, [
 					path,
 				]),
+			continueFromExternal: (request) => ipc.invoke(CHANNELS.CONTINUE_FROM_EXTERNAL, request),
 		},
 	};
 }

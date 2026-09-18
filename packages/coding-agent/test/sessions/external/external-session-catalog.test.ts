@@ -219,6 +219,10 @@ function createTestHost(sessionsDirectory: string, reads: string[]): ExternalSes
 			}));
 		},
 		statModifiedAt: async (path) => (await stat(path)).mtimeMs,
+		statFile: async (path) => {
+			const info = await stat(path);
+			return { mtimeMs: info.mtimeMs, size: info.size };
+		},
 		samePath: (left, right) => left === right,
 	};
 }

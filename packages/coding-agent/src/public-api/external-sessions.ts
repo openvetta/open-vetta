@@ -6,6 +6,14 @@ import {
 import { ExternalRuntimeSessionFileHistoryReader } from "../sessions/external/history-reader.js";
 import type { ExternalSessionFileHost } from "../sessions/external/host-contracts.js";
 
+export type {
+	ExternalSessionBriefingCache,
+	ExternalSessionContinuePersistInput,
+	ExternalSessionContinuePorts,
+	ExternalSessionContinueRequest,
+	ExternalSessionContinueResult,
+} from "../sessions/external/continue-from.js";
+export { createCodingAgentExternalSessionContinueFrom } from "../sessions/external/continue-from.js";
 export {
 	type ResolveGrokSessionsDirectoryInput,
 	resolveGrokSessionsDirectory,

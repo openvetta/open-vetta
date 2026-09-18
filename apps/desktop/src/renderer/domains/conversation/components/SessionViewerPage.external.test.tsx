@@ -18,6 +18,14 @@ vi.mock("jotai", async (importOriginal) => ({
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("@vetta-org/theme-sdk/appearance", () => ({ useThemeSurface: () => undefined }));
 vi.mock("@domains/activity-panel/components/ActivityPanel", () => ({ ActivityPanel: () => <aside /> }));
+vi.mock("../hooks/useSessionViewerContinueFrom", () => ({
+	useSessionViewerContinueFrom: () => ({
+		enabled: true,
+		continuing: false,
+		error: null,
+		onContinue: vi.fn(),
+	}),
+}));
 vi.mock("../hooks/useSessionViewerPageModel", () => ({
 	useSessionViewerPageModel: () => ({
 		path: "/tmp/grok/sessions/demo/a/summary.json",
@@ -33,6 +41,7 @@ vi.mock("../hooks/useSessionViewerPageModel", () => ({
 		emptyPathLabel: "empty",
 		errorPrefix: "error",
 		sourceBannerLabel: "sessionViewer.sourceBanner.grok",
+		canContinueFrom: true,
 		onStartExport: vi.fn(),
 		onTogglePanel: vi.fn(),
 		onExportFinished: vi.fn(),
@@ -59,6 +68,7 @@ describe("SessionViewerPage external source banner", () => {
 		expect(header).toBeTruthy();
 		render(header);
 		expect(screen.getByText("sessionViewer.badge.readOnly")).toBeTruthy();
+		expect(screen.getByText("sessionViewer.continueFrom.action")).toBeTruthy();
 		expect(captured.feed).toHaveBeenCalledWith(
 			expect.objectContaining({
 				sessionId: "/tmp/grok/sessions/demo/a/summary.json",

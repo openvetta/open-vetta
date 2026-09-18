@@ -39,6 +39,51 @@ interface PendingTool {
 	readonly target: string;
 }
 
+export interface GrokBriefingRound {
+	readonly user: string;
+	readonly assistant: string;
+}
+
+/** Model-context rounds: user + following assistant text/tool names, without full tool output. */
+export function projectGrokConversationBriefingRounds(body: string): GrokBriefingRound[] {
+	const parsed = parseJsonlRecords(body);
+	const restrictToPromptIndex = parsed.records.some((record) => readNumber(record.prompt_index) !== undefined);
+	const rounds: GrokBriefingRound[] = [];
+	let currentUser = "";
+	let assistantParts: string[] = [];
+
+	const flush = (): void => {
+		if (!currentUser && assistantParts.length === 0) return;
+		rounds.push({ user: currentUser, assistant: assistantParts.join("\n").trim() });
+		currentUser = "";
+		assistantParts = [];
+	};
+
+	for (const record of parsed.records) {
+		const kind = readRecordKind(record);
+		if (kind === "reasoning" || kind === "system") continue;
+		if (kind === "user") {
+			if (isSyntheticUser(record)) continue;
+			if (restrictToPromptIndex && readNumber(record.prompt_index) === undefined) continue;
+			const text = unwrapUserQuery(readUserText(record));
+			if (!text) continue;
+			flush();
+			currentUser = text;
+			continue;
+		}
+		if (kind === "assistant") {
+			const text = readAssistantText(record);
+			if (text) assistantParts.push(text);
+			for (const tool of readToolCalls(record)) {
+				const target = tool.target ? `: ${tool.target}` : "";
+				assistantParts.push(`[${tool.name}${target}]`);
+			}
+		}
+	}
+	flush();
+	return rounds;
+}
+
 /** Display-only Grok JSONL projection. Thinking is counted, tools are folded, nothing is written back. */
 export function projectGrokConversationDisplay(body: string): HistoryEntry[] {
 	const parsed = parseJsonlRecords(body);
