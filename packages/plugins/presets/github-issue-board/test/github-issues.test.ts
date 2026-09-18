@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PluginCommandApi, PluginNetworkApi } from "@vetta-org/plugin-sdk";
 import {
+	fetchIssueComments,
 	fetchOpenGithubIssues,
+	githubIssueCommentsApiPath,
+	githubIssueCommentsUrl,
+	githubOpenIssuesApiPath,
+	githubOpenIssuesUrl,
 	ISSUE_COMMIT_INSTRUCTION,
 	ISSUE_PROMPT_MAX_CHARS,
 	mapGhApiError,
@@ -63,6 +68,9 @@ describe("mapGithubIssueItems", () => {
 				status: "pending",
 				createdAt: NOW,
 				updatedAt: NOW,
+				labels: [],
+				assignees: [],
+				body: "The button does nothing.",
 			},
 		]);
 		expect(tasks[0]?.promptText).toContain("https://github.com/acme/app/issues/10");
@@ -86,6 +94,27 @@ describe("mapGithubIssueItems", () => {
 		expect(task?.promptText).toContain("https://github.com/acme/app/issues/10");
 		expect(task?.promptText).toContain(ISSUE_COMMIT_INSTRUCTION);
 		expect(task?.promptText.includes(body)).toBe(false);
+	});
+
+	it("maps label names and assignee logins onto the task", () => {
+		const [task] = mapGithubIssueItems(
+			[
+				issueJson({
+					labels: [{ name: "bug" }, "docs", { name: "bug" }, { name: "" }, 12],
+					assignees: [{ login: "alice" }, { login: "bob" }, { login: "alice" }, { name: "skip" }],
+				}),
+			],
+			{
+				owner: "acme",
+				repo: "app",
+				now: NOW,
+				createId: () => "id-1",
+				commitInstruction: COMMIT,
+			},
+		);
+		expect(task?.labels).toEqual(["bug", "docs"]);
+		expect(task?.assignees).toEqual(["alice", "bob"]);
+		expect(task?.body).toBe("The button does nothing.");
 	});
 });
 
@@ -147,7 +176,7 @@ describe("fetchOpenGithubIssues", () => {
 		expect(network.request).not.toHaveBeenCalled();
 		expect(command.run).toHaveBeenCalledWith(
 			"gh",
-			["api", "repos/acme/app/issues?state=open&per_page=30"],
+			["api", "repos/acme/app/issues?state=open&per_page=100"],
 			{
 				timeoutMs: 20_000,
 				env: { GH_PROMPT_DISABLED: "1", GH_NO_UPDATE_NOTIFIER: "1" },
@@ -202,5 +231,101 @@ describe("fetchOpenGithubIssues", () => {
 			error: "non-json",
 		});
 		expect(network.request).not.toHaveBeenCalled();
+	});
+
+	it("requests the second page through gh and the unauthenticated URL", async () => {
+		expect(githubOpenIssuesUrl("acme", "app")).toBe(
+			"https://api.github.com/repos/acme/app/issues?state=open&per_page=100",
+		);
+		expect(githubOpenIssuesUrl("acme", "app", 2)).toBe(
+			"https://api.github.com/repos/acme/app/issues?state=open&per_page=100&page=2",
+		);
+		expect(githubOpenIssuesApiPath("acme", "app", 2)).toBe(
+			"repos/acme/app/issues?state=open&per_page=100&page=2",
+		);
+
+		const network = {
+			request: vi.fn(async () => ({
+				ok: true,
+				status: 200,
+				statusText: "OK",
+				headers: {},
+				body: [issue],
+			})),
+		} as unknown as PluginNetworkApi;
+		const command = {
+			run: vi.fn(async () => ({
+				stdout: JSON.stringify([issue]),
+				stderr: "",
+				exitCode: 0,
+			})),
+		} as unknown as PluginCommandApi;
+
+		await expect(fetchOpenGithubIssues(network, "acme", "app", command, 2)).resolves.toEqual({
+			items: [issue],
+		});
+		expect(command.run).toHaveBeenCalledWith(
+			"gh",
+			["api", "repos/acme/app/issues?state=open&per_page=100&page=2"],
+			{
+				timeoutMs: 20_000,
+				env: { GH_PROMPT_DISABLED: "1", GH_NO_UPDATE_NOTIFIER: "1" },
+			},
+		);
+		expect(network.request).not.toHaveBeenCalled();
+	});
+});
+
+describe("fetchIssueComments", () => {
+	const comment = {
+		id: 99,
+		body: "Looks good.",
+		created_at: "2026-01-04T00:00:00Z",
+		user: { login: "bob" },
+	};
+
+	it("uses the local gh login instead of the unauthenticated API", async () => {
+		const network = { request: vi.fn() } as unknown as PluginNetworkApi;
+		const command = {
+			run: vi.fn(async () => ({
+				stdout: JSON.stringify([comment]),
+				stderr: "",
+				exitCode: 0,
+			})),
+		} as unknown as PluginCommandApi;
+
+		await expect(fetchIssueComments(network, "acme", "app", 10, command)).resolves.toEqual({
+			items: [{ id: 99, login: "bob", body: "Looks good.", createdAt: "2026-01-04T00:00:00Z" }],
+		});
+		expect(network.request).not.toHaveBeenCalled();
+		expect(command.run).toHaveBeenCalledWith("gh", ["api", githubIssueCommentsApiPath("acme", "app", 10)], {
+			timeoutMs: 20_000,
+			env: { GH_PROMPT_DISABLED: "1", GH_NO_UPDATE_NOTIFIER: "1" },
+		});
+	});
+
+	it("falls back to the unauthenticated comments URL when gh is missing", async () => {
+		const network = {
+			request: vi.fn(async () => ({
+				ok: true,
+				status: 200,
+				statusText: "OK",
+				headers: {},
+				body: [comment],
+			})),
+		} as unknown as PluginNetworkApi;
+		const missing = {
+			run: vi.fn(async () => {
+				throw new Error("Command failed to start: gh (ENOENT)");
+			}),
+		} as unknown as PluginCommandApi;
+
+		await expect(fetchIssueComments(network, "acme", "app", 10, missing)).resolves.toEqual({
+			items: [{ id: 99, login: "bob", body: "Looks good.", createdAt: "2026-01-04T00:00:00Z" }],
+		});
+		expect(network.request).toHaveBeenCalledWith({
+			url: githubIssueCommentsUrl("acme", "app", 10),
+			method: "GET",
+		});
 	});
 });

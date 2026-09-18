@@ -27,19 +27,43 @@ const COPY: Record<string, string> = {
 	"board.taskInput.label": "Task description",
 	"board.add": "Add",
 	"board.queue.title": "Title",
+	"board.queue.labels": "Labels",
+	"board.queue.assignees": "Assignees",
 	"board.queue.source": "Source",
 	"board.queue.status": "Status",
 	"board.source.manual": "Manual",
 	"board.source.issue": "Issue",
 	"board.issue.ref": "#{{number}}",
+	"board.issue.unassigned": "Unassigned",
+	"board.issue.dash": "—",
+	"board.issue.nobody": "No description",
+	"board.issue.noComments": "No comments",
+	"board.issue.commentsError": "Could not load comments",
+	"board.issue.commentsLoading": "Loading comments…",
 	"board.status.pending": "Pending",
 	"board.status.running": "Running",
 	"board.status.completed": "Completed",
 	"board.run": "Run",
+	"board.run.direct": "Run directly",
+	"board.run.withSkill": "Run with {{name}}",
+	"board.edit": "Edit",
+	"board.delete": "Delete",
+	"board.delete.confirm": "Confirm delete",
+	"board.save": "Save",
+	"board.cancel": "Cancel",
+	"board.taskEdit.label": "Edit task description",
 	"board.error.noProject": "Select a project or local folder first",
 	"board.repo.owner": "Owner",
 	"board.repo.name": "Repository",
 	"board.fetch": "Fetch issues",
+	"board.fetch.loadMore": "Load more",
+	"board.fetch.none": "No new open issues were imported",
+	"board.fetch.summary": "Imported {{imported}}, updated {{updated}}",
+	"board.fetch.more": "Imported {{imported}} more",
+	"board.empty.fetching": "Fetching issues…",
+	"board.empty.noIssues": "This repository has no open issues to import",
+	"board.empty.notFetched":
+		"Issues have not been fetched yet. Click “Fetch issues” to import open issues from this repository.",
 	"board.workspace.label": "Project",
 	"board.workspace.conversation": "Current session · {{path}}",
 	"board.workspace.conversationNone": "Current session (no project open)",
@@ -78,6 +102,9 @@ function fakeContext(options?: {
 	hangSend?: boolean;
 	issues?: unknown[];
 	issuesByRepo?: Record<string, unknown[]>;
+	issuesByPage?: Record<number, unknown[]>;
+	comments?: unknown[];
+	initialState?: unknown;
 	networkResponse?: PluginNetworkResponse;
 	gitRemote?: { stdout: string; exitCode: number };
 	gitRemoteByCwd?: Record<string, { stdout: string; exitCode: number }>;
@@ -87,6 +114,9 @@ function fakeContext(options?: {
 }) {
 	const registered: RegisteredView[] = [];
 	const files = new Map<string, string>();
+	if (options?.initialState !== undefined) {
+		files.set("state.json", JSON.stringify(options.initialState));
+	}
 	const notifications: string[] = [];
 	const listeners = new Set<(event: ConversationEvent) => void>();
 	const requests: PluginNetworkRequest[] = [];
@@ -167,8 +197,14 @@ function fakeContext(options?: {
 			request: async (request: PluginNetworkRequest) => {
 				requests.push(request);
 				if (options?.networkResponse) return options.networkResponse;
-				let body = options?.issues ?? [];
-				if (options?.issuesByRepo) {
+				let body: unknown = options?.issues ?? [];
+				if (request.url.includes("/comments")) {
+					body = options?.comments ?? [];
+				} else if (options?.issuesByPage) {
+					const match = /[?&]page=(\d+)/.exec(request.url);
+					const page = match ? Number(match[1]) : 1;
+					body = options.issuesByPage[page] ?? [];
+				} else if (options?.issuesByRepo) {
 					body = [];
 					for (const [repo, items] of Object.entries(options.issuesByRepo)) {
 						if (request.url.includes(`repos/${repo}/issues`)) {
@@ -292,6 +328,15 @@ function taskRow(title: string): HTMLElement {
 	return screen.getByRole("row", { name: new RegExp(title) });
 }
 
+async function runDirectly(title: string): Promise<void> {
+	await act(async () => {
+		fireEvent.click(within(taskRow(title)).getByRole("button", { name: COPY["board.run"] }));
+	});
+	await act(async () => {
+		fireEvent.click(screen.getByRole("button", { name: COPY["board.run.direct"] }));
+	});
+}
+
 afterEach(cleanup);
 
 describe("GitHub Issue board view", () => {
@@ -331,6 +376,75 @@ describe("GitHub Issue board view", () => {
 		expect(screen.getByRole("cell", { name: COPY["board.status.pending"] })).toBeTruthy();
 	});
 
+	it("edits a pending manual task and runs the updated prompt after remount", async () => {
+		const { ctx, registered, sendPrompt } = fakeContext();
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		const first = render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await addTask("Fix the login button");
+		await act(async () => {
+			fireEvent.click(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.edit"] }));
+		});
+		fireEvent.change(screen.getByRole("textbox", { name: COPY["board.taskEdit.label"] }), {
+			target: { value: "Fix the logout button" },
+		});
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.save"] }));
+		});
+		expect(screen.getByRole("cell", { name: "Fix the logout button" })).toBeTruthy();
+		expect(screen.queryByRole("cell", { name: "Fix the login button" })).toBeNull();
+
+		first.unmount();
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+		await waitFor(() => {
+			expect(screen.getByRole("cell", { name: "Fix the logout button" })).toBeTruthy();
+		});
+		await runDirectly("Fix the logout button");
+		await waitFor(() => {
+			expect(
+				within(taskRow("Fix the logout button")).getByRole("cell", { name: COPY["board.status.completed"] }),
+			).toBeTruthy();
+		});
+		expect(sendPrompt).toHaveBeenCalledWith("Fix the logout button");
+	});
+
+	it("deletes a queued task after confirmation and keeps the rest after remount", async () => {
+		const { ctx, registered } = fakeContext();
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		const first = render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await addTask("Fix the login button");
+		await addTask("Write the tests");
+		await act(async () => {
+			fireEvent.click(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.delete"] }));
+		});
+		expect(screen.getByRole("cell", { name: "Fix the login button" })).toBeTruthy();
+		await act(async () => {
+			fireEvent.click(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.cancel"] }));
+		});
+		expect(screen.getByRole("cell", { name: "Fix the login button" })).toBeTruthy();
+
+		await act(async () => {
+			fireEvent.click(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.delete"] }));
+		});
+		await act(async () => {
+			fireEvent.click(
+				within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.delete.confirm"] }),
+			);
+		});
+		expect(screen.queryByRole("cell", { name: "Fix the login button" })).toBeNull();
+		expect(screen.getByRole("cell", { name: "Write the tests" })).toBeTruthy();
+
+		first.unmount();
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+		await waitFor(() => {
+			expect(screen.getByRole("cell", { name: "Write the tests" })).toBeTruthy();
+		});
+		expect(screen.queryByRole("cell", { name: "Fix the login button" })).toBeNull();
+	});
+
 	it("disables other run buttons while a task is running", async () => {
 		const { ctx, registered } = fakeContext({ hangSend: true });
 		plugin.activate(ctx);
@@ -348,11 +462,22 @@ describe("GitHub Issue board view", () => {
 		await act(async () => {
 			fireEvent.click(firstRun);
 		});
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.run.direct"] }));
+		});
 
 		await waitFor(() => {
 			expect(within(taskRow("Fix the login button")).getByRole("cell", { name: COPY["board.status.running"] })).toBeTruthy();
 		});
 		expect(within(taskRow("Write the tests")).getByRole("button", { name: COPY["board.run"] })).toHaveProperty(
+			"disabled",
+			true,
+		);
+		expect(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.edit"] })).toHaveProperty(
+			"disabled",
+			true,
+		);
+		expect(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.delete"] })).toHaveProperty(
 			"disabled",
 			true,
 		);
@@ -365,9 +490,7 @@ describe("GitHub Issue board view", () => {
 		render(<view.component pluginId="github-issue-board" viewId="board" />);
 
 		await addTask("Fix the login button");
-		await act(async () => {
-			fireEvent.click(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.run"] }));
-		});
+		await runDirectly("Fix the login button");
 
 		expect(notifications).toContain(COPY["board.error.noProject"]);
 		expect(createSession).not.toHaveBeenCalled();
@@ -381,9 +504,7 @@ describe("GitHub Issue board view", () => {
 		render(<view.component pluginId="github-issue-board" viewId="board" />);
 
 		await addTask("Fix the login button");
-		await act(async () => {
-			fireEvent.click(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.run"] }));
-		});
+		await runDirectly("Fix the login button");
 
 		await waitFor(() => {
 			expect(
@@ -394,8 +515,8 @@ describe("GitHub Issue board view", () => {
 		expect(sendPrompt).toHaveBeenCalledWith("Fix the login button");
 	});
 
-	it("opens the recorded conversation from a finished task", async () => {
-		const { ctx, registered, openSession } = fakeContext();
+	it("runs with the implement skill token when that run mode is chosen", async () => {
+		const { ctx, registered, sendPrompt } = fakeContext();
 		plugin.activate(ctx);
 		const view = boardView(registered);
 		render(<view.component pluginId="github-issue-board" viewId="board" />);
@@ -404,6 +525,46 @@ describe("GitHub Issue board view", () => {
 		await act(async () => {
 			fireEvent.click(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.run"] }));
 		});
+		expect(screen.getByRole("button", { name: COPY["board.run.direct"] })).toBeTruthy();
+		expect(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.run"] })).toBeTruthy();
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "Run with implement" }));
+		});
+		await waitFor(() => {
+			expect(
+				within(taskRow("Fix the login button")).getByRole("cell", { name: COPY["board.status.completed"] }),
+			).toBeTruthy();
+		});
+		expect(sendPrompt).toHaveBeenCalledWith("@skill:implement Fix the login button");
+	});
+
+	it("cancels the run chooser without starting a session", async () => {
+		const { ctx, registered, createSession } = fakeContext();
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await addTask("Fix the login button");
+		await act(async () => {
+			fireEvent.click(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.run"] }));
+		});
+		expect(screen.getByRole("button", { name: COPY["board.run.direct"] })).toBeTruthy();
+		await act(async () => {
+			fireEvent.click(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.run"] }));
+		});
+		expect(createSession).not.toHaveBeenCalled();
+		expect(screen.queryByRole("button", { name: COPY["board.run.direct"] })).toBeNull();
+		expect(within(taskRow("Fix the login button")).getByRole("cell", { name: COPY["board.status.pending"] })).toBeTruthy();
+	});
+
+	it("opens the recorded conversation from a finished task", async () => {
+		const { ctx, registered, openSession } = fakeContext();
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await addTask("Fix the login button");
+		await runDirectly("Fix the login button");
 		await waitFor(() => {
 			expect(
 				within(taskRow("Fix the login button")).getByRole("cell", { name: COPY["board.status.completed"] }),
@@ -448,8 +609,10 @@ describe("GitHub Issue board view", () => {
 		expect(screen.getByRole("cell", { name: "#10 Fix login" })).toBeTruthy();
 		expect(within(taskRow("Fix login")).getByRole("cell", { name: COPY["board.source.issue"] })).toBeTruthy();
 		expect(within(taskRow("Fix login")).getByRole("cell", { name: COPY["board.status.pending"] })).toBeTruthy();
+		expect(within(taskRow("Fix login")).queryByRole("button", { name: COPY["board.edit"] })).toBeNull();
+		expect(within(taskRow("Fix login")).queryByRole("button", { name: COPY["board.delete"] })).toBeNull();
 		expect(screen.queryByRole("cell", { name: "Add feature" })).toBeNull();
-		expect(requests[0]?.url).toBe("https://api.github.com/repos/acme/app/issues?state=open&per_page=30");
+		expect(requests[0]?.url).toBe("https://api.github.com/repos/acme/app/issues?state=open&per_page=100");
 		expect(requests[0]?.headers?.Authorization).toBeUndefined();
 
 		await fetchIssues();
@@ -513,7 +676,7 @@ describe("GitHub Issue board view", () => {
 			timeoutMs: 8_000,
 		});
 		expect(screen.getByRole("cell", { name: "#10 Fix login" })).toBeTruthy();
-		expect(requests[0]?.url).toBe("https://api.github.com/repos/acme/app/issues?state=open&per_page=30");
+		expect(requests[0]?.url).toBe("https://api.github.com/repos/acme/app/issues?state=open&per_page=100");
 		expect((await readyRepoField(COPY["board.repo.owner"] ?? "Owner")).value).toBe("acme");
 		expect((await readyRepoField(COPY["board.repo.name"] ?? "Repository")).value).toBe("app");
 	});
@@ -541,7 +704,7 @@ describe("GitHub Issue board view", () => {
 
 		expect(runCommand).toHaveBeenCalledWith(
 			"gh",
-			["api", "repos/acme/app/issues?state=open&per_page=30"],
+			["api", "repos/acme/app/issues?state=open&per_page=100"],
 			{
 				timeoutMs: 20_000,
 				env: { GH_PROMPT_DISABLED: "1", GH_NO_UPDATE_NOTIFIER: "1" },
@@ -667,9 +830,7 @@ describe("GitHub Issue board view", () => {
 		await fetchIssues();
 		expect(screen.getByRole("cell", { name: "#11 Ship web" })).toBeTruthy();
 
-		await act(async () => {
-			fireEvent.click(within(taskRow("Ship web")).getByRole("button", { name: COPY["board.run"] }));
-		});
+		await runDirectly("Ship web");
 		await waitFor(() => {
 			expect(within(taskRow("Ship web")).getByRole("cell", { name: COPY["board.status.completed"] })).toBeTruthy();
 		});
@@ -732,5 +893,218 @@ describe("GitHub Issue board view", () => {
 		expect(openDirectory).toHaveBeenCalledTimes(1);
 		expect(screen.getByText("Working directory: /repo")).toBeTruthy();
 		expect(runCommand).not.toHaveBeenCalled();
+	});
+
+	it("refreshes an existing pending issue instead of duplicating it", async () => {
+		const issues = [
+			{
+				number: 10,
+				title: "Fix login",
+				html_url: "https://github.com/acme/app/issues/10",
+				body: "The button does nothing.",
+				updated_at: "2026-01-02T03:04:05Z",
+			},
+		];
+		const { ctx, registered, sendPrompt } = fakeContext({ issues });
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await fillRepo("acme", "app");
+		await fetchIssues();
+		expect(screen.getByRole("cell", { name: "#10 Fix login" })).toBeTruthy();
+
+		issues[0] = {
+			number: 10,
+			title: "Fix login button",
+			html_url: "https://github.com/acme/app/issues/10",
+			body: "Click does nothing now.",
+			updated_at: "2026-02-01T00:00:00Z",
+		};
+		await fetchIssues();
+		expect(screen.getByRole("cell", { name: "#10 Fix login button" })).toBeTruthy();
+		expect(screen.getAllByRole("cell", { name: "#10 Fix login button" })).toHaveLength(1);
+
+		await runDirectly("Fix login button");
+		await waitFor(() => {
+			expect(
+				within(taskRow("Fix login button")).getByRole("cell", { name: COPY["board.status.completed"] }),
+			).toBeTruthy();
+		});
+		expect(sendPrompt).toHaveBeenCalledWith(expect.stringContaining("Click does nothing now."));
+	});
+
+	it("fetches issues automatically after selecting a workbench project", async () => {
+		const { ctx, registered, runCommand } = fakeContext({
+			cwd: null,
+			projects: [{ path: "/apps/web", name: "web" }],
+			gitRemoteByCwd: {
+				"/apps/web": {
+					stdout: "origin\tgit@github.com:acme/web.git (fetch)\n",
+					exitCode: 0,
+				},
+			},
+			issues: [
+				{
+					number: 11,
+					title: "Ship web",
+					html_url: "https://github.com/acme/web/issues/11",
+					body: "The landing page.",
+					updated_at: "2026-01-03T00:00:00Z",
+				},
+			],
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await selectWorkspace("web · /apps/web");
+		expect(runCommand).toHaveBeenCalledWith("git", ["remote", "-v"], {
+			cwd: "/apps/web",
+			timeoutMs: 8_000,
+		});
+		expect(await screen.findByRole("cell", { name: "#11 Ship web" })).toBeTruthy();
+	});
+
+	it("loads the next page of issues and hides load more on a short page", async () => {
+		const issueItem = (number: number) => ({
+			number,
+			title: `Issue ${number}`,
+			html_url: `https://github.com/acme/app/issues/${number}`,
+			body: `Body ${number}`,
+			updated_at: "2026-01-02T03:04:05Z",
+		});
+		const { ctx, registered } = fakeContext({
+			issuesByPage: {
+				1: Array.from({ length: 100 }, (_, index) => issueItem(index + 1)),
+				2: [issueItem(101)],
+			},
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await fillRepo("acme", "app");
+		await fetchIssues();
+		expect(screen.getByRole("cell", { name: "#1 Issue 1" })).toBeTruthy();
+		expect(screen.getByRole("cell", { name: "#100 Issue 100" })).toBeTruthy();
+		const loadMore = screen.getByRole("button", { name: COPY["board.fetch.loadMore"] });
+		await act(async () => {
+			fireEvent.click(loadMore);
+		});
+		expect(await screen.findByRole("cell", { name: "#101 Issue 101" })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: COPY["board.fetch.loadMore"] })).toBeNull();
+	});
+
+	it("explains an empty queue before and after fetching zero issues", async () => {
+		const { ctx, registered } = fakeContext({ issues: [] });
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		expect(await screen.findByText(COPY["board.empty.notFetched"] ?? "")).toBeTruthy();
+		await fillRepo("acme", "app");
+		await fetchIssues();
+		expect(screen.getByText(COPY["board.empty.noIssues"] ?? "")).toBeTruthy();
+		expect(screen.getByText(COPY["board.fetch.none"] ?? "")).toBeTruthy();
+	});
+
+	it("shows labels, assignee, body and comments when an issue is expanded", async () => {
+		const { ctx, registered, requests } = fakeContext({
+			issues: [
+				{
+					number: 10,
+					title: "Fix login",
+					html_url: "https://github.com/acme/app/issues/10",
+					body: "The button does nothing.",
+					updated_at: "2026-01-02T03:04:05Z",
+					labels: [{ name: "bug" }],
+					assignees: [{ login: "alice" }],
+				},
+			],
+			comments: [
+				{
+					id: 99,
+					body: "Looks good.",
+					created_at: "2026-01-04T00:00:00Z",
+					user: { login: "bob" },
+				},
+			],
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await fillRepo("acme", "app");
+		await fetchIssues();
+		const row = taskRow("Fix login");
+		expect(within(row).getByText("bug")).toBeTruthy();
+		expect(within(row).getByText("alice")).toBeTruthy();
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "#10 Fix login" }));
+		});
+		expect(screen.getByText("The button does nothing.")).toBeTruthy();
+		await waitFor(() => {
+			expect(screen.getByText("bob")).toBeTruthy();
+		});
+		expect(screen.getByText("Looks good.")).toBeTruthy();
+		expect(requests.some((request) => request.url.includes("/issues/10/comments"))).toBe(true);
+	});
+
+	it("hides directory-bound manual tasks in another project and keeps legacy tasks visible", async () => {
+		const { ctx, registered } = fakeContext({
+			cwd: "/repo",
+			projects: [{ path: "/apps/web", name: "web" }],
+			gitRemoteByCwd: {
+				"/apps/web": {
+					stdout: "origin\tgit@github.com:acme/web.git (fetch)\n",
+					exitCode: 0,
+				},
+				"/repo": {
+					stdout: "origin\tgit@github.com:acme/app.git (fetch)\n",
+					exitCode: 0,
+				},
+			},
+			issues: [],
+			initialState: {
+				repoTarget: null,
+				workspace: { kind: "conversation" },
+				tasks: [
+					{
+						id: "legacy",
+						title: "legacy",
+						promptText: "legacy",
+						source: { kind: "manual" },
+						status: "pending",
+						createdAt: 1,
+						updatedAt: 1,
+					},
+				],
+			},
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		expect(await screen.findByRole("cell", { name: "legacy" })).toBeTruthy();
+		await selectWorkspace("web · /apps/web");
+		expect(await screen.findByText("Working directory: /apps/web")).toBeTruthy();
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: COPY["board.fetch"] })).not.toHaveProperty("disabled", true);
+		});
+		expect(screen.getByRole("cell", { name: "legacy" })).toBeTruthy();
+		await addTask("本地修复");
+		expect(screen.getByRole("cell", { name: "本地修复" })).toBeTruthy();
+
+		await selectWorkspace("Current session · /repo");
+		await waitFor(() => {
+			expect(screen.queryByRole("cell", { name: "本地修复" })).toBeNull();
+		});
+		expect(screen.getByRole("cell", { name: "legacy" })).toBeTruthy();
+
+		await selectWorkspace("web · /apps/web");
+		expect(await screen.findByRole("cell", { name: "本地修复" })).toBeTruthy();
+		expect(screen.getByRole("cell", { name: "legacy" })).toBeTruthy();
 	});
 });

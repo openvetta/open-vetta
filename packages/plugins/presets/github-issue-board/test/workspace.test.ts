@@ -7,7 +7,7 @@ import {
 	parseWorkspaceSource,
 	pathBasename,
 	resolveWorkspaceCwd,
-	tasksVisibleForRepo,
+	tasksVisibleForBoard,
 	workspaceSelectValue,
 } from "../src/workspace";
 
@@ -67,14 +67,48 @@ describe("workspace source", () => {
 			updatedAt: 1,
 		};
 		const tasks = [issueTask("acme", "app", "Fix login"), issueTask("acme", "web", "Ship web"), manual];
-		expect(tasksVisibleForRepo(tasks, null).map((task) => task.title)).toEqual([
+		expect(tasksVisibleForBoard(tasks, null, "/repo").map((task) => task.title)).toEqual([
 			"Fix login",
 			"Ship web",
 			"manual",
 		]);
-		expect(tasksVisibleForRepo(tasks, { owner: "acme", repo: "web" }).map((task) => task.title)).toEqual([
+		expect(tasksVisibleForBoard(tasks, { owner: "acme", repo: "web" }, "/repo").map((task) => task.title)).toEqual([
 			"Ship web",
 			"manual",
 		]);
+	});
+
+	it("shows manual tasks for the current directory and always shows legacy tasks without cwd", () => {
+		const legacy: GithubTask = {
+			id: "legacy",
+			title: "legacy",
+			promptText: "legacy",
+			source: { kind: "manual" },
+			status: "pending",
+			createdAt: 1,
+			updatedAt: 1,
+		};
+		const webFix: GithubTask = {
+			id: "web",
+			title: "本地修复",
+			promptText: "本地修复",
+			source: { kind: "manual", cwd: "/apps/web" },
+			status: "pending",
+			createdAt: 1,
+			updatedAt: 1,
+		};
+		const repoFix: GithubTask = {
+			id: "repo",
+			title: "repo fix",
+			promptText: "repo fix",
+			source: { kind: "manual", cwd: "/repo" },
+			status: "pending",
+			createdAt: 1,
+			updatedAt: 1,
+		};
+		const tasks = [legacy, webFix, repoFix];
+		expect(tasksVisibleForBoard(tasks, null, "/apps/web").map((task) => task.title)).toEqual(["legacy", "本地修复"]);
+		expect(tasksVisibleForBoard(tasks, null, "/repo").map((task) => task.title)).toEqual(["legacy", "repo fix"]);
+		expect(tasksVisibleForBoard(tasks, null, null).map((task) => task.title)).toEqual(["legacy"]);
 	});
 });

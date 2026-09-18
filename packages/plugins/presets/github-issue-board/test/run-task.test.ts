@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ConversationEvent, PluginConversationApi, SendPromptResult } from "@vetta-org/plugin-sdk";
 import { addManualTask, EMPTY_STATE, type PluginState } from "../src/state";
-import { runQueuedTask } from "../src/run-task";
+import { IMPLEMENT_SKILL, promptForRun, runQueuedTask } from "../src/run-task";
 
 function queuedState(...prompts: string[]): PluginState {
 	return prompts.reduce(
-		(state, promptText, index) => addManualTask(state, { id: `task-${index + 1}`, promptText, now: index + 1 }),
+		(state, promptText, index) =>
+			addManualTask(state, { id: `task-${index + 1}`, promptText, now: index + 1, cwd: null }),
 		EMPTY_STATE,
 	);
 }
@@ -69,6 +70,27 @@ describe("runQueuedTask", () => {
 			sessionId: "/tmp/sess-1.jsonl",
 			updatedAt: 42,
 		});
+	});
+
+	it("prefixes the implement skill token without changing the stored prompt", async () => {
+		const { conversation, sendPrompt } = fakeConversation({ stopReason: "stop" });
+		const result = await runQueuedTask({
+			state: queuedState("Fix the login button"),
+			taskId: "task-1",
+			conversation,
+			cwd: "/repo",
+			now: () => 42,
+			skill: IMPLEMENT_SKILL,
+		});
+		expect(sendPrompt).toHaveBeenCalledWith("@skill:implement Fix the login button");
+		expect(result.state.tasks[0]?.promptText).toBe("Fix the login button");
+	});
+	it("leaves the prompt unchanged without a skill and does not double-prefix", () => {
+		expect(promptForRun("Fix the login button")).toBe("Fix the login button");
+		expect(promptForRun("Fix the login button", "implement")).toBe("@skill:implement Fix the login button");
+		expect(promptForRun("@skill:implement Fix the login button", "implement")).toBe(
+			"@skill:implement Fix the login button",
+		);
 	});
 
 	it("marks the task failed with the stop reason when the turn does not stop cleanly", async () => {

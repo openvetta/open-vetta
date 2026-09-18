@@ -60,13 +60,18 @@ export function extraWorkspacePath(
 	return workspace.path;
 }
 
-export function tasksVisibleForRepo(
+export function tasksVisibleForBoard(
 	tasks: GithubTask[],
 	repoTarget: { owner: string; repo: string } | null,
+	cwd: string | null,
 ): GithubTask[] {
-	if (!repoTarget) return tasks;
 	return tasks.filter((task) => {
-		if (task.source.kind !== "issue") return true;
-		return task.source.owner === repoTarget.owner && task.source.repo === repoTarget.repo;
+		if (task.source.kind === "issue") {
+			if (!repoTarget) return true;
+			return task.source.owner === repoTarget.owner && task.source.repo === repoTarget.repo;
+		}
+		if (task.source.cwd === undefined) return true;
+		if (!cwd) return false;
+		return normalizeLocalPath(task.source.cwd) === normalizeLocalPath(cwd);
 	});
 }

@@ -3,6 +3,8 @@ import { hasRunningTask, setTaskStatus, type PluginState } from "./state";
 
 export type RunTaskNotice = "no-project" | null;
 
+export const IMPLEMENT_SKILL = "implement";
+
 export interface RunQueuedTaskInput {
 	state: PluginState;
 	taskId: string;
@@ -10,6 +12,18 @@ export interface RunQueuedTaskInput {
 	cwd: string | null;
 	now: () => number;
 	persist?: (state: PluginState) => void | Promise<void>;
+	/** When set, prefix the sent prompt with `@skill:<name>` without persisting it. */
+	skill?: string | null;
+}
+
+export function promptForRun(promptText: string, skill?: string | null): string {
+	const name = skill?.trim() ?? "";
+	if (!name) return promptText;
+	const token = `@skill:${name}`;
+	if (promptText === token || promptText.startsWith(`${token} `) || promptText.startsWith(`${token}\n`)) {
+		return promptText;
+	}
+	return `${token} ${promptText}`;
 }
 
 function errorMessage(error: unknown): string {
@@ -67,7 +81,7 @@ export async function runQueuedTask(input: RunQueuedTaskInput): Promise<{
 			current = setTaskStatus(current, taskId, { status: "running", sessionId: sessionPath, now: now() });
 			await persist?.(current);
 		}
-		const stopReason = await sendAndWait(conversation, task.promptText);
+		const stopReason = await sendAndWait(conversation, promptForRun(task.promptText, input.skill));
 		current = setTaskStatus(current, taskId, {
 			status: stopReason === "stop" ? "completed" : "failed",
 			...(stopReason === "stop" ? {} : { error: stopReason }),
