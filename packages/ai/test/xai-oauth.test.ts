@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getOAuthApiKey, getOAuthProvider } from "../src/utils/oauth/index.js";
+import { getOAuthApiKey, getOAuthProvider, getOAuthProviders } from "../src/utils/oauth/index.js";
 import type { OAuthCredentials, OAuthLoginCallbacks } from "../src/utils/oauth/types.js";
 import { loginXai, refreshXaiToken, xaiOAuthProvider } from "../src/utils/oauth/xai.js";
 
@@ -332,5 +332,19 @@ describe("xAI OAuth device flow", () => {
 		const result = await getOAuthApiKey("xai", { xai: expired });
 		expect(result?.apiKey).toBe("refreshed-access");
 		expect(result?.newCredentials.refresh).toBe("refresh-token");
+	});
+
+	it("resolves persisted SuperGrok auth.json entries without listing grok as a separate login provider", async () => {
+		expect(getOAuthProvider("grok")).toBe(xaiOAuthProvider);
+		expect(getOAuthProviders().some((provider) => provider.id === "grok")).toBe(false);
+
+		const result = await getOAuthApiKey("grok", {
+			grok: {
+				access: "grok-access",
+				refresh: "grok-refresh",
+				expires: Date.now() + 60_000,
+			},
+		});
+		expect(result?.apiKey).toBe("grok-access");
 	});
 });

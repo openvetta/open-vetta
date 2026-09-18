@@ -18,6 +18,7 @@ import {
 import { DEFAULT_SERVER_URL } from "../constants.js";
 import { getDesktopModelCredentialStore, type ModelCredentialStore } from "../models/model-credential-store.js";
 import { readModelsConfigSync } from "../models/model-settings-service.js";
+import { ensureGrokOAuthAlias } from "../models/provider-oauth-service.js";
 
 let sharedModelRuntime: CodingAgentModelRuntime | undefined;
 let sharedModelAuth: CodingAgentAuthRuntime | undefined;
@@ -25,6 +26,7 @@ let syncedCredentialProviderIds = new Set<string>();
 
 export function getOrCreateSharedModelRuntime(): CodingAgentModelRuntime {
 	if (sharedModelRuntime) return sharedModelRuntime;
+	ensureGrokOAuthAlias();
 	const agentDir = getAgentDir();
 	const authStorage = AuthStorage.fromStorage(new NodeTransactionalTextStorage(join(agentDir, "auth.json")), {
 		configurationValueResolver: nodeConfigurationValueResolver,

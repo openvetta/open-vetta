@@ -54,10 +54,21 @@ const oauthProviderRegistry = new Map<string, OAuthProviderInterface>([
 ]);
 
 /**
+ * Desktop 把 SuperGrok 登录写进 `auth.json` 的 `grok` 键，协议仍是 xAI。
+ * 别名只用于查找，不进入 `getOAuthProviders()`，避免 CLI `login` 列表出现两项。
+ */
+const OAUTH_PROVIDER_ALIASES: Readonly<Record<string, string>> = {
+	grok: "xai",
+};
+
+/**
  * Get an OAuth provider by ID
  */
 export function getOAuthProvider(id: OAuthProviderId): OAuthProviderInterface | undefined {
-	return oauthProviderRegistry.get(id);
+	const registered = oauthProviderRegistry.get(id);
+	if (registered) return registered;
+	const alias = OAUTH_PROVIDER_ALIASES[id];
+	return alias ? oauthProviderRegistry.get(alias) : undefined;
 }
 
 /**

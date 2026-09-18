@@ -381,6 +381,21 @@ describe("AuthStorage", () => {
 			});
 		});
 
+		test("reads persisted SuperGrok OAuth after restart without extra provider registration", async () => {
+			writeAuthJson({
+				grok: {
+					type: "oauth",
+					access: "grok-access",
+					refresh: "grok-refresh",
+					expires: Date.now() + 60_000,
+				},
+			});
+
+			authStorage = createAuthStorage();
+
+			expect(await authStorage.getApiKey("grok")).toBe("grok-access");
+		});
+
 		test("observes OAuth providers registered after storage creation", async () => {
 			const providerId = `dynamic-oauth-provider-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 			authStorage = createAuthStorage();

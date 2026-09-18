@@ -14,6 +14,10 @@ const productionSources = {
 };
 
 describe("Desktop Runtime composition boundary", () => {
+	it("registers SuperGrok OAuth before the first model lookup", () => {
+		expect(productionSources.hostServices).toContain("ensureGrokOAuthAlias");
+	});
+
 	it("keeps deprecated coding-agent subpaths out of the production composition", () => {
 		for (const [name, source] of Object.entries(productionSources)) {
 			expect(source, name).not.toContain("@vetta/coding-agent/legacy/");
