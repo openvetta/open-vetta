@@ -396,6 +396,11 @@ const { stdout, exitCode } = await ctx.command.run("git", ["status", "--porcelai
 
 示例：`packages/plugins/presets/git`。
 
+## 官方插件：选择本地目录
+
+`ctx.official.dialog.openDirectory()` 打开原生目录选择框，用户取消返回 `null`。与 `openFiles`（只回文件内容、不放宽授权）相反：选中的目录会加入宿主项目授权根，之后可以对该路径执行已声明的 `ctx.command.run`。不会把目录写入工作台项目列表。仅官方来源插件可用；普通插件调用会被宿主拒绝。
+
+
 ## 长驻进程 command.spawn
 
 `ctx.command.spawn` 启动**长驻**进程（如本地 dev server，ADR-0054）。治理与 `run` 同模式：清单 `commands` 声明二进制 + 用户可关；但权限是独立的 `agent.command.spawn`。

@@ -1,4 +1,8 @@
-import { useActiveConversation, type PluginContext } from "@vetta-org/plugin-sdk";
+import {
+	useActiveConversation,
+	type PluginContext,
+	type PluginOfficialProjectEntry,
+} from "@vetta-org/plugin-sdk";
 import { type JSX, useEffect, useRef, useState } from "react";
 import {
 	resolveGithubRepoFromProject,
@@ -21,6 +25,16 @@ import {
 	type GithubTaskStatus,
 	type PluginState,
 } from "./state";
+import {
+	CONVERSATION_WORKSPACE,
+	extraWorkspacePath,
+	parseWorkspaceSelectValue,
+	pathBasename,
+	resolveWorkspaceCwd,
+	tasksVisibleForRepo,
+	workspaceSelectValue,
+	type WorkspaceSource,
+} from "./workspace";
 
 const FETCH_ERROR_KEY: Record<GithubFetchErrorKind, string> = {
 	"rate-limit": "board.error.rateLimit",
@@ -55,13 +69,24 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const [owner, setOwner] = useState("");
 	const [repo, setRepo] = useState("");
 	const [fetching, setFetching] = useState(false);
+	const [workbench, setWorkbench] = useState<PluginOfficialProjectEntry[]>([]);
 	const conversation = useActiveConversation();
 	const cancelledRef = useRef(false);
 	const inflightRef = useRef(false);
+	const workspaceGenRef = useRef(0);
+	const stateRef = useRef(state);
+	stateRef.current = state;
 	const t = ctx.i18n.t;
 	const ready = state !== null;
 	const busy = state !== null && hasRunningTask(state);
 	const canFetch = ready && !fetching;
+	const workspace = state?.workspace ?? CONVERSATION_WORKSPACE;
+	const workspaceCwd = resolveWorkspaceCwd(workspace, conversation.cwd);
+	const extraPath = extraWorkspacePath(
+		workspace,
+		workbench.map((project) => project.path),
+	);
+	const visibleTasks = tasksVisibleForRepo(state?.tasks ?? [], state?.repoTarget ?? null);
 
 	useEffect(() => {
 		cancelledRef.current = false;
@@ -78,9 +103,58 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		};
 	}, [ctx.storage]);
 
+	useEffect(() => {
+		let cancelled = false;
+		void ctx.official.projects
+			.list()
+			.then((snapshot) => {
+				if (!cancelled) setWorkbench(snapshot.projects);
+			})
+			.catch(() => {
+				if (!cancelled) setWorkbench([]);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [ctx.official]);
+
 	async function persist(next: PluginState): Promise<void> {
 		if (!cancelledRef.current) setState(next);
 		await savePluginState(ctx.storage, next);
+	}
+
+	async function applyWorkspace(next: WorkspaceSource): Promise<void> {
+		const current = stateRef.current;
+		if (!current) return;
+		const gen = ++workspaceGenRef.current;
+		const withWorkspace = { ...current, workspace: next };
+		await persist(withWorkspace);
+		const cwd = resolveWorkspaceCwd(next, conversation.cwd);
+		const resolved = await resolveGithubRepoFromProject({
+			command: ctx.command,
+			cwd,
+		});
+		if (cancelledRef.current || gen !== workspaceGenRef.current) return;
+		if (!resolved.ok) {
+			ctx.ui.notify({ message: t(RESOLVE_ERROR_KEY[resolved.error]) });
+			return;
+		}
+		setOwner(resolved.target.owner);
+		setRepo(resolved.target.repo);
+		const latest = stateRef.current ?? withWorkspace;
+		await persist({ ...latest, repoTarget: resolved.target });
+	}
+
+	async function handlePickDirectory(): Promise<void> {
+		let path: string | null;
+		try {
+			path = await ctx.official.dialog.openDirectory();
+		} catch (error) {
+			ctx.ui.notify({ message: t("board.error.pickDirectory"), error, variant: "error" });
+			return;
+		}
+		if (!path?.trim() || cancelledRef.current) return;
+		await applyWorkspace({ kind: "path", path });
 	}
 
 	async function handleSubmit(): Promise<void> {
@@ -100,7 +174,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 			if (!ownerName || !repoName) {
 				const resolved = await resolveGithubRepoFromProject({
 					command: ctx.command,
-					cwd: conversation.cwd,
+					cwd: resolveWorkspaceCwd(state.workspace, conversation.cwd),
 				});
 				if (!resolved.ok) {
 					ctx.ui.notify({ message: t(RESOLVE_ERROR_KEY[resolved.error]) });
@@ -145,7 +219,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 				state,
 				taskId,
 				conversation: ctx.conversation,
-				cwd: conversation.cwd,
+				cwd: resolveWorkspaceCwd(state.workspace, conversation.cwd),
 				now: () => Date.now(),
 				persist,
 			});
@@ -159,7 +233,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	}
 
 	async function handleOpenSession(sessionPath: string): Promise<void> {
-		const cwd = conversation.cwd;
+		const cwd = state ? resolveWorkspaceCwd(state.workspace, conversation.cwd) : conversation.cwd;
 		if (!cwd) {
 			ctx.ui.notify({ message: t("board.error.noProject") });
 			return;
@@ -174,6 +248,47 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	return (
 		<div className="flex h-full w-full flex-col gap-4 bg-background p-6">
 			<h1 className="text-lg font-semibold text-foreground">{t("board.title")}</h1>
+			<div className="flex flex-wrap items-end gap-2">
+				<label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-sm font-medium text-muted-foreground">
+					{t("board.workspace.label")}
+					<select
+						className={FIELD}
+						disabled={!ready}
+						value={workspaceSelectValue(workspace)}
+						onChange={(event) => {
+							void applyWorkspace(parseWorkspaceSelectValue(event.target.value));
+						}}
+					>
+						<option value="conversation">
+							{conversation.cwd
+								? t("board.workspace.conversation", { path: conversation.cwd })
+								: t("board.workspace.conversationNone")}
+						</option>
+						{workbench.map((project) => (
+							<option key={project.path} value={`path:${project.path}`}>
+								{t("board.workspace.project", {
+									name: project.name?.trim() || pathBasename(project.path),
+									path: project.path,
+								})}
+							</option>
+						))}
+						{extraPath ? (
+							<option value={`path:${extraPath}`}>
+								{t("board.workspace.project", {
+									name: pathBasename(extraPath),
+									path: extraPath,
+								})}
+							</option>
+						) : null}
+					</select>
+				</label>
+				<button className={ACTION_BUTTON} disabled={!ready} type="button" onClick={() => void handlePickDirectory()}>
+					{t("board.workspace.pickDirectory")}
+				</button>
+			</div>
+			<p className="truncate text-xs text-muted-foreground">
+				{workspaceCwd ? t("board.project.current", { path: workspaceCwd }) : t("board.project.none")}
+			</p>
 			<form
 				className="flex flex-wrap items-end gap-2"
 				onSubmit={(event) => {
@@ -205,11 +320,6 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 					{t("board.fetch")}
 				</button>
 			</form>
-			<p className="truncate text-xs text-muted-foreground">
-				{conversation.cwd
-					? t("board.project.current", { path: conversation.cwd })
-					: t("board.project.none")}
-			</p>
 			<form
 				className="flex flex-col gap-2"
 				onSubmit={(event) => {
@@ -242,9 +352,20 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 						</tr>
 					</thead>
 					<tbody>
-						{(state?.tasks ?? []).map((task) => (
+						{visibleTasks.map((task) => (
 							<tr key={task.id} className="border-b border-border/50">
-								<td className="py-2 pr-3 text-foreground">{task.title}</td>
+								<td className="py-2 pr-3 text-foreground">
+									{task.source.kind === "issue" ? (
+										<>
+											<span className="mr-1.5 text-muted-foreground tabular-nums">
+												{t("board.issue.ref", { number: task.source.issueNumber })}
+											</span>{" "}
+											{task.title}
+										</>
+									) : (
+										task.title
+									)}
+								</td>
 								<td className="py-2 pr-3 text-muted-foreground">{t(`board.source.${task.source.kind}`)}</td>
 								<td className="py-2 pr-3">
 									<span

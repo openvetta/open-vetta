@@ -31,16 +31,22 @@ const COPY: Record<string, string> = {
 	"board.queue.status": "Status",
 	"board.source.manual": "Manual",
 	"board.source.issue": "Issue",
+	"board.issue.ref": "#{{number}}",
 	"board.status.pending": "Pending",
 	"board.status.running": "Running",
 	"board.status.completed": "Completed",
 	"board.run": "Run",
-	"board.error.noProject": "Open a project first",
+	"board.error.noProject": "Select a project or local folder first",
 	"board.repo.owner": "Owner",
 	"board.repo.name": "Repository",
 	"board.fetch": "Fetch issues",
-	"board.project.current": "Current project: {{path}}",
-	"board.project.none": "No project is open. Open a local repository in the sidebar, then fetch.",
+	"board.workspace.label": "Project",
+	"board.workspace.conversation": "Current session · {{path}}",
+	"board.workspace.conversationNone": "Current session (no project open)",
+	"board.workspace.project": "{{name}} · {{path}}",
+	"board.workspace.pickDirectory": "Choose local folder",
+	"board.project.current": "Working directory: {{path}}",
+	"board.project.none": "No project is selected. Pick one from the workbench or a local folder, then fetch.",
 	"board.error.notFound": "Repository not found or private.",
 	"board.error.nonJson": "GitHub returned an unexpected, non-JSON error.",
 	"board.error.noGithubRemote": "The current project has no GitHub remote.",
@@ -71,9 +77,13 @@ function fakeContext(options?: {
 	cwd?: string | null;
 	hangSend?: boolean;
 	issues?: unknown[];
+	issuesByRepo?: Record<string, unknown[]>;
 	networkResponse?: PluginNetworkResponse;
 	gitRemote?: { stdout: string; exitCode: number };
+	gitRemoteByCwd?: Record<string, { stdout: string; exitCode: number }>;
 	ghApi?: { stdout: string; stderr?: string; exitCode: number };
+	projects?: Array<{ path: string; name?: string }>;
+	openDirectory?: () => Promise<string | null>;
 }) {
 	const registered: RegisteredView[] = [];
 	const files = new Map<string, string>();
@@ -108,19 +118,22 @@ function fakeContext(options?: {
 		return { status: "sent" as const };
 	});
 	const openSession = vi.fn(async () => undefined);
-	const runCommand = vi.fn(async (file: string) => {
+	const runCommand = vi.fn(async (file: string, _args?: string[], commandOptions?: { cwd?: string }) => {
 		if (file === "gh") {
 			if (options?.ghApi) {
 				return { stderr: "", ...options.ghApi };
 			}
 			throw new Error("Command failed to start: gh (ENOENT)");
 		}
+		const remote =
+			(commandOptions?.cwd ? options?.gitRemoteByCwd?.[commandOptions.cwd] : undefined) ?? options?.gitRemote;
 		return {
-			stdout: options?.gitRemote?.stdout ?? "",
+			stdout: remote?.stdout ?? "",
 			stderr: "",
-			exitCode: options?.gitRemote?.exitCode ?? 0,
+			exitCode: remote?.exitCode ?? 0,
 		};
 	});
+	const openDirectory = vi.fn(options?.openDirectory ?? (async () => null));
 	const ctx = {
 		i18n: {
 			locale: "en",
@@ -154,17 +167,47 @@ function fakeContext(options?: {
 			request: async (request: PluginNetworkRequest) => {
 				requests.push(request);
 				if (options?.networkResponse) return options.networkResponse;
+				let body = options?.issues ?? [];
+				if (options?.issuesByRepo) {
+					body = [];
+					for (const [repo, items] of Object.entries(options.issuesByRepo)) {
+						if (request.url.includes(`repos/${repo}/issues`)) {
+							body = items;
+							break;
+						}
+					}
+				}
 				return {
 					ok: true,
 					status: 200,
 					statusText: "OK",
 					headers: {},
-					body: options?.issues ?? [],
+					body,
 				};
 			},
 		},
+		official: {
+			projects: {
+				list: async () => ({
+					workspacePath: "/ws",
+					projects: options?.projects ?? [],
+					archivedProjects: [],
+				}),
+			},
+			dialog: { openDirectory },
+		},
 	} as unknown as PluginContext;
-	return { ctx, registered, notifications, createSession, sendPrompt, openSession, requests, runCommand };
+	return {
+		ctx,
+		registered,
+		notifications,
+		createSession,
+		sendPrompt,
+		openSession,
+		requests,
+		runCommand,
+		openDirectory,
+	};
 }
 
 function boardView(registered: RegisteredView[]) {
@@ -220,6 +263,28 @@ async function fetchIssues(): Promise<void> {
 	const button = await readyFetchButton();
 	await act(async () => {
 		fireEvent.click(button);
+	});
+}
+
+async function readyWorkspaceSelect(): Promise<HTMLSelectElement> {
+	return waitFor(() => {
+		const field = screen.getByRole("combobox", { name: COPY["board.workspace.label"] });
+		if (!(field instanceof HTMLSelectElement) || field.disabled) {
+			throw new Error("workspace select is not ready");
+		}
+		return field;
+	});
+}
+
+async function selectWorkspace(optionName: string): Promise<void> {
+	const select = await readyWorkspaceSelect();
+	const option = await waitFor(() => {
+		const found = within(select).getByRole("option", { name: optionName });
+		if (!(found instanceof HTMLOptionElement)) throw new Error("workspace option missing");
+		return found;
+	});
+	await act(async () => {
+		fireEvent.change(select, { target: { value: option.value } });
 	});
 }
 
@@ -380,7 +445,7 @@ describe("GitHub Issue board view", () => {
 		await fillRepo("acme", "app");
 		await fetchIssues();
 
-		expect(screen.getByRole("cell", { name: "Fix login" })).toBeTruthy();
+		expect(screen.getByRole("cell", { name: "#10 Fix login" })).toBeTruthy();
 		expect(within(taskRow("Fix login")).getByRole("cell", { name: COPY["board.source.issue"] })).toBeTruthy();
 		expect(within(taskRow("Fix login")).getByRole("cell", { name: COPY["board.status.pending"] })).toBeTruthy();
 		expect(screen.queryByRole("cell", { name: "Add feature" })).toBeNull();
@@ -388,12 +453,12 @@ describe("GitHub Issue board view", () => {
 		expect(requests[0]?.headers?.Authorization).toBeUndefined();
 
 		await fetchIssues();
-		expect(screen.getAllByRole("cell", { name: "Fix login" })).toHaveLength(1);
+		expect(screen.getAllByRole("cell", { name: "#10 Fix login" })).toHaveLength(1);
 
 		first.unmount();
 		render(<view.component pluginId="github-issue-board" viewId="board" />);
 		await waitFor(() => {
-			expect(screen.getByRole("cell", { name: "Fix login" })).toBeTruthy();
+			expect(screen.getByRole("cell", { name: "#10 Fix login" })).toBeTruthy();
 		});
 		expect((await readyRepoField(COPY["board.repo.owner"] ?? "Owner")).value).toBe("acme");
 		expect((await readyRepoField(COPY["board.repo.name"] ?? "Repository")).value).toBe("app");
@@ -417,7 +482,7 @@ describe("GitHub Issue board view", () => {
 		await fetchIssues();
 
 		expect(notifications).toContain(COPY["board.error.notFound"]);
-		expect(screen.queryByRole("cell", { name: "Fix login" })).toBeNull();
+		expect(screen.queryByRole("cell", { name: "#10 Fix login" })).toBeNull();
 	});
 
 	it("fetches issues from the current project's GitHub remote without typing owner/repo", async () => {
@@ -440,14 +505,14 @@ describe("GitHub Issue board view", () => {
 		const view = boardView(registered);
 		render(<view.component pluginId="github-issue-board" viewId="board" />);
 
-		expect(await screen.findByText("Current project: /repo")).toBeTruthy();
+		expect(await screen.findByText("Working directory: /repo")).toBeTruthy();
 		await fetchIssues();
 
 		expect(runCommand).toHaveBeenCalledWith("git", ["remote", "-v"], {
 			cwd: "/repo",
 			timeoutMs: 8_000,
 		});
-		expect(screen.getByRole("cell", { name: "Fix login" })).toBeTruthy();
+		expect(screen.getByRole("cell", { name: "#10 Fix login" })).toBeTruthy();
 		expect(requests[0]?.url).toBe("https://api.github.com/repos/acme/app/issues?state=open&per_page=30");
 		expect((await readyRepoField(COPY["board.repo.owner"] ?? "Owner")).value).toBe("acme");
 		expect((await readyRepoField(COPY["board.repo.name"] ?? "Repository")).value).toBe("app");
@@ -483,7 +548,7 @@ describe("GitHub Issue board view", () => {
 			},
 		);
 		expect(requests).toHaveLength(0);
-		expect(screen.getByRole("cell", { name: "Fix login" })).toBeTruthy();
+		expect(screen.getByRole("cell", { name: "#10 Fix login" })).toBeTruthy();
 	});
 
 	it("shows a fetch error instead of crashing when gh returns an unreadable body", async () => {
@@ -498,7 +563,7 @@ describe("GitHub Issue board view", () => {
 		await fetchIssues();
 
 		expect(notifications).toContain(COPY["board.error.nonJson"]);
-		expect(screen.queryByRole("cell", { name: "Fix login" })).toBeNull();
+		expect(screen.queryByRole("cell", { name: "#10 Fix login" })).toBeNull();
 	});
 
 	it("prompts to open a project when fetching without a cwd or GitHub remote", async () => {
@@ -525,5 +590,147 @@ describe("GitHub Issue board view", () => {
 		await fetchIssues();
 		expect(noGithub.notifications).toContain(COPY["board.error.noGithubRemote"]);
 		expect(noGithub.requests).toHaveLength(0);
+	});
+
+	it("shows only the current repository's issues after fetching another repo", async () => {
+		const { ctx, registered } = fakeContext({
+			issuesByRepo: {
+				"acme/app": [
+					{
+						number: 10,
+						title: "Fix login",
+						html_url: "https://github.com/acme/app/issues/10",
+						body: "The button does nothing.",
+						updated_at: "2026-01-02T03:04:05Z",
+					},
+				],
+				"acme/web": [
+					{
+						number: 11,
+						title: "Ship web",
+						html_url: "https://github.com/acme/web/issues/11",
+						body: "The landing page.",
+						updated_at: "2026-01-03T00:00:00Z",
+					},
+				],
+			},
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await fillRepo("acme", "app");
+		await fetchIssues();
+		expect(screen.getByRole("cell", { name: "#10 Fix login" })).toBeTruthy();
+
+		await fillRepo("acme", "web");
+		await fetchIssues();
+		expect(screen.getByRole("cell", { name: "#11 Ship web" })).toBeTruthy();
+		expect(screen.queryByRole("cell", { name: "#10 Fix login" })).toBeNull();
+	});
+
+	it("uses a workbench project to resolve git remote, fetch issues, and run in that folder", async () => {
+		const { ctx, registered, createSession, runCommand } = fakeContext({
+			cwd: null,
+			projects: [{ path: "/apps/web", name: "web" }],
+			gitRemoteByCwd: {
+				"/apps/web": {
+					stdout: "origin\tgit@github.com:acme/web.git (fetch)\n",
+					exitCode: 0,
+				},
+			},
+			issues: [
+				{
+					number: 11,
+					title: "Ship web",
+					html_url: "https://github.com/acme/web/issues/11",
+					body: "The landing page.",
+					updated_at: "2026-01-03T00:00:00Z",
+				},
+			],
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		expect(await screen.findByText(COPY["board.project.none"] ?? "")).toBeTruthy();
+		await selectWorkspace("web · /apps/web");
+
+		expect(await screen.findByText("Working directory: /apps/web")).toBeTruthy();
+		expect(runCommand).toHaveBeenCalledWith("git", ["remote", "-v"], {
+			cwd: "/apps/web",
+			timeoutMs: 8_000,
+		});
+		expect((await readyRepoField(COPY["board.repo.owner"] ?? "Owner")).value).toBe("acme");
+		expect((await readyRepoField(COPY["board.repo.name"] ?? "Repository")).value).toBe("web");
+
+		await fetchIssues();
+		expect(screen.getByRole("cell", { name: "#11 Ship web" })).toBeTruthy();
+
+		await act(async () => {
+			fireEvent.click(within(taskRow("Ship web")).getByRole("button", { name: COPY["board.run"] }));
+		});
+		await waitFor(() => {
+			expect(within(taskRow("Ship web")).getByRole("cell", { name: COPY["board.status.completed"] })).toBeTruthy();
+		});
+		expect(createSession).toHaveBeenCalledWith("/apps/web");
+	});
+
+	it("fills owner and repo from git remote after the user picks a local folder", async () => {
+		const { ctx, registered, openDirectory, runCommand } = fakeContext({
+			openDirectory: async () => "/picked",
+			gitRemoteByCwd: {
+				"/picked": {
+					stdout: "origin\tgit@github.com:acme/picked.git (fetch)\n",
+					exitCode: 0,
+				},
+			},
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: COPY["board.workspace.pickDirectory"] })).not.toHaveProperty(
+				"disabled",
+				true,
+			);
+		});
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.workspace.pickDirectory"] }));
+		});
+
+		expect(openDirectory).toHaveBeenCalledTimes(1);
+		expect(await screen.findByText("Working directory: /picked")).toBeTruthy();
+		expect(runCommand).toHaveBeenCalledWith("git", ["remote", "-v"], {
+			cwd: "/picked",
+			timeoutMs: 8_000,
+		});
+		expect((await readyRepoField(COPY["board.repo.owner"] ?? "Owner")).value).toBe("acme");
+		expect((await readyRepoField(COPY["board.repo.name"] ?? "Repository")).value).toBe("picked");
+	});
+
+	it("keeps the current workspace when the folder picker is cancelled", async () => {
+		const { ctx, registered, openDirectory, runCommand } = fakeContext({
+			openDirectory: async () => null,
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		expect(await screen.findByText("Working directory: /repo")).toBeTruthy();
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: COPY["board.workspace.pickDirectory"] })).not.toHaveProperty(
+				"disabled",
+				true,
+			);
+		});
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.workspace.pickDirectory"] }));
+		});
+
+		expect(openDirectory).toHaveBeenCalledTimes(1);
+		expect(screen.getByText("Working directory: /repo")).toBeTruthy();
+		expect(runCommand).not.toHaveBeenCalled();
 	});
 });

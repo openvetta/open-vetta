@@ -1,4 +1,5 @@
 import { readJsonFile, writeJsonFile, type PluginStorageApi } from "@vetta-org/plugin-sdk";
+import { CONVERSATION_WORKSPACE, parseWorkspaceSource, type WorkspaceSource } from "./workspace";
 
 export const STATE_FILE = "state.json";
 
@@ -22,10 +23,15 @@ export interface GithubTask {
 
 export interface PluginState {
 	repoTarget: { owner: string; repo: string } | null;
+	workspace: WorkspaceSource;
 	tasks: GithubTask[];
 }
 
-export const EMPTY_STATE: PluginState = { repoTarget: null, tasks: [] };
+export const EMPTY_STATE: PluginState = {
+	repoTarget: null,
+	workspace: CONVERSATION_WORKSPACE,
+	tasks: [],
+};
 
 const STATUSES: Record<GithubTaskStatus, true> = {
 	pending: true,
@@ -93,6 +99,7 @@ function parseRepoTarget(value: unknown): { owner: string; repo: string } | null
 export function parsePluginState(value: unknown): PluginState {
 	if (typeof value !== "object" || value === null) return EMPTY_STATE;
 	const repoTarget = "repoTarget" in value ? parseRepoTarget(value.repoTarget) : null;
+	const workspace = "workspace" in value ? parseWorkspaceSource(value.workspace) : CONVERSATION_WORKSPACE;
 	const tasks =
 		"tasks" in value && Array.isArray(value.tasks)
 			? value.tasks.flatMap((item) => {
@@ -100,7 +107,7 @@ export function parsePluginState(value: unknown): PluginState {
 					return task ? [task] : [];
 				})
 			: [];
-	return { repoTarget, tasks };
+	return { repoTarget, workspace, tasks };
 }
 
 export function addManualTask(

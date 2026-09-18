@@ -12,5 +12,10 @@ export function createOfficialDialogApi(assertOfficial: () => void): PluginOffic
 			// 对话框里亲手选中的那几个文件。
 			return window.vetta.dialog.openFileContents(options);
 		},
+		openDirectory: async () => {
+			assertOfficial();
+			// 与 openFiles 相反：selectFolder 会把目录加入授权根，随后才能对该路径跑 git。
+			return window.vetta.dialog.selectFolder();
+		},
 	};
 }

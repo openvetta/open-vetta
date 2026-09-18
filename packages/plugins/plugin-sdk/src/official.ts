@@ -604,6 +604,14 @@ export interface PluginOfficialApi {
 		 * 用户取消时返回空数组。
 		 */
 		openFiles(options?: PluginOfficialOpenFilesOptions): Promise<PluginOfficialOpenedFile[]>;
+		/**
+		 * 打开原生目录选择框。用户取消时返回 `null`。
+		 *
+		 * 与 {@link PluginOfficialApi.dialog.openFiles} 相反：选中的目录会加入宿主的
+		 * 项目授权根（与侧边栏「打开项目」相同），之后可以对该路径跑已声明的
+		 * `ctx.command.run`（例如 `git remote -v`）。不会把目录写进工作台项目列表。
+		 */
+		openDirectory(): Promise<string | null>;
 	};
 	shell: {
 		/**
