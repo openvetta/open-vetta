@@ -12,7 +12,9 @@ const atoms = await vi.hoisted(async () => {
 		inputValueAtom: atom(""),
 		isStreamingAtom: atom(false),
 		languageAtom: atom("zh"),
-		openSessionFnRef: { current: null },
+		openSessionFnRef: {
+			current: null as ((cwd: string, sessionPath?: string) => Promise<void>) | null,
+		},
 		pluginConversationOverrideAtom: atom<{ id: string | null; cwd: string | null } | null>(null),
 		promptAttachmentAtom: atom(null),
 		selectedModelAtom: atom(null),
@@ -103,5 +105,21 @@ describe("plugin conversation bridge: team sessions", () => {
 		bridge.publishPluginTurnStart();
 
 		expect(seen.some((event) => event.type === "turn-start")).toBe(true);
+	});
+});
+
+describe("plugin conversation bridge: openSession", () => {
+	it("navigates to an existing session by cwd and sessionPath", async () => {
+		const open = vi.fn(async () => undefined);
+		atoms.openSessionFnRef.current = open;
+		const bridge = await import("./plugin-host-bridge.js");
+		bridge.installPluginHostBridge();
+
+		await bridge.pluginHostBridge.conversation.openSession({
+			cwd: " /repo ",
+			sessionPath: " /repo/sess.jsonl ",
+		});
+
+		expect(open).toHaveBeenCalledWith("/repo", "/repo/sess.jsonl");
 	});
 });

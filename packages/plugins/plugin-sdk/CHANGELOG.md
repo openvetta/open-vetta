@@ -4,6 +4,8 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+- `ctx.conversation.openSession({ cwd, sessionPath })`：打开插件自己 `createSession` 记下的已有会话并跳到对话页。外置插件不能用 `official.sessions.open`（官方来源门控）。权限同 `createSession`（`agent.session.write`）。纯运行期 API，不涉及清单字段，`pluginApiVersion` 不变。
+
 - `PluginModelDefinition` exposes `reasoningLevels` and `defaultReasoningLevel`, so model providers can publish their native reasoning choices without losing them at the host's write boundary. Requires the corresponding Desktop capability schema fix.
 
 - 新增 `@vetta-org/plugin-sdk/logger`。配套 `plugin-vite` 会从已校验的 `plugin.json` 为每个插件生成不可变的 `id@version` logger；插件无需持有或传递 `ctx`，日志仍由 Desktop 统一持久化、轮转并纳入诊断信息。使用该入口的插件要求 Plugin API `^2.5.0`。

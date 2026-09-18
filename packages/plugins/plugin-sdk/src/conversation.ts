@@ -63,6 +63,13 @@ export interface CreateSessionOptions {
 	navigate?: boolean;
 }
 
+/** 打开插件自己记下的已有会话。 */
+export interface OpenSessionInput {
+	cwd: string;
+	/** 会话文件绝对路径（`createSession` 返回的 `sessionPath`），跨重启稳定。 */
+	sessionPath: string;
+}
+
 export interface PluginConversationApi {
 	/**
 	 * Send a prompt into the active conversation (renders as a user turn).
@@ -83,6 +90,11 @@ export interface PluginConversationApi {
 	 * 执行模式跟随宿主当前选择，插件不感知。
 	 */
 	createSession(cwd: string, options?: CreateSessionOptions): Promise<ConversationState>;
+	/**
+	 * 打开已有会话并跳到对话页。用于回看插件自己 `createSession` 过的会话。
+	 * 需要 `agent.session.write`。不会新建会话。
+	 */
+	openSession(input: OpenSessionInput): Promise<void>;
 	/** Fill the input bar without sending; the user can edit and send. */
 	insertText(text: string): void;
 	/** Abort the active conversation's current turn. */

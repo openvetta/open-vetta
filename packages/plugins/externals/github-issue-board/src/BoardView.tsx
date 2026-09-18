@@ -131,6 +131,19 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		}
 	}
 
+	async function handleOpenSession(sessionPath: string): Promise<void> {
+		const cwd = conversation.cwd;
+		if (!cwd) {
+			ctx.ui.notify({ message: t("board.error.noProject") });
+			return;
+		}
+		try {
+			await ctx.conversation.openSession({ cwd, sessionPath });
+		} catch (error) {
+			ctx.ui.notify({ message: t("board.error.openSession"), error, variant: "error" });
+		}
+	}
+
 	return (
 		<div className="flex h-full w-full flex-col gap-4 bg-background p-6">
 			<h1 className="text-lg font-semibold text-foreground">{t("board.title")}</h1>
@@ -212,14 +225,28 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 									) : null}
 								</td>
 								<td className="py-2">
-									<button
-										className={ACTION_BUTTON}
-										disabled={!ready || busy || task.status !== "pending"}
-										type="button"
-										onClick={() => void handleRun(task.id)}
-									>
-										{t("board.run")}
-									</button>
+									<div className="flex flex-wrap items-center gap-1.5">
+										<button
+											className={ACTION_BUTTON}
+											disabled={!ready || busy || task.status !== "pending"}
+											type="button"
+											onClick={() => void handleRun(task.id)}
+										>
+											{t("board.run")}
+										</button>
+										{task.sessionId ? (
+											<button
+												className={ACTION_BUTTON}
+												type="button"
+												onClick={() => {
+													const sessionPath = task.sessionId;
+													if (sessionPath) void handleOpenSession(sessionPath);
+												}}
+											>
+												{t("board.openSession")}
+											</button>
+										) : null}
+									</div>
 								</td>
 							</tr>
 						))}

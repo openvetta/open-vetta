@@ -18,6 +18,7 @@
 	"board.status.failed": "Failed",
 	"board.queue.actions": "Actions",
 	"board.run": "Run",
+	"board.openSession": "Open conversation",
 	"board.repo.owner": "Owner",
 	"board.repo.name": "Repository",
 	"board.repo.ownerPlaceholder": "owner",
@@ -26,5 +27,6 @@
 	"board.error.rateLimit": "GitHub unauthenticated rate limit is exhausted. Try again later.",
 	"board.error.notFound": "Repository not found or private.",
 	"board.error.nonJson": "GitHub returned an unexpected, non-JSON error.",
+	"board.error.openSession": "Could not open the conversation.",
 	"board.error.noProject": "Open a project first"
 }

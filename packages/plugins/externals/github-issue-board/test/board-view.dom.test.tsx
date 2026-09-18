@@ -39,6 +39,7 @@ const COPY: Record<string, string> = {
 	"board.repo.name": "Repository",
 	"board.fetch": "Fetch issues",
 	"board.error.notFound": "Repository not found or private.",
+	"board.openSession": "Open conversation",
 };
 
 function installHostBridge(conversation: ConversationState): void {
@@ -91,6 +92,7 @@ function fakeContext(options?: {
 		for (const listener of listeners) listener({ type: "turn-end", stopReason: "stop" });
 		return { status: "sent" as const };
 	});
+	const openSession = vi.fn(async () => undefined);
 	const ctx = {
 		i18n: {
 			locale: "en",
@@ -109,6 +111,7 @@ function fakeContext(options?: {
 		conversation: {
 			createSession,
 			sendPrompt,
+			openSession,
 			insertText: () => undefined,
 			abort: async () => undefined,
 			on: (listener: (event: ConversationEvent) => void) => {
@@ -131,7 +134,7 @@ function fakeContext(options?: {
 			},
 		},
 	} as unknown as PluginContext;
-	return { ctx, registered, notifications, createSession, sendPrompt, requests };
+	return { ctx, registered, notifications, createSession, sendPrompt, openSession, requests };
 }
 
 function boardView(registered: RegisteredView[]) {
@@ -283,6 +286,30 @@ describe("GitHub Issue board view", () => {
 		});
 		expect(createSession).toHaveBeenCalledWith("/repo");
 		expect(sendPrompt).toHaveBeenCalledWith("Fix the login button");
+	});
+
+	it("opens the recorded conversation from a finished task", async () => {
+		const { ctx, registered, openSession } = fakeContext();
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await addTask("Fix the login button");
+		await act(async () => {
+			fireEvent.click(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.run"] }));
+		});
+		await waitFor(() => {
+			expect(
+				within(taskRow("Fix the login button")).getByRole("cell", { name: COPY["board.status.completed"] }),
+			).toBeTruthy();
+		});
+
+		await act(async () => {
+			fireEvent.click(
+				within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.openSession"] }),
+			);
+		});
+		expect(openSession).toHaveBeenCalledWith({ cwd: "/repo", sessionPath: "/repo/sess-1.jsonl" });
 	});
 
 	it("imports open issues from the filled repo and does not enqueue duplicates", async () => {

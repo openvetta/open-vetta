@@ -66,7 +66,7 @@ describe("runQueuedTask", () => {
 		expect(result.notice).toBeNull();
 		expect(result.state.tasks[0]).toMatchObject({
 			status: "completed",
-			sessionId: "sess-1",
+			sessionId: "/tmp/sess-1.jsonl",
 			updatedAt: 42,
 		});
 	});
@@ -84,7 +84,7 @@ describe("runQueuedTask", () => {
 		expect(result.notice).toBeNull();
 		expect(result.state.tasks[0]).toMatchObject({
 			status: "failed",
-			sessionId: "sess-1",
+			sessionId: "/tmp/sess-1.jsonl",
 			error: "aborted",
 			updatedAt: 7,
 		});
@@ -116,7 +116,7 @@ describe("runQueuedTask", () => {
 		expect(sendFail.createSession).toHaveBeenCalled();
 		expect(sent.state.tasks[0]).toMatchObject({
 			status: "failed",
-			sessionId: "sess-1",
+			sessionId: "/tmp/sess-1.jsonl",
 			error: "prompt rejected",
 		});
 	});

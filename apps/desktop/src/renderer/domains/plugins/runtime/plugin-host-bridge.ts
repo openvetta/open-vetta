@@ -780,6 +780,15 @@ const conversation: PluginConversationApi = {
 		// openSession resolve 时 activeSession 已写好，所以这份快照可直接接 sendPrompt。
 		return snapshot();
 	},
+	openSession: async (input): Promise<void> => {
+		const open = openSessionFnRef.current;
+		if (!open) throw new Error("openSession: host session manager is not ready yet");
+		const cwd = input.cwd.trim();
+		const sessionPath = input.sessionPath.trim();
+		if (!cwd) throw new Error("openSession: cwd is required");
+		if (!sessionPath) throw new Error("openSession: sessionPath is required");
+		await open(cwd, sessionPath);
+	},
 	insertText: (text: string): void => {
 		store.set(inputValueAtom, text);
 	},

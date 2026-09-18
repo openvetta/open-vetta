@@ -70,7 +70,7 @@
 | 本轮 Turn 卡 | `ctx.ui.registerTurnCard` | `ui.slot.turn-card` | [ui-slots](./ui-slots.md#本轮-turn-卡-registerturncard) |
 | **键盘快捷键（宿主 scope 栈）** | `ctx.ui.registerShortcutScope` / `usePluginShortcutScope` | `ui.shortcuts.register` | [ui-slots](./ui-slots.md#键盘快捷键-registershortcutscope) |
 | 读对话 / 事件 | hooks + `ctx.conversation.on` | `agent.session.read` | [conversation-and-agent](./conversation-and-agent.md#对话读状态) |
-| 驾驶对话 | `ctx.conversation.sendPrompt/insertText/abort` | `agent.session.write` | [conversation-and-agent](./conversation-and-agent.md#对话驾驶) |
+| 驾驶对话 | `ctx.conversation.sendPrompt/createSession/openSession/insertText/abort` | `agent.session.write` | [conversation-and-agent](./conversation-and-agent.md#对话驾驶) |
 | 注册 Agent 工具 | `ctx.agent.registerTool` | `agent.tools.register` + `execute` | [conversation-and-agent](./conversation-and-agent.md#注册-agent-工具) |
 | 注册 Coding Agent Hook | `ctx.agent.registerHook` | `agent.hooks.register` + `agent.hookHandler.execute` | [conversation-and-agent](./conversation-and-agent.md#注册-coding-agent-hook) |
 | 注册 App Action | `ctx.appActions.register` | `app.actions.register` + `app.actionHandler.execute` | [app-actions](./app-actions.md) |

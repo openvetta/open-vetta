@@ -51,6 +51,7 @@ export type {
 	ConversationEvent,
 	ConversationQueueState,
 	CreateSessionOptions,
+	OpenSessionInput,
 	PluginConversationApi,
 	SendPromptResult,
 } from "./conversation.js";

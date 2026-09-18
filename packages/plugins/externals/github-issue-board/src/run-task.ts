@@ -62,9 +62,9 @@ export async function runQueuedTask(input: RunQueuedTaskInput): Promise<{
 
 	try {
 		const session = await conversation.createSession(cwd);
-		const sessionId = session.id ?? session.sessionPath ?? undefined;
-		if (sessionId) {
-			current = setTaskStatus(current, taskId, { status: "running", sessionId, now: now() });
+		const sessionPath = session.sessionPath?.trim() || session.id?.trim() || undefined;
+		if (sessionPath) {
+			current = setTaskStatus(current, taskId, { status: "running", sessionId: sessionPath, now: now() });
 			await persist?.(current);
 		}
 		const stopReason = await sendAndWait(conversation, task.promptText);
