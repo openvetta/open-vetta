@@ -2,6 +2,7 @@ import {
 	conversationTagsAtom,
 	type DefaultConversationFilter,
 	defaultConversationFilterAtom,
+	grokSessionImportEnabledAtom,
 	type SidebarFilter,
 	sidebarFilterAtom,
 	tagConversationFilter,
@@ -20,6 +21,11 @@ export const DEFAULT_CONVERSATION_FILTER_OPTIONS = [
 	{ value: "conversation" as const, labelKey: "filterTabs.conversation" as const },
 	{ value: "claw" as const, labelKey: "filterTabs.claw" as const },
 ];
+
+export const EXTERNAL_CONVERSATION_FILTER_OPTION = {
+	value: "external" as const,
+	labelKey: "filterTabs.external" as const,
+};
 
 export function useSidebarFilterSelectModel() {
 	const { t } = useTranslation("project");
@@ -50,14 +56,23 @@ export function useDefaultConversationFilterSelectModel() {
 	const { t } = useTranslation("project");
 	const [filter, setFilter] = useAtom(defaultConversationFilterAtom);
 	const tags = useAtomValue(conversationTagsAtom);
+	const grokImportEnabled = useAtomValue(grokSessionImportEnabledAtom);
 
-	// 标签与「对话 / Claw」平级，跟在一条分割线之后；顺序与右键菜单一致（按创建时间）。
+	// 标签与「对话 / Claw / 外部工具」平级，跟在一条分割线之后；顺序与右键菜单一致（按创建时间）。
 	const options = useMemo(
 		() => [
 			...DEFAULT_CONVERSATION_FILTER_OPTIONS.map((option) => ({
 				value: option.value as DefaultConversationFilter,
 				label: t(option.labelKey),
 			})),
+			...(grokImportEnabled
+				? [
+						{
+							value: EXTERNAL_CONVERSATION_FILTER_OPTION.value,
+							label: t(EXTERNAL_CONVERSATION_FILTER_OPTION.labelKey),
+						},
+					]
+				: []),
 			...tags.tags.map((tag, index) => ({
 				value: tagConversationFilter(tag.id),
 				label: tag.name,
@@ -65,7 +80,7 @@ export function useDefaultConversationFilterSelectModel() {
 				separatorBefore: index === 0,
 			})),
 		],
-		[t, tags.tags],
+		[grokImportEnabled, t, tags.tags],
 	);
 
 	const current = options.find((option) => option.value === filter) ?? options[0];

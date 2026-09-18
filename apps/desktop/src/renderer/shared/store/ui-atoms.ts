@@ -94,6 +94,7 @@ export interface ConfirmDialogState {
 	message: string;
 	confirmLabel?: string;
 	cancelLabel?: string;
+	secondaryLabel?: string;
 	checkbox?: {
 		label: string;
 		checked: boolean;
@@ -101,6 +102,7 @@ export interface ConfirmDialogState {
 	variant?: "danger" | "default";
 	onConfirm: (checkboxChecked: boolean) => void;
 	onCancel?: () => void;
+	onSecondary?: () => void;
 }
 
 export const confirmDialogAtom = atom<ConfirmDialogState | null>(null);

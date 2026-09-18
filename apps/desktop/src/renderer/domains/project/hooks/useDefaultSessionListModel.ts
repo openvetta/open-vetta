@@ -21,6 +21,7 @@ import {
 	sidebarConversationKey,
 } from "../services/sidebar-conversation-projection";
 import { buildSidebarSessionOrdering } from "../services/sidebar-session-order";
+import { externalSessionCaption } from "./external-session-caption";
 import { reuseUnchangedSessionViews } from "./stableSessionViews";
 
 const DEFAULT_VISIBLE_DEFAULT_SESSIONS = 5;
@@ -54,6 +55,7 @@ export interface DefaultSessionListItemView {
 	iconClassName?: string;
 	trailingAvatarUrls?: readonly string[];
 	titleExtra?: string;
+	caption?: string;
 	tagColors?: readonly string[];
 	session: SidebarConversationInfo;
 }
@@ -140,6 +142,8 @@ export function useDefaultSessionListModel({
 	}, [activeConversationKey, ordering.all, pinnedSessionPaths, taggedSessions]);
 
 	const isClaw = filter === "claw";
+	const isExternal = filter === "external";
+	const isReadOnlySource = isClaw || isExternal;
 
 	// t 在 changeLanguage 后可能保持同一引用；读 i18n.language 强制语言切换时重算未命名团队会话文案。
 	const allViews: DefaultSessionListItemView[] = useMemo(() => {
@@ -168,6 +172,7 @@ export function useDefaultSessionListModel({
 				iconClassName: identity.iconClassName,
 				trailingAvatarUrls: identity.trailingAvatarUrls,
 				titleExtra: identity.titleExtra,
+				caption: isExternal ? externalSessionCaption(session, t) : undefined,
 				tagColors: tagFilterId === null ? sessionTagColors(tags, tagColorById, session.path) : undefined,
 				session,
 			};
@@ -187,6 +192,7 @@ export function useDefaultSessionListModel({
 		tagColorById,
 		tagFilterId,
 		tags,
+		isExternal,
 		t,
 	]);
 
@@ -200,11 +206,11 @@ export function useDefaultSessionListModel({
 				x: event.clientX,
 				y: event.clientY,
 				session,
-				allowMutations: !isClaw,
-				canTag: !isClaw,
+				allowMutations: !isReadOnlySource,
+				canTag: !isReadOnlySource,
 			});
 		},
-		[isClaw, setContextMenu],
+		[isReadOnlySource, setContextMenu],
 	);
 	const rename = useCallback(
 		(session: SidebarConversationInfo, name: string) => {
@@ -233,16 +239,21 @@ export function useDefaultSessionListModel({
 				emptyDescription: t("sidebar.defaultConversation.emptyTagDescription"),
 				emptyAction: t("sidebar.defaultConversation.emptyAction"),
 			}
-		: isClaw
+		: isExternal
 			? {
-					emptyTitle: t("sidebar.defaultConversation.emptyClawTitle"),
-					emptyDescription: t("sidebar.defaultConversation.emptyClawDescription"),
+					emptyTitle: t("sidebar.defaultConversation.emptyExternalTitle"),
+					emptyDescription: t("sidebar.defaultConversation.emptyExternalDescription"),
 				}
-			: {
-					emptyTitle: t("sidebar.defaultConversation.emptyTitle"),
-					emptyDescription: t("sidebar.defaultConversation.emptyDescription"),
-					emptyAction: t("sidebar.defaultConversation.emptyAction"),
-				};
+			: isClaw
+				? {
+						emptyTitle: t("sidebar.defaultConversation.emptyClawTitle"),
+						emptyDescription: t("sidebar.defaultConversation.emptyClawDescription"),
+					}
+				: {
+						emptyTitle: t("sidebar.defaultConversation.emptyTitle"),
+						emptyDescription: t("sidebar.defaultConversation.emptyDescription"),
+						emptyAction: t("sidebar.defaultConversation.emptyAction"),
+					};
 
 	return {
 		contextMenuEnabled: true,
@@ -258,7 +269,7 @@ export function useDefaultSessionListModel({
 		visibleSessions: visibleViews,
 		actions: {
 			// 标签档下也给「开始新对话」：新建的会话会继承当前标签，不会开完就看不见。
-			emptyAction: !isClaw && onNewSession ? onNewSession : undefined,
+			emptyAction: !isReadOnlySource && onNewSession ? onNewSession : undefined,
 			openContextMenu,
 			rename,
 			renameDone,

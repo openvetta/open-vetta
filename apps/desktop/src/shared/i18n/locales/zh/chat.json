@@ -804,7 +804,14 @@
 			"noPath": "未指定会话路径"
 		},
 		"error": {
-			"loadPrefix": "加载失败："
+			"loadPrefix": "加载失败：",
+			"corruptedHeader": "会话头部已损坏，无法查看",
+			"unsupportedVersion": "会话格式版本不受支持，无法查看"
+		},
+		"omittedReasoning": "已省略 {{count}} 条模型推理",
+		"sourceBanner": {
+			"grok": "这是来自 Grok 的只读记录，不会改动原会话，也不能在这里继续对话。",
+			"unknown": "这是来自外部工具的只读记录，不会改动原会话，也不能在这里继续对话。"
 		},
 		"export": {
 			"defaultTitle": "Vetta 会话"
@@ -818,6 +825,31 @@
 		"panelToggleButton": {
 			"titleClose": "关闭活动面板",
 			"titleOpen": "打开活动面板"
+		},
+		"continueFrom": {
+			"action": "接着干",
+			"actionTitle": "根据这份记录生成前情提要并新建一个 Vetta 会话",
+			"working": "正在生成提要…",
+			"quotaTitle": "将调用模型生成前情提要",
+			"quotaMessage": "会用你当前的默认模型阅读这份 Grok 记录并生成提要，这会消耗额度。原会话不会被改动。",
+			"quotaConfirm": "继续",
+			"quotaCancel": "取消",
+			"cwdMissingTitle": "原工作目录已不存在",
+			"cwdMissingMessage": "记录里的工作目录「{{path}}」已经找不到。请重新选择一个目录，新会话会建在那里。",
+			"cwdMissingConfirm": "选择目录",
+			"cwdMissingCancel": "取消",
+			"duplicateTitle": "已经接着干过",
+			"duplicateMessage": "这条记录已经导入过一个 Vetta 会话。可以直接打开已有的，也可以再新建一个，从同一个起点试试另一个方向。",
+			"duplicateMessageNamed": "这条记录已经导入过会话「{{name}}」。可以直接打开已有的，也可以再新建一个，从同一个起点试试另一个方向。",
+			"duplicateOpenExisting": "打开已有",
+			"duplicateCreateNew": "仍然新建",
+			"duplicateCancel": "取消",
+			"error": {
+				"noDefaultModel": "还没有设置默认模型，无法生成提要",
+				"emptyBriefing": "模型没有生成可用的前情提要，请重试",
+				"openFailed": "新会话已创建，但无法打开",
+				"generic": "接着干失败，请重试"
+			}
 		}
 	},
 	"skillPromptArea": {

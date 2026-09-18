@@ -47,7 +47,7 @@ const CLAW_SESSION: SessionInfo = {
 	access: { readHistory: true, resume: false, rename: true, delete: true },
 };
 
-function renderSection(sessionsCwd: string, filter: "conversation" | "claw"): void {
+function renderSection(sessionsCwd: string, filter: "conversation" | "claw" | "external"): void {
 	render(
 		<DefaultConversationSection
 			activeSessionPath=""
@@ -79,6 +79,12 @@ describe("DefaultConversationSection", () => {
 	it("普通对话过滤下仍用默认项目的 cwd", () => {
 		renderSection(DEFAULT_PROJECT.cwd, "conversation");
 		expect(listProps).toHaveBeenCalledWith(expect.objectContaining({ cwd: DEFAULT_PROJECT.cwd }));
+	});
+
+	it("外部工具过滤下把 Grok 会话目录交给会话列表", () => {
+		const grokDir = "/Users/ada/.grok/sessions";
+		renderSection(grokDir, "external");
+		expect(listProps).toHaveBeenCalledWith(expect.objectContaining({ cwd: grokDir }));
 	});
 
 	it("sessionsCwd 缺失时回落到 project.cwd", () => {

@@ -17,6 +17,11 @@ import { VETTA_CLI_GUIDANCE } from "../src/public-api/cli-guidance.js";
 import { createCodingAgentHtmlExportRuntime } from "../src/public-api/export-html.js";
 import * as extensionApi from "../src/public-api/extensions.js";
 import {
+	createCodingAgentExternalSessionCatalog,
+	createCodingAgentExternalSessionFileHistoryReader,
+	resolveGrokSessionsDirectory,
+} from "../src/public-api/external-sessions.js";
+import {
 	createCodingAgentHistoricalSessionCatalog,
 	createCodingAgentHistoricalSessionFileHistoryReader,
 	migrateCodingAgentHistoricalSession,
@@ -102,6 +107,9 @@ describe("coding-agent public subpaths", () => {
 		expect(createCodingAgentHistoricalSessionCatalog).toBeTypeOf("function");
 		expect(createCodingAgentHistoricalSessionFileHistoryReader).toBeTypeOf("function");
 		expect(migrateCodingAgentHistoricalSession).toBeTypeOf("function");
+		expect(resolveGrokSessionsDirectory).toBeTypeOf("function");
+		expect(createCodingAgentExternalSessionCatalog).toBeTypeOf("function");
+		expect(createCodingAgentExternalSessionFileHistoryReader).toBeTypeOf("function");
 		expect(createCodingAgentRuntimeExtensionCommandHost).toBeTypeOf("function");
 		expect(createCodingAgentSessionCapabilityHost).toBeTypeOf("function");
 		expect(createCodingAgentTurnExecutor).toBeTypeOf("function");
@@ -152,6 +160,10 @@ describe("coding-agent public subpaths", () => {
 			"./historical-sessions": {
 				types: "./dist/public-api/historical-sessions.d.ts",
 				import: "./dist/public-api/historical-sessions.js",
+			},
+			"./external-sessions": {
+				types: "./dist/public-api/external-sessions.d.ts",
+				import: "./dist/public-api/external-sessions.js",
 			},
 			"./profile": {
 				types: "./dist/public-api/profile.d.ts",

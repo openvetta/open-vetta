@@ -1,4 +1,5 @@
 import type { JSX, ReactNode } from "react";
+import { SessionSourceBannerView } from "./MessageBoundaryViews";
 
 export interface SessionViewerPageViewProps {
 	rootClassName?: string;
@@ -8,6 +9,8 @@ export interface SessionViewerPageViewProps {
 	hasPath: boolean;
 	/** Off-screen export host when exporting. */
 	exportHost: ReactNode;
+	/** Page-level source / read-only notice above the transcript. */
+	sourceBannerLabel?: string | null;
 	/** Main message list. */
 	messageList: ReactNode;
 	/** Activity panel (IM or knowledge). */
@@ -24,6 +27,7 @@ export function SessionViewerPageView({
 	errorPrefix,
 	hasPath,
 	exportHost,
+	sourceBannerLabel,
 	messageList,
 	activityPanel,
 }: SessionViewerPageViewProps): JSX.Element {
@@ -48,7 +52,10 @@ export function SessionViewerPageView({
 		<div className={rootClassName}>
 			{exportHost}
 			<div className="flex min-h-0 flex-1 gap-2 overflow-visible">
-				<div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{messageList}</div>
+				<div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+					{sourceBannerLabel ? <SessionSourceBannerView label={sourceBannerLabel} /> : null}
+					{messageList}
+				</div>
 				{activityPanel}
 			</div>
 		</div>

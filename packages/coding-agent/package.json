@@ -25,6 +25,10 @@
 			"types": "./dist/public-api/historical-sessions.d.ts",
 			"import": "./dist/public-api/historical-sessions.js"
 		},
+		"./external-sessions": {
+			"types": "./dist/public-api/external-sessions.d.ts",
+			"import": "./dist/public-api/external-sessions.js"
+		},
 		"./bootstrap": {
 			"types": "./dist/public-api/bootstrap.d.ts",
 			"import": "./dist/public-api/bootstrap.js"

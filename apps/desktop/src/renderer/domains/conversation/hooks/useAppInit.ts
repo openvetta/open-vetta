@@ -6,6 +6,8 @@ import {
 	defaultConversationCwdAtom,
 	defaultImConversationCwdAtom,
 	deployModeAtom,
+	grokSessionImportEnabledAtom,
+	grokSessionsDirectoryAtom,
 	knowledgeBaseEnabledAtom,
 	knowledgeProcessingCwdAtom,
 	SELECTED_MODEL_STORAGE_KEY,
@@ -20,6 +22,8 @@ export function useAppInit(): void {
 	const setWorkspacePath = useSetAtom(workspacePathAtom);
 	const setDefaultConversationCwd = useSetAtom(defaultConversationCwdAtom);
 	const setDefaultImConversationCwd = useSetAtom(defaultImConversationCwdAtom);
+	const setGrokSessionImportEnabled = useSetAtom(grokSessionImportEnabledAtom);
+	const setGrokSessionsDirectory = useSetAtom(grokSessionsDirectoryAtom);
 	const setSelectedModel = useSetAtom(selectedModelAtom);
 	const setSessionExecutionMode = useSetAtom(sessionExecutionModeAtom);
 	const setDeployMode = useSetAtom(deployModeAtom);
@@ -47,6 +51,8 @@ export function useAppInit(): void {
 			if (config.defaultImConversationCwd) {
 				setDefaultImConversationCwd(config.defaultImConversationCwd);
 			}
+			setGrokSessionImportEnabled(config.sessionImport?.grokEnabled === true);
+			setGrokSessionsDirectory(config.grokSessionsDirectory ?? config.sessionImport?.grokSessionDir ?? "");
 			const executionMode = config.defaultExecutionMode ?? "full-access";
 			setSessionExecutionMode(executionMode);
 			localStorage.setItem("vetta-session-execution-mode", executionMode);
@@ -85,6 +91,8 @@ export function useAppInit(): void {
 		refreshProjects,
 		refreshBatchProjects,
 		setDefaultImConversationCwd,
+		setGrokSessionImportEnabled,
+		setGrokSessionsDirectory,
 		setKnowledgeBaseEnabled,
 		setKnowledgeProcessingCwd,
 	]);

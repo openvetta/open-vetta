@@ -10,6 +10,7 @@ import {
 	publishCodingAgentExecutionRuntimeDefinition,
 } from "@vetta/coding-agent/composition";
 import { getAgentDir } from "@vetta/coding-agent/config";
+import { EXTERNAL_READONLY_SESSION_ACCESS } from "@vetta/coding-agent/external-sessions";
 import {
 	createCodingAgentMcpRuntimeToolSource,
 	createCodingAgentPluginMcpRuntime,
@@ -59,6 +60,7 @@ import {
 import { DEFAULT_SERVER_URL } from "../constants.js";
 import { resolveDesktopRuntimeSessionRoots } from "../conversations/session-catalog-roots.js";
 import { resolveSessionListCwd } from "../conversations/session-paths.js";
+import { getDesktopExternalSessionFormat } from "../external-sessions/desktop-external-session-format.js";
 import { getKnowledgeRoot } from "../knowledge/knowledge-layout.js";
 import { getAppLogger } from "../logger.js";
 import { getDesktopMcpAppRegistry } from "../mcp/mcp-app-runtime.js";
@@ -124,6 +126,7 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 	const macosSandboxExecPath = getAvailableMacosSandboxExecPath();
 	const sessionExtensionFunctions = createDesktopCodingAgentFunctionSource();
 	const historicalFormat = createDesktopHistoricalSessionFormat();
+	const externalFormat = getDesktopExternalSessionFormat();
 	const defaultResultArtifacts = createDesktopResultArtifactRuntime(getAgentDir());
 	const conversationCatalog = new DesktopRuntimeSessionCatalog({
 		resolveRoots: resolveDesktopRuntimeSessionRoots,
@@ -258,10 +261,15 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 			platformServices.pathServices.normalize,
 		),
 		sessionFileHistoryReader: new CompositeRuntimeSessionFileHistoryReader([
+			externalFormat.sessionFileHistoryReader,
 			historicalFormat.sessionFileHistoryReader,
 			new FileConversationRuntimeSessionFileHistoryReader(),
 		]),
 		sessionAccessResolver: new CatalogRoutedRuntimeSessionAccessResolver([
+			{
+				catalog: externalFormat.sessionCatalog,
+				access: EXTERNAL_READONLY_SESSION_ACCESS,
+			},
 			{
 				catalog: historicalFormat.sessionCatalog,
 				access: {

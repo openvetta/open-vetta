@@ -10,6 +10,7 @@ export interface ConfirmDialogViewState {
 	};
 	readonly confirmLabel?: string;
 	readonly message: string;
+	readonly secondaryLabel?: string;
 	readonly title: string;
 	readonly variant?: "danger" | "default";
 }
@@ -24,6 +25,7 @@ export interface ConfirmDialogViewProps {
 	readonly onCancel: () => void;
 	readonly onCheckboxCheckedChange: (checked: boolean) => void;
 	readonly onConfirm: () => void;
+	readonly onSecondary?: () => void;
 	readonly overlayRef: RefObject<HTMLDivElement | null>;
 	readonly state: ConfirmDialogViewState | null;
 }
@@ -36,6 +38,7 @@ export function ConfirmDialogView({
 	onCancel,
 	onCheckboxCheckedChange,
 	onConfirm,
+	onSecondary,
 	overlayRef,
 	state,
 }: ConfirmDialogViewProps): JSX.Element {
@@ -88,6 +91,15 @@ export function ConfirmDialogView({
 								>
 									{state.cancelLabel ?? labels.cancel}
 								</button>
+								{state.secondaryLabel ? (
+									<button
+										type="button"
+										onClick={onSecondary}
+										className={`${buttonBase} hover:bg-muted hover:text-foreground`}
+									>
+										{state.secondaryLabel}
+									</button>
+								) : null}
 								<button
 									type="button"
 									onClick={onConfirm}

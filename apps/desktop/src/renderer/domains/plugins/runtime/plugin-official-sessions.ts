@@ -1,6 +1,14 @@
 import { openSessionFnRef } from "@shared/store/atoms";
 import type { RuntimeSessionAccess } from "@vetta/runtime-core";
-import type { PluginOfficialApi, PluginOfficialSessionAccess } from "@vetta-org/plugin-sdk";
+import {
+	type PluginOfficialApi,
+	type PluginOfficialSessionAccess,
+	type PluginOfficialSessionListOptions,
+	type PluginOfficialSessionOrigin,
+	type PluginOfficialSessionOriginKind,
+	type PluginOfficialSessionSummary,
+	resolveOfficialSessionOrigin,
+} from "@vetta-org/plugin-sdk";
 import { pluginRendererCapabilityHost } from "./plugin-renderer-capability-host";
 
 /**
@@ -34,6 +42,26 @@ export function createOfficialSessionsApi(capabilitySessionId: string): PluginOf
 		rename: access?.rename === true,
 		delete: access?.delete === true,
 	});
+
+	const normalizeOrigin = (origin: unknown): PluginOfficialSessionOrigin | undefined => {
+		if (!origin || typeof origin !== "object") return undefined;
+		const tool = "tool" in origin && typeof origin.tool === "string" ? origin.tool.trim() : "";
+		const path = "path" in origin && typeof origin.path === "string" ? origin.path.trim() : "";
+		if (!tool || !path) return undefined;
+		return { tool, path };
+	};
+
+	const requestedOrigins = (
+		origin: PluginOfficialSessionListOptions["origin"],
+	): ReadonlySet<PluginOfficialSessionOriginKind> => {
+		if (origin === undefined) return new Set(["vetta"]);
+		const values = Array.isArray(origin) ? origin : [origin];
+		const allowed = new Set<PluginOfficialSessionOriginKind>();
+		for (const value of values) {
+			if (value === "vetta" || value === "external") allowed.add(value);
+		}
+		return allowed.size > 0 ? allowed : new Set(["vetta"]);
+	};
 
 	const assertNonEmpty = (value: unknown, field: string): string => {
 		if (typeof value !== "string" || value.trim().length === 0) {
@@ -95,17 +123,26 @@ export function createOfficialSessionsApi(capabilitySessionId: string): PluginOf
 				assertNonEmpty(name, "name");
 				await window.vetta.session.rename(sessionPath, name);
 			}),
-		list: (cwd) =>
+		list: (cwd, options) =>
 			invoke(async () => {
 				assertNonEmpty(cwd, "cwd");
+				const allowed = requestedOrigins(options?.origin);
 				const sessions = await window.vetta.session.listSessions(cwd);
-				return sessions.map((session) => ({
-					path: session.path,
-					cwd: session.cwd,
-					firstMessage: session.firstMessage,
-					modifiedAt: session.modifiedAt,
-					access: normalizeAccess(session.access),
-				}));
+				const summaries: PluginOfficialSessionSummary[] = [];
+				for (const session of sessions) {
+					const origin = normalizeOrigin(session.origin);
+					const source = resolveOfficialSessionOrigin(origin);
+					if (!allowed.has(source)) continue;
+					summaries.push({
+						path: session.path,
+						cwd: session.cwd,
+						firstMessage: session.firstMessage,
+						modifiedAt: session.modifiedAt,
+						access: normalizeAccess(session.access),
+						...(origin ? { origin } : {}),
+					});
+				}
+				return summaries;
 			}),
 		listRunning: () => invoke(() => window.vetta.session.listRunning()),
 		listRunningCwds: () => invoke(() => window.vetta.session.listRunningCwds()),

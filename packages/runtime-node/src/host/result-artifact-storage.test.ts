@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createNodeResultArtifactStorage } from "./result-artifact-storage.js";
+import { createNodeResultArtifactStorage, resolveNodeSessionArtifactDirectory } from "./result-artifact-storage.js";
 
 describe("Node result artifact storage", () => {
 	it("writes coding and MCP results with stable session-scoped names", async () => {
@@ -58,6 +58,29 @@ describe("Node result artifact storage", () => {
 			expect(existsSync(firstCoding)).toBe(false);
 			expect(existsSync(firstMcp)).toBe(false);
 			expect(existsSync(secondCoding)).toBe(true);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	it("reclaims extra files stored in a session artifact directory", async () => {
+		const root = await mkdtemp(join(tmpdir(), "vetta-result-extra-"));
+		try {
+			const storage = createNodeResultArtifactStorage({
+				codingRoot: join(root, "tool-results"),
+				mcpRoot: join(root, "mcp-results"),
+			});
+			const snapshotPath = join(
+				resolveNodeSessionArtifactDirectory(join(root, "tool-results"), "continued-session"),
+				"external-origin",
+				"summary.json",
+			);
+			await mkdir(join(snapshotPath, ".."), { recursive: true });
+			await writeFile(snapshotPath, '{"copied":true}', "utf8");
+
+			await storage.cleaner.deleteSessionArtifacts("continued-session");
+
+			expect(existsSync(snapshotPath)).toBe(false);
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}

@@ -122,6 +122,7 @@ bun run test:pkg <name>
 - 产品能力域不能依赖 Adapter、Composition 实现或公开门面；
 - Adapter 可以依赖 Composition 合同，但不能反向依赖 Composition 实现或公开门面；
 - 历史会话格式模块不能依赖 Agent 执行；格式转换与文件生命周期可以在 `sessions/legacy` 边界内按职责拆分；
+- 外部工具会话格式模块同样不能依赖 Agent 执行或 Node I/O，只能位于 `sessions/external`，与历史格式边界并列；
 - 外部消费者只能使用 `package.json#exports` 声明的稳定子路径，支持精确和通配符导出；
 - 包根保持 Extension facade；Composition 允许扩展根级能力与合同，但不能导出内部组装实现；
 - 旧 `src/core`、`src/compat` 实现目录不得恢复。

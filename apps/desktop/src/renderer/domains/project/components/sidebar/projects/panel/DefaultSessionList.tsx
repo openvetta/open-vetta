@@ -48,6 +48,7 @@ const DefaultSessionRow = memo(function DefaultSessionRow({
 			tagColors={item.tagColors}
 			trailingAvatarUrls={item.trailingAvatarUrls}
 			titleExtra={item.titleExtra}
+			caption={item.caption}
 			onOpenContextMenu={handleContextMenu}
 			onRename={handleRename}
 			onRenameDone={onRenameDone}

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { confirmDialogAtom } from "@shared/store/atoms";
+import { confirmDialogAtom, projectContextMenuAtom } from "@shared/store/atoms";
 import { createStore, Provider } from "jotai";
 import type { PropsWithChildren } from "react";
 import { act, renderHook } from "@testing-library/react";
@@ -28,9 +28,12 @@ const teamSession = {
 	memberAvatarUrls: [],
 };
 
-function model(deleteSession: ReturnType<typeof vi.fn>): ProjectsPanelModel {
+function model(
+	deleteSession: ReturnType<typeof vi.fn>,
+	filter: ProjectsPanelModel["defaultConversationFilter"] = "conversation",
+): ProjectsPanelModel {
 	return {
-		defaultConversationFilter: "conversation",
+		defaultConversationFilter: filter,
 		imCwd: "C:/im",
 		projectSessions: () => [],
 		actions: { deleteSession },
@@ -57,5 +60,17 @@ describe("useProjectsPanelMenusModel", () => {
 
 		act(() => confirmation?.onConfirm(false));
 		expect(deleteSession).toHaveBeenCalledWith(teamSession);
+	});
+
+	it("does not treat the external-tools filter as a clearable conversation scope", () => {
+		const store = createStore();
+		store.set(projectContextMenuAtom, {
+			x: 0,
+			y: 0,
+			project: { cwd: "C:/conversation", name: "对话", sessionCount: 0, type: "normal", isDefault: true },
+		});
+		const wrapper = ({ children }: PropsWithChildren): JSX.Element => <Provider store={store}>{children}</Provider>;
+		const { result } = renderHook(() => useProjectsPanelMenusModel(model(vi.fn(), "external")), { wrapper });
+		expect(result.current.defaultScope).toBeUndefined();
 	});
 });

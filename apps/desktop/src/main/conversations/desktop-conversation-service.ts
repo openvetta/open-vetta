@@ -1,6 +1,7 @@
 import { stat } from "node:fs/promises";
 import { extname, isAbsolute, resolve } from "node:path";
 import type { AgentTeamDocument } from "@vetta/agent-team";
+import { EXTERNAL_READONLY_SESSION_ACCESS } from "@vetta/coding-agent/external-sessions";
 import { CODING_AGENT_SESSION_TITLE_GENERATE } from "@vetta/coding-agent/session-extensions";
 import {
 	isSessionError,
@@ -18,6 +19,11 @@ import { type DesktopSessionHistoryInfo, UNAVAILABLE_RUNTIME_SESSION_ACCESS } fr
 import { agentTeamStore } from "../agent-teams/agent-team-store.js";
 import { ensureLegacyAgentTeamOwnershipCatalog } from "../agent-teams/team-ownership-backfill.js";
 import { monitorRuntimeSession } from "../app-monitor/app-monitor-service.js";
+import { getDesktopExternalSessionFormat } from "../external-sessions/desktop-external-session-format.js";
+import {
+	isGrokSessionsListDirectory,
+	resolveGrokSessionsListDirectory,
+} from "../external-sessions/resolve-grok-sessions-list-directory.js";
 import { allowProjectRoot, readDesktopConfig } from "../ipc/fs.js";
 import { getAppLogger } from "../logger.js";
 import { getSharedRuntime } from "../runtime.js";
@@ -382,6 +388,15 @@ export class DesktopConversationService {
 			throw new DesktopConversationError("INVALID_SESSION_PATH", "cwd must be an absolute path.");
 		}
 		const absoluteCwd = resolve(cwd);
+		if (isGrokSessionsListDirectory(absoluteCwd)) {
+			const grokDir = resolveGrokSessionsListDirectory();
+			if (!grokDir) return [];
+			const catalogSessions = await getDesktopExternalSessionFormat().sessionCatalog.listSessions(grokDir);
+			return catalogSessions.map((session) => ({
+				...session,
+				access: session.unavailableReason ? UNAVAILABLE_RUNTIME_SESSION_ACCESS : EXTERNAL_READONLY_SESSION_ACCESS,
+			}));
+		}
 		allowProjectRoot(absoluteCwd);
 		await this.ensureOwnershipReady?.();
 		const catalogSessions = await this.runtime.listSessions(absoluteCwd, resolveSessionDirForCwd(absoluteCwd));

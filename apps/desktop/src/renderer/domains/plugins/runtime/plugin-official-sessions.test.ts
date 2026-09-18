@@ -98,3 +98,94 @@ describe("official.sessions.list 的可用性透传", () => {
 		expect(session.access).toEqual({ readHistory: false, interactiveResume: false, rename: false, delete: false });
 	});
 });
+
+describe("official.sessions.list 的来源过滤", () => {
+	beforeEach(() => {
+		pluginRendererCapabilityHost.bindSession(SESSION, {
+			id: "kanban",
+			enabled: true,
+			trustLevel: "official",
+		});
+	});
+
+	function stubListSessions(sessions: unknown[]): void {
+		Object.defineProperty(globalThis, "window", {
+			configurable: true,
+			value: { vetta: { session: { listSessions: vi.fn(async () => sessions) } } },
+		});
+	}
+
+	const native = {
+		path: "/vetta.jsonl",
+		cwd: "/work",
+		firstMessage: "native",
+		modifiedAt: 10,
+		access: { readHistory: true, resume: true, rename: true, delete: true },
+	};
+	const external = {
+		path: "/grok/summary.json",
+		cwd: "/work",
+		firstMessage: "grok chat",
+		modifiedAt: 20,
+		access: { readHistory: true, resume: false, rename: false, delete: false },
+		origin: { tool: "grok", path: "/grok/summary.json" },
+	};
+
+	it("默认不返回外部工具会话，存量派单不会踩进陌生会话", async () => {
+		stubListSessions([native, external]);
+		const sessions = await createOfficialSessionsApi(SESSION).list("/work");
+		expect(sessions.map((session) => session.path)).toEqual(["/vetta.jsonl"]);
+		expect(sessions[0]?.origin).toBeUndefined();
+	});
+
+	it("显式声明外部来源时返回外部会话，并带上工具标识与原始路径", async () => {
+		stubListSessions([native, external]);
+		const sessions = await createOfficialSessionsApi(SESSION).list("/work", { origin: "external" });
+		expect(sessions).toEqual([
+			{
+				path: "/grok/summary.json",
+				cwd: "/work",
+				firstMessage: "grok chat",
+				modifiedAt: 20,
+				access: { readHistory: true, interactiveResume: false, rename: false, delete: false },
+				origin: { tool: "grok", path: "/grok/summary.json" },
+			},
+		]);
+	});
+
+	it("来源信息缺失或不完整一律读作 Vetta 原生，进入默认列表且不携带 origin", async () => {
+		stubListSessions([
+			{ path: "/missing.jsonl", modifiedAt: 1 },
+			{ path: "/empty.jsonl", modifiedAt: 2, origin: {} },
+			{ path: "/tool-only.jsonl", modifiedAt: 3, origin: { tool: "grok" } },
+			{ path: "/path-only.jsonl", modifiedAt: 4, origin: { path: "/grok/summary.json" } },
+			{ path: "/blank.jsonl", modifiedAt: 5, origin: { tool: "  ", path: "  " } },
+			external,
+		]);
+		const sessions = await createOfficialSessionsApi(SESSION).list("/work");
+		expect(sessions.map((session) => session.path)).toEqual([
+			"/missing.jsonl",
+			"/empty.jsonl",
+			"/tool-only.jsonl",
+			"/path-only.jsonl",
+			"/blank.jsonl",
+		]);
+		expect(sessions.every((session) => session.origin === undefined)).toBe(true);
+	});
+
+	it("同时声明原生与外部来源时两类都返回，且仅外部条目携带 origin", async () => {
+		stubListSessions([native, external]);
+		const sessions = await createOfficialSessionsApi(SESSION).list("/work", { origin: ["vetta", "external"] });
+		expect(sessions.map((session) => session.path)).toEqual(["/vetta.jsonl", "/grok/summary.json"]);
+		expect(sessions[0]?.origin).toBeUndefined();
+		expect(sessions[1]?.origin).toEqual({ tool: "grok", path: "/grok/summary.json" });
+	});
+
+	it("无法识别的来源参数按缺省处理，只返回 Vetta 原生", async () => {
+		stubListSessions([native, external]);
+		const sessions = await createOfficialSessionsApi(SESSION).list("/work", {
+			origin: "all" as "vetta",
+		});
+		expect(sessions.map((session) => session.path)).toEqual(["/vetta.jsonl"]);
+	});
+});

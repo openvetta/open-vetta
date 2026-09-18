@@ -9,6 +9,25 @@ import type { ConversationOwnershipCatalogPort } from "./conversation-ownership-
 import { type DesktopConversationError, DesktopConversationService } from "./desktop-conversation-service.js";
 import { readSessionAgentBinding, recordSessionAgentBinding } from "./session-agent-binding-store.js";
 
+const grokListMocks = vi.hoisted(() => ({
+	allowProjectRoot: vi.fn(),
+	isGrokSessionsListDirectory: vi.fn(() => false),
+	listSessions: vi.fn(
+		async (): Promise<
+			Array<{
+				id: string;
+				path: string;
+				cwd: string;
+				firstMessage: string;
+				modifiedAt: number;
+				origin?: { tool: string; path: string };
+				unavailableReason?: string;
+			}>
+		> => [],
+	),
+	resolveGrokSessionsListDirectory: vi.fn(() => undefined as string | undefined),
+}));
+
 vi.mock("../logger.js", () => ({
 	getAppLogger: () => ({
 		debug: () => undefined,
@@ -22,8 +41,19 @@ vi.mock("../app-monitor/app-monitor-service.js", () => ({
 	monitorRuntimeSession: () => undefined,
 }));
 
+vi.mock("../external-sessions/resolve-grok-sessions-list-directory.js", () => ({
+	isGrokSessionsListDirectory: grokListMocks.isGrokSessionsListDirectory,
+	resolveGrokSessionsListDirectory: grokListMocks.resolveGrokSessionsListDirectory,
+}));
+
+vi.mock("../external-sessions/desktop-external-session-format.js", () => ({
+	getDesktopExternalSessionFormat: () => ({
+		sessionCatalog: { listSessions: grokListMocks.listSessions },
+	}),
+}));
+
 vi.mock("../ipc/fs.js", () => ({
-	allowProjectRoot: () => undefined,
+	allowProjectRoot: grokListMocks.allowProjectRoot,
 	DEFAULT_CONVERSATION_CWD: "C:/vetta/conversation",
 	DEFAULT_CONVERSATION_SESSION_DIR: "C:/vetta/conversation/.vetta/sessions",
 	DEFAULT_IM_CONVERSATION_CWD: "C:/vetta/im",
@@ -71,6 +101,10 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
 }
 
 afterEach(async () => {
+	grokListMocks.allowProjectRoot.mockReset();
+	grokListMocks.isGrokSessionsListDirectory.mockReset().mockReturnValue(false);
+	grokListMocks.listSessions.mockReset().mockResolvedValue([]);
+	grokListMocks.resolveGrokSessionsListDirectory.mockReset().mockReturnValue(undefined);
 	await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
@@ -205,6 +239,38 @@ describe("DesktopConversationService session access", () => {
 		expect(ensureOwnershipReady).toHaveBeenCalledOnce();
 		expect(resolveSessionAccess).toHaveBeenCalledOnce();
 		expect(resolveSessionAccess).toHaveBeenCalledWith(ordinaryPath);
+	});
+
+	it("lists Grok sessions without authorizing the directory as a project", async () => {
+		const grokDir = "/tmp/grok/sessions";
+		const sidecarPath = `${grokDir}/demo/a/summary.json`;
+		grokListMocks.isGrokSessionsListDirectory.mockReturnValue(true);
+		grokListMocks.resolveGrokSessionsListDirectory.mockReturnValue(grokDir);
+		grokListMocks.listSessions.mockResolvedValue([
+			{
+				id: "grok-1",
+				path: sidecarPath,
+				cwd: "/workspace/demo",
+				firstMessage: "Fix the login bug",
+				modifiedAt: 1,
+				origin: { tool: "grok", path: sidecarPath },
+			},
+		]);
+		const runtime = {
+			listSessions: vi.fn(),
+			resolveSessionAccess: vi.fn(),
+		} as unknown as RuntimeHost;
+		const service = new DesktopConversationService(runtime);
+
+		await expect(service.listSessions(grokDir)).resolves.toEqual([
+			expect.objectContaining({
+				id: "grok-1",
+				access: { readHistory: true, resume: false, rename: false, delete: false },
+			}),
+		]);
+		expect(grokListMocks.allowProjectRoot).not.toHaveBeenCalled();
+		expect(runtime.listSessions).not.toHaveBeenCalled();
+		expect(runtime.resolveSessionAccess).not.toHaveBeenCalled();
 	});
 
 	it("rejects direct ordinary-chat opens for Team-owned Conversations", async () => {

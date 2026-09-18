@@ -135,6 +135,68 @@ describe("appendError", () => {
 	});
 });
 
+describe("fullHistoryToChat folded external tools", () => {
+	it("keeps the tool target on the row and does not attach empty output", () => {
+		const messages = fullHistoryToChat([
+			{ type: "message", message: { role: "user", content: "Search tests.", timestamp: 1 } },
+			{
+				type: "message",
+				message: durableAssistant({
+					content: [
+						{
+							type: "toolCall",
+							id: "call_read_1",
+							name: "Read",
+							arguments: { path: "/tmp/missing.test.ts" },
+						},
+					],
+				}),
+			},
+			{
+				type: "message",
+				message: {
+					role: "toolResult",
+					toolCallId: "call_read_1",
+					toolName: "Read",
+					content: [],
+					isError: true,
+					timestamp: 3,
+				},
+			},
+		]);
+
+		expect(messages.map((message) => message.kind)).toEqual(["user", "agent"]);
+		const agent = messages[1];
+		if (agent?.kind !== "agent") throw new Error("expected agent message");
+		expect(agent.blocks).toEqual([
+			expect.objectContaining({
+				type: "tool_call",
+				toolName: "Read",
+				args: { path: "/tmp/missing.test.ts" },
+				status: "error",
+				isError: true,
+			}),
+		]);
+		expect(agent.blocks[0]).toMatchObject({ type: "tool_call" });
+		if (agent.blocks[0]?.type === "tool_call") {
+			expect(agent.blocks[0].result).toBeUndefined();
+		}
+	});
+});
+
+describe("fullHistoryToChat omitted reasoning", () => {
+	it("turns an omitted-reasoning marker into a visible event", () => {
+		const messages = fullHistoryToChat([
+			{ type: "message", message: { role: "user", content: "Fix login", timestamp: 1 } },
+			{ type: "custom_marker", customType: "omitted_reasoning", details: { count: 3 }, timestamp: "" },
+			{ type: "message", message: durableAssistant({ content: [{ type: "text", text: "done" }] }) },
+		]);
+
+		expect(messages.map((message) => message.kind)).toEqual(["user", "event", "agent"]);
+		expect(messages[1]).toMatchObject({ kind: "event", event: { kind: "omitted_reasoning", count: 3 } });
+	});
+});
+
 describe("fullHistoryToChat error entries", () => {
 	it("hides a context overflow that auto compaction recovered within the turn", () => {
 		const overflow = "400 This model's maximum context length is 200000 tokens.";

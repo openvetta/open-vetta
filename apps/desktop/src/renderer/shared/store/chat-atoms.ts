@@ -31,6 +31,7 @@ export type TeamMemberSummaryEventViewModel = {
 export type ChatTimelineEventViewModel =
 	| { readonly kind: "compaction"; readonly summary: string }
 	| { readonly kind: "delegation"; readonly label: string; readonly requestId: string; readonly timestamp: number }
+	| { readonly kind: "omitted_reasoning"; readonly count: number }
 	| TeamMemberSummaryEventViewModel;
 
 /** Display-only content kept beside a specific tool row and outside process folding. */

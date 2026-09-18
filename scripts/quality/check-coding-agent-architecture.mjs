@@ -9,6 +9,7 @@ const PACKAGE_ROOT = "packages/coding-agent";
 const ROOT_ENTRY = `${SOURCE_ROOT}/index.ts`;
 const COMPOSITION_ENTRY = `${SOURCE_ROOT}/composition/index.ts`;
 const HISTORICAL_ROOT = `${SOURCE_ROOT}/sessions/legacy`;
+const EXTERNAL_SESSION_ROOT = `${SOURCE_ROOT}/sessions/external`;
 const PACKAGE_SPECIFIER = "@vetta/coding-agent";
 const RETIRED_LAYER_TERM = String.fromCharCode(112, 114, 111, 100, 117, 99, 116);
 const RETIRED_LAYER_TERM_PATTERN = new RegExp(
@@ -177,6 +178,14 @@ export function findCodingAgentArchitectureViolations(state) {
 				`${edge.path}:${edge.line}: historical format policy must consume host-provided file operations`,
 			);
 		}
+		if (
+			edge.path.startsWith(`${EXTERNAL_SESSION_ROOT}/`) &&
+			(edge.specifier.startsWith("node:") || edge.specifier.startsWith("@vetta/runtime-node"))
+		) {
+			violations.push(
+				`${edge.path}:${edge.line}: external format policy must consume host-provided file operations`,
+			);
+		}
 
 		if (!target?.startsWith(`${SOURCE_ROOT}/`)) continue;
 		if (isContractPath(edge.path) && isImplementationTarget(target)) {
@@ -198,6 +207,11 @@ export function findCodingAgentArchitectureViolations(state) {
 		if (edge.path.startsWith(`${HISTORICAL_ROOT}/`) && isHistoricalExecutionTarget(target)) {
 			violations.push(
 				`${edge.path}:${edge.line}: historical format boundary depends on Agent execution (${edge.specifier})`,
+			);
+		}
+		if (edge.path.startsWith(`${EXTERNAL_SESSION_ROOT}/`) && isHistoricalExecutionTarget(target)) {
+			violations.push(
+				`${edge.path}:${edge.line}: external format boundary depends on Agent execution (${edge.specifier})`,
 			);
 		}
 	}

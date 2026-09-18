@@ -11,6 +11,8 @@ import {
 	defaultConversationFilterAtom,
 	defaultImConversationCwdAtom,
 	expandedBatchProjectsAtom,
+	grokSessionImportEnabledAtom,
+	grokSessionsDirectoryAtom,
 	inlineFilePreviewAtom,
 	pendingSessionOpenAtom,
 } from "@shared/store/atoms";
@@ -67,6 +69,8 @@ export function useProjectsPanelModel({
 	const activeSessionCwd = useAtomValue(activeSessionCwdAtom);
 	const { selectionIntent: sidebarSelectionIntent, selectAfterPaint } = useSidebarSelectionIntent();
 	const imCwd = useAtomValue(defaultImConversationCwdAtom);
+	const grokImportEnabled = useAtomValue(grokSessionImportEnabledAtom);
+	const grokSessionsDirectory = useAtomValue(grokSessionsDirectoryAtom);
 	const setActiveSession = useSetAtom(activeSessionAtom);
 	const setInlineFilePreview = useSetAtom(inlineFilePreviewAtom);
 	const setConfirm = useSetAtom(confirmDialogAtom);
@@ -100,7 +104,7 @@ export function useProjectsPanelModel({
 	const batchProjects = useAtomValue(batchProjectsAtom);
 	const [expandedBatchProjects, setExpandedBatchProjects] = useAtom(expandedBatchProjectsAtom);
 	const { deleteTask: deleteBatchTask, deleteProject: deleteBatchProject } = useBatchTasks();
-	const defaultConversationFilter = useAtomValue(defaultConversationFilterAtom);
+	const [defaultConversationFilter, setDefaultConversationFilter] = useAtom(defaultConversationFilterAtom);
 	// 标签档只是「对话」的一个子集视图，会话来源仍取普通对话目录。
 	const defaultConversationSource = conversationFilterSource(defaultConversationFilter);
 	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
@@ -163,7 +167,12 @@ export function useProjectsPanelModel({
 	const defaultProject = useMemo(() => projects.find((project) => project.isDefault), [projects]);
 	// 默认区的会话来源 cwd：claw 过滤读 im-gateway 自己的 cwd（ADR-0005），
 	// 与 defaultProject.cwd 是两个物理目录，选中 / 重命名都必须用这个值。
-	const defaultSessionsCwd = defaultConversationSource === "claw" ? imCwd : defaultProject?.cwd;
+	const defaultSessionsCwd =
+		defaultConversationSource === "claw"
+			? imCwd
+			: defaultConversationSource === "external"
+				? grokSessionsDirectory
+				: defaultProject?.cwd;
 	const filteredProjects = useMemo(() => {
 		const visible = projects.filter((project) => project.type !== "batch" && !project.isDefault);
 		if (filter === "all") return visible;
@@ -511,10 +520,19 @@ export function useProjectsPanelModel({
 	const noOtherProjects = filteredProjects.length === 0 && (!showBatchGroup || batchAsProjects.length === 0);
 
 	useEffect(() => {
+		if (defaultConversationSource === "external" && !grokImportEnabled) {
+			setDefaultConversationFilter("conversation");
+		}
+	}, [defaultConversationSource, grokImportEnabled, setDefaultConversationFilter]);
+
+	useEffect(() => {
 		if (defaultConversationSource === "claw" && imCwd) {
 			void loadSessions(imCwd);
 		}
-	}, [defaultConversationSource, imCwd, loadSessions]);
+		if (defaultConversationSource === "external" && grokSessionsDirectory) {
+			void loadSessions(grokSessionsDirectory);
+		}
+	}, [defaultConversationSource, grokSessionsDirectory, imCwd, loadSessions]);
 
 	const ordinaryDefaultSessions = defaultSessionsCwd
 		? (sessionsMap.get(defaultSessionsCwd) ?? EMPTY_SESSIONS)

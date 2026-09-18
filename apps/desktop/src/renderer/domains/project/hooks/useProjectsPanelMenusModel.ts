@@ -25,9 +25,10 @@ export function useProjectsPanelMenusModel(model: ProjectsPanelModel) {
 	const clearClawDisabled =
 		projectMenu?.project.isDefault === true &&
 		model.projectSessions(model.imCwd).some((session) => runningSessionPaths.has(session.path));
-	// 项目右键菜单只区分「清空会话 / 清空 Claw」，标签档按其所属来源（对话）处理。
+	// 项目右键菜单只区分「清空会话 / 清空 Claw」；外部工具只读，不进入清空作用域。
+	const source = conversationFilterSource(model.defaultConversationFilter);
 	const defaultScope =
-		projectMenu?.project.isDefault === true ? conversationFilterSource(model.defaultConversationFilter) : undefined;
+		projectMenu?.project.isDefault === true && (source === "conversation" || source === "claw") ? source : undefined;
 
 	return {
 		contextMenu,
