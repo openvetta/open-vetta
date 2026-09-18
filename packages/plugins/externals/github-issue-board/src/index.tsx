@@ -6,9 +6,9 @@ import "./style.css";
 /**
  * GitHub Issue 任务台：跨会话的整页工作台。
  *
- * 本包打通「存储 + 队列状态 + UI」：手动入队、表格展示、`ctx.storage` 持久化。
- * 拉取 GitHub issue 与逐条执行由后续 ticket 填入。没有模块级运行态，也不提供
- * `deactivate()`——注册的贡献由宿主统一处置。
+ * 本包打通手动入队、持久化队列，以及点「运行」后新建 Agent 会话执行并把状态
+ * 按 turn-end 流转。拉取 GitHub issue 由后续 ticket 填入。没有模块级运行态，
+ * 也不提供 `deactivate()`——注册的贡献由宿主统一处置。
  */
 export default definePlugin({
 	activate(ctx) {

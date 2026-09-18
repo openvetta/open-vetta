@@ -15,5 +15,8 @@
 	"board.status.pending": "Pending",
 	"board.status.running": "Running",
 	"board.status.completed": "Completed",
-	"board.status.failed": "Failed"
+	"board.status.failed": "Failed",
+	"board.queue.actions": "Actions",
+	"board.run": "Run",
+	"board.error.noProject": "Open a project first"
 }

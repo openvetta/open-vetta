@@ -15,5 +15,8 @@
 	"board.status.pending": "待处理",
 	"board.status.running": "执行中",
 	"board.status.completed": "已完成",
-	"board.status.failed": "失败"
+	"board.status.failed": "失败",
+	"board.queue.actions": "操作",
+	"board.run": "运行",
+	"board.error.noProject": "请先打开一个项目"
 }

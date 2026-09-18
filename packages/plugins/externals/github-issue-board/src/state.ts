@@ -120,6 +120,33 @@ export function addManualTask(
 	return { ...state, tasks: [...state.tasks, task] };
 }
 
+export function setTaskStatus(
+	state: PluginState,
+	taskId: string,
+	update: {
+		status: GithubTaskStatus;
+		sessionId?: string;
+		error?: string;
+		now: number;
+	},
+): PluginState {
+	return {
+		...state,
+		tasks: state.tasks.map((task) => {
+			if (task.id !== taskId) return task;
+			const next: GithubTask = { ...task, status: update.status, updatedAt: update.now };
+			if (update.sessionId !== undefined) next.sessionId = update.sessionId;
+			if (update.status === "failed") next.error = update.error ?? "";
+			else delete next.error;
+			return next;
+		}),
+	};
+}
+
+export function hasRunningTask(state: PluginState): boolean {
+	return state.tasks.some((task) => task.status === "running");
+}
+
 export async function loadPluginState(storage: PluginStorageApi): Promise<PluginState> {
 	try {
 		const raw = await readJsonFile<unknown>(storage, STATE_FILE);
