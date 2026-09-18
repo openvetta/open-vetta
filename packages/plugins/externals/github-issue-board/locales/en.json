@@ -3,5 +3,17 @@
 	"plugin.description": "Import open GitHub issues from a public repo, add manual tasks, and run them one by one with an Agent in your local project.",
 	"view.board.label": "Issue Board",
 	"view.board.description": "Import GitHub issues and run them one by one",
-	"board.title": "GitHub Issue Board"
+	"board.title": "GitHub Issue Board",
+	"board.taskInput.label": "Task description",
+	"board.taskInput.placeholder": "Describe a task to add to the queue",
+	"board.add": "Add",
+	"board.queue.title": "Title",
+	"board.queue.source": "Source",
+	"board.queue.status": "Status",
+	"board.source.manual": "Manual",
+	"board.source.issue": "Issue",
+	"board.status.pending": "Pending",
+	"board.status.running": "Running",
+	"board.status.completed": "Completed",
+	"board.status.failed": "Failed"
 }

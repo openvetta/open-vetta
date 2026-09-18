@@ -3,5 +3,17 @@
 	"plugin.description": "拉取公开仓库的 GitHub issue，连同手动任务一起排队，逐条交给 Agent 在本地项目执行。",
 	"view.board.label": "任务台",
 	"view.board.description": "从 GitHub issue 导入待办并逐条执行",
-	"board.title": "GitHub Issue 任务台"
+	"board.title": "GitHub Issue 任务台",
+	"board.taskInput.label": "任务描述",
+	"board.taskInput.placeholder": "输入要加入队列的任务",
+	"board.add": "添加",
+	"board.queue.title": "标题",
+	"board.queue.source": "来源",
+	"board.queue.status": "状态",
+	"board.source.manual": "手动",
+	"board.source.issue": "Issue",
+	"board.status.pending": "待处理",
+	"board.status.running": "执行中",
+	"board.status.completed": "已完成",
+	"board.status.failed": "失败"
 }
