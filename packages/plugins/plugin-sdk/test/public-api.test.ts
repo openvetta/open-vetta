@@ -5,8 +5,10 @@ import type {
 	PluginCodingAgentHookRegistration,
 	PluginCodingAgentHookResult,
 	PluginContext,
+	PluginOfficialApi,
+	PluginOfficialSessionSummary,
 } from "../src/index.js";
-import { PLUGIN_CODING_AGENT_HOOK_EVENT_NAMES, PLUGIN_PERMISSIONS } from "../src/index.js";
+import { PLUGIN_CODING_AGENT_HOOK_EVENT_NAMES, PLUGIN_PERMISSIONS, resolveOfficialSessionOrigin } from "../src/index.js";
 
 describe("plugin-sdk public API", () => {
 	it("exports the runtime permission catalog from the package root", () => {
@@ -42,5 +44,18 @@ describe("plugin-sdk public API", () => {
 			}),
 		} satisfies PluginCodingAgentHookRegistration<"PreToolUse">;
 		expect(registration.eventName).toBe("PreToolUse");
+	});
+
+	it("treats missing official session origin as Vetta-native and keeps list() optional-origin compatible", () => {
+		expect(resolveOfficialSessionOrigin(undefined)).toBe("vetta");
+		expect(resolveOfficialSessionOrigin({ tool: "grok", path: "" })).toBe("vetta");
+		expect(resolveOfficialSessionOrigin({ tool: "  ", path: "  " })).toBe("vetta");
+		expect(resolveOfficialSessionOrigin({ tool: "grok", path: "/grok/summary.json" })).toBe("external");
+		expectTypeOf<PluginOfficialApi["sessions"]["list"]>().toMatchTypeOf<
+			(cwd: string) => Promise<PluginOfficialSessionSummary[]>
+		>();
+		expectTypeOf<PluginOfficialSessionSummary["origin"]>().toEqualTypeOf<
+			{ tool: string; path: string } | undefined
+		>();
 	});
 });

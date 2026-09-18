@@ -4,6 +4,8 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+- **`official.sessions.list()` 默认不返回外部工具会话**。外部会话在访问位上是只读，但续作能力真实存在；存量插件若靠「可续聊」过滤，仍可能把任务派进一个陌生会话。因此来源必须显式声明（`origin: "external"` 或 `["vetta", "external"]`），条目才携带 `origin.tool` / `origin.path`。缺字段或不完整一律读作 Vetta 原生，与 `access` 缺字段读 `false` 同一条 fail-safe。清单未变，不推 Plugin API 版本；`list(cwd)` 的既有调用行为不变。
+
 - `PluginModelDefinition` exposes `reasoningLevels` and `defaultReasoningLevel`, so model providers can publish their native reasoning choices without losing them at the host's write boundary. Requires the corresponding Desktop capability schema fix.
 
 - 新增 `@vetta-org/plugin-sdk/logger`。配套 `plugin-vite` 会从已校验的 `plugin.json` 为每个插件生成不可变的 `id@version` logger；插件无需持有或传递 `ctx`，日志仍由 Desktop 统一持久化、轮转并纳入诊断信息。使用该入口的插件要求 Plugin API `^2.5.0`。

@@ -412,6 +412,35 @@ export interface PluginOfficialSessionAccess {
 	delete: boolean;
 }
 
+/** 外部工具会话溯源：工具标识与原始路径。不含导入时间。 */
+export interface PluginOfficialSessionOrigin {
+	tool: string;
+	path: string;
+}
+
+/** `official.sessions.list` 的来源过滤。缺省仅 `vetta`。 */
+export type PluginOfficialSessionOriginKind = "vetta" | "external";
+
+export interface PluginOfficialSessionListOptions {
+	/**
+	 * 要包含的会话来源。缺省仅 `vetta`，不返回外部工具会话。
+	 * 需要外部会话时显式传入 `"external"` 或 `["vetta", "external"]`。
+	 */
+	origin?: PluginOfficialSessionOriginKind | readonly PluginOfficialSessionOriginKind[];
+}
+
+/**
+ * 来源信息缺失或不完整一律读作 Vetta 原生，与 access 缺字段读 false 的惯例一致。
+ * 旧宿主不会带 `origin`，插件应通过本函数解释而不是直接读字段。
+ */
+export function resolveOfficialSessionOrigin(
+	origin: PluginOfficialSessionOrigin | undefined,
+): PluginOfficialSessionOriginKind {
+	const tool = origin?.tool?.trim() ?? "";
+	const path = origin?.path?.trim() ?? "";
+	return tool.length > 0 && path.length > 0 ? "external" : "vetta";
+}
+
 /** 会话历史条目（`official.sessions.list` 返回），按 `modifiedAt` 倒序。 */
 export interface PluginOfficialSessionSummary {
 	path: string;
@@ -419,6 +448,8 @@ export interface PluginOfficialSessionSummary {
 	firstMessage?: string;
 	modifiedAt?: number;
 	access: PluginOfficialSessionAccess;
+	/** 外部工具溯源。缺省读作 Vetta 原生，见 {@link resolveOfficialSessionOrigin}。 */
+	origin?: PluginOfficialSessionOrigin;
 }
 
 /**
@@ -707,8 +738,13 @@ export interface PluginOfficialApi {
 		abort(sessionId: string): Promise<void>;
 		/** 重命名会话（写入会话文件标题），用于把看板卡片标题同步到会话列表。 */
 		rename(sessionPath: string, name: string): Promise<void>;
-		/** 列出某目录下的历史会话。 */
-		list(cwd: string): Promise<PluginOfficialSessionSummary[]>;
+		/**
+		 * 列出某目录下的历史会话。
+		 *
+		 * 缺省只返回 Vetta 原生会话。外部工具会话必须通过 `options.origin` 显式声明，
+		 * 否则像看板这类按会话派单的插件会把任务发进一个只读、但能续作的陌生会话。
+		 */
+		list(cwd: string, options?: PluginOfficialSessionListOptions): Promise<PluginOfficialSessionSummary[]>;
 		/** 当前处于 agent loop 中的会话文件路径快照。 */
 		listRunning(): Promise<string[]>;
 		/**
