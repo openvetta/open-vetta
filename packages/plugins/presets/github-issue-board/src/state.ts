@@ -353,6 +353,31 @@ export function hasRunningTask(state: PluginState): boolean {
 	return state.tasks.some((task) => task.status === "running");
 }
 
+export function reclaimRunningTasks(state: PluginState, now: number, error: string): PluginState {
+	if (!state.tasks.some((task) => task.status === "running")) return state;
+	return {
+		...state,
+		tasks: state.tasks.map((task) => {
+			if (task.status !== "running") return task;
+			return { ...task, status: "failed", error, updatedAt: now };
+		}),
+	};
+}
+
+export function retryFailedTask(state: PluginState, taskId: string, now: number): PluginState {
+	const task = state.tasks.find((item) => item.id === taskId);
+	if (!task || task.status !== "failed") return state;
+	return {
+		...state,
+		tasks: state.tasks.map((item) => {
+			if (item.id !== taskId) return item;
+			const next: GithubTask = { ...item, status: "pending", updatedAt: now };
+			delete next.error;
+			return next;
+		}),
+	};
+}
+
 export async function loadPluginState(storage: PluginStorageApi): Promise<PluginState> {
 	try {
 		const raw = await readJsonFile<unknown>(storage, STATE_FILE);

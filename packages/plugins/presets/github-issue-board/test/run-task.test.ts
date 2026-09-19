@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ConversationEvent, PluginConversationApi, SendPromptResult } from "@vetta-org/plugin-sdk";
-import { addManualTask, EMPTY_STATE, type PluginState } from "../src/state";
+import { addManualTask, EMPTY_STATE, hasRunningTask, type PluginState } from "../src/state";
 import { IMPLEMENT_SKILL, promptForRun, runQueuedTask } from "../src/run-task";
 
 function queuedState(...prompts: string[]): PluginState {
@@ -18,6 +18,7 @@ function fakeConversation(options?: {
 	sendError?: Error;
 	sendResult?: SendPromptResult;
 	stopReason?: string;
+	hangSend?: boolean;
 }) {
 	const listeners = new Set<(event: ConversationEvent) => void>();
 	const emit = (event: ConversationEvent): void => {
@@ -35,20 +36,22 @@ function fakeConversation(options?: {
 	});
 	const sendPrompt = vi.fn(async () => {
 		if (options?.sendError) throw options.sendError;
+		if (options?.hangSend) return new Promise<never>(() => undefined);
 		if (options?.stopReason) emit({ type: "turn-end", stopReason: options.stopReason });
 		return options?.sendResult ?? { status: "sent" as const };
 	});
+	const abort = vi.fn(async () => undefined);
 	const conversation = {
 		createSession,
 		sendPrompt,
 		insertText: () => undefined,
-		abort: async () => undefined,
+		abort,
 		on: (listener: (event: ConversationEvent) => void) => {
 			listeners.add(listener);
 			return { dispose: () => listeners.delete(listener) };
 		},
 	} as unknown as PluginConversationApi;
-	return { conversation, createSession, sendPrompt };
+	return { conversation, createSession, sendPrompt, abort };
 }
 
 describe("runQueuedTask", () => {
@@ -157,5 +160,47 @@ describe("runQueuedTask", () => {
 		expect(sendPrompt).not.toHaveBeenCalled();
 		expect(result.notice).toBe("no-project");
 		expect(result.state.tasks[0]?.status).toBe("pending");
+	});
+
+	it("marks a hanging run failed on abort so another pending task can start", async () => {
+		const hanging = fakeConversation({ hangSend: true });
+		const controller = new AbortController();
+		let sawRunning: () => void = () => undefined;
+		const running = new Promise<void>((resolve) => {
+			sawRunning = resolve;
+		});
+		const first = runQueuedTask({
+			state: queuedState("Fix login", "Add docs"),
+			taskId: "task-1",
+			conversation: hanging.conversation,
+			cwd: "/repo",
+			now: () => 10,
+			signal: controller.signal,
+			stoppedError: "Stopped",
+			persist: (state) => {
+				if (state.tasks[0]?.status === "running") sawRunning();
+			},
+		});
+		await running;
+		controller.abort();
+		const aborted = await first;
+		expect(hanging.abort).toHaveBeenCalled();
+		expect(aborted.state.tasks[0]).toMatchObject({
+			status: "failed",
+			error: "Stopped",
+			sessionId: "/tmp/sess-1.jsonl",
+		});
+		expect(hasRunningTask(aborted.state)).toBe(false);
+
+		const finishing = fakeConversation({ stopReason: "stop" });
+		const second = await runQueuedTask({
+			state: aborted.state,
+			taskId: "task-2",
+			conversation: finishing.conversation,
+			cwd: "/repo",
+			now: () => 11,
+		});
+		expect(second.state.tasks[1]).toMatchObject({ status: "completed" });
+		expect(finishing.sendPrompt).toHaveBeenCalledWith("Add docs");
 	});
 });

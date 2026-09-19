@@ -31,6 +31,7 @@ const COPY: Record<string, string> = {
 	"board.queue.assignees": "Assignees",
 	"board.queue.source": "Source",
 	"board.queue.status": "Status",
+	"board.queue.actions": "Actions",
 	"board.source.manual": "Manual",
 	"board.source.issue": "Issue",
 	"board.issue.ref": "#{{number}}",
@@ -45,9 +46,12 @@ const COPY: Record<string, string> = {
 	"board.status.pending": "Pending",
 	"board.status.running": "Running",
 	"board.status.completed": "Completed",
+	"board.status.failed": "Failed",
 	"board.run": "Run",
 	"board.run.direct": "Run directly",
 	"board.run.withSkill": "Run with {{name}}",
+	"board.retry": "Retry",
+	"board.stop": "Stop",
 	"board.edit": "Edit",
 	"board.delete": "Delete",
 	"board.delete.confirm": "Confirm delete",
@@ -55,6 +59,8 @@ const COPY: Record<string, string> = {
 	"board.cancel": "Cancel",
 	"board.taskEdit.label": "Edit task description",
 	"board.error.noProject": "Select a project or local folder first",
+	"board.error.interrupted": "Interrupted by a previous session",
+	"board.error.stopped": "Stopped",
 	"board.fetch": "Fetch issues",
 	"board.fetch.loadMore": "Load more",
 	"board.fetch.none": "No new open issues were imported",
@@ -474,6 +480,160 @@ describe("GitHub Issue board view", () => {
 			true,
 		);
 		expect(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.delete"] })).toHaveProperty(
+			"disabled",
+			true,
+		);
+	});
+
+	it("reclaims a persisted running issue on load so other tasks can run", async () => {
+		const { ctx, registered } = fakeContext({
+			gitRemote: githubRemote("acme", "app"),
+			initialState: {
+				repoTarget: { owner: "acme", repo: "app" },
+				workspace: { kind: "conversation" },
+				tasks: [
+					{
+						id: "run",
+						title: "Fix login",
+						promptText: "Fix login",
+						source: {
+							kind: "issue",
+							owner: "acme",
+							repo: "app",
+							issueNumber: 10,
+							issueUrl: "https://github.com/acme/app/issues/10",
+							issueUpdatedAt: "2026-01-01T00:00:00Z",
+							issueState: "open",
+						},
+						status: "running",
+						sessionId: "/repo/sess-1.jsonl",
+						createdAt: 1,
+						updatedAt: 1,
+					},
+					{
+						id: "next",
+						title: "Add docs",
+						promptText: "Add docs",
+						source: {
+							kind: "issue",
+							owner: "acme",
+							repo: "app",
+							issueNumber: 11,
+							issueUrl: "https://github.com/acme/app/issues/11",
+							issueUpdatedAt: "2026-01-01T00:00:00Z",
+							issueState: "open",
+						},
+						status: "pending",
+						createdAt: 1,
+						updatedAt: 1,
+					},
+				],
+				issueNextPage: null,
+				lastFetch: { owner: "acme", repo: "app" },
+			},
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		expect(await screen.findByText(COPY["board.error.interrupted"] ?? "")).toBeTruthy();
+		expect(
+			within(taskRow("Fix login")).getByRole("cell", {
+				name: `${COPY["board.status.failed"]} ${COPY["board.issue.state.open"]} ${COPY["board.error.interrupted"]}`,
+			}),
+		).toBeTruthy();
+		expect(within(taskRow("Fix login")).getByRole("button", { name: COPY["board.openSession"] })).toBeTruthy();
+		expect(within(taskRow("Add docs")).getByRole("button", { name: COPY["board.run"] })).not.toHaveProperty(
+			"disabled",
+			true,
+		);
+	});
+
+	it("retries a failed issue back to pending and runs the original prompt", async () => {
+		const { ctx, registered, createSession, sendPrompt } = fakeContext({
+			gitRemote: githubRemote("acme", "app"),
+			initialState: {
+				repoTarget: { owner: "acme", repo: "app" },
+				workspace: { kind: "conversation" },
+				tasks: [
+					{
+						id: "failed",
+						title: "Fix login",
+						promptText: "The button does nothing.",
+						source: {
+							kind: "issue",
+							owner: "acme",
+							repo: "app",
+							issueNumber: 10,
+							issueUrl: "https://github.com/acme/app/issues/10",
+							issueUpdatedAt: "2026-01-01T00:00:00Z",
+							issueState: "open",
+						},
+						status: "failed",
+						error: "boom",
+						createdAt: 1,
+						updatedAt: 1,
+					},
+				],
+				issueNextPage: null,
+				lastFetch: { owner: "acme", repo: "app" },
+			},
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		expect(await screen.findByRole("button", { name: COPY["board.retry"] })).toBeTruthy();
+		await act(async () => {
+			fireEvent.click(within(taskRow("Fix login")).getByRole("button", { name: COPY["board.retry"] }));
+		});
+		expect(
+			within(taskRow("Fix login")).getByRole("cell", {
+				name: `${COPY["board.status.pending"]} ${COPY["board.issue.state.open"]}`,
+			}),
+		).toBeTruthy();
+		expect(within(taskRow("Fix login")).queryByRole("button", { name: COPY["board.edit"] })).toBeNull();
+		expect(within(taskRow("Fix login")).queryByRole("button", { name: COPY["board.delete"] })).toBeNull();
+
+		await runDirectly("Fix login");
+		await waitFor(() => {
+			expect(
+				within(taskRow("Fix login")).getByRole("cell", {
+					name: `${COPY["board.status.completed"]} ${COPY["board.issue.state.open"]}`,
+				}),
+			).toBeTruthy();
+		});
+		expect(createSession).toHaveBeenCalledWith("/repo");
+		expect(sendPrompt).toHaveBeenCalledWith("The button does nothing.");
+	});
+
+	it("stops a running task and unlocks the rest of the queue", async () => {
+		const { ctx, registered } = fakeContext({ hangSend: true });
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await addTask("Fix the login button");
+		await addTask("Write the tests");
+		await runDirectly("Fix the login button");
+		await waitFor(() => {
+			expect(
+				within(taskRow("Fix the login button")).getByRole("cell", { name: COPY["board.status.running"] }),
+			).toBeTruthy();
+		});
+		expect(within(taskRow("Fix the login button")).queryByRole("button", { name: COPY["board.run"] })).toBeNull();
+		await act(async () => {
+			fireEvent.click(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.stop"] }));
+		});
+		await waitFor(() => {
+			expect(
+				within(taskRow("Fix the login button")).getByRole("cell", {
+					name: `${COPY["board.status.failed"]} ${COPY["board.error.stopped"]}`,
+				}),
+			).toBeTruthy();
+		});
+		expect(screen.getByText(COPY["board.error.stopped"] ?? "")).toBeTruthy();
+		expect(within(taskRow("Write the tests")).getByRole("button", { name: COPY["board.run"] })).not.toHaveProperty(
 			"disabled",
 			true,
 		);

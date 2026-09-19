@@ -29,6 +29,8 @@
 	"board.status.failed": "Failed",
 	"board.queue.actions": "Actions",
 	"board.run": "Run",
+	"board.retry": "Retry",
+	"board.stop": "Stop",
 	"board.run.direct": "Run directly",
 	"board.run.withSkill": "Run with {{name}}",
 	"board.edit": "Edit",
@@ -59,6 +61,8 @@
 	"board.error.nonJson": "GitHub returned an unexpected, non-JSON error.",
 	"board.error.openSession": "Could not open the conversation.",
 	"board.error.noProject": "Select a project or local folder first",
+	"board.error.interrupted": "Interrupted by a previous session",
+	"board.error.stopped": "Stopped",
 	"board.error.notGit": "The current folder is not a Git repository.",
 	"board.error.noGithubRemote": "The current project has no GitHub remote.",
 	"board.error.pickDirectory": "Could not open the folder picker."

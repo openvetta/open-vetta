@@ -3,9 +3,12 @@ import {
 	addManualTask,
 	applyOpenIssueSnapshot,
 	EMPTY_STATE,
+	hasRunningTask,
 	mergeIssueTasks,
 	parsePluginState,
+	reclaimRunningTasks,
 	removeTask,
+	retryFailedTask,
 	updateTaskPrompt,
 	type GithubTask,
 } from "../src/state";
@@ -330,5 +333,89 @@ describe("updateTaskPrompt", () => {
 		expect(updateTaskPrompt(state, { taskId: "i", promptText: "new prompt", now: NOW + 1 })).toBe(state);
 		expect(updateTaskPrompt(state, { taskId: "r", promptText: "nope", now: NOW + 1 })).toBe(state);
 		expect(updateTaskPrompt(state, { taskId: "m", promptText: "   ", now: NOW + 1 })).toBe(state);
+	});
+});
+
+describe("reclaimRunningTasks", () => {
+	it("marks a running issue failed, keeps the session, and leaves other tasks alone", () => {
+		const running = issueTask({
+			id: "run",
+			title: "Fix login",
+			status: "running",
+			sessionId: "/repo/sess-1.jsonl",
+			updatedAt: NOW,
+		});
+		const pendingTask = issueTask({
+			id: "pend",
+			title: "Add docs",
+			source: {
+				kind: "issue",
+				owner: "acme",
+				repo: "app",
+				issueNumber: 11,
+				issueUrl: "https://github.com/acme/app/issues/11",
+				issueUpdatedAt: "2026-01-02T03:04:05Z",
+				issueState: "open",
+			},
+		});
+		const completed = addManualTask(EMPTY_STATE, {
+			id: "done",
+			promptText: "done",
+			now: NOW,
+			cwd: null,
+		}).tasks[0]!;
+		const completedTask = { ...completed, status: "completed" as const };
+		const state = { ...EMPTY_STATE, tasks: [running, pendingTask, completedTask] };
+		const next = reclaimRunningTasks(state, NOW + 5, "Interrupted by a previous session");
+		expect(next.tasks[0]).toMatchObject({
+			id: "run",
+			status: "failed",
+			error: "Interrupted by a previous session",
+			sessionId: "/repo/sess-1.jsonl",
+			updatedAt: NOW + 5,
+			promptText: "Fix login",
+		});
+		expect(next.tasks[1]).toBe(pendingTask);
+		expect(next.tasks[2]).toBe(completedTask);
+		expect(hasRunningTask(next)).toBe(false);
+	});
+
+	it("returns the same state when nothing is running", () => {
+		const pending = issueTask({ title: "Fix login" });
+		const state = { ...EMPTY_STATE, tasks: [pending] };
+		expect(reclaimRunningTasks(state, NOW + 1, "Interrupted by a previous session")).toBe(state);
+	});
+});
+
+describe("retryFailedTask", () => {
+	it("returns a failed issue to pending without changing the prompt", () => {
+		const failed = issueTask({
+			title: "Fix login",
+			status: "failed",
+			error: "boom",
+			sessionId: "/repo/sess-1.jsonl",
+			promptText: "Fix login\n\nThe button does nothing.",
+		});
+		const state = { ...EMPTY_STATE, tasks: [failed] };
+		const next = retryFailedTask(state, "task-1", NOW + 2);
+		expect(next.tasks[0]).toMatchObject({
+			status: "pending",
+			sessionId: "/repo/sess-1.jsonl",
+			promptText: "Fix login\n\nThe button does nothing.",
+			title: "Fix login",
+			updatedAt: NOW + 2,
+		});
+		expect(next.tasks[0]?.error).toBeUndefined();
+	});
+
+	it("leaves pending, running, and completed tasks unchanged", () => {
+		const pending = issueTask({ id: "p", title: "pending" });
+		const running = issueTask({ id: "r", title: "running", status: "running" });
+		const completed = issueTask({ id: "c", title: "completed", status: "completed" });
+		const state = { ...EMPTY_STATE, tasks: [pending, running, completed] };
+		expect(retryFailedTask(state, "p", NOW + 1)).toBe(state);
+		expect(retryFailedTask(state, "r", NOW + 1)).toBe(state);
+		expect(retryFailedTask(state, "c", NOW + 1)).toBe(state);
+		expect(retryFailedTask(state, "missing", NOW + 1)).toBe(state);
 	});
 });

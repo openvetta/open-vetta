@@ -29,6 +29,8 @@
 	"board.status.failed": "失败",
 	"board.queue.actions": "操作",
 	"board.run": "运行",
+	"board.retry": "重试",
+	"board.stop": "停止",
 	"board.run.direct": "直接运行",
 	"board.run.withSkill": "用 {{name}} 运行",
 	"board.edit": "编辑",
@@ -59,6 +61,8 @@
 	"board.error.nonJson": "GitHub 返回了无法解析的错误。",
 	"board.error.openSession": "打开对话页失败。",
 	"board.error.noProject": "请先选择一个项目或本地目录",
+	"board.error.interrupted": "上次运行被中断",
+	"board.error.stopped": "已停止",
 	"board.error.notGit": "当前目录不是 Git 仓库。",
 	"board.error.noGithubRemote": "当前项目没有 GitHub 远程地址。",
 	"board.error.pickDirectory": "无法打开目录选择框。"

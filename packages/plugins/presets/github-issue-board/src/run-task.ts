@@ -14,6 +14,8 @@ export interface RunQueuedTaskInput {
 	persist?: (state: PluginState) => void | Promise<void>;
 	/** When set, prefix the sent prompt with `@skill:<name>` without persisting it. */
 	skill?: string | null;
+	signal?: AbortSignal;
+	stoppedError?: string;
 }
 
 export function promptForRun(promptText: string, skill?: string | null): string {
@@ -46,14 +48,50 @@ function waitForTurnEnd(conversation: PluginConversationApi): {
 	return { promise, dispose };
 }
 
-async function sendAndWait(conversation: PluginConversationApi, promptText: string): Promise<string> {
+const ABORTED = "aborted-locally";
+
+function whenAborted(signal: AbortSignal): Promise<typeof ABORTED> {
+	return new Promise((resolve) => {
+		if (signal.aborted) {
+			resolve(ABORTED);
+			return;
+		}
+		signal.addEventListener("abort", () => resolve(ABORTED), { once: true });
+	});
+}
+
+async function abortConversation(conversation: PluginConversationApi): Promise<void> {
+	try {
+		await conversation.abort();
+	} catch {
+		// The session may already be gone.
+	}
+}
+
+async function sendAndWait(
+	conversation: PluginConversationApi,
+	promptText: string,
+	signal?: AbortSignal,
+): Promise<string> {
 	const turnEnd = waitForTurnEnd(conversation);
 	try {
-		const result = await conversation.sendPrompt(promptText);
-		if (result.status === "failed") {
-			throw new Error(result.error?.message ?? "failed");
+		const sendPrompt = conversation.sendPrompt(promptText);
+		const sent = signal ? await Promise.race([sendPrompt, whenAborted(signal)]) : await sendPrompt;
+		if (sent === ABORTED) {
+			await abortConversation(conversation);
+			return ABORTED;
 		}
-		return await turnEnd.promise;
+		if (sent.status === "failed") {
+			throw new Error(sent.error?.message ?? "failed");
+		}
+		const stopReason = signal
+			? await Promise.race([turnEnd.promise, whenAborted(signal)])
+			: await turnEnd.promise;
+		if (stopReason === ABORTED) {
+			await abortConversation(conversation);
+			return ABORTED;
+		}
+		return stopReason;
 	} finally {
 		turnEnd.dispose();
 	}
@@ -81,10 +119,12 @@ export async function runQueuedTask(input: RunQueuedTaskInput): Promise<{
 			current = setTaskStatus(current, taskId, { status: "running", sessionId: sessionPath, now: now() });
 			await persist?.(current);
 		}
-		const stopReason = await sendAndWait(conversation, promptForRun(task.promptText, input.skill));
+		const stopReason = await sendAndWait(conversation, promptForRun(task.promptText, input.skill), input.signal);
 		current = setTaskStatus(current, taskId, {
 			status: stopReason === "stop" ? "completed" : "failed",
-			...(stopReason === "stop" ? {} : { error: stopReason }),
+			...(stopReason === "stop"
+				? {}
+				: { error: stopReason === ABORTED ? (input.stoppedError ?? "Stopped") : stopReason }),
 			now: now(),
 		});
 		await persist?.(current);

@@ -27,7 +27,9 @@ import {
 	hasRunningTask,
 	loadPluginState,
 	mergeIssueTasks,
+	reclaimRunningTasks,
 	removeTask,
+	retryFailedTask,
 	savePluginState,
 	updateTaskPrompt,
 	type GithubIssueState,
@@ -104,6 +106,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const [editDraft, setEditDraft] = useState("");
 	const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 	const [pendingRunId, setPendingRunId] = useState<string | null>(null);
+	const [stoppingId, setStoppingId] = useState<string | null>(null);
 	const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
 	const [runMenuPos, setRunMenuPos] = useState<RunMenuPos | null>(null);
 	const [commentsByTask, setCommentsByTask] = useState<Record<string, CommentsCacheEntry>>({});
@@ -111,6 +114,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const conversation = useActiveConversation();
 	const cancelledRef = useRef(false);
 	const inflightRef = useRef(false);
+	const abortRef = useRef<AbortController | null>(null);
 	const fetchingRef = useRef(false);
 	const runMenuRef = useRef<HTMLDivElement>(null);
 	const runTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -145,9 +149,14 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 
 	useEffect(() => {
 		cancelledRef.current = false;
-		void loadPluginState(ctx.storage).then((loaded) => {
+		void loadPluginState(ctx.storage).then(async (loaded) => {
 			if (cancelledRef.current) return;
-			setState(loaded);
+			const reclaimed = reclaimRunningTasks(loaded, Date.now(), ctx.i18n.t("board.error.interrupted"));
+			if (reclaimed === loaded) {
+				setState(loaded);
+				return;
+			}
+			await persist(reclaimed);
 		});
 		return () => {
 			cancelledRef.current = true;
@@ -427,6 +436,8 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		if (!current || inflightRef.current || pendingRunId !== taskId) return;
 		setPendingRunId(null);
 		inflightRef.current = true;
+		const controller = new AbortController();
+		abortRef.current = controller;
 		try {
 			const result = await runQueuedTask({
 				state: current,
@@ -436,14 +447,30 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 				now: () => Date.now(),
 				persist,
 				skill,
+				signal: controller.signal,
+				stoppedError: t("board.error.stopped"),
 			});
 			if (!cancelledRef.current) setState(result.state);
 			if (result.notice === "no-project") {
 				ctx.ui.notify({ message: t("board.error.noProject") });
 			}
 		} finally {
+			if (abortRef.current === controller) abortRef.current = null;
+			if (!cancelledRef.current) setStoppingId(null);
 			inflightRef.current = false;
 		}
+	}
+
+	async function handleRetry(taskId: string): Promise<void> {
+		const current = stateRef.current;
+		if (!current) return;
+		await persist(retryFailedTask(current, taskId, Date.now()));
+	}
+
+	function handleStop(taskId: string): void {
+		if (stoppingId) return;
+		setStoppingId(taskId);
+		abortRef.current?.abort();
 	}
 
 	async function handleOpenSession(sessionPath: string): Promise<void> {
@@ -722,20 +749,41 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 											</td>
 											<td className="py-2">
 												<div className="flex flex-wrap items-center gap-1.5">
-													<button
-														ref={pendingRunId === task.id ? runTriggerRef : undefined}
-														aria-expanded={pendingRunId === task.id}
-														aria-haspopup="true"
-														className={ACTION_BUTTON}
-														disabled={!ready || busy || task.status !== "pending" || editingId === task.id}
-														type="button"
-														onClick={(event) => {
-															if (pendingRunId === task.id) cancelRun();
-															else requestRun(task, event.currentTarget);
-														}}
-													>
-														{t("board.run")}
-													</button>
+													{task.status === "running" ? (
+														<button
+															className={ACTION_BUTTON}
+															disabled={!ready || stoppingId === task.id}
+															type="button"
+															onClick={() => handleStop(task.id)}
+														>
+															{t("board.stop")}
+														</button>
+													) : (
+														<button
+															ref={pendingRunId === task.id ? runTriggerRef : undefined}
+															aria-expanded={pendingRunId === task.id}
+															aria-haspopup="true"
+															className={ACTION_BUTTON}
+															disabled={!ready || busy || task.status !== "pending" || editingId === task.id}
+															type="button"
+															onClick={(event) => {
+																if (pendingRunId === task.id) cancelRun();
+																else requestRun(task, event.currentTarget);
+															}}
+														>
+															{t("board.run")}
+														</button>
+													)}
+													{task.status === "failed" ? (
+														<button
+															className={ACTION_BUTTON}
+															disabled={!ready || busy || editingId === task.id}
+															type="button"
+															onClick={() => void handleRetry(task.id)}
+														>
+															{t("board.retry")}
+														</button>
+													) : null}
 													{task.source.kind === "manual" ? (
 														pendingDeleteId === task.id ? (
 															<>
