@@ -21,13 +21,16 @@ import {
 } from "./github-issues";
 import { IMPLEMENT_SKILL, runQueuedTask } from "./run-task";
 import {
+	accumulateIssueNumbers,
 	addManualTask,
+	applyOpenIssueSnapshot,
 	hasRunningTask,
 	loadPluginState,
 	mergeIssueTasks,
 	removeTask,
 	savePluginState,
 	updateTaskPrompt,
+	type GithubIssueState,
 	type GithubTask,
 	type GithubTaskStatus,
 	type PluginState,
@@ -35,7 +38,6 @@ import {
 import {
 	CONVERSATION_WORKSPACE,
 	extraWorkspacePath,
-	parseWorkspaceSelectValue,
 	pathBasename,
 	resolveWorkspaceCwd,
 	tasksVisibleForBoard,
@@ -60,11 +62,14 @@ const FIELD =
 
 const STATUS_BADGE: Record<GithubTaskStatus, string> = {
 	pending: "bg-muted text-muted-foreground",
-	running: "bg-primary/12 text-primary",
-	completed: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
-	failed: "bg-red-500/12 text-red-600 dark:text-red-400",
+	running: "bg-primary/10 text-primary",
+	completed: "bg-emerald-500/15 text-emerald-400",
+	failed: "bg-destructive/15 text-destructive",
 };
-
+const ISSUE_STATE_BADGE: Record<GithubIssueState, string> = {
+	open: "bg-emerald-500/15 text-emerald-400",
+	closed: "bg-muted text-muted-foreground",
+};
 const ACTION_BUTTON =
 	"rounded-lg border border-border px-2 py-1 text-xs font-medium text-foreground disabled:opacity-40";
 const PRIMARY_BUTTON =
@@ -92,8 +97,6 @@ type CommentsCacheEntry = { status: "loading" | "error" | "ok"; items: GithubIss
 export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const [state, setState] = useState<PluginState | null>(null);
 	const [draft, setDraft] = useState("");
-	const [owner, setOwner] = useState("");
-	const [repo, setRepo] = useState("");
 	const [fetching, setFetching] = useState(false);
 	const [fetchNotice, setFetchNotice] = useState<string | null>(null);
 	const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -101,6 +104,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const [editDraft, setEditDraft] = useState("");
 	const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 	const [pendingRunId, setPendingRunId] = useState<string | null>(null);
+	const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
 	const [runMenuPos, setRunMenuPos] = useState<RunMenuPos | null>(null);
 	const [commentsByTask, setCommentsByTask] = useState<Record<string, CommentsCacheEntry>>({});
 	const [workbench, setWorkbench] = useState<PluginOfficialProjectEntry[]>([]);
@@ -110,13 +114,10 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const fetchingRef = useRef(false);
 	const runMenuRef = useRef<HTMLDivElement>(null);
 	const runTriggerRef = useRef<HTMLButtonElement | null>(null);
+	const workspaceMenuRef = useRef<HTMLDivElement>(null);
 	const workspaceGenRef = useRef(0);
 	const stateRef = useRef(state);
 	stateRef.current = state;
-	const ownerRef = useRef(owner);
-	ownerRef.current = owner;
-	const repoRef = useRef(repo);
-	repoRef.current = repo;
 	const commentsRef = useRef(commentsByTask);
 	commentsRef.current = commentsByTask;
 	const t = ctx.i18n.t;
@@ -130,16 +131,23 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		workbench.map((project) => project.path),
 	);
 	const visibleTasks = tasksVisibleForBoard(state?.tasks ?? [], state?.repoTarget ?? null, workspaceCwd);
+	const selectedWorkspaceValue = workspaceSelectValue(workspace);
+	const workspaceTriggerName =
+		workspace.kind === "path"
+			? workbench.find((project) => project.path === workspace.path)?.name?.trim() || pathBasename(workspace.path)
+			: conversation.cwd
+				? pathBasename(conversation.cwd)
+				: t("board.workspace.placeholder");
+	const workspaceTriggerIcon =
+		workspace.kind === "path" || conversation.cwd
+			? "icon-[solar--folder-linear]"
+			: "icon-[solar--folder-with-files-linear]";
 
 	useEffect(() => {
 		cancelledRef.current = false;
 		void loadPluginState(ctx.storage).then((loaded) => {
 			if (cancelledRef.current) return;
 			setState(loaded);
-			if (loaded.repoTarget) {
-				setOwner(loaded.repoTarget.owner);
-				setRepo(loaded.repoTarget.repo);
-			}
 		});
 		return () => {
 			cancelledRef.current = true;
@@ -183,6 +191,25 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		};
 	}, [pendingRunId]);
 
+	useEffect(() => {
+		if (!workspaceMenuOpen) return;
+		const onPointerDown = (event: PointerEvent) => {
+			const target = event.target;
+			if (!(target instanceof Node)) return;
+			if (workspaceMenuRef.current?.contains(target)) return;
+			setWorkspaceMenuOpen(false);
+		};
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") setWorkspaceMenuOpen(false);
+		};
+		document.addEventListener("pointerdown", onPointerDown);
+		document.addEventListener("keydown", onKeyDown);
+		return () => {
+			document.removeEventListener("pointerdown", onPointerDown);
+			document.removeEventListener("keydown", onKeyDown);
+		};
+	}, [workspaceMenuOpen]);
+
 	useLayoutEffect(() => {
 		if (!pendingRunId) {
 			setRunMenuPos(null);
@@ -207,24 +234,16 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		fetchingRef.current = true;
 		setFetching(true);
 		try {
-			let ownerName = ownerRef.current.trim();
-			let repoName = repoRef.current.trim();
-			if (!ownerName || !repoName) {
-				const resolved = await resolveGithubRepoFromProject({
-					command: ctx.command,
-					cwd: resolveWorkspaceCwd(stateRef.current?.workspace ?? current.workspace, conversation.cwd),
-				});
-				if (!resolved.ok) {
-					ctx.ui.notify({ message: t(RESOLVE_ERROR_KEY[resolved.error]) });
-					return;
-				}
-				ownerName = resolved.target.owner;
-				repoName = resolved.target.repo;
-				ownerRef.current = ownerName;
-				repoRef.current = repoName;
-				setOwner(ownerName);
-				setRepo(repoName);
+			const resolved = await resolveGithubRepoFromProject({
+				command: ctx.command,
+				cwd: resolveWorkspaceCwd(stateRef.current?.workspace ?? current.workspace, conversation.cwd),
+			});
+			if (!resolved.ok) {
+				ctx.ui.notify({ message: t(RESOLVE_ERROR_KEY[resolved.error]) });
+				return;
 			}
+			const ownerName = resolved.target.owner;
+			const repoName = resolved.target.repo;
 			const latest = stateRef.current ?? current;
 			const withTarget: PluginState = { ...latest, repoTarget: { owner: ownerName, repo: repoName } };
 			await persist(withTarget);
@@ -247,16 +266,47 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 			const merged = mergeIssueTasks(stateRef.current ?? withTarget, mapped);
 			const rawCount = result.items.length;
 			const nextPage = rawCount >= ISSUE_PAGE_SIZE ? page + 1 : null;
-			await persist({
+			const openNumbers = mapped.flatMap((task) =>
+				task.source.kind === "issue" ? [task.source.issueNumber] : [],
+			);
+			const latestMerged = stateRef.current ?? withTarget;
+			const priorSync = latestMerged.issueSync;
+			const seenNumbers = accumulateIssueNumbers(
+				page > 1 &&
+					priorSync &&
+					priorSync.owner === ownerName &&
+					priorSync.repo === repoName
+					? priorSync.seenNumbers
+					: [],
+				openNumbers,
+			);
+			let nextState: PluginState = {
 				...merged.state,
 				issueNextPage: nextPage,
 				lastFetch: { owner: ownerName, repo: repoName },
-			});
+			};
+			let closedCount = 0;
+			if (nextPage == null) {
+				const snapshot = applyOpenIssueSnapshot(nextState, {
+					owner: ownerName,
+					repo: repoName,
+					openNumbers: new Set(seenNumbers),
+				});
+				nextState = { ...snapshot.state, issueSync: null };
+				closedCount = snapshot.closed;
+			} else {
+				nextState = {
+					...nextState,
+					issueSync: { owner: ownerName, repo: repoName, seenNumbers },
+				};
+			}
+			await persist(nextState);
 			if (cancelledRef.current) return;
-			if (page === 1 && merged.imported + merged.updated === 0) {
+			const updated = merged.updated + closedCount;
+			if (page === 1 && merged.imported + updated === 0) {
 				setFetchNotice(t("board.fetch.none"));
 			} else if (page === 1) {
-				setFetchNotice(t("board.fetch.summary", { imported: merged.imported, updated: merged.updated }));
+				setFetchNotice(t("board.fetch.summary", { imported: merged.imported, updated }));
 			} else {
 				setFetchNotice(t("board.fetch.more", { imported: merged.imported }));
 			}
@@ -267,34 +317,19 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	}
 
 	async function applyWorkspace(next: WorkspaceSource): Promise<void> {
+		setWorkspaceMenuOpen(false);
 		const current = stateRef.current;
 		if (!current) return;
 		if (workspaceSelectValue(current.workspace) === workspaceSelectValue(next)) return;
 		setFetchNotice(null);
 		const gen = ++workspaceGenRef.current;
-		const withWorkspace = { ...current, workspace: next };
-		await persist(withWorkspace);
-		const cwd = resolveWorkspaceCwd(next, conversation.cwd);
-		const resolved = await resolveGithubRepoFromProject({
-			command: ctx.command,
-			cwd,
-		});
-		if (cancelledRef.current || gen !== workspaceGenRef.current) return;
-		if (!resolved.ok) {
-			ctx.ui.notify({ message: t(RESOLVE_ERROR_KEY[resolved.error]) });
-			return;
-		}
-		ownerRef.current = resolved.target.owner;
-		repoRef.current = resolved.target.repo;
-		setOwner(resolved.target.owner);
-		setRepo(resolved.target.repo);
-		const latest = stateRef.current ?? withWorkspace;
-		await persist({ ...latest, repoTarget: resolved.target });
+		await persist({ ...current, workspace: next });
 		if (cancelledRef.current || gen !== workspaceGenRef.current) return;
 		await importOpenIssues(1);
 	}
 
 	async function handlePickDirectory(): Promise<void> {
+		setWorkspaceMenuOpen(false);
 		let path: string | null;
 		try {
 			path = await ctx.official.dialog.openDirectory();
@@ -461,74 +496,122 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	return (
 		<div className="flex h-full w-full flex-col gap-4 bg-background p-6">
 			<h1 className="text-lg font-semibold text-foreground">{t("board.title")}</h1>
-			<div className="flex flex-wrap items-end gap-2">
-				<label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-sm font-medium text-muted-foreground">
-					{t("board.workspace.label")}
-					<select
-						className={FIELD}
-						disabled={!ready}
-						value={workspaceSelectValue(workspace)}
-						onChange={(event) => {
-							void applyWorkspace(parseWorkspaceSelectValue(event.target.value));
-						}}
-					>
-						<option value="conversation">
-							{conversation.cwd
-								? t("board.workspace.conversation", { path: conversation.cwd })
-								: t("board.workspace.conversationNone")}
-						</option>
-						{workbench.map((project) => (
-							<option key={project.path} value={`path:${project.path}`}>
-								{t("board.workspace.project", {
-									name: project.name?.trim() || pathBasename(project.path),
-									path: project.path,
-								})}
-							</option>
-						))}
-						{extraPath ? (
-							<option value={`path:${extraPath}`}>
-								{t("board.workspace.project", {
-									name: pathBasename(extraPath),
-									path: extraPath,
-								})}
-							</option>
-						) : null}
-					</select>
-				</label>
-				<button className={ACTION_BUTTON} disabled={!ready} type="button" onClick={() => void handlePickDirectory()}>
-					{t("board.workspace.pickDirectory")}
+			<div ref={workspaceMenuRef} className="relative flex flex-wrap items-center gap-2">
+				<button
+					aria-expanded={workspaceMenuOpen}
+					aria-haspopup="menu"
+					aria-label={t("board.workspace.label")}
+					className={`flex h-7 max-w-[16rem] min-w-0 items-center gap-1.5 rounded-lg bg-card px-2.5 text-[12px] font-medium transition-colors disabled:pointer-events-none disabled:opacity-60 ${
+						workspaceMenuOpen ? "bg-accent text-foreground" : "text-foreground hover:bg-accent"
+					} ${workspace.kind === "conversation" && !conversation.cwd ? "text-muted-foreground/80 hover:text-foreground" : ""}`}
+					disabled={!ready}
+					type="button"
+					onClick={() => {
+						setPendingRunId(null);
+						setWorkspaceMenuOpen((open) => !open);
+					}}
+				>
+					<span className={`${workspaceTriggerIcon} h-3.5 w-3.5 shrink-0`} aria-hidden />
+					<span className="min-w-0 truncate">{workspaceTriggerName}</span>
+					<span className="icon-[solar--alt-arrow-down-linear] h-3 w-3 shrink-0 opacity-70" aria-hidden />
 				</button>
+				{workspaceMenuOpen ? (
+					<div
+						className="absolute left-0 top-full z-50 mt-1.5 w-[228px] overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
+						role="menu"
+					>
+						<button
+							className={`flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-left text-[12px] font-medium transition-colors ${
+								selectedWorkspaceValue === "conversation"
+									? "bg-accent text-foreground"
+									: "text-muted-foreground hover:bg-accent hover:text-foreground"
+							}`}
+							role="menuitem"
+							type="button"
+							onClick={() => void applyWorkspace(CONVERSATION_WORKSPACE)}
+						>
+							<span className="icon-[solar--chat-round-line-linear] h-3.5 w-3.5 shrink-0" aria-hidden />
+							<span className="min-w-0 truncate">
+								{conversation.cwd
+									? t("board.workspace.conversation", { path: conversation.cwd })
+									: t("board.workspace.conversationNone")}
+							</span>
+							{selectedWorkspaceValue === "conversation" ? (
+								<span className="icon-[solar--check-circle-linear] ml-auto h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+							) : null}
+						</button>
+						{workbench.map((project) => {
+							const value = `path:${project.path}`;
+							const name = project.name?.trim() || pathBasename(project.path);
+							const selected = selectedWorkspaceValue === value;
+							return (
+								<button
+									className={`flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-left text-[12px] font-medium transition-colors ${
+										selected ? "bg-accent text-foreground" : "text-foreground hover:bg-accent"
+									}`}
+									key={project.path}
+									role="menuitem"
+									title={project.path}
+									type="button"
+									onClick={() => void applyWorkspace({ kind: "path", path: project.path })}
+								>
+									<span className="icon-[solar--folder-linear] h-3.5 w-3.5 shrink-0" aria-hidden />
+									<span className="min-w-0 truncate">{name}</span>
+									{selected ? (
+										<span
+											className="icon-[solar--check-circle-linear] ml-auto h-3.5 w-3.5 shrink-0 text-primary"
+											aria-hidden
+										/>
+									) : null}
+								</button>
+							);
+						})}
+						{extraPath ? (
+							<button
+								className={`flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-left text-[12px] font-medium transition-colors ${
+									selectedWorkspaceValue === `path:${extraPath}`
+										? "bg-accent text-foreground"
+										: "text-foreground hover:bg-accent"
+								}`}
+								role="menuitem"
+								title={extraPath}
+								type="button"
+								onClick={() => void applyWorkspace({ kind: "path", path: extraPath })}
+							>
+								<span className="icon-[solar--folder-linear] h-3.5 w-3.5 shrink-0" aria-hidden />
+								<span className="min-w-0 truncate">{pathBasename(extraPath)}</span>
+								{selectedWorkspaceValue === `path:${extraPath}` ? (
+									<span
+										className="icon-[solar--check-circle-linear] ml-auto h-3.5 w-3.5 shrink-0 text-primary"
+										aria-hidden
+									/>
+								) : null}
+							</button>
+						) : null}
+						<div className="mt-1 border-t border-border pt-1">
+							<button
+								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-left text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
+								disabled={!ready}
+								role="menuitem"
+								type="button"
+								onClick={() => void handlePickDirectory()}
+							>
+								<span className="icon-[solar--folder-open-linear] h-3.5 w-3.5 shrink-0" aria-hidden />
+								<span className="min-w-0 truncate">{t("board.workspace.pickDirectory")}</span>
+							</button>
+						</div>
+					</div>
+				) : null}
 			</div>
 			<p className="truncate text-xs text-muted-foreground">
 				{workspaceCwd ? t("board.project.current", { path: workspaceCwd }) : t("board.project.none")}
 			</p>
 			<form
-				className="flex flex-wrap items-end gap-2"
 				onSubmit={(event) => {
 					event.preventDefault();
 					void handleFetch();
 				}}
 			>
-				<label className="flex min-w-[8rem] flex-1 flex-col gap-1 text-sm font-medium text-muted-foreground">
-					{t("board.repo.owner")}
-					<input
-						className={FIELD}
-						disabled={!ready}
-						placeholder={t("board.repo.ownerPlaceholder")}
-						value={owner}
-						onChange={(event) => setOwner(event.target.value)}
-					/>
-				</label>
-				<label className="flex min-w-[8rem] flex-1 flex-col gap-1 text-sm font-medium text-muted-foreground">
-					{t("board.repo.name")}
-					<input
-						className={FIELD}
-						disabled={!ready}
-						placeholder={t("board.repo.namePlaceholder")}
-						value={repo}
-						onChange={(event) => setRepo(event.target.value)}
-					/>
-				</label>
 				<button className={PRIMARY_BUTTON} disabled={!canFetch} type="submit">
 					{t("board.fetch")}
 				</button>
@@ -619,14 +702,23 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 											</td>
 											<td className="py-2 pr-3 text-muted-foreground">{t(`board.source.${task.source.kind}`)}</td>
 											<td className="py-2 pr-3">
-												<span
-													className={`inline-flex rounded-md px-1.5 py-0.5 text-[11px] font-medium ${STATUS_BADGE[task.status]}`}
-												>
-													{t(`board.status.${task.status}`)}
-												</span>
-												{task.status === "failed" && task.error ? (
-													<span className="ml-1.5 text-xs text-red-600 dark:text-red-400">{task.error}</span>
-												) : null}
+												<div className="flex flex-wrap items-center gap-1">
+													<span
+														className={`inline-flex rounded-full px-1.5 py-0.5 text-[11px] font-medium ${STATUS_BADGE[task.status]}`}
+													>
+														{t(`board.status.${task.status}`)}
+													</span>
+													{task.source.kind === "issue" ? (
+														<span
+															className={`inline-flex rounded-full px-1.5 py-0.5 text-[11px] font-medium ${ISSUE_STATE_BADGE[task.source.issueState ?? "open"]}`}
+														>
+															{t(`board.issue.state.${task.source.issueState ?? "open"}`)}
+														</span>
+													) : null}
+													{task.status === "failed" && task.error ? (
+														<span className="ml-0.5 text-xs text-destructive">{task.error}</span>
+													) : null}
+												</div>
 											</td>
 											<td className="py-2">
 												<div className="flex flex-wrap items-center gap-1.5">

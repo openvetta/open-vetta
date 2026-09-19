@@ -67,6 +67,9 @@ export function tasksVisibleForBoard(
 ): GithubTask[] {
 	return tasks.filter((task) => {
 		if (task.source.kind === "issue") {
+			if ((task.source.issueState ?? "open") === "closed" && !task.sessionId && task.status !== "running") {
+				return false;
+			}
 			if (!repoTarget) return true;
 			return task.source.owner === repoTarget.owner && task.source.repo === repoTarget.repo;
 		}

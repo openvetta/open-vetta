@@ -1,5 +1,5 @@
 import type { PluginCommandApi, PluginNetworkApi, PluginNetworkResponse } from "@vetta-org/plugin-sdk";
-import type { GithubTask } from "./state";
+import type { GithubIssueState, GithubTask } from "./state";
 
 export const ISSUE_PROMPT_MAX_CHARS = 4000;
 export const ISSUE_PAGE_SIZE = 100;
@@ -90,6 +90,7 @@ function parseIssueItem(value: unknown): {
 	updated_at: string;
 	labels: string[];
 	assignees: string[];
+	issueState: GithubIssueState;
 	isPullRequest: boolean;
 } | null {
 	if (typeof value !== "object" || value === null) return null;
@@ -107,6 +108,7 @@ function parseIssueItem(value: unknown): {
 		updated_at: value.updated_at,
 		labels: "labels" in value ? parseLabelNames(value.labels) : [],
 		assignees: "assignees" in value ? parseAssigneeLogins(value.assignees) : [],
+		issueState: "state" in value && value.state === "closed" ? "closed" : "open",
 		isPullRequest: "pull_request" in value,
 	};
 }
@@ -156,7 +158,7 @@ export function mapGithubIssueItems(items: unknown, input: MapGithubIssueItemsIn
 	const tasks: GithubTask[] = [];
 	for (const item of items) {
 		const parsed = parseIssueItem(item);
-		if (!parsed || parsed.isPullRequest) continue;
+		if (!parsed || parsed.isPullRequest || parsed.issueState === "closed") continue;
 		tasks.push({
 			id: input.createId(),
 			title: parsed.title,
@@ -168,6 +170,7 @@ export function mapGithubIssueItems(items: unknown, input: MapGithubIssueItemsIn
 				issueNumber: parsed.number,
 				issueUrl: parsed.html_url,
 				issueUpdatedAt: parsed.updated_at,
+				issueState: parsed.issueState,
 			},
 			status: "pending",
 			createdAt: input.now,

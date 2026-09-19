@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	addManualTask,
+	applyOpenIssueSnapshot,
 	EMPTY_STATE,
 	mergeIssueTasks,
 	parsePluginState,
@@ -9,6 +10,7 @@ import {
 	type GithubTask,
 } from "../src/state";
 import { CONVERSATION_WORKSPACE } from "../src/workspace";
+
 
 const NOW = 1_700_000_000_000;
 
@@ -24,6 +26,7 @@ function issueTask(overrides: Partial<GithubTask> & Pick<GithubTask, "title">): 
 			issueNumber: 10,
 			issueUrl: "https://github.com/acme/app/issues/10",
 			issueUpdatedAt: "2026-01-02T03:04:05Z",
+			issueState: "open",
 		},
 		status: overrides.status ?? "pending",
 		createdAt: overrides.createdAt ?? NOW,
@@ -44,6 +47,7 @@ describe("parsePluginState", () => {
 			tasks: [],
 			issueNextPage: null,
 			lastFetch: null,
+			issueSync: null,
 		});
 		expect(parsePluginState({ repoTarget: null, tasks: [] })).toEqual({
 			repoTarget: null,
@@ -51,6 +55,7 @@ describe("parsePluginState", () => {
 			tasks: [],
 			issueNextPage: null,
 			lastFetch: null,
+			issueSync: null,
 		});
 		expect(parsePluginState(null)).toEqual(EMPTY_STATE);
 	});
@@ -119,6 +124,7 @@ describe("mergeIssueTasks", () => {
 				issueNumber: 11,
 				issueUrl: "https://github.com/acme/app/issues/11",
 				issueUpdatedAt: "2026-01-03T00:00:00Z",
+				issueState: "open",
 			},
 		});
 		const incomingRefresh = issueTask({
@@ -136,6 +142,7 @@ describe("mergeIssueTasks", () => {
 				issueNumber: 10,
 				issueUrl: "https://github.com/acme/app/issues/10",
 				issueUpdatedAt: "2026-01-04T00:00:00Z",
+				issueState: "open",
 			},
 		});
 		const merged = mergeIssueTasks({ ...EMPTY_STATE, tasks: [existing] }, [incomingRefresh, incomingNew]);
@@ -178,6 +185,7 @@ describe("mergeIssueTasks", () => {
 				issueNumber: 10,
 				issueUrl: "https://github.com/acme/app/issues/10",
 				issueUpdatedAt: "2026-01-04T00:00:00Z",
+				issueState: "open",
 			},
 		});
 		const merged = mergeIssueTasks({ ...EMPTY_STATE, tasks: [existing] }, [incoming]);
@@ -192,6 +200,92 @@ describe("mergeIssueTasks", () => {
 			sessionId: "sess-1",
 			updatedAt: NOW,
 		});
+	});
+
+	it("does not import a closed issue that is not already queued", () => {
+		const incoming = issueTask({
+			id: "closed",
+			title: "Old bug",
+			source: {
+				kind: "issue",
+				owner: "acme",
+				repo: "app",
+				issueNumber: 9,
+				issueUrl: "https://github.com/acme/app/issues/9",
+				issueUpdatedAt: "2026-01-04T00:00:00Z",
+				issueState: "closed",
+			},
+		});
+		const merged = mergeIssueTasks(EMPTY_STATE, [incoming]);
+		expect(merged.imported).toBe(0);
+		expect(merged.state.tasks).toHaveLength(0);
+	});
+});
+
+describe("applyOpenIssueSnapshot", () => {
+	it("marks repo issues missing from the open snapshot as closed", () => {
+		const open = issueTask({ id: "open", title: "Still open" });
+		const stale = issueTask({
+			id: "stale",
+			title: "Closed on GitHub",
+			source: {
+				kind: "issue",
+				owner: "acme",
+				repo: "app",
+				issueNumber: 11,
+				issueUrl: "https://github.com/acme/app/issues/11",
+				issueUpdatedAt: "2026-01-03T00:00:00Z",
+				issueState: "open",
+			},
+		});
+		const otherRepo = issueTask({
+			id: "other",
+			title: "Other repo",
+			source: {
+				kind: "issue",
+				owner: "acme",
+				repo: "web",
+				issueNumber: 11,
+				issueUrl: "https://github.com/acme/web/issues/11",
+				issueUpdatedAt: "2026-01-03T00:00:00Z",
+				issueState: "open",
+			},
+		});
+		const result = applyOpenIssueSnapshot({ ...EMPTY_STATE, tasks: [open, stale, otherRepo] }, {
+			owner: "acme",
+			repo: "app",
+			openNumbers: new Set([10]),
+		});
+		expect(result.closed).toBe(1);
+		expect(result.state.tasks[0]?.source).toMatchObject({ issueNumber: 10, issueState: "open" });
+		expect(result.state.tasks[1]?.source).toMatchObject({ issueNumber: 11, issueState: "closed" });
+		expect(result.state.tasks[2]?.source).toMatchObject({ repo: "web", issueState: "open" });
+	});
+
+	it("treats a missing persisted issueState as open", () => {
+		const parsed = parsePluginState({
+			repoTarget: null,
+			tasks: [
+				{
+					id: "legacy",
+					title: "Fix login",
+					promptText: "Fix login",
+					source: {
+						kind: "issue",
+						owner: "acme",
+						repo: "app",
+						issueNumber: 10,
+						issueUrl: "https://github.com/acme/app/issues/10",
+						issueUpdatedAt: "2026-01-02T03:04:05Z",
+					},
+					status: "pending",
+					createdAt: NOW,
+					updatedAt: NOW,
+				},
+			],
+		});
+		expect(parsed.issueSync).toBeNull();
+		expect(parsed.tasks[0]?.source).toMatchObject({ kind: "issue", issueState: "open" });
 	});
 });
 

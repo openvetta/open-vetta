@@ -64,6 +64,7 @@ describe("mapGithubIssueItems", () => {
 					issueNumber: 10,
 					issueUrl: "https://github.com/acme/app/issues/10",
 					issueUpdatedAt: "2026-01-02T03:04:05Z",
+					issueState: "open",
 				},
 				status: "pending",
 				createdAt: NOW,
@@ -115,6 +116,17 @@ describe("mapGithubIssueItems", () => {
 		expect(task?.labels).toEqual(["bug", "docs"]);
 		expect(task?.assignees).toEqual(["alice", "bob"]);
 		expect(task?.body).toBe("The button does nothing.");
+	});
+
+	it("does not enqueue a closed issue from the payload", () => {
+		const tasks = mapGithubIssueItems([issueJson({ state: "closed" })], {
+			owner: "acme",
+			repo: "app",
+			now: NOW,
+			createId: () => "id-1",
+			commitInstruction: COMMIT,
+		});
+		expect(tasks).toEqual([]);
 	});
 });
 

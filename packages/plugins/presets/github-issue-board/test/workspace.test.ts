@@ -23,6 +23,7 @@ function issueTask(owner: string, repo: string, title: string): GithubTask {
 			issueNumber: 1,
 			issueUrl: `https://github.com/${owner}/${repo}/issues/1`,
 			issueUpdatedAt: "2026-01-01T00:00:00Z",
+			issueState: "open",
 		},
 		status: "pending",
 		createdAt: 1,
@@ -110,5 +111,38 @@ describe("workspace source", () => {
 		expect(tasksVisibleForBoard(tasks, null, "/apps/web").map((task) => task.title)).toEqual(["legacy", "本地修复"]);
 		expect(tasksVisibleForBoard(tasks, null, "/repo").map((task) => task.title)).toEqual(["legacy", "repo fix"]);
 		expect(tasksVisibleForBoard(tasks, null, null).map((task) => task.title)).toEqual(["legacy"]);
+	});
+
+	it("hides closed issues without a session and keeps those with a conversation", () => {
+		const closedNoSession: GithubTask = {
+			...issueTask("acme", "app", "Closed leftover"),
+			source: {
+				kind: "issue",
+				owner: "acme",
+				repo: "app",
+				issueNumber: 2,
+				issueUrl: "https://github.com/acme/app/issues/2",
+				issueUpdatedAt: "2026-01-01T00:00:00Z",
+				issueState: "closed",
+			},
+		};
+		const closedWithSession: GithubTask = {
+			...issueTask("acme", "app", "Closed with session"),
+			source: {
+				kind: "issue",
+				owner: "acme",
+				repo: "app",
+				issueNumber: 3,
+				issueUrl: "https://github.com/acme/app/issues/3",
+				issueUpdatedAt: "2026-01-01T00:00:00Z",
+				issueState: "closed",
+			},
+			status: "completed",
+			sessionId: "sess-1",
+		};
+		const tasks = [issueTask("acme", "app", "Still open"), closedNoSession, closedWithSession];
+		expect(
+			tasksVisibleForBoard(tasks, { owner: "acme", repo: "app" }, "/repo").map((task) => task.title),
+		).toEqual(["Still open", "Closed with session"]);
 	});
 });

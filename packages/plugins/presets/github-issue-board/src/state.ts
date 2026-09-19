@@ -3,8 +3,18 @@ import { CONVERSATION_WORKSPACE, parseWorkspaceSource, type WorkspaceSource } fr
 
 export const STATE_FILE = "state.json";
 
+export type GithubIssueState = "open" | "closed";
+
 export type GithubTaskSource =
-	| { kind: "issue"; owner: string; repo: string; issueNumber: number; issueUrl: string; issueUpdatedAt: string }
+	| {
+			kind: "issue";
+			owner: string;
+			repo: string;
+			issueNumber: number;
+			issueUrl: string;
+			issueUpdatedAt: string;
+			issueState: GithubIssueState;
+	  }
 	| { kind: "manual"; cwd?: string };
 
 export type GithubTaskStatus = "pending" | "running" | "completed" | "failed";
@@ -24,12 +34,19 @@ export interface GithubTask {
 	body?: string;
 }
 
+export interface IssueFetchSync {
+	owner: string;
+	repo: string;
+	seenNumbers: number[];
+}
+
 export interface PluginState {
 	repoTarget: { owner: string; repo: string } | null;
 	workspace: WorkspaceSource;
 	tasks: GithubTask[];
 	issueNextPage: number | null;
 	lastFetch: { owner: string; repo: string } | null;
+	issueSync: IssueFetchSync | null;
 }
 
 export const EMPTY_STATE: PluginState = {
@@ -38,6 +55,7 @@ export const EMPTY_STATE: PluginState = {
 	tasks: [],
 	issueNextPage: null,
 	lastFetch: null,
+	issueSync: null,
 };
 
 const STATUSES: Record<GithubTaskStatus, true> = {
@@ -78,6 +96,7 @@ function parseSource(value: unknown): GithubTaskSource | null {
 		issueNumber: value.issueNumber,
 		issueUrl: value.issueUrl,
 		issueUpdatedAt: value.issueUpdatedAt,
+		issueState: "issueState" in value && value.issueState === "closed" ? "closed" : "open",
 	};
 }
 
@@ -123,6 +142,16 @@ function parseIssueNextPage(value: unknown): number | null {
 	return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
 }
 
+function parseIssueSync(value: unknown): IssueFetchSync | null {
+	const target = parseRepoTarget(value);
+	if (!target || typeof value !== "object" || value === null) return null;
+	if (!("seenNumbers" in value) || !Array.isArray(value.seenNumbers)) return null;
+	const seenNumbers = value.seenNumbers.filter(
+		(item): item is number => typeof item === "number" && Number.isInteger(item) && item > 0,
+	);
+	return { owner: target.owner, repo: target.repo, seenNumbers };
+}
+
 export function parsePluginState(value: unknown): PluginState {
 	if (typeof value !== "object" || value === null) return EMPTY_STATE;
 	const repoTarget = "repoTarget" in value ? parseRepoTarget(value.repoTarget) : null;
@@ -136,7 +165,8 @@ export function parsePluginState(value: unknown): PluginState {
 			: [];
 	const issueNextPage = "issueNextPage" in value ? parseIssueNextPage(value.issueNextPage) : null;
 	const lastFetch = "lastFetch" in value ? parseRepoTarget(value.lastFetch) : null;
-	return { repoTarget, workspace, tasks, issueNextPage, lastFetch };
+	const issueSync = "issueSync" in value ? parseIssueSync(value.issueSync) : null;
+	return { repoTarget, workspace, tasks, issueNextPage, lastFetch, issueSync };
 }
 
 function titleFromPrompt(promptText: string): string {
@@ -211,7 +241,38 @@ function issueFieldsChanged(existing: GithubTask, incoming: GithubTask): boolean
 	if (!sameStringList(existing.assignees, incoming.assignees)) return true;
 	if ((existing.body ?? "") !== (incoming.body ?? "")) return true;
 	if (existing.source.kind !== "issue" || incoming.source.kind !== "issue") return true;
-	return existing.source.issueUpdatedAt !== incoming.source.issueUpdatedAt;
+	if (existing.source.issueUpdatedAt !== incoming.source.issueUpdatedAt) return true;
+	return (existing.source.issueState ?? "open") !== (incoming.source.issueState ?? "open");
+}
+
+export function accumulateIssueNumbers(prior: readonly number[], incoming: readonly number[]): number[] {
+	const seen = new Set<number>();
+	const out: number[] = [];
+	for (const value of [...prior, ...incoming]) {
+		if (!Number.isInteger(value) || value <= 0 || seen.has(value)) continue;
+		seen.add(value);
+		out.push(value);
+	}
+	return out;
+}
+
+export function applyOpenIssueSnapshot(
+	state: PluginState,
+	input: { owner: string; repo: string; openNumbers: ReadonlySet<number> },
+): { state: PluginState; closed: number } {
+	let closed = 0;
+	let changed = false;
+	const tasks = state.tasks.map((task) => {
+		if (task.source.kind !== "issue") return task;
+		if (task.source.owner !== input.owner || task.source.repo !== input.repo) return task;
+		const nextState: GithubIssueState = input.openNumbers.has(task.source.issueNumber) ? "open" : "closed";
+		if ((task.source.issueState ?? "open") === nextState) return task;
+		changed = true;
+		if (nextState === "closed") closed += 1;
+		return { ...task, source: { ...task.source, issueState: nextState } };
+	});
+	if (!changed) return { state, closed: 0 };
+	return { state: { ...state, tasks }, closed };
 }
 
 export function mergeIssueTasks(
@@ -236,6 +297,7 @@ export function mergeIssueTasks(
 		const key = issueIdentity(task.source);
 		const existingIndex = indexByIdentity.get(key);
 		if (existingIndex === undefined) {
+			if (task.source.issueState === "closed") continue;
 			indexByIdentity.set(key, tasks.length);
 			tasks.push(task);
 			imported += 1;
