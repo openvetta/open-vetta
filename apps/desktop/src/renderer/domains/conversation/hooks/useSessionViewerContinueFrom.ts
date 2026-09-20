@@ -1,8 +1,9 @@
 import type { DesktopApi } from "@preload/api";
-import { type ConfirmDialogState, confirmDialogAtom, openSessionFnRef } from "@shared/store/atoms";
+import { waitForCommittedPaint } from "@shared/lib/committed-paint";
+import { type ConfirmDialogState, confirmDialogAtom, openSessionFnRef, selectedModelAtom } from "@shared/store/atoms";
 import type { TFunction } from "i18next";
-import { useSetAtom } from "jotai";
-import { useCallback, useState } from "react";
+import { useAtomValue, useSetAtom } from "jotai";
+import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const CONTINUE_FROM_ERROR = {
@@ -25,21 +26,24 @@ export function useSessionViewerContinueFrom(input: {
 }): SessionViewerContinueFromModel {
 	const { t } = useTranslation("chat");
 	const setConfirm = useSetAtom(confirmDialogAtom);
+	const selectedModel = useAtomValue(selectedModelAtom);
 	const [continuing, setContinuing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const lookupLock = useRef(false);
+	const modelKey = selectedModel ?? undefined;
 
 	const onContinue = useCallback(() => {
-		if (!input.enabled || !input.sessionPath || continuing) return;
+		if (!input.enabled || !input.sessionPath || continuing || lookupLock.current) return;
 		setError(null);
+		lookupLock.current = true;
 		void (async () => {
-			setContinuing(true);
 			try {
 				const existing = await window.vetta.session.findExternalImports({ sessionPath: input.sessionPath });
-				setContinuing(false);
 				if (existing) {
 					askAboutExistingImport({
 						existing,
 						sessionPath: input.sessionPath,
+						modelKey,
 						t,
 						setContinuing,
 						setError,
@@ -49,17 +53,19 @@ export function useSessionViewerContinueFrom(input: {
 				}
 				askQuotaThenContinue({
 					sessionPath: input.sessionPath,
+					modelKey,
 					t,
 					setContinuing,
 					setError,
 					setConfirm,
 				});
 			} catch (error) {
-				setContinuing(false);
 				setError(mapContinueFromError(error, t));
+			} finally {
+				lookupLock.current = false;
 			}
 		})();
-	}, [continuing, input.enabled, input.sessionPath, setConfirm, t]);
+	}, [continuing, input.enabled, input.sessionPath, modelKey, setConfirm, t]);
 
 	return {
 		enabled: input.enabled,
@@ -72,6 +78,7 @@ export function useSessionViewerContinueFrom(input: {
 function askAboutExistingImport(input: {
 	readonly existing: Extract<ContinueFromResult, { kind: "already_imported" }>["existing"];
 	readonly sessionPath: string;
+	readonly modelKey?: string;
 	readonly t: TFunction<"chat">;
 	readonly setContinuing: (value: boolean) => void;
 	readonly setError: (value: string | null) => void;
@@ -96,6 +103,7 @@ function askAboutExistingImport(input: {
 
 function askQuotaThenContinue(input: {
 	readonly sessionPath: string;
+	readonly modelKey?: string;
 	readonly forceCreate?: boolean;
 	readonly t: TFunction<"chat">;
 	readonly setContinuing: (value: boolean) => void;
@@ -115,6 +123,7 @@ function askQuotaThenContinue(input: {
 
 async function runContinueFrom(input: {
 	readonly sessionPath: string;
+	readonly modelKey?: string;
 	readonly cwdOverride?: string;
 	readonly forceCreate?: boolean;
 	readonly t: TFunction<"chat">;
@@ -124,10 +133,12 @@ async function runContinueFrom(input: {
 }): Promise<void> {
 	input.setContinuing(true);
 	try {
+		await waitForCommittedPaint();
 		const result = await window.vetta.session.continueFromExternal({
 			sessionPath: input.sessionPath,
 			...(input.cwdOverride === undefined ? {} : { cwdOverride: input.cwdOverride }),
 			...(input.forceCreate ? { forceCreate: true } : {}),
+			...(input.modelKey ? { modelKey: input.modelKey } : {}),
 		});
 		if (result.kind === "already_imported") {
 			askAboutExistingImport({ ...input, existing: result.existing });
@@ -149,6 +160,7 @@ async function recoverMissingCwd(
 	result: Extract<ContinueFromResult, { kind: "cwd_missing" }>,
 	input: {
 		readonly sessionPath: string;
+		readonly modelKey?: string;
 		readonly t: TFunction<"chat">;
 		readonly setContinuing: (value: boolean) => void;
 		readonly setError: (value: string | null) => void;

@@ -5,8 +5,8 @@ import {
 	createApplicationExternalBriefingCache,
 	createDesktopExternalOriginSnapshotPorts,
 	createDesktopExternalSessionContinueFrom,
+	type DesktopExternalSessionContinueRequest,
 	type ExistingImportedExternalSession,
-	type ExternalSessionContinueRequest,
 	type ExternalSessionContinueResult,
 	findDesktopImportedExternalSessions,
 	GROK_TOOL_ID,
@@ -18,7 +18,7 @@ import {
 import { getDesktopExternalSessionFormat } from "./desktop-external-session-format.js";
 
 export function getDesktopExternalSessionContinueFrom(): (
-	request: Omit<ExternalSessionContinueRequest, "modelKey">,
+	request: DesktopExternalSessionContinueRequest,
 ) => Promise<ExternalSessionContinueResult> {
 	desktopContinueFrom ??= createDesktopExternalSessionContinueFrom({
 		files: getDesktopExternalSessionFormat().host,

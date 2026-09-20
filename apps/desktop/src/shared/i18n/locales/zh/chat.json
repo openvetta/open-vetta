@@ -845,7 +845,7 @@
 			"actionTitle": "根据这份记录生成前情提要并新建一个 Vetta 会话",
 			"working": "正在生成提要…",
 			"quotaTitle": "将调用模型生成前情提要",
-			"quotaMessage": "会用你当前的默认模型阅读这份 Grok 记录并生成提要，这会消耗额度。原会话不会被改动。",
+			"quotaMessage": "会用你当前选用的模型阅读这份 Grok 记录并生成提要，这会消耗额度。原会话不会被改动。",
 			"quotaConfirm": "继续",
 			"quotaCancel": "取消",
 			"cwdMissingTitle": "原工作目录已不存在",
@@ -859,7 +859,7 @@
 			"duplicateCreateNew": "仍然新建",
 			"duplicateCancel": "取消",
 			"error": {
-				"noDefaultModel": "还没有设置默认模型，无法生成提要",
+				"noDefaultModel": "没有可用的模型来生成提要，请先在模型配置里登录或选择一个模型",
 				"emptyBriefing": "模型没有生成可用的前情提要，请重试",
 				"openFailed": "新会话已创建，但无法打开",
 				"generic": "接着干失败，请重试"

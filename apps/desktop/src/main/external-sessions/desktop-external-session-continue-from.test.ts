@@ -15,9 +15,12 @@ import {
 	createApplicationExternalBriefingCache,
 	createDesktopExternalOriginSnapshotPorts,
 	createDesktopExternalSessionContinueFrom,
+	DESKTOP_CONTINUE_FROM_ERROR,
 	EXTERNAL_ORIGIN_SNAPSHOT_DIR,
 	findDesktopImportedExternalSessions,
 	persistDesktopExternalSessionContinueSeed,
+	pickContinueFromModelKey,
+	resolveContinueFromModelKey,
 } from "./desktop-external-session-continue-from.js";
 
 const MODEL_KEY = "xai/grok-code";
@@ -30,6 +33,72 @@ afterEach(() => {
 	for (const directory of temporaryDirectories.splice(0)) {
 		rmSync(directory, { recursive: true, force: true });
 	}
+});
+
+describe("pickContinueFromModelKey", () => {
+	const grok = { key: "grok/grok-4.6", hasCredentials: true };
+	const local = { key: "openai/gpt-5", hasCredentials: true };
+	const stale = { key: "vetta-go/stale", hasCredentials: false };
+
+	it("prefers the viewer-selected model when it is usable", () => {
+		expect(
+			pickContinueFromModelKey({
+				preferred: grok.key,
+				defaultModel: local.key,
+				candidates: [local, grok],
+			}),
+		).toBe(grok.key);
+	});
+
+	it("falls back to the configured default when no preferred model is usable", () => {
+		expect(
+			pickContinueFromModelKey({
+				preferred: stale.key,
+				defaultModel: local.key,
+				candidates: [stale, local],
+			}),
+		).toBe(local.key);
+	});
+
+	it("uses the first credentialed model when defaultModel is unset", () => {
+		expect(
+			pickContinueFromModelKey({
+				preferred: undefined,
+				defaultModel: null,
+				candidates: [stale, grok, local],
+			}),
+		).toBe(grok.key);
+	});
+
+	it("returns undefined when no candidate has credentials", () => {
+		expect(
+			pickContinueFromModelKey({
+				preferred: grok.key,
+				defaultModel: local.key,
+				candidates: [stale],
+			}),
+		).toBeUndefined();
+	});
+});
+
+describe("resolveContinueFromModelKey", () => {
+	it("throws NO_DEFAULT_MODEL when nothing usable is configured", async () => {
+		await expect(
+			resolveContinueFromModelKey(undefined, {
+				listDefaultModel: async () => null,
+				listCandidates: async () => [{ key: "grok/grok-4.6", hasCredentials: false }],
+			}),
+		).rejects.toThrow(DESKTOP_CONTINUE_FROM_ERROR.NO_DEFAULT_MODEL);
+	});
+
+	it("uses a logged-in Grok model when models.json has no defaultModel", async () => {
+		await expect(
+			resolveContinueFromModelKey(undefined, {
+				listDefaultModel: async () => null,
+				listCandidates: async () => [{ key: "grok/grok-4.6", hasCredentials: true }],
+			}),
+		).resolves.toBe("grok/grok-4.6");
+	});
 });
 
 describe("desktop external session continue-from host", () => {
@@ -103,6 +172,35 @@ describe("desktop external session continue-from host", () => {
 		expect(created).not.toContain('"origin"');
 		expect(readFileSync(sidecarPath, "utf8")).toBe(originalSidecar);
 		expect(readFileSync(join(sidecarPath, "..", GROK_CONVERSATION_BODY_NAME), "utf8")).toBe(originalBody);
+	});
+
+	it("forwards the viewer-selected model into briefing model resolution", async () => {
+		const { sidecarPath, sessionDir } = createGrokWorkspace();
+		let preferred: string | undefined;
+		const continueFrom = createDesktopExternalSessionContinueFrom({
+			files: createDesktopExternalSessionFormat({ resolveSessionsDirectory: () => undefined }).host,
+			cache: createApplicationExternalBriefingCache(
+				new ApplicationCacheService(createTemporaryDirectory("vetta-continue-cache-")),
+			),
+			findImportedSessions: async () => [],
+			...createDesktopExternalOriginSnapshotPorts(createTemporaryDirectory("vetta-continue-artifacts-")),
+			async generateBriefing() {
+				return MODEL_BRIEFING;
+			},
+			persistSeededSession: (input) =>
+				persistDesktopExternalSessionContinueSeed(input, {
+					resolveSessionDir: () => sessionDir,
+					ensureProject: async () => undefined,
+				}),
+			resolveDefaultModelKey: async (modelKey) => {
+				preferred = modelKey;
+				return modelKey ?? MODEL_KEY;
+			},
+			createSessionId: () => "continued-from-selected",
+		});
+
+		await continueFrom({ sessionPath: sidecarPath, modelKey: "grok/grok-4.6" });
+		expect(preferred).toBe("grok/grok-4.6");
 	});
 
 	it("reuses a briefing cache entry keyed by path, mtime, and size", async () => {

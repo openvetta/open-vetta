@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { confirmDialogAtom, openSessionFnRef } from "@shared/store/atoms";
+import { confirmDialogAtom, openSessionFnRef, selectedModelAtom } from "@shared/store/atoms";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import type { ReactNode } from "react";
@@ -56,11 +56,65 @@ describe("useSessionViewerContinueFrom", () => {
 			confirmLabel: "sessionViewer.continueFrom.quotaConfirm",
 		});
 
+		expect(result.current.continuing).toBe(false);
 		act(() => confirmation?.onConfirm(false));
-		await waitFor(() => expect(captured.continueFromExternal).toHaveBeenCalledWith({ sessionPath: SESSION_PATH }));
+		await waitFor(() =>
+			expect(captured.continueFromExternal).toHaveBeenCalledWith({
+				sessionPath: SESSION_PATH,
+				modelKey: "grok/grok-4.6",
+			}),
+		);
 		await waitFor(() =>
 			expect(captured.openSession).toHaveBeenCalledWith("/workspace", "/tmp/vetta/continued.conversation.jsonl"),
 		);
+	});
+
+	it("keeps continuing true while the briefing is generated", async () => {
+		const { store, result } = renderContinueFrom();
+		let finish: (value: unknown) => void = () => undefined;
+		openSessionFnRef.current = captured.openSession;
+		captured.continueFromExternal.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					finish = resolve;
+				}),
+		);
+
+		act(() => result.current.onContinue());
+		await waitFor(() => expect(store.get(confirmDialogAtom)?.title).toBe("sessionViewer.continueFrom.quotaTitle"));
+		act(() => store.get(confirmDialogAtom)?.onConfirm(false));
+		await waitFor(() => expect(result.current.continuing).toBe(true));
+		await waitFor(() => expect(captured.continueFromExternal).toHaveBeenCalled());
+
+		await act(async () => {
+			finish({
+				kind: "created",
+				sessionId: "continued-1",
+				sessionPath: "/tmp/vetta/continued.conversation.jsonl",
+				cwd: "/workspace",
+				usedCache: false,
+				importedFrom: { tool: "grok", path: SESSION_PATH, importedAt: 1 },
+			});
+		});
+		await waitFor(() => expect(result.current.continuing).toBe(false));
+	});
+
+	it("omits modelKey when the viewer has no selected model", async () => {
+		const { store, result } = renderContinueFrom(true, null);
+		captured.continueFromExternal.mockResolvedValue({
+			kind: "created",
+			sessionId: "continued-1",
+			sessionPath: "/tmp/vetta/continued.conversation.jsonl",
+			cwd: "/workspace",
+			usedCache: false,
+			importedFrom: { tool: "grok", path: SESSION_PATH, importedAt: 1 },
+		});
+		openSessionFnRef.current = captured.openSession;
+
+		act(() => result.current.onContinue());
+		await waitFor(() => expect(store.get(confirmDialogAtom)?.title).toBe("sessionViewer.continueFrom.quotaTitle"));
+		act(() => store.get(confirmDialogAtom)?.onConfirm(false));
+		await waitFor(() => expect(captured.continueFromExternal).toHaveBeenCalledWith({ sessionPath: SESSION_PATH }));
 	});
 
 	it("does not start continue-from when the quota warning is cancelled", async () => {
@@ -101,6 +155,7 @@ describe("useSessionViewerContinueFrom", () => {
 			expect(captured.continueFromExternal).toHaveBeenCalledWith({
 				sessionPath: SESSION_PATH,
 				cwdOverride: "/reselected",
+				modelKey: "grok/grok-4.6",
 			}),
 		);
 		await waitFor(() =>
@@ -178,6 +233,7 @@ describe("useSessionViewerContinueFrom", () => {
 			expect(captured.continueFromExternal).toHaveBeenCalledWith({
 				sessionPath: SESSION_PATH,
 				forceCreate: true,
+				modelKey: "grok/grok-4.6",
 			}),
 		);
 		await waitFor(() =>
@@ -186,8 +242,9 @@ describe("useSessionViewerContinueFrom", () => {
 	});
 });
 
-function renderContinueFrom(enabled = true) {
+function renderContinueFrom(enabled = true, modelKey: string | null = "grok/grok-4.6") {
 	const store = createStore();
+	store.set(selectedModelAtom, modelKey);
 	Object.defineProperty(window, "vetta", {
 		configurable: true,
 		value: {

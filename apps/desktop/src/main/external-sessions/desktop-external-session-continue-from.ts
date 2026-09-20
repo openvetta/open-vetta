@@ -39,6 +39,20 @@ export const DESKTOP_CONTINUE_FROM_ERROR = {
 	EMPTY_BRIEFING: "EXTERNAL_SESSION_CONTINUE_EMPTY_BRIEFING",
 } as const;
 
+export type DesktopExternalSessionContinueRequest = Omit<ExternalSessionContinueRequest, "modelKey"> & {
+	readonly modelKey?: string;
+};
+
+export interface ContinueFromModelCandidate {
+	readonly key: string;
+	readonly hasCredentials: boolean;
+}
+
+export interface ContinueFromModelResolverPorts {
+	readonly listDefaultModel: () => Promise<string | null | undefined>;
+	readonly listCandidates: () => Promise<readonly ContinueFromModelCandidate[]>;
+}
+
 export interface DesktopExternalSessionContinueFromPorts {
 	readonly files: ExternalSessionFileHost;
 	readonly cache: ExternalSessionBriefingCache;
@@ -60,7 +74,7 @@ export interface DesktopExternalSessionContinueFromPorts {
 	readonly persistSeededSession: (
 		input: ExternalSessionContinuePersistInput,
 	) => Promise<{ readonly sessionId: string; readonly sessionPath: string }>;
-	readonly resolveDefaultModelKey: () => Promise<string>;
+	readonly resolveDefaultModelKey: (preferred?: string) => Promise<string>;
 	readonly now?: () => number;
 	readonly createEntryId?: () => string;
 	readonly createSessionId?: () => string;
@@ -68,13 +82,43 @@ export interface DesktopExternalSessionContinueFromPorts {
 
 export function createDesktopExternalSessionContinueFrom(
 	ports: DesktopExternalSessionContinueFromPorts,
-): (request: Omit<ExternalSessionContinueRequest, "modelKey">) => Promise<ExternalSessionContinueResult> {
+): (request: DesktopExternalSessionContinueRequest) => Promise<ExternalSessionContinueResult> {
 	const continueFrom = createCodingAgentExternalSessionContinueFrom(ports);
 	return async (request) =>
 		continueFrom({
-			...request,
-			modelKey: await ports.resolveDefaultModelKey(),
+			sessionPath: request.sessionPath,
+			modelKey: await ports.resolveDefaultModelKey(request.modelKey),
+			...(request.cwdOverride === undefined ? {} : { cwdOverride: request.cwdOverride }),
+			...(request.forceCreate === undefined ? {} : { forceCreate: request.forceCreate }),
 		});
+}
+
+export function pickContinueFromModelKey(input: {
+	readonly preferred?: string | null;
+	readonly defaultModel?: string | null;
+	readonly candidates: readonly ContinueFromModelCandidate[];
+}): string | undefined {
+	const usable = new Set(
+		input.candidates.filter((candidate) => candidate.hasCredentials).map((candidate) => candidate.key),
+	);
+	return (
+		usableContinueFromModelKey(input.preferred, usable) ??
+		usableContinueFromModelKey(input.defaultModel, usable) ??
+		input.candidates.find((candidate) => candidate.hasCredentials)?.key
+	);
+}
+
+export async function resolveContinueFromModelKey(
+	preferred: string | undefined,
+	ports: ContinueFromModelResolverPorts,
+): Promise<string> {
+	const picked = pickContinueFromModelKey({
+		preferred,
+		defaultModel: await ports.listDefaultModel(),
+		candidates: await ports.listCandidates(),
+	});
+	if (!picked) throw new Error(DESKTOP_CONTINUE_FROM_ERROR.NO_DEFAULT_MODEL);
+	return picked;
 }
 
 export function createApplicationExternalBriefingCache(
@@ -121,10 +165,24 @@ export async function persistDesktopExternalSessionContinueSeed(
 	return { sessionId: published.targetSessionId, sessionPath: published.targetPath };
 }
 
-export async function resolveDesktopContinueFromModelKey(): Promise<string> {
-	const defaultModel = (await getDesktopModelSettingsService().list()).defaultModel;
-	if (!defaultModel) throw new Error(DESKTOP_CONTINUE_FROM_ERROR.NO_DEFAULT_MODEL);
-	return defaultModel;
+export async function resolveDesktopContinueFromModelKey(preferred?: string): Promise<string> {
+	return resolveContinueFromModelKey(preferred, {
+		listDefaultModel: async () => (await getDesktopModelSettingsService().list()).defaultModel,
+		listCandidates: listDesktopContinueFromModelCandidates,
+	});
+}
+
+export async function listDesktopContinueFromModelCandidates(): Promise<ContinueFromModelCandidate[]> {
+	const runtime = getOrCreateSharedModelRuntime();
+	const candidates: ContinueFromModelCandidate[] = [];
+	for (const entry of runtime.getAvailable()) {
+		if (!entry.input.includes("text")) continue;
+		candidates.push({
+			key: `${entry.provider}/${entry.id}`,
+			hasCredentials: Boolean(await runtime.getApiKey(entry)),
+		});
+	}
+	return candidates;
 }
 
 export async function generateDesktopExternalSessionBriefing(input: {
@@ -242,6 +300,11 @@ export function createDesktopExternalOriginSnapshotPorts(agentDir = getAgentDir(
 			await storage.cleaner.deleteSessionArtifacts(sessionId);
 		},
 	};
+}
+
+function usableContinueFromModelKey(key: string | null | undefined, usable: ReadonlySet<string>): string | undefined {
+	if (!key) return undefined;
+	return usable.has(key) ? key : undefined;
 }
 
 function hashBriefingCacheKey(key: string): string {

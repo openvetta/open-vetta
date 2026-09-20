@@ -845,7 +845,7 @@
 			"actionTitle": "Generate a briefing from this record and start a new Vetta session",
 			"working": "Generating briefing…",
 			"quotaTitle": "This will call a model to write a briefing",
-			"quotaMessage": "Your current default model will read this Grok record and write a briefing. That uses quota. The original session will not be changed.",
+			"quotaMessage": "Your currently selected model will read this Grok record and write a briefing. That uses quota. The original session will not be changed.",
 			"quotaConfirm": "Continue",
 			"quotaCancel": "Cancel",
 			"cwdMissingTitle": "The original working folder is gone",
@@ -859,7 +859,7 @@
 			"duplicateCreateNew": "Create another",
 			"duplicateCancel": "Cancel",
 			"error": {
-				"noDefaultModel": "No default model is set, so a briefing cannot be generated",
+				"noDefaultModel": "No usable model is available to generate a briefing. Sign in or choose a model in Model settings first.",
 				"emptyBriefing": "The model did not return a usable briefing. Try again.",
 				"openFailed": "The new session was created but could not be opened",
 				"generic": "Could not continue from this session. Try again."

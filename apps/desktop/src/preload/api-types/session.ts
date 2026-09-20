@@ -282,6 +282,7 @@ export interface DesktopSessionApi {
 		readonly sessionPath: string;
 		readonly cwdOverride?: string;
 		readonly forceCreate?: boolean;
+		readonly modelKey?: string;
 	}): Promise<DesktopExternalSessionContinueResult>;
 	findExternalImports(request: { readonly sessionPath: string }): Promise<DesktopExternalImportedSession | undefined>;
 }

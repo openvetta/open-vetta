@@ -1694,8 +1694,10 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		const sessionPath = "sessionPath" in request ? request.sessionPath : undefined;
 		const cwdOverride = "cwdOverride" in request ? request.cwdOverride : undefined;
 		const forceCreate = "forceCreate" in request ? request.forceCreate : undefined;
+		const modelKey = "modelKey" in request ? request.modelKey : undefined;
 		assertNonEmptyString(sessionPath, "sessionPath");
 		if (cwdOverride !== undefined) assertNonEmptyString(cwdOverride, "cwdOverride");
+		if (modelKey !== undefined) assertNonEmptyString(modelKey, "modelKey");
 		if (forceCreate !== undefined && typeof forceCreate !== "boolean") {
 			throw new Error("Invalid continue-from request");
 		}
@@ -1703,6 +1705,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			sessionPath,
 			...(typeof cwdOverride === "string" ? { cwdOverride } : {}),
 			...(forceCreate === true ? { forceCreate: true } : {}),
+			...(typeof modelKey === "string" ? { modelKey } : {}),
 		});
 	});
 

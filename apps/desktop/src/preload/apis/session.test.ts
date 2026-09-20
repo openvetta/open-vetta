@@ -87,11 +87,16 @@ describe("createSessionApi trace propagation", () => {
 		const ipc = { invoke } as unknown as IpcRenderer;
 		const session = createSessionApi(ipc).session;
 
-		await session.continueFromExternal({ sessionPath: "/tmp/grok/summary.json", cwdOverride: "/picked" });
+		await session.continueFromExternal({
+			sessionPath: "/tmp/grok/summary.json",
+			cwdOverride: "/picked",
+			modelKey: "grok/grok-4.6",
+		});
 
 		expect(invoke).toHaveBeenCalledWith("vetta:session:continue-from-external", {
 			sessionPath: "/tmp/grok/summary.json",
 			cwdOverride: "/picked",
+			modelKey: "grok/grok-4.6",
 		});
 	});
 
