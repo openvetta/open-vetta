@@ -231,7 +231,7 @@ export async function ensureContinueFromProject(cwd: string): Promise<void> {
 
 export async function findDesktopImportedExternalSessions(
 	source: {
-		readonly tool: string;
+		readonly tool?: string;
 		readonly path: string;
 	},
 	ports: {
@@ -252,7 +252,8 @@ export async function findDesktopImportedExternalSessions(
 	for (const project of await ports.listProjects()) {
 		for (const session of await ports.listSessions(project.cwd)) {
 			const importedFrom = session.importedFrom;
-			if (!importedFrom || importedFrom.tool !== source.tool) continue;
+			if (!importedFrom) continue;
+			if (source.tool && importedFrom.tool !== source.tool) continue;
 			if (!ports.samePath(importedFrom.path, source.path)) continue;
 			matches.push({
 				sessionId: session.id,

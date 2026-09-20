@@ -57,6 +57,11 @@
 		},
 		"external": {
 			"sourceGrok": "Grok",
+			"sourceClaudeCode": "Claude Code",
+			"sourceCodex": "Codex",
+			"sourceCursorAgent": "cursor-agent",
+			"sourcePi": "Pi",
+			"sourceOmp": "omp",
 			"unsupportedVersion": "Unsupported format version",
 			"corruptedHeader": "Session header is damaged"
 		},

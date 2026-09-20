@@ -614,9 +614,14 @@
       "description": "默认关闭。打开后，Vetta 只会读取对应工具的会话记录，不会改写那些文件。",
       "detectedPath": "将读取：{{path}}",
       "grok": "Grok",
-      "loading": "正在查找 Grok 会话目录…",
+      "claudeCode": "Claude Code",
+      "codex": "Codex",
+      "cursorAgent": "cursor-agent",
+      "pi": "Pi",
+      "omp": "omp",
+      "loading": "正在查找 {{tool}} 会话目录…",
       "manualPath": "已指定：{{path}}",
-      "notDetected": "没有找到 Grok 的默认会话目录。如果你把数据放在了别处，可以指定路径。",
+      "notDetected": "没有找到 {{tool}} 的默认会话目录。如果你把数据放在了别处，可以指定路径。",
       "specifyPath": "指定目录"
     },
     "imageGeneration": {

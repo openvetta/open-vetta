@@ -614,9 +614,14 @@
       "description": "Off by default. When enabled, Vetta only reads sessions from that tool and never writes them back.",
       "detectedPath": "Will read: {{path}}",
       "grok": "Grok",
-      "loading": "Looking for the Grok session directory…",
+      "claudeCode": "Claude Code",
+      "codex": "Codex",
+      "cursorAgent": "cursor-agent",
+      "pi": "Pi",
+      "omp": "omp",
+      "loading": "Looking for the {{tool}} session directory…",
       "manualPath": "Specified: {{path}}",
-      "notDetected": "Could not find Grok's default session directory. If you keep the data elsewhere, you can choose a path.",
+      "notDetected": "Could not find {{tool}}'s default session directory. If you keep the data elsewhere, you can choose a path.",
       "specifyPath": "Choose folder"
     },
     "imageGeneration": {

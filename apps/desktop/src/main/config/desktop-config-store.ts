@@ -77,6 +77,16 @@ export interface SessionImportConfig {
 	grokEnabled?: boolean;
 	/** 仅在自动探测失败时由用户指定的 Grok 会话目录。 */
 	grokSessionDir?: string;
+	claudeCodeEnabled?: boolean;
+	claudeCodeSessionDir?: string;
+	codexEnabled?: boolean;
+	codexSessionDir?: string;
+	cursorAgentEnabled?: boolean;
+	cursorAgentSessionDir?: string;
+	piEnabled?: boolean;
+	piSessionDir?: string;
+	ompEnabled?: boolean;
+	ompSessionDir?: string;
 }
 
 export interface KnowledgeBaseConfig {
@@ -203,14 +213,31 @@ export function normalizeSessionImport(value: unknown): SessionImportConfig {
 		return { grokEnabled: false };
 	}
 	const input = value as Record<string, unknown>;
-	const grokSessionDir =
-		typeof input.grokSessionDir === "string" && input.grokSessionDir.trim().length > 0
-			? expandTildePath(input.grokSessionDir.trim())
-			: undefined;
-	return {
-		grokEnabled: input.grokEnabled === true,
-		grokSessionDir,
-	};
+	const next: SessionImportConfig = { grokEnabled: input.grokEnabled === true };
+	assignImportDir(next, "grokSessionDir", input.grokSessionDir);
+	assignImportFlag(next, "claudeCodeEnabled", input.claudeCodeEnabled);
+	assignImportDir(next, "claudeCodeSessionDir", input.claudeCodeSessionDir);
+	assignImportFlag(next, "codexEnabled", input.codexEnabled);
+	assignImportDir(next, "codexSessionDir", input.codexSessionDir);
+	assignImportFlag(next, "cursorAgentEnabled", input.cursorAgentEnabled);
+	assignImportDir(next, "cursorAgentSessionDir", input.cursorAgentSessionDir);
+	assignImportFlag(next, "piEnabled", input.piEnabled);
+	assignImportDir(next, "piSessionDir", input.piSessionDir);
+	assignImportFlag(next, "ompEnabled", input.ompEnabled);
+	assignImportDir(next, "ompSessionDir", input.ompSessionDir);
+	return next;
+}
+
+function assignImportFlag(target: SessionImportConfig, key: keyof SessionImportConfig, value: unknown): void {
+	if (value === true) {
+		(target as Record<string, unknown>)[key] = true;
+	}
+}
+
+function assignImportDir(target: SessionImportConfig, key: keyof SessionImportConfig, value: unknown): void {
+	if (typeof value === "string" && value.trim().length > 0) {
+		(target as Record<string, unknown>)[key] = expandTildePath(value.trim());
+	}
 }
 
 export function normalizeImageGeneration(value: unknown): ImageGenerationConfig {

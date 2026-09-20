@@ -196,7 +196,7 @@ function grokSummaryLine(input: { id: string; title: string }): string {
 
 function createTestHost(sessionsDirectory: string, reads: string[]): ExternalSessionFileHost {
 	return {
-		resolveSessionsDirectory: () => sessionsDirectory,
+		resolveSessionRoots: () => (sessionsDirectory ? [{ tool: GROK_TOOL_ID, path: sessionsDirectory }] : []),
 		join: (...parts) => join(...parts),
 		basename,
 		exists: existsSync,

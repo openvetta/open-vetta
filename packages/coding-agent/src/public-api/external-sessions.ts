@@ -23,7 +23,11 @@ export {
 	type ResolveGrokSessionsDirectoryInput,
 	resolveGrokSessionsDirectory,
 } from "../sessions/external/grok-session-directory.js";
-export type { ExternalSessionDirectoryEntry, ExternalSessionFileHost } from "../sessions/external/host-contracts.js";
+export type {
+	ExternalSessionDirectoryEntry,
+	ExternalSessionFileHost,
+	ExternalSessionRoot,
+} from "../sessions/external/host-contracts.js";
 export {
 	EXTERNAL_ORIGIN_MARKER_TYPE,
 	EXTERNAL_READONLY_SESSION_ACCESS,
@@ -39,6 +43,19 @@ export {
 	OMITTED_REASONING_MARKER_TYPE,
 	SKIPPED_TRUNCATED_LINES_MARKER_TYPE,
 } from "../sessions/external/index.js";
+export {
+	type ResolveExternalSessionDirectoryInput,
+	resolveExternalSessionDirectory,
+} from "../sessions/external/session-directories.js";
+export {
+	CLAUDE_CODE_TOOL_ID,
+	CODEX_TOOL_ID,
+	CURSOR_AGENT_TOOL_ID,
+	EXTERNAL_SESSION_TOOL_IDS,
+	type ExternalSessionToolId,
+	OMP_TOOL_ID,
+	PI_TOOL_ID,
+} from "../sessions/external/tool-ids.js";
 
 export function createCodingAgentExternalSessionCatalog(
 	host: ExternalSessionFileHost,

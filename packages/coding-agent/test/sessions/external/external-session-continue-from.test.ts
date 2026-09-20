@@ -440,7 +440,7 @@ function defaultRounds(): readonly { readonly user: string; readonly assistant: 
 
 function createTestHost(): ExternalSessionFileHost {
 	return {
-		resolveSessionsDirectory: () => undefined,
+		resolveSessionRoots: () => [],
 		join: (...parts) => join(...parts),
 		basename,
 		exists: existsSync,

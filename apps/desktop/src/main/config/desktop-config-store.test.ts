@@ -11,7 +11,7 @@ let previousHome: string | undefined;
 async function loadStoreWithConfig(config: Record<string, unknown> | undefined): Promise<{
 	readDesktopConfig: () => Promise<{
 		defaultAgentMode?: string;
-		sessionImport?: { grokEnabled?: boolean; grokSessionDir?: string };
+		sessionImport?: { grokEnabled?: boolean; grokSessionDir?: string; claudeCodeEnabled?: boolean };
 	}>;
 }> {
 	const home = await mkdtemp(join(tmpdir(), "vetta-config-"));
@@ -74,5 +74,11 @@ describe("sessionImport 默认关闭", () => {
 	it("非 true 的开关值一律视为关闭", async () => {
 		const store = await loadStoreWithConfig({ sessionImport: { grokEnabled: "yes" } });
 		expect((await store.readDesktopConfig()).sessionImport).toEqual({ grokEnabled: false });
+	});
+
+	it("打开 Claude Code 导入后读回为开启", async () => {
+		const store = await loadStoreWithConfig({ sessionImport: { claudeCodeEnabled: true } });
+		expect((await store.readDesktopConfig()).sessionImport?.claudeCodeEnabled).toBe(true);
+		expect((await store.readDesktopConfig()).sessionImport?.grokEnabled).toBe(false);
 	});
 });

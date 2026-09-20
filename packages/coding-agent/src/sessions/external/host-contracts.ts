@@ -3,10 +3,15 @@ export interface ExternalSessionDirectoryEntry {
 	readonly kind: "file" | "directory" | "other";
 }
 
+export interface ExternalSessionRoot {
+	readonly tool: string;
+	readonly path: string;
+}
+
 /** Node-free file operations needed by the read-only external session catalog. */
 export interface ExternalSessionFileHost {
-	/** Current Grok sessions root; omit when import is off or the directory is missing. */
-	resolveSessionsDirectory(): string | undefined;
+	/** Enabled external session roots. Omit a tool when import is off or the directory is missing. */
+	resolveSessionRoots(): readonly ExternalSessionRoot[];
 	join(...parts: readonly string[]): string;
 	basename(path: string): string;
 	exists(path: string): boolean;

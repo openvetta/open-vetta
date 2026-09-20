@@ -51,7 +51,9 @@ import {
 	type SessionImportConfig,
 	writeDesktopConfig,
 } from "../config/desktop-config-store.js";
+import { detectExternalSessionDirectory } from "../external-sessions/detect-external-session-directories.js";
 import { detectGrokSessionsDirectory } from "../external-sessions/grok-session-locator.js";
+import { SESSION_IMPORT_TOOLS } from "../external-sessions/session-import-tools.js";
 import {
 	allowProjectRoot,
 	createFilesystemDirectory,
@@ -98,6 +100,8 @@ export interface DesktopConfigSnapshot extends DesktopConfig {
 	knowledgeProcessingCwd: string;
 	/** 自动探测到的 Grok 会话目录；探测失败时缺省。不写入 desktop-config。 */
 	grokSessionsDirectory?: string;
+	/** 自动探测到的外部工具会话目录，按工具 id 索引。不写入 desktop-config。 */
+	externalSessionDirectories?: Partial<Record<string, string>>;
 }
 
 export {
@@ -178,6 +182,15 @@ function assertNonEmptyString(value: unknown, fieldName: string): asserts value 
 }
 
 export { allowProjectRoot, assertPathReadableForPreview } from "../filesystem/filesystem-service.js";
+
+function collectExternalSessionDirectories(): Partial<Record<string, string>> {
+	const directories: Partial<Record<string, string>> = {};
+	for (const tool of SESSION_IMPORT_TOOLS) {
+		const path = tool.id === "grok" ? detectGrokSessionsDirectory().path : detectExternalSessionDirectory(tool.id);
+		if (path) directories[tool.id] = path;
+	}
+	return directories;
+}
 
 export function registerFsIpc(): () => void {
 	const mcp = getDesktopMcpSettingsService();
@@ -404,6 +417,7 @@ export function registerFsIpc(): () => void {
 			defaultImConversationCwd: DEFAULT_IM_CONVERSATION_CWD,
 			knowledgeProcessingCwd: KB_PROCESSING_CWD,
 			grokSessionsDirectory: detectGrokSessionsDirectory().path,
+			externalSessionDirectories: collectExternalSessionDirectories(),
 		};
 	});
 

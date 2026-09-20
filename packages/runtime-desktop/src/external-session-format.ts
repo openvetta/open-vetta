@@ -3,6 +3,7 @@ import {
 	createCodingAgentExternalSessionFileHistoryReader,
 	type ExternalRuntimeSessionCatalogOptions,
 	type ExternalSessionFileHost,
+	type ExternalSessionRoot,
 } from "@vetta/coding-agent/external-sessions";
 import type { RuntimeSessionCatalog, RuntimeSessionFileHistoryReader } from "@vetta/runtime-core";
 import { createDesktopExternalSessionHost } from "./external-session-host.js";
@@ -14,13 +15,17 @@ export interface DesktopExternalSessionFormat {
 }
 
 export interface DesktopExternalSessionFormatOptions extends ExternalRuntimeSessionCatalogOptions {
-	readonly resolveSessionsDirectory: () => string | undefined;
+	readonly resolveSessionRoots?: () => readonly ExternalSessionRoot[];
+	readonly resolveSessionsDirectory?: () => string | undefined;
 }
 
 export function createDesktopExternalSessionFormat(
 	options: DesktopExternalSessionFormatOptions,
 ): DesktopExternalSessionFormat {
-	const host = createDesktopExternalSessionHost({ resolveSessionsDirectory: options.resolveSessionsDirectory });
+	const host = createDesktopExternalSessionHost({
+		...(options.resolveSessionRoots ? { resolveSessionRoots: options.resolveSessionRoots } : {}),
+		...(options.resolveSessionsDirectory ? { resolveSessionsDirectory: options.resolveSessionsDirectory } : {}),
+	});
 	return {
 		host,
 		sessionCatalog: createCodingAgentExternalSessionCatalog(host, {

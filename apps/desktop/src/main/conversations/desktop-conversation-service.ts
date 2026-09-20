@@ -20,10 +20,7 @@ import { agentTeamStore } from "../agent-teams/agent-team-store.js";
 import { ensureLegacyAgentTeamOwnershipCatalog } from "../agent-teams/team-ownership-backfill.js";
 import { monitorRuntimeSession } from "../app-monitor/app-monitor-service.js";
 import { getDesktopExternalSessionFormat } from "../external-sessions/desktop-external-session-format.js";
-import {
-	isGrokSessionsListDirectory,
-	resolveGrokSessionsListDirectory,
-} from "../external-sessions/resolve-grok-sessions-list-directory.js";
+import { isGrokSessionsListDirectory } from "../external-sessions/resolve-grok-sessions-list-directory.js";
 import { allowProjectRoot, readDesktopConfig } from "../ipc/fs.js";
 import { getAppLogger } from "../logger.js";
 import { getSharedRuntime } from "../runtime.js";
@@ -389,9 +386,7 @@ export class DesktopConversationService {
 		}
 		const absoluteCwd = resolve(cwd);
 		if (isGrokSessionsListDirectory(absoluteCwd)) {
-			const grokDir = resolveGrokSessionsListDirectory();
-			if (!grokDir) return [];
-			const catalogSessions = await getDesktopExternalSessionFormat().sessionCatalog.listSessions(grokDir);
+			const catalogSessions = await getDesktopExternalSessionFormat().sessionCatalog.listSessions(absoluteCwd);
 			return catalogSessions.map((session) => ({
 				...session,
 				access: session.unavailableReason ? UNAVAILABLE_RUNTIME_SESSION_ACCESS : EXTERNAL_READONLY_SESSION_ACCESS,

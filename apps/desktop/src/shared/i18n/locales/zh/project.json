@@ -57,6 +57,11 @@
 		},
 		"external": {
 			"sourceGrok": "Grok",
+			"sourceClaudeCode": "Claude Code",
+			"sourceCodex": "Codex",
+			"sourceCursorAgent": "cursor-agent",
+			"sourcePi": "Pi",
+			"sourceOmp": "omp",
 			"unsupportedVersion": "格式版本不支持",
 			"corruptedHeader": "会话头部损坏"
 		},

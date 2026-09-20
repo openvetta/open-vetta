@@ -1,7 +1,7 @@
 export const GROK_SUPPORTED_CHAT_FORMAT_VERSION = 1;
 export const GROK_SUMMARY_SIDECAR_NAME = "summary.json";
 export const GROK_CONVERSATION_BODY_NAME = "chat_history.jsonl";
-export const GROK_TOOL_ID = "grok";
+export { GROK_TOOL_ID } from "./tool-ids.js";
 export const GROK_HEADER_SCAN_LINES = 32;
 
 export const EXTERNAL_SESSION_ACTIVITY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;

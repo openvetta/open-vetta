@@ -12,11 +12,7 @@ import type { TFunction } from "i18next";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-	EXTERNAL_ORIGIN_MARKER_TYPE,
-	EXTERNAL_SESSION_HISTORY_UNAVAILABLE,
-	GROK_TOOL_ID,
-} from "../external-history-display";
+import { EXTERNAL_ORIGIN_MARKER_TYPE, EXTERNAL_SESSION_HISTORY_UNAVAILABLE } from "../external-history-display";
 import { fullHistoryToChat } from "../services/chat-service";
 
 /**
@@ -95,12 +91,12 @@ export function useSessionViewerPageModel(): SessionViewerPageModel {
 				const initial = await window.vetta.session.openViewer(path);
 				if (cancelled) return;
 				setSourceBannerLabel(resolveSourceBannerLabel(initial.history, t));
-				setCanContinueFrom(isGrokExternalHistory(initial.history));
+				setCanContinueFrom(isExternalToolHistory(initial.history));
 				setMessages(fullHistoryToChat(initial.history));
 
 				unsubscribe = await window.vetta.session.subscribeViewer(path, (snapshot) => {
 					setSourceBannerLabel(resolveSourceBannerLabel(snapshot.history, t));
-					setCanContinueFrom(isGrokExternalHistory(snapshot.history));
+					setCanContinueFrom(isExternalToolHistory(snapshot.history));
 					setMessages(fullHistoryToChat(snapshot.history));
 				});
 				if (cancelled) unsubscribe?.();
@@ -138,13 +134,19 @@ export function useSessionViewerPageModel(): SessionViewerPageModel {
 
 function resolveSourceBannerLabel(history: readonly HistoryEntry[], t: TFunction<"chat">): string | null {
 	const tool = readExternalOriginTool(history);
-	if (tool === GROK_TOOL_ID) return t("sessionViewer.sourceBanner.grok");
+	if (tool === "grok") return t("sessionViewer.sourceBanner.grok");
+	if (tool === "claude-code") return t("sessionViewer.sourceBanner.claudeCode");
+	if (tool === "codex") return t("sessionViewer.sourceBanner.codex");
+	if (tool === "cursor-agent") return t("sessionViewer.sourceBanner.cursorAgent");
+	if (tool === "pi") return t("sessionViewer.sourceBanner.pi");
+	if (tool === "omp") return t("sessionViewer.sourceBanner.omp");
 	if (typeof tool === "string" && tool.trim()) return t("sessionViewer.sourceBanner.unknown");
 	return null;
 }
 
-function isGrokExternalHistory(history: readonly HistoryEntry[]): boolean {
-	return readExternalOriginTool(history) === GROK_TOOL_ID;
+function isExternalToolHistory(history: readonly HistoryEntry[]): boolean {
+	const tool = readExternalOriginTool(history);
+	return typeof tool === "string" && tool.trim().length > 0;
 }
 
 function readExternalOriginTool(history: readonly HistoryEntry[]): unknown {

@@ -7,8 +7,9 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => k
 vi.mock("./recordSettingsUsage", () => ({ recordSettingsUsage: vi.fn() }));
 
 interface SessionImportStore {
-	sessionImport?: { grokEnabled?: boolean; grokSessionDir?: string };
+	sessionImport?: { grokEnabled?: boolean; grokSessionDir?: string; claudeCodeEnabled?: boolean };
 	grokSessionsDirectory?: string;
+	externalSessionDirectories?: Partial<Record<string, string>>;
 }
 
 function installConfigStub(initial: SessionImportStore = {}): {
@@ -59,6 +60,34 @@ describe("useExternalSessionImportSettingsModel", () => {
 		expect(store.setPayloads.at(-1)).toEqual({ sessionImport: { grokEnabled: true } });
 		expect(store.current.sessionImport?.grokEnabled).toBe(true);
 	});
+
+	it("打开 Claude Code 开关后写入 claudeCodeEnabled", async () => {
+		const store = installConfigStub();
+		const { result } = renderHook(() => useExternalSessionImportSettingsModel());
+		await waitFor(() => expect(result.current.loading).toBe(false));
+
+		await act(async () => {
+			result.current.actions.toggleEnabled("claude-code", true);
+		});
+
+		expect(store.setPayloads.at(-1)).toEqual({ sessionImport: { claudeCodeEnabled: true } });
+		expect(result.current.tools.find((tool) => tool.id === "claude-code")?.enabled).toBe(true);
+	});
+
+	it("同一轮连开两个开关时两个都保持打开", async () => {
+		installConfigStub();
+		const { result } = renderHook(() => useExternalSessionImportSettingsModel());
+		await waitFor(() => expect(result.current.loading).toBe(false));
+
+		await act(async () => {
+			result.current.actions.toggleEnabled("grok", true);
+			result.current.actions.toggleEnabled("claude-code", true);
+		});
+
+		expect(result.current.tools.find((tool) => tool.id === "grok")?.enabled).toBe(true);
+		expect(result.current.tools.find((tool) => tool.id === "claude-code")?.enabled).toBe(true);
+	});
+
 
 	it("探测到目录时只读展示该路径，不提供手工指定入口", async () => {
 		installConfigStub({ grokSessionsDirectory: "/Users/ada/.grok/sessions" });

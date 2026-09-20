@@ -1,5 +1,6 @@
 import { useBatchTasks } from "@domains/batch-tasks/hooks/useBatchTasks";
 import { useProjectActions } from "@domains/project/hooks/useProjects";
+import { firstEnabledSessionImportDirectory, isAnySessionImportEnabled } from "@domains/settings/session-import-tools";
 import { cloudEnabled } from "@shared/components/cloud-slots";
 import { fetchServerInfo } from "@shared/lib/api";
 import {
@@ -51,8 +52,18 @@ export function useAppInit(): void {
 			if (config.defaultImConversationCwd) {
 				setDefaultImConversationCwd(config.defaultImConversationCwd);
 			}
-			setGrokSessionImportEnabled(config.sessionImport?.grokEnabled === true);
-			setGrokSessionsDirectory(config.grokSessionsDirectory ?? config.sessionImport?.grokSessionDir ?? "");
+			setGrokSessionImportEnabled(
+				isAnySessionImportEnabled(config.sessionImport as Record<string, unknown> | undefined),
+			);
+			setGrokSessionsDirectory(
+				firstEnabledSessionImportDirectory({
+					sessionImport: config.sessionImport as Record<string, unknown> | undefined,
+					detected: {
+						grok: config.grokSessionsDirectory,
+						...(config.externalSessionDirectories ?? {}),
+					},
+				}),
+			);
 			const executionMode = config.defaultExecutionMode ?? "full-access";
 			setSessionExecutionMode(executionMode);
 			localStorage.setItem("vetta-session-execution-mode", executionMode);

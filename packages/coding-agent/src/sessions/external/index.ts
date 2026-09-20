@@ -36,4 +36,17 @@ export {
 	MAX_UNAVAILABLE_EXTERNAL_SESSIONS,
 } from "./grok-summary.js";
 export { ExternalRuntimeSessionFileHistoryReader } from "./history-reader.js";
-export type { ExternalSessionDirectoryEntry, ExternalSessionFileHost } from "./host-contracts.js";
+export type { ExternalSessionDirectoryEntry, ExternalSessionFileHost, ExternalSessionRoot } from "./host-contracts.js";
+export {
+	type ResolveExternalSessionDirectoryInput,
+	resolveExternalSessionDirectory,
+} from "./session-directories.js";
+export {
+	CLAUDE_CODE_TOOL_ID,
+	CODEX_TOOL_ID,
+	CURSOR_AGENT_TOOL_ID,
+	EXTERNAL_SESSION_TOOL_IDS,
+	type ExternalSessionToolId,
+	OMP_TOOL_ID,
+	PI_TOOL_ID,
+} from "./tool-ids.js";

@@ -825,6 +825,11 @@
 		"omittedReasoning": "{{count}} reasoning traces were omitted",
 		"sourceBanner": {
 			"grok": "This is a read-only Grok record. The original session will not be changed, and you cannot continue the chat here.",
+			"claudeCode": "This is a read-only Claude Code record. The original session will not be changed, and you cannot continue the chat here.",
+			"codex": "This is a read-only Codex record. The original session will not be changed, and you cannot continue the chat here.",
+			"cursorAgent": "This is a read-only cursor-agent record. The original session will not be changed, and you cannot continue the chat here.",
+			"pi": "This is a read-only Pi record. The original session will not be changed, and you cannot continue the chat here.",
+			"omp": "This is a read-only omp record. The original session will not be changed, and you cannot continue the chat here.",
 			"unknown": "This is a read-only record from another tool. The original session will not be changed, and you cannot continue the chat here."
 		},
 		"export": {

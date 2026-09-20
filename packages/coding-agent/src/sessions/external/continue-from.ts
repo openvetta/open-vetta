@@ -3,18 +3,12 @@ import type { ConversationDocumentEntry } from "@vetta/runtime-core/conversation
 import {
 	buildExternalBriefingCacheKey,
 	buildExternalBriefingPrompt,
-	readGrokSidecarSupplement,
 	resolveTrustedContinueCwd,
 	truncateBriefingRounds,
 } from "./continue-from-briefing.js";
 import { buildExternalSessionContinueSeed } from "./continue-from-seed.js";
-import { EXTERNAL_SESSION_HISTORY_UNAVAILABLE, projectGrokConversationBriefingRounds } from "./grok-conversation.js";
-import {
-	findGrokSummaryHeader,
-	GROK_CONVERSATION_BODY_NAME,
-	GROK_HEADER_SCAN_LINES,
-	GROK_TOOL_ID,
-} from "./grok-summary.js";
+import { identifyExternalSessionFormat } from "./formats.js";
+import { EXTERNAL_SESSION_HISTORY_UNAVAILABLE } from "./grok-conversation.js";
 import type { ExternalSessionFileHost } from "./host-contracts.js";
 
 export interface ExternalSessionContinueRequest {
@@ -120,37 +114,43 @@ export function createCodingAgentExternalSessionContinueFrom(
 		});
 
 	return async (request) => {
+		const format = identifyExternalSessionFormat(request.sessionPath, ports.files);
+		if (!format) throw new Error(EXTERNAL_SESSION_HISTORY_UNAVAILABLE.corrupted_header);
+		let source = format.readBriefingSource(request.sessionPath, ports.files);
+		if ("error" in source) throw new Error(EXTERNAL_SESSION_HISTORY_UNAVAILABLE[source.error]);
+
 		if (!request.forceCreate) {
 			const existing = pickLatestImportedSession(
-				await ports.findImportedSessions({ tool: GROK_TOOL_ID, path: request.sessionPath }),
+				await ports.findImportedSessions({ tool: source.tool, path: request.sessionPath }),
 			);
 			if (existing) return { kind: "already_imported", existing };
 		}
 
-		const sourceBodyPath = ports.files.join(ports.files.join(request.sessionPath, ".."), GROK_CONVERSATION_BODY_NAME);
+		const extraBodyPath =
+			source.bodyPath && source.bodyPath !== request.sessionPath && ports.files.exists(source.bodyPath)
+				? source.bodyPath
+				: undefined;
 		const sidecarStat = await ports.files.statFile(request.sessionPath);
-		const bodyStat = ports.files.exists(sourceBodyPath) ? await ports.files.statFile(sourceBodyPath) : undefined;
+		const bodyStat = extraBodyPath
+			? await ports.files.statFile(extraBodyPath)
+			: source.bodyPath === request.sessionPath
+				? sidecarStat
+				: undefined;
 		const sessionId = createSessionId();
 		let copied = false;
 		try {
 			const snapshot = await ports.copyOriginSnapshot({
 				sessionId,
 				sourceSidecarPath: request.sessionPath,
-				sourceBodyPath,
+				...(extraBodyPath ? { sourceBodyPath: extraBodyPath } : {}),
 			});
 			copied = true;
-
-			const sidecarText = ports.files.readPrefixLines(snapshot.sidecarPath, GROK_HEADER_SCAN_LINES);
-			const header = findGrokSummaryHeader(sidecarText);
-			if (header.kind === "corrupted_header" || header.kind === "unrelated") {
-				throw new Error(EXTERNAL_SESSION_HISTORY_UNAVAILABLE.corrupted_header);
-			}
-			if (header.kind === "unsupported_version") {
-				throw new Error(EXTERNAL_SESSION_HISTORY_UNAVAILABLE.unsupported_version);
-			}
+			const snapshotted = format.readBriefingSource(snapshot.sidecarPath, ports.files);
+			if ("error" in snapshotted) throw new Error(EXTERNAL_SESSION_HISTORY_UNAVAILABLE[snapshotted.error]);
+			source = snapshotted;
 
 			const cwdResult = resolveTrustedContinueCwd({
-				trustedCwd: header.summary.cwd,
+				trustedCwd: source.cwd,
 				cwdOverride: request.cwdOverride,
 				exists: (path) => ports.files.exists(path),
 			});
@@ -166,14 +166,11 @@ export function createCodingAgentExternalSessionContinueFrom(
 				...(bodyStat ? { body: bodyStat } : {}),
 			});
 
-			const fullSidecar = ports.files.readText(snapshot.sidecarPath);
-			const supplement = readGrokSidecarSupplement(fullSidecar);
-			const body = snapshot.bodyPath ? ports.files.readText(snapshot.bodyPath) : "";
-			const truncated = truncateBriefingRounds(projectGrokConversationBriefingRounds(body));
+			const truncated = truncateBriefingRounds(source.rounds);
 			const prompt = buildExternalBriefingPrompt({
 				rounds: truncated.rounds,
 				omittedRoundCount: truncated.omittedRoundCount,
-				supplement,
+				supplement: source.supplement,
 			});
 
 			let usedCache = true;
@@ -183,18 +180,18 @@ export function createCodingAgentExternalSessionContinueFrom(
 				briefing = await ports.generateBriefing({
 					modelKey: request.modelKey,
 					prompt,
-					supplement,
+					supplement: source.supplement,
 				});
 				await ports.cache.set(cacheKey, briefing);
 			}
 
 			const importedAt = now();
 			const importedFrom: SessionHistoryImportSource = {
-				tool: GROK_TOOL_ID,
+				tool: source.tool,
 				path: request.sessionPath,
 				importedAt,
 			};
-			const name = header.summary.title || undefined;
+			const name = source.title || undefined;
 			const seed = buildExternalSessionContinueSeed({
 				briefing,
 				importedFrom,

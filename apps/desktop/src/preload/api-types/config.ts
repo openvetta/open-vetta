@@ -49,13 +49,23 @@ export interface DesktopConfigData {
 	};
 	/** 外部工具会话导入。缺省全关。 */
 	sessionImport?: {
-		/** 是否读取 Grok 会话。缺省关。 */
 		grokEnabled?: boolean;
-		/** 仅在自动探测失败时由用户指定的 Grok 会话目录。 */
 		grokSessionDir?: string;
+		claudeCodeEnabled?: boolean;
+		claudeCodeSessionDir?: string;
+		codexEnabled?: boolean;
+		codexSessionDir?: string;
+		cursorAgentEnabled?: boolean;
+		cursorAgentSessionDir?: string;
+		piEnabled?: boolean;
+		piSessionDir?: string;
+		ompEnabled?: boolean;
+		ompSessionDir?: string;
 	};
 	/** 自动探测到的 Grok 会话目录；探测失败时缺省。由主进程注入，不写入配置文件。 */
 	grokSessionsDirectory?: string;
+	/** 自动探测到的外部工具会话目录，按工具 id 索引。由主进程注入，不写入配置文件。 */
+	externalSessionDirectories?: Partial<Record<string, string>>;
 	/** 图片生成 Provider 偏好；空值表示自动选择。 */
 	imageGeneration?: {
 		textToImageProviderId?: string | null;

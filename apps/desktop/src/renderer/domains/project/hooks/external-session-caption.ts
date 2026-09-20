@@ -1,12 +1,25 @@
 import type { SessionInfo } from "@shared/store/atoms";
 import type { TFunction } from "i18next";
 
+const SOURCE_KEYS: Record<
+	string,
+	"sourceGrok" | "sourceClaudeCode" | "sourceCodex" | "sourceCursorAgent" | "sourcePi" | "sourceOmp"
+> = {
+	grok: "sourceGrok",
+	"claude-code": "sourceClaudeCode",
+	codex: "sourceCodex",
+	"cursor-agent": "sourceCursorAgent",
+	pi: "sourcePi",
+	omp: "sourceOmp",
+};
+
 export function externalSessionCaption(
-	session: Pick<SessionInfo, "modifiedAt" | "unavailableReason">,
+	session: Pick<SessionInfo, "modifiedAt" | "origin" | "unavailableReason">,
 	t: TFunction<"project">,
 	now = Date.now(),
 ): string {
-	const source = t("sidebar.external.sourceGrok");
+	const sourceKey = SOURCE_KEYS[session.origin?.tool ?? ""] ?? "sourceGrok";
+	const source = t(`sidebar.external.${sourceKey}`);
 	if (session.unavailableReason) {
 		const reason =
 			session.unavailableReason === "unsupported_version"

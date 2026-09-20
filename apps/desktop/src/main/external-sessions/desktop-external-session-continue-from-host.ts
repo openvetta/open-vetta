@@ -9,7 +9,6 @@ import {
 	type ExistingImportedExternalSession,
 	type ExternalSessionContinueResult,
 	findDesktopImportedExternalSessions,
-	GROK_TOOL_ID,
 	generateDesktopExternalSessionBriefing,
 	persistDesktopExternalSessionContinueSeed,
 	pickLatestImportedSession,
@@ -45,7 +44,7 @@ export async function lookupDesktopExternalImport(
 ): Promise<ExistingImportedExternalSession | undefined> {
 	return pickLatestImportedSession(
 		await findDesktopImportedExternalSessions(
-			{ tool: GROK_TOOL_ID, path: sessionPath },
+			{ path: sessionPath },
 			{
 				listProjects: async () => getSharedRuntime().listProjects(),
 				listSessions: (cwd) => getDesktopConversationService().listSessions(cwd),

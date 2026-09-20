@@ -28,7 +28,7 @@ export const defaultConversationCwdAtom = atom<string>("");
  */
 export const defaultImConversationCwdAtom = atom<string>("");
 
-/** Agent 配置里是否打开了 Grok 会话导入。 */
+/** Agent 配置里是否打开了任一外部工具会话导入。 */
 export const grokSessionImportEnabledAtom = atom(false);
 /** 当前用于列出外部工具会话的目录；未开启或未探测到时为空。 */
 export const grokSessionsDirectoryAtom = atom("");
