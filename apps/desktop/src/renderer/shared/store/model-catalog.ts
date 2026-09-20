@@ -1,5 +1,6 @@
 import type { ModelsConfigData } from "@preload/api";
 import { getDefaultStore } from "jotai";
+import { isCloudBuildEnabled } from "@/shared/feature-flags";
 import { localModelsConfigAtom, remoteProvidersAtom } from "./model-catalog-atoms";
 import { createModelCatalogSync, type ModelCatalogSync } from "./model-catalog-sync";
 
@@ -15,13 +16,17 @@ export const modelCatalog: ModelCatalogSync = createModelCatalogSync<ModelsConfi
 	now: () => Date.now(),
 	loadLocal: () => window.vetta.models.get(),
 	applyLocal: (config) => getDefaultStore().set(localModelsConfigAtom, config),
-	loadRemote: async () => {
-		// 未登录时主进程直接返回空目录（不发网络请求），写回空表正好与登出行为一致。
-		const result = await window.vetta.models.fetchRemote();
-		return (result.providers ?? {}) as Record<string, unknown>;
-	},
+	loadRemote: loadRemoteModelCatalog,
 	applyRemote: (providers) => getDefaultStore().set(remoteProvidersAtom, providers),
 	onError: (source, error) => {
 		console.warn(`[modelCatalog] ${source} 目录刷新失败，继续沿用上次结果：`, error);
 	},
 });
+
+/** lite 构建没有云目录 IPC，返回 null 表示不拉远程、也不改现有表。 */
+export async function loadRemoteModelCatalog(): Promise<Record<string, unknown> | null> {
+	if (!isCloudBuildEnabled()) return null;
+	// 未登录时主进程直接返回空目录（不发网络请求），写回空表正好与登出行为一致。
+	const result = await window.vetta.models.fetchRemote();
+	return (result.providers ?? {}) as Record<string, unknown>;
+}

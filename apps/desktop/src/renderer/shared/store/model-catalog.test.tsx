@@ -22,6 +22,7 @@ const models = {
 };
 
 beforeEach(() => {
+	vi.stubEnv("VETTA_CLOUD_ENABLED", "true");
 	vi.useFakeTimers({ shouldAdvanceTime: true });
 	vi.setSystemTime(new Date("2026-08-20T00:00:00Z"));
 	models.get.mockClear();
@@ -37,6 +38,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	vi.useRealTimers();
+	vi.unstubAllEnvs();
 });
 
 describe("模型目录与选择器的同步", () => {
@@ -95,5 +97,20 @@ describe("模型目录与选择器的同步", () => {
 		const { result } = renderHook(() => useModelOptions());
 		await waitFor(() => expect(models.fetchRemote).toHaveBeenCalled());
 		expect(result.current.options).toEqual([]);
+	});
+
+	it("lite 构建窗口重新获得焦点时不请求远程目录", async () => {
+		vi.stubEnv("VETTA_CLOUD_ENABLED", "false");
+		modelCatalog.reset();
+		renderHook(() => {
+			useModelCatalogSync();
+			return useModelOptions();
+		});
+		await waitFor(() => expect(models.get).toHaveBeenCalled());
+		await act(async () => {
+			window.dispatchEvent(new Event("focus"));
+			await Promise.resolve();
+		});
+		expect(models.fetchRemote).not.toHaveBeenCalled();
 	});
 });
