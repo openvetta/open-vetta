@@ -1,4 +1,4 @@
-import type { PluginCommandApi } from "@vetta-org/plugin-sdk";
+import type { PluginAiApi, PluginCommandApi } from "@vetta-org/plugin-sdk";
 import type { ChangeCode, TurnChangeDelta } from "./types";
 
 /**
@@ -25,6 +25,7 @@ interface TurnCardState {
 
 interface GitRuntime {
 	command: PluginCommandApi | null;
+	ai: PluginAiApi | null;
 	resizePanel: PanelResizer | null;
 	refreshListeners: Set<() => void>;
 	turnPhaseListeners: Set<(phase: TurnPhase) => void>;
@@ -38,6 +39,7 @@ function runtime(): GitRuntime {
 	if (!g[KEY]) {
 		g[KEY] = {
 			command: null,
+			ai: null,
 			resizePanel: null,
 			refreshListeners: new Set<() => void>(),
 			turnPhaseListeners: new Set<(phase: TurnPhase) => void>(),
@@ -82,6 +84,16 @@ export function setGitCommand(api: PluginCommandApi): void {
 export function getGitCommand(): PluginCommandApi {
 	const api = runtime().command;
 	if (!api) throw new Error("Git plugin command API not initialized");
+	return api;
+}
+
+export function setGitAi(api: PluginAiApi): void {
+	runtime().ai = api;
+}
+
+export function getGitAi(): PluginAiApi {
+	const api = runtime().ai;
+	if (!api) throw new Error("Git plugin AI API not initialized");
 	return api;
 }
 

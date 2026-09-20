@@ -3,7 +3,7 @@ import "./style.css";
 import { GitPanel } from "./components/GitPanel";
 import { GitTurnCard } from "./components/GitTurnCard";
 import { GitIcon } from "./components/icons";
-import { emitRefreshSignal, emitTurnPhase, setGitCommand, setPanelResizer } from "./git/runtime";
+import { emitRefreshSignal, emitTurnPhase, setGitAi, setGitCommand, setPanelResizer } from "./git/runtime";
 import { CHANGES_TAB_ID, isInsideGitWorkTree } from "./git/tab-visibility";
 
 export default definePlugin({
@@ -11,6 +11,7 @@ export default definePlugin({
 		// Stash the command API for panels (zero-prop activity-tab components read it
 		// via the globalThis runtime holder).
 		setGitCommand(ctx.command);
+		setGitAi(ctx.ai);
 
 		/** 最近一次 conversation-changed 的 cwd，用于丢弃过期的仓库探测结果。 */
 		let latestCwd: string | null = null;

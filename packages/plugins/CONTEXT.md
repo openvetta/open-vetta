@@ -119,5 +119,5 @@ watch；要做需给插件 API 补 fs.watch（后续）。window-focus 作为其
 
 ## v1 动作边界
 
-只读：状态树 + 右侧分屏 diff。唯一写操作 = 非 git 项目的「初始化仓库」CTA（`git init`）。
-**不含** stage/unstage/commit/discard（留待后续版本）。
+状态树 + 右侧分屏 diff + 变更页底部的提交框。可按当前工作区全部变更用 AI 生成提交说明，确认后 `git add -A` 并提交。唯一其它写操作 = 非 git 项目的「初始化仓库」CTA（`git init`）。
+**不含** 逐文件 stage/unstage/discard。

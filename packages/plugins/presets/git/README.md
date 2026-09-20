@@ -9,6 +9,7 @@
   - `M` 修改 / `A` 新增 / `D` 删除 / `R` 重命名 / `U` 未跟踪；折叠的文件夹含变更后代时打「●」。
   - 不列 gitignore 忽略文件（避免 `node_modules` 淹没）。
 - 点击文件**内联展开 diff**（工作区 vs HEAD；未跟踪文件按新增合成）。
+- 变更页底部可填写提交说明；「生成提交说明」用当前 diff 调用宿主默认模型，确认后 `git add -A` 并 `git commit`。
 - 非 Git 项目展示「初始化仓库」CTA，点击执行 `git init`。
 - 刷新：对话轮结束（agent 改文件后）+ 窗口重新聚焦 + 手动刷新按钮。
 
@@ -18,6 +19,7 @@
 - 对话事件：`agent.session.read`（订阅 `turn-end`）。
 - 命令执行：`agent.command.run` + `plugin.json` 的 `commands: ["git"]`。用户可在插件设置里关闭
   `git` 命令；关闭后调用被拦截并通知。详见 `docs/adr/0032`。
+- 文本推理：`ai.complete`（生成提交说明走 `ctx.ai.complete`，使用用户已配置的默认模型）。
 
 ## 已知取舍（v1）
 

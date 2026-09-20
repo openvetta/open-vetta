@@ -37,6 +37,11 @@
 						"title": "同步仓库",
 						"description": "在面板中执行获取、拉取、推送和同步。",
 						"icon": "solar:refresh-circle-linear"
+					},
+					{
+						"title": "AI 生成提交",
+						"description": "根据当前变更生成提交说明，确认后提交工作区全部改动。",
+						"icon": "solar:pen-new-square-linear"
 					}
 				]
 			}
@@ -76,6 +81,11 @@
 								"title": "Repository sync",
 								"description": "Fetch, pull, push, and sync from the panel.",
 								"icon": "solar:refresh-circle-linear"
+							},
+							{
+								"title": "AI-generated commits",
+								"description": "Generate a commit message from the current changes, then commit the whole working tree.",
+								"icon": "solar:pen-new-square-linear"
 							}
 						]
 					}

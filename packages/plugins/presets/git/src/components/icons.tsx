@@ -137,3 +137,12 @@ export function SyncIcon({ className }: IconProps): JSX.Element {
 		</svg>
 	);
 }
+
+export function SparkleIcon({ className }: IconProps): JSX.Element {
+	return (
+		<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+			<path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6L12 3z" />
+			<path d="M19 14l.7 1.8L21.5 16.5l-1.8.7L19 19l-.7-1.8L16.5 16.5l1.8-.7L19 14z" />
+		</svg>
+	);
+}

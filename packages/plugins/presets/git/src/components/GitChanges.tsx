@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { findEntry } from "../git/gitStatus";
 import { resizePanel } from "../git/runtime";
 import type { ChangeEntry } from "../git/types";
+import { CommitComposer } from "./CommitComposer";
 import { DiffPane } from "./DiffPane";
 import { GitActions } from "./GitActions";
 import { GitFileTree } from "./GitFileTree";
@@ -161,6 +162,7 @@ export function GitChanges({ root, entries }: { root: string; entries: ChangeEnt
 						))}
 				</div>
 			)}
+			{entries.length > 0 && <CommitComposer root={root} entries={entries} />}
 		</div>
 	);
 }
