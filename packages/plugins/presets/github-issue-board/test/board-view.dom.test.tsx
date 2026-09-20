@@ -351,6 +351,19 @@ async function selectWorkspace(optionName: string): Promise<void> {
 	});
 }
 
+async function selectFilterOption(filterName: string, optionName: string): Promise<void> {
+	const trigger = screen.getByRole("button", { name: filterName });
+	if (trigger.getAttribute("aria-expanded") !== "true") {
+		await act(async () => {
+			fireEvent.click(trigger);
+		});
+	}
+	const item = await screen.findByRole("menuitem", { name: optionName });
+	await act(async () => {
+		fireEvent.click(item);
+	});
+}
+
 function taskRow(title: string): HTMLElement {
 	return screen.getByRole("row", { name: new RegExp(title) });
 }
@@ -1490,7 +1503,7 @@ describe("GitHub Issue board view", () => {
 		expect(within(taskRow("Fix login")).getByRole("button", { name: COPY["board.stop"] })).toBeTruthy();
 	});
 
-	it("filters the queue by title search, status, and shows a distinct empty message", async () => {
+	it("filters the queue by title search, status, and label, and shows a distinct empty message", async () => {
 		const { ctx, registered } = fakeContext({
 			gitRemote: githubRemote("acme", "app"),
 			initialState: {
@@ -1553,16 +1566,33 @@ describe("GitHub Issue board view", () => {
 		expect(screen.queryByRole("cell", { name: "#11 Add docs" })).toBeNull();
 
 		fireEvent.change(screen.getByPlaceholderText(COPY["board.filter.search"] ?? ""), { target: { value: "" } });
-		fireEvent.change(screen.getByLabelText(COPY["board.filter.status"] ?? ""), { target: { value: "failed" } });
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.filter.status"] }));
+		});
+		expect(screen.getByRole("menuitem", { name: COPY["board.filter.status.all"] })).toBeTruthy();
+		expect(screen.getByRole("menuitem", { name: COPY["board.status.pending"] })).toBeTruthy();
+		expect(screen.getByRole("menuitem", { name: COPY["board.status.failed"] })).toBeTruthy();
+		await selectFilterOption(COPY["board.filter.status"] ?? "", COPY["board.status.failed"] ?? "");
+		expect(screen.getByRole("button", { name: COPY["board.filter.status"] }).textContent).toContain(
+			COPY["board.status.failed"],
+		);
 		expect(screen.getByRole("cell", { name: "#11 Add docs" })).toBeTruthy();
 		expect(screen.queryByRole("cell", { name: "#10 Fix login" })).toBeNull();
 
-		fireEvent.change(screen.getByLabelText(COPY["board.filter.status"] ?? ""), { target: { value: "all" } });
+		await selectFilterOption(COPY["board.filter.status"] ?? "", COPY["board.filter.status.all"] ?? "");
+		await selectFilterOption(COPY["board.filter.label"] ?? "", "bug");
+		expect(screen.getByRole("button", { name: COPY["board.filter.label"] }).textContent).toContain("bug");
+		expect(screen.getByRole("cell", { name: "#10 Fix login" })).toBeTruthy();
+		expect(screen.queryByRole("cell", { name: "#11 Add docs" })).toBeNull();
+
+		await selectFilterOption(COPY["board.filter.label"] ?? "", COPY["board.filter.label.all"] ?? "");
 		fireEvent.change(screen.getByPlaceholderText(COPY["board.filter.search"] ?? ""), {
 			target: { value: "zzzzz" },
 		});
 		expect(screen.getByText(COPY["board.empty.filtered"] ?? "")).toBeTruthy();
 		expect(screen.queryByText(COPY["board.empty.notFetched"] ?? "")).toBeNull();
 		expect(screen.getByPlaceholderText(COPY["board.filter.search"] ?? "")).toBeTruthy();
+		expect(screen.getByRole("button", { name: COPY["board.filter.status"] })).toBeTruthy();
+		expect(screen.getByRole("button", { name: COPY["board.filter.label"] })).toBeTruthy();
 	});
 });
