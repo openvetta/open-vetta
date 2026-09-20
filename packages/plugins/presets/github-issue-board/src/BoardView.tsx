@@ -24,10 +24,12 @@ import { detachBoardRuns, followRunningTask, IMPLEMENT_SKILL, runQueuedTask, typ
 import {
 	accumulateIssueNumbers,
 	addManualTask,
-	applyOpenIssueSnapshot,
+	applyIssueFetchFilter,
+	finishIssueFetchPage,
 	hasRunningTask,
 	loadPluginState,
 	mergeIssueTasks,
+	normalizeIssueFetchFilter,
 	reconcileRunningTasks,
 	removeTask,
 	retryFailedTask,
@@ -36,6 +38,7 @@ import {
 	type GithubIssueState,
 	type GithubTask,
 	type GithubTaskStatus,
+	type IssueFetchAssignee,
 	type PluginState,
 } from "./state";
 import {
@@ -53,6 +56,7 @@ const FETCH_ERROR_KEY: Record<GithubFetchErrorKind, string> = {
 	"rate-limit": "board.error.rateLimit",
 	"not-found": "board.error.notFound",
 	"non-json": "board.error.nonJson",
+	"assignee-needs-gh": "board.error.assigneeNeedsGh",
 };
 
 const RESOLVE_ERROR_KEY: Record<ResolveGithubRepoError, string> = {
@@ -152,6 +156,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const [filterQuery, setFilterQuery] = useState("");
 	const [filterStatus, setFilterStatus] = useState<"all" | GithubTaskStatus>("all");
 	const [filterLabel, setFilterLabel] = useState("all");
+	const [labelDraft, setLabelDraft] = useState<string | null>(null);
 	const conversation = useActiveConversation();
 	const cancelledRef = useRef(false);
 	const inflightRef = useRef(false);
@@ -163,6 +168,9 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const workspaceGenRef = useRef(0);
 	const stateRef = useRef(state);
 	stateRef.current = state;
+	const fetchLabelValue = labelDraft ?? state?.fetchFilter.label ?? "";
+	const labelDraftRef = useRef(fetchLabelValue);
+	labelDraftRef.current = fetchLabelValue;
 	const commentsRef = useRef(commentsByTask);
 	commentsRef.current = commentsByTask;
 	const t = ctx.i18n.t;
@@ -320,6 +328,14 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		setFilterLabel("all");
 	}
 
+	async function persistFetchFilter(assignee: IssueFetchAssignee, label: string): Promise<void> {
+		const current = stateRef.current;
+		if (!current) return;
+		const next = applyIssueFetchFilter(current, { assignee, label });
+		if (next === current) return;
+		await persist(next);
+	}
+
 	async function importOpenIssues(pageInput: number): Promise<void> {
 		const page = normalizeIssuePage(pageInput);
 		const current = stateRef.current;
@@ -328,6 +344,11 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		setFetching(true);
 		if (page === 1) resetFilters();
 		try {
+			const filter = normalizeIssueFetchFilter({
+				assignee: current.fetchFilter.assignee,
+				label: labelDraftRef.current,
+			});
+			await persistFetchFilter(filter.assignee, filter.label ?? "");
 			const resolved = await resolveGithubRepoFromProject({
 				command: ctx.command,
 				cwd: resolveWorkspaceCwd(stateRef.current?.workspace ?? current.workspace, conversation.cwd),
@@ -341,7 +362,14 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 			const latest = stateRef.current ?? current;
 			const withTarget: PluginState = { ...latest, repoTarget: { owner: ownerName, repo: repoName } };
 			await persist(withTarget);
-			const result = await fetchOpenGithubIssues(ctx.network, ownerName, repoName, ctx.command, page);
+			const result = await fetchOpenGithubIssues(
+				ctx.network,
+				ownerName,
+				repoName,
+				ctx.command,
+				page,
+				filter,
+			);
 			const fetchError = githubFetchError(result);
 			if (fetchError) {
 				ctx.ui.notify({ message: t(FETCH_ERROR_KEY[fetchError]), variant: "error" });
@@ -374,26 +402,15 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 					: [],
 				openNumbers,
 			);
-			let nextState: PluginState = {
-				...merged.state,
-				issueNextPage: nextPage,
-				lastFetch: { owner: ownerName, repo: repoName },
-			};
-			let closedCount = 0;
-			if (nextPage == null) {
-				const snapshot = applyOpenIssueSnapshot(nextState, {
-					owner: ownerName,
-					repo: repoName,
-					openNumbers: new Set(seenNumbers),
-				});
-				nextState = { ...snapshot.state, issueSync: null };
-				closedCount = snapshot.closed;
-			} else {
-				nextState = {
-					...nextState,
-					issueSync: { owner: ownerName, repo: repoName, seenNumbers },
-				};
-			}
+			const finished = finishIssueFetchPage(merged.state, {
+				owner: ownerName,
+				repo: repoName,
+				filter,
+				seenNumbers,
+				nextPage,
+			});
+			const nextState = finished.state;
+			const closedCount = finished.closed;
 			await persist(nextState);
 			if (cancelledRef.current) return;
 			const updated = merged.updated + closedCount;
@@ -720,11 +737,39 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 				{workspaceCwd ? t("board.project.current", { path: workspaceCwd }) : t("board.project.none")}
 			</p>
 			<form
+				className="flex flex-wrap items-end gap-2"
 				onSubmit={(event) => {
 					event.preventDefault();
 					void handleFetch();
 				}}
 			>
+				<BoardSelect
+					disabled={!ready || fetching}
+					label={t("board.fetch.assignee")}
+					triggerIcon="icon-[solar--user-circle-linear]"
+					value={state?.fetchFilter.assignee ?? "any"}
+					options={[
+						{ value: "any", label: t("board.fetch.assignee.any") },
+						{ value: "me", label: t("board.fetch.assignee.me") },
+					]}
+					onChange={(assignee) => {
+						void persistFetchFilter(assignee, labelDraftRef.current);
+					}}
+				/>
+				<label className="flex min-w-[10rem] flex-col gap-1 text-xs font-medium text-muted-foreground">
+					{t("board.fetch.label")}
+					<input
+						className={FIELD}
+						disabled={!ready || fetching}
+						value={fetchLabelValue}
+						onBlur={() => {
+							void persistFetchFilter(stateRef.current?.fetchFilter.assignee ?? "any", labelDraftRef.current);
+						}}
+						onChange={(event) => {
+							setLabelDraft(event.target.value);
+						}}
+					/>
+				</label>
 				<button className={PRIMARY_BUTTON} disabled={!canFetch} type="submit">
 					{t("board.fetch")}
 				</button>

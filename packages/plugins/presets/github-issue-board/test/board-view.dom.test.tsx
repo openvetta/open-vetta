@@ -76,6 +76,11 @@ const COPY: Record<string, string> = {
 	"board.filter.status.all": "All",
 	"board.filter.label": "Label",
 	"board.filter.label.all": "All",
+	"board.fetch.assignee": "Scope",
+	"board.fetch.assignee.any": "All open",
+	"board.fetch.assignee.me": "Assigned to me",
+	"board.fetch.label": "Fetch label",
+	"board.error.assigneeNeedsGh": "“Assigned to me” needs a logged-in GitHub CLI",
 	"board.workspace.label": "Project",
 	"board.workspace.placeholder": "Select project",
 	"board.workspace.conversation": "Current session · {{path}}",
@@ -1594,5 +1599,192 @@ describe("GitHub Issue board view", () => {
 		expect(screen.getByPlaceholderText(COPY["board.filter.search"] ?? "")).toBeTruthy();
 		expect(screen.getByRole("button", { name: COPY["board.filter.status"] })).toBeTruthy();
 		expect(screen.getByRole("button", { name: COPY["board.filter.label"] })).toBeTruthy();
+	});
+
+	it("fetches assigned issues through gh after the user picks assigned to me", async () => {
+		const issue = {
+			number: 10,
+			title: "Fix login",
+			html_url: "https://github.com/acme/app/issues/10",
+			body: "The button does nothing.",
+			updated_at: "2026-01-02T03:04:05Z",
+		};
+		const { ctx, registered, requests, runCommand } = fakeContext({
+			gitRemote: githubRemote("acme", "app"),
+			ghApi: { stdout: JSON.stringify([issue]), exitCode: 0 },
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await readyFetchButton();
+		await selectFilterOption(COPY["board.fetch.assignee"] ?? "", COPY["board.fetch.assignee.me"] ?? "");
+		await fetchIssues();
+
+		expect(runCommand).toHaveBeenCalledWith(
+			"gh",
+			["api", "repos/acme/app/issues?state=open&per_page=100&assignee=@me"],
+			{
+				timeoutMs: 20_000,
+				env: { GH_PROMPT_DISABLED: "1", GH_NO_UPDATE_NOTIFIER: "1" },
+			},
+		);
+		expect(requests).toHaveLength(0);
+		expect(screen.getByRole("cell", { name: "#10 Fix login" })).toBeTruthy();
+	});
+
+	it("notifies and leaves the queue unchanged when assigned-to-me fetch has no GitHub CLI login", async () => {
+		const { ctx, registered, notifications, requests } = fakeContext({
+			gitRemote: githubRemote("acme", "app"),
+			initialState: {
+				repoTarget: { owner: "acme", repo: "app" },
+				workspace: { kind: "conversation" },
+				tasks: [
+					{
+						id: "queued",
+						title: "Already queued",
+						promptText: "Already queued",
+						source: {
+							kind: "issue",
+							owner: "acme",
+							repo: "app",
+							issueNumber: 10,
+							issueUrl: "https://github.com/acme/app/issues/10",
+							issueUpdatedAt: "2026-01-01T00:00:00Z",
+							issueState: "open",
+						},
+						status: "pending",
+						createdAt: 1,
+						updatedAt: 1,
+					},
+				],
+				issueNextPage: null,
+				lastFetch: { owner: "acme", repo: "app" },
+			},
+			issues: [
+				{
+					number: 11,
+					title: "Should not import",
+					html_url: "https://github.com/acme/app/issues/11",
+					body: "Leftover public payload.",
+					updated_at: "2026-01-03T00:00:00Z",
+				},
+			],
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		expect(await screen.findByRole("cell", { name: "#10 Already queued" })).toBeTruthy();
+		await selectFilterOption(COPY["board.fetch.assignee"] ?? "", COPY["board.fetch.assignee.me"] ?? "");
+		await fetchIssues();
+
+		expect(notifications).toContain(COPY["board.error.assigneeNeedsGh"]);
+		expect(requests).toHaveLength(0);
+		expect(screen.getByRole("cell", { name: "#10 Already queued" })).toBeTruthy();
+		expect(screen.queryByRole("cell", { name: "#11 Should not import" })).toBeNull();
+	});
+
+	it("includes an encoded label in the public fetch URL and keeps unmatched queued issues", async () => {
+		const { ctx, registered, requests } = fakeContext({
+			gitRemote: githubRemote("acme", "app"),
+			initialState: {
+				repoTarget: { owner: "acme", repo: "app" },
+				workspace: { kind: "conversation" },
+				tasks: [
+					{
+						id: "other",
+						title: "Unlabeled leftover",
+						promptText: "Unlabeled leftover",
+						source: {
+							kind: "issue",
+							owner: "acme",
+							repo: "app",
+							issueNumber: 10,
+							issueUrl: "https://github.com/acme/app/issues/10",
+							issueUpdatedAt: "2026-01-01T00:00:00Z",
+							issueState: "open",
+						},
+						status: "pending",
+						createdAt: 1,
+						updatedAt: 1,
+					},
+				],
+				issueNextPage: null,
+				lastFetch: { owner: "acme", repo: "app" },
+			},
+			issues: [
+				{
+					number: 12,
+					title: "Labeled bug",
+					html_url: "https://github.com/acme/app/issues/12",
+					body: "A bug.",
+					updated_at: "2026-03-01T00:00:00Z",
+					labels: [{ name: "needs:help" }],
+				},
+			],
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		expect(await screen.findByRole("cell", { name: "#10 Unlabeled leftover" })).toBeTruthy();
+		const labelInput = await screen.findByRole("textbox", { name: COPY["board.fetch.label"] });
+		fireEvent.change(labelInput, { target: { value: "needs:help" } });
+		expect(requests).toHaveLength(0);
+		await fetchIssues();
+
+		expect(requests[0]?.url).toBe(
+			"https://api.github.com/repos/acme/app/issues?state=open&per_page=100&labels=needs%3Ahelp",
+		);
+		expect(screen.getByRole("cell", { name: "#12 Labeled bug" })).toBeTruthy();
+		expect(screen.getByRole("cell", { name: "#10 Unlabeled leftover" })).toBeTruthy();
+	});
+
+	it("uses the persisted fetch filter for the automatic first page after switching project", async () => {
+		const issue = {
+			number: 11,
+			title: "Ship web",
+			html_url: "https://github.com/acme/web/issues/11",
+			body: "The landing page.",
+			updated_at: "2026-01-03T00:00:00Z",
+		};
+		const { ctx, registered, runCommand } = fakeContext({
+			cwd: null,
+			projects: [{ path: "/apps/web", name: "web" }],
+			gitRemoteByCwd: {
+				"/apps/web": {
+					stdout: "origin\tgit@github.com:acme/web.git (fetch)\n",
+					exitCode: 0,
+				},
+			},
+			ghApi: { stdout: JSON.stringify([issue]), exitCode: 0 },
+			initialState: {
+				repoTarget: null,
+				workspace: { kind: "conversation" },
+				tasks: [],
+				issueNextPage: null,
+				lastFetch: null,
+				fetchFilter: { assignee: "me", label: "area" },
+			},
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		expect(await screen.findByDisplayValue("area")).toBeTruthy();
+		expect(screen.getByRole("button", { name: COPY["board.fetch.assignee"] }).textContent).toContain(
+			COPY["board.fetch.assignee.me"],
+		);
+		await selectWorkspace("web");
+		expect(runCommand).toHaveBeenCalledWith(
+			"gh",
+			["api", "repos/acme/web/issues?state=open&per_page=100&assignee=@me&labels=area"],
+			{
+				timeoutMs: 20_000,
+				env: { GH_PROMPT_DISABLED: "1", GH_NO_UPDATE_NOTIFIER: "1" },
+			},
+		);
+		expect(await screen.findByRole("cell", { name: "#11 Ship web" })).toBeTruthy();
 	});
 });

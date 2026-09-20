@@ -40,6 +40,15 @@ export interface IssueFetchSync {
 	seenNumbers: number[];
 }
 
+export type IssueFetchAssignee = "any" | "me";
+
+export interface IssueFetchFilter {
+	assignee: IssueFetchAssignee;
+	label: string | null;
+}
+
+export const DEFAULT_ISSUE_FETCH_FILTER: IssueFetchFilter = { assignee: "any", label: null };
+
 export interface PluginState {
 	repoTarget: { owner: string; repo: string } | null;
 	workspace: WorkspaceSource;
@@ -47,6 +56,7 @@ export interface PluginState {
 	issueNextPage: number | null;
 	lastFetch: { owner: string; repo: string } | null;
 	issueSync: IssueFetchSync | null;
+	fetchFilter: IssueFetchFilter;
 }
 
 export const EMPTY_STATE: PluginState = {
@@ -56,6 +66,7 @@ export const EMPTY_STATE: PluginState = {
 	issueNextPage: null,
 	lastFetch: null,
 	issueSync: null,
+	fetchFilter: DEFAULT_ISSUE_FETCH_FILTER,
 };
 
 const STATUSES: Record<GithubTaskStatus, true> = {
@@ -152,6 +163,73 @@ function parseIssueSync(value: unknown): IssueFetchSync | null {
 	return { owner: target.owner, repo: target.repo, seenNumbers };
 }
 
+export function normalizeIssueFetchFilter(filter: IssueFetchFilter): IssueFetchFilter {
+	const label = filter.label?.trim() || null;
+	return { assignee: filter.assignee === "me" ? "me" : "any", label };
+}
+
+export function parseIssueFetchFilter(value: unknown): IssueFetchFilter {
+	if (typeof value !== "object" || value === null) return DEFAULT_ISSUE_FETCH_FILTER;
+	const assignee = "assignee" in value && value.assignee === "me" ? "me" : "any";
+	const rawLabel = "label" in value && typeof value.label === "string" ? value.label : null;
+	return normalizeIssueFetchFilter({ assignee, label: rawLabel });
+}
+
+export function isUnfilteredIssueFetch(filter: IssueFetchFilter): boolean {
+	const normalized = normalizeIssueFetchFilter(filter);
+	return normalized.assignee === "any" && normalized.label === null;
+}
+
+export function applyIssueFetchFilter(state: PluginState, filter: IssueFetchFilter): PluginState {
+	const next = normalizeIssueFetchFilter(filter);
+	const current = normalizeIssueFetchFilter(state.fetchFilter);
+	if (current.assignee === next.assignee && current.label === next.label) {
+		if (state.fetchFilter.assignee === next.assignee && state.fetchFilter.label === next.label) {
+			return state;
+		}
+		return { ...state, fetchFilter: next };
+	}
+	return {
+		...state,
+		fetchFilter: next,
+		issueSync: null,
+		issueNextPage: null,
+		lastFetch: null,
+	};
+}
+
+export function finishIssueFetchPage(
+	state: PluginState,
+	input: {
+		owner: string;
+		repo: string;
+		filter: IssueFetchFilter;
+		seenNumbers: number[];
+		nextPage: number | null;
+	},
+): { state: PluginState; closed: number } {
+	const lastFetch = { owner: input.owner, repo: input.repo };
+	if (input.nextPage != null) {
+		return {
+			state: {
+				...state,
+				issueNextPage: input.nextPage,
+				lastFetch,
+				issueSync: { owner: input.owner, repo: input.repo, seenNumbers: input.seenNumbers },
+			},
+			closed: 0,
+		};
+	}
+	const withoutSync: PluginState = { ...state, issueNextPage: null, lastFetch, issueSync: null };
+	if (!isUnfilteredIssueFetch(input.filter)) return { state: withoutSync, closed: 0 };
+	const snapshot = applyOpenIssueSnapshot(withoutSync, {
+		owner: input.owner,
+		repo: input.repo,
+		openNumbers: new Set(input.seenNumbers),
+	});
+	return { state: { ...snapshot.state, issueSync: null }, closed: snapshot.closed };
+}
+
 export function parsePluginState(value: unknown): PluginState {
 	if (typeof value !== "object" || value === null) return EMPTY_STATE;
 	const repoTarget = "repoTarget" in value ? parseRepoTarget(value.repoTarget) : null;
@@ -166,7 +244,8 @@ export function parsePluginState(value: unknown): PluginState {
 	const issueNextPage = "issueNextPage" in value ? parseIssueNextPage(value.issueNextPage) : null;
 	const lastFetch = "lastFetch" in value ? parseRepoTarget(value.lastFetch) : null;
 	const issueSync = "issueSync" in value ? parseIssueSync(value.issueSync) : null;
-	return { repoTarget, workspace, tasks, issueNextPage, lastFetch, issueSync };
+	const fetchFilter = "fetchFilter" in value ? parseIssueFetchFilter(value.fetchFilter) : DEFAULT_ISSUE_FETCH_FILTER;
+	return { repoTarget, workspace, tasks, issueNextPage, lastFetch, issueSync, fetchFilter };
 }
 
 function titleFromPrompt(promptText: string): string {

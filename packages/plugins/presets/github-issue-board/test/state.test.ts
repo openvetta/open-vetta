@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
 	addManualTask,
+	applyIssueFetchFilter,
 	applyOpenIssueSnapshot,
+	DEFAULT_ISSUE_FETCH_FILTER,
 	EMPTY_STATE,
+	finishIssueFetchPage,
 	hasRunningTask,
+	isUnfilteredIssueFetch,
 	mergeIssueTasks,
 	parsePluginState,
 	reclaimRunningTasks,
@@ -52,6 +56,7 @@ describe("parsePluginState", () => {
 			issueNextPage: null,
 			lastFetch: null,
 			issueSync: null,
+			fetchFilter: DEFAULT_ISSUE_FETCH_FILTER,
 		});
 		expect(parsePluginState({ repoTarget: null, tasks: [] })).toEqual({
 			repoTarget: null,
@@ -60,6 +65,7 @@ describe("parsePluginState", () => {
 			issueNextPage: null,
 			lastFetch: null,
 			issueSync: null,
+			fetchFilter: DEFAULT_ISSUE_FETCH_FILTER,
 		});
 		expect(parsePluginState(null)).toEqual(EMPTY_STATE);
 	});
@@ -290,6 +296,94 @@ describe("applyOpenIssueSnapshot", () => {
 		});
 		expect(parsed.issueSync).toBeNull();
 		expect(parsed.tasks[0]?.source).toMatchObject({ kind: "issue", issueState: "open" });
+	});
+
+	it("reads missing fetchFilter as all open issues with no label", () => {
+		expect(parsePluginState({ repoTarget: null, tasks: [] }).fetchFilter).toEqual(DEFAULT_ISSUE_FETCH_FILTER);
+		expect(
+			parsePluginState({
+				repoTarget: null,
+				tasks: [],
+				fetchFilter: { assignee: "me", label: "  bug  " },
+			}).fetchFilter,
+		).toEqual({ assignee: "me", label: "bug" });
+		expect(
+			parsePluginState({
+				repoTarget: null,
+				tasks: [],
+				fetchFilter: { assignee: "someone", label: "   " },
+			}).fetchFilter,
+		).toEqual(DEFAULT_ISSUE_FETCH_FILTER);
+	});
+});
+
+describe("applyIssueFetchFilter", () => {
+	it("resets pagination when the fetch filter changes and keeps queued tasks", () => {
+		const queued = issueTask({ id: "keep", title: "Already queued" });
+		const state = {
+			...EMPTY_STATE,
+			tasks: [queued],
+			issueNextPage: 2,
+			issueSync: { owner: "acme", repo: "app", seenNumbers: [10] },
+			lastFetch: { owner: "acme", repo: "app" },
+		};
+		const next = applyIssueFetchFilter(state, { assignee: "me", label: " bug " });
+		expect(next.tasks).toEqual([queued]);
+		expect(next.lastFetch).toBeNull();
+		expect(next.fetchFilter).toEqual({ assignee: "me", label: "bug" });
+		expect(next.issueNextPage).toBeNull();
+		expect(next.issueSync).toBeNull();
+		expect(isUnfilteredIssueFetch(next.fetchFilter)).toBe(false);
+		expect(applyIssueFetchFilter(next, { assignee: "me", label: "bug" })).toBe(next);
+	});
+});
+
+describe("finishIssueFetchPage", () => {
+	it("does not close queued issues that are outside a filtered fetch", () => {
+		const leftover = issueTask({ id: "keep", title: "Unassigned leftover" });
+		const fetched = issueTask({
+			id: "mine",
+			title: "Assigned to me",
+			source: {
+				kind: "issue",
+				owner: "acme",
+				repo: "app",
+				issueNumber: 12,
+				issueUrl: "https://github.com/acme/app/issues/12",
+				issueUpdatedAt: "2026-01-02T03:04:05Z",
+				issueState: "open",
+			},
+		});
+		const result = finishIssueFetchPage(
+			{ ...EMPTY_STATE, tasks: [leftover, fetched] },
+			{
+				owner: "acme",
+				repo: "app",
+				filter: { assignee: "me", label: null },
+				seenNumbers: [12],
+				nextPage: null,
+			},
+		);
+		expect(result.closed).toBe(0);
+		expect(result.state.tasks[0]?.source).toMatchObject({ issueNumber: 10, issueState: "open" });
+		expect(result.state.issueSync).toBeNull();
+		expect(result.state.lastFetch).toEqual({ owner: "acme", repo: "app" });
+	});
+
+	it("still closes unseen issues after the last unfiltered page", () => {
+		const leftover = issueTask({ id: "old", title: "Old leftover" });
+		const result = finishIssueFetchPage(
+			{ ...EMPTY_STATE, tasks: [leftover] },
+			{
+				owner: "acme",
+				repo: "app",
+				filter: DEFAULT_ISSUE_FETCH_FILTER,
+				seenNumbers: [],
+				nextPage: null,
+			},
+		);
+		expect(result.closed).toBe(1);
+		expect(result.state.tasks[0]?.source).toMatchObject({ issueNumber: 10, issueState: "closed" });
 	});
 });
 
