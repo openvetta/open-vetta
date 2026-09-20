@@ -75,28 +75,15 @@ describe("external session formats", () => {
 		expect(sessions.every((session) => session.unavailableReason === undefined)).toBe(true);
 	});
 
-	it("lists a Cursor Agent session with the decoded project cwd", async () => {
+	it("lists a Cursor Agent session with the cwd from meta.json", async () => {
 		const root = createRoot();
 		const projectCwd = join(root, "workspace", "open-vetta");
 		mkdirSync(projectCwd, { recursive: true });
 		const cursorRoot = join(root, "cursor");
-		const encoded = projectCwd.replace(/^\//, "").replaceAll("/", "-");
-		const transcriptDir = join(cursorRoot, encoded, "agent-transcripts");
-		mkdirSync(transcriptDir, { recursive: true });
-		const path = join(transcriptDir, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.jsonl");
-		writeFileSync(
-			path,
-			[
-				JSON.stringify({
-					role: "user",
-					message: { content: [{ type: "text", text: "<user_query>\nHello from cursor-agent.\n</user_query>" }] },
-				}),
-				JSON.stringify({
-					role: "assistant",
-					message: { content: [{ type: "text", text: "Hi." }] },
-				}),
-			].join("\n"),
-		);
+		const path = writeCursorSession(cursorRoot, {
+			cwd: projectCwd,
+			title: "Hello from cursor-agent.",
+		});
 		const catalog = createCodingAgentExternalSessionCatalog(
 			createTestHost([{ tool: CURSOR_AGENT_TOOL_ID, path: cursorRoot }]),
 			{ now: () => NOW },
@@ -153,39 +140,18 @@ describe("external session formats", () => {
 		expect(maxInFlight).toBeLessThanOrEqual(EXTERNAL_SESSION_LIST_CONCURRENCY);
 	});
 
-	it("lists a Cursor Agent session with a Windows drive-letter cwd", async () => {
+	it("lists a Cursor Agent session with a Windows drive-letter cwd from meta.json", async () => {
 		const root = createRoot();
 		const windowsCwd = "C:\\Users\\ada\\src\\app";
 		const cursorRoot = join(root, "cursor");
-		const transcriptDir = join(cursorRoot, "C-Users-ada-src-app", "agent-transcripts");
-		mkdirSync(transcriptDir, { recursive: true });
-		const path = join(transcriptDir, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.jsonl");
-		writeFileSync(
-			path,
-			[
-				JSON.stringify({
-					role: "user",
-					message: { content: [{ type: "text", text: "<user_query>\nHello from cursor-agent.\n</user_query>" }] },
-				}),
-				JSON.stringify({
-					role: "assistant",
-					message: { content: [{ type: "text", text: "Hi." }] },
-				}),
-			].join("\n"),
+		const path = writeCursorSession(cursorRoot, {
+			cwd: windowsCwd,
+			title: "Hello from cursor-agent.",
+		});
+		const catalog = createCodingAgentExternalSessionCatalog(
+			createTestHost([{ tool: CURSOR_AGENT_TOOL_ID, path: cursorRoot }]),
+			{ now: () => NOW },
 		);
-		const windowsPrefixes = new Set([
-			"C:",
-			"C:\\Users",
-			"C:\\Users\\ada",
-			"C:\\Users\\ada\\src",
-			"C:\\Users\\ada\\src\\app",
-		]);
-		const base = createTestHost([{ tool: CURSOR_AGENT_TOOL_ID, path: cursorRoot }]);
-		const host: ExternalSessionFileHost = {
-			...base,
-			exists: (candidate) => windowsPrefixes.has(candidate) || base.exists(candidate),
-		};
-		const catalog = createCodingAgentExternalSessionCatalog(host, { now: () => NOW });
 		const sessions = await catalog.listSessions(cursorRoot);
 		expect(sessions).toEqual([
 			expect.objectContaining({
@@ -194,6 +160,49 @@ describe("external session formats", () => {
 				origin: { tool: CURSOR_AGENT_TOOL_ID, path },
 			}),
 		]);
+	});
+
+	it("does not list an IDE agent-transcripts jsonl as a cursor-agent session", async () => {
+		const root = createRoot();
+		const cursorRoot = join(root, "cursor");
+		const transcriptDir = join(cursorRoot, "Users-demo", "agent-transcripts");
+		mkdirSync(transcriptDir, { recursive: true });
+		writeFileSync(
+			join(transcriptDir, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.jsonl"),
+			`${JSON.stringify({
+				role: "user",
+				message: { content: [{ type: "text", text: "<user_query>\nHello from IDE.\n</user_query>" }] },
+			})}\n`,
+		);
+		const catalog = createCodingAgentExternalSessionCatalog(
+			createTestHost([{ tool: CURSOR_AGENT_TOOL_ID, path: cursorRoot }]),
+			{ now: () => NOW },
+		);
+		expect(await catalog.listSessions(cursorRoot)).toEqual([]);
+	});
+
+	it("projects cursor-agent user and assistant text from store.db JSON blobs", () => {
+		const root = createRoot();
+		const path = writeCursorSession(join(root, "cursor"));
+		const reader = createCodingAgentExternalSessionFileHistoryReader(
+			createTestHost([{ tool: CURSOR_AGENT_TOOL_ID, path: join(root, "cursor") }]),
+		);
+		const { history } = reader.read(path);
+		expect(history).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					type: "message",
+					message: expect.objectContaining({ role: "user", content: "Hello from cursor-agent." }),
+				}),
+				expect.objectContaining({
+					type: "message",
+					message: expect.objectContaining({
+						role: "assistant",
+						content: expect.arrayContaining([expect.objectContaining({ type: "text", text: "Hi." })]),
+					}),
+				}),
+			]),
+		);
 	});
 
 	it("projects Claude Code user text, omitted thinking, and folded tools", () => {
@@ -314,22 +323,28 @@ function writeCodexSession(root: string): string {
 	return path;
 }
 
-function writeCursorSession(root: string): string {
-	const dir = join(root, "Users-demo", "agent-transcripts", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+function writeCursorSession(root: string, options: { readonly cwd?: string; readonly title?: string } = {}): string {
+	const dir = join(root, "7079003eb63a0cb20f0c7d091bbd805c", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 	mkdirSync(dir, { recursive: true });
-	const path = join(dir, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.jsonl");
+	const path = join(dir, "meta.json");
 	writeFileSync(
 		path,
-		[
-			JSON.stringify({
-				role: "user",
-				message: { content: [{ type: "text", text: "<user_query>\nHello from cursor-agent.\n</user_query>" }] },
-			}),
-			JSON.stringify({
-				role: "assistant",
-				message: { content: [{ type: "text", text: "Hi." }] },
-			}),
-		].join("\n"),
+		JSON.stringify({
+			schemaVersion: 1,
+			createdAtMs: Date.parse(RECENT),
+			hasConversation: true,
+			title: options.title ?? "Hello from cursor-agent.",
+			updatedAtMs: Date.parse(RECENT),
+			cwd: options.cwd ?? "/workspace/demo",
+		}),
+	);
+	writeFileSync(join(dir, "prompt_history.json"), JSON.stringify(["Hello from cursor-agent."]));
+	writeFileSync(
+		join(dir, "store.db"),
+		`noise${JSON.stringify({
+			role: "user",
+			content: [{ type: "text", text: "<user_query>\nHello from cursor-agent.\n</user_query>" }],
+		})}bin${JSON.stringify({ role: "assistant", content: "Hi." })}`,
 	);
 	return path;
 }

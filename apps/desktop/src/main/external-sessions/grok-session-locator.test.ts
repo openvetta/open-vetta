@@ -54,4 +54,13 @@ describe("detectExternalSessionDirectory", () => {
 
 		expect(detectExternalSessionDirectory("pi", { homeDirectory: home })).toBeUndefined();
 	});
+
+	it("reports the default ~/.cursor/chats directory for cursor-agent when it exists", () => {
+		const home = mkdtempSync(join(tmpdir(), "cursor-home-"));
+		mkdirSync(join(home, ".cursor", "chats"), { recursive: true });
+
+		expect(detectExternalSessionDirectory("cursor-agent", { homeDirectory: home })).toBe(
+			join(home, ".cursor", "chats"),
+		);
+	});
 });

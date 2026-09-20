@@ -30,7 +30,7 @@ export function resolveExternalSessionDirectory(
 	}
 	if (tool === "cursor-agent") {
 		const home = input.cursorHome?.trim() || input.join(input.homeDirectory, ".cursor");
-		return input.join(home, "projects");
+		return input.join(home, "chats");
 	}
 	if (tool === "pi") {
 		const home = input.piHome?.trim() || input.join(input.homeDirectory, ".pi");

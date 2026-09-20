@@ -16,7 +16,7 @@ describe("resolveExternalSessionDirectory", () => {
 			join(home, ".codex", "sessions"),
 		);
 		expect(resolveExternalSessionDirectory("cursor-agent", { homeDirectory: home, join })).toBe(
-			join(home, ".cursor", "projects"),
+			join(home, ".cursor", "chats"),
 		);
 		expect(resolveExternalSessionDirectory("pi", { homeDirectory: home, join })).toBe(
 			join(home, ".pi", "agent", "sessions"),
@@ -37,5 +37,12 @@ describe("resolveExternalSessionDirectory", () => {
 		expect(resolveExternalSessionDirectory("codex", { homeDirectory: home, codexHome: "/opt/codex", join })).toBe(
 			join("/opt/codex", "sessions"),
 		);
+		expect(
+			resolveExternalSessionDirectory("cursor-agent", {
+				homeDirectory: home,
+				cursorHome: "/opt/cursor",
+				join,
+			}),
+		).toBe(join("/opt/cursor", "chats"));
 	});
 });

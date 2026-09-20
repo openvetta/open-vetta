@@ -6,152 +6,231 @@ import {
 } from "./display.js";
 import type { ExternalSessionFormat } from "./format.js";
 import type { ExternalSessionFileHost } from "./host-contracts.js";
-import {
-	asRecord,
-	EXTERNAL_HEADER_SCAN_LINES,
-	isJsonlPath,
-	parseJsonlRecords,
-	readNonEmptyString,
-	readTextParts,
-	unwrapUserQuery,
-} from "./jsonl.js";
-import { projectJsonlListItem } from "./jsonl-list-item.js";
+import { asRecord, readNonEmptyString, readNumber, readTextParts, unwrapUserQuery } from "./jsonl.js";
 import { CURSOR_AGENT_TOOL_ID } from "./tool-ids.js";
 import { collectFiles } from "./walk.js";
+
+const META_FILE_NAME = "meta.json";
+const PROMPT_HISTORY_FILE_NAME = "prompt_history.json";
+const STORE_DB_FILE_NAME = "store.db";
+const STORE_WAL_FILE_NAME = "store.db-wal";
+const ROLE_JSON_START = '{"role":"';
+const GENERIC_TITLES = new Set(["", "New Agent", "Cursor Agent Chat"]);
+
+interface CursorAgentMeta {
+	readonly cwd: string;
+	readonly title: string;
+	readonly updatedAtMs: number;
+}
 
 export const cursorAgentFormat: ExternalSessionFormat = {
 	id: CURSOR_AGENT_TOOL_ID,
 	ownsIdentity: looksLikeCursorAgentSession,
 	canRead: looksLikeCursorAgentSession,
-	collectIdentities: collectCursorTranscripts,
-	projectListItem: (path, host, cutoff) =>
-		projectJsonlListItem(path, host, cutoff, CURSOR_AGENT_TOOL_ID, (records, fileName) =>
-			readCursorListMeta(records, fileName, path, host),
-		),
+	collectIdentities: collectCursorSessions,
+	projectListItem: projectCursorListItem,
 
 	readHistory(path, host) {
-		const parsed = parseJsonlRecords(host.readText(path));
 		return projectExternalConversationDisplay({
 			tool: CURSOR_AGENT_TOOL_ID,
-			events: cursorRecordsToEvents(parsed.records),
-			skippedLineCount: parsed.skippedLineCount,
+			events: readCursorEvents(path, host),
 		});
 	},
 	readBriefingSource(path, host) {
 		if (!looksLikeCursorAgentSession(path, host)) return { error: "corrupted_header" };
-		const parsed = parseJsonlRecords(host.readText(path));
-		const meta = readCursorListMeta(parsed.records, host.basename(path), path, host);
-
+		const meta = readCursorListMeta(path, host);
+		if (!meta) return { error: "corrupted_header" };
 		return {
 			tool: CURSOR_AGENT_TOOL_ID,
 			cwd: meta.cwd,
 			title: meta.title,
 			supplement: meta.title,
-			rounds: projectExternalBriefingRounds(cursorRecordsToEvents(parsed.records)),
+			rounds: projectExternalBriefingRounds(readCursorEvents(path, host)),
 			identityPath: path,
 			bodyPath: path,
 		};
 	},
 };
 
-async function collectCursorTranscripts(root: string, host: ExternalSessionFileHost): Promise<string[]> {
+async function collectCursorSessions(root: string, host: ExternalSessionFileHost): Promise<string[]> {
 	return collectFiles(host, root, {
-		maxDepth: 4,
-		enter: (name) => name !== "subagents" && name !== "agent-tools",
-		include: (_name, path) => isJsonlPath(path, host.basename) && !path.includes("subagents"),
-		matches: (path) => looksLikeCursorAgentSession(path, host),
+		maxDepth: 2,
+		include: (name) => name === META_FILE_NAME,
 	});
 }
 
 function looksLikeCursorAgentSession(path: string, host: ExternalSessionFileHost): boolean {
-	if (!isJsonlPath(path, host.basename) || !host.exists(path)) return false;
+	return host.basename(path) === META_FILE_NAME && host.exists(path) && parseCursorMetaFile(path, host) !== undefined;
+}
+
+async function projectCursorListItem(path: string, host: ExternalSessionFileHost, cutoff: number) {
+	const modifiedAt = await host.statModifiedAt(path).catch(() => 0);
+	if (modifiedAt > 0 && modifiedAt < cutoff) return undefined;
+	const meta = readCursorListMeta(path, host);
+	if (!meta) {
+		return {
+			id: sessionIdFromMetaPath(path, host),
+			path,
+			cwd: "",
+			firstMessage: "",
+			modifiedAt,
+			origin: { tool: CURSOR_AGENT_TOOL_ID, path },
+			unavailableReason: "corrupted_header" as const,
+		};
+	}
+	const activity = meta.lastActiveAt > 0 ? meta.lastActiveAt : modifiedAt;
+	if (activity > 0 && activity < cutoff) return undefined;
+	return {
+		id: meta.id,
+		path,
+		cwd: meta.cwd,
+		name: meta.title || undefined,
+		firstMessage: meta.title,
+		modifiedAt: activity || modifiedAt,
+		origin: { tool: CURSOR_AGENT_TOOL_ID, path },
+	};
+}
+
+function readCursorListMeta(path: string, host: ExternalSessionFileHost) {
+	const parsed = parseCursorMetaFile(path, host);
+	if (!parsed) return undefined;
+	const title = resolveCursorTitle(parsed, path, host);
+	return {
+		id: sessionIdFromMetaPath(path, host),
+		cwd: parsed.cwd,
+		title,
+		lastActiveAt: parsed.updatedAtMs,
+	};
+}
+
+function parseCursorMetaFile(path: string, host: ExternalSessionFileHost): CursorAgentMeta | undefined {
 	try {
-		const parsed = parseJsonlRecords(host.readPrefixLines(path, EXTERNAL_HEADER_SCAN_LINES));
-		const first = parsed.records[0];
-		if (!first || first.type !== undefined) return false;
-		const role = readNonEmptyString(first.role);
-		return (role === "user" || role === "assistant") && asRecord(first.message) !== undefined;
+		const record = asRecord(JSON.parse(host.readText(path)) as unknown);
+		if (!record) return undefined;
+		if (record.schemaVersion !== undefined && readNumber(record.schemaVersion) === undefined) return undefined;
+		const cwd = typeof record.cwd === "string" ? record.cwd : "";
+		const title = typeof record.title === "string" ? record.title : "";
+		const updatedAtMs = readNumber(record.updatedAtMs) ?? 0;
+		if (record.schemaVersion === undefined && !cwd && !title && updatedAtMs === 0) return undefined;
+		return { cwd, title, updatedAtMs };
 	} catch {
-		return false;
+		return undefined;
 	}
 }
 
-function readCursorListMeta(
-	records: readonly Record<string, unknown>[],
-	fileName: string,
-	path: string,
-	host: ExternalSessionFileHost,
-) {
-	const id = fileName.replace(/\.jsonl$/i, "");
-	let title = "";
-	for (const record of records) {
-		if (readNonEmptyString(record.role) !== "user") continue;
-		const message = asRecord(record.message) ?? record;
-		const text = unwrapUserQuery(readTextParts(message.content));
-		if (text) {
-			title = text.slice(0, 120);
-			break;
+function resolveCursorTitle(meta: CursorAgentMeta, path: string, host: ExternalSessionFileHost): string {
+	if (!GENERIC_TITLES.has(meta.title.trim())) return meta.title.trim();
+	const prompts = readPromptHistory(path, host);
+	return (prompts[0] ?? meta.title).trim();
+}
+
+function readCursorEvents(path: string, host: ExternalSessionFileHost): ExternalConversationEvent[] {
+	const fromStore = cursorRecordsToEvents(readStoreRoleRecords(path, host));
+	if (fromStore.some((event) => event.kind === "user" || event.kind === "assistant")) return fromStore;
+	return readPromptHistory(path, host).map((text) => ({ kind: "user" as const, text }));
+}
+
+function readStoreRoleRecords(path: string, host: ExternalSessionFileHost): Record<string, unknown>[] {
+	const sessionDir = host.join(path, "..");
+	const seen = new Set<string>();
+	const records: Record<string, unknown>[] = [];
+	for (const name of [STORE_DB_FILE_NAME, STORE_WAL_FILE_NAME]) {
+		const file = host.join(sessionDir, name);
+		if (!host.exists(file)) continue;
+		try {
+			for (const record of extractRoleJsonRecords(host.readText(file))) {
+				const role = readNonEmptyString(record.role);
+				if (role !== "user" && role !== "assistant") continue;
+				const key = `${role}\0${JSON.stringify(record.content ?? asRecord(record.message)?.content ?? "")}`;
+				if (seen.has(key)) continue;
+				seen.add(key);
+				records.push(normalizeCursorRecord(record));
+			}
+		} catch {
+			// Binary pages may fail to decode; later files or prompt_history still apply.
 		}
 	}
-	return { id, cwd: decodeCursorProjectCwd(path, host), title, lastActiveAt: 0 };
+	return records;
 }
 
-function decodeCursorProjectCwd(path: string, host: ExternalSessionFileHost): string {
-	const encoded = encodedCursorProjectName(path, host);
-	if (!encoded) return "";
-	const parts = encoded.split("-").filter((part) => part.length > 0);
-	if (parts.length === 0) return "";
-	const drive = parts[0];
-	if (drive && /^[A-Za-z]$/.test(drive)) {
-		const windows = reconstructExistingPath(
-			parts.slice(1),
-			`${drive.toUpperCase()}:`,
-			(parent, segment) => `${parent}\\${segment}`,
-			(candidate) => host.exists(candidate),
-		);
-		if (windows) return windows;
+function readPromptHistory(path: string, host: ExternalSessionFileHost): string[] {
+	const file = host.join(path, "..", PROMPT_HISTORY_FILE_NAME);
+	if (!host.exists(file)) return [];
+	try {
+		const value: unknown = JSON.parse(host.readText(file));
+		if (!Array.isArray(value)) return [];
+		return value.flatMap((item) => {
+			const text = readNonEmptyString(item);
+			return text ? [unwrapUserQuery(text)] : [];
+		});
+	} catch {
+		return [];
 	}
-	return reconstructExistingPath(
-		parts,
-		"/",
-		(parent, segment) => (parent === "/" ? `/${segment}` : host.join(parent, segment)),
-		(candidate) => host.exists(candidate),
-	);
 }
 
-function reconstructExistingPath(
-	parts: readonly string[],
-	root: string,
-	joinSegment: (parent: string, segment: string) => string,
-	exists: (path: string) => boolean,
-): string {
-	if (parts.length === 0) return exists(root) ? root : "";
-	let current = root;
-	let index = 0;
-	while (index < parts.length) {
-		let segment = parts[index] ?? "";
-		index += 1;
-		let candidate = joinSegment(current, segment);
-		while (index < parts.length && !exists(candidate)) {
-			segment = `${segment}-${parts[index]}`;
-			index += 1;
-			candidate = joinSegment(current, segment);
+function extractRoleJsonRecords(body: string): Record<string, unknown>[] {
+	const records: Record<string, unknown>[] = [];
+	let from = 0;
+	while (from < body.length) {
+		const start = body.indexOf(ROLE_JSON_START, from);
+		if (start < 0) break;
+		const parsed = parseJsonObjectAt(body, start);
+		if (parsed) {
+			records.push(parsed.value);
+			from = parsed.end;
+			continue;
 		}
-		current = candidate;
+		from = start + ROLE_JSON_START.length;
 	}
-	return exists(current) ? current : "";
+	return records;
 }
 
-function encodedCursorProjectName(path: string, host: ExternalSessionFileHost): string | undefined {
-	let current = path;
-	for (let depth = 0; depth < 6; depth += 1) {
-		const name = host.basename(current);
-		const parent = host.join(current, "..");
-		if (name === "agent-transcripts") return host.basename(parent);
-		if (parent === current) return undefined;
-		current = parent;
+function parseJsonObjectAt(source: string, start: number): { value: Record<string, unknown>; end: number } | undefined {
+	if (source[start] !== "{") return undefined;
+	let depth = 0;
+	let inString = false;
+	let escaped = false;
+	for (let index = start; index < source.length; index += 1) {
+		const char = source[index];
+		if (inString) {
+			if (escaped) {
+				escaped = false;
+				continue;
+			}
+			if (char === "\\") {
+				escaped = true;
+				continue;
+			}
+			if (char === '"') inString = false;
+			continue;
+		}
+		if (char === '"') {
+			inString = true;
+			continue;
+		}
+		if (char === "{") depth += 1;
+		if (char === "}") {
+			depth -= 1;
+			if (depth !== 0) continue;
+			try {
+				const value: unknown = JSON.parse(source.slice(start, index + 1));
+				const record = asRecord(value);
+				return record ? { value: record, end: index + 1 } : undefined;
+			} catch {
+				return undefined;
+			}
+		}
 	}
 	return undefined;
+}
+
+function normalizeCursorRecord(record: Record<string, unknown>): Record<string, unknown> {
+	if (asRecord(record.message)) return record;
+	return { role: record.role, message: { content: record.content } };
+}
+
+function sessionIdFromMetaPath(path: string, host: ExternalSessionFileHost): string {
+	return host.basename(host.join(path, ".."));
 }
 
 function cursorRecordsToEvents(records: readonly Record<string, unknown>[]): ExternalConversationEvent[] {
