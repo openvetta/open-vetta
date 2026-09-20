@@ -7,6 +7,7 @@ import {
 	mergeIssueTasks,
 	parsePluginState,
 	reclaimRunningTasks,
+	reconcileRunningTasks,
 	removeTask,
 	retryFailedTask,
 	updateTaskPrompt,
@@ -384,6 +385,42 @@ describe("reclaimRunningTasks", () => {
 		const pending = issueTask({ title: "Fix login" });
 		const state = { ...EMPTY_STATE, tasks: [pending] };
 		expect(reclaimRunningTasks(state, NOW + 1, "Interrupted by a previous session")).toBe(state);
+	});
+});
+
+describe("reconcileRunningTasks", () => {
+	it("keeps a running task whose session is still live", () => {
+		const running = issueTask({
+			id: "run",
+			title: "Fix login",
+			status: "running",
+			sessionId: "/repo/sess-1.jsonl",
+		});
+		const state = { ...EMPTY_STATE, tasks: [running] };
+		const result = reconcileRunningTasks(state, ["/repo/sess-1.jsonl"], NOW + 1, "Interrupted by a previous session");
+		expect(result.state).toBe(state);
+		expect(result.live).toEqual([running]);
+	});
+
+	it("reclaims a running task whose session is no longer live", () => {
+		const running = issueTask({
+			id: "run",
+			title: "Fix login",
+			status: "running",
+			sessionId: "/repo/sess-1.jsonl",
+		});
+		const pending = issueTask({ id: "pend", title: "Add docs" });
+		const state = { ...EMPTY_STATE, tasks: [running, pending] };
+		const result = reconcileRunningTasks(state, [], NOW + 5, "Interrupted by a previous session");
+		expect(result.live).toEqual([]);
+		expect(result.state.tasks[0]).toMatchObject({
+			id: "run",
+			status: "failed",
+			error: "Interrupted by a previous session",
+			sessionId: "/repo/sess-1.jsonl",
+			updatedAt: NOW + 5,
+		});
+		expect(result.state.tasks[1]).toBe(pending);
 	});
 });
 

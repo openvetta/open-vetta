@@ -19,7 +19,7 @@ import {
 	type GithubFetchErrorKind,
 	type GithubIssueComment,
 } from "./github-issues";
-import { IMPLEMENT_SKILL, runQueuedTask } from "./run-task";
+import { detachBoardRuns, followRunningTask, IMPLEMENT_SKILL, runQueuedTask, type BoardSessionPort } from "./run-task";
 import {
 	accumulateIssueNumbers,
 	addManualTask,
@@ -27,7 +27,7 @@ import {
 	hasRunningTask,
 	loadPluginState,
 	mergeIssueTasks,
-	reclaimRunningTasks,
+	reconcileRunningTasks,
 	removeTask,
 	retryFailedTask,
 	savePluginState,
@@ -40,6 +40,7 @@ import {
 import {
 	CONVERSATION_WORKSPACE,
 	extraWorkspacePath,
+	filterBoardTasks,
 	pathBasename,
 	resolveWorkspaceCwd,
 	tasksVisibleForBoard,
@@ -96,6 +97,28 @@ function positionRunMenu(trigger: DOMRect, menu: DOMRect): RunMenuPos {
 
 type CommentsCacheEntry = { status: "loading" | "error" | "ok"; items: GithubIssueComment[] };
 
+function boardSessions(ctx: PluginContext): BoardSessionPort {
+	return {
+		create: (input) => ctx.official.sessions.create(input),
+		prompt: (id, text) => ctx.official.sessions.prompt(id, text),
+		abort: (id) => ctx.official.sessions.abort(id),
+		onRunningChanged: (handler) => ctx.official.sessions.onRunningChanged(handler),
+	};
+}
+
+function uniqueTaskLabels(tasks: GithubTask[]): string[] {
+	const seen = new Set<string>();
+	const labels: string[] = [];
+	for (const task of tasks) {
+		for (const label of task.labels ?? []) {
+			if (seen.has(label)) continue;
+			seen.add(label);
+			labels.push(label);
+		}
+	}
+	return labels.sort((left, right) => left.localeCompare(right));
+}
+
 export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const [state, setState] = useState<PluginState | null>(null);
 	const [draft, setDraft] = useState("");
@@ -111,6 +134,9 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const [runMenuPos, setRunMenuPos] = useState<RunMenuPos | null>(null);
 	const [commentsByTask, setCommentsByTask] = useState<Record<string, CommentsCacheEntry>>({});
 	const [workbench, setWorkbench] = useState<PluginOfficialProjectEntry[]>([]);
+	const [filterQuery, setFilterQuery] = useState("");
+	const [filterStatus, setFilterStatus] = useState<"all" | GithubTaskStatus>("all");
+	const [filterLabel, setFilterLabel] = useState("all");
 	const conversation = useActiveConversation();
 	const cancelledRef = useRef(false);
 	const inflightRef = useRef(false);
@@ -134,7 +160,13 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		workspace,
 		workbench.map((project) => project.path),
 	);
-	const visibleTasks = tasksVisibleForBoard(state?.tasks ?? [], state?.repoTarget ?? null, workspaceCwd);
+	const boardTasks = tasksVisibleForBoard(state?.tasks ?? [], state?.repoTarget ?? null, workspaceCwd);
+	const visibleTasks = filterBoardTasks(boardTasks, {
+		query: filterQuery,
+		status: filterStatus,
+		label: filterLabel,
+	});
+	const labelOptions = uniqueTaskLabels(boardTasks);
 	const selectedWorkspaceValue = workspaceSelectValue(workspace);
 	const workspaceTriggerName =
 		workspace.kind === "path"
@@ -151,15 +183,46 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		cancelledRef.current = false;
 		void loadPluginState(ctx.storage).then(async (loaded) => {
 			if (cancelledRef.current) return;
-			const reclaimed = reclaimRunningTasks(loaded, Date.now(), ctx.i18n.t("board.error.interrupted"));
-			if (reclaimed === loaded) {
-				setState(loaded);
-				return;
+			let runningPaths: string[] = [];
+			try {
+				runningPaths = await ctx.official.sessions.listRunning();
+			} catch {
+				runningPaths = [];
 			}
-			await persist(reclaimed);
+			if (cancelledRef.current) return;
+			const reconciled = reconcileRunningTasks(
+				loaded,
+				runningPaths,
+				Date.now(),
+				ctx.i18n.t("board.error.interrupted"),
+			);
+			if (reconciled.state !== loaded) await persist(reconciled.state);
+			else setState(reconciled.state);
+			const live = reconciled.live[0];
+			if (!live || cancelledRef.current) return;
+			inflightRef.current = true;
+			const controller = new AbortController();
+			abortRef.current = controller;
+			try {
+				const result = await followRunningTask({
+					state: stateRef.current ?? reconciled.state,
+					taskId: live.id,
+					sessions: boardSessions(ctx),
+					now: () => Date.now(),
+					persist,
+					signal: controller.signal,
+					stoppedError: ctx.i18n.t("board.error.stopped"),
+				});
+				if (!cancelledRef.current) setState(result.state);
+			} finally {
+				if (abortRef.current === controller) abortRef.current = null;
+				if (!cancelledRef.current) setStoppingId(null);
+				inflightRef.current = false;
+			}
 		});
 		return () => {
 			cancelledRef.current = true;
+			detachBoardRuns();
 		};
 	}, [ctx.storage]);
 
@@ -236,12 +299,19 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		await savePluginState(ctx.storage, next);
 	}
 
+	function resetFilters(): void {
+		setFilterQuery("");
+		setFilterStatus("all");
+		setFilterLabel("all");
+	}
+
 	async function importOpenIssues(pageInput: number): Promise<void> {
 		const page = normalizeIssuePage(pageInput);
 		const current = stateRef.current;
 		if (!current || fetchingRef.current) return;
 		fetchingRef.current = true;
 		setFetching(true);
+		if (page === 1) resetFilters();
 		try {
 			const resolved = await resolveGithubRepoFromProject({
 				command: ctx.command,
@@ -331,6 +401,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		if (!current) return;
 		if (workspaceSelectValue(current.workspace) === workspaceSelectValue(next)) return;
 		setFetchNotice(null);
+		resetFilters();
 		const gen = ++workspaceGenRef.current;
 		await persist({ ...current, workspace: next });
 		if (cancelledRef.current || gen !== workspaceGenRef.current) return;
@@ -442,7 +513,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 			const result = await runQueuedTask({
 				state: current,
 				taskId,
-				conversation: ctx.conversation,
+				sessions: boardSessions(ctx),
 				cwd: resolveWorkspaceCwd(current.workspace, conversation.cwd),
 				now: () => Date.now(),
 				persist,
@@ -480,7 +551,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 			return;
 		}
 		try {
-			await ctx.conversation.openSession({ cwd, sessionPath });
+			await ctx.official.sessions.open({ cwd, sessionPath });
 		} catch (error) {
 			ctx.ui.notify({ message: t("board.error.openSession"), error, variant: "error" });
 		}
@@ -665,6 +736,45 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 					{t("board.add")}
 				</button>
 			</form>
+			{boardTasks.length > 0 ? (
+				<div className="flex flex-wrap items-end gap-2">
+					<label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
+						{t("board.filter.search")}
+						<input
+							className={FIELD}
+							placeholder={t("board.filter.search")}
+							type="search"
+							value={filterQuery}
+							onChange={(event) => setFilterQuery(event.target.value)}
+						/>
+					</label>
+					<label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+						{t("board.filter.status")}
+						<select
+							className={FIELD}
+							value={filterStatus}
+							onChange={(event) => setFilterStatus(event.target.value as "all" | GithubTaskStatus)}
+						>
+							<option value="all">{t("board.filter.status.all")}</option>
+							<option value="pending">{t("board.status.pending")}</option>
+							<option value="running">{t("board.status.running")}</option>
+							<option value="completed">{t("board.status.completed")}</option>
+							<option value="failed">{t("board.status.failed")}</option>
+						</select>
+					</label>
+					<label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+						{t("board.filter.label")}
+						<select className={FIELD} value={filterLabel} onChange={(event) => setFilterLabel(event.target.value)}>
+							<option value="all">{t("board.filter.label.all")}</option>
+							{labelOptions.map((label) => (
+								<option key={label} value={label}>
+									{label}
+								</option>
+							))}
+						</select>
+					</label>
+				</div>
+			) : null}
 			<div className="min-h-0 flex-1 overflow-auto">
 				<table className="w-full text-left text-sm">
 					<thead>
@@ -678,10 +788,16 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 						</tr>
 					</thead>
 					<tbody>
-						{visibleTasks.length === 0 ? (
+						{boardTasks.length === 0 ? (
 							<tr>
 								<td className="py-6 text-sm text-muted-foreground" colSpan={6}>
 									{emptyQueueMessage()}
+								</td>
+							</tr>
+						) : visibleTasks.length === 0 ? (
+							<tr>
+								<td className="py-6 text-sm text-muted-foreground" colSpan={6}>
+									{t("board.empty.filtered")}
 								</td>
 							</tr>
 						) : (

@@ -6,6 +6,7 @@
 - [桌面应用发布入口](../deploy/desktop-releases.md)：兼容旧链接的导航页。
 - [看板（Kanban）功能介绍](./kanban-board.md)：三条泳道、Agent 自行认领派单、并发闸门与依赖顺序。
 - [看板与工作区视图：方案评估](./kanban-board-evaluation.md)：本轮取舍依据、需求覆盖对照、测试范围与遗留风险。
+- [GitHub Issue 任务台：队列可靠性与执行体验](./github-issue-board-spec.md)：重启回收、失败重试、停止、运行不跳走、表内筛选、拉取过滤、skill/评论与自动下一条的待实现规格。
 - [设计画廊（Design Gallery）功能介绍](./design-gallery.md)：设计稿的注册中心——主动收集、画布全景封面、点卡回到最近的会话、新建与导入。
 - [Desktop 性能记录](./preformance/README.md)：性能问题的复现方法、定位过程、优化方案与前后数据。
 

@@ -354,14 +354,28 @@ export function hasRunningTask(state: PluginState): boolean {
 }
 
 export function reclaimRunningTasks(state: PluginState, now: number, error: string): PluginState {
-	if (!state.tasks.some((task) => task.status === "running")) return state;
-	return {
-		...state,
-		tasks: state.tasks.map((task) => {
-			if (task.status !== "running") return task;
-			return { ...task, status: "failed", error, updatedAt: now };
-		}),
-	};
+	return reconcileRunningTasks(state, [], now, error).state;
+}
+
+export function reconcileRunningTasks(
+	state: PluginState,
+	runningPaths: readonly string[],
+	now: number,
+	error: string,
+): { state: PluginState; live: GithubTask[] } {
+	const livePaths = new Set(runningPaths);
+	const live: GithubTask[] = [];
+	let changed = false;
+	const tasks = state.tasks.map((task) => {
+		if (task.status !== "running") return task;
+		if (task.sessionId && livePaths.has(task.sessionId)) {
+			live.push(task);
+			return task;
+		}
+		changed = true;
+		return { ...task, status: "failed" as const, error, updatedAt: now };
+	});
+	return { state: changed ? { ...state, tasks } : state, live };
 }
 
 export function retryFailedTask(state: PluginState, taskId: string, now: number): PluginState {

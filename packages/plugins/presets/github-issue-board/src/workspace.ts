@@ -78,3 +78,28 @@ export function tasksVisibleForBoard(
 		return normalizeLocalPath(task.source.cwd) === normalizeLocalPath(cwd);
 	});
 }
+
+export type BoardTaskFilter = {
+	query: string;
+	status: "all" | GithubTask["status"];
+	label: string;
+};
+
+function taskSearchHaystack(task: GithubTask): string {
+	const parts = [task.title];
+	if (task.source.kind === "issue") parts.push(`#${task.source.issueNumber}`);
+	if (task.source.kind === "manual") {
+		parts.push(task.promptText.split(/\r?\n/, 1)[0] ?? "");
+	}
+	return parts.join("\n").toLowerCase();
+}
+
+export function filterBoardTasks(tasks: GithubTask[], filter: BoardTaskFilter): GithubTask[] {
+	const query = filter.query.trim().toLowerCase();
+	return tasks.filter((task) => {
+		if (filter.status !== "all" && task.status !== filter.status) return false;
+		if (filter.label !== "all" && !(task.labels ?? []).includes(filter.label)) return false;
+		if (query && !taskSearchHaystack(task).includes(query)) return false;
+		return true;
+	});
+}

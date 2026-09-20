@@ -1,14 +1,25 @@
-import type { ConversationEvent, PluginConversationApi } from "@vetta-org/plugin-sdk";
 import { hasRunningTask, setTaskStatus, type PluginState } from "./state";
 
 export type RunTaskNotice = "no-project" | null;
 
 export const IMPLEMENT_SKILL = "implement";
 
+export interface BoardSessionPort {
+	create(input: { cwd: string; title?: string }): Promise<{ sessionId: string; sessionPath: string }>;
+	prompt(
+		sessionId: string,
+		text: string,
+	): Promise<{ status: "sent" | "queued" | "failed"; error?: { message: string } }>;
+	abort(sessionId: string): Promise<void>;
+	onRunningChanged(
+		handler: (event: { sessionPath: string; running: boolean; sessionId?: string }) => void,
+	): () => void;
+}
+
 export interface RunQueuedTaskInput {
 	state: PluginState;
 	taskId: string;
-	conversation: PluginConversationApi;
+	sessions: BoardSessionPort;
 	cwd: string | null;
 	now: () => number;
 	persist?: (state: PluginState) => void | Promise<void>;
@@ -16,6 +27,17 @@ export interface RunQueuedTaskInput {
 	skill?: string | null;
 	signal?: AbortSignal;
 	stoppedError?: string;
+}
+
+export interface FollowRunningTaskInput {
+	state: PluginState;
+	taskId: string;
+	sessions: BoardSessionPort;
+	now: () => number;
+	persist?: (state: PluginState) => void | Promise<void>;
+	signal?: AbortSignal;
+	stoppedError?: string;
+	runtimeSessionId?: string;
 }
 
 export function promptForRun(promptText: string, skill?: string | null): string {
@@ -32,23 +54,32 @@ function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
-function waitForTurnEnd(conversation: PluginConversationApi): {
-	promise: Promise<string>;
-	dispose: () => void;
-} {
-	let dispose = (): void => undefined;
-	const promise = new Promise<string>((resolve) => {
-		const subscription = conversation.on((event: ConversationEvent) => {
-			if (event.type !== "turn-end") return;
-			subscription.dispose();
-			resolve(event.stopReason);
-		});
-		dispose = () => subscription.dispose();
-	});
-	return { promise, dispose };
+const ABORTED = "aborted-locally";
+const runtimeIdByPath = new Map<string, string>();
+let boardRunEpoch = 0;
+
+export function detachBoardRuns(): void {
+	boardRunEpoch += 1;
 }
 
-const ABORTED = "aborted-locally";
+function rememberRuntimeId(sessionPath: string, sessionId: string): void {
+	runtimeIdByPath.set(sessionPath, sessionId);
+}
+
+function forgetRuntimeId(sessionPath: string): void {
+	runtimeIdByPath.delete(sessionPath);
+}
+
+function persistIfCurrent(
+	persist: RunQueuedTaskInput["persist"],
+	epoch: number,
+): RunQueuedTaskInput["persist"] {
+	if (!persist) return persist;
+	return (state) => {
+		if (epoch !== boardRunEpoch) return;
+		return persist(state);
+	};
+}
 
 function whenAborted(signal: AbortSignal): Promise<typeof ABORTED> {
 	return new Promise((resolve) => {
@@ -60,48 +91,63 @@ function whenAborted(signal: AbortSignal): Promise<typeof ABORTED> {
 	});
 }
 
-async function abortConversation(conversation: PluginConversationApi): Promise<void> {
+async function abortSession(sessions: BoardSessionPort, sessionId: string | undefined): Promise<void> {
+	if (!sessionId) return;
 	try {
-		await conversation.abort();
+		await sessions.abort(sessionId);
 	} catch {
 		// The session may already be gone.
 	}
 }
 
-async function sendAndWait(
-	conversation: PluginConversationApi,
-	promptText: string,
+function watchSessionIdle(
+	sessions: BoardSessionPort,
+	sessionPath: string,
+	runtimeId: { current: string | undefined },
 	signal?: AbortSignal,
-): Promise<string> {
-	const turnEnd = waitForTurnEnd(conversation);
-	try {
-		const sendPrompt = conversation.sendPrompt(promptText);
-		const sent = signal ? await Promise.race([sendPrompt, whenAborted(signal)]) : await sendPrompt;
-		if (sent === ABORTED) {
-			await abortConversation(conversation);
-			return ABORTED;
+): { promise: Promise<"idle" | typeof ABORTED>; dispose: () => void } {
+	let settled = false;
+	let disposeListener = (): void => undefined;
+	let onAbort = (): void => undefined;
+	const promise = new Promise<"idle" | typeof ABORTED>((resolve) => {
+		const finish = (value: "idle" | typeof ABORTED): void => {
+			if (settled) return;
+			settled = true;
+			disposeListener();
+			signal?.removeEventListener("abort", onAbort);
+			resolve(value);
+		};
+		onAbort = (): void => finish(ABORTED);
+		disposeListener = sessions.onRunningChanged((event) => {
+			if (event.sessionPath !== sessionPath) return;
+			if (event.sessionId) {
+				runtimeId.current = event.sessionId;
+				rememberRuntimeId(sessionPath, event.sessionId);
+			}
+			if (!event.running) finish("idle");
+		});
+		if (signal?.aborted) {
+			finish(ABORTED);
+			return;
 		}
-		if (sent.status === "failed") {
-			throw new Error(sent.error?.message ?? "failed");
-		}
-		const stopReason = signal
-			? await Promise.race([turnEnd.promise, whenAborted(signal)])
-			: await turnEnd.promise;
-		if (stopReason === ABORTED) {
-			await abortConversation(conversation);
-			return ABORTED;
-		}
-		return stopReason;
-	} finally {
-		turnEnd.dispose();
-	}
+		signal?.addEventListener("abort", onAbort, { once: true });
+	});
+	return {
+		promise,
+		dispose: () => {
+			if (settled) return;
+			settled = true;
+			disposeListener();
+			signal?.removeEventListener("abort", onAbort);
+		},
+	};
 }
 
 export async function runQueuedTask(input: RunQueuedTaskInput): Promise<{
 	state: PluginState;
 	notice: RunTaskNotice;
 }> {
-	const { conversation, cwd, now, persist, taskId } = input;
+	const { sessions, cwd, now, taskId } = input;
 	if (!cwd) return { state: input.state, notice: "no-project" };
 
 	const task = input.state.tasks.find((item) => item.id === taskId);
@@ -109,24 +155,61 @@ export async function runQueuedTask(input: RunQueuedTaskInput): Promise<{
 		return { state: input.state, notice: null };
 	}
 
+	const epoch = boardRunEpoch;
+	const persist = persistIfCurrent(input.persist, epoch);
 	let current = setTaskStatus(input.state, taskId, { status: "running", now: now() });
 	await persist?.(current);
 
+	const runtimeId: { current: string | undefined } = { current: undefined };
+	let watch: { promise: Promise<"idle" | typeof ABORTED>; dispose: () => void } | null = null;
 	try {
-		const session = await conversation.createSession(cwd);
-		const sessionPath = session.sessionPath?.trim() || session.id?.trim() || undefined;
+		const session = await sessions.create({ cwd, title: task.title });
+		runtimeId.current = session.sessionId;
+		const sessionPath = session.sessionPath.trim();
 		if (sessionPath) {
+			rememberRuntimeId(sessionPath, session.sessionId);
 			current = setTaskStatus(current, taskId, { status: "running", sessionId: sessionPath, now: now() });
 			await persist?.(current);
+			watch = watchSessionIdle(sessions, sessionPath, runtimeId, input.signal);
 		}
-		const stopReason = await sendAndWait(conversation, promptForRun(task.promptText, input.skill), input.signal);
-		current = setTaskStatus(current, taskId, {
-			status: stopReason === "stop" ? "completed" : "failed",
-			...(stopReason === "stop"
-				? {}
-				: { error: stopReason === ABORTED ? (input.stoppedError ?? "Stopped") : stopReason }),
-			now: now(),
-		});
+		const sendPrompt = sessions.prompt(session.sessionId, promptForRun(task.promptText, input.skill));
+		const sent = input.signal ? await Promise.race([sendPrompt, whenAborted(input.signal)]) : await sendPrompt;
+		if (sent === ABORTED) {
+			await abortSession(sessions, runtimeId.current);
+			current = setTaskStatus(current, taskId, {
+				status: "failed",
+				error: input.stoppedError ?? "Stopped",
+				now: now(),
+			});
+			await persist?.(current);
+			return { state: current, notice: null };
+		}
+		if (sent.status === "failed") {
+			current = setTaskStatus(current, taskId, {
+				status: "failed",
+				error: sent.error?.message ?? "failed",
+				now: now(),
+			});
+			await persist?.(current);
+			return { state: current, notice: null };
+		}
+		if (!watch) {
+			current = setTaskStatus(current, taskId, { status: "completed", now: now() });
+			await persist?.(current);
+			return { state: current, notice: null };
+		}
+		const outcome = await watch.promise;
+		if (outcome === ABORTED) {
+			await abortSession(sessions, runtimeId.current);
+			current = setTaskStatus(current, taskId, {
+				status: "failed",
+				error: input.stoppedError ?? "Stopped",
+				now: now(),
+			});
+			await persist?.(current);
+			return { state: current, notice: null };
+		}
+		current = setTaskStatus(current, taskId, { status: "completed", now: now() });
 		await persist?.(current);
 		return { state: current, notice: null };
 	} catch (error) {
@@ -137,5 +220,45 @@ export async function runQueuedTask(input: RunQueuedTaskInput): Promise<{
 		});
 		await persist?.(current);
 		return { state: current, notice: null };
+	} finally {
+		watch?.dispose();
+		if (epoch === boardRunEpoch) {
+			const path = current.tasks.find((item) => item.id === taskId)?.sessionId;
+			if (path) forgetRuntimeId(path);
+		}
+	}
+}
+
+export async function followRunningTask(input: FollowRunningTaskInput): Promise<{ state: PluginState }> {
+	const task = input.state.tasks.find((item) => item.id === input.taskId);
+	const sessionPath = task?.sessionId?.trim();
+	if (!task || task.status !== "running" || !sessionPath) {
+		return { state: input.state };
+	}
+
+	const epoch = boardRunEpoch;
+	const persist = persistIfCurrent(input.persist, epoch);
+	const runtimeId: { current: string | undefined } = {
+		current: input.runtimeSessionId ?? runtimeIdByPath.get(sessionPath),
+	};
+	const watch = watchSessionIdle(input.sessions, sessionPath, runtimeId, input.signal);
+	try {
+		const outcome = await watch.promise;
+		if (outcome === ABORTED) {
+			await abortSession(input.sessions, runtimeId.current);
+			const failed = setTaskStatus(input.state, input.taskId, {
+				status: "failed",
+				error: input.stoppedError ?? "Stopped",
+				now: input.now(),
+			});
+			await persist?.(failed);
+			return { state: failed };
+		}
+		const completed = setTaskStatus(input.state, input.taskId, { status: "completed", now: input.now() });
+		await persist?.(completed);
+		return { state: completed };
+	} finally {
+		watch.dispose();
+		if (epoch === boardRunEpoch) forgetRuntimeId(sessionPath);
 	}
 }

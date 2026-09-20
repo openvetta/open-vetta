@@ -70,6 +70,12 @@ const COPY: Record<string, string> = {
 	"board.empty.noIssues": "This repository has no open issues to import",
 	"board.empty.notFetched":
 		"Issues have not been fetched yet. Click “Fetch issues” to import open issues from this repository.",
+	"board.empty.filtered": "No tasks match the current filters",
+	"board.filter.search": "Search title or number",
+	"board.filter.status": "Status",
+	"board.filter.status.all": "All",
+	"board.filter.label": "Label",
+	"board.filter.label.all": "All",
 	"board.workspace.label": "Project",
 	"board.workspace.placeholder": "Select project",
 	"board.workspace.conversation": "Current session · {{path}}",
@@ -118,6 +124,7 @@ function fakeContext(options?: {
 	ghApi?: { stdout: string; stderr?: string; exitCode: number };
 	projects?: Array<{ path: string; name?: string }>;
 	openDirectory?: () => Promise<string | null>;
+	runningSessionPaths?: string[];
 }) {
 	const registered: RegisteredView[] = [];
 	const files = new Map<string, string>();
@@ -142,18 +149,23 @@ function fakeContext(options?: {
 			return { revision: String(files.size), changedPaths: [path] };
 		},
 	} as unknown as PluginStorageApi;
-	const createSession = vi.fn(async (sessionCwd: string) => ({
-		id: "sess-1",
-		cwd: sessionCwd,
+	const sessionListeners = new Set<(event: { sessionPath: string; running: boolean; sessionId?: string }) => void>();
+	const emitIdle = (): void => {
+		for (const listener of sessionListeners) {
+			listener({ sessionPath: "/repo/sess-1.jsonl", running: false, sessionId: "sess-1" });
+		}
+	};
+	const createSession = vi.fn(async (input: { cwd: string; title?: string }) => ({
+		sessionId: "sess-1",
 		sessionPath: "/repo/sess-1.jsonl",
-		model: null,
-		isStreaming: false,
+		cwd: input.cwd,
 	}));
-	const sendPrompt = vi.fn(async () => {
-		if (options?.hangSend) return new Promise<never>(() => undefined);
-		for (const listener of listeners) listener({ type: "turn-end", stopReason: "stop" });
+	const sendPrompt = vi.fn(async (_sessionId: string, _text: string) => {
+		if (options?.hangSend) return { status: "sent" as const };
+		queueMicrotask(emitIdle);
 		return { status: "sent" as const };
 	});
+	const abortSession = vi.fn(async () => undefined);
 	const openSession = vi.fn(async () => undefined);
 	const runCommand = vi.fn(async (file: string, _args?: string[], commandOptions?: { cwd?: string }) => {
 		if (file === "gh") {
@@ -238,6 +250,19 @@ function fakeContext(options?: {
 				}),
 			},
 			dialog: { openDirectory },
+			sessions: {
+				create: createSession,
+				prompt: sendPrompt,
+				abort: abortSession,
+				open: openSession,
+				listRunning: async () => options?.runningSessionPaths ?? [],
+				onRunningChanged: (handler: (event: { sessionPath: string; running: boolean; sessionId?: string }) => void) => {
+					sessionListeners.add(handler);
+					return () => {
+						sessionListeners.delete(handler);
+					};
+				},
+			},
 		},
 	} as unknown as PluginContext;
 	return {
@@ -408,7 +433,7 @@ describe("GitHub Issue board view", () => {
 				within(taskRow("Fix the logout button")).getByRole("cell", { name: COPY["board.status.completed"] }),
 			).toBeTruthy();
 		});
-		expect(sendPrompt).toHaveBeenCalledWith("Fix the logout button");
+		expect(sendPrompt).toHaveBeenCalledWith("sess-1", "Fix the logout button");
 	});
 
 	it("deletes a queued task after confirmation and keeps the rest after remount", async () => {
@@ -603,8 +628,8 @@ describe("GitHub Issue board view", () => {
 				}),
 			).toBeTruthy();
 		});
-		expect(createSession).toHaveBeenCalledWith("/repo");
-		expect(sendPrompt).toHaveBeenCalledWith("The button does nothing.");
+		expect(createSession).toHaveBeenCalledWith({ cwd: "/repo", title: "Fix login" });
+		expect(sendPrompt).toHaveBeenCalledWith("sess-1", "The button does nothing.");
 	});
 
 	it("stops a running task and unlocks the rest of the queue", async () => {
@@ -667,8 +692,8 @@ describe("GitHub Issue board view", () => {
 				within(taskRow("Fix the login button")).getByRole("cell", { name: COPY["board.status.completed"] }),
 			).toBeTruthy();
 		});
-		expect(createSession).toHaveBeenCalledWith("/repo");
-		expect(sendPrompt).toHaveBeenCalledWith("Fix the login button");
+		expect(createSession).toHaveBeenCalledWith({ cwd: "/repo", title: "Fix the login button" });
+		expect(sendPrompt).toHaveBeenCalledWith("sess-1", "Fix the login button");
 	});
 
 	it("runs with the implement skill token when that run mode is chosen", async () => {
@@ -691,7 +716,7 @@ describe("GitHub Issue board view", () => {
 				within(taskRow("Fix the login button")).getByRole("cell", { name: COPY["board.status.completed"] }),
 			).toBeTruthy();
 		});
-		expect(sendPrompt).toHaveBeenCalledWith("@skill:implement Fix the login button");
+		expect(sendPrompt).toHaveBeenCalledWith("sess-1", "@skill:implement Fix the login button");
 	});
 
 	it("cancels the run chooser without starting a session", async () => {
@@ -998,7 +1023,7 @@ describe("GitHub Issue board view", () => {
 				}),
 			).toBeTruthy();
 		});
-		expect(createSession).toHaveBeenCalledWith("/apps/web");
+		expect(createSession).toHaveBeenCalledWith({ cwd: "/apps/web", title: "Ship web" });
 	});
 
 	it("fills owner and repo from git remote after the user picks a local folder", async () => {
@@ -1088,7 +1113,7 @@ describe("GitHub Issue board view", () => {
 				}),
 			).toBeTruthy();
 		});
-		expect(sendPrompt).toHaveBeenCalledWith(expect.stringContaining("Click does nothing now."));
+		expect(sendPrompt).toHaveBeenCalledWith("sess-1", expect.stringContaining("Click does nothing now."));
 	});
 
 	it("fetches issues automatically after selecting a workbench project", async () => {
@@ -1396,5 +1421,148 @@ describe("GitHub Issue board view", () => {
 		await selectWorkspace("web");
 		expect(await screen.findByRole("cell", { name: "本地修复" })).toBeTruthy();
 		expect(screen.getByRole("cell", { name: "legacy" })).toBeTruthy();
+	});
+
+	it("keeps the board in view when a task starts running and only opens the session on demand", async () => {
+		const { ctx, registered, openSession } = fakeContext({ hangSend: true });
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await addTask("Fix the login button");
+		await runDirectly("Fix the login button");
+		await waitFor(() => {
+			expect(
+				within(taskRow("Fix the login button")).getByRole("cell", { name: COPY["board.status.running"] }),
+			).toBeTruthy();
+		});
+		expect(screen.getByRole("heading", { name: COPY["board.title"] })).toBeTruthy();
+		expect(openSession).not.toHaveBeenCalled();
+		expect(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.stop"] })).toBeTruthy();
+
+		await act(async () => {
+			fireEvent.click(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.openSession"] }));
+		});
+		expect(openSession).toHaveBeenCalledWith({ cwd: "/repo", sessionPath: "/repo/sess-1.jsonl" });
+	});
+
+	it("keeps a live running issue when the host still reports that session", async () => {
+		const { ctx, registered } = fakeContext({
+			gitRemote: githubRemote("acme", "app"),
+			runningSessionPaths: ["/repo/sess-1.jsonl"],
+			initialState: {
+				repoTarget: { owner: "acme", repo: "app" },
+				workspace: { kind: "conversation" },
+				tasks: [
+					{
+						id: "run",
+						title: "Fix login",
+						promptText: "Fix login",
+						source: {
+							kind: "issue",
+							owner: "acme",
+							repo: "app",
+							issueNumber: 10,
+							issueUrl: "https://github.com/acme/app/issues/10",
+							issueUpdatedAt: "2026-01-01T00:00:00Z",
+							issueState: "open",
+						},
+						status: "running",
+						sessionId: "/repo/sess-1.jsonl",
+						createdAt: 1,
+						updatedAt: 1,
+					},
+				],
+				issueNextPage: null,
+				lastFetch: { owner: "acme", repo: "app" },
+			},
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		expect(
+			await screen.findByRole("cell", {
+				name: `${COPY["board.status.running"]} ${COPY["board.issue.state.open"]}`,
+			}),
+		).toBeTruthy();
+		expect(screen.queryByText(COPY["board.error.interrupted"] ?? "")).toBeNull();
+		expect(within(taskRow("Fix login")).getByRole("button", { name: COPY["board.stop"] })).toBeTruthy();
+	});
+
+	it("filters the queue by title search, status, and shows a distinct empty message", async () => {
+		const { ctx, registered } = fakeContext({
+			gitRemote: githubRemote("acme", "app"),
+			initialState: {
+				repoTarget: { owner: "acme", repo: "app" },
+				workspace: { kind: "conversation" },
+				tasks: [
+					{
+						id: "login",
+						title: "Fix login",
+						promptText: "Fix login",
+						source: {
+							kind: "issue",
+							owner: "acme",
+							repo: "app",
+							issueNumber: 10,
+							issueUrl: "https://github.com/acme/app/issues/10",
+							issueUpdatedAt: "2026-01-01T00:00:00Z",
+							issueState: "open",
+						},
+						status: "pending",
+						labels: ["bug"],
+						createdAt: 1,
+						updatedAt: 1,
+					},
+					{
+						id: "docs",
+						title: "Add docs",
+						promptText: "Add docs",
+						source: {
+							kind: "issue",
+							owner: "acme",
+							repo: "app",
+							issueNumber: 11,
+							issueUrl: "https://github.com/acme/app/issues/11",
+							issueUpdatedAt: "2026-01-01T00:00:00Z",
+							issueState: "open",
+						},
+						status: "failed",
+						error: "boom",
+						labels: ["docs"],
+						createdAt: 1,
+						updatedAt: 1,
+					},
+				],
+				issueNextPage: null,
+				lastFetch: { owner: "acme", repo: "app" },
+			},
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		expect(await screen.findByRole("cell", { name: "#10 Fix login" })).toBeTruthy();
+		expect(screen.getByRole("cell", { name: "#11 Add docs" })).toBeTruthy();
+
+		fireEvent.change(screen.getByPlaceholderText(COPY["board.filter.search"] ?? ""), {
+			target: { value: "login" },
+		});
+		expect(screen.getByRole("cell", { name: "#10 Fix login" })).toBeTruthy();
+		expect(screen.queryByRole("cell", { name: "#11 Add docs" })).toBeNull();
+
+		fireEvent.change(screen.getByPlaceholderText(COPY["board.filter.search"] ?? ""), { target: { value: "" } });
+		fireEvent.change(screen.getByLabelText(COPY["board.filter.status"] ?? ""), { target: { value: "failed" } });
+		expect(screen.getByRole("cell", { name: "#11 Add docs" })).toBeTruthy();
+		expect(screen.queryByRole("cell", { name: "#10 Fix login" })).toBeNull();
+
+		fireEvent.change(screen.getByLabelText(COPY["board.filter.status"] ?? ""), { target: { value: "all" } });
+		fireEvent.change(screen.getByPlaceholderText(COPY["board.filter.search"] ?? ""), {
+			target: { value: "zzzzz" },
+		});
+		expect(screen.getByText(COPY["board.empty.filtered"] ?? "")).toBeTruthy();
+		expect(screen.queryByText(COPY["board.empty.notFetched"] ?? "")).toBeNull();
+		expect(screen.getByPlaceholderText(COPY["board.filter.search"] ?? "")).toBeTruthy();
 	});
 });

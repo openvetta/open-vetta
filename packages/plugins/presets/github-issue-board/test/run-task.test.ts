@@ -1,7 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ConversationEvent, PluginConversationApi, SendPromptResult } from "@vetta-org/plugin-sdk";
 import { addManualTask, EMPTY_STATE, hasRunningTask, type PluginState } from "../src/state";
-import { IMPLEMENT_SKILL, promptForRun, runQueuedTask } from "../src/run-task";
+import {
+	detachBoardRuns,
+	followRunningTask,
+	IMPLEMENT_SKILL,
+	promptForRun,
+	runQueuedTask,
+	type BoardSessionPort,
+} from "../src/run-task";
+
+const SESSION_PATH = "/tmp/sess-1.jsonl";
+const RUNTIME_ID = "sess-1";
 
 function queuedState(...prompts: string[]): PluginState {
 	return prompts.reduce(
@@ -11,83 +20,100 @@ function queuedState(...prompts: string[]): PluginState {
 	);
 }
 
-function fakeConversation(options?: {
-	id?: string | null;
-	sessionPath?: string | null;
-	createError?: Error;
-	sendError?: Error;
-	sendResult?: SendPromptResult;
-	stopReason?: string;
-	hangSend?: boolean;
-}) {
-	const listeners = new Set<(event: ConversationEvent) => void>();
-	const emit = (event: ConversationEvent): void => {
-		for (const listener of listeners) listener(event);
+function runningState(): PluginState {
+	const queued = queuedState("Fix login");
+	const task = queued.tasks[0];
+	if (!task) throw new Error("expected queued task");
+	return {
+		...queued,
+		tasks: [{ ...task, status: "running", sessionId: SESSION_PATH }],
 	};
-	const createSession = vi.fn(async (cwd: string) => {
+}
+
+function fakeSessions(options?: {
+	createError?: Error;
+	promptError?: Error;
+	promptStatus?: "sent" | "queued" | "failed";
+	promptMessage?: string;
+	hangPrompt?: boolean;
+	hangRunning?: boolean;
+}): {
+	sessions: BoardSessionPort;
+	create: BoardSessionPort["create"];
+	prompt: BoardSessionPort["prompt"];
+	abort: BoardSessionPort["abort"];
+	emitRunning: (running: boolean) => void;
+} {
+	const listeners = new Set<(event: { sessionPath: string; running: boolean; sessionId?: string }) => void>();
+	const emitRunning = (running: boolean): void => {
+		for (const listener of listeners) {
+			listener({ sessionPath: SESSION_PATH, running, sessionId: RUNTIME_ID });
+		}
+	};
+	const create: BoardSessionPort["create"] = vi.fn(async () => {
 		if (options?.createError) throw options.createError;
-		return {
-			id: options?.id === undefined ? "sess-1" : options.id,
-			cwd,
-			sessionPath: options?.sessionPath === undefined ? "/tmp/sess-1.jsonl" : options.sessionPath,
-			model: null,
-			isStreaming: false,
-		};
+		return { sessionId: RUNTIME_ID, sessionPath: SESSION_PATH };
 	});
-	const sendPrompt = vi.fn(async () => {
-		if (options?.sendError) throw options.sendError;
-		if (options?.hangSend) return new Promise<never>(() => undefined);
-		if (options?.stopReason) emit({ type: "turn-end", stopReason: options.stopReason });
-		return options?.sendResult ?? { status: "sent" as const };
+	const prompt: BoardSessionPort["prompt"] = vi.fn(async () => {
+		if (options?.promptError) throw options.promptError;
+		if (options?.hangPrompt) return new Promise<never>(() => undefined);
+		const status = options?.promptStatus ?? "sent";
+		if (status === "failed") {
+			return { status, error: { message: options?.promptMessage ?? "prompt rejected" } };
+		}
+		if (!options?.hangRunning) queueMicrotask(() => emitRunning(false));
+		return { status };
 	});
-	const abort = vi.fn(async () => undefined);
-	const conversation = {
-		createSession,
-		sendPrompt,
-		insertText: () => undefined,
+	const abort: BoardSessionPort["abort"] = vi.fn(async () => undefined);
+	const sessions: BoardSessionPort = {
+		create,
+		prompt,
 		abort,
-		on: (listener: (event: ConversationEvent) => void) => {
-			listeners.add(listener);
-			return { dispose: () => listeners.delete(listener) };
+		onRunningChanged: (handler) => {
+			listeners.add(handler);
+			return () => {
+				listeners.delete(handler);
+			};
 		},
-	} as unknown as PluginConversationApi;
-	return { conversation, createSession, sendPrompt, abort };
+	};
+	return { sessions, create, prompt, abort, emitRunning };
 }
 
 describe("runQueuedTask", () => {
-	it("marks the task completed when the turn ends with stop", async () => {
-		const { conversation, createSession, sendPrompt } = fakeConversation({ stopReason: "stop" });
+	it("marks the task completed when the background session stops running", async () => {
+		const { sessions, create, prompt } = fakeSessions();
 		const result = await runQueuedTask({
 			state: queuedState("Fix the login button"),
 			taskId: "task-1",
-			conversation,
+			sessions,
 			cwd: "/repo",
 			now: () => 42,
 		});
 
-		expect(createSession).toHaveBeenCalledWith("/repo");
-		expect(sendPrompt).toHaveBeenCalledWith("Fix the login button");
+		expect(create).toHaveBeenCalledWith({ cwd: "/repo", title: "Fix the login button" });
+		expect(prompt).toHaveBeenCalledWith(RUNTIME_ID, "Fix the login button");
 		expect(result.notice).toBeNull();
 		expect(result.state.tasks[0]).toMatchObject({
 			status: "completed",
-			sessionId: "/tmp/sess-1.jsonl",
+			sessionId: SESSION_PATH,
 			updatedAt: 42,
 		});
 	});
 
 	it("prefixes the implement skill token without changing the stored prompt", async () => {
-		const { conversation, sendPrompt } = fakeConversation({ stopReason: "stop" });
+		const { sessions, prompt } = fakeSessions();
 		const result = await runQueuedTask({
 			state: queuedState("Fix the login button"),
 			taskId: "task-1",
-			conversation,
+			sessions,
 			cwd: "/repo",
 			now: () => 42,
 			skill: IMPLEMENT_SKILL,
 		});
-		expect(sendPrompt).toHaveBeenCalledWith("@skill:implement Fix the login button");
+		expect(prompt).toHaveBeenCalledWith(RUNTIME_ID, "@skill:implement Fix the login button");
 		expect(result.state.tasks[0]?.promptText).toBe("Fix the login button");
 	});
+
 	it("leaves the prompt unchanged without a skill and does not double-prefix", () => {
 		expect(promptForRun("Fix the login button")).toBe("Fix the login button");
 		expect(promptForRun("Fix the login button", "implement")).toBe("@skill:implement Fix the login button");
@@ -96,74 +122,75 @@ describe("runQueuedTask", () => {
 		);
 	});
 
-	it("marks the task failed with the stop reason when the turn does not stop cleanly", async () => {
-		const { conversation } = fakeConversation({ stopReason: "aborted" });
+	it("marks the task failed when prompt returns failed without waiting for running events", async () => {
+		const { sessions, abort } = fakeSessions({ promptStatus: "failed", promptMessage: "prompt rejected" });
 		const result = await runQueuedTask({
 			state: queuedState("Fix the login button"),
 			taskId: "task-1",
-			conversation,
+			sessions,
 			cwd: "/repo",
 			now: () => 7,
 		});
 
+		expect(abort).not.toHaveBeenCalled();
 		expect(result.notice).toBeNull();
 		expect(result.state.tasks[0]).toMatchObject({
 			status: "failed",
-			sessionId: "/tmp/sess-1.jsonl",
-			error: "aborted",
+			sessionId: SESSION_PATH,
+			error: "prompt rejected",
 			updatedAt: 7,
 		});
 	});
 
-	it("marks the task failed when createSession or sendPrompt throws", async () => {
-		const createFail = fakeConversation({ createError: new Error("cannot open session") });
+	it("marks the task failed when create or prompt throws", async () => {
+		const createFail = fakeSessions({ createError: new Error("cannot open session") });
 		const created = await runQueuedTask({
 			state: queuedState("Fix the login button"),
 			taskId: "task-1",
-			conversation: createFail.conversation,
+			sessions: createFail.sessions,
 			cwd: "/repo",
 			now: () => 3,
 		});
-		expect(createFail.sendPrompt).not.toHaveBeenCalled();
+		expect(createFail.prompt).not.toHaveBeenCalled();
 		expect(created.state.tasks[0]).toMatchObject({
 			status: "failed",
 			error: "cannot open session",
 		});
 
-		const sendFail = fakeConversation({ sendError: new Error("prompt rejected") });
+		const promptFail = fakeSessions({ promptError: new Error("prompt rejected") });
 		const sent = await runQueuedTask({
 			state: queuedState("Fix the login button"),
 			taskId: "task-1",
-			conversation: sendFail.conversation,
+			sessions: promptFail.sessions,
 			cwd: "/repo",
 			now: () => 4,
 		});
-		expect(sendFail.createSession).toHaveBeenCalled();
+		expect(promptFail.create).toHaveBeenCalled();
 		expect(sent.state.tasks[0]).toMatchObject({
 			status: "failed",
-			sessionId: "/tmp/sess-1.jsonl",
+			sessionId: SESSION_PATH,
 			error: "prompt rejected",
 		});
 	});
 
 	it("refuses to start a session and asks to open a project when cwd is missing", async () => {
-		const { conversation, createSession, sendPrompt } = fakeConversation();
+		const { sessions, create, prompt } = fakeSessions();
 		const result = await runQueuedTask({
 			state: queuedState("Fix the login button"),
 			taskId: "task-1",
-			conversation,
+			sessions,
 			cwd: null,
 			now: () => 1,
 		});
 
-		expect(createSession).not.toHaveBeenCalled();
-		expect(sendPrompt).not.toHaveBeenCalled();
+		expect(create).not.toHaveBeenCalled();
+		expect(prompt).not.toHaveBeenCalled();
 		expect(result.notice).toBe("no-project");
 		expect(result.state.tasks[0]?.status).toBe("pending");
 	});
 
 	it("marks a hanging run failed on abort so another pending task can start", async () => {
-		const hanging = fakeConversation({ hangSend: true });
+		const hanging = fakeSessions({ hangRunning: true });
 		const controller = new AbortController();
 		let sawRunning: () => void = () => undefined;
 		const running = new Promise<void>((resolve) => {
@@ -172,35 +199,121 @@ describe("runQueuedTask", () => {
 		const first = runQueuedTask({
 			state: queuedState("Fix login", "Add docs"),
 			taskId: "task-1",
-			conversation: hanging.conversation,
+			sessions: hanging.sessions,
 			cwd: "/repo",
 			now: () => 10,
 			signal: controller.signal,
 			stoppedError: "Stopped",
 			persist: (state) => {
-				if (state.tasks[0]?.status === "running") sawRunning();
+				if (state.tasks[0]?.status === "running" && state.tasks[0].sessionId) sawRunning();
 			},
 		});
 		await running;
 		controller.abort();
 		const aborted = await first;
-		expect(hanging.abort).toHaveBeenCalled();
+		expect(hanging.abort).toHaveBeenCalledWith(RUNTIME_ID);
 		expect(aborted.state.tasks[0]).toMatchObject({
 			status: "failed",
 			error: "Stopped",
-			sessionId: "/tmp/sess-1.jsonl",
+			sessionId: SESSION_PATH,
 		});
 		expect(hasRunningTask(aborted.state)).toBe(false);
 
-		const finishing = fakeConversation({ stopReason: "stop" });
+		const finishing = fakeSessions();
 		const second = await runQueuedTask({
 			state: aborted.state,
 			taskId: "task-2",
-			conversation: finishing.conversation,
+			sessions: finishing.sessions,
 			cwd: "/repo",
 			now: () => 11,
 		});
 		expect(second.state.tasks[1]).toMatchObject({ status: "completed" });
-		expect(finishing.sendPrompt).toHaveBeenCalledWith("Add docs");
+		expect(finishing.prompt).toHaveBeenCalledWith(RUNTIME_ID, "Add docs");
+	});
+});
+
+describe("followRunningTask", () => {
+	it("marks a live background run completed when it stops running", async () => {
+		const { sessions, emitRunning } = fakeSessions({ hangRunning: true });
+		const pending = followRunningTask({
+			state: runningState(),
+			taskId: "task-1",
+			sessions,
+			now: () => 20,
+		});
+		emitRunning(false);
+		const result = await pending;
+		expect(result.state.tasks[0]).toMatchObject({
+			status: "completed",
+			sessionId: SESSION_PATH,
+			updatedAt: 20,
+		});
+	});
+
+	it("marks a live background run failed when the user aborts", async () => {
+		const { sessions, abort } = fakeSessions({ hangRunning: true });
+		const controller = new AbortController();
+		const pending = followRunningTask({
+			state: runningState(),
+			taskId: "task-1",
+			sessions,
+			now: () => 21,
+			runtimeSessionId: RUNTIME_ID,
+			signal: controller.signal,
+			stoppedError: "Stopped",
+		});
+		controller.abort();
+		const result = await pending;
+		expect(abort).toHaveBeenCalledWith(RUNTIME_ID);
+		expect(result.state.tasks[0]).toMatchObject({
+			status: "failed",
+			error: "Stopped",
+			sessionId: SESSION_PATH,
+		});
+	});
+
+	it("does not persist completed from a detached run after a later follower stops", async () => {
+		const hanging = fakeSessions({ hangRunning: true });
+		const persisted: string[] = [];
+		let sawRunning: () => void = () => undefined;
+		const running = new Promise<void>((resolve) => {
+			sawRunning = resolve;
+		});
+		const first = runQueuedTask({
+			state: queuedState("Fix login"),
+			taskId: "task-1",
+			sessions: hanging.sessions,
+			cwd: "/repo",
+			now: () => 10,
+			persist: (state) => {
+				const status = state.tasks[0]?.status;
+				if (status) persisted.push(status);
+				if (status === "running" && state.tasks[0]?.sessionId) sawRunning();
+			},
+		});
+		await running;
+		await Promise.resolve();
+		detachBoardRuns();
+		const controller = new AbortController();
+		const follow = followRunningTask({
+			state: runningState(),
+			taskId: "task-1",
+			sessions: hanging.sessions,
+			now: () => 21,
+			runtimeSessionId: RUNTIME_ID,
+			signal: controller.signal,
+			stoppedError: "Stopped",
+			persist: (state) => {
+				const status = state.tasks[0]?.status;
+				if (status) persisted.push(`follow:${status}`);
+			},
+		});
+		controller.abort();
+		hanging.emitRunning(false);
+		const followed = await follow;
+		await first;
+		expect(followed.state.tasks[0]).toMatchObject({ status: "failed", error: "Stopped" });
+		expect(persisted.filter((status) => status === "completed" || status === "follow:completed")).toEqual([]);
+		expect(persisted).toContain("follow:failed");
 	});
 });

@@ -8,6 +8,7 @@ import {
 	pathBasename,
 	resolveWorkspaceCwd,
 	tasksVisibleForBoard,
+	filterBoardTasks,
 	workspaceSelectValue,
 } from "../src/workspace";
 
@@ -144,5 +145,68 @@ describe("workspace source", () => {
 		expect(
 			tasksVisibleForBoard(tasks, { owner: "acme", repo: "app" }, "/repo").map((task) => task.title),
 		).toEqual(["Still open", "Closed with session"]);
+	});
+});
+
+describe("filterBoardTasks", () => {
+	function numbered(title: string, issueNumber: number, extra: Omit<Partial<GithubTask>, "source"> = {}): GithubTask {
+		const base = issueTask("acme", "app", title);
+		if (base.source.kind !== "issue") throw new Error("expected issue source");
+		return {
+			...base,
+			...extra,
+			id: title,
+			source: { ...base.source, issueNumber },
+		};
+	}
+
+	const login = numbered("Fix login", 10, { labels: ["bug"] });
+	const docs = numbered("Add docs", 12, { labels: ["docs"], status: "failed" });
+	const manual: GithubTask = {
+		id: "manual",
+		title: "Local fix",
+		promptText: "Local fix\nmore detail",
+		source: { kind: "manual" },
+		status: "pending",
+		createdAt: 1,
+		updatedAt: 1,
+	};
+
+	it("keeps only the issue whose number matches a #query", () => {
+		expect(
+			filterBoardTasks([login, docs, manual], { query: "#12", status: "all", label: "all" }).map(
+				(task) => task.title,
+			),
+		).toEqual(["Add docs"]);
+	});
+
+	it("keeps only failed tasks when status is failed", () => {
+		expect(
+			filterBoardTasks([login, docs, manual], { query: "", status: "failed", label: "all" }).map(
+				(task) => task.title,
+			),
+		).toEqual(["Add docs"]);
+	});
+
+	it("keeps only issues with the selected label", () => {
+		expect(
+			filterBoardTasks([login, docs, manual], { query: "", status: "all", label: "bug" }).map((task) => task.title),
+		).toEqual(["Fix login"]);
+	});
+
+	it("applies query, status and label together", () => {
+		expect(
+			filterBoardTasks([login, docs, numbered("Fix login later", 10, { labels: ["bug"], status: "failed" })], {
+				query: "login",
+				status: "failed",
+				label: "bug",
+			}).map((task) => task.title),
+		).toEqual(["Fix login later"]);
+	});
+
+	it("treats a whitespace-only query as no search", () => {
+		expect(
+			filterBoardTasks([login, docs], { query: "   ", status: "all", label: "all" }).map((task) => task.title),
+		).toEqual(["Fix login", "Add docs"]);
 	});
 });
