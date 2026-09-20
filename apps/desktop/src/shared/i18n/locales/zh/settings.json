@@ -621,7 +621,8 @@
       "omp": "omp",
       "loading": "正在查找 {{tool}} 会话目录…",
       "manualPath": "已指定：{{path}}",
-      "notDetected": "没有找到 {{tool}} 的默认会话目录。如果你把数据放在了别处，可以指定路径。",
+      "notDetected": "没有找到 {{tool}} 的默认会话目录（{{path}}）。如果你把数据放在了别处，可以指定路径。",
+
       "specifyPath": "指定目录"
     },
     "imageGeneration": {

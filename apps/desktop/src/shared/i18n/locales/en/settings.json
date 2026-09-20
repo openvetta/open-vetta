@@ -621,7 +621,8 @@
       "omp": "omp",
       "loading": "Looking for the {{tool}} session directory…",
       "manualPath": "Specified: {{path}}",
-      "notDetected": "Could not find {{tool}}'s default session directory. If you keep the data elsewhere, you can choose a path.",
+      "notDetected": "Could not find {{tool}}'s default session directory ({{path}}). If you keep the data elsewhere, you can choose a path.",
+
       "specifyPath": "Choose folder"
     },
     "imageGeneration": {

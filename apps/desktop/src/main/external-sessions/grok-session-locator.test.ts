@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { detectGrokSessionsDirectory } from "./grok-session-locator.js";
+import { detectExternalSessionDirectory, detectGrokSessionsDirectory } from "./grok-session-locator.js";
 
 describe("detectGrokSessionsDirectory", () => {
 	it("reports the default ~/.grok/sessions directory when it exists", () => {
@@ -36,5 +36,22 @@ describe("detectGrokSessionsDirectory", () => {
 		writeFileSync(join(home, ".grok", "sessions"), "not a directory");
 
 		expect(detectGrokSessionsDirectory({ homeDirectory: home, grokHome: "" })).toEqual({});
+	});
+});
+
+describe("detectExternalSessionDirectory", () => {
+	it("reports the default ~/.pi/agent/sessions directory when it exists, same as Grok", () => {
+		const home = mkdtempSync(join(tmpdir(), "pi-home-"));
+		mkdirSync(join(home, ".pi", "agent", "sessions"), { recursive: true });
+
+		expect(detectExternalSessionDirectory("pi", { homeDirectory: home })).toBe(
+			join(home, ".pi", "agent", "sessions"),
+		);
+	});
+
+	it("returns no path when the Pi well-known directory is missing", () => {
+		const home = mkdtempSync(join(tmpdir(), "pi-missing-"));
+
+		expect(detectExternalSessionDirectory("pi", { homeDirectory: home })).toBeUndefined();
 	});
 });

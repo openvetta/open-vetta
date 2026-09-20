@@ -18,12 +18,42 @@ export interface DetectGrokSessionsDirectoryOptions {
 	readonly exists?: (path: string) => boolean;
 }
 
+export interface DetectExternalSessionDirectoryOptions {
+	readonly homeDirectory?: string;
+	readonly exists?: (path: string) => boolean;
+}
+
 function isExistingDirectory(path: string): boolean {
 	try {
 		return statSync(path).isDirectory();
 	} catch {
 		return false;
 	}
+}
+
+function resolveToolSessionDirectory(tool: ExternalSessionToolId, homeDirectory: string): string {
+	if (tool === "grok") {
+		return resolveGrokSessionsDirectory({
+			grokHome: process.env.GROK_HOME,
+			homeDirectory,
+			join,
+		});
+	}
+	return resolveExternalSessionDirectory(tool, {
+		homeDirectory,
+		grokHome: process.env.GROK_HOME,
+		claudeConfigDir: process.env.CLAUDE_CONFIG_DIR,
+		codexHome: process.env.CODEX_HOME,
+		cursorHome: process.env.CURSOR_HOME,
+		piHome: process.env.PI_HOME,
+		ompHome: process.env.OMP_HOME,
+		join,
+	});
+}
+
+/** Well-known path Grok-style: `$HOME/<tool-root>`. Directory may not exist. */
+export function resolveDefaultExternalSessionDirectory(tool: ExternalSessionToolId): string {
+	return resolveToolSessionDirectory(tool, homedir());
 }
 
 /** Resolve the well-known Grok sessions root and report it only when the directory exists. */
@@ -39,24 +69,13 @@ export function detectGrokSessionsDirectory(
 	return exists(path) ? { path } : {};
 }
 
+/** Same as Grok: one well-known path under the user home, only if that directory exists. */
 export function detectExternalSessionDirectory(
 	tool: ExternalSessionToolId,
-	options: {
-		readonly homeDirectory?: string;
-		readonly exists?: (path: string) => boolean;
-	} = {},
+	options: DetectExternalSessionDirectoryOptions = {},
 ): string | undefined {
 	if (tool === "grok") return detectGrokSessionsDirectory(options).path;
-	const path = resolveExternalSessionDirectory(tool, {
-		homeDirectory: options.homeDirectory ?? homedir(),
-		grokHome: process.env.GROK_HOME,
-		claudeConfigDir: process.env.CLAUDE_CONFIG_DIR,
-		codexHome: process.env.CODEX_HOME,
-		cursorHome: process.env.CURSOR_HOME,
-		piHome: process.env.PI_HOME,
-		ompHome: process.env.OMP_HOME,
-		join,
-	});
+	const path = resolveToolSessionDirectory(tool, options.homeDirectory ?? homedir());
 	const exists = options.exists ?? isExistingDirectory;
 	return exists(path) ? path : undefined;
 }

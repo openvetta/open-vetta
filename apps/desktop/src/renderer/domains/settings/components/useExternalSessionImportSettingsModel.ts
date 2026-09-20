@@ -51,6 +51,7 @@ export function useExternalSessionImportSettingsModel(): ExternalSessionImportSe
 	const setGrokSessionsDirectory = useSetAtom(grokSessionsDirectoryAtom);
 	const [enabledByTool, setEnabledByTool] = useState<Record<string, boolean>>({});
 	const [detectedByTool, setDetectedByTool] = useState<Partial<Record<string, string>>>({});
+	const [defaultByTool, setDefaultByTool] = useState<Partial<Record<string, string>>>({});
 	const [manualByTool, setManualByTool] = useState<Partial<Record<string, string>>>({});
 	const [loading, setLoading] = useState(true);
 	const snapshotRef = useRef({ enabledByTool, detectedByTool, manualByTool });
@@ -83,6 +84,7 @@ export function useExternalSessionImportSettingsModel(): ExternalSessionImportSe
 				grok: config.grokSessionsDirectory,
 				...(config.externalSessionDirectories ?? {}),
 			};
+			const defaults = config.externalSessionDefaultDirectories ?? {};
 			const enabled: Record<string, boolean> = {};
 			const manual: Partial<Record<string, string>> = {};
 			for (const tool of SESSION_IMPORT_TOOLS) {
@@ -92,6 +94,7 @@ export function useExternalSessionImportSettingsModel(): ExternalSessionImportSe
 			}
 			setEnabledByTool(enabled);
 			setDetectedByTool(detected);
+			setDefaultByTool(defaults);
 			setManualByTool(manual);
 			syncAtoms(enabled, detected, manual);
 			setLoading(false);
@@ -141,13 +144,14 @@ export function useExternalSessionImportSettingsModel(): ExternalSessionImportSe
 			const name = t(tool.nameKey);
 			const detectedPath = detectedByTool[tool.id];
 			const displayPath = detectedPath ?? manualByTool[tool.id];
+			const defaultPath = defaultByTool[tool.id];
 			const pathDescription = loading
 				? t("agentSettings.sessionImport.loading", { tool: name })
 				: detectedPath
 					? t("agentSettings.sessionImport.detectedPath", { path: detectedPath })
 					: displayPath
 						? t("agentSettings.sessionImport.manualPath", { path: displayPath })
-						: t("agentSettings.sessionImport.notDetected", { tool: name });
+						: t("agentSettings.sessionImport.notDetected", { tool: name, path: defaultPath ?? "" });
 			return {
 				id: tool.id,
 				enabled: enabledByTool[tool.id] === true,
@@ -156,7 +160,7 @@ export function useExternalSessionImportSettingsModel(): ExternalSessionImportSe
 				labels: { name, pathDescription },
 			};
 		});
-	}, [detectedByTool, enabledByTool, loading, manualByTool, t]);
+	}, [defaultByTool, detectedByTool, enabledByTool, loading, manualByTool, t]);
 
 	const grok = tools.find((tool) => tool.id === "grok");
 

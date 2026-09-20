@@ -66,6 +66,9 @@ export interface DesktopConfigData {
 	grokSessionsDirectory?: string;
 	/** 自动探测到的外部工具会话目录，按工具 id 索引。由主进程注入，不写入配置文件。 */
 	externalSessionDirectories?: Partial<Record<string, string>>;
+	/** 各工具默认会话目录（按用户 home 解析，目录不一定存在）。由主进程注入，不写入配置文件。 */
+	externalSessionDefaultDirectories?: Partial<Record<string, string>>;
+
 	/** 图片生成 Provider 偏好；空值表示自动选择。 */
 	imageGeneration?: {
 		textToImageProviderId?: string | null;
