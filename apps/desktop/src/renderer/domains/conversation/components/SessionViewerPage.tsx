@@ -14,6 +14,7 @@ import { useSessionViewerContinueFrom } from "../hooks/useSessionViewerContinueF
 import { useSessionViewerPageModel } from "../hooks/useSessionViewerPageModel";
 import { ChatExportHost } from "./ChatExportHost";
 import { MessageList } from "./MessageList";
+import { SessionViewerContinueFromProgress } from "./SessionViewerContinueFromProgress";
 
 /**
  * Read-only viewer for sessions the desktop app does not own
@@ -61,11 +62,20 @@ export function SessionViewerPage(): JSX.Element {
 							variant="outline"
 							disabled={continueFrom.continuing || model.messages.length === 0}
 							title={t("sessionViewer.continueFrom.actionTitle")}
+							aria-busy={continueFrom.continuing}
 							onClick={continueFrom.onContinue}
 						>
-							{continueFrom.continuing
-								? t("sessionViewer.continueFrom.working")
-								: t("sessionViewer.continueFrom.action")}
+							{continueFrom.continuing ? (
+								<span className="inline-flex items-center gap-1">
+									<span
+										className="icon-[solar--refresh-linear] h-3.5 w-3.5 animate-spin"
+										aria-hidden="true"
+									/>
+									{t("sessionViewer.continueFrom.working")}
+								</span>
+							) : (
+								t("sessionViewer.continueFrom.action")
+							)}
 						</Button>
 						{continueFrom.error ? (
 							<span className="max-w-[16rem] truncate text-[11px] text-destructive" role="alert">
@@ -127,41 +137,44 @@ export function SessionViewerPage(): JSX.Element {
 	}, [header, setHeaderRight]);
 
 	return (
-		<SessionViewerPageView
-			rootClassName={cn("flex h-full min-w-0 flex-1 flex-col bg-background", surface?.rootClassName)}
-			emptyPathLabel={model.emptyPathLabel}
-			error={model.error}
-			errorPrefix={model.errorPrefix}
-			hasPath={Boolean(model.path)}
-			exportHost={
-				model.exporting ? (
-					<ChatExportHost
+		<div className="relative flex h-full min-w-0 flex-1 flex-col">
+			<SessionViewerPageView
+				rootClassName={cn("flex h-full min-w-0 flex-1 flex-col bg-background", surface?.rootClassName)}
+				emptyPathLabel={model.emptyPathLabel}
+				error={model.error}
+				errorPrefix={model.errorPrefix}
+				hasPath={Boolean(model.path)}
+				exportHost={
+					model.exporting ? (
+						<ChatExportHost
+							messages={model.messages}
+							title={model.exportTitle}
+							onFinished={model.onExportFinished}
+						/>
+					) : null
+				}
+				sourceBannerLabel={model.sourceBannerLabel}
+				messageList={
+					<MessageList
 						messages={model.messages}
-						title={model.exportTitle}
-						onFinished={model.onExportFinished}
-					/>
-				) : null
-			}
-			sourceBannerLabel={model.sourceBannerLabel}
-			messageList={
-				<MessageList
-					messages={model.messages}
-					workspace={workspace}
-					isStreaming={false}
-					sessionId={model.path || null}
-				/>
-			}
-			activityPanel={
-				model.isKnowledge ? (
-					<ActivityPanel
 						workspace={workspace}
-						enablePluginTabs={false}
-						knowledgeHistory
+						isStreaming={false}
+						sessionId={model.path || null}
 					/>
-				) : (
-					<ActivityPanel workspace={workspace} enablePluginTabs={false} />
-				)
-			}
-		/>
+				}
+				activityPanel={
+					model.isKnowledge ? (
+						<ActivityPanel
+							workspace={workspace}
+							enablePluginTabs={false}
+							knowledgeHistory
+						/>
+					) : (
+						<ActivityPanel workspace={workspace} enablePluginTabs={false} />
+					)
+				}
+			/>
+			<SessionViewerContinueFromProgress active={continueFrom.continuing} />
+		</div>
 	);
 }

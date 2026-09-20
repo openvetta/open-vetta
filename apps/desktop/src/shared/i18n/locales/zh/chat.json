@@ -844,6 +844,13 @@
 			"action": "接着干",
 			"actionTitle": "根据这份记录生成前情提要并新建一个 Vetta 会话",
 			"working": "正在生成提要…",
+			"progress": {
+				"title": "正在生成前情提要",
+				"hint": "完成后会打开新会话",
+				"reading": "读取这份记录",
+				"briefing": "调用模型写提要",
+				"creating": "创建 Vetta 会话"
+			},
 			"quotaTitle": "将调用模型生成前情提要",
 			"quotaMessage": "会用你当前选用的模型阅读这份 Grok 记录并生成提要，这会消耗额度。原会话不会被改动。",
 			"quotaConfirm": "继续",

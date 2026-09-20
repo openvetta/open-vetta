@@ -844,6 +844,13 @@
 			"action": "Continue from here",
 			"actionTitle": "Generate a briefing from this record and start a new Vetta session",
 			"working": "Generating briefing…",
+			"progress": {
+				"title": "Writing a briefing",
+				"hint": "A new session will open when this finishes",
+				"reading": "Reading this record",
+				"briefing": "Asking the model to write a briefing",
+				"creating": "Creating a Vetta session"
+			},
 			"quotaTitle": "This will call a model to write a briefing",
 			"quotaMessage": "Your currently selected model will read this Grok record and write a briefing. That uses quota. The original session will not be changed.",
 			"quotaConfirm": "Continue",

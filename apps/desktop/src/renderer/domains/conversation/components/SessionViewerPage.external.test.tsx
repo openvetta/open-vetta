@@ -9,8 +9,13 @@ import { SessionViewerPage } from "./SessionViewerPage";
 const captured = vi.hoisted(() => ({
 	setHeader: vi.fn(),
 	feed: vi.fn(),
+	continuing: false,
 }));
 
+vi.mock("@tanstack/react-router", () => ({
+	useNavigate: () => vi.fn(),
+	useSearch: () => ({}),
+}));
 vi.mock("jotai", async (importOriginal) => ({
 	...(await importOriginal<typeof Jotai>()),
 	useSetAtom: () => captured.setHeader,
@@ -21,7 +26,7 @@ vi.mock("@domains/activity-panel/components/ActivityPanel", () => ({ ActivityPan
 vi.mock("../hooks/useSessionViewerContinueFrom", () => ({
 	useSessionViewerContinueFrom: () => ({
 		enabled: true,
-		continuing: false,
+		continuing: captured.continuing,
 		error: null,
 		onContinue: vi.fn(),
 	}),
@@ -57,6 +62,7 @@ vi.mock("./MessageList", () => ({
 
 afterEach(() => {
 	cleanup();
+	captured.continuing = false;
 	vi.clearAllMocks();
 });
 
@@ -75,5 +81,15 @@ describe("SessionViewerPage external source banner", () => {
 				isStreaming: false,
 			}),
 		);
+	});
+
+	it("shows a progress overlay while the briefing is being generated", () => {
+		captured.continuing = true;
+		render(<SessionViewerPage />);
+		expect(screen.getByText("sessionViewer.continueFrom.progress.title")).toBeTruthy();
+		expect(screen.getByText("sessionViewer.continueFrom.progress.reading")).toBeTruthy();
+		const header = captured.setHeader.mock.calls.find(([value]) => value !== null)?.[0];
+		render(header);
+		expect(screen.getByText("sessionViewer.continueFrom.working")).toBeTruthy();
 	});
 });
