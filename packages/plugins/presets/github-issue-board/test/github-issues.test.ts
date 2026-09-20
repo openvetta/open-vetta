@@ -286,6 +286,83 @@ describe("fetchOpenGithubIssues", () => {
 		);
 		expect(network.request).not.toHaveBeenCalled();
 	});
+
+	it("puts assignee=@me on the gh api path when fetching assigned issues", async () => {
+		const network = { request: vi.fn() } as unknown as PluginNetworkApi;
+		const command = {
+			run: vi.fn(async () => ({
+				stdout: JSON.stringify([issue]),
+				stderr: "",
+				exitCode: 0,
+			})),
+		} as unknown as PluginCommandApi;
+
+		await expect(
+			fetchOpenGithubIssues(network, "acme", "app", command, 1, { assignee: "me", label: null }),
+		).resolves.toEqual({ items: [issue] });
+		expect(command.run).toHaveBeenCalledWith(
+			"gh",
+			["api", "repos/acme/app/issues?state=open&per_page=100&assignee=@me"],
+			{
+				timeoutMs: 20_000,
+				env: { GH_PROMPT_DISABLED: "1", GH_NO_UPDATE_NOTIFIER: "1" },
+			},
+		);
+		expect(githubOpenIssuesApiPath("acme", "app", 1, { assignee: "me", label: null })).toContain("assignee=@me");
+		expect(network.request).not.toHaveBeenCalled();
+	});
+
+	it("url-encodes a single label on both the gh path and the public URL", async () => {
+		const filter = { assignee: "any" as const, label: "needs:help" };
+		expect(githubOpenIssuesApiPath("acme", "app", 1, filter)).toBe(
+			"repos/acme/app/issues?state=open&per_page=100&labels=needs%3Ahelp",
+		);
+		expect(githubOpenIssuesUrl("acme", "app", 1, filter)).toBe(
+			"https://api.github.com/repos/acme/app/issues?state=open&per_page=100&labels=needs%3Ahelp",
+		);
+
+		const network = { request: vi.fn() } as unknown as PluginNetworkApi;
+		const command = {
+			run: vi.fn(async () => ({
+				stdout: JSON.stringify([issue]),
+				stderr: "",
+				exitCode: 0,
+			})),
+		} as unknown as PluginCommandApi;
+		await fetchOpenGithubIssues(network, "acme", "app", command, 2, filter);
+		expect(command.run).toHaveBeenCalledWith(
+			"gh",
+			["api", "repos/acme/app/issues?state=open&per_page=100&page=2&labels=needs%3Ahelp"],
+			{
+				timeoutMs: 20_000,
+				env: { GH_PROMPT_DISABLED: "1", GH_NO_UPDATE_NOTIFIER: "1" },
+			},
+		);
+	});
+
+	it("returns a structured error and skips api.github.com when unauthenticated fetch is assigned to me", async () => {
+		const network = { request: vi.fn() } as unknown as PluginNetworkApi;
+		const missing = {
+			run: vi.fn(async () => {
+				throw new Error("Command failed to start: gh (ENOENT)");
+			}),
+		} as unknown as PluginCommandApi;
+		const loggedOut = {
+			run: vi.fn(async () => ({
+				stdout: "",
+				stderr: "gh: To get started with GitHub CLI, please run: `gh auth login`",
+				exitCode: 1,
+			})),
+		} as unknown as PluginCommandApi;
+
+		await expect(
+			fetchOpenGithubIssues(network, "acme", "app", missing, 1, { assignee: "me", label: "bug" }),
+		).resolves.toEqual({ error: "assignee-needs-gh" });
+		await expect(
+			fetchOpenGithubIssues(network, "acme", "app", loggedOut, 1, { assignee: "me", label: null }),
+		).resolves.toEqual({ error: "assignee-needs-gh" });
+		expect(network.request).not.toHaveBeenCalled();
+	});
 });
 
 describe("fetchIssueComments", () => {

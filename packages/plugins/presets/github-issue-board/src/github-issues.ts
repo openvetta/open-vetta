@@ -1,5 +1,10 @@
 import type { PluginCommandApi, PluginNetworkApi, PluginNetworkResponse } from "@vetta-org/plugin-sdk";
-import type { GithubIssueState, GithubTask } from "./state";
+import {
+	DEFAULT_ISSUE_FETCH_FILTER,
+	type GithubIssueState,
+	type GithubTask,
+	type IssueFetchFilter,
+} from "./state";
 
 export const ISSUE_PROMPT_MAX_CHARS = 4000;
 export const ISSUE_PAGE_SIZE = 100;
@@ -7,7 +12,7 @@ export const ISSUE_PAGE_SIZE = 100;
 export const ISSUE_COMMIT_INSTRUCTION =
 	"When you finish, commit the changes locally. Do not push and do not open a pull request.";
 
-export type GithubFetchErrorKind = "rate-limit" | "not-found" | "non-json";
+export type GithubFetchErrorKind = "rate-limit" | "not-found" | "non-json" | "assignee-needs-gh";
 
 export interface GithubIssueComment {
 	id: number;
@@ -117,20 +122,33 @@ export function normalizeIssuePage(page: number): number {
 	return Number.isInteger(page) && page >= 1 ? page : 1;
 }
 
-function githubOpenIssuesQuery(page = 1): string {
+function githubOpenIssuesQuery(page = 1, filter: IssueFetchFilter = DEFAULT_ISSUE_FETCH_FILTER): string {
 	const normalized = normalizeIssuePage(page);
-	return normalized <= 1
-		? `state=open&per_page=${ISSUE_PAGE_SIZE}`
-		: `state=open&per_page=${ISSUE_PAGE_SIZE}&page=${normalized}`;
+	const parts = [`state=open`, `per_page=${ISSUE_PAGE_SIZE}`];
+	if (normalized > 1) parts.push(`page=${normalized}`);
+	if (filter.assignee === "me") parts.push("assignee=@me");
+	const label = filter.label?.trim();
+	if (label) parts.push(`labels=${encodeURIComponent(label)}`);
+	return parts.join("&");
 }
 
-export function githubOpenIssuesUrl(owner: string, repo: string, page = 1): string {
+export function githubOpenIssuesUrl(
+	owner: string,
+	repo: string,
+	page = 1,
+	filter: IssueFetchFilter = DEFAULT_ISSUE_FETCH_FILTER,
+): string {
 	const repoPath = `${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
-	return `https://api.github.com/repos/${repoPath}/issues?${githubOpenIssuesQuery(page)}`;
+	return `https://api.github.com/repos/${repoPath}/issues?${githubOpenIssuesQuery(page, filter)}`;
 }
 
-export function githubOpenIssuesApiPath(owner: string, repo: string, page = 1): string {
-	return `repos/${owner}/${repo}/issues?${githubOpenIssuesQuery(page)}`;
+export function githubOpenIssuesApiPath(
+	owner: string,
+	repo: string,
+	page = 1,
+	filter: IssueFetchFilter = DEFAULT_ISSUE_FETCH_FILTER,
+): string {
+	return `repos/${owner}/${repo}/issues?${githubOpenIssuesQuery(page, filter)}`;
 }
 
 export function githubIssueCommentsUrl(owner: string, repo: string, issueNumber: number): string {
@@ -189,11 +207,19 @@ export function isGithubRepoName(value: string): boolean {
 	return GITHUB_NAME.test(value);
 }
 
+function isGithubFetchErrorKind(value: unknown): value is GithubFetchErrorKind {
+	return (
+		value === "rate-limit" ||
+		value === "not-found" ||
+		value === "non-json" ||
+		value === "assignee-needs-gh"
+	);
+}
+
 export function githubFetchError(result: unknown): GithubFetchErrorKind | null {
-	if (result === "rate-limit" || result === "not-found" || result === "non-json") return result;
+	if (isGithubFetchErrorKind(result)) return result;
 	if (typeof result !== "object" || result === null || !("error" in result)) return null;
-	const error = result.error;
-	return error === "rate-limit" || error === "not-found" || error === "non-json" ? error : "non-json";
+	return isGithubFetchErrorKind(result.error) ? result.error : "non-json";
 }
 
 async function fetchGithubJsonArrayWithGh(
@@ -244,14 +270,19 @@ export async function fetchOpenGithubIssues(
 	repo: string,
 	command?: PluginCommandApi,
 	page = 1,
+	filter: IssueFetchFilter = DEFAULT_ISSUE_FETCH_FILTER,
 ): Promise<{ items: unknown[] } | { error: GithubFetchErrorKind }> {
 	if (!isGithubRepoName(owner) || !isGithubRepoName(repo)) return { error: "not-found" };
 	const normalizedPage = normalizeIssuePage(page);
 	if (command) {
-		const viaGh = await fetchGithubJsonArrayWithGh(command, githubOpenIssuesApiPath(owner, repo, normalizedPage));
+		const viaGh = await fetchGithubJsonArrayWithGh(
+			command,
+			githubOpenIssuesApiPath(owner, repo, normalizedPage, filter),
+		);
 		if (viaGh !== "unavailable") return viaGh;
 	}
-	return fetchGithubJsonArrayUnauthenticated(network, githubOpenIssuesUrl(owner, repo, normalizedPage));
+	if (filter.assignee === "me") return { error: "assignee-needs-gh" };
+	return fetchGithubJsonArrayUnauthenticated(network, githubOpenIssuesUrl(owner, repo, normalizedPage, filter));
 }
 
 export function mapGhApiError(stdout: string, stderr: string): GithubFetchErrorKind | "unavailable" {
