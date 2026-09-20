@@ -4,6 +4,7 @@ import {
 	type PluginOfficialProjectEntry,
 } from "@vetta-org/plugin-sdk";
 import { Fragment, type JSX, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { BoardSelect, type BoardSelectOption } from "./BoardSelect";
 import {
 	resolveGithubRepoFromProject,
 	type ResolveGithubRepoError,
@@ -80,6 +81,7 @@ const PRIMARY_BUTTON =
 const CHIP = "bg-muted text-muted-foreground rounded-md px-1.5 py-0.5 text-[11px]";
 const RUN_MENU_ITEM =
 	"rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-foreground hover:bg-muted disabled:opacity-40";
+const STATUS_FILTER_VALUES = ["all", "pending", "running", "completed", "failed"] as const;
 
 interface RunMenuPos {
 	top: number;
@@ -117,6 +119,19 @@ function uniqueTaskLabels(tasks: GithubTask[]): string[] {
 		}
 	}
 	return labels.sort((left, right) => left.localeCompare(right));
+}
+
+function labelSelectOptions(
+	labels: string[],
+	selected: string,
+	allLabel: string,
+): BoardSelectOption<string>[] {
+	const extra = selected !== "all" && !labels.includes(selected) ? [selected] : [];
+	return [
+		{ value: "all", label: allLabel },
+		...extra.map((label) => ({ value: label, label })),
+		...labels.map((label) => ({ value: label, label })),
+	];
 }
 
 export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
@@ -748,31 +763,23 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 							onChange={(event) => setFilterQuery(event.target.value)}
 						/>
 					</label>
-					<label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-						{t("board.filter.status")}
-						<select
-							className={FIELD}
-							value={filterStatus}
-							onChange={(event) => setFilterStatus(event.target.value as "all" | GithubTaskStatus)}
-						>
-							<option value="all">{t("board.filter.status.all")}</option>
-							<option value="pending">{t("board.status.pending")}</option>
-							<option value="running">{t("board.status.running")}</option>
-							<option value="completed">{t("board.status.completed")}</option>
-							<option value="failed">{t("board.status.failed")}</option>
-						</select>
-					</label>
-					<label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-						{t("board.filter.label")}
-						<select className={FIELD} value={filterLabel} onChange={(event) => setFilterLabel(event.target.value)}>
-							<option value="all">{t("board.filter.label.all")}</option>
-							{labelOptions.map((label) => (
-								<option key={label} value={label}>
-									{label}
-								</option>
-							))}
-						</select>
-					</label>
+					<BoardSelect
+						label={t("board.filter.status")}
+						triggerIcon="icon-[solar--flag-linear]"
+						value={filterStatus}
+						options={STATUS_FILTER_VALUES.map((status) => ({
+							value: status,
+							label: status === "all" ? t("board.filter.status.all") : t(`board.status.${status}`),
+						}))}
+						onChange={setFilterStatus}
+					/>
+					<BoardSelect
+						label={t("board.filter.label")}
+						triggerIcon="icon-[solar--tag-linear]"
+						value={filterLabel}
+						options={labelSelectOptions(labelOptions, filterLabel, t("board.filter.label.all"))}
+						onChange={setFilterLabel}
+					/>
 				</div>
 			) : null}
 			<div className="min-h-0 flex-1 overflow-auto">
