@@ -34,6 +34,7 @@
 	"board.run.direct": "直接运行",
 	"board.run.withSkill": "用 {{name}} 运行",
 	"board.run.includeComments": "带上评论",
+	"board.autoAdvance": "跑完自动下一条",
 	"board.edit": "编辑",
 	"board.delete": "删除",
 	"board.delete.confirm": "确认删除",

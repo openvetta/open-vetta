@@ -14,8 +14,12 @@ import {
 	reconcileRunningTasks,
 	removeTask,
 	retryFailedTask,
+	selectAutoAdvanceTask,
+	setAutoAdvance,
+	setTaskStatus,
 	updateTaskPrompt,
 	type GithubTask,
+	type PluginState,
 } from "../src/state";
 import { CONVERSATION_WORKSPACE } from "../src/workspace";
 
@@ -57,6 +61,7 @@ describe("parsePluginState", () => {
 			lastFetch: null,
 			issueSync: null,
 			fetchFilter: DEFAULT_ISSUE_FETCH_FILTER,
+			autoAdvance: false,
 		});
 		expect(parsePluginState({ repoTarget: null, tasks: [] })).toEqual({
 			repoTarget: null,
@@ -66,6 +71,7 @@ describe("parsePluginState", () => {
 			lastFetch: null,
 			issueSync: null,
 			fetchFilter: DEFAULT_ISSUE_FETCH_FILTER,
+			autoAdvance: false,
 		});
 		expect(parsePluginState(null)).toEqual(EMPTY_STATE);
 	});
@@ -113,6 +119,13 @@ describe("parsePluginState", () => {
 				],
 			}).tasks[0]?.source,
 		).toEqual({ kind: "manual" });
+	});
+
+	it("defaults missing autoAdvance to false and only keeps a boolean true", () => {
+		expect(parsePluginState({ tasks: [] }).autoAdvance).toBe(false);
+		expect(parsePluginState({ autoAdvance: true, tasks: [] }).autoAdvance).toBe(true);
+		expect(parsePluginState({ autoAdvance: false, tasks: [] }).autoAdvance).toBe(false);
+		expect(parsePluginState({ autoAdvance: "yes", tasks: [] }).autoAdvance).toBe(false);
 	});
 });
 
@@ -548,5 +561,93 @@ describe("retryFailedTask", () => {
 		expect(retryFailedTask(state, "r", NOW + 1)).toBe(state);
 		expect(retryFailedTask(state, "c", NOW + 1)).toBe(state);
 		expect(retryFailedTask(state, "missing", NOW + 1)).toBe(state);
+	});
+});
+
+describe("selectAutoAdvanceTask", () => {
+	function queuedManual(...titles: string[]): PluginState {
+		return titles.reduce(
+			(state, title, index) =>
+				addManualTask(state, { id: `task-${index + 1}`, promptText: title, now: index + 1, cwd: "/repo" }),
+			EMPTY_STATE,
+		);
+	}
+
+	it("picks the first pending task after the board visibility rules when autoAdvance is on and the finished task completed", () => {
+		const completed = setTaskStatus(setAutoAdvance(queuedManual("Fix login", "Add docs"), true), "task-1", {
+			status: "completed",
+			now: 9,
+		});
+		expect(selectAutoAdvanceTask(completed, { cwd: "/repo", finishedTaskId: "task-1" })?.id).toBe("task-2");
+	});
+
+	it("does not skip a pending task that table filters would hide", () => {
+		const withIssue = mergeIssueTasks(setAutoAdvance(EMPTY_STATE, true), [
+			issueTask({ id: "bug", title: "Fix login", labels: ["bug"] }),
+			issueTask({
+				id: "docs",
+				title: "Add docs",
+				labels: ["docs"],
+				source: {
+					kind: "issue",
+					owner: "acme",
+					repo: "app",
+					issueNumber: 12,
+					issueUrl: "https://github.com/acme/app/issues/12",
+					issueUpdatedAt: "2026-01-02T03:04:05Z",
+					issueState: "open",
+				},
+			}),
+		]).state;
+		const completed = setTaskStatus(withIssue, "bug", { status: "completed", now: 9 });
+		expect(selectAutoAdvanceTask(completed, { cwd: "/repo", finishedTaskId: "bug" })?.id).toBe("docs");
+	});
+
+	it("does not advance after a failed or stopped task, when the switch is off, or when a run is still in flight", () => {
+		const queued = queuedManual("Fix login", "Add docs");
+		const failed = setTaskStatus(setAutoAdvance(queued, true), "task-1", {
+			status: "failed",
+			error: "Stopped",
+			now: 9,
+		});
+		expect(selectAutoAdvanceTask(failed, { cwd: "/repo", finishedTaskId: "task-1" })).toBeNull();
+
+		const completedOff = setTaskStatus(queued, "task-1", { status: "completed", now: 9 });
+		expect(selectAutoAdvanceTask(completedOff, { cwd: "/repo", finishedTaskId: "task-1" })).toBeNull();
+
+		const stillRunning = setTaskStatus(setAutoAdvance(queued, true), "task-1", { status: "running", now: 9 });
+		expect(selectAutoAdvanceTask(stillRunning, { cwd: "/repo", finishedTaskId: "task-1" })).toBeNull();
+	});
+
+	it("stops when there is no project, and skips issues that are not visible on this board", () => {
+		const completed = setTaskStatus(setAutoAdvance(queuedManual("Fix login", "Add docs"), true), "task-1", {
+			status: "completed",
+			now: 9,
+		});
+		expect(
+			selectAutoAdvanceTask(completed, { cwd: "/repo", finishedTaskId: "task-1", notice: "no-project" }),
+		).toBeNull();
+
+		const foreign = mergeIssueTasks(
+			setAutoAdvance({ ...EMPTY_STATE, repoTarget: { owner: "acme", repo: "app" } }, true),
+			[
+				issueTask({ id: "local", title: "Fix login" }),
+				issueTask({
+					id: "other",
+					title: "Other repo",
+					source: {
+						kind: "issue",
+						owner: "other",
+						repo: "lib",
+						issueNumber: 3,
+						issueUrl: "https://github.com/other/lib/issues/3",
+						issueUpdatedAt: "2026-01-02T03:04:05Z",
+						issueState: "open",
+					},
+				}),
+			],
+		).state;
+		const done = setTaskStatus(foreign, "local", { status: "completed", now: 9 });
+		expect(selectAutoAdvanceTask(done, { cwd: "/repo", finishedTaskId: "local" })).toBeNull();
 	});
 });
