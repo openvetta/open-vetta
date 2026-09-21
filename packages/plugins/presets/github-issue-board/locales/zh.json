@@ -4,6 +4,8 @@
 	"view.board.label": "任务台",
 	"view.board.description": "从 GitHub issue 导入待办并逐条执行",
 	"board.title": "GitHub Issue 任务台",
+	"board.collapse": "折叠任务台",
+	"board.expand": "展开任务台",
 	"board.taskInput.label": "任务描述",
 	"board.taskInput.placeholder": "输入要加入队列的任务",
 	"board.add": "添加",
@@ -89,5 +91,6 @@
 	"board.error.pickDirectory": "无法打开目录选择框。",
 	"board.error.refine": "完善失败，请重试或直接用原文添加。",
 	"board.error.refineTimeout": "完善超时，请重试或直接用原文添加。",
-	"board.error.refineEmpty": "模型没有返回可用内容，请重试或直接用原文添加。"
+	"board.error.refineEmpty": "模型没有返回可用内容，请重试或直接用原文添加。",
+	"board.error.refineNoModel": "没有可用的 AI 模型。请先在设置中配置模型。"
 }

@@ -16,6 +16,8 @@ Do not invent requirements that are absent from the draft.`;
 export interface RefineTaskDraftOptions {
 	onTextDelta?(text: string): void;
 	signal?: AbortSignal;
+	/** Current conversation model (`provider/id`). Omitted → host default / fallback. */
+	modelKey?: string;
 }
 
 export class TaskRefinementService {
@@ -29,9 +31,11 @@ export class TaskRefinementService {
 			onTextDelta: (event) => options?.onTextDelta?.(event.text),
 		};
 		if (options?.signal) streamOptions.signal = options.signal;
+		const modelKey = options?.modelKey?.trim();
 
 		const result = await this.ai.stream(
 			{
+				...(modelKey ? { modelKey } : {}),
 				systemPrompt: TASK_REFINEMENT_SYSTEM_PROMPT,
 				prompt,
 				temperature: 0.3,

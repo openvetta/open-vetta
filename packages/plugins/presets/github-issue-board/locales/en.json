@@ -4,6 +4,8 @@
 	"view.board.label": "Issue Board",
 	"view.board.description": "Import GitHub issues and run them one by one",
 	"board.title": "GitHub Issue Board",
+	"board.collapse": "Collapse board",
+	"board.expand": "Expand board",
 	"board.taskInput.label": "Task description",
 	"board.taskInput.placeholder": "Describe a task to add to the queue",
 	"board.add": "Add",
@@ -90,5 +92,6 @@
 	"board.error.pickDirectory": "Could not open the folder picker.",
 	"board.error.refine": "Could not improve the draft. Retry or add the original text.",
 	"board.error.refineTimeout": "Improving the draft timed out. Retry or add the original text.",
-	"board.error.refineEmpty": "The model returned nothing usable. Retry or add the original text."
+	"board.error.refineEmpty": "The model returned nothing usable. Retry or add the original text.",
+	"board.error.refineNoModel": "No AI model is available. Configure one in Settings first."
 }

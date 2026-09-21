@@ -37,7 +37,7 @@ const result = await ctx.ai.complete({
 console.log(result.text, result.usage.totalTokens);
 ```
 
-`modelKey` 可省略，此时宿主使用用户明确设置且当前可用的默认模型；没有可用默认模型时调用会失败。`reasoning` 只会传给声明支持推理的模型，`maxTokens` 不会超过该模型自身的输出上限。
+`modelKey` 可省略。省略时宿主先用用户明确设置且当前可用的默认模型；没有可用默认模型时，改用第一个当前可用且有凭据的文本模型（与对话页在未设默认模型时的回退一致）。一个可用模型都没有时调用会失败。`reasoning` 只会传给声明支持推理的模型，`maxTokens` 不会超过该模型自身的输出上限。
 
 `complete` 是单轮契约（`systemPrompt + prompt`），不接受工具或图片。多轮对话使用下方的 `chat`；插件提供 API Key 仍然不被接受——凭据永远由宿主注入。
 

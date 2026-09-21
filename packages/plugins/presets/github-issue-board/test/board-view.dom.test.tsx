@@ -27,6 +27,8 @@ interface RegisteredView {
 
 const COPY: Record<string, string> = {
 	"board.title": "GitHub Issue Board",
+	"board.collapse": "Collapse board",
+	"board.expand": "Expand board",
 	"board.taskInput.label": "Task description",
 	"board.add": "Add",
 	"board.refine": "Improve with AI",
@@ -110,6 +112,7 @@ const COPY: Record<string, string> = {
 	"board.error.refine": "Could not improve the draft. Retry or add the original text.",
 	"board.error.refineTimeout": "Improving the draft timed out. Retry or add the original text.",
 	"board.error.refineEmpty": "The model returned nothing usable. Retry or add the original text.",
+	"board.error.refineNoModel": "No AI model is available. Configure one in Settings first.",
 };
 
 function installHostBridge(conversation: ConversationState): void {
@@ -133,6 +136,7 @@ function interpolate(text: string, params?: Record<string, string | number>): st
 
 function fakeContext(options?: {
 	cwd?: string | null;
+	conversationModel?: string | null;
 	hangSend?: boolean;
 	issues?: unknown[];
 	issuesByRepo?: Record<string, unknown[]>;
@@ -174,7 +178,7 @@ function fakeContext(options?: {
 		id: cwd ? "active" : null,
 		cwd,
 		sessionPath: cwd ? "/repo/session.jsonl" : null,
-		model: null,
+		model: options?.conversationModel ?? null,
 		isStreaming: false,
 	});
 	const storage = {
@@ -502,6 +506,39 @@ describe("GitHub Issue board view", () => {
 		expect(screen.getByRole("heading", { name: COPY["board.title"] })).toBeTruthy();
 	});
 
+	it("collapses the board toolbar and expands it again without hiding the queue table", async () => {
+		const { ctx, registered } = fakeContext();
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await readyInput();
+		expect(screen.getByRole("button", { name: COPY["board.fetch"] })).toBeTruthy();
+		expect(screen.getByRole("columnheader", { name: COPY["board.queue.title"] })).toBeTruthy();
+		expect(screen.getByRole("button", { name: COPY["board.collapse"] }).getAttribute("aria-expanded")).toBe("true");
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.collapse"] }));
+		});
+
+		expect(screen.getByRole("heading", { name: COPY["board.title"] })).toBeTruthy();
+		expect(screen.queryByRole("textbox", { name: COPY["board.taskInput.label"] })).toBeNull();
+		expect(screen.queryByRole("button", { name: COPY["board.fetch"] })).toBeNull();
+		expect(screen.getByRole("columnheader", { name: COPY["board.queue.title"] })).toBeTruthy();
+		expect(screen.queryByRole("checkbox", { name: COPY["board.autoAdvance"] })).toBeNull();
+		const expand = screen.getByRole("button", { name: COPY["board.expand"] });
+		expect(expand.getAttribute("aria-expanded")).toBe("false");
+
+		await act(async () => {
+			fireEvent.click(expand);
+		});
+
+		expect(await readyInput()).toBeTruthy();
+		expect(screen.getByRole("button", { name: COPY["board.fetch"] })).toBeTruthy();
+		expect(screen.getByRole("columnheader", { name: COPY["board.queue.title"] })).toBeTruthy();
+		expect(screen.getByRole("button", { name: COPY["board.collapse"] }).getAttribute("aria-expanded")).toBe("true");
+	});
+
 	it("disables Improve with AI while the new-task draft is empty", async () => {
 		const { ctx, registered } = fakeContext();
 		plugin.activate(ctx);
@@ -548,6 +585,37 @@ describe("GitHub Issue board view", () => {
 		await waitFor(() => {
 			expect(screen.getByRole("textbox", { name: COPY["board.preview.label"] })).toBeTruthy();
 		});
+	});
+
+	it("improves a draft with the current conversation model", async () => {
+		const stream = vi.fn(async (request: PluginAiCompleteRequest) => {
+			expect(request.modelKey).toBe("grok/grok-4.6");
+			return {
+				modelKey: "grok/grok-4.6",
+				text: "## Background / Goal\n\nImproved login fix",
+				stopReason: "stop" as const,
+				usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+			};
+		});
+		const { ctx, registered } = fakeContext({
+			conversationModel: "grok/grok-4.6",
+			aiStream: stream,
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		const input = await readyInput();
+		fireEvent.change(input, { target: { value: "Fix login" } });
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.refine"] }));
+		});
+		await waitFor(() => {
+			expect((screen.getByRole("textbox", { name: COPY["board.preview.label"] }) as HTMLTextAreaElement).value).toBe(
+				"## Background / Goal\n\nImproved login fix",
+			);
+		});
+		expect(stream).toHaveBeenCalledTimes(1);
 	});
 
 	it("streams an improved preview, lets the user edit it, then adds that prompt", async () => {
@@ -628,6 +696,36 @@ describe("GitHub Issue board view", () => {
 		});
 		expect(screen.getByRole("cell", { name: "Fix login" })).toBeTruthy();
 		expect(readState()?.tasks[0]?.promptText).toBe("Fix login");
+	});
+
+	it("asks the user to configure a model when Improve with AI has none available", async () => {
+		const { ctx, registered } = fakeContext({
+			aiStream: async () => {
+				throw new Error(
+					"Error occurred in handler for 'vetta:plugins:capabilities:ai:stream': CapabilityError: No default AI model is configured",
+				);
+			},
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		const input = await readyInput();
+		fireEvent.change(input, { target: { value: "Fix login" } });
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.refine"] }));
+		});
+		await waitFor(() => {
+			expect(screen.getByText(COPY["board.error.refineNoModel"])).toBeTruthy();
+		});
+		expect((screen.getByRole("textbox", { name: COPY["board.taskInput.label"] }) as HTMLTextAreaElement).value).toBe(
+			"Fix login",
+		);
+		expect(screen.queryByRole("textbox", { name: COPY["board.preview.label"] })).toBeNull();
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.add"] }));
+		});
+		expect(screen.getByRole("cell", { name: "Fix login" })).toBeTruthy();
 	});
 
 	it("shows a timeout error and keeps the original draft when Improve with AI is aborted", async () => {

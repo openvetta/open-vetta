@@ -25,6 +25,7 @@ import {
 } from "@vetta-org/capability-sdk";
 import { getOrCreateSharedModelRuntime } from "../agent-runtime/host-services.js";
 import { getDesktopModelSettingsService } from "../models/model-settings-host.js";
+import { pickFallbackAiModelKey } from "./ai-model-resolve.js";
 
 const DOMAIN_AI_PROVIDER_OWNER = "vetta.domain.ai";
 
@@ -100,26 +101,39 @@ interface ResolvedAiModel {
 }
 
 async function resolveRequestedModel(requestedModelKey: string | undefined): Promise<ResolvedAiModel> {
-	const models = getDesktopModelSettingsService();
 	const modelRegistry = getOrCreateSharedModelRuntime();
-	const modelKey = requestedModelKey ?? (await models.list()).defaultModel;
-	if (!modelKey) {
+	const available = modelRegistry.getAvailable().filter((entry) => entry.input.includes("text"));
+
+	if (requestedModelKey) {
+		const model = available.find((entry) => toModelKey(entry.provider, entry.id) === requestedModelKey);
+		if (!model) {
+			throw new CapabilityError(CAPABILITY_ERROR_CODES.NOT_FOUND, `AI model is not available: ${requestedModelKey}`);
+		}
+		const apiKey = await modelRegistry.getApiKey(model);
+		if (!apiKey) {
+			throw new CapabilityError(
+				CAPABILITY_ERROR_CODES.PROVIDER_FAILED,
+				`AI model credentials are unavailable: ${requestedModelKey}`,
+			);
+		}
+		return { modelKey: requestedModelKey, model, apiKey };
+	}
+
+	const credentialed: ResolvedAiModel[] = [];
+	for (const model of available) {
+		const apiKey = await modelRegistry.getApiKey(model);
+		if (!apiKey) continue;
+		credentialed.push({ modelKey: toModelKey(model.provider, model.id), model, apiKey });
+	}
+	const modelKey = pickFallbackAiModelKey(
+		(await getDesktopModelSettingsService().list()).defaultModel,
+		credentialed.map((entry) => entry.modelKey),
+	);
+	const picked = credentialed.find((entry) => entry.modelKey === modelKey);
+	if (!picked) {
 		throw new CapabilityError(CAPABILITY_ERROR_CODES.NOT_FOUND, "No default AI model is configured");
 	}
-	const model = modelRegistry
-		.getAvailable()
-		.find((entry) => entry.input.includes("text") && toModelKey(entry.provider, entry.id) === modelKey);
-	if (!model) {
-		throw new CapabilityError(CAPABILITY_ERROR_CODES.NOT_FOUND, `AI model is not available: ${modelKey}`);
-	}
-	const apiKey = await modelRegistry.getApiKey(model);
-	if (!apiKey) {
-		throw new CapabilityError(
-			CAPABILITY_ERROR_CODES.PROVIDER_FAILED,
-			`AI model credentials are unavailable: ${modelKey}`,
-		);
-	}
-	return { modelKey, model, apiKey };
+	return picked;
 }
 
 function toSimpleStreamOptions(

@@ -68,6 +68,19 @@ describe("TaskRefinementService", () => {
 		expect(stream).toHaveBeenCalledTimes(1);
 	});
 
+	it("sends the current conversation model when one is selected", async () => {
+		const stream = vi.fn(async (request: PluginAiCompleteRequest) => {
+			expect(request.modelKey).toBe("grok/grok-4.6");
+			return aiResult("## 背景/目标\n修好登录");
+		});
+		const service = new TaskRefinementService(fakeAi(stream));
+
+		await expect(
+			service.refine("fix login", { modelKey: "  grok/grok-4.6  " }),
+		).resolves.toBe("## 背景/目标\n修好登录");
+		expect(stream).toHaveBeenCalledTimes(1);
+	});
+
 	it("forwards incremental text snapshots in order", async () => {
 		const seen: string[] = [];
 		const stream = vi.fn(

@@ -1,4 +1,4 @@
-import type { PluginContext } from "@vetta-org/plugin-sdk";
+import { useActiveConversation, type PluginContext } from "@vetta-org/plugin-sdk";
 import { useEffect, useRef, useState, type FormEvent, type JSX } from "react";
 import { TaskRefinementService } from "./task-refinement";
 
@@ -39,6 +39,7 @@ export function TaskDraftComposer({
 	const refineAbortRef = useRef<AbortController | null>(null);
 	const refineGenRef = useRef(0);
 	const t = ctx.i18n.t;
+	const sessionModel = useActiveConversation().model?.trim() || undefined;
 	const currentText = preview !== null ? preview : draft;
 
 	useEffect(() => {
@@ -55,6 +56,14 @@ export function TaskDraftComposer({
 		}
 		if (error instanceof Error && error.message === "task refinement returned empty content") {
 			return t("board.error.refineEmpty");
+		}
+		const message = error instanceof Error ? error.message : String(error);
+		if (
+			message.includes("No default AI model is configured") ||
+			message.includes("AI model is not available") ||
+			message.includes("AI model credentials are unavailable")
+		) {
+			return t("board.error.refineNoModel");
 		}
 		return t("board.error.refine");
 	}
@@ -73,6 +82,7 @@ export function TaskDraftComposer({
 		try {
 			const text = await new TaskRefinementService(ctx.ai).refine(source, {
 				signal: controller.signal,
+				...(sessionModel ? { modelKey: sessionModel } : {}),
 				onTextDelta: (next) => {
 					if (gen === refineGenRef.current && !cancelledRef.current) setPreview(next);
 				},

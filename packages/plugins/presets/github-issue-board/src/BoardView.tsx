@@ -176,6 +176,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const [runSkills, setRunSkills] = useState<PluginOfficialSkillInfo[]>([]);
 	const [skillQuery, setSkillQuery] = useState("");
 	const [includeComments, setIncludeComments] = useState(false);
+	const [collapsed, setCollapsed] = useState(false);
 	const conversation = useActiveConversation();
 	const cancelledRef = useRef(false);
 	const inflightRef = useRef(false);
@@ -707,6 +708,14 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		setCommentsByTask((prev) => ({ ...prev, [task.id]: { status: "ok", items: result.items } }));
 	}
 
+	function toggleCollapsed(): void {
+		if (!collapsed) {
+			setWorkspaceMenuOpen(false);
+			setPendingRunId(null);
+		}
+		setCollapsed(!collapsed);
+	}
+
 	function emptyQueueMessage(): string {
 		if (fetching) return t("board.empty.fetching");
 		const target = state?.repoTarget;
@@ -719,7 +728,28 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 
 	return (
 		<div className="flex h-full w-full flex-col gap-4 bg-background p-6">
-			<h1 className="text-lg font-semibold text-foreground">{t("board.title")}</h1>
+			<div className="flex items-center justify-between gap-2">
+				<h1 className="text-lg font-semibold text-foreground">{t("board.title")}</h1>
+				<button
+					aria-controls="github-issue-board-toolbar"
+					aria-expanded={!collapsed}
+					aria-label={collapsed ? t("board.expand") : t("board.collapse")}
+					className="flex h-7 shrink-0 items-center gap-1 rounded-lg px-2 text-[12px] font-medium text-foreground hover:bg-accent"
+					type="button"
+					onClick={toggleCollapsed}
+				>
+					<span
+						aria-hidden
+						className={`${collapsed ? "icon-[solar--alt-arrow-down-linear]" : "icon-[solar--alt-arrow-up-linear]"} h-3.5 w-3.5 shrink-0`}
+					/>
+					{collapsed ? t("board.expand") : t("board.collapse")}
+				</button>
+			</div>
+			<div
+				className={collapsed ? "hidden" : "flex flex-col gap-4"}
+				hidden={collapsed}
+				id="github-issue-board-toolbar"
+			>
 			<div ref={workspaceMenuRef} className="relative flex flex-wrap items-center gap-2">
 				<button
 					aria-expanded={workspaceMenuOpen}
@@ -923,6 +953,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 					/>
 					{t("board.autoAdvance")}
 				</label>
+			</div>
 			</div>
 			<div className="min-h-0 flex-1 overflow-auto">
 				<table className="w-full text-left text-sm">
