@@ -50,6 +50,8 @@ const COPY: Record<string, string> = {
 	"board.run": "Run",
 	"board.run.direct": "Run directly",
 	"board.run.withSkill": "Run with {{name}}",
+	"board.run.includeComments": "Include comments",
+	"board.autoAdvance": "Run the next task automatically",
 	"board.retry": "Retry",
 	"board.stop": "Stop",
 	"board.edit": "Edit",
@@ -61,6 +63,7 @@ const COPY: Record<string, string> = {
 	"board.error.noProject": "Select a project or local folder first",
 	"board.error.interrupted": "Interrupted by a previous session",
 	"board.error.stopped": "Stopped",
+	"board.error.commentsFallback": "Could not load comments; sent the description only",
 	"board.fetch": "Fetch issues",
 	"board.fetch.loadMore": "Load more",
 	"board.fetch.none": "No new open issues were imported",
@@ -122,6 +125,16 @@ function fakeContext(options?: {
 	issuesByRepo?: Record<string, unknown[]>;
 	issuesByPage?: Record<number, unknown[]>;
 	comments?: unknown[];
+	commentsError?: boolean;
+	skills?: Array<{
+		name: string;
+		alias?: string;
+		description?: string;
+		source?: string;
+		type?: "skill" | "scene";
+		enabled?: boolean;
+	}>;
+	skillsError?: boolean;
 	initialState?: unknown;
 	networkResponse?: PluginNetworkResponse;
 	gitRemote?: { stdout: string; exitCode: number };
@@ -223,6 +236,15 @@ function fakeContext(options?: {
 				if (options?.networkResponse) return options.networkResponse;
 				let body: unknown = options?.issues ?? [];
 				if (request.url.includes("/comments")) {
+					if (options?.commentsError) {
+						return {
+							ok: false,
+							status: 500,
+							statusText: "Error",
+							headers: {},
+							body: { message: "boom" },
+						};
+					}
 					body = options?.comments ?? [];
 				} else if (options?.issuesByPage) {
 					const match = /[?&]page=(\d+)/.exec(request.url);
@@ -268,6 +290,19 @@ function fakeContext(options?: {
 					};
 				},
 			},
+			skills: {
+				list: async (cwd?: string) => {
+					if (options?.skillsError) throw new Error(`skills failed for ${cwd ?? ""}`);
+					return (options?.skills ?? []).map((skill) => ({
+						name: skill.name,
+						description: skill.description ?? skill.name,
+						source: skill.source ?? "custom",
+						type: skill.type ?? "skill",
+						...(skill.alias ? { alias: skill.alias } : {}),
+						...(skill.enabled === undefined ? {} : { enabled: skill.enabled }),
+					}));
+				},
+			},
 		},
 	} as unknown as PluginContext;
 	return {
@@ -280,6 +315,7 @@ function fakeContext(options?: {
 		requests,
 		runCommand,
 		openDirectory,
+		readState: () => (files.has("state.json") ? JSON.parse(files.get("state.json") ?? "null") : null),
 	};
 }
 
@@ -371,6 +407,25 @@ async function selectFilterOption(filterName: string, optionName: string): Promi
 
 function taskRow(title: string): HTMLElement {
 	return screen.getByRole("row", { name: new RegExp(title) });
+}
+
+function listedSkill(
+	name: string,
+	extra?: { alias?: string; type?: "skill" | "scene"; enabled?: boolean },
+): {
+	name: string;
+	alias?: string;
+	type?: "skill" | "scene";
+	enabled?: boolean;
+} {
+	return { name, ...extra };
+}
+
+async function openRunMenu(title: string): Promise<void> {
+	await act(async () => {
+		fireEvent.click(within(taskRow(title)).getByRole("button", { name: COPY["board.run"] }));
+	});
+	expect(await screen.findByRole("button", { name: COPY["board.run.direct"] })).toBeTruthy();
 }
 
 async function runDirectly(title: string): Promise<void> {
@@ -714,20 +769,142 @@ describe("GitHub Issue board view", () => {
 		expect(sendPrompt).toHaveBeenCalledWith("sess-1", "Fix the login button");
 	});
 
-	it("runs with the implement skill token when that run mode is chosen", async () => {
-		const { ctx, registered, sendPrompt } = fakeContext();
+	it("advances to the next pending task after a completed run when auto-advance is checked", async () => {
+		const { ctx, registered, createSession, openSession, readState } = fakeContext();
 		plugin.activate(ctx);
 		const view = boardView(registered);
 		render(<view.component pluginId="github-issue-board" viewId="board" />);
 
 		await addTask("Fix the login button");
+		await addTask("Write the tests");
+		const autoAdvance = await screen.findByRole("checkbox", { name: COPY["board.autoAdvance"] });
+		expect(autoAdvance).not.toHaveProperty("checked", true);
 		await act(async () => {
-			fireEvent.click(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.run"] }));
+			fireEvent.click(autoAdvance);
 		});
-		expect(screen.getByRole("button", { name: COPY["board.run.direct"] })).toBeTruthy();
-		expect(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.run"] })).toBeTruthy();
+		expect((autoAdvance as HTMLInputElement).checked).toBe(true);
+		await waitFor(() => {
+			expect(readState()?.autoAdvance).toBe(true);
+		});
+
+		await runDirectly("Fix the login button");
+		await waitFor(() => {
+			expect(
+				within(taskRow("Write the tests")).getByRole("cell", { name: COPY["board.status.completed"] }),
+			).toBeTruthy();
+		});
+		expect(
+			within(taskRow("Fix the login button")).getByRole("cell", { name: COPY["board.status.completed"] }),
+		).toBeTruthy();
+		expect(createSession).toHaveBeenCalledTimes(2);
+		expect(openSession).not.toHaveBeenCalled();
+		expect(screen.getByRole("heading", { name: COPY["board.title"] })).toBeTruthy();
+	});
+
+	it("does not advance after a failed stop or when auto-advance is unchecked", async () => {
+		const hanging = fakeContext({ hangSend: true });
+		plugin.activate(hanging.ctx);
+		const hangingView = boardView(hanging.registered);
+		const first = render(<hangingView.component pluginId="github-issue-board" viewId="board" />);
+
+		await addTask("Fix the login button");
+		await addTask("Write the tests");
 		await act(async () => {
-			fireEvent.click(screen.getByRole("button", { name: "Run with implement" }));
+			fireEvent.click(screen.getByRole("checkbox", { name: COPY["board.autoAdvance"] }));
+		});
+		await runDirectly("Fix the login button");
+		await waitFor(() => {
+			expect(
+				within(taskRow("Fix the login button")).getByRole("cell", { name: COPY["board.status.running"] }),
+			).toBeTruthy();
+		});
+		await act(async () => {
+			fireEvent.click(within(taskRow("Fix the login button")).getByRole("button", { name: COPY["board.stop"] }));
+		});
+		await waitFor(() => {
+			expect(
+				within(taskRow("Fix the login button")).getByRole("cell", {
+					name: `${COPY["board.status.failed"]} ${COPY["board.error.stopped"]}`,
+				}),
+			).toBeTruthy();
+		});
+		expect(within(taskRow("Write the tests")).getByRole("cell", { name: COPY["board.status.pending"] })).toBeTruthy();
+		expect(hanging.createSession).toHaveBeenCalledTimes(1);
+		first.unmount();
+
+		const idle = fakeContext();
+		plugin.activate(idle.ctx);
+		const idleView = boardView(idle.registered);
+		render(<idleView.component pluginId="github-issue-board" viewId="board" />);
+		await addTask("Fix the login button");
+		await addTask("Write the tests");
+		await act(async () => {
+			fireEvent.click(screen.getByRole("checkbox", { name: COPY["board.autoAdvance"] }));
+		});
+		await act(async () => {
+			fireEvent.click(screen.getByRole("checkbox", { name: COPY["board.autoAdvance"] }));
+		});
+		await runDirectly("Fix the login button");
+		await waitFor(() => {
+			expect(
+				within(taskRow("Fix the login button")).getByRole("cell", { name: COPY["board.status.completed"] }),
+			).toBeTruthy();
+		});
+		expect(within(taskRow("Write the tests")).getByRole("cell", { name: COPY["board.status.pending"] })).toBeTruthy();
+		expect(idle.createSession).toHaveBeenCalledTimes(1);
+	});
+
+	it("reuses the chosen skill for the next auto-advanced task", async () => {
+		const { ctx, registered, sendPrompt, openSession } = fakeContext({
+			skills: [listedSkill("implement", { alias: "impl" })],
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await addTask("Fix the login button");
+		await addTask("Write the tests");
+		await act(async () => {
+			fireEvent.click(screen.getByRole("checkbox", { name: COPY["board.autoAdvance"] }));
+		});
+		await openRunMenu("Fix the login button");
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "Run with impl" }));
+		});
+		await waitFor(() => {
+			expect(
+				within(taskRow("Write the tests")).getByRole("cell", { name: COPY["board.status.completed"] }),
+			).toBeTruthy();
+		});
+		expect(sendPrompt).toHaveBeenNthCalledWith(1, "sess-1", "@skill:implement Fix the login button");
+		expect(sendPrompt).toHaveBeenNthCalledWith(2, "sess-1", "@skill:implement Write the tests");
+		expect(openSession).not.toHaveBeenCalled();
+	});
+
+	it("lists enabled skills from the project and prefixes the chosen skill token", async () => {
+		const { ctx, registered, sendPrompt } = fakeContext({
+			skills: [
+				listedSkill("review"),
+				listedSkill("implement", { alias: "impl" }),
+				listedSkill("standup", { type: "scene" }),
+				listedSkill("disabled-bot", { enabled: false }),
+			],
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await addTask("Fix the login button");
+		await openRunMenu("Fix the login button");
+
+		expect(await screen.findByRole("button", { name: "Run with impl" })).toBeTruthy();
+		expect(screen.getByRole("button", { name: "Run with review" })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Run with standup" })).toBeNull();
+		expect(screen.queryByRole("button", { name: "Run with disabled-bot" })).toBeNull();
+		expect(screen.queryByRole("checkbox", { name: COPY["board.run.includeComments"] })).toBeNull();
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "Run with impl" }));
 		});
 		await waitFor(() => {
 			expect(
@@ -735,6 +912,120 @@ describe("GitHub Issue board view", () => {
 			).toBeTruthy();
 		});
 		expect(sendPrompt).toHaveBeenCalledWith("sess-1", "@skill:implement Fix the login button");
+	});
+
+	it("only offers run directly when the skill list is empty or fails", async () => {
+		const empty = fakeContext();
+		plugin.activate(empty.ctx);
+		const emptyView = boardView(empty.registered);
+		const first = render(<emptyView.component pluginId="github-issue-board" viewId="board" />);
+
+		await addTask("Fix the login button");
+		await openRunMenu("Fix the login button");
+		expect(screen.getByRole("button", { name: COPY["board.run.direct"] })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Run with implement" })).toBeNull();
+		first.unmount();
+
+		const failed = fakeContext({ skillsError: true });
+		plugin.activate(failed.ctx);
+		const failedView = boardView(failed.registered);
+		render(<failedView.component pluginId="github-issue-board" viewId="board" />);
+		await addTask("Write the tests");
+		await openRunMenu("Write the tests");
+		expect(screen.getByRole("button", { name: COPY["board.run.direct"] })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: /Run with / })).toBeNull();
+	});
+
+	it("sends issue comments when checked without storing them on the queued prompt", async () => {
+		const { ctx, registered, sendPrompt, readState } = fakeContext({
+			gitRemote: githubRemote("acme", "app"),
+			issues: [
+				{
+					number: 10,
+					title: "Fix login",
+					html_url: "https://github.com/acme/app/issues/10",
+					body: "The button does nothing.",
+					updated_at: "2026-01-02T03:04:05Z",
+				},
+			],
+			comments: [
+				{
+					id: 99,
+					body: "Looks good.",
+					created_at: "2026-01-04T00:00:00Z",
+					user: { login: "bob" },
+				},
+			],
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await fetchIssues();
+		await openRunMenu("Fix login");
+		const checkbox = screen.getByRole("checkbox", { name: COPY["board.run.includeComments"] });
+		expect(checkbox).not.toHaveProperty("checked", true);
+		await act(async () => {
+			fireEvent.click(checkbox);
+		});
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.run.direct"] }));
+		});
+		await waitFor(() => {
+			expect(
+				within(taskRow("Fix login")).getByRole("cell", {
+					name: `${COPY["board.status.completed"]} ${COPY["board.issue.state.open"]}`,
+				}),
+			).toBeTruthy();
+		});
+		const sent = String(sendPrompt.mock.calls[0]?.[1]);
+		expect(sent).toContain("The button does nothing.");
+		expect(sent).toContain("Comments:");
+		expect(sent).toContain("bob: Looks good.");
+		expect(sent).not.toMatch(/^@skill:/);
+		const stored = readState() as { tasks: Array<{ promptText: string }> };
+		expect(stored.tasks[0]?.promptText).toContain("The button does nothing.");
+		expect(stored.tasks[0]?.promptText).not.toContain("Comments:");
+		expect(stored.tasks[0]?.promptText).not.toContain("bob:");
+	});
+
+	it("notifies and still runs the issue body when comments fail to load", async () => {
+		const { ctx, registered, sendPrompt, notifications } = fakeContext({
+			gitRemote: githubRemote("acme", "app"),
+			issues: [
+				{
+					number: 10,
+					title: "Fix login",
+					html_url: "https://github.com/acme/app/issues/10",
+					body: "The button does nothing.",
+					updated_at: "2026-01-02T03:04:05Z",
+				},
+			],
+			commentsError: true,
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await fetchIssues();
+		await openRunMenu("Fix login");
+		await act(async () => {
+			fireEvent.click(screen.getByRole("checkbox", { name: COPY["board.run.includeComments"] }));
+		});
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.run.direct"] }));
+		});
+		await waitFor(() => {
+			expect(
+				within(taskRow("Fix login")).getByRole("cell", {
+					name: `${COPY["board.status.completed"]} ${COPY["board.issue.state.open"]}`,
+				}),
+			).toBeTruthy();
+		});
+		expect(notifications).toContain(COPY["board.error.commentsFallback"]);
+		const sent = String(sendPrompt.mock.calls[0]?.[1]);
+		expect(sent).toContain("The button does nothing.");
+		expect(sent).not.toContain("Comments:");
 	});
 
 	it("cancels the run chooser without starting a session", async () => {

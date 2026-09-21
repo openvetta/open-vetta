@@ -33,6 +33,8 @@
 	"board.stop": "停止",
 	"board.run.direct": "直接运行",
 	"board.run.withSkill": "用 {{name}} 运行",
+	"board.run.includeComments": "带上评论",
+	"board.autoAdvance": "跑完自动下一条",
 	"board.edit": "编辑",
 	"board.delete": "删除",
 	"board.delete.confirm": "确认删除",
@@ -74,6 +76,7 @@
 	"board.error.noProject": "请先选择一个项目或本地目录",
 	"board.error.interrupted": "上次运行被中断",
 	"board.error.stopped": "已停止",
+	"board.error.commentsFallback": "评论加载失败，已按正文发送",
 	"board.error.notGit": "当前目录不是 Git 仓库。",
 	"board.error.noGithubRemote": "当前项目没有 GitHub 远程地址。",
 	"board.error.pickDirectory": "无法打开目录选择框。"

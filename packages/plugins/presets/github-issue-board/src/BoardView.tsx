@@ -2,6 +2,7 @@ import {
 	useActiveConversation,
 	type PluginContext,
 	type PluginOfficialProjectEntry,
+	type PluginOfficialSkillInfo,
 } from "@vetta-org/plugin-sdk";
 import { Fragment, type JSX, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { BoardSelect, type BoardSelectOption } from "./BoardSelect";
@@ -10,6 +11,7 @@ import {
 	type ResolveGithubRepoError,
 } from "./git-remote";
 import {
+	buildIssueRunPrompt,
 	fetchIssueComments,
 	fetchOpenGithubIssues,
 	githubFetchError,
@@ -20,7 +22,7 @@ import {
 	type GithubFetchErrorKind,
 	type GithubIssueComment,
 } from "./github-issues";
-import { detachBoardRuns, followRunningTask, IMPLEMENT_SKILL, runQueuedTask, type BoardSessionPort } from "./run-task";
+import { detachBoardRuns, followRunningTask, runQueuedTask, selectBoardRunSkills, type BoardSessionPort } from "./run-task";
 import {
 	accumulateIssueNumbers,
 	addManualTask,
@@ -34,6 +36,8 @@ import {
 	removeTask,
 	retryFailedTask,
 	savePluginState,
+	selectAutoAdvanceTask,
+	setAutoAdvance,
 	updateTaskPrompt,
 	type GithubIssueState,
 	type GithubTask,
@@ -157,6 +161,8 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const [filterStatus, setFilterStatus] = useState<"all" | GithubTaskStatus>("all");
 	const [filterLabel, setFilterLabel] = useState("all");
 	const [labelDraft, setLabelDraft] = useState<string | null>(null);
+	const [runSkills, setRunSkills] = useState<PluginOfficialSkillInfo[]>([]);
+	const [includeComments, setIncludeComments] = useState(false);
 	const conversation = useActiveConversation();
 	const cancelledRef = useRef(false);
 	const inflightRef = useRef(false);
@@ -190,6 +196,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		label: filterLabel,
 	});
 	const labelOptions = uniqueTaskLabels(boardTasks);
+	const pendingRunTask = pendingRunId ? (state?.tasks.find((task) => task.id === pendingRunId) ?? null) : null;
 	const selectedWorkspaceValue = workspaceSelectValue(workspace);
 	const workspaceTriggerName =
 		workspace.kind === "path"
@@ -265,6 +272,25 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	}, [ctx.official]);
 
 	useEffect(() => {
+		if (!workspaceCwd) {
+			setRunSkills([]);
+			return;
+		}
+		let cancelled = false;
+		void ctx.official.skills
+			.list(workspaceCwd)
+			.then((list) => {
+				if (!cancelled) setRunSkills(selectBoardRunSkills(list));
+			})
+			.catch(() => {
+				if (!cancelled) setRunSkills([]);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [ctx.official, workspaceCwd]);
+
+	useEffect(() => {
 		if (!pendingRunId) return;
 		const onPointerDown = (event: PointerEvent) => {
 			const target = event.target;
@@ -314,7 +340,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		const menu = runMenuRef.current;
 		if (!trigger || !menu) return;
 		setRunMenuPos(positionRunMenu(trigger.getBoundingClientRect(), menu.getBoundingClientRect()));
-	}, [pendingRunId]);
+	}, [pendingRunId, runSkills, includeComments]);
 
 	async function persist(next: PluginState): Promise<void> {
 		stateRef.current = next;
@@ -527,6 +553,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		setEditingId(null);
 		setEditDraft("");
 		runTriggerRef.current = trigger;
+		setIncludeComments(false);
 		setPendingRunId(task.id);
 	}
 
@@ -534,31 +561,87 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		setPendingRunId(null);
 	}
 
+	function withLiveAutoAdvance(fromRun: PluginState): PluginState {
+		const latest = stateRef.current;
+		return latest ? { ...fromRun, autoAdvance: latest.autoAdvance } : fromRun;
+	}
+
+	async function persistFromRun(fromRun: PluginState): Promise<void> {
+		await persist(withLiveAutoAdvance(fromRun));
+	}
+
+	async function promptTextForRun(task: GithubTask | undefined, withComments: boolean): Promise<string | undefined> {
+		if (!task || task.source.kind !== "issue" || !withComments) return undefined;
+		const result = await fetchIssueComments(
+			ctx.network,
+			task.source.owner,
+			task.source.repo,
+			task.source.issueNumber,
+			ctx.command,
+		);
+		if (githubFetchError(result) || !("items" in result)) {
+			ctx.ui.notify({ message: t("board.error.commentsFallback") });
+			return undefined;
+		}
+		return buildIssueRunPrompt({
+			title: task.title,
+			url: task.source.issueUrl,
+			body: task.body ?? "",
+			comments: result.items,
+			commitInstruction: ISSUE_COMMIT_INSTRUCTION,
+			includeComments: true,
+		});
+	}
+
 	async function handleRun(taskId: string, skill: string | null): Promise<void> {
-		const current = stateRef.current;
-		if (!current || inflightRef.current || pendingRunId !== taskId) return;
+		const opened = stateRef.current;
+		if (!opened || inflightRef.current || pendingRunId !== taskId) return;
+		const withComments = includeComments;
 		setPendingRunId(null);
 		inflightRef.current = true;
-		const controller = new AbortController();
-		abortRef.current = controller;
 		try {
-			const result = await runQueuedTask({
-				state: current,
-				taskId,
-				sessions: boardSessions(ctx),
-				cwd: resolveWorkspaceCwd(current.workspace, conversation.cwd),
-				now: () => Date.now(),
-				persist,
-				skill,
-				signal: controller.signal,
-				stoppedError: t("board.error.stopped"),
-			});
-			if (!cancelledRef.current) setState(result.state);
-			if (result.notice === "no-project") {
-				ctx.ui.notify({ message: t("board.error.noProject") });
+			let currentId: string | null = taskId;
+			let snapshot = opened;
+			while (currentId && !cancelledRef.current) {
+				const task = snapshot.tasks.find((item) => item.id === currentId);
+				const sendPromptText = await promptTextForRun(task, withComments);
+				if (cancelledRef.current) return;
+				const controller = new AbortController();
+				abortRef.current = controller;
+				try {
+					const result = await runQueuedTask({
+						state: snapshot,
+						taskId: currentId,
+						sessions: boardSessions(ctx),
+						cwd: resolveWorkspaceCwd(snapshot.workspace, conversation.cwd),
+						now: () => Date.now(),
+						persist: persistFromRun,
+						skill,
+						sendPromptText,
+						signal: controller.signal,
+						stoppedError: t("board.error.stopped"),
+					});
+					const merged = withLiveAutoAdvance(result.state);
+					if (!cancelledRef.current) setState(merged);
+					if (result.notice === "no-project") {
+						ctx.ui.notify({ message: t("board.error.noProject") });
+						break;
+					}
+					const finished = merged.tasks.find((item) => item.id === currentId);
+					if (!finished || finished.status === "pending") break;
+					const next = selectAutoAdvanceTask(merged, {
+						cwd: resolveWorkspaceCwd(merged.workspace, conversation.cwd),
+						finishedTaskId: currentId,
+						notice: result.notice,
+					});
+					if (!next) break;
+					snapshot = merged;
+					currentId = next.id;
+				} finally {
+					if (abortRef.current === controller) abortRef.current = null;
+				}
 			}
 		} finally {
-			if (abortRef.current === controller) abortRef.current = null;
 			if (!cancelledRef.current) setStoppingId(null);
 			inflightRef.current = false;
 		}
@@ -796,37 +879,53 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 					{t("board.add")}
 				</button>
 			</form>
-			{boardTasks.length > 0 ? (
-				<div className="flex flex-wrap items-end gap-2">
-					<label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
-						{t("board.filter.search")}
-						<input
-							className={FIELD}
-							placeholder={t("board.filter.search")}
-							type="search"
-							value={filterQuery}
-							onChange={(event) => setFilterQuery(event.target.value)}
+			<div className="flex flex-wrap items-end gap-2">
+				{boardTasks.length > 0 ? (
+					<>
+						<label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
+							{t("board.filter.search")}
+							<input
+								className={FIELD}
+								placeholder={t("board.filter.search")}
+								type="search"
+								value={filterQuery}
+								onChange={(event) => setFilterQuery(event.target.value)}
+							/>
+						</label>
+						<BoardSelect
+							label={t("board.filter.status")}
+							triggerIcon="icon-[solar--flag-linear]"
+							value={filterStatus}
+							options={STATUS_FILTER_VALUES.map((status) => ({
+								value: status,
+								label: status === "all" ? t("board.filter.status.all") : t(`board.status.${status}`),
+							}))}
+							onChange={setFilterStatus}
 						/>
-					</label>
-					<BoardSelect
-						label={t("board.filter.status")}
-						triggerIcon="icon-[solar--flag-linear]"
-						value={filterStatus}
-						options={STATUS_FILTER_VALUES.map((status) => ({
-							value: status,
-							label: status === "all" ? t("board.filter.status.all") : t(`board.status.${status}`),
-						}))}
-						onChange={setFilterStatus}
+						<BoardSelect
+							label={t("board.filter.label")}
+							triggerIcon="icon-[solar--tag-linear]"
+							value={filterLabel}
+							options={labelSelectOptions(labelOptions, filterLabel, t("board.filter.label.all"))}
+							onChange={setFilterLabel}
+						/>
+					</>
+				) : null}
+				<label className="flex items-center gap-2 pb-1 text-xs font-medium text-foreground">
+					<input
+						checked={state?.autoAdvance === true}
+						className="size-3.5 accent-[var(--primary)]"
+						disabled={!ready}
+						type="checkbox"
+						onChange={(event) => {
+							const current = stateRef.current;
+							if (!current) return;
+							void persist(setAutoAdvance(current, event.target.checked));
+						}}
 					/>
-					<BoardSelect
-						label={t("board.filter.label")}
-						triggerIcon="icon-[solar--tag-linear]"
-						value={filterLabel}
-						options={labelSelectOptions(labelOptions, filterLabel, t("board.filter.label.all"))}
-						onChange={setFilterLabel}
-					/>
-				</div>
-			) : null}
+					{t("board.autoAdvance")}
+				</label>
+			</div>
 			<div className="min-h-0 flex-1 overflow-auto">
 				<table className="w-full text-left text-sm">
 					<thead>
@@ -1092,6 +1191,17 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 						visibility: runMenuPos ? "visible" : "hidden",
 					}}
 				>
+					{pendingRunTask?.source.kind === "issue" ? (
+						<label className={`${RUN_MENU_ITEM} flex items-center gap-2`}>
+							<input
+								checked={includeComments}
+								className="size-3.5 accent-[var(--primary)]"
+								type="checkbox"
+								onChange={(event) => setIncludeComments(event.target.checked)}
+							/>
+							{t("board.run.includeComments")}
+						</label>
+					) : null}
 					<button
 						className={RUN_MENU_ITEM}
 						disabled={!ready || busy}
@@ -1100,14 +1210,17 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 					>
 						{t("board.run.direct")}
 					</button>
-					<button
-						className={RUN_MENU_ITEM}
-						disabled={!ready || busy}
-						type="button"
-						onClick={() => void handleRun(pendingRunId, IMPLEMENT_SKILL)}
-					>
-						{t("board.run.withSkill", { name: IMPLEMENT_SKILL })}
-					</button>
+					{runSkills.map((skill) => (
+						<button
+							className={RUN_MENU_ITEM}
+							disabled={!ready || busy}
+							key={skill.name}
+							type="button"
+							onClick={() => void handleRun(pendingRunId, skill.name)}
+						>
+							{t("board.run.withSkill", { name: skill.alias ?? skill.name })}
+						</button>
+					))}
 					<span
 						aria-hidden="true"
 						className={

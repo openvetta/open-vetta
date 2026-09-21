@@ -114,6 +114,24 @@ describe("runQueuedTask", () => {
 		expect(result.state.tasks[0]?.promptText).toBe("Fix the login button");
 	});
 
+	it("sends override prompt text without changing the stored prompt", async () => {
+		const { sessions, prompt } = fakeSessions();
+		const result = await runQueuedTask({
+			state: queuedState("Fix the login button"),
+			taskId: "task-1",
+			sessions,
+			cwd: "/repo",
+			now: () => 42,
+			skill: "review",
+			sendPromptText: "Issue body\n\nComments:\nbob: Looks good.",
+		});
+		expect(prompt).toHaveBeenCalledWith(
+			RUNTIME_ID,
+			"@skill:review Issue body\n\nComments:\nbob: Looks good.",
+		);
+		expect(result.state.tasks[0]?.promptText).toBe("Fix the login button");
+	});
+
 	it("leaves the prompt unchanged without a skill and does not double-prefix", () => {
 		expect(promptForRun("Fix the login button")).toBe("Fix the login button");
 		expect(promptForRun("Fix the login button", "implement")).toBe("@skill:implement Fix the login button");
