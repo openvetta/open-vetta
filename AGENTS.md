@@ -295,7 +295,7 @@ Desktop 主进程部分目录还有更细规则；修改对应目录时必须继
 
 ### Issue tracker
 
-Issues live in this repo's GitHub Issues (`gh` CLI). See `docs/agents/issue-tracker.md`.
+Issue / PR / `gh` 默认打在本工作区的 **`origin`**：`qqzhangyanhua/open-vetta`。`openvetta/open-vetta` 是 **upstream**（公开上游，本仓库从那里 fork），两边的 `#N` 不是同一张工单。只有用户点名上游仓库时才操作 `openvetta/open-vetta`。操作前先 `git remote -v`。详见 [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md)。
 
 ### Triage labels
 

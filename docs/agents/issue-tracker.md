@@ -11,7 +11,14 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
 
-Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
+Resolve the tracker from `git remote -v` **before** any `gh` call. This working tree is a fork:
+
+| remote | repo | use for |
+| --- | --- | --- |
+| `origin` | `qqzhangyanhua/open-vetta` | default: list / view / comment / label / close / create |
+| `upstream` | `openvetta/open-vetta` | only when the user names that repo |
+
+`gh` follows `origin` when you omit `--repo`. Do not pass `--repo openvetta/open-vetta` (or browse that issues list) unless asked. `#N` on origin and `#N` on upstream are unrelated tickets; a bare `#13` means origin.
 
 ## Pull requests as a triage surface
 

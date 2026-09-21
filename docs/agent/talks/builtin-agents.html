@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>内置智能体 · Vetta 介绍稿</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --stage-w: 1920px;
+    --stage-h: 1080px;
+    --copper: #d4784a;
+    --sage: #7ea48f;
+    --gold: #c4a35a;
+    --plum: #a07a9a;
+    --steel: #6e8ca8;
+    --rose: #c4737a;
+    --master: var(--copper);
+    --developer: var(--sage);
+    --researcher: var(--gold);
+    --auditor: var(--plum);
+    --business: var(--steel);
+    --designer: var(--rose);
+  }
+  html[data-theme="dark"] {
+    --bg: #14171d;
+    --stage: #1b1f27;
+    --ink: #efe8dc;
+    --muted: #9aa093;
+    --faint: #6d736c;
+    --line: #323844;
+    --card: #242933;
+    --card-2: #2c3240;
+    --chrome: #10131a;
+    --shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  }
+  html[data-theme="light"] {
+    --bg: #d8ddd8;
+    --stage: #eef1ec;
+    --ink: #1a2420;
+    --muted: #5c655e;
+    --faint: #7a847c;
+    --line: #c5cdc6;
+    --card: #ffffff;
+    --card-2: #e4e8e2;
+    --chrome: #e7ebe6;
+    --shadow: 0 24px 80px rgba(26, 36, 32, 0.12);
+    --copper: #c45c3e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "Noto Sans SC", "PingFang SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    cursor: pointer;
+  }
+  code, .mono {
+    font-family: "IBM Plex Mono", "Noto Sans SC", ui-monospace, monospace;
+  }
+  .app {
+    height: 100%;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+  .viewport {
+    width: var(--stage-w);
+    height: var(--stage-h);
+    transform-origin: center center;
+  }
+  .stage {
+    width: var(--stage-w);
+    height: var(--stage-h);
+    background: var(--stage);
+    color: var(--ink);
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .kernel-rail {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 8px;
+    background: var(--copper);
+    z-index: 4;
+  }
+  .roster {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 56px;
+    border-bottom: 1px solid var(--line);
+    z-index: 3;
+    background: color-mix(in srgb, var(--stage) 88%, transparent);
+  }
+  .brand {
+    font-size: 15px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-right: 18px;
+    font-weight: 500;
+  }
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--faint);
+    font-size: 14px;
+    opacity: 0.42;
+    transition: opacity 180ms ease, border-color 180ms ease, color 180ms ease;
+  }
+  .chip.on {
+    opacity: 1;
+    color: var(--ink);
+    border-color: color-mix(in srgb, var(--dot) 55%, var(--line));
+  }
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--dot);
+  }
+  .slides {
+    position: absolute;
+    inset: 72px 0 64px;
+  }
+  .slide {
+    position: absolute;
+    inset: 0;
+    padding: 48px 72px 36px;
+    display: none;
+    flex-direction: column;
+    gap: 28px;
+  }
+  .slide.active { display: flex; }
+  .kicker {
+    font-size: 15px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--copper);
+    font-weight: 500;
+  }
+  h1 {
+    margin: 0;
+    font-size: 72px;
+    line-height: 1.08;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+  h2 {
+    margin: 0;
+    font-size: 48px;
+    line-height: 1.15;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+  .dek {
+    margin: 0;
+    font-size: 28px;
+    line-height: 1.45;
+    color: var(--muted);
+    max-width: 28ch;
+  }
+  .lede {
+    margin: 0;
+    font-size: 24px;
+    line-height: 1.5;
+    color: var(--muted);
+    max-width: 46ch;
+  }
+  .chrome {
+    position: absolute;
+    left: 0; right: 0; bottom: 8px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 56px 8px;
+    z-index: 5;
+    font-size: 14px;
+    color: var(--faint);
+  }
+  .layers { display: flex; gap: 18px; }
+  .layers span {
+    position: relative;
+    padding-left: 14px;
+  }
+  .layers span::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 6px;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--line);
+  }
+  .layers span.on { color: var(--ink); }
+  .layers span.on::before { background: var(--copper); }
+  .pager { display: flex; align-items: center; gap: 14px; }
+  .dots { display: flex; gap: 7px; }
+  .dots i {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--line);
+    display: block;
+  }
+  .dots i.on { background: var(--copper); }
+  .dots i.core { width: 9px; height: 9px; margin-top: -1px; }
+  .tools { display: flex; gap: 8px; }
+  .tools button, .nav-btn {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 12px;
+    color: var(--muted);
+  }
+  .tools button:hover, .nav-btn:hover { border-color: var(--copper); color: var(--ink); }
+  .grid {
+    display: grid;
+    gap: 18px;
+    flex: 1;
+    min-height: 0;
+  }
+  .cards-4 { grid-template-columns: repeat(4, 1fr); }
+  .cards-3 { grid-template-columns: repeat(3, 1fr); }
+  .cards-2 { grid-template-columns: 1fr 1fr; }
+  .cards-6 { grid-template-columns: repeat(6, 1fr); }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 22px 24px;
+    min-height: 0;
+  }
+  .card h3 {
+    margin: 0 0 10px;
+    font-size: 22px;
+    font-weight: 600;
+  }
+  .card p, .card li {
+    margin: 0;
+    color: var(--muted);
+    font-size: 18px;
+    line-height: 1.45;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 12px;
+  }
+  .bands {
+    display: grid;
+    grid-template-rows: 1fr 1fr 1.15fr;
+    gap: 14px;
+    flex: 1;
+  }
+  .band {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 22px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    background: var(--card);
+  }
+  .band.kernel {
+    background: color-mix(in srgb, var(--copper) 16%, var(--card));
+    border-color: color-mix(in srgb, var(--copper) 45%, var(--line));
+  }
+  .band h3 { margin: 0 0 6px; font-size: 28px; }
+  .band p { margin: 0; color: var(--muted); font-size: 18px; }
+  .nodes { display: flex; gap: 12px; flex-wrap: wrap; }
+  .node {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 16px;
+    background: var(--stage);
+  }
+  .x {
+    color: var(--copper);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    font-size: 14px;
+  }
+  .agent {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 20px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .agent .who {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 22px;
+    font-weight: 600;
+  }
+  .agent .role { color: var(--faint); font-size: 13px; letter-spacing: 0.08em; }
+  .agent p { margin: 0; color: var(--muted); font-size: 16px; line-height: 1.4; }
+  .teams {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  .flow {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    flex: 1;
+  }
+  .lane {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 22px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .lane.pub {
+    outline: 2px solid color-mix(in srgb, var(--copper) 55%, transparent);
+  }
+  .lane.priv { background: var(--card-2); }
+  .lane h3 { margin: 0; font-size: 22px; }
+  .lane p { margin: 0; color: var(--muted); font-size: 17px; line-height: 1.4; }
+  .arrow {
+    align-self: center;
+    color: var(--faint);
+    font-size: 22px;
+    flex: 0 0 auto;
+  }
+  .seq {
+    display: grid;
+    grid-template-columns: 160px repeat(5, 1fr);
+    gap: 8px 10px;
+    flex: 1;
+    align-content: start;
+  }
+  .seq .head, .seq .cell {
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 16px;
+  }
+  .seq .head {
+    background: var(--card);
+    border: 1px solid var(--line);
+    font-weight: 600;
+    text-align: center;
+  }
+  .seq .lab {
+    display: flex;
+    align-items: center;
+    color: var(--muted);
+    font-size: 16px;
+  }
+  .seq .cell {
+    min-height: 64px;
+    border: 1px dashed var(--line);
+    color: var(--faint);
+  }
+  .seq .cell.fill {
+    border-style: solid;
+    background: var(--card);
+    color: var(--ink);
+  }
+  .seq .cell.pub {
+    background: color-mix(in srgb, var(--copper) 18%, var(--card));
+    border-color: color-mix(in srgb, var(--copper) 40%, var(--line));
+  }
+  .stack {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 22px;
+    flex: 1;
+  }
+  .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .steps li {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 18px;
+    font-size: 20px;
+  }
+  .steps li em { color: var(--copper); font-style: normal; }
+  .versus {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 16px;
+    flex: 1;
+  }
+  .versus .col h3 { margin: 0 0 16px; font-size: 22px; color: var(--muted); }
+  .versus .row {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--line);
+    font-size: 22px;
+    line-height: 1.35;
+  }
+  .fork { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; flex: 1; }
+  .yes { border-top: 4px solid var(--sage); }
+  .no { border-top: 4px solid var(--copper); }
+  .principles {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 22px;
+    flex: 1;
+  }
+  .principles div {
+    border-left: 3px solid var(--copper);
+    padding: 6px 0 6px 18px;
+  }
+  .principles strong { display: block; font-size: 22px; margin-bottom: 6px; }
+  .principles span { color: var(--muted); font-size: 18px; line-height: 1.4; }
+  .quote {
+    font-size: 40px;
+    line-height: 1.35;
+    max-width: 18em;
+    margin: 0;
+    font-weight: 500;
+  }
+  .notes {
+    display: none;
+    position: absolute;
+    left: 56px; right: 56px; bottom: 72px;
+    background: var(--chrome);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 16px 20px;
+    z-index: 6;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.5;
+    max-height: 180px;
+    overflow: auto;
+  }
+  body.notes-on .notes { display: block; }
+  .help {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--bg) 55%, transparent);
+    z-index: 8;
+    place-items: center;
+  }
+  body.help-on .help { display: grid; }
+  .help-card {
+    width: 640px;
+    background: var(--stage);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 28px 32px;
+  }
+  .help-card h3 { margin: 0 0 16px; }
+  .help-card dl { display: grid; grid-template-columns: 120px 1fr; gap: 8px 16px; margin: 0; }
+  .help-card dt { color: var(--copper); font-family: "IBM Plex Mono", monospace; }
+  .help-card dd { margin: 0; color: var(--muted); }
+  .hit {
+    position: absolute;
+    top: 72px; bottom: 64px;
+    width: 72px;
+    z-index: 4;
+  }
+  .hit.prev { left: 0; }
+  .hit.next { right: 0; }
+  .title-slide { justify-content: center; padding-bottom: 80px; }
+  .title-slide h1 { font-size: 92px; max-width: 10em; }
+  .plugin {
+    font-size: 13px;
+    color: var(--faint);
+    font-family: "IBM Plex Mono", monospace;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chip, .tools button { transition: none; }
+  }
+  @media print {
+    @page { size: 16in 9in; margin: 0; }
+    html, body { height: auto; background: #fff; }
+    .app, .viewport, .stage { transform: none !important; width: 16in; height: auto; box-shadow: none; }
+    .chrome, .hit, .help, .notes, .roster .tools { display: none !important; }
+    .slides { position: static; }
+    .slide {
+      display: flex !important;
+      position: relative;
+      page-break-after: always;
+      break-after: page;
+      height: 9in;
+      inset: auto;
+    }
+    .kernel-rail { position: relative; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="viewport" id="viewport">
+    <div class="stage" id="stage">
+      <header class="roster" aria-label="智能体名册">
+        <div class="brand">Vetta</div>
+        <span class="chip" data-id="master" style="--dot:var(--master)"><i class="dot"></i>主控</span>
+        <span class="chip" data-id="developer" style="--dot:var(--developer)"><i class="dot"></i>开发员</span>
+        <span class="chip" data-id="researcher" style="--dot:var(--researcher)"><i class="dot"></i>检索员</span>
+        <span class="chip" data-id="auditor" style="--dot:var(--auditor)"><i class="dot"></i>审计员</span>
+        <span class="chip" data-id="business" style="--dot:var(--business)"><i class="dot"></i>业务员</span>
+        <span class="chip" data-id="designer" style="--dot:var(--designer)"><i class="dot"></i>设计师</span>
+      </header>
+
+      <div class="slides" id="slides">
+
+        <section class="slide title-slide active" data-cast="master,developer,researcher,auditor,business,designer" data-layer="product" data-core="1"
+          data-notes="开场只钉一句话：用户看见的智能体不是另一套引擎。底层永远是同一个 Coding Agent。人设由官方插件贡献，团队是常驻分工，子代理是一次性工人。">
+          <div class="kicker">内部介绍稿</div>
+          <h1>内置智能体不是多智能体框架</h1>
+          <p class="dek">执行内核只有一个。人设是插件供货。协作协议分两条互不穿透的路。</p>
+        </section>
+
+        <section class="slide" data-cast="" data-layer="product"
+          data-notes="先发词汇表，否则后面的图全乱。个性化人设 pragmatic / interactive 是设置里的文风，不要在这一页展开。">
+          <div class="kicker">00 · 词表</div>
+          <h2>四个词，不要混着用</h2>
+          <div class="grid cards-4">
+            <article class="card"><span class="tag">常驻</span><h3>智能体</h3><p>人设档案：提示词 + 能力开关。可单独开会话，可编进团队。</p></article>
+            <article class="card"><span class="tag">常驻协议</span><h3>团队</h3><p>名册 + 委派。你只跟队长说话。成员有自己的私有会话。</p></article>
+            <article class="card"><span class="tag">临时工人</span><h3>子代理</h3><p>一次任务里 spawn 出来，用完即弃。不进名册，不能持有团队任务。</p></article>
+            <article class="card"><span class="tag">唯一内核</span><h3>Coding Agent</h3><p>Turn、工具、MCP、Skill 都在这里编译。上面所有角色都站在它上面。</p></article>
+          </div>
+        </section>
+
+        <section class="slide" data-cast="master,developer,researcher,auditor" data-layer="kernel" data-core="1"
+          data-notes="指着三层说：上面可变，下面不变。团队工具和子代理工具中间那条叉是硬隔离，不是 UI 约定。">
+          <div class="kicker">01 · 心智模型</div>
+          <h2>上面可变，下面不变</h2>
+          <div class="bands">
+            <div class="band">
+              <div>
+                <h3>产品层</h3>
+                <p>你看见的人设与团队</p>
+              </div>
+              <div class="nodes">
+                <span class="node">主控</span><span class="node">开发员</span><span class="node">设计师…</span>
+                <span class="node">开发团队</span><span class="node">策划团队</span>
+              </div>
+            </div>
+            <div class="band">
+              <div>
+                <h3>协作协议</h3>
+                <p>两条路互不穿透</p>
+              </div>
+              <div class="nodes">
+                <span class="node">team_delegate_task</span>
+                <span class="node">team_wait_tasks</span>
+                <span class="x">✕ 不能互相调度</span>
+                <span class="node">spawn_agent</span>
+                <span class="node">wait_agent</span>
+              </div>
+            </div>
+            <div class="band kernel">
+              <div>
+                <h3>内核</h3>
+                <p>只有一个 Coding Agent。底边这条铜线，后面每页都在。</p>
+              </div>
+              <div class="nodes">
+                <span class="node">Turn</span><span class="node">Tool</span><span class="node">MCP</span><span class="node">Skill</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" data-cast="master,developer,researcher,auditor,business,designer" data-layer="product" data-core="1"
+          data-notes="内置 = 随包装的官方插件，不是 App 写死。preset-agent 供 5 个通用角色，vetta-ui-design 供设计师。停用插件，人设一起收起。现行规则是 ADR-0114：清单 1:1 覆盖，用户改不了官方那一份。">
+          <div class="kicker">02 · 货架</div>
+          <h2>宿主不内置人设，插件供货</h2>
+          <div class="grid cards-6" style="flex:0 0 auto">
+            <article class="agent"><div class="who"><i class="dot" style="background:var(--master)"></i>主控</div><div class="role">MASTER</div><p>拆目标、分派、验收、交付</p></article>
+            <article class="agent"><div class="who"><i class="dot" style="background:var(--developer)"></i>开发员</div><div class="role">DEVELOPER</div><p>产出并自测核心资产</p></article>
+            <article class="agent"><div class="who"><i class="dot" style="background:var(--researcher)"></i>检索员</div><div class="role">RESEARCHER</div><p>取证、核实、标明来源</p></article>
+            <article class="agent"><div class="who"><i class="dot" style="background:var(--auditor)"></i>审计员</div><div class="role">AUDITOR</div><p>红队挑刺，阻塞就打回</p></article>
+            <article class="agent"><div class="who"><i class="dot" style="background:var(--business)"></i>业务员</div><div class="role">BUSINESS</div><p>需求、范围、商业模式</p></article>
+            <article class="agent"><div class="who"><i class="dot" style="background:var(--designer)"></i>设计师</div><div class="role">DESIGNER</div><p>在画布上出 .vetd，不改代码仓</p></article>
+          </div>
+          <div class="teams">
+            <article class="card">
+              <span class="tag">preset-agent</span>
+              <h3>开发团队</h3>
+              <p>主控 · 开发员 · 检索员 · 审计员　先取证，再实现自测，最后审查。</p>
+            </article>
+            <article class="card">
+              <span class="tag">preset-agent · 可拉入设计师</span>
+              <h3>策划团队</h3>
+              <p>主控 · 检索员 · 审计员 · 业务员　先调研，再成案，挑完致命缺陷才出方案。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="slide" data-cast="developer" data-layer="protocol"
+          data-notes="选团队是因为需要第二个视角，不是因为多智能体比较强。三列最后都落到同一个内核。">
+          <div class="kicker">03 · 用法</div>
+          <h2>三种开会方式，一种引擎</h2>
+          <div class="grid cards-3">
+            <article class="card"><span class="tag">换人设</span><h3>单智能体</h3><p>普通会话加上这份档案的提示词和能力。没有委派，也不拉队友。</p></article>
+            <article class="card"><span class="tag">要独立审查</span><h3>团队</h3><p>你只跟队长说。队长用团队工具派活。成员禁止 spawn 子代理。</p></article>
+            <article class="card"><span class="tag">一块有边界的活</span><h3>子代理</h3><p>general 办事，explorer 只读侦察，workflow 并行 todo。用完即弃。</p></article>
+          </div>
+          <p class="lede">三件事看起来像「多 Agent」，落地都是给同一个 Coding Agent 换编译输入。</p>
+        </section>
+
+        <section class="slide" data-cast="master,researcher,developer,auditor" data-layer="protocol" data-core="1"
+          data-notes="主演示。指公开列：用户永远只看见这条。私有三列要点头像才进得去。delegate 受理即返回，所以可以先派两件独立的活再 wait。完成必须有公开结果。">
+          <div class="kicker">04 · 主演示</div>
+          <h2>开发团队一次任务</h2>
+          <div class="seq" aria-hidden="false">
+            <div class="lab"></div>
+            <div class="head">用户</div>
+            <div class="head">主控</div>
+            <div class="head">检索员</div>
+            <div class="head">开发员</div>
+            <div class="head">审计员</div>
+
+            <div class="lab">公开时间线</div>
+            <div class="cell fill pub">目标</div>
+            <div class="cell fill pub">计划并派活</div>
+            <div class="cell fill pub">发布事实</div>
+            <div class="cell fill pub">发布结果</div>
+            <div class="cell fill pub">通过 / 打回</div>
+
+            <div class="lab">私有过程</div>
+            <div class="cell"></div>
+            <div class="cell fill">拆解、验收</div>
+            <div class="cell fill">检索、核实</div>
+            <div class="cell fill">实现、自测</div>
+            <div class="cell fill">红队审查</div>
+          </div>
+          <p class="lede">铜底那一行才进队友上下文。灰的那一行，队友看不见。</p>
+        </section>
+
+        <section class="slide" data-cast="master,developer,auditor" data-layer="protocol" data-core="1"
+          data-notes="差异化就在这里。独立视角来自隔离，不是来自更多模型同时说话。没公开的东西队友就不知道——这是特性。">
+          <div class="kicker">05 · 边界</div>
+          <h2>共享结果，不共享过程</h2>
+          <div class="flow">
+            <div class="lane priv">
+              <span class="tag">只有自己</span>
+              <h3>成员私有会话</h3>
+              <p>思考、工具调用、失败重试。点进头像才能看见。</p>
+            </div>
+            <div class="arrow">→</div>
+            <div class="lane pub">
+              <span class="tag">全队可见</span>
+              <h3>公开协调对话</h3>
+              <p>你的消息，加上成员发布的结论。主时间线只显示这些。</p>
+            </div>
+            <div class="arrow">→</div>
+            <div class="lane">
+              <span class="tag">投影</span>
+              <h3>其他成员的上下文</h3>
+              <p>只读公开记录。过程进不去。</p>
+            </div>
+          </div>
+          <p class="lede">文件是真共享工作台。消息只传结论。</p>
+        </section>
+
+        <section class="slide" data-cast="developer" data-layer="kernel"
+          data-notes="给更技术的听众。人设改变的是编译输入，不是另起一个 Agent 类型。团队成员再追加任务书、注入团队工具、摘掉子代理工具。">
+          <div class="kicker">06 · 装配</div>
+          <h2>人设是编译输入，不是新引擎</h2>
+          <div class="stack">
+            <p class="lede">选中「开发员」，或「开发团队里的开发员」。每次打开会话都重新解析，改了能力，重开会话即生效。</p>
+            <ol class="steps">
+              <li>读档案 → 人格 addon + 能力白名单</li>
+              <li>若是团队成员 → 追加任务书</li>
+              <li>若是团队成员 → 注入团队工具，<em>摘掉 spawn_agent</em></li>
+              <li>交给 RuntimeHost.agents["coding-agent"]</li>
+              <li>本 Turn 拿一份不可变 snapshot</li>
+            </ol>
+          </div>
+        </section>
+
+        <section class="slide" data-cast="" data-layer="product"
+          data-notes="收尾防跑偏。主动把听众预置观念翻过来。文档里若还写「预置可改可删」，以 ADR-0114 为准：插件资产只读，要调教就复制。">
+          <div class="kicker">07 · 对撞</div>
+          <h2>他们以为的，和实际</h2>
+          <div class="versus">
+            <div class="col">
+              <h3>以为</h3>
+              <div class="row">每个角色一个微服务</div>
+              <div class="row">团队是工作流引擎</div>
+              <div class="row">子代理 = 团队成员</div>
+              <div class="row">内置 = App 写死</div>
+              <div class="row">就地改官方人设</div>
+            </div>
+            <div class="col" style="display:flex;align-items:center;color:var(--copper);font-size:28px">→</div>
+            <div class="col">
+              <h3>实际</h3>
+              <div class="row">每个角色一条会话</div>
+              <div class="row">队长任务书 + 工具纪律</div>
+              <div class="row">临时工人，不进名册</div>
+              <div class="row">官方插件清单供货</div>
+              <div class="row">复制一份再改</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="slide" data-cast="master,auditor" data-layer="product"
+          data-notes="什么时候不该开团队要说清楚，否则听众会把团队当默认。N+1 会话有 token 成本。">
+          <div class="kicker">08 · 何时用</div>
+          <h2>团队是贵的，贵得有理由才开</h2>
+          <div class="fork">
+            <article class="card yes">
+              <span class="tag">值得组队</span>
+              <h3>要第二个视角</h3>
+              <p>工作分阶段：先取证、再实现、最后审查。作者不该审自己。同一批材料要多个角度再合并。</p>
+            </article>
+            <article class="card no">
+              <span class="tag">用普通会话</span>
+              <h3>目标单一就别拆</h3>
+              <p>一两轮能做完。你要边看边改、频繁介入细节。没有可并行或需要交接的部分。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="slide" data-cast="master,developer,researcher,auditor,business,designer" data-layer="kernel"
+          data-notes="六个经得起追问的决策。编排是提示词不是 BPM，这一点要自己先承认。">
+          <div class="kicker">09 · 可辩护的决策</div>
+          <h2>介绍时经得起追问的六条</h2>
+          <div class="principles">
+            <div><strong>人设是 addon</strong><span>不替换基座 prompt，设计师和开发员不是两种引擎。</span></div>
+            <div><strong>插件是供货方</strong><span>清单 1:1 维护。作者收得回，两台机器不会长歪。</span></div>
+            <div><strong>角色槽位松耦合</strong><span>团队写 role: designer，不必绑死插件 id。</span></div>
+            <div><strong>共享结论不共享过程</strong><span>独立视角来自上下文隔离。</span></div>
+            <div><strong>任务书是增量</strong><span>同一人进两支队，人格跟着本体，只追加本队盯什么。</span></div>
+            <div><strong>子代理工具被摘掉</strong><span>团队任务归属不能偷偷变成私有 spawn。</span></div>
+          </div>
+        </section>
+
+        <section class="slide title-slide" data-cast="master,developer,researcher,auditor,business,designer" data-layer="kernel" data-core="1"
+          data-notes="收束用原句。3 分钟路径：封面 → 三层 → 货架 → 开发团队 → 共享边界 → 这里。10 分钟把词表、用法、装配、对撞、何时用插进去。">
+          <div class="kicker">收束</div>
+          <p class="quote">我们没有做能任意互调的多智能体网。我们做的是：同一个可靠内核，加上可插拔人设，加上一条归属清晰的团队协议。</p>
+          <p class="lede">独立视角来自隔离，不是来自更多模型同时说话。</p>
+        </section>
+      </div>
+
+      <div class="notes" id="notes"></div>
+      <div class="help" id="help">
+        <div class="help-card">
+          <h3>投影快捷键</h3>
+          <dl>
+            <dt>← → Space</dt><dd>翻页</dt>
+            <dt>Home / End</dt><dd>封面 / 收束</dt>
+            <dt>N</dt><dd>讲者备注</dt>
+            <dt>D</dt><dd>深色 / 浅色</dt>
+            <dt>P</dt><dd>打印为 PDF（每页一张 16:9）</dt>
+            <dt>E</dt><dd>导出当前页 PNG</dt>
+            <dt>?</dt><dd>打开 / 关闭本说明</dt>
+          </dl>
+        </div>
+      </div>
+
+      <button class="hit prev" id="hitPrev" aria-label="上一页"></button>
+      <button class="hit next" id="hitNext" aria-label="下一页"></button>
+
+      <footer class="chrome">
+        <div class="layers" id="layers">
+          <span data-layer="product">产品层</span>
+          <span data-layer="protocol">协作协议</span>
+          <span data-layer="kernel">内核</span>
+        </div>
+        <div class="pager">
+          <button class="nav-btn" id="prev" type="button">上一页</button>
+          <div class="dots" id="dots"></div>
+          <span id="pageLabel">1 / 12</span>
+          <button class="nav-btn" id="next" type="button">下一页</button>
+        </div>
+        <div class="tools">
+          <button type="button" id="themeBtn">浅色</button>
+          <button type="button" id="notesBtn">备注</button>
+          <button type="button" id="pngBtn">导出 PNG</button>
+          <button type="button" id="printBtn">PDF</button>
+          <button type="button" id="helpBtn">?</button>
+        </div>
+      </footer>
+      <div class="kernel-rail"></div>
+    </div>
+  </div>
+</div>
+<script type="module">
+  const slides = [...document.querySelectorAll(".slide")];
+  const dots = document.getElementById("dots");
+  const notes = document.getElementById("notes");
+  const pageLabel = document.getElementById("pageLabel");
+  const themeBtn = document.getElementById("themeBtn");
+  const viewport = document.getElementById("viewport");
+  let index = 0;
+
+  slides.forEach((slide, i) => {
+    const dot = document.createElement("i");
+    if (slide.dataset.core === "1") dot.classList.add("core");
+    dots.appendChild(dot);
+  });
+
+  function fit() {
+    const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    viewport.style.transform = `scale(${s})`;
+  }
+
+  function render() {
+    slides.forEach((slide, i) => slide.classList.toggle("active", i === index));
+    [...dots.children].forEach((dot, i) => dot.classList.toggle("on", i === index));
+    const slide = slides[index];
+    pageLabel.textContent = `${index + 1} / ${slides.length}`;
+    notes.textContent = slide.dataset.notes || "";
+    const cast = new Set((slide.dataset.cast || "").split(",").filter(Boolean));
+    document.querySelectorAll(".chip").forEach((chip) => {
+      chip.classList.toggle("on", cast.size === 0 ? false : cast.has(chip.dataset.id));
+    });
+    document.querySelectorAll(".layers span").forEach((el) => {
+      el.classList.toggle("on", el.dataset.layer === slide.dataset.layer);
+    });
+    themeBtn.textContent = document.documentElement.dataset.theme === "dark" ? "浅色" : "深色";
+  }
+
+  function go(delta) {
+    index = Math.max(0, Math.min(slides.length - 1, index + delta));
+    render();
+  }
+
+  function toggleTheme() {
+    const html = document.documentElement;
+    html.dataset.theme = html.dataset.theme === "dark" ? "light" : "dark";
+    render();
+  }
+
+  async function exportPng() {
+    const stage = document.getElementById("stage");
+    try {
+      const mod = await import("https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/+esm");
+      const dataUrl = await mod.toPng(stage, { pixelRatio: 2, cacheBust: true });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `vetta-agents-${String(index + 1).padStart(2, "0")}.png`;
+      a.click();
+    } catch (error) {
+      console.warn(error);
+      window.print();
+    }
+  }
+
+  document.getElementById("prev").onclick = () => go(-1);
+  document.getElementById("next").onclick = () => go(1);
+  document.getElementById("hitPrev").onclick = () => go(-1);
+  document.getElementById("hitNext").onclick = () => go(1);
+  document.getElementById("themeBtn").onclick = toggleTheme;
+  document.getElementById("notesBtn").onclick = () => document.body.classList.toggle("notes-on");
+  document.getElementById("helpBtn").onclick = () => document.body.classList.toggle("help-on");
+  document.getElementById("printBtn").onclick = () => window.print();
+  document.getElementById("pngBtn").onclick = exportPng;
+  document.getElementById("help").onclick = (event) => {
+    if (event.target.id === "help") document.body.classList.remove("help-on");
+  };
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowRight" || event.key === " " || event.key === "PageDown") {
+      event.preventDefault();
+      go(1);
+    } else if (event.key === "ArrowLeft" || event.key === "PageUp") {
+      event.preventDefault();
+      go(-1);
+    } else if (event.key === "Home") {
+      index = 0;
+      render();
+    } else if (event.key === "End") {
+      index = slides.length - 1;
+      render();
+    } else if (event.key === "n" || event.key === "N") {
+      document.body.classList.toggle("notes-on");
+    } else if (event.key === "d" || event.key === "D") {
+      toggleTheme();
+    } else if (event.key === "e" || event.key === "E") {
+      exportPng();
+    } else if (event.key === "p" || event.key === "P") {
+      window.print();
+    } else if (event.key === "?" || event.key === "/") {
+      document.body.classList.toggle("help-on");
+    } else if (event.key === "Escape") {
+      document.body.classList.remove("help-on");
+    }
+  });
+
+  window.addEventListener("resize", fit);
+  fit();
+  render();
+</script>
+</body>
+</html>
