@@ -560,7 +560,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		} catch (error) {
 			if (gen !== refineGenRef.current || cancelledRef.current) return;
 			setPreview(null);
-			setRefineError(refineErrorMessage(error));
+			setRefineError(controller.signal.aborted ? t("board.error.refineTimeout") : refineErrorMessage(error));
 		} finally {
 			window.clearTimeout(timer);
 			if (refineAbortRef.current === controller) refineAbortRef.current = null;

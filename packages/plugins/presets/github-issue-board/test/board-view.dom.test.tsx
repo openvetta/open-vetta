@@ -469,7 +469,10 @@ async function runDirectly(title: string): Promise<void> {
 	});
 }
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	vi.useRealTimers();
+});
 
 describe("GitHub Issue board view", () => {
 	it("renders the titled page from the plugin workspace entry", () => {
@@ -602,6 +605,51 @@ describe("GitHub Issue board view", () => {
 		await waitFor(() => {
 			expect(screen.getByText(COPY["board.error.refine"])).toBeTruthy();
 		});
+		expect((screen.getByRole("textbox", { name: COPY["board.taskInput.label"] }) as HTMLTextAreaElement).value).toBe(
+			"Fix login",
+		);
+		expect(screen.queryByRole("textbox", { name: COPY["board.preview.label"] })).toBeNull();
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.add"] }));
+		});
+		expect(screen.getByRole("cell", { name: "Fix login" })).toBeTruthy();
+		expect(readState()?.tasks[0]?.promptText).toBe("Fix login");
+	});
+
+	it("shows a timeout error and keeps the original draft when Improve with AI is aborted", async () => {
+		const { ctx, registered, readState } = fakeContext({
+			aiStream: (_request, options) =>
+				new Promise((_, reject) => {
+					const fail = (): void => {
+						const error = new Error("Capability invocation was aborted");
+						error.name = "CapabilityError";
+						reject(error);
+					};
+					if (options?.signal?.aborted) {
+						fail();
+						return;
+					}
+					options?.signal?.addEventListener("abort", fail, { once: true });
+				}),
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		const input = await readyInput();
+		fireEvent.change(input, { target: { value: "Fix login" } });
+		vi.useFakeTimers();
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.refine"] }));
+		});
+		expect(screen.getByRole("button", { name: COPY["board.refine.busy"] })).toHaveProperty("disabled", true);
+
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(60_000);
+		});
+		vi.useRealTimers();
+
+		expect(screen.getByText(COPY["board.error.refineTimeout"])).toBeTruthy();
 		expect((screen.getByRole("textbox", { name: COPY["board.taskInput.label"] }) as HTMLTextAreaElement).value).toBe(
 			"Fix login",
 		);
