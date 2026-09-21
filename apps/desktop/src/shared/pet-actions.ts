@@ -99,6 +99,46 @@ export const PET_ACTIONS = [
 		videoBaseSize: 200,
 		autoDuration: { minMs: 20_000, maxMs: 40_000 },
 	}),
+	definePetAction({
+		id: "penguin_debug_scratch_laptop",
+		groupId: "working",
+		label: "抓头排错",
+		description: "对着报错抓头、排查问题",
+		videoBaseSize: 220,
+		autoDuration: { minMs: 60_000, maxMs: 120_000 },
+	}),
+	definePetAction({
+		id: "penguin_wait_for_compile",
+		groupId: "resting",
+		label: "等编译",
+		description: "等待编译、安装或模型响应",
+		videoBaseSize: 220,
+		autoDuration: { minMs: 50_000, maxMs: 100_000 },
+	}),
+	definePetAction({
+		id: "penguin_rubber_duck",
+		groupId: "working",
+		label: "小黄鸭",
+		description: "对着小黄鸭讲代码、理清思路",
+		videoBaseSize: 220,
+		autoDuration: { minMs: 50_000, maxMs: 90_000 },
+	}),
+	definePetAction({
+		id: "penguin_tests_passed_cheer",
+		groupId: "feedback",
+		label: "测试全绿",
+		description: "测试通过、任务完成后的庆祝",
+		videoBaseSize: 200,
+		autoDuration: { minMs: 25_000, maxMs: 50_000 },
+	}),
+	definePetAction({
+		id: "penguin_review_facepalm",
+		groupId: "feedback",
+		label: "捂脸",
+		description: "报错、复盘翻车时的无奈",
+		videoBaseSize: 220,
+		autoDuration: { minMs: 25_000, maxMs: 50_000 },
+	}),
 ] as const;
 
 export type PetActionId = (typeof PET_ACTIONS)[number]["id"];

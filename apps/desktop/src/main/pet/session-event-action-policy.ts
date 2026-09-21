@@ -51,7 +51,7 @@ const LIFECYCLE_INTENTS: Partial<Record<SessionLifecyclePhase, PetPresentationIn
 		},
 	},
 	agent_end: {
-		action: { groupId: "feedback", actionId: "stoat_stand_lift_barbell_one_hand_fast" },
+		action: { groupId: "feedback", actionId: "penguin_tests_passed_cheer" },
 		bubble: {
 			kind: "success",
 			messageKey: "notice.lifecycle.completed",
@@ -67,7 +67,7 @@ const LIFECYCLE_INTENTS: Partial<Record<SessionLifecyclePhase, PetPresentationIn
 
 const EVENT_TYPE_INTENTS: Partial<Record<SessionEvent["type"], PetPresentationIntent>> = {
 	"compaction.start": {
-		action: { groupId: "resting" },
+		action: { groupId: "resting", actionId: "penguin_wait_for_compile" },
 		bubble: {
 			kind: "status",
 			messageKey: "notice.context.compacting",
@@ -77,7 +77,7 @@ const EVENT_TYPE_INTENTS: Partial<Record<SessionEvent["type"], PetPresentationIn
 		},
 	},
 	error: {
-		action: { groupId: "feedback", actionId: "stoat_wave_backflip_smoke_fade_exit" },
+		action: { groupId: "feedback", actionId: "penguin_review_facepalm" },
 		bubble: {
 			kind: "error",
 			body: undefined,
@@ -154,7 +154,7 @@ const BACKGROUND_TASK_INTENTS: readonly {
 	},
 	{
 		intent: {
-			action: { groupId: "feedback", actionId: "stoat_wave_backflip_smoke_fade_exit" },
+			action: { groupId: "feedback", actionId: "penguin_review_facepalm" },
 			bubble: {
 				kind: "error",
 				messageKey: "notice.background.failed",
@@ -167,7 +167,7 @@ const BACKGROUND_TASK_INTENTS: readonly {
 	},
 	{
 		intent: {
-			action: { groupId: "feedback", actionId: "stoat_stand_lift_barbell_one_hand_fast" },
+			action: { groupId: "feedback", actionId: "penguin_tests_passed_cheer" },
 			bubble: {
 				kind: "success",
 				messageKey: "notice.background.completed",
@@ -248,7 +248,9 @@ const sessionPetActionRules: readonly SessionPetActionRule[] = [
 		resolve: (event) =>
 			event.type === "tool.end"
 				? {
-						action: { groupId: event.isError ? "feedback" : "working" },
+						action: event.isError
+							? { groupId: "feedback", actionId: "penguin_review_facepalm" }
+							: { groupId: "working" },
 						bubble: {
 							kind: event.isError ? "error" : "success",
 							body: event.isError ? getToolResultBody(event) : undefined,
@@ -265,7 +267,7 @@ const sessionPetActionRules: readonly SessionPetActionRule[] = [
 		resolve: (event) =>
 			event.type === "retry.start"
 				? {
-						action: { groupId: "working" },
+						action: { groupId: "working", actionId: "penguin_debug_scratch_laptop" },
 						bubble: {
 							kind: "warning",
 							body: normalizeBodyText(event.errorMessage),

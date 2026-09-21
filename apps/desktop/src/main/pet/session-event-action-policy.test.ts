@@ -77,5 +77,47 @@ describe("mapSessionEventToPetPresentation", () => {
 			messageKey: "notice.error.generic",
 			priority: "high",
 		});
+		expect(mapSessionEventToPetPresentation(event)?.actionId).toBe("penguin_review_facepalm");
+	});
+
+	it("cheers when the session completes", () => {
+		const event: SessionEvent = { ...eventBase, type: "session.lifecycle", phase: "agent_end" };
+
+		expect(mapSessionEventToPetPresentation(event)?.actionId).toBe("penguin_tests_passed_cheer");
+	});
+
+	it("waits on the spinner while compacting context", () => {
+		const event: SessionEvent = { ...eventBase, type: "compaction.start", reason: "threshold" };
+
+		expect(mapSessionEventToPetPresentation(event)?.actionId).toBe("penguin_wait_for_compile");
+	});
+
+	it("scratches its head when a retry starts", () => {
+		const event: SessionEvent = {
+			...eventBase,
+			type: "retry.start",
+			attempt: 2,
+			maxAttempts: 3,
+			delayMs: 1_000,
+			errorMessage: "timeout",
+		};
+
+		expect(mapSessionEventToPetPresentation(event)?.actionId).toBe("penguin_debug_scratch_laptop");
+	});
+
+	it("facepalms when a tool fails", () => {
+		const event: SessionEvent = {
+			...eventBase,
+			type: "tool.end",
+			toolCallId: "tool-1",
+			toolName: "bash",
+			isError: true,
+			result: "exit 1",
+			startedAt: 1,
+			durationMs: 2,
+			phases: [],
+		};
+
+		expect(mapSessionEventToPetPresentation(event)?.actionId).toBe("penguin_review_facepalm");
 	});
 });
