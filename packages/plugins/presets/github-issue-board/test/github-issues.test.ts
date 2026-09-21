@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PluginCommandApi, PluginNetworkApi } from "@vetta-org/plugin-sdk";
 import {
+	buildIssueRunPrompt,
 	fetchIssueComments,
 	fetchOpenGithubIssues,
 	githubIssueCommentsApiPath,
@@ -127,6 +128,65 @@ describe("mapGithubIssueItems", () => {
 			commitInstruction: COMMIT,
 		});
 		expect(tasks).toEqual([]);
+	});
+});
+
+describe("buildIssueRunPrompt", () => {
+	const title = "Fix login";
+	const url = "https://github.com/acme/app/issues/10";
+	const body = "The button does nothing.";
+
+	it("keeps title, URL and commit instruction without a Comments section by default", () => {
+		const prompt = buildIssueRunPrompt({
+			title,
+			url,
+			body,
+			comments: [{ id: 1, login: "bob", body: "Looks good.", createdAt: "2026-01-04T00:00:00Z" }],
+			commitInstruction: COMMIT,
+		});
+
+		expect(prompt.startsWith(`${title}\n${url}\n`)).toBe(true);
+		expect(prompt).toContain(body);
+		expect(prompt).toContain(COMMIT);
+		expect(prompt).not.toContain("Comments:");
+		expect(prompt).not.toContain("bob:");
+	});
+
+	it("appends chronological comments only when includeComments is set", () => {
+		const prompt = buildIssueRunPrompt({
+			title,
+			url,
+			body,
+			comments: [
+				{ id: 2, login: "alice", body: "later note", createdAt: "2026-01-05T00:00:00Z" },
+				{ id: 1, login: "bob", body: "Looks good.", createdAt: "2026-01-04T00:00:00Z" },
+			],
+			commitInstruction: COMMIT,
+			includeComments: true,
+		});
+
+		expect(prompt).toContain(body);
+		expect(prompt).toContain("Comments:");
+		expect(prompt).toContain("bob: Looks good.");
+		expect(prompt).toContain("alice: later note");
+		expect(prompt.indexOf("bob: Looks good.")).toBeLessThan(prompt.indexOf("alice: later note"));
+		expect(prompt.endsWith(COMMIT)).toBe(true);
+	});
+
+	it("keeps title and URL intact and stays within budget when body and comments overflow", () => {
+		const prompt = buildIssueRunPrompt({
+			title,
+			url,
+			body: "B".repeat(8000),
+			comments: [{ id: 1, login: "bob", body: "C".repeat(8000), createdAt: "2026-01-04T00:00:00Z" }],
+			commitInstruction: ISSUE_COMMIT_INSTRUCTION,
+			includeComments: true,
+		});
+
+		expect(prompt.startsWith(`${title}\n${url}\n`)).toBe(true);
+		expect(prompt).toContain(ISSUE_COMMIT_INSTRUCTION);
+		expect(prompt).toContain("[truncated]");
+		expect(prompt.length).toBeLessThanOrEqual(ISSUE_PROMPT_MAX_CHARS);
 	});
 });
 

@@ -2,6 +2,7 @@ import {
 	useActiveConversation,
 	type PluginContext,
 	type PluginOfficialProjectEntry,
+	type PluginOfficialSkillInfo,
 } from "@vetta-org/plugin-sdk";
 import { Fragment, type JSX, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { BoardSelect, type BoardSelectOption } from "./BoardSelect";
@@ -10,6 +11,7 @@ import {
 	type ResolveGithubRepoError,
 } from "./git-remote";
 import {
+	buildIssueRunPrompt,
 	fetchIssueComments,
 	fetchOpenGithubIssues,
 	githubFetchError,
@@ -20,7 +22,7 @@ import {
 	type GithubFetchErrorKind,
 	type GithubIssueComment,
 } from "./github-issues";
-import { detachBoardRuns, followRunningTask, IMPLEMENT_SKILL, runQueuedTask, type BoardSessionPort } from "./run-task";
+import { detachBoardRuns, followRunningTask, runQueuedTask, selectBoardRunSkills, type BoardSessionPort } from "./run-task";
 import {
 	accumulateIssueNumbers,
 	addManualTask,
@@ -157,6 +159,8 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const [filterStatus, setFilterStatus] = useState<"all" | GithubTaskStatus>("all");
 	const [filterLabel, setFilterLabel] = useState("all");
 	const [labelDraft, setLabelDraft] = useState<string | null>(null);
+	const [runSkills, setRunSkills] = useState<PluginOfficialSkillInfo[]>([]);
+	const [includeComments, setIncludeComments] = useState(false);
 	const conversation = useActiveConversation();
 	const cancelledRef = useRef(false);
 	const inflightRef = useRef(false);
@@ -190,6 +194,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		label: filterLabel,
 	});
 	const labelOptions = uniqueTaskLabels(boardTasks);
+	const pendingRunTask = pendingRunId ? (state?.tasks.find((task) => task.id === pendingRunId) ?? null) : null;
 	const selectedWorkspaceValue = workspaceSelectValue(workspace);
 	const workspaceTriggerName =
 		workspace.kind === "path"
@@ -265,6 +270,25 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	}, [ctx.official]);
 
 	useEffect(() => {
+		if (!workspaceCwd) {
+			setRunSkills([]);
+			return;
+		}
+		let cancelled = false;
+		void ctx.official.skills
+			.list(workspaceCwd)
+			.then((list) => {
+				if (!cancelled) setRunSkills(selectBoardRunSkills(list));
+			})
+			.catch(() => {
+				if (!cancelled) setRunSkills([]);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [ctx.official, workspaceCwd]);
+
+	useEffect(() => {
 		if (!pendingRunId) return;
 		const onPointerDown = (event: PointerEvent) => {
 			const target = event.target;
@@ -314,7 +338,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		const menu = runMenuRef.current;
 		if (!trigger || !menu) return;
 		setRunMenuPos(positionRunMenu(trigger.getBoundingClientRect(), menu.getBoundingClientRect()));
-	}, [pendingRunId]);
+	}, [pendingRunId, runSkills, includeComments]);
 
 	async function persist(next: PluginState): Promise<void> {
 		stateRef.current = next;
@@ -527,6 +551,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		setEditingId(null);
 		setEditDraft("");
 		runTriggerRef.current = trigger;
+		setIncludeComments(false);
 		setPendingRunId(task.id);
 	}
 
@@ -537,11 +562,35 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	async function handleRun(taskId: string, skill: string | null): Promise<void> {
 		const current = stateRef.current;
 		if (!current || inflightRef.current || pendingRunId !== taskId) return;
+		const task = current.tasks.find((item) => item.id === taskId);
+		const withComments = includeComments;
 		setPendingRunId(null);
 		inflightRef.current = true;
 		const controller = new AbortController();
 		abortRef.current = controller;
 		try {
+			let sendPromptText: string | undefined;
+			if (task?.source.kind === "issue" && withComments) {
+				const result = await fetchIssueComments(
+					ctx.network,
+					task.source.owner,
+					task.source.repo,
+					task.source.issueNumber,
+					ctx.command,
+				);
+				if (githubFetchError(result) || !("items" in result)) {
+					ctx.ui.notify({ message: t("board.error.commentsFallback") });
+				} else {
+					sendPromptText = buildIssueRunPrompt({
+						title: task.title,
+						url: task.source.issueUrl,
+						body: task.body ?? "",
+						comments: result.items,
+						commitInstruction: ISSUE_COMMIT_INSTRUCTION,
+						includeComments: true,
+					});
+				}
+			}
 			const result = await runQueuedTask({
 				state: current,
 				taskId,
@@ -550,6 +599,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 				now: () => Date.now(),
 				persist,
 				skill,
+				sendPromptText,
 				signal: controller.signal,
 				stoppedError: t("board.error.stopped"),
 			});
@@ -1092,6 +1142,17 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 						visibility: runMenuPos ? "visible" : "hidden",
 					}}
 				>
+					{pendingRunTask?.source.kind === "issue" ? (
+						<label className={`${RUN_MENU_ITEM} flex items-center gap-2`}>
+							<input
+								checked={includeComments}
+								className="size-3.5 accent-[var(--primary)]"
+								type="checkbox"
+								onChange={(event) => setIncludeComments(event.target.checked)}
+							/>
+							{t("board.run.includeComments")}
+						</label>
+					) : null}
 					<button
 						className={RUN_MENU_ITEM}
 						disabled={!ready || busy}
@@ -1100,14 +1161,17 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 					>
 						{t("board.run.direct")}
 					</button>
-					<button
-						className={RUN_MENU_ITEM}
-						disabled={!ready || busy}
-						type="button"
-						onClick={() => void handleRun(pendingRunId, IMPLEMENT_SKILL)}
-					>
-						{t("board.run.withSkill", { name: IMPLEMENT_SKILL })}
-					</button>
+					{runSkills.map((skill) => (
+						<button
+							className={RUN_MENU_ITEM}
+							disabled={!ready || busy}
+							key={skill.name}
+							type="button"
+							onClick={() => void handleRun(pendingRunId, skill.name)}
+						>
+							{t("board.run.withSkill", { name: skill.alias ?? skill.name })}
+						</button>
+					))}
 					<span
 						aria-hidden="true"
 						className={
