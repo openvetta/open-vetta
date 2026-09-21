@@ -2,6 +2,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { readdir, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
+import { CatalogRoutedRuntimeSessionAccessResolver } from "@vetta/runtime-core";
+import { createNodeLegacySessionHost } from "@vetta/runtime-node/host";
 import { afterEach, describe, expect, it } from "vitest";
 import {
 	CLAUDE_CODE_TOOL_ID,
@@ -10,11 +12,13 @@ import {
 	createCodingAgentExternalSessionCatalog,
 	createCodingAgentExternalSessionFileHistoryReader,
 	EXTERNAL_ORIGIN_MARKER_TYPE,
+	EXTERNAL_READONLY_SESSION_ACCESS,
 	type ExternalSessionFileHost,
 	GROK_TOOL_ID,
 	OMP_TOOL_ID,
 	PI_TOOL_ID,
 } from "../../../src/public-api/external-sessions.js";
+import { createCodingAgentHistoricalSessionCatalog } from "../../../src/public-api/historical-sessions.js";
 import { EXTERNAL_SESSION_LIST_CONCURRENCY } from "../../../src/sessions/external/catalog.js";
 
 const NOW = Date.parse("2026-09-18T00:00:00.000Z");
@@ -249,6 +253,61 @@ describe("external session formats", () => {
 			{ now: () => NOW },
 		);
 		expect(await catalog.listSessions(join(root, "claude"))).toEqual([]);
+	});
+
+	it("does not claim a titled Vetta jsonl that lives in a project session directory", async () => {
+		const root = createRoot();
+		const projectCwd = join(root, "project");
+		const projectSessions = join(projectCwd, ".vetta", "sessions");
+		mkdirSync(projectSessions, { recursive: true });
+		const sessionPath = join(projectSessions, "named.jsonl");
+		writeFileSync(
+			sessionPath,
+			[
+				JSON.stringify({
+					type: "session",
+					version: 3,
+					id: "legacy-named",
+					timestamp: RECENT,
+					cwd: projectCwd,
+					title: "Fix login",
+				}),
+				JSON.stringify({ type: "title", v: 1, title: "Fix login", updatedAt: RECENT }),
+				JSON.stringify({
+					type: "message",
+					message: { role: "user", content: [{ type: "text", text: "Fix login" }] },
+				}),
+			].join("\n"),
+		);
+		const ompRoot = join(root, "omp");
+		mkdirSync(ompRoot, { recursive: true });
+		const host = createTestHost([{ tool: OMP_TOOL_ID, path: ompRoot }]);
+		const catalog = createCodingAgentExternalSessionCatalog(host, { now: () => NOW });
+		const reader = createCodingAgentExternalSessionFileHistoryReader(host);
+		expect(await catalog.ownsSession(sessionPath)).toBe(false);
+		expect(reader.canRead(sessionPath)).toBe(false);
+
+		const historical = createCodingAgentHistoricalSessionCatalog(
+			createNodeLegacySessionHost({ defaultCwd: projectCwd, sessionsDirectory: projectSessions }),
+		);
+		const access = await new CatalogRoutedRuntimeSessionAccessResolver([
+			{ catalog, access: EXTERNAL_READONLY_SESSION_ACCESS },
+			{
+				catalog: historical,
+				access: { readHistory: true, resume: true, rename: true, delete: true },
+			},
+		]).resolve(sessionPath);
+		expect(access).toEqual({ readHistory: true, resume: true, rename: true, delete: true });
+	});
+
+	it("still owns an omp session that actually lives under the omp root", async () => {
+		const root = createRoot();
+		const ompRoot = join(root, "omp");
+		const sessionPath = writeOmpSession(ompRoot);
+		const catalog = createCodingAgentExternalSessionCatalog(createTestHost([{ tool: OMP_TOOL_ID, path: ompRoot }]), {
+			now: () => NOW,
+		});
+		expect(await catalog.ownsSession(sessionPath)).toBe(true);
 	});
 
 	function createRoot(): string {

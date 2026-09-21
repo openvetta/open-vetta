@@ -30,6 +30,7 @@ const MODEL_KEY = "xai/grok-code";
 const MODEL_BRIEFING = "The login redirect still fails after the auth router change; next, inspect the session cookie.";
 
 const temporaryDirectories: string[] = [];
+let lastGrokRoot = "";
 
 describe("external session continue-from public entry", () => {
 	afterEach(() => {
@@ -393,9 +394,11 @@ function createGrokWorkspace(input?: {
 	readonly title?: string;
 	readonly cwd?: string;
 	readonly rounds?: readonly { readonly user: string; readonly assistant: string }[];
-}): { sidecarPath: string; cwd: string; originalSidecar: string; originalBody: string } {
+}): { sidecarPath: string; cwd: string; grokRoot: string; originalSidecar: string; originalBody: string } {
 	const root = mkdtempSync(join(tmpdir(), "vetta-continue-grok-"));
 	temporaryDirectories.push(root);
+	const grokRoot = join(root, "sessions");
+	lastGrokRoot = grokRoot;
 	const cwd = input?.cwd ?? join(root, "workspace");
 	if (!input?.cwd) mkdirSync(cwd, { recursive: true });
 	const sessionDir = join(root, "sessions", "demo", "continue");
@@ -428,7 +431,7 @@ function createGrokWorkspace(input?: {
 		.join("\n")}\n`;
 	writeFileSync(sidecarPath, sidecar);
 	writeFileSync(join(sessionDir, GROK_CONVERSATION_BODY_NAME), body);
-	return { sidecarPath, cwd, originalSidecar: sidecar, originalBody: body };
+	return { sidecarPath, cwd, grokRoot, originalSidecar: sidecar, originalBody: body };
 }
 
 function defaultRounds(): readonly { readonly user: string; readonly assistant: string }[] {
@@ -438,9 +441,9 @@ function defaultRounds(): readonly { readonly user: string; readonly assistant: 
 	];
 }
 
-function createTestHost(): ExternalSessionFileHost {
+function createTestHost(grokRoot: string = lastGrokRoot): ExternalSessionFileHost {
 	return {
-		resolveSessionRoots: () => [],
+		resolveSessionRoots: () => [{ tool: GROK_TOOL_ID, path: grokRoot }],
 		join: (...parts) => join(...parts),
 		basename,
 		exists: existsSync,

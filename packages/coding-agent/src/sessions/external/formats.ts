@@ -6,6 +6,7 @@ import type { ExternalSessionFormat } from "./format.js";
 import { grokFormat } from "./grok-format.js";
 import { GROK_CONVERSATION_BODY_NAME, GROK_SUMMARY_SIDECAR_NAME } from "./grok-summary.js";
 import type { ExternalSessionFileHost } from "./host-contracts.js";
+import { isUnderExternalSessionRoot } from "./root-path.js";
 
 export const EXTERNAL_SESSION_FORMATS: readonly ExternalSessionFormat[] = [
 	grokFormat,
@@ -24,7 +25,7 @@ export function identifyExternalSessionFormat(
 	path: string,
 	host: ExternalSessionFileHost,
 ): ExternalSessionFormat | undefined {
-	if (!host.exists(path)) return undefined;
+	if (!host.exists(path) || !isUnderExternalSessionRoot(path, host)) return undefined;
 	const name = host.basename(path);
 	if (name === GROK_SUMMARY_SIDECAR_NAME || name === GROK_CONVERSATION_BODY_NAME) {
 		return grokFormat.canRead(path, host) ? grokFormat : undefined;
