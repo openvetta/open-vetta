@@ -374,6 +374,20 @@ async function addTask(prompt: string): Promise<void> {
 	});
 }
 
+function editComposer(): HTMLElement {
+	const field = screen.getByRole("textbox", { name: COPY["board.taskEdit.label"] });
+	const root = field.closest("form") ?? field.closest("td");
+	if (!(root instanceof HTMLElement)) throw new Error("edit composer missing");
+	return root;
+}
+
+async function openManualEdit(title: string): Promise<HTMLElement> {
+	await act(async () => {
+		fireEvent.click(within(taskRow(title)).getByRole("button", { name: COPY["board.edit"] }));
+	});
+	return editComposer();
+}
+
 function githubRemote(owner: string, repo: string): { stdout: string; exitCode: number } {
 	return {
 		stdout: `origin\tgit@github.com:${owner}/${repo}.git (fetch)\n`,
@@ -691,6 +705,76 @@ describe("GitHub Issue board view", () => {
 		expect((screen.getByRole("textbox", { name: COPY["board.taskInput.label"] }) as HTMLTextAreaElement).value).toBe(
 			"Fix login",
 		);
+	});
+
+	it("improves an existing manual task from the current edit text and saves it", async () => {
+		const brief = "## Background / Goal\n\nFix login on mobile.";
+		const stream = vi.fn(async (_request: PluginAiCompleteRequest) => ({
+			modelKey: "default",
+			text: brief,
+			stopReason: "stop" as const,
+			usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+		}));
+		const { ctx, registered, readState } = fakeContext({ aiStream: stream });
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await addTask("Fix login");
+		const form = await openManualEdit("Fix login");
+		fireEvent.change(within(form).getByRole("textbox", { name: COPY["board.taskEdit.label"] }), {
+			target: { value: "Fix login on mobile" },
+		});
+		await act(async () => {
+			fireEvent.click(within(form).getByRole("button", { name: COPY["board.refine"] }));
+		});
+		expect(stream.mock.calls[0]?.[0]?.prompt).toBe("Fix login on mobile");
+		const preview = await waitFor(() => {
+			const field = within(form).getByRole("textbox", { name: COPY["board.preview.label"] });
+			if (!(field instanceof HTMLTextAreaElement) || field.value !== brief) {
+				throw new Error("edit preview is not ready");
+			}
+			return field;
+		});
+		fireEvent.change(preview, { target: { value: `${brief}\n\nEdited note` } });
+		await act(async () => {
+			fireEvent.click(within(form).getByRole("button", { name: COPY["board.save"] }));
+		});
+
+		expect(screen.getByRole("cell", { name: "## Background / Goal" })).toBeTruthy();
+		expect(screen.queryByRole("cell", { name: "Fix login" })).toBeNull();
+		expect(readState()?.tasks[0]?.promptText).toBe(`${brief}\n\nEdited note`);
+	});
+
+	it("does not show Improve with AI on imported issue tasks", async () => {
+		const { ctx, registered } = fakeContext({
+			gitRemote: githubRemote("acme", "app"),
+			issues: [
+				{
+					number: 10,
+					title: "Fix login",
+					html_url: "https://github.com/acme/app/issues/10",
+					body: "The button does nothing.",
+					updated_at: "2026-01-02T03:04:05Z",
+				},
+			],
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await fetchIssues();
+
+		expect(within(taskRow("Fix login")).queryByRole("button", { name: COPY["board.refine"] })).toBeNull();
+		expect(within(taskRow("Fix login")).queryByRole("button", { name: COPY["board.edit"] })).toBeNull();
+		expect(screen.getAllByRole("button", { name: COPY["board.refine"] })).toHaveLength(1);
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "#10 Fix login" }));
+		});
+		expect(screen.getByText("The button does nothing.")).toBeTruthy();
+		expect(screen.queryByRole("textbox", { name: COPY["board.taskEdit.label"] })).toBeNull();
+		expect(screen.getAllByRole("button", { name: COPY["board.refine"] })).toHaveLength(1);
 	});
 
 	it("adds a manual pending task to the queue and keeps it after remount", async () => {

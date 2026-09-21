@@ -52,7 +52,7 @@ import {
 	type IssueFetchAssignee,
 	type PluginState,
 } from "./state";
-import { TaskRefinementService } from "./task-refinement";
+import { TaskDraftComposer } from "./TaskDraftComposer";
 import {
 	CONVERSATION_WORKSPACE,
 	extraWorkspacePath,
@@ -63,8 +63,6 @@ import {
 	workspaceSelectValue,
 	type WorkspaceSource,
 } from "./workspace";
-
-const TASK_REFINEMENT_TIMEOUT_MS = 60_000;
 
 const FETCH_ERROR_KEY: Record<GithubFetchErrorKind, string> = {
 	"rate-limit": "board.error.rateLimit",
@@ -97,8 +95,6 @@ const ISSUE_STATE_BADGE: Record<GithubIssueState, string> = {
 };
 const ACTION_BUTTON =
 	"rounded-lg border border-border px-2 py-1 text-xs font-medium text-foreground disabled:opacity-40";
-const PRIMARY_BUTTON =
-	"self-start rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-40";
 const CHIP = "bg-muted text-muted-foreground rounded-md px-1.5 py-0.5 text-[11px]";
 const RUN_MENU_ITEM =
 	"rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-foreground hover:bg-muted disabled:opacity-40";
@@ -162,16 +158,10 @@ function labelSelectOptions(
 
 export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const [state, setState] = useState<PluginState | null>(null);
-	const [draft, setDraft] = useState("");
-	const [preview, setPreview] = useState<string | null>(null);
-	const [originalDraft, setOriginalDraft] = useState("");
-	const [refining, setRefining] = useState(false);
-	const [refineError, setRefineError] = useState<string | null>(null);
 	const [fetching, setFetching] = useState(false);
 	const [fetchNotice, setFetchNotice] = useState<string | null>(null);
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 	const [editingId, setEditingId] = useState<string | null>(null);
-	const [editDraft, setEditDraft] = useState("");
 	const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 	const [pendingRunId, setPendingRunId] = useState<string | null>(null);
 	const [stoppingId, setStoppingId] = useState<string | null>(null);
@@ -190,8 +180,6 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const cancelledRef = useRef(false);
 	const inflightRef = useRef(false);
 	const abortRef = useRef<AbortController | null>(null);
-	const refineAbortRef = useRef<AbortController | null>(null);
-	const refineGenRef = useRef(0);
 	const fetchingRef = useRef(false);
 	const runMenuRef = useRef<HTMLDivElement>(null);
 	const runTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -279,7 +267,6 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		return () => {
 			cancelledRef.current = true;
 			detachBoardRuns();
-			refineAbortRef.current?.abort();
 		};
 	}, [ctx.storage]);
 
@@ -510,69 +497,17 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		await applyWorkspace({ kind: "path", path });
 	}
 
-	async function handleSubmit(): Promise<void> {
-		const promptText = (preview !== null ? preview : draft).trim();
+	async function handleSubmit(promptText: string): Promise<void> {
 		const current = stateRef.current;
-		if (!promptText || current === null || refining) return;
-		const next = addManualTask(current, {
-			id: crypto.randomUUID(),
-			promptText,
-			now: Date.now(),
-			cwd: resolveWorkspaceCwd(current.workspace, conversation.cwd),
-		});
-		setDraft("");
-		setPreview(null);
-		setOriginalDraft("");
-		setRefineError(null);
-		await persist(next);
-	}
-
-	function refineErrorMessage(error: unknown): string {
-		if (error instanceof Error && error.name === "AbortError") {
-			return t("board.error.refineTimeout");
-		}
-		if (error instanceof Error && error.message === "task refinement returned empty content") {
-			return t("board.error.refineEmpty");
-		}
-		return t("board.error.refine");
-	}
-
-	async function handleRefine(): Promise<void> {
-		const source = draft;
-		if (!source.trim() || refining) return;
-		const gen = ++refineGenRef.current;
-		setRefining(true);
-		setRefineError(null);
-		setOriginalDraft(source);
-		setPreview("");
-		const controller = new AbortController();
-		refineAbortRef.current = controller;
-		const timer = window.setTimeout(() => controller.abort(), TASK_REFINEMENT_TIMEOUT_MS);
-		try {
-			const text = await new TaskRefinementService(ctx.ai).refine(source, {
-				signal: controller.signal,
-				onTextDelta: (next) => {
-					if (gen === refineGenRef.current && !cancelledRef.current) setPreview(next);
-				},
-			});
-			if (gen !== refineGenRef.current || cancelledRef.current) return;
-			setPreview(text);
-		} catch (error) {
-			if (gen !== refineGenRef.current || cancelledRef.current) return;
-			setPreview(null);
-			setRefineError(controller.signal.aborted ? t("board.error.refineTimeout") : refineErrorMessage(error));
-		} finally {
-			window.clearTimeout(timer);
-			if (refineAbortRef.current === controller) refineAbortRef.current = null;
-			if (gen === refineGenRef.current && !cancelledRef.current) setRefining(false);
-		}
-	}
-
-	function handleRestoreOriginal(): void {
-		if (refining) return;
-		setPreview(null);
-		setDraft(originalDraft);
-		setRefineError(null);
+		if (!promptText || current === null) return;
+		await persist(
+			addManualTask(current, {
+				id: crypto.randomUUID(),
+				promptText,
+				now: Date.now(),
+				cwd: resolveWorkspaceCwd(current.workspace, conversation.cwd),
+			}),
+		);
 	}
 
 	async function handleFetch(): Promise<void> {
@@ -585,30 +520,25 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		setPendingDeleteId(null);
 		setPendingRunId(null);
 		setEditingId(task.id);
-		setEditDraft(task.promptText);
 		setExpandedId(null);
 	}
 
-	async function handleSaveEdit(): Promise<void> {
+	async function handleSaveEdit(promptText: string): Promise<void> {
 		const current = stateRef.current;
 		if (!current || !editingId) return;
-		const promptText = editDraft.trim();
 		if (!promptText) return;
 		const next = updateTaskPrompt(current, { taskId: editingId, promptText, now: Date.now() });
 		setEditingId(null);
-		setEditDraft("");
 		await persist(next);
 	}
 
 	function handleCancelEdit(): void {
 		setEditingId(null);
-		setEditDraft("");
 	}
 
 	function requestDelete(task: GithubTask): void {
 		if (task.source.kind !== "manual" || task.status === "running") return;
 		setEditingId(null);
-		setEditDraft("");
 		setPendingRunId(null);
 		setPendingDeleteId(task.id);
 	}
@@ -622,7 +552,6 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		if (!current || pendingDeleteId !== taskId) return;
 		if (editingId === taskId) {
 			setEditingId(null);
-			setEditDraft("");
 		}
 		if (expandedId === taskId) setExpandedId(null);
 		setPendingDeleteId(null);
@@ -633,7 +562,6 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		if (task.status !== "pending") return;
 		setPendingDeleteId(null);
 		setEditingId(null);
-		setEditDraft("");
 		runTriggerRef.current = trigger;
 		setSkillQuery("");
 		setIncludeComments(false);
@@ -941,58 +869,14 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 				</button>
 			</form>
 			{fetchNotice ? <p className="text-xs text-muted-foreground">{fetchNotice}</p> : null}
-			<form
-				className="flex flex-col gap-2"
-				onSubmit={(event) => {
-					event.preventDefault();
-					void handleSubmit();
-				}}
-			>
-				<label className="flex flex-col gap-1 text-sm font-medium text-muted-foreground">
-					{t("board.taskInput.label")}
-					<textarea
-						className={`min-h-[72px] resize-y ${FIELD}`}
-						disabled={!ready || refining || preview !== null}
-						placeholder={t("board.taskInput.placeholder")}
-						value={draft}
-						onChange={(event) => setDraft(event.target.value)}
-					/>
-				</label>
-				{preview !== null ? (
-					<label className="flex flex-col gap-1 text-sm font-medium text-muted-foreground">
-						{t("board.preview.label")}
-						<textarea
-							className={`min-h-[72px] resize-y ${FIELD}`}
-							disabled={!ready || refining}
-							value={preview}
-							onChange={(event) => setPreview(event.target.value)}
-						/>
-					</label>
-				) : null}
-				{refineError ? <p className="text-xs text-destructive">{refineError}</p> : null}
-				<div className="flex flex-wrap items-center gap-1.5">
-					<button
-						className={ACTION_BUTTON}
-						disabled={!ready || refining || draft.trim() === "" || preview !== null}
-						type="button"
-						onClick={() => void handleRefine()}
-					>
-						{refining ? t("board.refine.busy") : t("board.refine")}
-					</button>
-					{preview !== null && !refining ? (
-						<button className={ACTION_BUTTON} type="button" onClick={handleRestoreOriginal}>
-							{t("board.restoreOriginal")}
-						</button>
-					) : null}
-					<button
-						className={PRIMARY_BUTTON}
-						disabled={!ready || refining || (preview !== null ? preview : draft).trim() === ""}
-						type="submit"
-					>
-						{t("board.add")}
-					</button>
-				</div>
-			</form>
+			<TaskDraftComposer
+				ctx={ctx}
+				disabled={!ready}
+				sourceLabel={t("board.taskInput.label")}
+				sourcePlaceholder={t("board.taskInput.placeholder")}
+				submitLabel={t("board.add")}
+				onSubmit={handleSubmit}
+			/>
 			<div className="flex flex-wrap items-end gap-2">
 				{boardTasks.length > 0 ? (
 					<>
@@ -1223,27 +1107,16 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 										{editingId === task.id ? (
 											<tr>
 												<td className="py-2 pr-3" colSpan={6}>
-													<label className="flex flex-col gap-1 text-sm font-medium text-muted-foreground">
-														{t("board.taskEdit.label")}
-														<textarea
-															className={`min-h-[72px] resize-y ${FIELD}`}
-															value={editDraft}
-															onChange={(event) => setEditDraft(event.target.value)}
-														/>
-													</label>
-													<div className="mt-2 flex flex-wrap gap-1.5">
-														<button
-															className={PRIMARY_BUTTON}
-															disabled={editDraft.trim() === ""}
-															type="button"
-															onClick={() => void handleSaveEdit()}
-														>
-															{t("board.save")}
-														</button>
-														<button className={ACTION_BUTTON} type="button" onClick={handleCancelEdit}>
-															{t("board.cancel")}
-														</button>
-													</div>
+													<TaskDraftComposer
+														key={task.id}
+														ctx={ctx}
+														disabled={!ready}
+														initialValue={task.promptText}
+														sourceLabel={t("board.taskEdit.label")}
+														submitLabel={t("board.save")}
+														onCancel={handleCancelEdit}
+														onSubmit={handleSaveEdit}
+													/>
 												</td>
 											</tr>
 										) : expandedId === task.id && task.source.kind === "issue" ? (
