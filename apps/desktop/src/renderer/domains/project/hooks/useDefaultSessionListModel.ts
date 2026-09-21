@@ -260,6 +260,7 @@ export function useDefaultSessionListModel({
 		hasMore: ordering.hasMore,
 		labels: {
 			collapse: t("sidebar.projects.collapseSessions"),
+			more: t("actions.more"),
 			expand: t("sidebar.projects.expandMore", { count: ordering.hiddenCount }),
 			...emptyLabels,
 		},

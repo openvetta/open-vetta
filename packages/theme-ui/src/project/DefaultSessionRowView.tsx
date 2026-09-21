@@ -4,6 +4,10 @@ import { AvatarStackView } from "../shared/AvatarStackView";
 import { ConversationTagDotsView } from "./ConversationTagDotsView";
 import { IMMEDIATE_SESSION_SELECTION_STYLE } from "./session-row-transition";
 import { SessionRenameInputView } from "./SessionRenameInputView";
+import {
+	SESSION_ROW_CONTENT_FADE_CLASS,
+	SessionRowMoreButton,
+} from "./SessionRowMoreButton";
 import { prepareSidebarSelection } from "./useActiveSessionAutoScroll";
 
 export interface DefaultSessionRowViewProps {
@@ -25,6 +29,8 @@ export interface DefaultSessionRowViewProps {
 	forked?: boolean;
 	/** Tag colors carried by this conversation; replaces the leading icon when present. */
 	tagColors?: readonly string[];
+	/** Accessible name for the hover "more" trigger. */
+	moreLabel?: string;
 	onOpenContextMenu: (event: React.MouseEvent) => void;
 	onRename: (name: string) => void;
 	onRenameDone: () => void;
@@ -46,6 +52,7 @@ export const DefaultSessionRowView = memo(function DefaultSessionRowView({
 	titleExtra,
 	caption,
 	forked,
+	moreLabel,
 	onOpenContextMenu,
 	onRename,
 	onRenameDone,
@@ -70,64 +77,78 @@ export const DefaultSessionRowView = memo(function DefaultSessionRowView({
 					? "icon-[solar--pin-linear] text-primary/80"
 					: iconClassName ?? "icon-[solar--chat-round-line-linear]";
 	return (
-		<button
-			type="button"
-			data-session-active={active ? "true" : undefined}
-			data-session-path={sessionPath || undefined}
-			onClick={(event) => {
-				if (renaming) return;
-				prepareSidebarSelection(event.currentTarget);
-				onSelect();
-			}}
-			onContextMenu={(event) => {
-				event.preventDefault();
-				if (!contextMenuEnabled) return;
-				onOpenContextMenu(event);
-			}}
-			className={cn(
-				"flex w-full items-center gap-2 rounded-md px-2.5 py-[6px] text-left",
-				active ? "bg-primary/15 text-foreground" : "hover:bg-accent/50",
-			)}
-			style={IMMEDIATE_SESSION_SELECTION_STYLE}
-			title={title}
-		>
-			{renaming ? (
-				<SessionRenameInputView
-					initialValue={label}
-					onCancel={onRenameDone}
-					onCommit={onRename}
-				/>
-			) : (
-				<>
-					{showTagDots ? (
-						<ConversationTagDotsView colors={tagColors} />
-					) : (
-						<span
-							data-session-leading-icon="true"
-							aria-hidden="true"
-							className={cn(
-								leadingIconClassName,
-								"h-3.5 w-3.5 shrink-0",
-								active ? "text-foreground/70" : "text-muted-foreground/50",
-							)}
-						/>
-					)}
-					<span
+		<div className="group/session-row relative">
+			<button
+				type="button"
+				data-session-active={active ? "true" : undefined}
+				data-session-path={sessionPath || undefined}
+				onClick={(event) => {
+					if (renaming) return;
+					prepareSidebarSelection(event.currentTarget);
+					onSelect();
+				}}
+				onContextMenu={(event) => {
+					event.preventDefault();
+					if (!contextMenuEnabled) return;
+					onOpenContextMenu(event);
+				}}
+				className={cn(
+					"flex w-full items-center gap-2 rounded-md px-2.5 py-[6px] text-left",
+					active ? "bg-primary/15 text-foreground" : "hover:bg-accent/50",
+				)}
+				style={IMMEDIATE_SESSION_SELECTION_STYLE}
+				title={title}
+			>
+				{renaming ? (
+					<SessionRenameInputView
+						initialValue={label}
+						onCancel={onRenameDone}
+						onCommit={onRename}
+					/>
+				) : (
+					<div
 						className={cn(
-							"min-w-0 flex-1 truncate text-[13px]",
-							active ? "font-semibold text-foreground" : "text-foreground",
+							"flex min-w-0 flex-1 items-center gap-2",
+							SESSION_ROW_CONTENT_FADE_CLASS,
 						)}
 					>
-						{label}
-					</span>
-					{caption ? (
-						<span className="shrink-0 text-[11px] text-muted-foreground/80">{caption}</span>
-					) : null}
-					{trailingAvatarUrls && trailingAvatarUrls.length > 0 ? (
-						<AvatarStackView avatarUrls={trailingAvatarUrls} />
-					) : null}
-				</>
+						{showTagDots ? (
+							<ConversationTagDotsView colors={tagColors} />
+						) : (
+							<span
+								data-session-leading-icon="true"
+								aria-hidden="true"
+								className={cn(
+									leadingIconClassName,
+									"h-3.5 w-3.5 shrink-0",
+									active ? "text-foreground/70" : "text-muted-foreground/50",
+								)}
+							/>
+						)}
+						<span
+							className={cn(
+								"min-w-0 flex-1 truncate text-[13px]",
+								active ? "font-semibold text-foreground" : "text-foreground",
+							)}
+						>
+							{label}
+						</span>
+						{caption ? (
+							<span className="shrink-0 text-[11px] text-muted-foreground/80">{caption}</span>
+						) : null}
+						{trailingAvatarUrls && trailingAvatarUrls.length > 0 ? (
+							<AvatarStackView avatarUrls={trailingAvatarUrls} />
+						) : null}
+					</div>
+				)}
+			</button>
+			{renaming || !contextMenuEnabled ? null : (
+				<SessionRowMoreButton
+					className="rounded-r-md"
+					label={moreLabel}
+					onOpen={onOpenContextMenu}
+				/>
 			)}
-		</button>
+		</div>
 	);
 });

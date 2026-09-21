@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { completeSimple } from "@vetta/ai";
 import { resolveCodingAgentSessionDir } from "@vetta/coding-agent/bootstrap";
@@ -20,12 +20,9 @@ import { publishConversationSeed } from "@vetta/runtime-node/conversation";
 import { createNodeResultArtifactStorage, resolveNodeSessionArtifactDirectory } from "@vetta/runtime-node/host";
 import { getOrCreateSharedModelRuntime } from "../agent-runtime/host-services.js";
 import { getApplicationCacheService } from "../cache/application-cache-service.js";
-import { readDesktopConfig, writeDesktopConfig } from "../config/desktop-config-store.js";
 import { emitConversationListChanged } from "../conversations/conversation-list-events.js";
-import { allowProjectRoot, createFilesystemDirectory } from "../filesystem/filesystem-service.js";
 import { getDesktopModelSettingsService } from "../models/model-settings-host.js";
-import { broadcastProjectsChanged } from "../projects/project-events.js";
-import { ProjectService } from "../projects/project-service.js";
+import { getDesktopProjectService } from "../projects/project-service-instance.js";
 
 export type { ExistingImportedExternalSession, ExternalSessionContinueRequest, ExternalSessionContinueResult };
 export { GROK_TOOL_ID, pickLatestImportedSession };
@@ -212,21 +209,7 @@ export async function generateDesktopExternalSessionBriefing(input: {
 }
 
 export async function ensureContinueFromProject(cwd: string): Promise<void> {
-	const projects = new ProjectService({
-		allowProjectRoot,
-		createDirectory: createFilesystemDirectory,
-		readConfig: readDesktopConfig,
-		writeConfig: writeDesktopConfig,
-		broadcastChanged: broadcastProjectsChanged,
-		isExistingNonDirectory: async (path) => {
-			try {
-				return !(await stat(path)).isDirectory();
-			} catch {
-				return false;
-			}
-		},
-	});
-	await projects.open(cwd, basename(cwd));
+	await getDesktopProjectService().open(cwd, basename(cwd));
 }
 
 export async function findDesktopImportedExternalSessions(

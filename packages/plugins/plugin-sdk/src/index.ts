@@ -43,6 +43,7 @@ export type {
 	PluginFileExplorerRevealOptions,
 	PluginFileExplorerApi,
 } from "./file-explorer.js";
+export type { PluginFileIconAssociations, PluginFileIconTheme } from "./file-explorer.js";
 
 // Conversation
 export type {
@@ -74,6 +75,7 @@ export type {
 	PluginFilePreviewProps,
 	PluginFilePreviewContribution,
 	PluginActivityTabContribution,
+	PluginBottomPanelContribution,
 	PluginActivityTabRetention,
 	PluginActivityTabTargetOptions,
 	PluginCaptureRegion,
@@ -417,6 +419,18 @@ export { __setPluginHostBridge } from "./host-bridge.js";
 // Activity tab context
 export type { ActivityTabContextValue } from "./activity-tab.js";
 export { __ActivityTabContext, useActivityTab } from "./activity-tab.js";
+
+// Bottom panel context
+export type {
+	PluginBottomPanelCloseConfirm,
+	PluginBottomPanelCloseDecision,
+	PluginBottomPanelCloseReason,
+	PluginBottomPanelCloseRequest,
+	PluginBottomPanelContextValue,
+	PluginBottomPanelMeta,
+	PluginBottomPanelStatus,
+} from "./bottom-panel.js";
+export { __BottomPanelContext, useBottomPanel } from "./bottom-panel.js";
 
 // React hooks
 export type { PluginI18nContextValue, PluginTranslation } from "./hooks.js";

@@ -39,6 +39,7 @@ export function useDefaultSessionRowModel({
 		forked,
 		titleExtra: forked ? t("sidebar.session.forkedTooltip") : undefined,
 		caption: filter === "external" ? externalSessionCaption(session, t) : undefined,
+		moreLabel: t("actions.more"),
 		renaming,
 		running,
 		scheduled,

@@ -103,7 +103,7 @@ describe("resolveContinueFromModelKey", () => {
 
 describe("desktop external session continue-from host", () => {
 	it("uses the default model, seeds a native session, and leaves the Grok files unchanged", async () => {
-		const { sidecarPath, cwd, originalSidecar, originalBody, sessionDir } = createGrokWorkspace();
+		const { sidecarPath, cwd, originalSidecar, originalBody, sessionDir, sessionsRoot } = createGrokWorkspace();
 		const cacheRoot = createTemporaryDirectory("vetta-continue-cache-");
 		const openedProjects: string[] = [];
 		const modelCalls: Array<{ modelKey: string; prompt: string }> = [];
@@ -113,7 +113,7 @@ describe("desktop external session continue-from host", () => {
 		});
 
 		const continueFrom = createDesktopExternalSessionContinueFrom({
-			files: createDesktopExternalSessionFormat({ resolveSessionsDirectory: () => undefined }).host,
+			files: createDesktopExternalSessionFormat({ resolveSessionsDirectory: () => sessionsRoot }).host,
 			cache: createApplicationExternalBriefingCache(new ApplicationCacheService(cacheRoot)),
 			findImportedSessions: async () => [],
 			...createDesktopExternalOriginSnapshotPorts(createTemporaryDirectory("vetta-continue-artifacts-")),
@@ -175,10 +175,10 @@ describe("desktop external session continue-from host", () => {
 	});
 
 	it("forwards the viewer-selected model into briefing model resolution", async () => {
-		const { sidecarPath, sessionDir } = createGrokWorkspace();
+		const { sidecarPath, sessionDir, sessionsRoot } = createGrokWorkspace();
 		let preferred: string | undefined;
 		const continueFrom = createDesktopExternalSessionContinueFrom({
-			files: createDesktopExternalSessionFormat({ resolveSessionsDirectory: () => undefined }).host,
+			files: createDesktopExternalSessionFormat({ resolveSessionsDirectory: () => sessionsRoot }).host,
 			cache: createApplicationExternalBriefingCache(
 				new ApplicationCacheService(createTemporaryDirectory("vetta-continue-cache-")),
 			),
@@ -204,11 +204,11 @@ describe("desktop external session continue-from host", () => {
 	});
 
 	it("reuses a briefing cache entry keyed by path, mtime, and size", async () => {
-		const { sidecarPath, sessionDir } = createGrokWorkspace();
+		const { sidecarPath, sessionDir, sessionsRoot } = createGrokWorkspace();
 		const cacheRoot = createTemporaryDirectory("vetta-continue-cache-");
 		const modelCalls: unknown[] = [];
 		const continueFrom = createDesktopExternalSessionContinueFrom({
-			files: createDesktopExternalSessionFormat({ resolveSessionsDirectory: () => undefined }).host,
+			files: createDesktopExternalSessionFormat({ resolveSessionsDirectory: () => sessionsRoot }).host,
 			cache: createApplicationExternalBriefingCache(new ApplicationCacheService(cacheRoot)),
 			findImportedSessions: async () => [],
 			...createDesktopExternalOriginSnapshotPorts(createTemporaryDirectory("vetta-continue-artifacts-")),
@@ -234,7 +234,7 @@ describe("desktop external session continue-from host", () => {
 	});
 
 	it("returns an existing import instead of creating another session", async () => {
-		const { sidecarPath, sessionDir } = createGrokWorkspace();
+		const { sidecarPath, sessionDir, sessionsRoot } = createGrokWorkspace();
 		const existing = {
 			sessionId: "already-1",
 			sessionPath: "/tmp/vetta/already.conversation.jsonl",
@@ -243,7 +243,7 @@ describe("desktop external session continue-from host", () => {
 		};
 		const modelCalls: unknown[] = [];
 		const continueFrom = createDesktopExternalSessionContinueFrom({
-			files: createDesktopExternalSessionFormat({ resolveSessionsDirectory: () => undefined }).host,
+			files: createDesktopExternalSessionFormat({ resolveSessionsDirectory: () => sessionsRoot }).host,
 			cache: createApplicationExternalBriefingCache(
 				new ApplicationCacheService(createTemporaryDirectory("vetta-continue-cache-")),
 			),
@@ -269,10 +269,10 @@ describe("desktop external session continue-from host", () => {
 	});
 
 	it("stores the origin snapshot in the session artifact directory and reclaims it with the existing cleaner", async () => {
-		const { sidecarPath, originalSidecar, originalBody, sessionDir } = createGrokWorkspace();
+		const { sidecarPath, originalSidecar, originalBody, sessionDir, sessionsRoot } = createGrokWorkspace();
 		const agentDir = createTemporaryDirectory("vetta-continue-artifacts-");
 		const continueFrom = createDesktopExternalSessionContinueFrom({
-			files: createDesktopExternalSessionFormat({ resolveSessionsDirectory: () => undefined }).host,
+			files: createDesktopExternalSessionFormat({ resolveSessionsDirectory: () => sessionsRoot }).host,
 			cache: createApplicationExternalBriefingCache(
 				new ApplicationCacheService(createTemporaryDirectory("vetta-continue-cache-")),
 			),
@@ -369,11 +369,13 @@ function createGrokWorkspace(): {
 	originalSidecar: string;
 	originalBody: string;
 	sessionDir: string;
+	sessionsRoot: string;
 } {
 	const root = createTemporaryDirectory("vetta-continue-desktop-");
 	const cwd = join(root, "workspace");
 	mkdirSync(cwd, { recursive: true });
-	const grokDir = join(root, "sessions", "demo", "continue");
+	const sessionsRoot = join(root, "sessions");
+	const grokDir = join(sessionsRoot, "demo", "continue");
 	mkdirSync(grokDir, { recursive: true });
 	const sessionDir = join(root, "vetta-sessions");
 	mkdirSync(sessionDir, { recursive: true });
@@ -403,7 +405,7 @@ function createGrokWorkspace(): {
 	].join("\n")}\n`;
 	writeFileSync(sidecarPath, sidecar);
 	writeFileSync(join(grokDir, GROK_CONVERSATION_BODY_NAME), body);
-	return { sidecarPath, cwd, originalSidecar: sidecar, originalBody: body, sessionDir };
+	return { sidecarPath, cwd, originalSidecar: sidecar, originalBody: body, sessionDir, sessionsRoot };
 }
 
 function createTemporaryDirectory(prefix: string): string {
