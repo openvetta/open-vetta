@@ -186,7 +186,16 @@ const externalDeps = packagedNativeDependencies.required;
 const optionalExternalDeps = packagedNativeDependencies.optional;
 
 function resolvePackageRoot(dep, fromDir = projectRoot) {
-	const entry = require.resolve(dep, { paths: [fromDir] });
+	let entry;
+	try {
+		entry = require.resolve(dep, { paths: [fromDir] });
+	} catch (error) {
+		try {
+			entry = require.resolve(`${dep}/package.json`, { paths: [fromDir] });
+		} catch {
+			throw error;
+		}
+	}
 	const marker = `${join("node_modules", dep)}${process.platform === "win32" ? "\\" : "/"}`;
 	const idx = entry.lastIndexOf(marker);
 	if (idx < 0) {
