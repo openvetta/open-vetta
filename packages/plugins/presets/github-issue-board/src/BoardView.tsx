@@ -36,6 +36,8 @@ import {
 	removeTask,
 	retryFailedTask,
 	savePluginState,
+	selectAutoAdvanceTask,
+	setAutoAdvance,
 	updateTaskPrompt,
 	type GithubIssueState,
 	type GithubTask,
@@ -559,56 +561,87 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		setPendingRunId(null);
 	}
 
+	function withLiveAutoAdvance(fromRun: PluginState): PluginState {
+		const latest = stateRef.current;
+		return latest ? { ...fromRun, autoAdvance: latest.autoAdvance } : fromRun;
+	}
+
+	async function persistFromRun(fromRun: PluginState): Promise<void> {
+		await persist(withLiveAutoAdvance(fromRun));
+	}
+
+	async function promptTextForRun(task: GithubTask | undefined, withComments: boolean): Promise<string | undefined> {
+		if (!task || task.source.kind !== "issue" || !withComments) return undefined;
+		const result = await fetchIssueComments(
+			ctx.network,
+			task.source.owner,
+			task.source.repo,
+			task.source.issueNumber,
+			ctx.command,
+		);
+		if (githubFetchError(result) || !("items" in result)) {
+			ctx.ui.notify({ message: t("board.error.commentsFallback") });
+			return undefined;
+		}
+		return buildIssueRunPrompt({
+			title: task.title,
+			url: task.source.issueUrl,
+			body: task.body ?? "",
+			comments: result.items,
+			commitInstruction: ISSUE_COMMIT_INSTRUCTION,
+			includeComments: true,
+		});
+	}
+
 	async function handleRun(taskId: string, skill: string | null): Promise<void> {
-		const current = stateRef.current;
-		if (!current || inflightRef.current || pendingRunId !== taskId) return;
-		const task = current.tasks.find((item) => item.id === taskId);
+		const opened = stateRef.current;
+		if (!opened || inflightRef.current || pendingRunId !== taskId) return;
 		const withComments = includeComments;
 		setPendingRunId(null);
 		inflightRef.current = true;
-		const controller = new AbortController();
-		abortRef.current = controller;
 		try {
-			let sendPromptText: string | undefined;
-			if (task?.source.kind === "issue" && withComments) {
-				const result = await fetchIssueComments(
-					ctx.network,
-					task.source.owner,
-					task.source.repo,
-					task.source.issueNumber,
-					ctx.command,
-				);
-				if (githubFetchError(result) || !("items" in result)) {
-					ctx.ui.notify({ message: t("board.error.commentsFallback") });
-				} else {
-					sendPromptText = buildIssueRunPrompt({
-						title: task.title,
-						url: task.source.issueUrl,
-						body: task.body ?? "",
-						comments: result.items,
-						commitInstruction: ISSUE_COMMIT_INSTRUCTION,
-						includeComments: true,
+			let currentId: string | null = taskId;
+			let snapshot = opened;
+			while (currentId && !cancelledRef.current) {
+				const task = snapshot.tasks.find((item) => item.id === currentId);
+				const sendPromptText = await promptTextForRun(task, withComments);
+				if (cancelledRef.current) return;
+				const controller = new AbortController();
+				abortRef.current = controller;
+				try {
+					const result = await runQueuedTask({
+						state: snapshot,
+						taskId: currentId,
+						sessions: boardSessions(ctx),
+						cwd: resolveWorkspaceCwd(snapshot.workspace, conversation.cwd),
+						now: () => Date.now(),
+						persist: persistFromRun,
+						skill,
+						sendPromptText,
+						signal: controller.signal,
+						stoppedError: t("board.error.stopped"),
 					});
+					const merged = withLiveAutoAdvance(result.state);
+					if (!cancelledRef.current) setState(merged);
+					if (result.notice === "no-project") {
+						ctx.ui.notify({ message: t("board.error.noProject") });
+						break;
+					}
+					const finished = merged.tasks.find((item) => item.id === currentId);
+					if (!finished || finished.status === "pending") break;
+					const next = selectAutoAdvanceTask(merged, {
+						cwd: resolveWorkspaceCwd(merged.workspace, conversation.cwd),
+						finishedTaskId: currentId,
+						notice: result.notice,
+					});
+					if (!next) break;
+					snapshot = merged;
+					currentId = next.id;
+				} finally {
+					if (abortRef.current === controller) abortRef.current = null;
 				}
 			}
-			const result = await runQueuedTask({
-				state: current,
-				taskId,
-				sessions: boardSessions(ctx),
-				cwd: resolveWorkspaceCwd(current.workspace, conversation.cwd),
-				now: () => Date.now(),
-				persist,
-				skill,
-				sendPromptText,
-				signal: controller.signal,
-				stoppedError: t("board.error.stopped"),
-			});
-			if (!cancelledRef.current) setState(result.state);
-			if (result.notice === "no-project") {
-				ctx.ui.notify({ message: t("board.error.noProject") });
-			}
 		} finally {
-			if (abortRef.current === controller) abortRef.current = null;
 			if (!cancelledRef.current) setStoppingId(null);
 			inflightRef.current = false;
 		}
@@ -846,37 +879,53 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 					{t("board.add")}
 				</button>
 			</form>
-			{boardTasks.length > 0 ? (
-				<div className="flex flex-wrap items-end gap-2">
-					<label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
-						{t("board.filter.search")}
-						<input
-							className={FIELD}
-							placeholder={t("board.filter.search")}
-							type="search"
-							value={filterQuery}
-							onChange={(event) => setFilterQuery(event.target.value)}
+			<div className="flex flex-wrap items-end gap-2">
+				{boardTasks.length > 0 ? (
+					<>
+						<label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
+							{t("board.filter.search")}
+							<input
+								className={FIELD}
+								placeholder={t("board.filter.search")}
+								type="search"
+								value={filterQuery}
+								onChange={(event) => setFilterQuery(event.target.value)}
+							/>
+						</label>
+						<BoardSelect
+							label={t("board.filter.status")}
+							triggerIcon="icon-[solar--flag-linear]"
+							value={filterStatus}
+							options={STATUS_FILTER_VALUES.map((status) => ({
+								value: status,
+								label: status === "all" ? t("board.filter.status.all") : t(`board.status.${status}`),
+							}))}
+							onChange={setFilterStatus}
 						/>
-					</label>
-					<BoardSelect
-						label={t("board.filter.status")}
-						triggerIcon="icon-[solar--flag-linear]"
-						value={filterStatus}
-						options={STATUS_FILTER_VALUES.map((status) => ({
-							value: status,
-							label: status === "all" ? t("board.filter.status.all") : t(`board.status.${status}`),
-						}))}
-						onChange={setFilterStatus}
+						<BoardSelect
+							label={t("board.filter.label")}
+							triggerIcon="icon-[solar--tag-linear]"
+							value={filterLabel}
+							options={labelSelectOptions(labelOptions, filterLabel, t("board.filter.label.all"))}
+							onChange={setFilterLabel}
+						/>
+					</>
+				) : null}
+				<label className="flex items-center gap-2 pb-1 text-xs font-medium text-foreground">
+					<input
+						checked={state?.autoAdvance === true}
+						className="size-3.5 accent-[var(--primary)]"
+						disabled={!ready}
+						type="checkbox"
+						onChange={(event) => {
+							const current = stateRef.current;
+							if (!current) return;
+							void persist(setAutoAdvance(current, event.target.checked));
+						}}
 					/>
-					<BoardSelect
-						label={t("board.filter.label")}
-						triggerIcon="icon-[solar--tag-linear]"
-						value={filterLabel}
-						options={labelSelectOptions(labelOptions, filterLabel, t("board.filter.label.all"))}
-						onChange={setFilterLabel}
-					/>
-				</div>
-			) : null}
+					{t("board.autoAdvance")}
+				</label>
+			</div>
 			<div className="min-h-0 flex-1 overflow-auto">
 				<table className="w-full text-left text-sm">
 					<thead>

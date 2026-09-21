@@ -34,6 +34,7 @@
 	"board.run.direct": "Run directly",
 	"board.run.withSkill": "Run with {{name}}",
 	"board.run.includeComments": "Include comments",
+	"board.autoAdvance": "Run the next task automatically",
 	"board.edit": "Edit",
 	"board.delete": "Delete",
 	"board.delete.confirm": "Confirm delete",

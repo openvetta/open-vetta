@@ -1,5 +1,5 @@
 import { readJsonFile, writeJsonFile, type PluginStorageApi } from "@vetta-org/plugin-sdk";
-import { CONVERSATION_WORKSPACE, parseWorkspaceSource, type WorkspaceSource } from "./workspace";
+import { CONVERSATION_WORKSPACE, parseWorkspaceSource, tasksVisibleForBoard, type WorkspaceSource } from "./workspace";
 
 export const STATE_FILE = "state.json";
 
@@ -57,6 +57,7 @@ export interface PluginState {
 	lastFetch: { owner: string; repo: string } | null;
 	issueSync: IssueFetchSync | null;
 	fetchFilter: IssueFetchFilter;
+	autoAdvance: boolean;
 }
 
 export const EMPTY_STATE: PluginState = {
@@ -67,6 +68,7 @@ export const EMPTY_STATE: PluginState = {
 	lastFetch: null,
 	issueSync: null,
 	fetchFilter: DEFAULT_ISSUE_FETCH_FILTER,
+	autoAdvance: false,
 };
 
 const STATUSES: Record<GithubTaskStatus, true> = {
@@ -245,7 +247,8 @@ export function parsePluginState(value: unknown): PluginState {
 	const lastFetch = "lastFetch" in value ? parseRepoTarget(value.lastFetch) : null;
 	const issueSync = "issueSync" in value ? parseIssueSync(value.issueSync) : null;
 	const fetchFilter = "fetchFilter" in value ? parseIssueFetchFilter(value.fetchFilter) : DEFAULT_ISSUE_FETCH_FILTER;
-	return { repoTarget, workspace, tasks, issueNextPage, lastFetch, issueSync, fetchFilter };
+	const autoAdvance = "autoAdvance" in value && value.autoAdvance === true;
+	return { repoTarget, workspace, tasks, issueNextPage, lastFetch, issueSync, fetchFilter, autoAdvance };
 }
 
 function titleFromPrompt(promptText: string): string {
@@ -469,6 +472,22 @@ export function retryFailedTask(state: PluginState, taskId: string, now: number)
 			return next;
 		}),
 	};
+}
+
+export function setAutoAdvance(state: PluginState, autoAdvance: boolean): PluginState {
+	const next = autoAdvance === true;
+	if (state.autoAdvance === next) return state;
+	return { ...state, autoAdvance: next };
+}
+
+export function selectAutoAdvanceTask(
+	state: PluginState,
+	input: { cwd: string | null; finishedTaskId: string; notice?: "no-project" | null },
+): GithubTask | null {
+	if (!state.autoAdvance || input.notice === "no-project" || hasRunningTask(state)) return null;
+	const finished = state.tasks.find((task) => task.id === input.finishedTaskId);
+	if (!finished || finished.status !== "completed") return null;
+	return tasksVisibleForBoard(state.tasks, state.repoTarget, input.cwd).find((task) => task.status === "pending") ?? null;
 }
 
 export async function loadPluginState(storage: PluginStorageApi): Promise<PluginState> {
