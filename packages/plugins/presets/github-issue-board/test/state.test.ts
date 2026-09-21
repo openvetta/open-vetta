@@ -445,7 +445,7 @@ describe("updateTaskPrompt", () => {
 });
 
 describe("reclaimRunningTasks", () => {
-	it("marks a running issue failed, keeps the session, and leaves other tasks alone", () => {
+	it("marks a finished session completed, keeps the session, and leaves other tasks alone", () => {
 		const running = issueTask({
 			id: "run",
 			title: "Fix login",
@@ -477,15 +477,36 @@ describe("reclaimRunningTasks", () => {
 		const next = reclaimRunningTasks(state, NOW + 5, "Interrupted by a previous session");
 		expect(next.tasks[0]).toMatchObject({
 			id: "run",
-			status: "failed",
-			error: "Interrupted by a previous session",
+			status: "completed",
 			sessionId: "/repo/sess-1.jsonl",
 			updatedAt: NOW + 5,
 			promptText: "Fix login",
 		});
+		expect(next.tasks[0]?.error).toBeUndefined();
 		expect(next.tasks[1]).toBe(pendingTask);
 		expect(next.tasks[2]).toBe(completedTask);
 		expect(hasRunningTask(next)).toBe(false);
+	});
+
+	it("marks a running task without a session as interrupted", () => {
+		const running = issueTask({
+			id: "run",
+			title: "Fix login",
+			status: "running",
+			updatedAt: NOW,
+		});
+		const next = reclaimRunningTasks(
+			{ ...EMPTY_STATE, tasks: [running] },
+			NOW + 5,
+			"Interrupted by a previous session",
+		);
+		expect(next.tasks[0]).toMatchObject({
+			id: "run",
+			status: "failed",
+			error: "Interrupted by a previous session",
+			updatedAt: NOW + 5,
+		});
+		expect(next.tasks[0]?.sessionId).toBeUndefined();
 	});
 
 	it("returns the same state when nothing is running", () => {
@@ -509,7 +530,7 @@ describe("reconcileRunningTasks", () => {
 		expect(result.live).toEqual([running]);
 	});
 
-	it("reclaims a running task whose session is no longer live", () => {
+	it("marks a running task completed when its session is no longer live", () => {
 		const running = issueTask({
 			id: "run",
 			title: "Fix login",
@@ -522,12 +543,32 @@ describe("reconcileRunningTasks", () => {
 		expect(result.live).toEqual([]);
 		expect(result.state.tasks[0]).toMatchObject({
 			id: "run",
-			status: "failed",
-			error: "Interrupted by a previous session",
+			status: "completed",
 			sessionId: "/repo/sess-1.jsonl",
 			updatedAt: NOW + 5,
 		});
+		expect(result.state.tasks[0]?.error).toBeUndefined();
 		expect(result.state.tasks[1]).toBe(pending);
+	});
+
+	it("marks a running task interrupted when it never recorded a session", () => {
+		const running = issueTask({
+			id: "run",
+			title: "Fix login",
+			status: "running",
+		});
+		const result = reconcileRunningTasks(
+			{ ...EMPTY_STATE, tasks: [running] },
+			[],
+			NOW + 5,
+			"Interrupted by a previous session",
+		);
+		expect(result.live).toEqual([]);
+		expect(result.state.tasks[0]).toMatchObject({
+			status: "failed",
+			error: "Interrupted by a previous session",
+			updatedAt: NOW + 5,
+		});
 	});
 });
 

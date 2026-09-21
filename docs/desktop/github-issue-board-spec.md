@@ -77,12 +77,13 @@
 
 **行为**
 
-加载 `state.json` 后、写入 UI 之前，把所有 `status === "running"` 的任务收成 `failed`：
+加载 `state.json` 后、写入 UI 之前，把所有 `status === "running"` 且**没有** `sessionId` 的任务收成 `failed`：
 
 - `error` 固定为可 i18n 的中断原因键对应文案，中文：「上次运行被中断」，英文：`Interrupted by a previous session`。
-- 保留 `sessionId`（若有），「查看对话」仍然可用。
 - `updatedAt` 设为回收发生的时间。
 - 回收后立刻 `savePluginState`。不要等用户点什么。
+
+若 `status === "running"` 且已有 `sessionId`，而 `listRunning()` 不再包含该路径，则收成 `completed`（与切片 2「prompt 已发出且 running 结束」同一规则）。保留 `sessionId`，「查看对话」仍然可用。
 
 **不变量**
 
@@ -147,7 +148,8 @@
 
 纯函数（`state.test.ts`）：
 
-- Given 队列里有一条 running 且带 sessionId，When `reclaimRunningTasks`，Then 该条 failed、error 为中断文案、sessionId 仍在，其它任务不动。
+- Given 队列里有一条 running 且带 sessionId，When `reclaimRunningTasks`，Then 该条 completed、sessionId 仍在、没有 error，其它任务不动。
+- Given 一条 running 且没有 sessionId，When 回收，Then failed、error 为中断文案。
 - Given 没有 running，When 回收，Then 返回同一对象或深等价格相等（不无故改 `updatedAt`）。
 - Given Issue failed，When `retryFailedTask`，Then pending、error 清空、prompt 不变。
 - Given pending / running / completed，When 重试，Then 原样。
@@ -158,7 +160,8 @@
 
 DOM（`board-view.dom.test.tsx`）——用户路径：
 
-- Given 持久化里有一条 running Issue，When 挂载任务台，Then 看到失败 +「上次运行被中断」，其它行的「运行」可点。
+- Given 持久化里有一条 running Issue 且带 sessionId，When 挂载任务台且会话已不在跑，Then 看到已完成，其它行的「运行」可点。
+- Given 持久化里有一条 running 且没有 sessionId，When 挂载任务台，Then 看到失败 +「上次运行被中断」。
 - Given 失败的 Issue，When 点「重试」再点「运行」→「直接运行」，Then 会建会话并发原文。
 - Given 一条 running，When 点「停止」，Then 该条失败，其它「运行」恢复可点。
 
@@ -231,7 +234,8 @@ running 行必须同时能看出：
 1. `loadPluginState`（或内存 state，若插件未卸载）。
 2. 若仍有 `running`，用 `official.sessions.listRunning()` 核对 `sessionPath`。
    - 仍在跑：保持 running，重新挂上 `onRunningChanged`。
-   - 不在跑：按切片 1 的回收规则标 failed（中断），**不要**在「对不上」时标 completed。宁可误标失败让用户重试，也不要把一次没跑完的标成完成。
+   - 不在跑且有 `sessionId`：标 `completed`。离开任务台去看对话是常见路径，会话会在主进程跑完；不能把这次结束显示成「上次运行被中断」。
+   - 不在跑且没有 `sessionId`：按切片 1 标 failed（中断）。会话还没建成就退出，没有可查看的对话。
 
 ### 4.5 切片 2 测试
 

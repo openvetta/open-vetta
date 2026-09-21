@@ -455,6 +455,15 @@ export function reconcileRunningTasks(
 			return task;
 		}
 		changed = true;
+		// A persisted session that is no longer in the host running set already
+		// finished its agent loop. Treat that as completed so leaving the board
+		// (e.g. Open conversation) cannot show a finished run as interrupted.
+		// Only runs that never recorded a session are interrupted.
+		if (task.sessionId) {
+			const next: GithubTask = { ...task, status: "completed", updatedAt: now };
+			delete next.error;
+			return next;
+		}
 		return { ...task, status: "failed" as const, error, updatedAt: now };
 	});
 	return { state: changed ? { ...state, tasks } : state, live };

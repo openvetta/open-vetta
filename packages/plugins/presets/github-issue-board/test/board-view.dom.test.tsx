@@ -1005,7 +1005,7 @@ describe("GitHub Issue board view", () => {
 		);
 	});
 
-	it("reclaims a persisted running issue on load so other tasks can run", async () => {
+	it("marks a persisted running issue completed on load when its session already finished", async () => {
 		const { ctx, registered } = fakeContext({
 			gitRemote: githubRemote("acme", "app"),
 			initialState: {
@@ -1056,17 +1056,104 @@ describe("GitHub Issue board view", () => {
 		const view = boardView(registered);
 		render(<view.component pluginId="github-issue-board" viewId="board" />);
 
+		expect(
+			await screen.findByRole("cell", {
+				name: `${COPY["board.status.completed"]} ${COPY["board.issue.state.open"]}`,
+			}),
+		).toBeTruthy();
+		expect(screen.queryByText(COPY["board.error.interrupted"] ?? "")).toBeNull();
+		expect(within(taskRow("Fix login")).getByRole("button", { name: COPY["board.openSession"] })).toBeTruthy();
+		expect(within(taskRow("Add docs")).getByRole("button", { name: COPY["board.run"] })).not.toHaveProperty(
+			"disabled",
+			true,
+		);
+	});
+
+	it("reclaims a persisted running issue without a session as interrupted", async () => {
+		const { ctx, registered } = fakeContext({
+			gitRemote: githubRemote("acme", "app"),
+			initialState: {
+				repoTarget: { owner: "acme", repo: "app" },
+				workspace: { kind: "conversation" },
+				tasks: [
+					{
+						id: "run",
+						title: "Fix login",
+						promptText: "Fix login",
+						source: {
+							kind: "issue",
+							owner: "acme",
+							repo: "app",
+							issueNumber: 10,
+							issueUrl: "https://github.com/acme/app/issues/10",
+							issueUpdatedAt: "2026-01-01T00:00:00Z",
+							issueState: "open",
+						},
+						status: "running",
+						createdAt: 1,
+						updatedAt: 1,
+					},
+					{
+						id: "next",
+						title: "Add docs",
+						promptText: "Add docs",
+						source: {
+							kind: "issue",
+							owner: "acme",
+							repo: "app",
+							issueNumber: 11,
+							issueUrl: "https://github.com/acme/app/issues/11",
+							issueUpdatedAt: "2026-01-01T00:00:00Z",
+							issueState: "open",
+						},
+						status: "pending",
+						createdAt: 1,
+						updatedAt: 1,
+					},
+				],
+				issueNextPage: null,
+				lastFetch: { owner: "acme", repo: "app" },
+			},
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
 		expect(await screen.findByText(COPY["board.error.interrupted"] ?? "")).toBeTruthy();
 		expect(
 			within(taskRow("Fix login")).getByRole("cell", {
 				name: `${COPY["board.status.failed"]} ${COPY["board.issue.state.open"]} ${COPY["board.error.interrupted"]}`,
 			}),
 		).toBeTruthy();
-		expect(within(taskRow("Fix login")).getByRole("button", { name: COPY["board.openSession"] })).toBeTruthy();
 		expect(within(taskRow("Add docs")).getByRole("button", { name: COPY["board.run"] })).not.toHaveProperty(
 			"disabled",
 			true,
 		);
+	});
+
+	it("shows completed after leaving the board while a run finishes in the background", async () => {
+		const { ctx, registered } = fakeContext({ hangSend: true });
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		const first = render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await addTask("Fix the login button");
+		await runDirectly("Fix the login button");
+		await waitFor(() => {
+			expect(
+				within(taskRow("Fix the login button")).getByRole("cell", { name: COPY["board.status.running"] }),
+			).toBeTruthy();
+		});
+
+		first.unmount();
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await waitFor(() => {
+			expect(
+				within(taskRow("Fix the login button")).getByRole("cell", { name: COPY["board.status.completed"] }),
+			).toBeTruthy();
+		});
+		expect(screen.queryByText(COPY["board.error.interrupted"] ?? "")).toBeNull();
 	});
 
 	it("retries a failed issue back to pending and runs the original prompt", async () => {
