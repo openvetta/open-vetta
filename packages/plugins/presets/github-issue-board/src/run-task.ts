@@ -12,6 +12,18 @@ export function selectBoardRunSkills(list: readonly PluginOfficialSkillInfo[]): 
 		.sort((left, right) => left.name.localeCompare(right.name));
 }
 
+export function filterBoardRunSkills(
+	skills: readonly PluginOfficialSkillInfo[],
+	query: string,
+): PluginOfficialSkillInfo[] {
+	const needle = query.trim().toLowerCase();
+	if (!needle) return skills.slice();
+	return skills.filter((skill) => {
+		const haystack = [skill.name, skill.alias ?? "", skill.description].join("\n").toLowerCase();
+		return haystack.includes(needle);
+	});
+}
+
 export interface BoardSessionPort {
 	create(input: { cwd: string; title?: string }): Promise<{ sessionId: string; sessionPath: string }>;
 	prompt(

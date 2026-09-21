@@ -377,10 +377,10 @@ DOM：
 1. 「直接运行」（无 token）——第一项，保持现状。
 2. 当前工作目录下 `official.skills.list(cwd)` 返回的 `type === "skill"` 且 `enabled !== false` 的项，按 name 排序。展示 `alias ?? name`。点某一项即 `promptForRun(text, skill.name)`。
 3. 列表失败或为空：只显示「直接运行」。**不要**再写死「用 implement 运行」。
+4. 技能多时气泡内可搜索（对 name / alias / description 做不区分大小写包含匹配）。空字符串或纯空白不过滤。「直接运行」固定在搜索框下方，不被搜索藏掉。无匹配时保留「直接运行」并提示没有符合的技能。
+5. 技能列表在气泡内滚动，气泡最大高度不超过视口；滚动列表不关闭气泡。表格滚动、点空白、Esc、再点运行仍关闭。
 
 本机没有 implement 时，不得假装有。这是对 v0.5.58 行为的修正，发布说明写进「修复」。
-
-气泡交互（再点运行 / 点空白 / Esc 收起）保持不变。
 
 ### 7.2 评论是否进 prompt
 
@@ -417,6 +417,8 @@ login: body    ← 按时间正序，逐条加入直到预算用尽
 ### 7.4 切片 5 测试
 
 - skills 列表含 implement 与其它 skill 时，气泡出现对应项；点其中一项，发出的文本带 `@skill:name `，存盘 prompt 不变。
+- 搜索「impl」只留下 alias/name 匹配的 skill；「直接运行」仍在。无匹配时提示没有符合的技能，仍可直接运行。
+- 滚动技能列表不关闭气泡；表格滚动仍关闭。
 - skills 为空时气泡只有「直接运行」。
 - 勾选「带上评论」时，发出的文本含评论作者与正文；`promptText` 不含 Comments。
 - 评论请求失败时仍发出正文，且 notify。
@@ -538,6 +540,9 @@ DOM：勾选后跑一条会自动开始下一条；取消勾选后不再接力�
 | `board.fetch.label` | 标签 | Label |
 | `board.error.assigneeNeedsGh` | 指派给我需要本机已登录 GitHub CLI | “Assigned to me” needs a logged-in GitHub CLI |
 | `board.run.includeComments` | 带上评论 | Include comments |
+| `board.run.search` | 搜索技能 | Search skills |
+| `board.run.skills` | 技能 | Skills |
+| `board.run.noMatch` | 没有符合的技能 | No matching skills |
 | `board.autoAdvance` | 跑完自动下一条 | Run the next task automatically |
 | `board.error.commentsFallback` | 评论加载失败，已按正文发送 | Could not load comments; sent the description only |
 

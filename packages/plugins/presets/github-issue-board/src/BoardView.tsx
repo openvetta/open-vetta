@@ -22,7 +22,14 @@ import {
 	type GithubFetchErrorKind,
 	type GithubIssueComment,
 } from "./github-issues";
-import { detachBoardRuns, followRunningTask, runQueuedTask, selectBoardRunSkills, type BoardSessionPort } from "./run-task";
+import {
+	detachBoardRuns,
+	filterBoardRunSkills,
+	followRunningTask,
+	runQueuedTask,
+	selectBoardRunSkills,
+	type BoardSessionPort,
+} from "./run-task";
 import {
 	accumulateIssueNumbers,
 	addManualTask,
@@ -71,7 +78,10 @@ const RESOLVE_ERROR_KEY: Record<ResolveGithubRepoError, string> = {
 
 const FIELD =
 	"w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm font-normal text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/60";
-
+const COMPACT_FIELD =
+	"h-7 w-full rounded-lg border border-border bg-background px-2.5 text-[12px] font-normal text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/60";
+const COMPACT_PRIMARY =
+	"h-7 shrink-0 rounded-lg bg-primary px-3 text-[12px] font-medium text-primary-foreground disabled:opacity-40";
 const STATUS_BADGE: Record<GithubTaskStatus, string> = {
 	pending: "bg-muted text-muted-foreground",
 	running: "bg-primary/10 text-primary",
@@ -99,9 +109,14 @@ interface RunMenuPos {
 
 function positionRunMenu(trigger: DOMRect, menu: DOMRect): RunMenuPos {
 	const gap = 8;
-	const placeAbove = trigger.top >= menu.height + gap + 8;
-	const top = placeAbove ? trigger.top - menu.height - gap : trigger.bottom + gap;
-	const left = Math.min(Math.max(8, trigger.right - menu.width), window.innerWidth - menu.width - 8);
+	const margin = 8;
+	const placeAbove = trigger.top >= Math.min(menu.height, window.innerHeight / 2) + gap + margin;
+	const unclampedTop = placeAbove ? trigger.top - menu.height - gap : trigger.bottom + gap;
+	const top = Math.max(margin, Math.min(unclampedTop, window.innerHeight - menu.height - margin));
+	const left = Math.min(
+		Math.max(margin, trigger.right - menu.width),
+		window.innerWidth - menu.width - margin,
+	);
 	return { top, left, placeAbove };
 }
 
@@ -162,6 +177,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const [filterLabel, setFilterLabel] = useState("all");
 	const [labelDraft, setLabelDraft] = useState<string | null>(null);
 	const [runSkills, setRunSkills] = useState<PluginOfficialSkillInfo[]>([]);
+	const [skillQuery, setSkillQuery] = useState("");
 	const [includeComments, setIncludeComments] = useState(false);
 	const conversation = useActiveConversation();
 	const cancelledRef = useRef(false);
@@ -196,6 +212,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		label: filterLabel,
 	});
 	const labelOptions = uniqueTaskLabels(boardTasks);
+	const visibleRunSkills = filterBoardRunSkills(runSkills, skillQuery);
 	const pendingRunTask = pendingRunId ? (state?.tasks.find((task) => task.id === pendingRunId) ?? null) : null;
 	const selectedWorkspaceValue = workspaceSelectValue(workspace);
 	const workspaceTriggerName =
@@ -301,7 +318,11 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		const onKeyDown = (event: KeyboardEvent) => {
 			if (event.key === "Escape") setPendingRunId(null);
 		};
-		const onScroll = () => setPendingRunId(null);
+		const onScroll = (event: Event) => {
+			const target = event.target;
+			if (target instanceof Node && runMenuRef.current?.contains(target)) return;
+			setPendingRunId(null);
+		};
 		document.addEventListener("pointerdown", onPointerDown);
 		document.addEventListener("keydown", onKeyDown);
 		document.addEventListener("scroll", onScroll, true);
@@ -340,7 +361,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		const menu = runMenuRef.current;
 		if (!trigger || !menu) return;
 		setRunMenuPos(positionRunMenu(trigger.getBoundingClientRect(), menu.getBoundingClientRect()));
-	}, [pendingRunId, runSkills, includeComments]);
+	}, [pendingRunId, runSkills, includeComments, skillQuery]);
 
 	async function persist(next: PluginState): Promise<void> {
 		stateRef.current = next;
@@ -553,6 +574,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		setEditingId(null);
 		setEditDraft("");
 		runTriggerRef.current = trigger;
+		setSkillQuery("");
 		setIncludeComments(false);
 		setPendingRunId(task.id);
 	}
@@ -842,7 +864,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 				<label className="flex min-w-[10rem] flex-col gap-1 text-xs font-medium text-muted-foreground">
 					{t("board.fetch.label")}
 					<input
-						className={FIELD}
+						className={COMPACT_FIELD}
 						disabled={!ready || fetching}
 						value={fetchLabelValue}
 						onBlur={() => {
@@ -853,7 +875,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 						}}
 					/>
 				</label>
-				<button className={PRIMARY_BUTTON} disabled={!canFetch} type="submit">
+				<button className={COMPACT_PRIMARY} disabled={!canFetch} type="submit">
 					{t("board.fetch")}
 				</button>
 			</form>
@@ -1183,16 +1205,17 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 				<div
 					ref={runMenuRef}
 					aria-label={t("board.run")}
-					className="z-50 flex min-w-[11rem] flex-col gap-0.5 rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-lg"
+					className="z-50 flex max-h-[min(24rem,calc(100vh-16px))] w-64 min-w-[14rem] flex-col gap-0.5 rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-lg"
 					style={{
 						position: "fixed",
 						top: runMenuPos?.top ?? 0,
 						left: runMenuPos?.left ?? 0,
 						visibility: runMenuPos ? "visible" : "hidden",
 					}}
+					onWheel={(event) => event.stopPropagation()}
 				>
 					{pendingRunTask?.source.kind === "issue" ? (
-						<label className={`${RUN_MENU_ITEM} flex items-center gap-2`}>
+						<label className={`${RUN_MENU_ITEM} flex shrink-0 items-center gap-2`}>
 							<input
 								checked={includeComments}
 								className="size-3.5 accent-[var(--primary)]"
@@ -1202,25 +1225,48 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 							{t("board.run.includeComments")}
 						</label>
 					) : null}
+					{runSkills.length > 0 ? (
+						<input
+							aria-label={t("board.run.search")}
+							autoComplete="off"
+							className={`${FIELD} shrink-0 text-xs`}
+							placeholder={t("board.run.search")}
+							spellCheck={false}
+							type="search"
+							value={skillQuery}
+							onChange={(event) => setSkillQuery(event.target.value)}
+						/>
+					) : null}
 					<button
-						className={RUN_MENU_ITEM}
+						className={`${RUN_MENU_ITEM} shrink-0`}
 						disabled={!ready || busy}
 						type="button"
 						onClick={() => void handleRun(pendingRunId, null)}
 					>
 						{t("board.run.direct")}
 					</button>
-					{runSkills.map((skill) => (
-						<button
-							className={RUN_MENU_ITEM}
-							disabled={!ready || busy}
-							key={skill.name}
-							type="button"
-							onClick={() => void handleRun(pendingRunId, skill.name)}
+					{runSkills.length > 0 ? (
+						<div
+							aria-label={t("board.run.skills")}
+							className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+							role="region"
 						>
-							{t("board.run.withSkill", { name: skill.alias ?? skill.name })}
-						</button>
-					))}
+							{visibleRunSkills.map((skill) => (
+								<button
+									className={`${RUN_MENU_ITEM} w-full`}
+									disabled={!ready || busy}
+									key={skill.name}
+									type="button"
+									onClick={() => void handleRun(pendingRunId, skill.name)}
+								>
+									{t("board.run.withSkill", { name: skill.alias ?? skill.name })}
+								</button>
+							))}
+							{visibleRunSkills.length === 0 ? (
+								<p className="px-2.5 py-1.5 text-xs text-muted-foreground">{t("board.run.noMatch")}</p>
+							) : null}
+						</div>
+					) : null}
 					<span
 						aria-hidden="true"
 						className={

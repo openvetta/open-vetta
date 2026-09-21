@@ -50,6 +50,9 @@ const COPY: Record<string, string> = {
 	"board.run": "Run",
 	"board.run.direct": "Run directly",
 	"board.run.withSkill": "Run with {{name}}",
+	"board.run.search": "Search skills",
+	"board.run.skills": "Skills",
+	"board.run.noMatch": "No matching skills",
 	"board.run.includeComments": "Include comments",
 	"board.autoAdvance": "Run the next task automatically",
 	"board.retry": "Retry",
@@ -411,12 +414,13 @@ function taskRow(title: string): HTMLElement {
 
 function listedSkill(
 	name: string,
-	extra?: { alias?: string; type?: "skill" | "scene"; enabled?: boolean },
+	extra?: { alias?: string; type?: "skill" | "scene"; enabled?: boolean; description?: string },
 ): {
 	name: string;
 	alias?: string;
 	type?: "skill" | "scene";
 	enabled?: boolean;
+	description?: string;
 } {
 	return { name, ...extra };
 }
@@ -913,6 +917,79 @@ describe("GitHub Issue board view", () => {
 		});
 		expect(sendPrompt).toHaveBeenCalledWith("sess-1", "@skill:implement Fix the login button");
 	});
+
+	it("filters run-menu skills by name, alias, or description and still runs the match", async () => {
+		const { ctx, registered, sendPrompt } = fakeContext({
+			skills: [
+				listedSkill("review", { description: "Look at the diff" }),
+				listedSkill("implement", { alias: "impl", description: "Write the code" }),
+				listedSkill("docs", { description: "Update readme" }),
+			],
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await addTask("Fix the login button");
+		await openRunMenu("Fix the login button");
+
+		const search = screen.getByRole("searchbox", { name: COPY["board.run.search"] });
+		await act(async () => {
+			fireEvent.change(search, { target: { value: "impl" } });
+		});
+		expect(screen.getByRole("button", { name: "Run with impl" })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Run with review" })).toBeNull();
+		expect(screen.queryByRole("button", { name: "Run with docs" })).toBeNull();
+		expect(screen.getByRole("button", { name: COPY["board.run.direct"] })).toBeTruthy();
+
+		await act(async () => {
+			fireEvent.change(search, { target: { value: "readme" } });
+		});
+		expect(screen.getByRole("button", { name: "Run with docs" })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Run with impl" })).toBeNull();
+
+		await act(async () => {
+			fireEvent.change(search, { target: { value: "zzzz" } });
+		});
+		expect(screen.getByText(COPY["board.run.noMatch"])).toBeTruthy();
+		expect(screen.getByRole("button", { name: COPY["board.run.direct"] })).toBeTruthy();
+
+		await act(async () => {
+			fireEvent.change(search, { target: { value: "impl" } });
+		});
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "Run with impl" }));
+		});
+		await waitFor(() => {
+			expect(
+				within(taskRow("Fix the login button")).getByRole("cell", { name: COPY["board.status.completed"] }),
+			).toBeTruthy();
+		});
+		expect(sendPrompt).toHaveBeenCalledWith("sess-1", "@skill:implement Fix the login button");
+	});
+
+	it("keeps the run menu open when the skill list scrolls and closes when the table scrolls", async () => {
+		const { ctx, registered } = fakeContext({
+			skills: ["alpha", "bravo", "charlie", "delta"].map((name) => listedSkill(name)),
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		await addTask("Fix the login button");
+		await openRunMenu("Fix the login button");
+
+		const skillList = screen.getByRole("region", { name: COPY["board.run.skills"] });
+		fireEvent.scroll(skillList);
+		expect(screen.getByRole("button", { name: COPY["board.run.direct"] })).toBeTruthy();
+		expect(screen.getByRole("button", { name: "Run with alpha" })).toBeTruthy();
+
+		const tableScroller = screen.getByRole("table").parentElement;
+		expect(tableScroller).toBeTruthy();
+		fireEvent.scroll(tableScroller as HTMLElement);
+		expect(screen.queryByRole("button", { name: COPY["board.run.direct"] })).toBeNull();
+	});
+
 
 	it("only offers run directly when the skill list is empty or fails", async () => {
 		const empty = fakeContext();

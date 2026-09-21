@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { addManualTask, EMPTY_STATE, hasRunningTask, type PluginState } from "../src/state";
 import {
 	detachBoardRuns,
+	filterBoardRunSkills,
 	followRunningTask,
 	IMPLEMENT_SKILL,
 	promptForRun,
@@ -333,5 +334,42 @@ describe("followRunningTask", () => {
 		expect(followed.state.tasks[0]).toMatchObject({ status: "failed", error: "Stopped" });
 		expect(persisted.filter((status) => status === "completed" || status === "follow:completed")).toEqual([]);
 		expect(persisted).toContain("follow:failed");
+	});
+});
+
+describe("filterBoardRunSkills", () => {
+	const skills = [
+		{ name: "review", description: "Look at the diff", source: "custom", type: "skill" as const },
+		{
+			name: "implement",
+			alias: "impl",
+			description: "Write the code",
+			source: "custom",
+			type: "skill" as const,
+		},
+		{ name: "docs", description: "Update readme", source: "custom", type: "skill" as const },
+	];
+
+	it("returns every skill when the query is empty or whitespace", () => {
+		expect(filterBoardRunSkills(skills, "").map((skill) => skill.name)).toEqual([
+			"review",
+			"implement",
+			"docs",
+		]);
+		expect(filterBoardRunSkills(skills, "   ").map((skill) => skill.name)).toEqual([
+			"review",
+			"implement",
+			"docs",
+		]);
+	});
+
+	it("matches name, alias, and description without regard to case", () => {
+		expect(filterBoardRunSkills(skills, "IMPL").map((skill) => skill.name)).toEqual(["implement"]);
+		expect(filterBoardRunSkills(skills, "readme").map((skill) => skill.name)).toEqual(["docs"]);
+		expect(filterBoardRunSkills(skills, "Review").map((skill) => skill.name)).toEqual(["review"]);
+	});
+
+	it("returns an empty list when nothing matches", () => {
+		expect(filterBoardRunSkills(skills, "zzzz")).toEqual([]);
 	});
 });
