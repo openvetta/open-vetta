@@ -1,8 +1,16 @@
+import type { PluginOfficialSkillInfo } from "@vetta-org/plugin-sdk";
 import { hasRunningTask, setTaskStatus, type PluginState } from "./state";
 
 export type RunTaskNotice = "no-project" | null;
 
 export const IMPLEMENT_SKILL = "implement";
+
+export function selectBoardRunSkills(list: readonly PluginOfficialSkillInfo[]): PluginOfficialSkillInfo[] {
+	return list
+		.filter((skill) => skill.type === "skill" && Reflect.get(skill, "enabled") !== false)
+		.slice()
+		.sort((left, right) => left.name.localeCompare(right.name));
+}
 
 export interface BoardSessionPort {
 	create(input: { cwd: string; title?: string }): Promise<{ sessionId: string; sessionPath: string }>;
@@ -25,6 +33,8 @@ export interface RunQueuedTaskInput {
 	persist?: (state: PluginState) => void | Promise<void>;
 	/** When set, prefix the sent prompt with `@skill:<name>` without persisting it. */
 	skill?: string | null;
+	/** Sent text before the skill prefix; defaults to the stored task prompt. */
+	sendPromptText?: string;
 	signal?: AbortSignal;
 	stoppedError?: string;
 }
@@ -172,7 +182,10 @@ export async function runQueuedTask(input: RunQueuedTaskInput): Promise<{
 			await persist?.(current);
 			watch = watchSessionIdle(sessions, sessionPath, runtimeId, input.signal);
 		}
-		const sendPrompt = sessions.prompt(session.sessionId, promptForRun(task.promptText, input.skill));
+		const sendPrompt = sessions.prompt(
+			session.sessionId,
+			promptForRun(input.sendPromptText ?? task.promptText, input.skill),
+		);
 		const sent = input.signal ? await Promise.race([sendPrompt, whenAborted(input.signal)]) : await sendPrompt;
 		if (sent === ABORTED) {
 			await abortSession(sessions, runtimeId.current);

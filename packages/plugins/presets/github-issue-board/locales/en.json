@@ -33,6 +33,7 @@
 	"board.stop": "Stop",
 	"board.run.direct": "Run directly",
 	"board.run.withSkill": "Run with {{name}}",
+	"board.run.includeComments": "Include comments",
 	"board.edit": "Edit",
 	"board.delete": "Delete",
 	"board.delete.confirm": "Confirm delete",
@@ -75,6 +76,7 @@
 	"board.error.noProject": "Select a project or local folder first",
 	"board.error.interrupted": "Interrupted by a previous session",
 	"board.error.stopped": "Stopped",
+	"board.error.commentsFallback": "Could not load comments; sent the description only",
 	"board.error.notGit": "The current folder is not a Git repository.",
 	"board.error.noGithubRemote": "The current project has no GitHub remote.",
 	"board.error.pickDirectory": "Could not open the folder picker."
