@@ -7,6 +7,9 @@ import {
 	__setPluginHostBridge,
 	type ConversationEvent,
 	type ConversationState,
+	type PluginAiCompleteRequest,
+	type PluginAiCompleteResult,
+	type PluginAiStreamOptions,
 	type PluginCommandApi,
 	type PluginContext,
 	type PluginConversationApi,
@@ -26,6 +29,10 @@ const COPY: Record<string, string> = {
 	"board.title": "GitHub Issue Board",
 	"board.taskInput.label": "Task description",
 	"board.add": "Add",
+	"board.refine": "Improve with AI",
+	"board.refine.busy": "Improving…",
+	"board.preview.label": "Improved preview",
+	"board.restoreOriginal": "Restore original",
 	"board.queue.title": "Title",
 	"board.queue.labels": "Labels",
 	"board.queue.assignees": "Assignees",
@@ -100,6 +107,9 @@ const COPY: Record<string, string> = {
 	"board.error.noGithubRemote": "The current project has no GitHub remote.",
 	"board.error.notGit": "The current folder is not a Git repository.",
 	"board.openSession": "Open conversation",
+	"board.error.refine": "Could not improve the draft. Retry or add the original text.",
+	"board.error.refineTimeout": "Improving the draft timed out. Retry or add the original text.",
+	"board.error.refineEmpty": "The model returned nothing usable. Retry or add the original text.",
 };
 
 function installHostBridge(conversation: ConversationState): void {
@@ -146,6 +156,10 @@ function fakeContext(options?: {
 	projects?: Array<{ path: string; name?: string }>;
 	openDirectory?: () => Promise<string | null>;
 	runningSessionPaths?: string[];
+	aiStream?: (
+		request: PluginAiCompleteRequest,
+		options?: PluginAiStreamOptions,
+	) => Promise<PluginAiCompleteResult>;
 }) {
 	const registered: RegisteredView[] = [];
 	const files = new Map<string, string>();
@@ -307,6 +321,20 @@ function fakeContext(options?: {
 				},
 			},
 		},
+		ai: {
+			listModels: async () => ({ defaultModel: null, models: [] }),
+			complete: async () => {
+				throw new Error("complete is unused");
+			},
+			stream:
+				options?.aiStream ??
+				(async () => {
+					throw new Error("stream is unused");
+				}),
+			chat: async () => {
+				throw new Error("chat is unused");
+			},
+		},
 	} as unknown as PluginContext;
 	return {
 		ctx,
@@ -455,6 +483,166 @@ describe("GitHub Issue board view", () => {
 
 		render(<view.component pluginId="github-issue-board" viewId="board" />);
 		expect(screen.getByRole("heading", { name: COPY["board.title"] })).toBeTruthy();
+	});
+
+	it("disables Improve with AI while the new-task draft is empty", async () => {
+		const { ctx, registered } = fakeContext();
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		const refine = await waitFor(() => screen.getByRole("button", { name: COPY["board.refine"] }));
+		expect(refine).toHaveProperty("disabled", true);
+		const input = await readyInput();
+		fireEvent.change(input, { target: { value: "Fix login" } });
+		expect(screen.getByRole("button", { name: COPY["board.refine"] })).toHaveProperty("disabled", false);
+	});
+
+	it("does not start a second Improve with AI request while one is in progress", async () => {
+		let resolveStream: ((result: PluginAiCompleteResult) => void) | undefined;
+		const stream = vi.fn(
+			() =>
+				new Promise<PluginAiCompleteResult>((resolve) => {
+					resolveStream = resolve;
+				}),
+		);
+		const { ctx, registered } = fakeContext({ aiStream: stream });
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		const input = await readyInput();
+		fireEvent.change(input, { target: { value: "Fix login" } });
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.refine"] }));
+		});
+		expect(await screen.findByRole("button", { name: COPY["board.refine.busy"] })).toHaveProperty("disabled", true);
+		fireEvent.click(screen.getByRole("button", { name: COPY["board.refine.busy"] }));
+		expect(stream).toHaveBeenCalledTimes(1);
+
+		await act(async () => {
+			resolveStream?.({
+				modelKey: "default",
+				text: "## Background / Goal\n\nImproved login fix",
+				stopReason: "stop",
+				usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+			});
+		});
+		await waitFor(() => {
+			expect(screen.getByRole("textbox", { name: COPY["board.preview.label"] })).toBeTruthy();
+		});
+	});
+
+	it("streams an improved preview, lets the user edit it, then adds that prompt", async () => {
+		const brief = [
+			"## Background / Goal",
+			"",
+			"Fix the login button.",
+			"",
+			"## Acceptance criteria",
+			"",
+			"- Clicking Sign in opens the home page",
+		].join("\n");
+		const { ctx, registered, readState } = fakeContext({
+			aiStream: async (_request, options) => {
+				let text = "";
+				for (const delta of ["## Background / Goal\n\n", "Fix the login button."]) {
+					text += delta;
+					options?.onTextDelta?.({ delta, text });
+					await Promise.resolve();
+				}
+				return {
+					modelKey: "default",
+					text: brief,
+					stopReason: "stop",
+					usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+				};
+			},
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		const input = await readyInput();
+		fireEvent.change(input, { target: { value: "Fix login" } });
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.refine"] }));
+		});
+		const preview = await waitFor(() => {
+			const field = screen.getByRole("textbox", { name: COPY["board.preview.label"] });
+			if (!(field instanceof HTMLTextAreaElement) || field.value !== brief) {
+				throw new Error("preview is not ready");
+			}
+			return field;
+		});
+		fireEvent.change(preview, { target: { value: `${brief}\n\nEdited note` } });
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.add"] }));
+		});
+
+		expect(screen.getByRole("cell", { name: "## Background / Goal" })).toBeTruthy();
+		expect(readState()?.tasks[0]?.promptText).toBe(`${brief}\n\nEdited note`);
+	});
+
+	it("keeps the original draft when Improve with AI fails so the user can add it", async () => {
+		const { ctx, registered, readState } = fakeContext({
+			aiStream: async () => {
+				throw new Error("provider unavailable");
+			},
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		const input = await readyInput();
+		fireEvent.change(input, { target: { value: "Fix login" } });
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.refine"] }));
+		});
+		await waitFor(() => {
+			expect(screen.getByText(COPY["board.error.refine"])).toBeTruthy();
+		});
+		expect((screen.getByRole("textbox", { name: COPY["board.taskInput.label"] }) as HTMLTextAreaElement).value).toBe(
+			"Fix login",
+		);
+		expect(screen.queryByRole("textbox", { name: COPY["board.preview.label"] })).toBeNull();
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.add"] }));
+		});
+		expect(screen.getByRole("cell", { name: "Fix login" })).toBeTruthy();
+		expect(readState()?.tasks[0]?.promptText).toBe("Fix login");
+	});
+
+	it("restores the original draft from an improved preview", async () => {
+		const { ctx, registered } = fakeContext({
+			aiStream: async () => ({
+				modelKey: "default",
+				text: "## Background / Goal\n\nImproved login fix",
+				stopReason: "stop",
+				usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+			}),
+		});
+		plugin.activate(ctx);
+		const view = boardView(registered);
+		render(<view.component pluginId="github-issue-board" viewId="board" />);
+
+		const input = await readyInput();
+		fireEvent.change(input, { target: { value: "Fix login" } });
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.refine"] }));
+		});
+		await waitFor(() => {
+			expect((screen.getByRole("textbox", { name: COPY["board.preview.label"] }) as HTMLTextAreaElement).value).toBe(
+				"## Background / Goal\n\nImproved login fix",
+			);
+		});
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: COPY["board.restoreOriginal"] }));
+		});
+		expect(screen.queryByRole("textbox", { name: COPY["board.preview.label"] })).toBeNull();
+		expect((screen.getByRole("textbox", { name: COPY["board.taskInput.label"] }) as HTMLTextAreaElement).value).toBe(
+			"Fix login",
+		);
 	});
 
 	it("adds a manual pending task to the queue and keeps it after remount", async () => {

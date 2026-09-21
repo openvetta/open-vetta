@@ -7,6 +7,10 @@
 	"board.taskInput.label": "Task description",
 	"board.taskInput.placeholder": "Describe a task to add to the queue",
 	"board.add": "Add",
+	"board.refine": "Improve with AI",
+	"board.refine.busy": "Improving…",
+	"board.preview.label": "Improved preview",
+	"board.restoreOriginal": "Restore original",
 	"board.queue.title": "Title",
 	"board.queue.labels": "Labels",
 	"board.queue.assignees": "Assignees",
@@ -83,5 +87,8 @@
 	"board.error.commentsFallback": "Could not load comments; sent the description only",
 	"board.error.notGit": "The current folder is not a Git repository.",
 	"board.error.noGithubRemote": "The current project has no GitHub remote.",
-	"board.error.pickDirectory": "Could not open the folder picker."
+	"board.error.pickDirectory": "Could not open the folder picker.",
+	"board.error.refine": "Could not improve the draft. Retry or add the original text.",
+	"board.error.refineTimeout": "Improving the draft timed out. Retry or add the original text.",
+	"board.error.refineEmpty": "The model returned nothing usable. Retry or add the original text."
 }

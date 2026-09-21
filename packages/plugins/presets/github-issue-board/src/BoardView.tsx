@@ -52,6 +52,7 @@ import {
 	type IssueFetchAssignee,
 	type PluginState,
 } from "./state";
+import { TaskRefinementService } from "./task-refinement";
 import {
 	CONVERSATION_WORKSPACE,
 	extraWorkspacePath,
@@ -62,6 +63,8 @@ import {
 	workspaceSelectValue,
 	type WorkspaceSource,
 } from "./workspace";
+
+const TASK_REFINEMENT_TIMEOUT_MS = 60_000;
 
 const FETCH_ERROR_KEY: Record<GithubFetchErrorKind, string> = {
 	"rate-limit": "board.error.rateLimit",
@@ -160,6 +163,10 @@ function labelSelectOptions(
 export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const [state, setState] = useState<PluginState | null>(null);
 	const [draft, setDraft] = useState("");
+	const [preview, setPreview] = useState<string | null>(null);
+	const [originalDraft, setOriginalDraft] = useState("");
+	const [refining, setRefining] = useState(false);
+	const [refineError, setRefineError] = useState<string | null>(null);
 	const [fetching, setFetching] = useState(false);
 	const [fetchNotice, setFetchNotice] = useState<string | null>(null);
 	const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -183,6 +190,8 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	const cancelledRef = useRef(false);
 	const inflightRef = useRef(false);
 	const abortRef = useRef<AbortController | null>(null);
+	const refineAbortRef = useRef<AbortController | null>(null);
+	const refineGenRef = useRef(0);
 	const fetchingRef = useRef(false);
 	const runMenuRef = useRef<HTMLDivElement>(null);
 	const runTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -270,6 +279,7 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 		return () => {
 			cancelledRef.current = true;
 			detachBoardRuns();
+			refineAbortRef.current?.abort();
 		};
 	}, [ctx.storage]);
 
@@ -501,9 +511,9 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 	}
 
 	async function handleSubmit(): Promise<void> {
-		const promptText = draft.trim();
+		const promptText = (preview !== null ? preview : draft).trim();
 		const current = stateRef.current;
-		if (!promptText || current === null) return;
+		if (!promptText || current === null || refining) return;
 		const next = addManualTask(current, {
 			id: crypto.randomUUID(),
 			promptText,
@@ -511,7 +521,58 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 			cwd: resolveWorkspaceCwd(current.workspace, conversation.cwd),
 		});
 		setDraft("");
+		setPreview(null);
+		setOriginalDraft("");
+		setRefineError(null);
 		await persist(next);
+	}
+
+	function refineErrorMessage(error: unknown): string {
+		if (error instanceof Error && error.name === "AbortError") {
+			return t("board.error.refineTimeout");
+		}
+		if (error instanceof Error && error.message === "task refinement returned empty content") {
+			return t("board.error.refineEmpty");
+		}
+		return t("board.error.refine");
+	}
+
+	async function handleRefine(): Promise<void> {
+		const source = draft;
+		if (!source.trim() || refining) return;
+		const gen = ++refineGenRef.current;
+		setRefining(true);
+		setRefineError(null);
+		setOriginalDraft(source);
+		setPreview("");
+		const controller = new AbortController();
+		refineAbortRef.current = controller;
+		const timer = window.setTimeout(() => controller.abort(), TASK_REFINEMENT_TIMEOUT_MS);
+		try {
+			const text = await new TaskRefinementService(ctx.ai).refine(source, {
+				signal: controller.signal,
+				onTextDelta: (next) => {
+					if (gen === refineGenRef.current && !cancelledRef.current) setPreview(next);
+				},
+			});
+			if (gen !== refineGenRef.current || cancelledRef.current) return;
+			setPreview(text);
+		} catch (error) {
+			if (gen !== refineGenRef.current || cancelledRef.current) return;
+			setPreview(null);
+			setRefineError(refineErrorMessage(error));
+		} finally {
+			window.clearTimeout(timer);
+			if (refineAbortRef.current === controller) refineAbortRef.current = null;
+			if (gen === refineGenRef.current && !cancelledRef.current) setRefining(false);
+		}
+	}
+
+	function handleRestoreOriginal(): void {
+		if (refining) return;
+		setPreview(null);
+		setDraft(originalDraft);
+		setRefineError(null);
 	}
 
 	async function handleFetch(): Promise<void> {
@@ -891,15 +952,46 @@ export function BoardView({ ctx }: { ctx: PluginContext }): JSX.Element {
 					{t("board.taskInput.label")}
 					<textarea
 						className={`min-h-[72px] resize-y ${FIELD}`}
-						disabled={!ready}
+						disabled={!ready || refining || preview !== null}
 						placeholder={t("board.taskInput.placeholder")}
 						value={draft}
 						onChange={(event) => setDraft(event.target.value)}
 					/>
 				</label>
-				<button className={PRIMARY_BUTTON} disabled={!ready || draft.trim() === ""} type="submit">
-					{t("board.add")}
-				</button>
+				{preview !== null ? (
+					<label className="flex flex-col gap-1 text-sm font-medium text-muted-foreground">
+						{t("board.preview.label")}
+						<textarea
+							className={`min-h-[72px] resize-y ${FIELD}`}
+							disabled={!ready || refining}
+							value={preview}
+							onChange={(event) => setPreview(event.target.value)}
+						/>
+					</label>
+				) : null}
+				{refineError ? <p className="text-xs text-destructive">{refineError}</p> : null}
+				<div className="flex flex-wrap items-center gap-1.5">
+					<button
+						className={ACTION_BUTTON}
+						disabled={!ready || refining || draft.trim() === "" || preview !== null}
+						type="button"
+						onClick={() => void handleRefine()}
+					>
+						{refining ? t("board.refine.busy") : t("board.refine")}
+					</button>
+					{preview !== null && !refining ? (
+						<button className={ACTION_BUTTON} type="button" onClick={handleRestoreOriginal}>
+							{t("board.restoreOriginal")}
+						</button>
+					) : null}
+					<button
+						className={PRIMARY_BUTTON}
+						disabled={!ready || refining || (preview !== null ? preview : draft).trim() === ""}
+						type="submit"
+					>
+						{t("board.add")}
+					</button>
+				</div>
 			</form>
 			<div className="flex flex-wrap items-end gap-2">
 				{boardTasks.length > 0 ? (

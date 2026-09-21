@@ -7,6 +7,10 @@
 	"board.taskInput.label": "任务描述",
 	"board.taskInput.placeholder": "输入要加入队列的任务",
 	"board.add": "添加",
+	"board.refine": "AI 完善",
+	"board.refine.busy": "完善中…",
+	"board.preview.label": "完善预览",
+	"board.restoreOriginal": "还原原文",
 	"board.queue.title": "标题",
 	"board.queue.labels": "标签",
 	"board.queue.assignees": "指派人",
@@ -82,5 +86,8 @@
 	"board.error.commentsFallback": "评论加载失败，已按正文发送",
 	"board.error.notGit": "当前目录不是 Git 仓库。",
 	"board.error.noGithubRemote": "当前项目没有 GitHub 远程地址。",
-	"board.error.pickDirectory": "无法打开目录选择框。"
+	"board.error.pickDirectory": "无法打开目录选择框。",
+	"board.error.refine": "完善失败，请重试或直接用原文添加。",
+	"board.error.refineTimeout": "完善超时，请重试或直接用原文添加。",
+	"board.error.refineEmpty": "模型没有返回可用内容，请重试或直接用原文添加。"
 }
