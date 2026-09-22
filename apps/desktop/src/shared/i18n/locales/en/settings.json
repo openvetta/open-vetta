@@ -1125,14 +1125,14 @@
   "section_appearance-cursor": "Mouse Cursor",
   "cursorDefaultTitle": "Default",
   "cursorDefaultHint": "Use the system native mouse cursor.",
-  "cursorStoatTitle": "Stoat",
-  "cursorStoatHint": "Use the built-in white stoat cursor style.",
+  "cursorStoatTitle": "Penguin",
+  "cursorStoatHint": "Use the built-in penguin cursor style.",
   "section_appearance-ornament": "Ornament",
   "ornamentHint": "The ornament slot above the composer on the new session page",
   "ornamentNoneTitle": "None",
   "ornamentNoneHint": "Leave the spot empty for a cleaner page.",
   "ornamentViviTitle": "Vivi",
-  "ornamentViviHint": "Vetta's stoat Vivi — blinks, waves and crawls across the composer now and then.",
+  "ornamentViviHint": "Vetta's penguin Vivi — blinks, waves and crawls across the composer now and then.",
   "ornamentOrbitTitle": "Orbit",
   "ornamentOrbitHint": "A live shader orb, its filigree drifting slowly across the surface.",
   "ornamentTorchTitle": "Torch",
@@ -1331,7 +1331,7 @@
       "automation": "e.g. Run a cleanup job every morning at 9…",
       "im": "e.g. Enable Claw and set up Feishu…",
       "webhook": "e.g. Add a channel that notifies me when a task finishes…",
-      "appearance": "e.g. Switch to dark mode and use the stoat cursor…",
+      "appearance": "e.g. Switch to dark mode and use the penguin cursor…",
       "pet": "e.g. Show the pet and change the bubble style…",
       "environment": "e.g. Check whether Node/Python runtimes look healthy…",
       "shortcuts": "e.g. Review global shortcuts or reset to defaults…",
@@ -1412,7 +1412,7 @@
       "appearance": {
         "dark": "Switch to dark mode",
         "theme": "Change the UI theme",
-        "cursor": "Switch the mouse pointer to the stoat style"
+        "cursor": "Switch the mouse pointer to the penguin style"
       },
       "pet": {
         "show": "Show the desktop pet",

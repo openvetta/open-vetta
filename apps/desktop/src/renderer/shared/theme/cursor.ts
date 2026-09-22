@@ -5,7 +5,7 @@ export type CursorStyle = "default" | "stoat";
 /** 当前使用的存储键：值是 CursorStyle。 */
 export const CURSOR_STORAGE_KEY = "vetta-cursor-style";
 
-/** 白鼬鼠标预览资源；固定应用资源协议，兼容开发与打包环境。 */
+/** 企鹅鼠标预览资源；固定应用资源协议，兼容开发与打包环境。存储值仍是 stoat。 */
 export const STOAT_CURSOR_PREVIEW_URL = createAppAssetUrl("renderer", "cursors/default.png");
 
 /** 旧开关键（true/false），读取时兼容迁移。 */
@@ -21,7 +21,7 @@ export function getStoredCursorStyle(): CursorStyle {
 	const stored = localStorage.getItem(CURSOR_STORAGE_KEY);
 	if (isCursorStyle(stored)) return stored;
 
-	// 兼容旧版布尔开关：true → 白鼬，其余 → 默认
+	// 兼容旧版布尔开关：true → 企鹅指针，其余 → 默认
 	if (localStorage.getItem(LEGACY_CURSOR_STORAGE_KEY) === "true") {
 		return "stoat";
 	}

@@ -7,9 +7,9 @@ import { useTranslation } from "react-i18next";
 import { useOrnamentSlot } from "../useOrnamentSlot";
 
 const FERRET_VIDEO_SOURCES = {
-	blink: "./new-session/ferret-blink.webm",
-	crawl: "./new-session/ferret-crawl.webm",
-	wave: "./new-session/ferret-wave.webm",
+	blink: "./new-session/ferret-blink.webm?v=penguin",
+	crawl: "./new-session/ferret-crawl.webm?v=penguin",
+	wave: "./new-session/ferret-wave.webm?v=penguin",
 } as const;
 const VIVI_ACTIONS = ["blink", "wave", "crawl"] as const;
 const CRAWL_DURATION_SECONDS = 10.066;
