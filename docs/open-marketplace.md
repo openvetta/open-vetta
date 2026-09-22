@@ -8,7 +8,8 @@ Desktop 从 GitHub 下载配置 ref 的归档，并在本地读取 `.vetta/marke
 schema v2 的旧版 Desktop，使用独立的 marketplace-source 保存 `.vetta/marketplace.source.json`，并冻结 main 作为兼容来源；
 普通源码 PR 审核通过后，CI 构建未发布的插件版本并上传不可变 `.vettapkg`，
 再生成 gh-pages 上的 `.vetta/marketplace.json`、展示资源和非插件安装文件。
-Desktop 的市场来源 ref 配置为 gh-pages，无需另建注册服务或启用 GitHub Pages。
+客户端按来源配置的 ref 读取归档，无需另建注册服务或启用 GitHub Pages。
+本仓库 Desktop 未配置环境变量时，内置来源是 `qqzhangyanhua/vetta-official-marketplace` 的 `main`。
 
 源码配置省略 marketplaceVersion 与插件 releases，插件条目声明 minAppVersion；
 发布工具派生版本历史、API、权限、命令和摘要。市场版本仅在分发内容变化时生成。
@@ -22,9 +23,11 @@ Desktop 的市场来源 ref 配置为 gh-pages，无需另建注册服务或启�
 ## 客户端来源管理
 
 云市场与 GitHub 来源独立启用：开源版只不包含云服务，仍可配置多个 GitHub 仓库；云版可同时浏览两类来源。
-内置官方 GitHub 来源与云市场独立存在。发行方可以通过 `VETTA_OPEN_MARKETPLACE_REPOSITORY` 替换其仓库；
-未配置时使用 OpenVetta 官方仓库。分支由 `VETTA_OPEN_MARKETPLACE_REF` 指定；官方仓库省略时使用
-`gh-pages`，自定义仓库省略时保留 `main` 兼容行为。归档 URL 可单独配置，否则从仓库与分支推导。
+内置官方 GitHub 来源与云市场独立存在。本仓库未配置环境变量时，内置来源是
+`https://github.com/qqzhangyanhua/vetta-official-marketplace` 的 `main`，显示名 penguin Official。
+发行方可以用 `VETTA_OPEN_MARKETPLACE_REPOSITORY` 替换仓库；`VETTA_OPEN_MARKETPLACE_REF` 未设置时，
+与编译进客户端的内置仓库相同的地址使用该 ref（当前是 `main`），其它仓库回退 `main`。
+归档 URL 可单独配置，否则从仓库与分支推导。
 
 在「能力 → 市场来源」可添加多个仓库，分别设置启用、自动更新和分支，并单独刷新。
 内置来源可启停及设置自动更新，但不能在界面修改坐标或删除；自定义来源支持编辑和删除。
@@ -494,8 +497,8 @@ bun scripts/quality/run-vitest.mjs --run apps/desktop/src/main/abilities/open-ma
 
 ## 内置来源配置
 
-内置 GitHub 来源不在代码中设置仓库地址，完全由环境变量提供：
+客户端始终注册内置 GitHub 来源，发行方可以用环境变量替换其坐标：
 
-- `VETTA_OPEN_MARKETPLACE_REPOSITORY`：GitHub 仓库 URL；未设置时不创建内置来源。
-- `VETTA_OPEN_MARKETPLACE_REF`：分支或 ref，默认 `main`。
+- `VETTA_OPEN_MARKETPLACE_REPOSITORY`：GitHub 仓库 URL；未设置时使用编译进客户端的内置仓库（本仓库为 `https://github.com/qqzhangyanhua/vetta-official-marketplace`）。
+- `VETTA_OPEN_MARKETPLACE_REF`：分支或 ref；未设置时，内置仓库使用编译进客户端的 ref（本仓库为 `main`），其它仓库回退 `main`。
 - `VETTA_OPEN_MARKETPLACE_ARCHIVE_URL`：可选归档地址；未设置时根据仓库与 ref 推导。
