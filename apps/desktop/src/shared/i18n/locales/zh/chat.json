@@ -267,7 +267,7 @@
 		"close": "关闭"
 	},
 	"appshot": {
-		"errorSelfCapture": "Appshot 已忽略：前台窗口是 Vetta 自身",
+		"errorSelfCapture": "Appshot 已忽略：前台窗口是 penguin 自身",
 		"errorNoPermission": "Appshot 捕获失败：缺少「屏幕录制」与「辅助功能」权限，请在设置的权限管理中授权",
 		"errorHelperFailed": "Appshot 捕获失败，请稍后重试"
 	},
@@ -278,7 +278,7 @@
 	"mcpElicitation": {
 		"title": "MCP 请求信息",
 		"source": "来自 {{server}}",
-		"urlNotice": "只有在你确认后，Vetta 才会在系统浏览器中打开这个地址。",
+		"urlNotice": "只有在你确认后，penguin 才会在系统浏览器中打开这个地址。",
 		"decline": "拒绝",
 		"openAndContinue": "打开并继续",
 		"submit": "提交",
@@ -370,10 +370,10 @@
 		"write": "写"
 	},
 	"chatExport": {
-		"defaultSessionName": "Vetta 会话"
+		"defaultSessionName": "penguin 会话"
 	},
 	"chatView": {
-		"defaultSessionTitle": "Vetta 会话",
+		"defaultSessionTitle": "penguin 会话",
 		"bottomPanelButton": {
 			"closed": "打开底部面板",
 			"open": "关闭底部面板"
@@ -483,7 +483,7 @@
 	"guideBadgeSwiper": {
 		"dismissTooltip": "不再提示",
 		"petFeatureText": "新增桌宠功能，点击前往设置开启",
-		"quickPanelText": "Vetta 支持快捷面板，点击前往设置开启"
+		"quickPanelText": "penguin 支持快捷面板，点击前往设置开启"
 	},
 	"imagePreview": {
 		"altText": "读取的图片",
@@ -538,13 +538,13 @@
 		},
 		"placeholder": {
 			"defaults": [
-				"向 Vetta 提问，使用 / 唤出技能，@ 引用文件",
+				"向 penguin 提问，使用 / 唤出技能，@ 引用文件",
 				"描述你想完成的任务，按 ⏎ 发送",
 				"粘贴截图或 @ 引用文件，直接开始"
 			],
 			"noSession": "选择或创建会话以开始",
 			"suggestion": "↵ {{suggestion}}",
-			"thinking": "Vetta 正在思考…"
+			"thinking": "penguin 正在思考…"
 		},
 		"mention": {
 			"trigger": "指定成员",
@@ -639,7 +639,7 @@
 			}
 		},
 		"assistantMessage": {
-			"predicting": "Vetta 正在预测…",
+			"predicting": "penguin 正在预测…",
 			"processing": "处理中…",
 			"waiting": "等待模型响应"
 		},
@@ -716,9 +716,9 @@
 		"retryIndicator": "正在重新连接（{{attempt}}/{{maxAttempts}}）",
 		"retryReason": "上次请求失败：{{reason}}",
 		"streamingPhrases": [
-			"Vetta 正在回复…",
+			"penguin 正在回复…",
 			"请耐心等待…",
-			"Vetta 正在努力工作…"
+			"penguin 正在努力工作…"
 		],
 		"copyButton": {
 			"copied": "已复制",
@@ -909,7 +909,7 @@
 			"sendFeedback": "发送修改意见",
 			"sendFeedbackWithComments": "发送修改意见（{{count}}）",
 			"stepCommentPlaceholder": "这一步要怎么改…",
-			"subtitle": "批准后 Vetta 会按这份计划开始执行；在此之前不会改动任何内容。",
+			"subtitle": "批准后 penguin 会按这份计划开始执行；在此之前不会改动任何内容。",
 			"title": "计划待你批准"
 		},
 		"switchFailed": "无法切换计划模式",
@@ -929,7 +929,7 @@
 		"nextButton": "下一步",
 		"questionTabLabel": "问题 {{number}}",
 		"submitButton": "提交",
-		"title": "Vetta 需要你的选择"
+		"title": "penguin 需要你的选择"
 	},
 	"sandboxGrantsBadge": {
 		"revoke": "撤销",
@@ -982,7 +982,7 @@
 			"unknown": "这是来自外部工具的只读记录，不会改动原会话，也不能在这里继续对话。"
 		},
 		"export": {
-			"defaultTitle": "Vetta 会话"
+			"defaultTitle": "penguin 会话"
 		},
 		"exportButton": {
 			"title": "导出完整会话 HTML"
@@ -996,14 +996,14 @@
 		},
 		"continueFrom": {
 			"action": "接着干",
-			"actionTitle": "根据这份记录生成前情提要并新建一个 Vetta 会话",
+			"actionTitle": "根据这份记录生成前情提要并新建一个 penguin 会话",
 			"working": "正在生成提要…",
 			"progress": {
 				"title": "正在生成前情提要",
 				"hint": "完成后会打开新会话",
 				"reading": "读取这份记录",
 				"briefing": "调用模型写提要",
-				"creating": "创建 Vetta 会话"
+				"creating": "创建 penguin 会话"
 			},
 			"quotaTitle": "将调用模型生成前情提要",
 			"quotaMessage": "会用你当前选用的模型阅读这份 Grok 记录并生成提要，这会消耗额度。原会话不会被改动。",
@@ -1014,7 +1014,7 @@
 			"cwdMissingConfirm": "选择目录",
 			"cwdMissingCancel": "取消",
 			"duplicateTitle": "已经接着干过",
-			"duplicateMessage": "这条记录已经导入过一个 Vetta 会话。可以直接打开已有的，也可以再新建一个，从同一个起点试试另一个方向。",
+			"duplicateMessage": "这条记录已经导入过一个 penguin 会话。可以直接打开已有的，也可以再新建一个，从同一个起点试试另一个方向。",
 			"duplicateMessageNamed": "这条记录已经导入过会话「{{name}}」。可以直接打开已有的，也可以再新建一个，从同一个起点试试另一个方向。",
 			"duplicateOpenExisting": "打开已有",
 			"duplicateCreateNew": "仍然新建",
@@ -1131,7 +1131,7 @@
 	},
 	"mcpApp": {
 		"externalAccess": "此 MCP 应用声明访问 {{count}} 个外部域名",
-		"permissionsDenied": "此 MCP 应用请求了设备权限；Vetta 当前未授予这些权限",
+		"permissionsDenied": "此 MCP 应用请求了设备权限；penguin 当前未授予这些权限",
 		"title": "MCP 应用"
 	},
 	"usageBar": {

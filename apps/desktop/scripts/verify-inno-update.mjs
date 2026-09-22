@@ -67,7 +67,7 @@ export async function verifyInnoUpdate({ installerPath, verificationManifestPath
 	try {
 		await runInstaller(installerPath, storeRoot, version);
 		await Promise.all([
-			assertFile(join(installedVersionDir, "Vetta.exe")),
+			assertFile(join(installedVersionDir, "penguin.exe")),
 			assertFile(join(installedVersionDir, "resources", "app.asar")),
 			assertFile(join(installedVersionDir, ".install-complete")),
 		]);

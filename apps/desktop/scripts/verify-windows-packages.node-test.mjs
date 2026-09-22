@@ -13,17 +13,17 @@ async function createLayout(root, version) {
 	const versionDir = join(root, "versions", version);
 	await mkdir(join(versionDir, "resources"), { recursive: true });
 	await Promise.all([
-		writeFile(join(root, "Vetta.exe"), "launcher"),
+		writeFile(join(root, "penguin.exe"), "launcher"),
 		writeFile(join(root, "current.json"), `${JSON.stringify({ version })}\n`),
-		writeFile(join(versionDir, "Vetta.exe"), "application"),
+		writeFile(join(versionDir, "penguin.exe"), "application"),
 		writeFile(join(versionDir, "resources", "app.asar"), "archive"),
 	]);
 }
 
 test("Windows supplemental package names are stable and versioned", () => {
 	assert.deepEqual(windowsSupplementalArtifactNames("1.2.3"), [
-		"Vetta-1.2.3-win-x64.msi",
-		"Vetta-1.2.3-win-x64.zip",
+		"penguin-1.2.3-win-x64.msi",
+		"penguin-1.2.3-win-x64.zip",
 	]);
 });
 

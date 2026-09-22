@@ -18,7 +18,7 @@ import (
 const accountLookupTimeout = 30 * time.Second
 
 // signalDeviceName is what shows up in Signal → Settings → Linked devices.
-const signalDeviceName = "Vetta"
+const signalDeviceName = "penguin"
 
 // signalManaged reports whether the slot asks the sidecar to run signal-cli
 // itself. An explicit Endpoint means the user runs their own daemon and we

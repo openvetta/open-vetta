@@ -66,7 +66,7 @@ const svg = `<?xml version="1.0" encoding="UTF-8"?>
 	<rect width="1320" height="880" fill="${COLORS.bg}"/>
 	${arrows}
 	<text x="660" y="700" font-family="-apple-system, Helvetica Neue, Helvetica" font-size="26" fill="${COLORS.text}" text-anchor="middle">
-		拖动 Vetta 到 Applications 完成安装
+		拖动 penguin 到 Applications 完成安装
 	</text>
 	${repairHint}
 </svg>

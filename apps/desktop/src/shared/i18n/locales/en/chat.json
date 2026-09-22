@@ -267,7 +267,7 @@
 		"close": "Close"
 	},
 	"appshot": {
-		"errorSelfCapture": "Appshot skipped: the frontmost window is Vetta itself",
+		"errorSelfCapture": "Appshot skipped: the frontmost window is penguin itself",
 		"errorNoPermission": "Appshot capture failed: Screen Recording and Accessibility permissions are missing. Grant them in Settings › Permissions",
 		"errorHelperFailed": "Appshot capture failed, please try again"
 	},
@@ -278,7 +278,7 @@
 	"mcpElicitation": {
 		"title": "MCP information request",
 		"source": "From {{server}}",
-		"urlNotice": "Vetta opens this address in your system browser only after you confirm.",
+		"urlNotice": "penguin opens this address in your system browser only after you confirm.",
 		"decline": "Decline",
 		"openAndContinue": "Open and continue",
 		"submit": "Submit",
@@ -370,10 +370,10 @@
 		"write": "Write"
 	},
 	"chatExport": {
-		"defaultSessionName": "Vetta Session"
+		"defaultSessionName": "penguin Session"
 	},
 	"chatView": {
-		"defaultSessionTitle": "Vetta Session",
+		"defaultSessionTitle": "penguin Session",
 		"bottomPanelButton": {
 			"closed": "Open bottom panel",
 			"open": "Close bottom panel"
@@ -483,7 +483,7 @@
 	"guideBadgeSwiper": {
 		"dismissTooltip": "Don't show again",
 		"petFeatureText": "New desktop pet feature — click to enable in settings",
-		"quickPanelText": "Vetta now has a Quick Panel — click to set it up"
+		"quickPanelText": "penguin now has a Quick Panel — click to set it up"
 	},
 	"imagePreview": {
 		"altText": "Loaded image",
@@ -538,13 +538,13 @@
 		},
 		"placeholder": {
 			"defaults": [
-				"Ask Vetta, use / for skills, @ to reference files",
+				"Ask penguin, use / for skills, @ to reference files",
 				"Describe the task, press ⏎ to send",
 				"Paste a screenshot or @ a file to get started"
 			],
 			"noSession": "Select or create a session to start",
 			"suggestion": "↵ {{suggestion}}",
-			"thinking": "Vetta is thinking…"
+			"thinking": "penguin is thinking…"
 		},
 		"mention": {
 			"trigger": "Mention members",
@@ -639,7 +639,7 @@
 			}
 		},
 		"assistantMessage": {
-			"predicting": "Vetta is predicting…",
+			"predicting": "penguin is predicting…",
 			"processing": "Processing…",
 			"waiting": "Waiting for model response"
 		},
@@ -716,9 +716,9 @@
 		"retryIndicator": "Reconnecting ({{attempt}}/{{maxAttempts}})",
 		"retryReason": "Last request failed: {{reason}}",
 		"streamingPhrases": [
-			"Vetta is replying…",
+			"penguin is replying…",
 			"Please hold on…",
-			"Vetta is working hard…"
+			"penguin is working hard…"
 		],
 		"copyButton": {
 			"copied": "Copied",
@@ -909,7 +909,7 @@
 			"sendFeedback": "Send feedback",
 			"sendFeedbackWithComments": "Send feedback ({{count}})",
 			"stepCommentPlaceholder": "How should this step change…",
-			"subtitle": "Vetta starts working from this plan once you approve it. Nothing is changed before that.",
+			"subtitle": "penguin starts working from this plan once you approve it. Nothing is changed before that.",
 			"title": "A plan is waiting for your approval"
 		},
 		"switchFailed": "Couldn't switch plan mode",
@@ -929,7 +929,7 @@
 		"nextButton": "Next",
 		"questionTabLabel": "Question {{number}}",
 		"submitButton": "Submit",
-		"title": "Vetta needs your choice"
+		"title": "penguin needs your choice"
 	},
 	"sandboxGrantsBadge": {
 		"revoke": "Revoke",
@@ -982,7 +982,7 @@
 			"unknown": "This is a read-only record from another tool. The original session will not be changed, and you cannot continue the chat here."
 		},
 		"export": {
-			"defaultTitle": "Vetta Session"
+			"defaultTitle": "penguin Session"
 		},
 		"exportButton": {
 			"title": "Export full session as HTML"
@@ -996,14 +996,14 @@
 		},
 		"continueFrom": {
 			"action": "Continue from here",
-			"actionTitle": "Generate a briefing from this record and start a new Vetta session",
+			"actionTitle": "Generate a briefing from this record and start a new penguin session",
 			"working": "Generating briefing…",
 			"progress": {
 				"title": "Writing a briefing",
 				"hint": "A new session will open when this finishes",
 				"reading": "Reading this record",
 				"briefing": "Asking the model to write a briefing",
-				"creating": "Creating a Vetta session"
+				"creating": "Creating a penguin session"
 			},
 			"quotaTitle": "This will call a model to write a briefing",
 			"quotaMessage": "Your currently selected model will read this Grok record and write a briefing. That uses quota. The original session will not be changed.",
@@ -1014,8 +1014,8 @@
 			"cwdMissingConfirm": "Choose folder",
 			"cwdMissingCancel": "Cancel",
 			"duplicateTitle": "Already continued from here",
-			"duplicateMessage": "This record already has a Vetta session. Open the existing one, or create another and try a different direction from the same starting point.",
-			"duplicateMessageNamed": "This record already has a Vetta session named “{{name}}”. Open the existing one, or create another and try a different direction from the same starting point.",
+			"duplicateMessage": "This record already has a penguin session. Open the existing one, or create another and try a different direction from the same starting point.",
+			"duplicateMessageNamed": "This record already has a penguin session named “{{name}}”. Open the existing one, or create another and try a different direction from the same starting point.",
 			"duplicateOpenExisting": "Open existing",
 			"duplicateCreateNew": "Create another",
 			"duplicateCancel": "Cancel",
@@ -1131,7 +1131,7 @@
 	},
 	"mcpApp": {
 		"externalAccess": "This MCP App declares access to {{count}} external domain(s)",
-		"permissionsDenied": "This MCP App requested device permissions; Vetta has not granted them",
+		"permissionsDenied": "This MCP App requested device permissions; penguin has not granted them",
 		"title": "MCP App"
 	},
 	"usageBar": {

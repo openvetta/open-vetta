@@ -336,12 +336,12 @@ func buildSignalTransport(cfg *config.Config) (transport.Transport, error) {
 		accounts, err := signalcli.ListAccounts(ctx, cli)
 		if err != nil {
 			if errors.Is(err, signalcli.ErrCLINotFound) {
-				return nil, fmt.Errorf("%w — install it first (%s), then link a device with `signal-cli link -n Vetta`", err, signalcli.InstallHint())
+				return nil, fmt.Errorf("%w — install it first (%s), then link a device with `signal-cli link -n penguin`", err, signalcli.InstallHint())
 			}
 			return nil, err
 		}
 		if len(accounts) == 0 {
-			return nil, errors.New("signal: signal-cli has no linked account — run `signal-cli link -n Vetta` and scan the QR from Signal → Linked devices")
+			return nil, errors.New("signal: signal-cli has no linked account — run `signal-cli link -n penguin` and scan the QR from Signal → Linked devices")
 		}
 		opts.Account = accounts[0]
 	}

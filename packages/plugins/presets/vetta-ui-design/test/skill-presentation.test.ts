@@ -26,6 +26,6 @@ describe("Vetta Design skill presentation", () => {
 				},
 			},
 		});
-		expect(zh["plugin.name"]).toBe("Vetta 设计");
+		expect(zh["plugin.name"]).toBe("penguin 设计");
 	});
 });

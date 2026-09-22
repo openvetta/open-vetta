@@ -60,7 +60,7 @@ async function fetchWithOptionalAuth(path: string, accept: string): Promise<Resp
 	// vetta 官方市场是云服务渠道：lite 构建不可用（github 来源不走这里）。
 	const cloud = getCloudBridge();
 	if (!cloud) {
-		throw new Error("Vetta market is not available in this build");
+		throw new Error("penguin market is not available in this build");
 	}
 	const url = `${baseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
 	const doFetch = async (token?: string): Promise<Response> => {

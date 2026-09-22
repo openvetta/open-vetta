@@ -647,7 +647,7 @@ func openFailure(err error) (hint string, permanent bool) {
 	msg := err.Error()
 	switch {
 	case strings.Contains(msg, "4004"):
-		return " (bot token rejected: check the token in Vetta Claw settings, or reset it in the Discord developer portal)", true
+		return " (bot token rejected: check the token in penguin Claw settings, or reset it in the Discord developer portal)", true
 	case strings.Contains(msg, "4014"), strings.Contains(msg, "4013"):
 		return " (gateway refused the requested intents: the bot must be invited with the bot scope; " +
 			"this build does not request any privileged intent)", true

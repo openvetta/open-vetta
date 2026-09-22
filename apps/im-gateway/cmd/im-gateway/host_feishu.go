@@ -18,8 +18,8 @@ const feishuRegisterSource = "vetta-im-gateway"
 // support the platform's "{user}" placeholder, which the page expands to
 // the scanning user's name.
 const (
-	feishuBotName = "Vetta"
-	feishuBotDesc = "Vetta 编程助手，在飞书私聊里直接和你的项目对话。"
+	feishuBotName = "penguin"
+	feishuBotDesc = "penguin 编程助手，在飞书私聊里直接和你的项目对话。"
 )
 
 // feishuInboundEvent is the single event the bridge lives on: a private

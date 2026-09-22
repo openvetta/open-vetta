@@ -3,8 +3,8 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { app } from "electron";
 
-const APP_BUNDLE_NAME = "Vetta Computer Use.app";
-const EXECUTABLE_NAME = "Vetta Computer Use";
+const APP_BUNDLE_NAME = "penguin Computer Use.app";
+const EXECUTABLE_NAME = "penguin Computer Use";
 
 /**
  * Resolve the absolute path to the `Vetta Computer Use.app` bundle (macOS only).
@@ -39,7 +39,7 @@ export function resolveAppshotHelperBinary(): string {
 	if (!existsSync(fullPath)) {
 		throw new Error(
 			`appshot helper binary not found at ${fullPath}. ` +
-				`Run 'node scripts/build-appshot-helper.js' in apps/desktop, or rebuild Vetta.app.`,
+				`Run 'node scripts/build-appshot-helper.js' in apps/desktop, or rebuild penguin.app.`,
 		);
 	}
 

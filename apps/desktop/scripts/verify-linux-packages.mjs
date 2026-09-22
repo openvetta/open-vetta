@@ -8,7 +8,7 @@ import { parse } from "yaml";
 const execFileAsync = promisify(execFile);
 const packageDir = resolve(import.meta.dirname, "..");
 const defaultReleaseDir = join(packageDir, "release");
-const requiredPayloadPaths = ["/opt/Vetta/Vetta", "/opt/Vetta/resources/package-type"];
+const requiredPayloadPaths = ["/opt/penguin/penguin", "/opt/penguin/resources/package-type"];
 
 function requireValue(value, label) {
 	if (typeof value !== "string" || value.trim().length === 0) {

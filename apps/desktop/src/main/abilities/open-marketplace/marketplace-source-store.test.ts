@@ -113,7 +113,7 @@ describe("MarketplaceSourceStore", () => {
 				expect(new MarketplaceSourceStore({ filePath: await temporaryFile() }).list()).toMatchObject([
 					{
 						id: "vetta-official",
-						name: "Vetta Official",
+						name: "penguin Official",
 						repository: OFFICIAL_MARKETPLACE_REPOSITORY,
 						ref: OFFICIAL_MARKETPLACE_REF,
 						archiveUrl: `${OFFICIAL_MARKETPLACE_REPOSITORY}/archive/refs/heads/${OFFICIAL_MARKETPLACE_REF}.zip`,

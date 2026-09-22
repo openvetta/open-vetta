@@ -36,8 +36,8 @@ async function isValidLayoutRoot(root, expectedVersion) {
 		const manifest = JSON.parse(await readFile(join(root, "current.json"), "utf8"));
 		if (manifest?.version !== expectedVersion) return false;
 		await Promise.all([
-			assertNonEmptyFile(join(root, "Vetta.exe")),
-			assertNonEmptyFile(join(root, "versions", expectedVersion, "Vetta.exe")),
+			assertNonEmptyFile(join(root, "penguin.exe")),
+			assertNonEmptyFile(join(root, "versions", expectedVersion, "penguin.exe")),
 			assertNonEmptyFile(join(root, "versions", expectedVersion, "resources", "app.asar")),
 		]);
 		return true;

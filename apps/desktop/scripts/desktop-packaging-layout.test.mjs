@@ -32,8 +32,8 @@ test("required source entry points exist", () => {
 test("packaged Desktop registers the dedicated Vetta plugin package type", () => {
 	assert.deepEqual(VETTA_PLUGIN_FILE_ASSOCIATION, {
 		ext: "vettapkg",
-		name: "Vetta Plugin Package",
-		description: "Installable Vetta plugin package",
+		name: "penguin Plugin Package",
+		description: "Installable penguin plugin package",
 		mimeType: "application/vnd.vetta.plugin+zip",
 		role: "Editor",
 	});

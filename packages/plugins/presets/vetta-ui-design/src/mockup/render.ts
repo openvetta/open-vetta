@@ -2,7 +2,7 @@ import { layoutMockup } from "./layout";
 import type { MockupLayout, MockupOptions, MockupRect, MockupShot } from "./types";
 
 /** Brand wordmark. Baked into the bitmap, so it is deliberately not localized. */
-const BRAND_NAME = "Vetta";
+const BRAND_NAME = "penguin";
 const BRAND_TAGLINE = "Designed By Vetta";
 
 function roundRectPath(g: CanvasRenderingContext2D, rect: MockupRect, radius: number): void {

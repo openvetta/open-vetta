@@ -460,7 +460,7 @@ describe("plugin agent presets", () => {
 			expect(log.warn).not.toHaveBeenCalled();
 			expect(agents).toHaveLength(1);
 			expect(agents[0]?.profileName).toBe("设计师");
-			expect(agents[0]?.blueprint.systemPrompt).toContain("Vetta UI Design skill");
+			expect(agents[0]?.blueprint.systemPrompt).toContain("penguin UI Design skill");
 			expect(agents[0]?.blueprint.avatarUrl?.startsWith("data:image/webp;base64,")).toBe(true);
 
 			// 宿主不再有内置角色可引用，这个插件也就不再发团队。

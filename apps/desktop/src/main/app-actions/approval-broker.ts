@@ -45,7 +45,7 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 	request(request: ActionApprovalRequest, signal?: AbortSignal): Promise<ActionApprovalDecision> {
 		if (this.webContents.isDestroyed()) {
 			log.warn("request: webContents destroyed", { actionId: request.actionId });
-			return Promise.reject(new ActionError("ACTION_APPROVAL_UNAVAILABLE", "Vetta Desktop 授权界面不可用。"));
+			return Promise.reject(new ActionError("ACTION_APPROVAL_UNAVAILABLE", "penguin Desktop 授权界面不可用。"));
 		}
 
 		const approvalId = randomUUID();
@@ -72,7 +72,7 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 			};
 			const onAbort = (): void => {
 				log.warn("request: aborted by signal", { approvalId, actionId: request.actionId });
-				cancel(new ActionError("ACTION_CANCELLED", "Vetta action 请求已取消。", { actionId: request.actionId }));
+				cancel(new ActionError("ACTION_CANCELLED", "penguin action 请求已取消。", { actionId: request.actionId }));
 			};
 			const timeout = setTimeout(() => {
 				log.warn("request: approval timeout", {
@@ -141,7 +141,7 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 			log.warn("cancelAll: cancelling pending approvals", { count });
 		}
 		for (const pending of this.pending.values()) {
-			pending.cancel(new ActionError("ACTION_CANCELLED", "Vetta Desktop 授权请求已取消。"));
+			pending.cancel(new ActionError("ACTION_CANCELLED", "penguin Desktop 授权请求已取消。"));
 		}
 		this.pending.clear();
 	}

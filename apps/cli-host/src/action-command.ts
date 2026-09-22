@@ -48,7 +48,7 @@ type ActionSubcommandDefinition = {
 	run: (client: ActionRpcClient, command: ActionCommand) => Promise<unknown> | unknown;
 };
 
-const HELP_TEXT = `Vetta action command line interface
+const HELP_TEXT = `penguin action command line interface
 
 Usage:
   vetta action search [query] [--domain <domain>]
@@ -58,7 +58,7 @@ Usage:
   vetta action --help
 
 Description:
-  Operate the running Vetta Desktop app through its local action RPC.
+  Operate the running penguin Desktop app through its local action RPC.
   The GUI must already be running. Do not guess action ids or parameters
   from memory; discover them at runtime.
 

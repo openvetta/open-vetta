@@ -99,7 +99,7 @@ export class DesktopMcpAppBridge {
 						...(this.options.surface.capabilities.serverTools ? { serverTools: {} } : {}),
 						serverResources: {},
 					},
-					hostInfo: { name: "Vetta Desktop", version: "1" },
+					hostInfo: { name: "penguin Desktop", version: "1" },
 					hostContext: {
 						displayMode: "inline",
 						availableDisplayModes: ["inline"],

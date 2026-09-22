@@ -66,7 +66,7 @@ describe("InnoWindowsUpdateController", () => {
 				onProgress(50);
 				const versionDir = join(destinationRoot, "versions", version);
 				await mkdir(join(versionDir, "resources"), { recursive: true });
-				await writeFile(join(versionDir, "Vetta.exe"), "executable");
+				await writeFile(join(versionDir, "penguin.exe"), "executable");
 				await writeFile(join(versionDir, "resources", "app.asar"), "asar");
 				await writeFile(join(versionDir, ".install-complete"), version);
 			},
@@ -89,7 +89,7 @@ describe("InnoWindowsUpdateController", () => {
 			progress,
 			new AbortController().signal,
 		);
-		expect(executablePath).toBe(join(storeRoot, "versions", "1.2.3", "Vetta.exe"));
+		expect(executablePath).toBe(join(storeRoot, "versions", "1.2.3", "penguin.exe"));
 		expect(progress).toHaveBeenCalledWith(expect.objectContaining({ percent: 95 }));
 		expect(progress).toHaveBeenLastCalledWith(expect.objectContaining({ percent: 100 }));
 
@@ -159,7 +159,7 @@ describe("InnoWindowsUpdateController", () => {
 			installInstaller: async (_installerPath, destinationRoot, version) => {
 				const versionDir = join(destinationRoot, "versions", version);
 				await mkdir(versionDir, { recursive: true });
-				await writeFile(join(versionDir, "Vetta.exe"), "incomplete");
+				await writeFile(join(versionDir, "penguin.exe"), "incomplete");
 			},
 			relaunch: vi.fn(),
 			quit: vi.fn(),
@@ -188,7 +188,7 @@ describe("InnoWindowsUpdateController", () => {
 				await writeFile(join(versionDir, ".install-complete"), version);
 				setTimeout(() => {
 					void Promise.all([
-						writeFile(join(versionDir, "Vetta.exe"), "executable"),
+						writeFile(join(versionDir, "penguin.exe"), "executable"),
 						writeFile(join(versionDir, "resources", "app.asar"), "asar"),
 					]);
 				}, 10);
@@ -200,7 +200,7 @@ describe("InnoWindowsUpdateController", () => {
 
 		await expect(
 			controller.prepareDownloadedInstaller(installerPath, vi.fn(), new AbortController().signal),
-		).resolves.toEqual([join(storeRoot, "versions", "1.2.3", "Vetta.exe")]);
+		).resolves.toEqual([join(storeRoot, "versions", "1.2.3", "penguin.exe")]);
 	});
 
 	it("validates installed files through the physical filesystem and restores ASAR handling", async () => {
@@ -227,7 +227,7 @@ describe("InnoWindowsUpdateController", () => {
 				installInstaller: async (_installerPath, destinationRoot, version) => {
 					const versionDir = join(destinationRoot, "versions", version);
 					await mkdir(join(versionDir, "resources"), { recursive: true });
-					await writeFile(join(versionDir, "Vetta.exe"), "executable");
+					await writeFile(join(versionDir, "penguin.exe"), "executable");
 					await writeFile(join(versionDir, "resources", "app.asar"), "asar");
 					await writeFile(join(versionDir, ".install-complete"), version);
 				},
@@ -257,7 +257,7 @@ describe("InnoWindowsUpdateController", () => {
 			installInstaller: async (_installerPath, destinationRoot, version) => {
 				const versionDir = join(destinationRoot, "versions", version);
 				await mkdir(join(versionDir, "resources"), { recursive: true });
-				await writeFile(join(versionDir, "Vetta.exe"), "executable");
+				await writeFile(join(versionDir, "penguin.exe"), "executable");
 				await writeFile(join(versionDir, "resources", "app.asar"), "asar");
 				throw new Error("Inno Setup exited with code 5");
 			},
@@ -286,7 +286,7 @@ describe("InnoWindowsUpdateController", () => {
 				const destinationDir = join(destinationRoot, "versions", version);
 				await expect(readFile(join(destinationDir, "stale.txt"), "utf8")).rejects.toThrow();
 				await mkdir(join(destinationDir, "resources"), { recursive: true });
-				await writeFile(join(destinationDir, "Vetta.exe"), "executable");
+				await writeFile(join(destinationDir, "penguin.exe"), "executable");
 				await writeFile(join(destinationDir, "resources", "app.asar"), "asar");
 				await writeFile(join(destinationDir, ".install-complete"), version);
 			},
@@ -297,15 +297,15 @@ describe("InnoWindowsUpdateController", () => {
 
 		await expect(
 			controller.prepareDownloadedInstaller(installerPath, vi.fn(), new AbortController().signal),
-		).resolves.toEqual([join(versionDir, "Vetta.exe")]);
+		).resolves.toEqual([join(versionDir, "penguin.exe")]);
 	});
 });
 
 describe("Windows Inno update paths", () => {
 	it("recognizes only executables inside the matching version directory", () => {
-		expect(isVersionedWindowsExecutable("C:\\Vetta\\versions\\1.2.3\\Vetta.exe", "1.2.3")).toBe(true);
-		expect(isVersionedWindowsExecutable("C:\\Vetta\\Vetta.exe", "1.2.3")).toBe(false);
-		expect(isVersionedWindowsExecutable("C:\\Vetta\\versions\\1.2.2\\Vetta.exe", "1.2.3")).toBe(false);
+		expect(isVersionedWindowsExecutable("C:\\Vetta\\versions\\1.2.3\\penguin.exe", "1.2.3")).toBe(true);
+		expect(isVersionedWindowsExecutable("C:\\Vetta\\penguin.exe", "1.2.3")).toBe(false);
+		expect(isVersionedWindowsExecutable("C:\\Vetta\\versions\\1.2.2\\penguin.exe", "1.2.3")).toBe(false);
 	});
 
 	it("uses the stable per-user application root", () => {

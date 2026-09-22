@@ -299,7 +299,7 @@ if (preparedSpeechModel) {
 const appPkg = {
 	name: "vetta",
 	version: appVersion,
-	description: "Vetta Desktop App",
+	description: "penguin Desktop App",
 	author: LINUX_PACKAGE_METADATA.author,
 	homepage: LINUX_PACKAGE_METADATA.homepage,
 	license: LINUX_PACKAGE_METADATA.license,
@@ -750,8 +750,8 @@ const extraResources = resolveExtraResources();
 // Write electron-builder config
 const builderConfig = {
 	appId: "com.vetta.desktop",
-	productName: "Vetta",
-	executableName: "Vetta",
+	productName: "penguin",
+	executableName: "penguin",
 	afterPack: join(projectRoot, "scripts", "windows-version-layout.mjs"),
 	electronVersion,
 	electronLanguages: ["zh-CN", "en-US"],
@@ -760,7 +760,7 @@ const builderConfig = {
 	...(releaseInfo ? { releaseInfo } : {}),
 	files: ["**/*", ...extraResources.map(({ from }) => `!${from}/**/*`)],
 	protocols: {
-		name: "Vetta",
+		name: "penguin",
 		schemes: ["vetta"],
 	},
 	fileAssociations: [VETTA_PLUGIN_FILE_ASSOCIATION],
@@ -801,7 +801,7 @@ const builderConfig = {
 				NSAllowsLocalNetworking: true,
 			},
 			NSLocalNetworkUsageDescription:
-				"Vetta 需要访问本地网络以连接你在局域网内运行的 AI 模型服务（如 Ollama、LM Studio、vLLM 等）。",
+				"penguin 需要访问本地网络以连接你在局域网内运行的 AI 模型服务（如 Ollama、LM Studio、vLLM 等）。",
 			NSBonjourServices: ["_http._tcp", "_https._tcp"],
 		},
 	},
@@ -811,7 +811,7 @@ const builderConfig = {
 	// 位置必须与那里的 ICON_CENTERS_X_2X 对齐）。
 	// 未签名构建为三图标：多出的「修复已损坏.app」由 scripts/build-mac-repair-helper.js
 	// osacompile 生成，用户首次需 control-click → 「打开」绕过 Gatekeeper，
-	// 之后弹原生密码框对 /Applications/Vetta.app 执行 xattr -dr com.apple.quarantine。
+	// 之后弹原生密码框对 /Applications/penguin.app 执行 xattr -dr com.apple.quarantine。
 	// 签名+公证构建不存在「已损坏」问题，退回两图标常规版式。
 	dmg: {
 		background: "build/background.png",
@@ -820,7 +820,7 @@ const builderConfig = {
 		iconTextSize: 12,
 		contents: macSigning.enabled
 			? [
-					{ x: 180, y: 200, type: "file" }, // Vetta.app（electron-builder 自动填入产物路径）
+					{ x: 180, y: 200, type: "file" }, // penguin.app（electron-builder 自动填入产物路径）
 					{ x: 480, y: 200, type: "link", path: "/Applications" },
 				]
 			: [
@@ -837,7 +837,7 @@ const builderConfig = {
 	linux: {
 		target: LINUX_RELEASE_TARGETS,
 		category: "Utility",
-		description: "Vetta AI agent desktop application",
+		description: "penguin AI agent desktop application",
 		icon: "build/icon.png",
 		maintainer: LINUX_PACKAGE_METADATA.maintainer,
 		synopsis: "AI agent desktop application",

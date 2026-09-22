@@ -507,14 +507,14 @@ jobs:
           docker run --rm --volume "${PWD}/release:/release:ro" ubuntu:24.04 bash -euo pipefail -c '
             apt-get update
             apt-get install --yes /release/*.deb
-            test -x /opt/Vetta/Vetta
-            test "$(cat /opt/Vetta/resources/package-type)" = "deb"
+            test -x /opt/penguin/penguin
+            test "$(cat /opt/penguin/resources/package-type)" = "deb"
             find /usr/share/applications -maxdepth 1 -type f -iname "*vetta*.desktop" -print -quit | grep -q .
           '
           docker run --rm --volume "${PWD}/release:/release:ro" fedora:latest bash -euo pipefail -c '
             dnf install --assumeyes --nogpgcheck /release/*.rpm
-            test -x /opt/Vetta/Vetta
-            test "$(cat /opt/Vetta/resources/package-type)" = "rpm"
+            test -x /opt/penguin/penguin
+            test "$(cat /opt/penguin/resources/package-type)" = "rpm"
             find /usr/share/applications -maxdepth 1 -type f -iname "*vetta*.desktop" -print -quit | grep -q .
           '
 
@@ -679,7 +679,7 @@ jobs:
             echo "Resuming draft release ${TAG}"
             gh release edit "${TAG}" --notes-file "${NOTES_FILE}"
           else
-            gh release create "${TAG}" --draft --notes-file "${NOTES_FILE}" --title "Vetta ${VERSION}" --target "${GITHUB_SHA}"
+            gh release create "${TAG}" --draft --notes-file "${NOTES_FILE}" --title "penguin ${VERSION}" --target "${GITHUB_SHA}"
           fi
           find apps/desktop/release -maxdepth 1 -type f -print0 \
             | xargs -0 gh release upload "${TAG}" --clobber

@@ -512,7 +512,7 @@ if (!gotSingleLock) {
 		if (!app.isPackaged) {
 			const appVersion = getAppVersion();
 			app.setAboutPanelOptions({
-				applicationName: "Vetta",
+				applicationName: "penguin",
 				applicationVersion: appVersion,
 				version: "",
 			});

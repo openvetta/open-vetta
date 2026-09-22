@@ -58,7 +58,7 @@ export function registerAgentActions(ctx: PluginContext): void {
 		summary: "读取 Agent 实验开关（设置 → Agent 配置）。",
 		description:
 			'对象参数；operation 为 "help" 或 "get"。get 返回 Agent 实验开关快照。对应设置 → Agent 配置。',
-		keywords: ["agent", "Agent", "实验", "experimental", "Vetta CLI", "输入预测", "技能扩展", "agentSkills"],
+		keywords: ["agent", "Agent", "实验", "experimental", "penguin CLI", "Vetta CLI", "输入预测", "技能扩展", "agentSkills"],
 		effect: "read",
 		inputSchema: querySchema,
 		examples: queryExamples,

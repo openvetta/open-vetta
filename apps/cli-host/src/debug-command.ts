@@ -28,7 +28,7 @@ const debugCommandSchema = z.discriminatedUnion("type", [
 type DebugCommand = z.infer<typeof debugCommandSchema>;
 type DebugErrorCommand = z.infer<typeof debugErrorCommandSchema>;
 
-const HELP_TEXT = `Vetta Debug command line interface
+const HELP_TEXT = `penguin Debug command line interface
 
 Usage:
   vetta debug search [query] [--category <category>]
@@ -38,8 +38,8 @@ Usage:
   vetta debug --help
 
 Description:
-  Operate development-only Vetta Debug capabilities through the same local
-  RPC server used by Vetta actions. The development Desktop app must already
+  Operate development-only penguin Debug capabilities through the same local
+  RPC server used by penguin actions. The development Desktop app must already
   be running. Packaged builds do not register the Debug runtime.
 
 Progressive discovery:

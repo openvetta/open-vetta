@@ -35,7 +35,7 @@ const IGNORED_TOP_LEVEL = new Set([
 	".DS_Store",
 ]);
 
-const AUTHOR = { name: "Vetta", email: "design@vetta.local" };
+const AUTHOR = { name: "penguin", email: "design@vetta.local" };
 
 /** 画布 manifest。它是生成物式的高频写入，单独变化不构成一个版本。 */
 const MANIFEST_FILE = "design.json";

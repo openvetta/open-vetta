@@ -21,7 +21,7 @@ const projectRoot = join(import.meta.dirname, "..");
 const sourcePath = join(projectRoot, "native", "appshot", "main.swift");
 const iconSourcePath = join(projectRoot, "build", "icon.icns");
 
-const APP_NAME = "Vetta Computer Use";
+const APP_NAME = "penguin Computer Use";
 const BUNDLE_ID = "com.vetta.desktop.computer-use";
 
 function resolveOutDir() {
@@ -56,7 +56,7 @@ function infoPlistContents() {
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
 	<key>NSScreenCaptureUsageDescription</key>
-	<string>Vetta Computer Use needs to record your screen to capture the active window for the assistant.</string>
+	<string>penguin Computer Use needs to record your screen to capture the active window for the assistant.</string>
 </dict>
 </plist>
 `;

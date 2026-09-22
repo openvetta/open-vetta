@@ -15,8 +15,8 @@ export const DESKTOP_BUILD_OUTPUTS = Object.freeze([
 
 export const VETTA_PLUGIN_FILE_ASSOCIATION = Object.freeze({
 	ext: "vettapkg",
-	name: "Vetta Plugin Package",
-	description: "Installable Vetta plugin package",
+	name: "penguin Plugin Package",
+	description: "Installable penguin plugin package",
 	mimeType: "application/vnd.vetta.plugin+zip",
 	role: "Editor",
 });

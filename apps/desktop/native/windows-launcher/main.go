@@ -9,7 +9,7 @@ import (
 	"regexp"
 )
 
-const executableName = "Vetta.exe"
+const executableName = "penguin.exe"
 
 var versionPattern = regexp.MustCompile(`^[0-9A-Za-z][0-9A-Za-z.+-]{0,63}$`)
 
