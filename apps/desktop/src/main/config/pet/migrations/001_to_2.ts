@@ -2,13 +2,13 @@ import type { ConfigRecord, VersionedConfigMigration } from "@vetta/toolkit/vers
 import { PET_ACTIONS, type PetActionId } from "../../../../shared/pet-actions.js";
 
 const PET_ACTION_LEGACY_ID_MIGRATION: Record<string, PetActionId> = {
-	sleep: "stoat_sleep_lie_on_cushion",
-	workout: "stoat_stand_lift_barbell_one_hand_fast",
+	sleep: "penguin_nap_on_keyboard",
+	workout: "penguin_commit_success",
 	typing: "stoat_work_laptop_typing_desk_cushion",
-	music: "stoat_listen_music_headphones_nod",
+	music: "penguin_watch_terminal",
 	hula: "stoat_spin_color_hula_hoop",
 	"jump-rope": "stoat_skip_rope_jump",
-	tea: "stoat_sit_cushion_drink_tea_slow",
+	tea: "penguin_coffee_sip",
 };
 
 const PET_ACTION_CURRENT_TO_LEGACY_ID = new Map<PetActionId, string>(

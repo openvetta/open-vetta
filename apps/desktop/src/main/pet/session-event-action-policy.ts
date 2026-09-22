@@ -35,8 +35,8 @@ const MAX_BODY_TEXT_LENGTH = 120;
 const DEFAULT_ACTION_BY_GROUP = {
 	idle: "stoat_spin_color_hula_hoop",
 	working: "stoat_work_laptop_typing_desk_cushion",
-	resting: "stoat_sit_cushion_drink_tea_slow",
-	feedback: "stoat_stand_lift_barbell_one_hand_fast",
+	resting: "penguin_coffee_sip",
+	feedback: "penguin_commit_success",
 } satisfies Record<PetActionGroupId, PetActionId>;
 
 const LIFECYCLE_INTENTS: Partial<Record<SessionLifecyclePhase, PetPresentationIntent>> = {
@@ -60,7 +60,7 @@ const LIFECYCLE_INTENTS: Partial<Record<SessionLifecyclePhase, PetPresentationIn
 		},
 	},
 	aborted: {
-		action: { groupId: "resting", actionId: "stoat_sleep_lie_on_cushion" },
+		action: { groupId: "resting", actionId: "penguin_nap_on_keyboard" },
 		bubble: { kind: "warning", messageKey: "notice.lifecycle.paused", ttlMs: 4_000, dedupeKey: "session-status" },
 	},
 };

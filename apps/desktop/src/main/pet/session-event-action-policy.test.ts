@@ -80,6 +80,12 @@ describe("mapSessionEventToPetPresentation", () => {
 		expect(mapSessionEventToPetPresentation(event)?.actionId).toBe("penguin_review_facepalm");
 	});
 
+	it("naps on the keyboard when the session is aborted", () => {
+		const event: SessionEvent = { ...eventBase, type: "session.lifecycle", phase: "aborted" };
+
+		expect(mapSessionEventToPetPresentation(event)?.actionId).toBe("penguin_nap_on_keyboard");
+	});
+
 	it("cheers when the session completes", () => {
 		const event: SessionEvent = { ...eventBase, type: "session.lifecycle", phase: "agent_end" };
 
