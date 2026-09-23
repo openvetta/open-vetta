@@ -646,6 +646,7 @@
 		"assistantMessage": {
 			"predicting": "penguin is predicting…",
 			"processing": "Processing…",
+			"stalled": "May be stuck",
 			"waiting": "Waiting for model response"
 		},
 		"duration": {
@@ -819,6 +820,8 @@
 		},
 		"progressGroup": {
 			"fallbackTitle": "Working",
+			"stalled": "May be stuck",
+			"stalledActivity": "May be stuck · {{action}}",
 			"genericDone": "Completed {{count}} steps",
 			"genericRunning": "Working on it",
 			"thinking": "Thinking",

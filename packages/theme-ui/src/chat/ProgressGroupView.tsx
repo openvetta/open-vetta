@@ -115,15 +115,18 @@ export const ProgressGroupTrigger = forwardRef<HTMLButtonElement, ProgressGroupT
 	},
 );
 
-export function ProgressGroupStatus(): JSX.Element {
+export function ProgressGroupStatus({ stalled = false }: { readonly stalled?: boolean }): JSX.Element {
 	const { done } = useProgressGroupContext("ProgressGroup.Status");
 	return (
 		<span
 			className={
 				done
 					? "icon-[solar--check-circle-linear] h-3.5 w-3.5 shrink-0 text-emerald-400"
-					: "icon-[solar--refresh-linear] h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground/60"
+					: stalled
+						? "icon-[solar--danger-circle-linear] h-3.5 w-3.5 shrink-0 text-amber-500"
+						: "icon-[solar--refresh-linear] h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground/60"
 			}
+			data-activity={done ? "done" : stalled ? "stalled" : "running"}
 		/>
 	);
 }
@@ -254,15 +257,20 @@ export const ProgressGroupRowTrigger = forwardRef<
 
 export function ProgressGroupRowStatus({
 	status,
+	stalled = false,
 }: {
 	readonly status: "pending" | "success" | "error" | "cancelled";
+	readonly stalled?: boolean;
 }): JSX.Element {
 	return (
 		<span
+			data-activity={status === "pending" ? (stalled ? "stalled" : "running") : status}
 			className={
-				status === "pending"
-					? "icon-[solar--refresh-linear] h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground/50"
-					: status === "error"
+				status === "pending" && stalled
+					? "icon-[solar--danger-circle-linear] h-3.5 w-3.5 shrink-0 text-amber-500"
+					: status === "pending"
+						? "icon-[solar--refresh-linear] h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground/50"
+						: status === "error"
 						? "icon-[solar--danger-circle-linear] h-3.5 w-3.5 shrink-0 text-destructive/70"
 						: status === "cancelled"
 							? "icon-[solar--close-circle-linear] h-3.5 w-3.5 shrink-0 text-muted-foreground/60"

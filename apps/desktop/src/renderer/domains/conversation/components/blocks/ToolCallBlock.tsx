@@ -227,6 +227,7 @@ export function ToolCallBlockViewHost({
 	const backgroundTask = useToolCallBackgroundTask(block.toolCallId, projection.shellCommand);
 	const expansion = useToolCallExpansion(exportMode);
 	const timing = useToolCallTiming(block);
+	const { t } = useTranslation("chat");
 	const approvedPlan = approvedPlanOf(block, exportMode);
 
 	if (approvedPlan) return <PlanEntryCard plan={approvedPlan} />;
@@ -246,13 +247,18 @@ export function ToolCallBlockViewHost({
 				<ToolCall.Trigger>
 					<ToolCall.StatusIcon
 						pending={projection.isPending}
+						stalled={timing.stalled}
 						icon={projection.icon}
 						iconColorClass={projection.iconColorClass}
 					/>
 					{projection.mcpServer ? <ToolCall.Server>{projection.mcpServer}</ToolCall.Server> : null}
 					<ToolCall.Name>{label.name}</ToolCall.Name>
 					{label.detail ? <ToolCall.Detail title={label.detail}>{label.detail}</ToolCall.Detail> : null}
-					{projection.isPending && projection.currentPhase ? (
+					{timing.stalled ? (
+						<span className="shrink-0 text-[11px] text-amber-600 dark:text-amber-400">
+							{t("messageList.progressGroup.stalled")}
+						</span>
+					) : projection.isPending && projection.currentPhase ? (
 						<ToolCall.Phase>{projection.currentPhase}</ToolCall.Phase>
 					) : null}
 					{timing.badgeAvailable && timing.badgeLabel ? (

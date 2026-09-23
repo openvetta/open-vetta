@@ -13,6 +13,8 @@ vi.mock("react-i18next", () => ({
 			if (key === "messageList.streamingPhrases") return [];
 			if (key.startsWith("messageList.duration.")) return `${values?.seconds ?? 0}s`;
 			if (key === "messageList.assistantFoldTip.waiting") return `waited ${values?.duration}`;
+			if (key === "messageList.assistantMessage.stalled") return "可能已卡住";
+			if (key === "messageList.assistantMessage.processing") return "处理中";
 			return key;
 		},
 	}),
@@ -90,5 +92,36 @@ describe("AssistantMessage first-response waiting state", () => {
 
 		expect(screen.getByText("团队正在加载")).toBeTruthy();
 		expect(screen.queryByText("messageList.assistantMessage.waiting")).toBeNull();
+	});
+
+	it("工具超过时限没有新进展时，消息头从处理中改成可能已卡住", () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date(50_000));
+		render(
+			<AssistantMessage
+				isStreaming
+				isTailMessage
+				message={createConversationAgentMessage({
+					id: "assistant-stalled",
+					phase: "streaming",
+					text: "",
+					startedAt: 1_000,
+					blocks: [
+						{
+							type: "tool_call",
+							toolCallId: "bash-1",
+							toolName: "bash",
+							args: { description: "跑测试" },
+							status: "pending",
+							startedAt: 1_000,
+						},
+					],
+				})}
+			/>,
+		);
+
+		expect(screen.getByText("可能已卡住")).toBeTruthy();
+		expect(screen.queryByText("处理中")).toBeNull();
+		vi.useRealTimers();
 	});
 });

@@ -10,10 +10,11 @@ import { TextBlockView } from "../blocks/TextBlock";
 import { ConciseThinkingBlockView } from "../blocks/ThinkingBlock";
 import { EmbeddedToolCallBlockView, ToolCallBlockView } from "../blocks/ToolCallBlock";
 import { toolLabel } from "../blocks/tool-views/shared/parse-tool";
+import { useNowWhilePending } from "../blocks/tool-views/shared/use-elapsed";
 import { useExpansion } from "./expansionStore";
 import type { GroupBlock, ProgressGroupSegment, WorkSegment } from "./progressGroupModel";
 import { isProgressGroupDone } from "./progressGroupModel";
-import { compactWorkActivityText, selectWorkGroupActivity } from "./workActivityModel";
+import { compactWorkActivityText, isToolActivityStalled, selectWorkGroupActivity } from "./workActivityModel";
 import { ToolCallPresentation } from "./ToolCallPresentation";
 import { ContentRenderer } from "./ContentRendering";
 
@@ -23,6 +24,14 @@ function useToolLabelInputs(): void {
 	useAtomValue(languageAtom);
 	useAtomValue(pluginAgentToolLabelsAtom);
 	useAtomValue(pluginI18nByIdAtom);
+}
+
+function toolActivityLabel(block: ToolCallBlock): string {
+	const phase = compactWorkActivityText(block.currentPhase ?? "");
+	const description = compactWorkActivityText(
+		typeof block.args.description === "string" ? block.args.description : "",
+	);
+	return phase || description || toolLabel(block, true).name;
 }
 
 /** Row text: prefer the agent-authored per-call reason, fall back to tool name + main arg. */
@@ -40,13 +49,21 @@ interface StageRowProps {
 
 const StageRow = memo(function StageRow({ block, exportMode }: StageRowProps) {
 	const [expanded, toggle] = useExpansion(`row:${block.toolCallId}`);
+	const { t } = useTranslation("chat");
 	useToolLabelInputs();
+	const now = useNowWhilePending(block.status === "pending");
+	const stalled = isToolActivityStalled(block, now);
 	const text = rowText(block);
 	return (
 		<ProgressGroup.RowRoot exportMode={exportMode} expanded={expanded} onToggle={toggle}>
 			<ProgressGroup.RowFrame>
 				<ProgressGroup.RowTrigger>
-					<ProgressGroup.RowStatus status={block.status} />
+					<ProgressGroup.RowStatus stalled={stalled} status={block.status} />
+					{stalled ? (
+						<span className="shrink-0 text-[11px] text-amber-600 dark:text-amber-400">
+							{t("messageList.progressGroup.stalled")}
+						</span>
+					) : null}
 					<ProgressGroup.RowText title={text}>{text}</ProgressGroup.RowText>
 					<ProgressGroup.RowChevron />
 				</ProgressGroup.RowTrigger>
@@ -79,16 +96,19 @@ const StageGroup = memo(function StageGroup({
 	const { t } = useTranslation("chat");
 	useToolLabelInputs();
 	const done = isProgressGroupDone(segment);
-	const activity = isLiveActivity && !done ? selectWorkGroupActivity(segment.blocks) : null;
+	const hasPendingTool = segment.blocks.some((block) => block.type === "tool_call" && block.status === "pending");
+	const now = useNowWhilePending(isLiveActivity && hasPendingTool);
+	const activity = isLiveActivity && !done ? selectWorkGroupActivity(segment.blocks, now) : null;
+	const stalled = activity?.type === "tool" && activity.stalled;
 	let liveTitle: string | null = null;
-	if (activity?.type === "thinking") {
+	if (stalled) {
+		liveTitle = t("messageList.progressGroup.stalledActivity", {
+			action: toolActivityLabel(activity.block),
+		});
+	} else if (activity?.type === "thinking") {
 		liveTitle = t("messageList.progressGroup.thinkingActivity", { text: activity.preview });
 	} else if (activity?.type === "tool") {
-		const phase = compactWorkActivityText(activity.block.currentPhase ?? "");
-		const description = compactWorkActivityText(
-			typeof activity.block.args.description === "string" ? activity.block.args.description : "",
-		);
-		liveTitle = phase || description || toolLabel(activity.block, true).name;
+		liveTitle = toolActivityLabel(activity.block);
 	}
 	return (
 		<ProgressGroup.Root
@@ -100,7 +120,7 @@ const StageGroup = memo(function StageGroup({
 		>
 			<ProgressGroup.Frame>
 				<ProgressGroup.Trigger>
-					<ProgressGroup.Status />
+					<ProgressGroup.Status stalled={stalled} />
 					<ProgressGroup.Title>
 						{liveTitle ?? segment.summary ?? segment.label ?? fallbackTitle}
 					</ProgressGroup.Title>

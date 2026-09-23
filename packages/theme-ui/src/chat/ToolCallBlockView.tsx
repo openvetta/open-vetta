@@ -115,11 +115,21 @@ export function ToolCallStatusIcon({
 	icon,
 	iconColorClass,
 	pending,
+	stalled = false,
 }: {
 	readonly icon: string;
 	readonly iconColorClass: string;
 	readonly pending: boolean;
+	readonly stalled?: boolean;
 }): JSX.Element {
+	if (pending && stalled) {
+		return (
+			<span
+				className="icon-[solar--danger-circle-linear] h-3.5 w-3.5 shrink-0 text-amber-500"
+				data-activity="stalled"
+			/>
+		);
+	}
 	return pending ? (
 		<span className="icon-[solar--refresh-linear] h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground/50" />
 	) : (

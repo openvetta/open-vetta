@@ -14,6 +14,8 @@ vi.mock("react-i18next", () => ({
 			if (key === "messageList.progressGroup.genericDone") return `完成了 ${values?.count} 步操作`;
 			if (key === "messageList.progressGroup.thinking") return "正在思考";
 			if (key === "messageList.progressGroup.thinkingLabel") return "思考";
+			if (key === "messageList.progressGroup.stalled") return "可能已卡住";
+			if (key === "messageList.progressGroup.stalledActivity") return `可能已卡住 · ${values?.action}`;
 			return key;
 		},
 	}),
@@ -27,14 +29,18 @@ vi.mock("@vetta-org/theme-ui/chat", async (importOriginal) => ({
 		),
 		Frame: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 		Trigger: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-		Status: () => <span data-testid="group-status" />,
+		Status: ({ stalled }: { stalled?: boolean }) => (
+			<span data-activity={stalled ? "stalled" : "running"} data-testid="group-status" />
+		),
 		Title: ({ children }: { children: ReactNode }) => <span data-testid="group-title">{children}</span>,
 		Chevron: () => null,
 		Content: ({ children }: { children: ReactNode }) => <>{children}</>,
 		RowRoot: ({ children }: { children: ReactNode }) => <>{children}</>,
 		RowFrame: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 		RowTrigger: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-		RowStatus: () => null,
+		RowStatus: ({ stalled }: { stalled?: boolean }) => (
+			<span data-activity={stalled ? "stalled" : "running"} data-testid="row-status" />
+		),
 		RowText: ({ children }: { children: ReactNode }) => <span>{children}</span>,
 		RowChevron: () => null,
 		RowContent: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -128,6 +134,27 @@ describe("WorkSegmentRenderer live activity", () => {
 		expect(title.startsWith("思考：…")).toBe(true);
 		expect(title.endsWith("继续分析边界条件")).toBe(true);
 		expect(Array.from(title.replace("思考：", ""))).toHaveLength(80);
+	});
+
+	it("工具超过时限没有新进展时，阶段标题和状态点改成可能已卡住", () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date(50_000));
+		renderSegment(
+			stage([
+				tool("bash", {
+					args: { description: "跑测试" },
+					currentPhase: "等待输出",
+					startedAt: 1_000,
+					phases: [{ label: "等待输出", atMs: 0 }],
+				}),
+			]),
+		);
+
+		expect(screen.getByTestId("group-title").textContent).toBe("可能已卡住 · 等待输出");
+		expect(screen.getByTestId("group-status").getAttribute("data-activity")).toBe("stalled");
+		expect(screen.getByText("可能已卡住")).toBeTruthy();
+		expect(screen.getByTestId("row-status").getAttribute("data-activity")).toBe("stalled");
+		vi.useRealTimers();
 	});
 
 	it("并行调用时展示最近的仍在执行的工具", () => {

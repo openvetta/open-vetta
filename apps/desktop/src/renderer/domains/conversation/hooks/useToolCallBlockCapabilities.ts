@@ -21,7 +21,8 @@ import {
 	toolIcon,
 	toolLabel,
 } from "../components/blocks/tool-views/shared/parse-tool";
-import { useElapsedWhilePending } from "../components/blocks/tool-views/shared/use-elapsed";
+import { useElapsedWhilePending, useNowWhilePending } from "../components/blocks/tool-views/shared/use-elapsed";
+import { isToolActivityStalled } from "../components/message-list/workActivityModel";
 
 const activeRuntimeIdAtom = selectAtom(activeSessionAtom, (session) => session?.runtimeId ?? null);
 
@@ -49,6 +50,7 @@ export function projectToolCallBlock(block: ToolCallBlock, exportMode = false) {
 		iconColorClass: toolCallIconColorClass(block.status, block.isError),
 		mcpServer: mcp?.server,
 		isPending: block.status === "pending",
+		stalled: false,
 		currentPhase: block.currentPhase,
 		shellCommand: getShellCommand(block),
 		imagePreviews,
@@ -93,10 +95,13 @@ export function useToolCallExpansion(exportMode: boolean) {
 
 export function useToolCallTiming(block: ToolCallBlock) {
 	const isPending = block.status === "pending";
+	const now = useNowWhilePending(isPending);
 	const liveElapsedMs = useElapsedWhilePending(block.startedAt, isPending);
+	const stalled = isToolActivityStalled(block, now);
 	const badgeMs = toolCallDurationMs(block.status, block.durationMs, liveElapsedMs);
 	return {
 		badgeAvailable: badgeMs !== null,
 		badgeLabel: badgeMs !== null ? formatDurationCompact(badgeMs) : null,
+		stalled,
 	};
 }

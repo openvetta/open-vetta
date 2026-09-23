@@ -24,6 +24,8 @@ import { WorkSegmentRenderer } from "./WorkSegmentRenderer";
 import { CopyButton, formatTime, RelativeTimeLabel } from "./MessageActions";
 import { MessageTokenUsage } from "./MessageTokenUsage";
 import { formatTurnDuration } from "./turnDuration";
+import { isToolActivityStalled } from "./workActivityModel";
+import { useNowWhilePending } from "../blocks/tool-views/shared/use-elapsed";
 
 /** Desktop wrapper: injects i18n streaming phrases into theme-ui indicator. */
 export function StreamingIndicator(): JSX.Element {
@@ -88,6 +90,7 @@ export const AssistantMessage = memo(function AssistantMessage({
 		const phrases = t("messageList.streamingPhrases", { returnObjects: true });
 		return {
 			processing: t("messageList.assistantMessage.processing"),
+			stalled: t("messageList.assistantMessage.stalled"),
 			waiting: t("messageList.assistantMessage.waiting"),
 			predicting: t("messageList.assistantMessage.predicting"),
 			streamingFold: (elapsed: number) =>
@@ -121,6 +124,14 @@ export const AssistantMessage = memo(function AssistantMessage({
 			? toolCallPresentations.get(segment.block.toolCallId)
 			: undefined;
 	const isAwaitingFirstActivity = isCurrentlyStreaming && !hasBlocks && (message.text?.length ?? 0) === 0;
+	const hasPendingTool = message.blocks.some((block) => block.type === "tool_call" && block.status === "pending");
+	const now = useNowWhilePending(isCurrentlyStreaming && hasPendingTool);
+	const isStalled =
+		isCurrentlyStreaming &&
+		hasPendingTool &&
+		message.blocks.every(
+			(block) => block.type !== "tool_call" || block.status !== "pending" || isToolActivityStalled(block, now),
+		);
 	const fold = isCurrentlyStreaming
 		? {
 				kind: "streaming" as const,
@@ -174,7 +185,13 @@ export const AssistantMessage = memo(function AssistantMessage({
 						{isCurrentlyStreaming ? (
 							<Message.Status className="flex">
 								<AssistantMessagePrimitive.StreamingStatus
-									label={isAwaitingFirstActivity ? (pendingLabel ?? labels.waiting) : labels.processing}
+									label={
+										isAwaitingFirstActivity
+											? (pendingLabel ?? labels.waiting)
+											: isStalled
+												? labels.stalled
+												: labels.processing
+									}
 								/>
 							</Message.Status>
 						) : null}

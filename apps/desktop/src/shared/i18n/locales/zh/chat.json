@@ -646,6 +646,7 @@
 		"assistantMessage": {
 			"predicting": "penguin 正在预测…",
 			"processing": "处理中…",
+			"stalled": "可能已卡住",
 			"waiting": "等待模型响应"
 		},
 		"duration": {
@@ -819,6 +820,8 @@
 		},
 		"progressGroup": {
 			"fallbackTitle": "正在处理",
+			"stalled": "可能已卡住",
+			"stalledActivity": "可能已卡住 · {{action}}",
 			"genericDone": "完成了 {{count}} 步操作",
 			"genericRunning": "正在处理…",
 			"thinking": "正在思考",
