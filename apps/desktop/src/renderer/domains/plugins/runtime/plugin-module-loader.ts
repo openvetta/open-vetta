@@ -9,7 +9,7 @@ import { extractPluginReloadToken, normalizePluginModule } from "./plugin-module
 import { createPluginRuntimeShared } from "./plugin-shared-modules";
 
 let moduleFederationHost: ModuleFederation | undefined;
-const registeredRemotes = new Map<string, { alias: string; entry: string }>();
+const registeredRemotes = new Map<string, { entry: string }>();
 const remoteReloadTokens = new Map<string, string>();
 const pluginDevRuntimePromises = new Map<string, Promise<void>>();
 
@@ -77,18 +77,32 @@ async function assertPluginEntryFetchable(plugin: InstalledPlugin): Promise<void
 	}
 }
 
+/**
+ * Remote registration shape.
+ * Module Federation treats an alias as a prefix of every other remote name.
+ * Plugin id `git` is a prefix of `github_issue_board`, so registering Git after
+ * the issue board used to reject the Git plugin and hide its panel.
+ * The host loads remotes by remoteName, so the plugin id is not an alias.
+ */
+export function pluginFederationRemote(plugin: Pick<InstalledPlugin, "entryUrl" | "moduleFederation">): {
+	name: string;
+	entry: string;
+} {
+	return { name: plugin.moduleFederation.remoteName, entry: plugin.entryUrl };
+}
+
 async function loadPluginModule(plugin: InstalledPlugin): Promise<unknown> {
 	const moduleFederation = plugin.moduleFederation;
 	await ensurePluginDevRuntime(plugin);
 	const host = getModuleFederationHost();
-	const remote = { name: moduleFederation.remoteName, alias: plugin.id, entry: plugin.entryUrl };
+	const remote = pluginFederationRemote(plugin);
 	const reloadToken = extractPluginReloadToken(plugin.entryUrl);
 	if (reloadToken) remoteReloadTokens.set(remote.name, reloadToken);
 	else remoteReloadTokens.delete(remote.name);
 	const registeredRemote = registeredRemotes.get(remote.name);
-	if (!registeredRemote || registeredRemote.alias !== remote.alias || registeredRemote.entry !== remote.entry) {
+	if (!registeredRemote || registeredRemote.entry !== remote.entry) {
 		host.registerRemotes([remote], registeredRemote ? { force: true } : undefined);
-		registeredRemotes.set(remote.name, { alias: remote.alias, entry: remote.entry });
+		registeredRemotes.set(remote.name, { entry: remote.entry });
 	}
 	const expose = moduleFederation.expose.replace(/^\.\//, "");
 	const loaded = await host.loadRemote<unknown>(`${moduleFederation.remoteName}/${expose}`, { from: "runtime" });

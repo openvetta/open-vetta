@@ -43,7 +43,7 @@ describe("loadPluginDefinition", () => {
 
 		expect(fetchMock).toHaveBeenCalledWith(plugin.entryUrl, { cache: "no-store" });
 		expect(mocks.registerRemotes).toHaveBeenCalledWith(
-			[{ name: "single_loader", alias: "single-loader", entry: plugin.entryUrl }],
+			[{ name: "single_loader", entry: plugin.entryUrl }],
 			undefined,
 		);
 		expect(mocks.loadRemote).toHaveBeenCalledWith("single_loader/plugin", { from: "runtime" });
