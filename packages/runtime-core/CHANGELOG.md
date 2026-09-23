@@ -6,6 +6,8 @@ All notable changes to `@vetta/runtime-core` are documented in this file.
 
 ### Fixed
 
+- 历史投影现在会把带 `details.promptRef` 的隐藏上下文收成 `prompt_ref_marker`。此前只有空的资源引用条目会转成标记，技能/场景硬展开成功后宿主对账对不上乐观气泡，同一条用户消息会画两次。
+
 - 会话初始化、切模、设置档位与 Turn 绑定保留推理模型请求的原始 effort，修复 GPT-5.6 / GPT-6 及模型别名的 `xhigh` 在发送前被静默降为 `high`；非推理模型仍关闭推理。
 
 - 手动与自动上下文压缩提交后会立即刷新 Context Usage，并通过一次 `compaction.end` 事件通知宿主；队列压缩不再重复发送成功事件。

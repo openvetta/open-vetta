@@ -53,6 +53,24 @@ describe("optimistic user message reconciliation", () => {
 		expect(reconcileOptimisticUserMessages("runtime-a", [canonical])).toEqual([{ ...canonical, inputSegments }]);
 	});
 
+	it("规范历史还没有 promptRef 时仍吸收带 skill promptRef 的乐观气泡，不残留第二条", () => {
+		const optimistic = createConversationUserMessage({
+			id: "optimistic-1",
+			text: "scan the hot spots",
+			promptRef: { kind: "skill", name: "improve-codebase-architecture" },
+		});
+		rememberOptimisticUserMessage("runtime-a", optimistic, []);
+
+		const canonical = createConversationUserMessage({
+			id: "persisted-1",
+			text: "scan the hot spots",
+		});
+
+		expect(reconcileOptimisticUserMessages("runtime-a", [canonical])).toEqual([
+			{ ...canonical, promptRef: optimistic.promptRef },
+		]);
+	});
+
 	it("相同文本只出现在更早序号时不能误确认新消息", () => {
 		const previous = user("persisted-1", "repeat");
 		const optimistic = user("optimistic-2", "repeat");

@@ -1,6 +1,11 @@
 export { parseInputSegments } from "./parse";
 export { isAttachmentPath, isImagePath } from "./paths";
-export { MultipleSceneReferencesError, type PreparedInputPrompt, prepareInputPrompt } from "./prepare";
+export {
+	MultipleSceneReferencesError,
+	type PreparedInputPrompt,
+	preparedPromptRef,
+	prepareInputPrompt,
+} from "./prepare";
 export {
 	connectorTokenText,
 	type DerivedAttachment,

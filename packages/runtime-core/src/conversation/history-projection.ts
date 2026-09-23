@@ -250,11 +250,12 @@ function parseFailureDetails(value: unknown): RuntimeFailureDetails | undefined 
 }
 
 function appendCustomMessageHistory(history: HistoryEntry[], entry: ConversationDocumentCustomMessageEntry): void {
-	if (entry.customType === PROMPT_RESOURCE_REFERENCE_TYPE) {
-		const promptRef = parsePromptResourceRef(entry);
-		if (promptRef) history.push({ type: "prompt_ref_marker", promptRef, timestamp: entry.timestamp });
+	const promptRef = parsePromptResourceRef(entry);
+	if (promptRef) {
+		history.push({ type: "prompt_ref_marker", promptRef, timestamp: entry.timestamp });
 		return;
 	}
+	if (entry.customType === PROMPT_RESOURCE_REFERENCE_TYPE) return;
 	if (entry.customType === PROMPT_ATTACHMENT_CONTEXT_TYPE || entry.customType === PROMPT_ATTACHMENT_REFERENCE_TYPE) {
 		const attachments = parsePromptAttachments(entry.details);
 		if (attachments) history.push({ type: "prompt_attachments_marker", attachments, timestamp: entry.timestamp });

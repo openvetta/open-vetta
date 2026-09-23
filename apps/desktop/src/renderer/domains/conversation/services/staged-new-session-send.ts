@@ -2,6 +2,7 @@ import { createConversationUserMessage } from "@shared/conversation";
 import {
 	deriveAttachments,
 	MultipleSceneReferencesError,
+	preparedPromptRef,
 	prepareInputPrompt,
 	toTokenPath,
 } from "@shared/lib/input-tokens";
@@ -65,8 +66,7 @@ function stageSessionSend(
 		throw error;
 	}
 
-	const promptRef =
-		!hasOverride && preparedInput.sceneName ? { kind: "scene" as const, name: preparedInput.sceneName } : undefined;
+	const promptRef = !hasOverride ? preparedPromptRef(preparedInput) : undefined;
 	const attachmentsByPath = new Map<string, PromptAttachmentRef>();
 	if (!hasOverride) {
 		for (const attachment of deriveAttachments(preparedInput.segments)) {

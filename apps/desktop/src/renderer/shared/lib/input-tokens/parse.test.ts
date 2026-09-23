@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseInputSegments } from "./parse";
-import { MultipleSceneReferencesError, prepareInputPrompt } from "./prepare";
+import { MultipleSceneReferencesError, preparedPromptRef, prepareInputPrompt } from "./prepare";
 import {
 	deriveAttachments,
 	deriveSceneNames,
@@ -231,16 +231,33 @@ describe("prepareInputPrompt", () => {
 	});
 
 	it("发送时移除 scene 展示 token，并返回结构化场景引用", () => {
-		expect(prepareInputPrompt("@scene:review 检查 @skill:legal 这份材料")).toMatchObject({
-			text: "检查 @skill:legal 这份材料",
-			sceneName: "review",
+		const prepared = prepareInputPrompt("@scene:review 检查 @skill:legal 这份材料");
+		expect(prepared.text).toBe("检查 @skill:legal 这份材料");
+		expect(prepared.sceneName).toBe("review");
+		expect(prepared.skillName).toBeUndefined();
+		expect(preparedPromptRef(prepared)).toEqual({ kind: "scene", name: "review" });
+	});
+
+	it("没有 scene 时把第一个 skill 提升为结构化引用并从正文剥离", () => {
+		const prepared = prepareInputPrompt("  @skill:review 检查  ");
+		expect(prepared.text).toBe("检查");
+		expect(prepared.sceneName).toBeUndefined();
+		expect(prepared.skillName).toBe("review");
+		expect(preparedPromptRef(prepared)).toEqual({ kind: "skill", name: "review" });
+	});
+
+	it("兼容旧的 /skill: 前缀", () => {
+		expect(prepareInputPrompt("/skill:review\n检查材料")).toMatchObject({
+			text: "检查材料",
+			skillName: "review",
 		});
 	});
 
-	it("没有 scene 时保持原始文本不变", () => {
-		const prepared = prepareInputPrompt("  @skill:review 检查  ");
-		expect(prepared.text).toBe("  @skill:review 检查  ");
-		expect(prepared.sceneName).toBeUndefined();
+	it("多个 skill 时只硬展开第一个，其余留在正文", () => {
+		expect(prepareInputPrompt("@skill:review 然后 @skill:upload 上传")).toMatchObject({
+			text: "然后 @skill:upload 上传",
+			skillName: "review",
+		});
 	});
 
 	it("兼容旧的 /scene: 前缀", () => {

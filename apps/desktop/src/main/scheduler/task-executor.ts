@@ -5,7 +5,7 @@ import {
 	CODING_AGENT_PLAN_MODE_STATE_READ,
 } from "@vetta/coding-agent/session-extensions";
 import type { PromptRequest, RuntimeHost, SessionExecutionMode } from "@vetta/runtime-core";
-import { prepareInputPrompt } from "../../renderer/shared/lib/input-tokens/prepare.js";
+import { preparedPromptRef, prepareInputPrompt } from "../../renderer/shared/lib/input-tokens/prepare.js";
 import type { AutomationSuspendReason, ScheduledTask, TaskExecutionRecord } from "../../shared/automation.js";
 import { formatScheduleSessionName } from "../../shared/scheduled-session.js";
 import { recordAutomationRunStarted } from "../app-monitor/app-monitor-service.js";
@@ -258,9 +258,10 @@ async function acquireSession(task: ScheduledTask): Promise<DesktopConversationS
 async function buildPromptRequest(task: ScheduledTask): Promise<PromptRequest> {
 	const prepared = prepareInputPrompt(task.prompt);
 	const modelKey = task.model?.key ?? (await getDesktopModelSettingsService().list()).defaultModel ?? undefined;
+	const promptRef = preparedPromptRef(prepared);
 	return {
 		text: prepared.text,
-		...(prepared.sceneName ? { promptRef: { kind: "scene" as const, name: prepared.sceneName } } : {}),
+		...(promptRef ? { promptRef } : {}),
 		...(modelKey ? { modelKey } : {}),
 		...(task.model?.reasoning ? { reasoning: task.model.reasoning } : {}),
 		metadata: { [CODING_AGENT_UNATTENDED_TURN_METADATA_KEY]: true, automationTaskId: task.id },

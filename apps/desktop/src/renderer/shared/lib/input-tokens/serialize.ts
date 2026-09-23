@@ -181,7 +181,7 @@ export function deriveAttachments(segments: readonly InputSegment[]): DerivedAtt
 	return [...byPath.values()];
 }
 
-/** 文本里引用到的 skill 名（软引用，模型自行决定是否 invoke_skill）。 */
+/** 文本里引用到的 skill 名；发送边界在无 scene 时把第一个提升为 promptRef。 */
 export function deriveSkillNames(segments: readonly InputSegment[]): string[] {
 	const names: string[] = [];
 	for (const segment of segments) {

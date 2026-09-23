@@ -63,7 +63,10 @@ export function reconcileOptimisticUserMessages(
 	);
 	const confirmedSnapshots = new Map<
 		ConversationUserMessageViewModel,
-		ConversationUserMessageViewModel["inputSegments"]
+		{
+			readonly inputSegments?: ConversationUserMessageViewModel["inputSegments"];
+			readonly promptRef?: ConversationUserMessageViewModel["promptRef"];
+		}
 	>();
 	const unresolved: PendingOptimisticUserMessage[] = [];
 	for (const entry of pending) {
@@ -77,8 +80,14 @@ export function reconcileOptimisticUserMessages(
 			? sameText(canonical.text, entry.message.text)
 			: sameUserMessage(canonical, entry.message);
 		if (confirmed) {
-			if (!entry.matchTextOnly && entry.message.inputSegments) {
-				confirmedSnapshots.set(canonical, entry.message.inputSegments);
+			if (!entry.matchTextOnly) {
+				const overlay: {
+					inputSegments?: ConversationUserMessageViewModel["inputSegments"];
+					promptRef?: ConversationUserMessageViewModel["promptRef"];
+				} = {};
+				if (entry.message.inputSegments) overlay.inputSegments = entry.message.inputSegments;
+				if (entry.message.promptRef && !canonical.promptRef) overlay.promptRef = entry.message.promptRef;
+				if (overlay.inputSegments || overlay.promptRef) confirmedSnapshots.set(canonical, overlay);
 			}
 			continue;
 		}
@@ -102,13 +111,19 @@ export function reconcileOptimisticUserMessages(
 
 function applyConfirmedInputSnapshots(
 	history: readonly ChatConversationItem[],
-	snapshots: ReadonlyMap<ConversationUserMessageViewModel, ConversationUserMessageViewModel["inputSegments"]>,
+	snapshots: ReadonlyMap<
+		ConversationUserMessageViewModel,
+		{
+			readonly inputSegments?: ConversationUserMessageViewModel["inputSegments"];
+			readonly promptRef?: ConversationUserMessageViewModel["promptRef"];
+		}
+	>,
 ): ChatConversationItem[] {
 	if (snapshots.size === 0) return [...history];
 	return history.map((message) => {
 		if (message.kind !== "user") return message;
-		const inputSegments = snapshots.get(message);
-		return inputSegments ? { ...message, inputSegments } : message;
+		const overlay = snapshots.get(message);
+		return overlay ? { ...message, ...overlay } : message;
 	});
 }
 
@@ -140,7 +155,8 @@ function samePromptRef(
 	a: ConversationUserMessageViewModel["promptRef"],
 	b: ConversationUserMessageViewModel["promptRef"],
 ): boolean {
-	if (!a || !b) return a === b;
+	// 规范历史可能还没把 skill_expansion 收成 prompt_ref_marker；文本已对上时不能因此残留第二条气泡。
+	if (!a || !b) return true;
 	return a.kind === b.kind && a.name === b.name;
 }
 

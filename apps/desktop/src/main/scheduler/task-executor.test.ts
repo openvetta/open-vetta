@@ -185,6 +185,21 @@ describe("automation task executor", () => {
 		);
 	});
 
+	it("lifts an inline skill token into promptRef so user-selected skills actually run", async () => {
+		const { runtime } = fakeRuntime();
+		await executeTask(task({ prompt: "@skill:improve-codebase-architecture scan the module" }), runtime, {
+			trigger: "manual",
+		});
+
+		expect(runtime.prompt).toHaveBeenCalledWith(
+			"session-1",
+			expect.objectContaining({
+				text: "scan the module",
+				promptRef: { kind: "skill", name: "improve-codebase-architecture" },
+			}),
+		);
+	});
+
 	it("skips a scheduled trigger while the previous run is still going", async () => {
 		let finish: (outcome: RuntimeTurnPromptOutcome) => void = () => {};
 		const { runtime } = fakeRuntime({

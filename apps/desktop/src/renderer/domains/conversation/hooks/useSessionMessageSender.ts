@@ -12,6 +12,7 @@ import {
 	deriveAttachments,
 	deriveSkillNames,
 	MultipleSceneReferencesError,
+	preparedPromptRef,
 	prepareInputPrompt,
 	toTokenPath,
 } from "@shared/lib/input-tokens";
@@ -210,10 +211,7 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 					console.error("[useSessionManager.sendMessage] persistImages failed:", err);
 				}
 			}
-			const promptRef =
-				!hasOverride && preparedInput.sceneName
-					? { kind: "scene" as const, name: preparedInput.sceneName }
-					: undefined;
+			const promptRef = !hasOverride ? preparedPromptRef(preparedInput) : undefined;
 			const attachmentsByPath = new Map<string, PromptAttachmentRef>();
 			if (!hasOverride) {
 				for (const attachment of deriveAttachments(preparedInput.segments)) {
@@ -252,10 +250,9 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 			recordInputContextUsed({
 				files: hasOverride ? [] : mentionedFiles,
 				images: hasOverride ? [] : persistedImages,
-				...(promptRef ? { promptRef } : {}),
+				...(promptRef?.kind === "scene" ? { promptRef } : {}),
 			});
-			// 行内 skill 是软引用，不进 promptRef，但调用次数仍要计入 app-monitor
-			// （命令面板按使用频次排序依赖这份统计）。每个被引用的 skill 记一次。
+			// 无 scene 时第一个 skill 已进 promptRef 硬展开；其余 skill 仍按名字记调用次数。
 			if (!hasOverride) {
 				for (const name of deriveSkillNames(preparedInput.segments)) {
 					recordInputContextUsed({ promptRef: { kind: "skill", name } });

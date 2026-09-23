@@ -77,6 +77,49 @@ describe("Coding Agent prompt resource resolver", () => {
 		expect(refreshSkillsIfChanged).toHaveBeenCalledTimes(3);
 	});
 
+	it("hard-expands a disable-model-invocation skill selected via promptRef", async () => {
+		const skillDir = join(root, "improve-codebase-architecture");
+		const skillPath = join(skillDir, "SKILL.md");
+		mkdirSync(skillDir);
+		writeFileSync(
+			skillPath,
+			skillDocument(
+				"improve-codebase-architecture",
+				"deepen the module",
+				undefined,
+				"disable-model-invocation: true\n",
+			),
+		);
+		const adapter = new CodingAgentPromptRequestAdapter({
+			resolvePromptResource: createCodingAgentPromptResourceResolver({
+				resourceLoader: {
+					refreshSkillsIfChanged: async () => false,
+					getSkills: () => ({
+						skills: [
+							{
+								...createSkill("improve-codebase-architecture", "skill", skillDir, skillPath),
+								disableModelInvocation: true,
+							},
+						],
+						diagnostics: [],
+					}),
+				},
+				todoState: new CodingAgentTodoRuntime(),
+			}),
+		});
+
+		const prepared = await preparePrompt(
+			adapter,
+			{ text: "scan the hot spots", promptRef: { kind: "skill", name: "improve-codebase-architecture" } },
+			{ sessionId: "session-1", queueing: false },
+		);
+
+		expect(prepared.input.context?.[0]).toMatchObject({
+			type: "skill_expansion",
+			content: expect.stringContaining("deepen the module"),
+		});
+	});
+
 	it("uses the session work-state port when expanding a Scene", async () => {
 		const sceneDir = join(root, "deploy");
 		const scenePath = join(sceneDir, "SKILL.md");

@@ -10,8 +10,8 @@ export type SerializedSkillTokenNode = Spread<
 export type AbilityTokenType = "skill" | "scene";
 
 /**
- * 行内 skill 引用。软引用：文本里只留 `@skill:名字`，
- * 由模型自行决定是否 invoke_skill，宿主不做硬展开。
+ * 行内 skill 引用。无 scene 时发送边界转成 PromptRequest.promptRef 硬展开；
+ * 有 scene 或同一条里排在后面的 skill 仍留在正文，由模型决定是否 invoke_skill。
  */
 export class SkillTokenNode extends DecoratorNode<JSX.Element> {
 	__name: string;

@@ -104,6 +104,21 @@ describe("projectUserMessage", () => {
 		expect(projection.displayText).toBe("@scene:review 检查 @skill:legal @/workspace/spec.md");
 	});
 
+	it("正文被剥离后仍能用 skill promptRef 还原成胶囊", () => {
+		const projection = projectUserMessage(
+			createConversationUserMessage({
+				id: "skill-ref",
+				text: "scan the module",
+				promptRef: { kind: "skill", name: "improve-codebase-architecture" },
+			}),
+		);
+
+		expect(projection.inlineTokenAnnotations).toMatchObject([
+			{ kind: "skill", name: "improve-codebase-architecture" },
+		]);
+		expect(projection.displayText).toBe("@skill:improve-codebase-architecture scan the module");
+	});
+
 	it("编辑器明确保存为正文的 token 外形文本不会被重新猜成 token", () => {
 		const text = "原样保留 @C:/workspace/screenshot.png";
 		const projection = projectUserMessage(
