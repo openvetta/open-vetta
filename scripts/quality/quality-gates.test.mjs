@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { findPackageBoundaryViolations, findPackageManifestBoundaryViolations } from "./check-package-boundaries.mjs";
 import { batchPaths, createQuickCheckPlan, isBiomeGlobalTrigger } from "./check-quick.mjs";
 import { findSkillFrontmatterProblems } from "./check-skill-frontmatter.mjs";
@@ -27,7 +27,7 @@ import {
 	WORKSPACE_PACKAGES,
 } from "./lib.mjs";
 import { createChangedTestPlan, parseArgs } from "./test-changed.mjs";
-import { createImpactTestPlan, parseImpactArgs } from "./test-impact.mjs";
+import { createImpactTestPlan, parseImpactArgs, runTargetedTests } from "./test-impact.mjs";
 
 describe("changed file selection", () => {
 	it("combines committed, working tree, and untracked paths", () => {
@@ -367,6 +367,109 @@ describe("affected package selection", () => {
 		expect(dependencies).not.toEqual(
 			expect.arrayContaining(["@vetta/desktop", "@vetta/docs-site", "@vetta/remote-relay"]),
 		);
+	});
+});
+
+describe("test impact vitest results", () => {
+	const sourceTarget = {
+		key: "ai",
+		dir: "packages/ai",
+		testScript: "bun ../../scripts/quality/run-vitest.mjs",
+		directTests: [],
+		relatedSources: ["src/providers/retry-policy.ts"],
+		full: false,
+	};
+
+	let captured;
+
+	function captureWrites() {
+		const stderr = [];
+		const stdout = [];
+		const originalErr = process.stderr.write;
+		const originalOut = process.stdout.write;
+		process.stderr.write = (chunk) => {
+			stderr.push(String(chunk));
+			return true;
+		};
+		process.stdout.write = (chunk) => {
+			stdout.push(String(chunk));
+			return true;
+		};
+		return {
+			stderr: () => stderr.join(""),
+			stdout: () => stdout.join(""),
+			restore() {
+				process.stderr.write = originalErr;
+				process.stdout.write = originalOut;
+			},
+		};
+	}
+
+	beforeEach(() => {
+		captured = captureWrites();
+	});
+
+	afterEach(() => {
+		captured.restore();
+	});
+
+	it("prints the vitest failure and returns its status even when the log says no tests were found", () => {
+		const spawnImpl = (command, args, options) => {
+			expect(command).toBe("bun");
+			expect(args).toEqual(
+				expect.arrayContaining(["related", "src/providers/retry-policy.ts", "--passWithNoTests=false"]),
+			);
+			expect(options.cwd).toContain("packages/ai");
+			return {
+				status: 2,
+				signal: null,
+				stdout: "FAIL src/providers/retry-policy.test.ts\n",
+				stderr: "No test files found, exiting with code 1\nNo test suite found\nexpected 1 to be 2\n",
+			};
+		};
+		expect(runTargetedTests(sourceTarget, spawnImpl)).toBe(2);
+		expect(captured.stdout()).toContain("FAIL src/providers/retry-policy.test.ts");
+		expect(captured.stderr()).toContain("expected 1 to be 2");
+	});
+
+	it("throws failed to spawn vitest when bun never starts", () => {
+		const error = new Error("spawnSync bun ENOENT");
+		error.code = "ENOENT";
+		expect(() =>
+			runTargetedTests(sourceTarget, () => ({
+				error,
+				status: null,
+				signal: null,
+				stdout: "",
+				stderr: "No test files found",
+			})),
+		).toThrow("failed to spawn vitest: spawnSync bun ENOENT");
+	});
+
+	it("keeps a zero exit when vitest succeeds, including a no-file log", () => {
+		expect(
+			runTargetedTests(sourceTarget, () => ({
+				status: 0,
+				signal: null,
+				stdout: "",
+				stderr: "No test files found, exiting with code 0\n",
+			})),
+		).toBe(0);
+	});
+
+	it("returns 1 when vitest is killed after starting, instead of calling that a spawn failure", () => {
+		const error = new Error("spawnSync bun ENOBUFS");
+		error.code = "ENOBUFS";
+		expect(
+			runTargetedTests(sourceTarget, () => ({
+				error,
+				status: null,
+				signal: "SIGTERM",
+				stdout: "",
+				stderr: "partial vitest output",
+			})),
+		).toBe(1);
+		expect(captured.stderr()).toContain("partial vitest output");
 	});
 });
 

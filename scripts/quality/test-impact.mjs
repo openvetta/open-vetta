@@ -134,8 +134,24 @@ export function createImpactTestPlan(files, pathExists = (file) => existsSync(jo
 	};
 }
 
-function runCapturedBun(args, cwd) {
-	const result = spawnSync("bun", args, {
+function neverStarted(result) {
+	const noStatus = result.status === null || result.status === undefined;
+	const noSignal = result.signal === null || result.signal === undefined;
+	return noStatus && noSignal;
+}
+
+// Vitest's log text changes between releases. `error` with no status and no
+// signal means the process never started (ENOENT). A process that exits
+// non-zero, or is killed after producing output (ENOBUFS), is that run's result.
+function exitCodeFromCapturedBun(result) {
+	if (result.error && neverStarted(result)) {
+		throw new Error(`failed to spawn vitest: ${result.error.message}`);
+	}
+	return result.status ?? 1;
+}
+
+function runCapturedBun(args, cwd, spawnImpl = spawnSync) {
+	const result = spawnImpl("bun", args, {
 		cwd,
 		encoding: "utf8",
 		env: process.env,
@@ -144,14 +160,10 @@ function runCapturedBun(args, cwd) {
 	});
 	if (result.stdout) process.stdout.write(result.stdout);
 	if (result.stderr) process.stderr.write(result.stderr);
-	if (result.error) console.error(result.error.message);
-	return {
-		code: result.status ?? 1,
-		output: `${result.stdout ?? ""}\n${result.stderr ?? ""}`,
-	};
+	return exitCodeFromCapturedBun(result);
 }
 
-function runTargetedTests(target) {
+export function runTargetedTests(target, spawnImpl = spawnSync) {
 	const cwd = join(repoRoot, target.dir);
 	const runner = join(repoRoot, "scripts/quality/run-vitest.mjs");
 	const sharedArgs = staticVitestArgs(target.testScript);
@@ -163,15 +175,11 @@ function runTargetedTests(target) {
 	if (target.relatedSources.length === 0) return 0;
 
 	ok(`[test:impact] ${target.key}: tests related to ${target.relatedSources.join(", ")}`);
-	const related = runCapturedBun(
+	return runCapturedBun(
 		[runner, "related", ...target.relatedSources, "--run", "--passWithNoTests=false", ...sharedArgs],
 		cwd,
+		spawnImpl,
 	);
-	if (related.code === 0) return 0;
-	if (!/No test files found|No test suite found/i.test(related.output)) return related.code;
-
-	ok(`[test:impact] ${target.key}: no related tests found; falling back to the package test script`);
-	return runBun(["run", "test"], { cwd });
 }
 
 function printPlan(plan, selection) {
