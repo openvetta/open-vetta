@@ -1,4 +1,3 @@
-import { CanvasAddon } from "@xterm/addon-canvas";
 import { FitAddon } from "@xterm/addon-fit";
 import { SerializeAddon } from "@xterm/addon-serialize";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
@@ -59,7 +58,6 @@ export function TerminalSurface(): JSX.Element {
 
 		let disposed = false;
 		let terminalId: string | null = null;
-		let contextLost = false;
 		const cleanups: Array<() => void> = [];
 
 		const terminal = new Terminal({
@@ -91,19 +89,14 @@ export function TerminalSurface(): JSX.Element {
 			hasWebgl2: detectWebgl2Support(),
 			hardwareAccelerated: true,
 			isActiveLeaf: activeRef.current,
-			contextLost,
 		});
 		if (renderer === "webgl") {
 			const webgl = new WebglAddon();
-			// 丢上下文不处理的话整个终端永久黑屏，必须当场降级。
+			// 丢上下文不处理的话整个终端永久黑屏；dispose 会把渲染交回 xterm 自带的 DOM 渲染器。
 			webgl.onContextLoss(() => {
-				contextLost = true;
 				webgl.dispose();
-				if (!disposed) terminal.loadAddon(new CanvasAddon());
 			});
 			terminal.loadAddon(webgl);
-		} else {
-			terminal.loadAddon(new CanvasAddon());
 		}
 
 		/** 只有容器有真实尺寸时才 fit：折叠时容器高度是 0，fit 会算出 0 行并抛。 */

@@ -167,7 +167,6 @@
 		"@vetta/runtime-tools": "workspace:*",
 		"@vetta/ssh-transport": "workspace:*",
 		"@vetta/toolkit": "workspace:*",
-		"@xterm/addon-canvas": "^0.7.0",
 		"@xterm/addon-fit": "^0.11.0",
 		"@xterm/addon-serialize": "^0.14.0",
 		"@xterm/addon-unicode11": "^0.9.0",

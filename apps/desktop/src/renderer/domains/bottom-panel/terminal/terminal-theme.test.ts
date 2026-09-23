@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { selectTerminalRenderer } from "./select-terminal-renderer";
 import { buildTerminalTheme } from "./terminal-theme";
@@ -62,21 +65,29 @@ describe("selectTerminalRenderer", () => {
 		const base = { hasWebgl2: true, hardwareAccelerated: true };
 
 		expect(selectTerminalRenderer({ ...base, isActiveLeaf: true })).toBe("webgl");
-		expect(selectTerminalRenderer({ ...base, isActiveLeaf: false })).toBe("canvas");
+		expect(selectTerminalRenderer({ ...base, isActiveLeaf: false })).toBe("dom");
 	});
 
-	it("拿不到 webgl2 或关了硬件加速时一律 canvas", () => {
-		expect(selectTerminalRenderer({ hasWebgl2: false, hardwareAccelerated: true, isActiveLeaf: true })).toBe(
-			"canvas",
-		);
-		expect(selectTerminalRenderer({ hasWebgl2: true, hardwareAccelerated: false, isActiveLeaf: true })).toBe(
-			"canvas",
-		);
+	it("拿不到 webgl2 或关了硬件加速时一律 DOM，不走已停更的 canvas addon", () => {
+		expect(selectTerminalRenderer({ hasWebgl2: false, hardwareAccelerated: true, isActiveLeaf: true })).toBe("dom");
+		expect(selectTerminalRenderer({ hasWebgl2: true, hardwareAccelerated: false, isActiveLeaf: true })).toBe("dom");
 	});
 
 	it("丢过一次上下文就不再回 WebGL", () => {
 		expect(
 			selectTerminalRenderer({ hasWebgl2: true, hardwareAccelerated: true, isActiveLeaf: true, contextLost: true }),
-		).toBe("canvas");
+		).toBe("dom");
+	});
+
+	it("终端实现不再加载只兼容 xterm 5 的 canvas addon，关闭时才不会读到 undefined 的 onShowLinkUnderline", () => {
+		const dir = dirname(fileURLToPath(import.meta.url));
+		const surface = readFileSync(join(dir, "TerminalSurface.tsx"), "utf8");
+		const manifest = JSON.parse(readFileSync(join(dir, "../../../../../package.json"), "utf8")) as {
+			dependencies?: Record<string, string>;
+		};
+
+		expect(surface).not.toContain("@xterm/addon-canvas");
+		expect(surface).not.toContain("CanvasAddon");
+		expect(manifest.dependencies?.["@xterm/addon-canvas"]).toBeUndefined();
 	});
 });
