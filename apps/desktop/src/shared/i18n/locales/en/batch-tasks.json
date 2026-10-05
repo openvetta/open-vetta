@@ -32,7 +32,10 @@
 		"namePlaceholderNew": "New batch project",
 		"cancel": "Cancel",
 		"save": "Save",
-		"create": "Create"
+		"create": "Create",
+		"saving": "Saving…",
+		"creating": "Creating…",
+		"saveFailed": "Couldn’t save the project. Try again"
 	},
 	"form": {
 		"namePlaceholder": "Project name",

@@ -32,7 +32,10 @@
 		"namePlaceholderNew": "新建批量项目",
 		"cancel": "取消",
 		"save": "保存",
-		"create": "创建"
+		"create": "创建",
+		"saving": "保存中…",
+		"creating": "创建中…",
+		"saveFailed": "未能保存项目，请重试"
 	},
 	"form": {
 		"namePlaceholder": "项目名称",

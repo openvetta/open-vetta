@@ -1,15 +1,18 @@
 import type { ModelsConfigData } from "@preload/api";
+import { i18n } from "@shared/i18n";
 import type { BatchProject } from "@shared/store/atoms";
 import { localModelsConfigAtom, remoteProvidersAtom } from "@shared/store/atoms";
 import { modelCatalog } from "@shared/store/model-catalog";
 import { useAtomValue } from "jotai";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { BatchProjectEditableData } from "../components/BatchProjectFormFields";
 import { normalizeConcurrency, normalizeTimeout, toBatchProjectApprovalJsonData } from "../utils/batchProjectFormData";
 import { useBatchTasks } from "./useBatchTasks";
 
 export interface BatchProjectDialogModel {
 	canSubmit: boolean;
+	submitting: boolean;
+	error: string | null;
 	data: BatchProjectEditableData;
 	namePlaceholderKey: "dialog.namePlaceholderEdit" | "dialog.namePlaceholderNew";
 	submitLabelKey: "dialog.save" | "dialog.create";
@@ -57,10 +60,17 @@ export function useBatchProjectDialogModel({
 	const remoteProviders = useAtomValue(remoteProvidersAtom);
 	const config = useAtomValue(localModelsConfigAtom);
 	const [data, setData] = useState<BatchProjectEditableData>(() => getProjectData(project));
+	const [submitting, setSubmitting] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const submissionPending = useRef(false);
 
 	useEffect(() => {
 		setData(getProjectData(project));
+		setError(null);
 	}, [project]);
+	useEffect(() => {
+		if (open) setError(null);
+	}, [open]);
 
 	// 打开对话框时按 TTL 重新校验目录，随后跟着共享 config/remoteProviders 变化重算可选模型。
 	useEffect(() => {
@@ -81,51 +91,67 @@ export function useBatchProjectDialogModel({
 	}, [open, config, project?.modelKey, remoteProviders]);
 
 	const canSubmit = useMemo(
-		() => Boolean(data.name?.trim() && data.prompt?.trim() && (data.folders?.length ?? 0) > 0),
-		[data.folders?.length, data.name, data.prompt],
+		() => !submitting && Boolean(data.name?.trim() && data.prompt?.trim() && (data.folders?.length ?? 0) > 0),
+		[data.folders?.length, data.name, data.prompt, submitting],
 	);
 
 	const submit = async (): Promise<void> => {
-		if (!canSubmit) return;
+		if (!canSubmit || submissionPending.current) return;
+		submissionPending.current = true;
+		setSubmitting(true);
+		setError(null);
 		const normalized = toBatchProjectApprovalJsonData(data);
 		const artifactPatterns = normalized.artifactPatterns ?? [];
 		const safeTimeoutMinutes = normalizeTimeout(normalized.timeoutMinutes);
 		const concurrency = normalizeConcurrency(normalized.concurrency);
 
-		if (project) {
-			const originalSources = new Set(project.tasks.map((task) => task.sourcePath));
-			const newFolders = (normalized.folders ?? []).filter((folder) => !originalSources.has(folder));
-			await updateProject(project.id, {
-				name: normalized.name ?? "",
-				prompt: normalized.prompt ?? "",
-				modelKey: normalized.modelKey,
-				executionMode: normalized.executionMode,
-				concurrency,
-				artifactPatterns,
-				notifyEnabled: normalized.notifyEnabled ?? false,
-				timeoutMinutes: safeTimeoutMinutes,
-				newFolders,
-				skill: normalized.skill ?? null,
-			});
-		} else {
-			await createProject({
-				name: normalized.name ?? "",
-				prompt: normalized.prompt ?? "",
-				modelKey: normalized.modelKey,
-				executionMode: normalized.executionMode,
-				folders: normalized.folders ?? [],
-				concurrency,
-				artifactPatterns,
-				notifyEnabled: normalized.notifyEnabled ?? false,
-				timeoutMinutes: safeTimeoutMinutes,
-				skill: normalized.skill ?? undefined,
-			});
+		try {
+			if (project) {
+				const originalSources = new Set(project.tasks.map((task) => task.sourcePath));
+				const newFolders = (normalized.folders ?? []).filter((folder) => !originalSources.has(folder));
+				await updateProject(project.id, {
+					name: normalized.name ?? "",
+					prompt: normalized.prompt ?? "",
+					modelKey: normalized.modelKey,
+					executionMode: normalized.executionMode,
+					concurrency,
+					artifactPatterns,
+					notifyEnabled: normalized.notifyEnabled ?? false,
+					timeoutMinutes: safeTimeoutMinutes,
+					newFolders,
+					skill: normalized.skill ?? null,
+				});
+			} else {
+				await createProject({
+					name: normalized.name ?? "",
+					prompt: normalized.prompt ?? "",
+					modelKey: normalized.modelKey,
+					executionMode: normalized.executionMode,
+					folders: normalized.folders ?? [],
+					concurrency,
+					artifactPatterns,
+					notifyEnabled: normalized.notifyEnabled ?? false,
+					timeoutMinutes: safeTimeoutMinutes,
+					skill: normalized.skill ?? undefined,
+				});
+			}
+			onClose();
+		} catch (reason) {
+			const message = reason instanceof Error ? reason.message : "";
+			setError(
+				message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, "") ||
+					i18n.t("batch-tasks:dialog.saveFailed"),
+			);
+		} finally {
+			submissionPending.current = false;
+			setSubmitting(false);
 		}
-		onClose();
 	};
 
 	return {
 		canSubmit,
+		submitting,
+		error,
 		data,
 		namePlaceholderKey: project ? "dialog.namePlaceholderEdit" : "dialog.namePlaceholderNew",
 		submitLabelKey: project ? "dialog.save" : "dialog.create",
