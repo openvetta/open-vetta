@@ -9,12 +9,17 @@ describe("product tool description routing", () => {
 		expect(PROGRESS_TOOL_DESCRIPTION).toContain("multi-step work");
 		expect(PROGRESS_TOOL_DESCRIPTION).toContain("Skip it for a single trivial lookup");
 		expect(PROGRESS_TOOL_DESCRIPTION).toContain("regardless of the user's technical level");
+		expect(PROGRESS_TOOL_DESCRIPTION).toContain("Do not create a stage per tool call");
+		expect(PROGRESS_TOOL_DESCRIPTION).toContain("Do not repeat the same update in chat");
+		expect(PROGRESS_TOOL_DESCRIPTION).not.toContain("2 to 5 stages");
 		expect(PROGRESS_TOOL_DESCRIPTION).not.toContain("NOT a developer");
 	});
 
 	it("distinguishes an execution todo from an informational plan", () => {
 		expect(TODO_TOOL_DESCRIPTION).toContain("execute and track the work");
 		expect(TODO_TOOL_DESCRIPTION).toContain("without executing it");
+		expect(TODO_TOOL_DESCRIPTION).toContain("Avoid duplicating every todo update in progress or chat");
+		expect(TODO_TOOL_DESCRIPTION).not.toContain("User asks to modify multiple files");
 	});
 
 	it("states the current-time timezone limitation", () => {

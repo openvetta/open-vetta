@@ -35,6 +35,11 @@ async function readLocale(locale: string): Promise<Record<string, string>> {
 	>;
 }
 
+async function readPrompt(path: string | undefined): Promise<string> {
+	if (!path) throw new Error("Missing declared prompt path");
+	return readFile(resolve(import.meta.dirname, "..", path), "utf8");
+}
+
 describe("Preset agent manifest", () => {
 	it("contributes exactly the three host personas and asks for no permission", async () => {
 		const manifest = await readManifest();
@@ -73,6 +78,60 @@ describe("Preset agent manifest", () => {
 			expect(team.members.every((member) => member.responsibility.trim().length > 0)).toBe(true);
 			const workflow = await readFile(resolve(import.meta.dirname, "..", team.workflowPath!), "utf8");
 			expect(workflow.trim().length).toBeGreaterThan(0);
+		}
+	});
+
+	it("ships a leader prompt that scales delegation to the request and preserves task verification", async () => {
+		const manifest = await readManifest();
+		const master = await readPrompt(manifest.agent?.agents?.find((agent) => agent.id === "master")?.systemPromptPath);
+
+		expect(master).toContain("Answer simple questions, status requests, and bounded read-only reviews directly");
+		expect(master).toContain("explicit workflow");
+		expect(master).toContain("team_delegate_task");
+		expect(master).toContain("team_wait_tasks");
+		expect(master).toContain("team_get_task");
+		expect(master).toContain("team_continue_task or team_retry_task only when its state permits");
+		expect(master).toContain("meaningful results, decisions, or blockers");
+		expect(master).toContain("If assigned as a member instead of leader");
+		expect(master).toContain("Use only tools exposed in the current turn");
+		expect(master).not.toContain("delegate each step");
+	});
+
+	it("routes specialist results to the current leader without repeated user-facing ceremonies", async () => {
+		const manifest = await readManifest();
+		for (const agent of manifest.agent?.agents?.filter((candidate) => candidate.id !== "master") ?? []) {
+			const prompt = await readPrompt(agent.systemPromptPath);
+			expect(prompt, agent.id).toContain("As a member, report to the team leader");
+			expect(prompt, agent.id).toContain("Do not transfer Team task ownership");
+			expect(prompt, agent.id).toContain("Skip repeated user-facing kickoff and progress narration");
+		}
+	});
+
+	it("keeps review read-only and requires specialists to disclose verification limits", async () => {
+		const manifest = await readManifest();
+		const auditor = await readPrompt(
+			manifest.agent?.agents?.find((agent) => agent.id === "auditor")?.systemPromptPath,
+		);
+		const developer = await readPrompt(
+			manifest.agent?.agents?.find((agent) => agent.id === "developer")?.systemPromptPath,
+		);
+
+		expect(auditor).toContain("Stay read-only unless changes are explicitly assigned");
+		expect(auditor).toContain("what remains unverified");
+		expect(auditor).toContain("passes or requires rework");
+		expect(developer).toContain("A read-only review does not authorize implementation");
+		expect(developer).toContain("distinguishing completed checks from checks not run");
+	});
+
+	it("keeps both declared workflows optional for read-only requests while retaining delivery review", async () => {
+		const manifest = await readManifest();
+		for (const team of manifest.agent?.teams ?? []) {
+			const workflow = await readPrompt(team.workflowPath);
+			expect(workflow, team.id).toContain("For questions, status requests, or read-only reviews");
+			expect(workflow, team.id).toContain("do not start a build or planning loop");
+			expect(workflow, team.id).toContain("Honor the user's explicit workflow and required review");
+			expect(workflow, team.id).toContain("Auditor reports no blocking finding");
+			expect(workflow, team.id).toContain("only for missing evidence");
 		}
 	});
 

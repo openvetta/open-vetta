@@ -81,6 +81,8 @@ describe("renderWorkspaceFacts", () => {
 		expect(rendered).toContain("`acme-web`");
 		expect(rendered).toContain("Detected stack: Node.js, React.");
 		expect(rendered).toContain("Do NOT scaffold a separate standalone project");
+		expect(rendered).toContain("For requests to change this project");
+		expect(rendered).toContain("do not turn unrelated questions or writing tasks into software work");
 	});
 
 	it("returns undefined when nothing was detected", () => {

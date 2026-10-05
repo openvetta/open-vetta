@@ -71,6 +71,7 @@ const TOOL_SELECTION_GUIDANCE =
 	"Match the tool's purpose and prerequisites, not just its name or a shared keyword. Honor its exclusion cases and use its suggested alternative when applicable. " +
 	"Use fitting capabilities and their necessary supporting steps proactively; the user does not need to name a tool or skill. Do not narrow a capability's declared purpose merely to avoid making a selection decision. " +
 	"A tool being available, a file or canvas existing, or a skill being loaded does not by itself justify using it. " +
+	"Tool names mentioned in instructions or descriptions do not prove availability. Use only exposed tools or a supported discovery mechanism; report a missing capability rather than inventing tools or bypassing restrictions. " +
 	"Keep ordinary repository work in the user's repository; use app-management, design-canvas, media-workflow, and external-service tools only for their corresponding targets. " +
 	"Prefer the least additional setup that achieves the requested result; do not create a project, install an integration, start a paid generation, send a message, or schedule future work just to answer a question. " +
 	"For tools with several operations, select the operation that matches the request: inspect/list/status do not imply edit/import/run. " +
@@ -98,14 +99,20 @@ const RESPONSE_LANGUAGE_GUIDANCE =
 	"The only exceptions are identifiers you must reproduce verbatim (file paths, code, commands, quoted source text) and content the user explicitly asked for in another language.";
 
 const FINAL_ANSWER_ORDER_GUIDANCE =
-	"Before writing the final user-facing answer, complete all required tool calls and cleanup work, including validation, saving files, todo updates, and status updates. " +
-	"Once you begin the final answer, do not call more tools or perform additional actions. If more work is needed, do it first, then answer.";
+	"Finish investigation and validation before presenting a result as complete. Deliveries and their explanations may be interleaved in a useful reading order. " +
+	"Complete saving, cleanup, and necessary status updates before the final response that ends the turn. After the final response that ends the turn, do not call more tools.";
+
+const TASK_SCOPE_GUIDANCE =
+	"Answer simple questions directly when the supplied context and your knowledge are sufficient; do not inspect the workspace or create a plan merely because tools are available. " +
+	"Reviews, explanations, and diagnoses are read-only unless the user also requests changes. When implementation is requested, carry it through relevant verification within the authorized scope. " +
+	"Ask only about unresolved decisions that materially affect the result, scope, or risk; do not repeat questions already answered. " +
+	"Mode and persona defaults do not replace the user's explicit choices, your assigned role, tool permissions, or required approvals.";
 
 /** 文件名保真规则（buildGuidelines 与 custom-prompt 分支共用同一定义）。 */
 const FILENAME_FIDELITY_GUIDANCE =
-	"CRITICAL — File name fidelity: file names and paths are opaque byte strings — reproduce them EXACTLY as returned by tools (ls, find, dir_tree) or provided by the user; " +
+	"CRITICAL — File name fidelity: file names and paths are opaque byte strings — reproduce them EXACTLY as returned by tools or provided by the user; " +
 	"NEVER add, remove, or change any characters including spaces, dashes, underscores, or punctuation. " +
-	"When in doubt, run ls or find first to get the exact name, then copy it verbatim.";
+	"When in doubt, verify the exact name with an available file tool rather than guessing.";
 
 /**
  * 桌面端渲染契约（文件徽章 / 产物块 / URL 链接）。这些是 UI 渲染约定而非模型行为指令，
@@ -207,7 +214,8 @@ function renderContextFilesSection(contextFiles: Array<{ path: string; content: 
 	let content =
 		"# Project Context\n\nProject-specific instructions and guidelines:\n\n" +
 		"Scoping rules: each instruction file (AGENTS.md, CLAUDE.md, …) applies to the entire directory tree rooted at the folder that contains it. " +
-		"When instructions conflict, more deeply nested files take precedence over higher-level ones, and direct user instructions in the chat always override any instruction file.\n\n";
+		"When instructions conflict, more deeply nested files take precedence over higher-level ones, and direct user instructions in the chat always override any instruction file. " +
+		"Apply engineering workflows and reporting requirements to the relevant project work, not unrelated conversation; preserve applicable safety and permission constraints.\n\n";
 	for (const { path: filePath, content: fileContent } of contextFiles) {
 		content += `## ${filePath}\n\n${fileContent}\n\n`;
 	}
@@ -241,7 +249,7 @@ function buildDateTime(): string {
 }
 
 function buildGuidelines(tools: string[], scenario?: ConversationScenario): string {
-	const guidelinesList: string[] = [];
+	const guidelinesList: string[] = [TASK_SCOPE_GUIDANCE];
 	if (tools.length > 0) guidelinesList.push(TOOL_SELECTION_GUIDANCE);
 	// 渲染契约（徽章/产物块/URL 链接）只对有 UI 渲染的场景有意义；cli 场景剔除。
 	// scenario 未传（SDK 直调/测试）时保守保留，行为与旧版一致。
@@ -272,19 +280,19 @@ function buildGuidelines(tools: string[], scenario?: ConversationScenario): stri
 
 	if (hasDirTree) {
 		guidelinesList.push(
-			'ALWAYS use dir_tree (not bash "tree", "ls -R", "find", "fd", or "rg --files") whenever you need to view directory structure or explore a codebase. Only fall back to bash if dir_tree cannot fulfill the specific requirement (e.g., custom output formatting)',
+			"ALWAYS use dir_tree for a directory-structure view. Use other available search tools for targeted file or content queries; use another available route only when dir_tree cannot fulfill the required view.",
 		);
 	}
 
 	if (tools.includes("dispatch_workflows")) {
 		guidelinesList.push(
-			"PARALLEL WORKFLOWS ARE EXPENSIVE: use dispatch_workflows only for an extremely complex request with multiple unrelated, non-overlapping workflows that are each independently complex. Never use subagents for a simple task, an ambiguous request, sequential steps, or work the root can complete directly with a small number of tool calls. Before dispatch, account for child startup and token cost, close ambiguities yourself, and give every child a detailed structured task contract covering relevant history, verified current state, one objective, exact scope, constraints, context, deliverables, and functional validation. Completion means those validations pass, not merely that code was written. Children inherit parent capabilities by default but remain leaf workers. After dispatching, do not sit in wait_agent: end your turn or continue useful root work and react to notifications passively. Resume interrupted work with followup_task instead of duplicating it.",
+			"Parallel workflows have startup and token costs. Use dispatch_workflows only for multiple non-overlapping workflows that are each independently complex; handle simple tasks and dependent steps directly. Give each child a bounded objective, verified context, constraints, and completion checks. Children remain leaf workers. Continue useful work or yield for notifications rather than polling; resume interrupted work through available controls instead of duplicating it.",
 		);
 	}
 
 	if (tools.includes("current_time")) {
 		guidelinesList.push(
-			'ALWAYS use current_time tool (not bash "date", "timedatectl", or other shell commands) when you need to know the current date or time. Only fall back to bash if current_time cannot fulfill the specific requirement (e.g., timezone conversion, date arithmetic)',
+			"ALWAYS use current_time tool when you need the current date or time. For unsupported operations such as date arithmetic, use another available capability.",
 		);
 	}
 
@@ -293,7 +301,7 @@ function buildGuidelines(tools: string[], scenario?: ConversationScenario): stri
 	}
 	if (hasEdit) {
 		guidelinesList.push(
-			"Use edit for precise changes. Prefer anchor mode: pass `edits` with the `line:hash` anchors from read/grep output (copy verbatim, never fabricate); the batch is atomic and stale-anchor errors return fresh anchors for immediate retry",
+			"Use edit for precise changes. Use anchor mode when tool output supplies `line:hash` anchors: copy them verbatim, never fabricate them. The batch is atomic and stale-anchor errors return fresh anchors for retry. Otherwise use supported exact-text replacement with verified source text.",
 		);
 	}
 	if (hasWrite) {
@@ -314,8 +322,13 @@ function buildGuidelines(tools: string[], scenario?: ConversationScenario): stri
 		guidelinesList.push(URL_LINK_GUIDANCE);
 	}
 	guidelinesList.push(
-		"When the user sends images inline in their message, analyze them directly using your vision capabilities. Do NOT try to locate or read them from disk - the image data is already embedded in the message. When an image is provided as a file path, use `read` first if you have vision capabilities; it returns the image for direct inspection, including visible text. Use image OCR only when you need machine-extracted text/metadata or cannot inspect the image directly",
+		"When an image is embedded in the user's message and you can inspect it directly, use that image rather than searching for a disk copy. Do not claim visual inspection if the image is unavailable to you.",
 	);
+	if (hasRead) {
+		guidelinesList.push(
+			"For an image supplied as a file path, use `read` for direct visual inspection when supported. Use available OCR capabilities when machine-extracted text or metadata is needed, or direct inspection is unavailable.",
+		);
+	}
 
 	return guidelinesList.map((guideline) => `- ${guideline}`).join("\n");
 }
@@ -379,8 +392,7 @@ export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): 
 	const tools = resolvePromptTools(selectedTools, defaultCommandTool, resolvedToolDescriptions);
 	const blocks: SystemPromptBlock[] = [];
 	const hasInvokeSkill = tools.includes("invoke_skill");
-	const hasRead = tools.includes("read");
-	const skillsSection = (hasRead || hasInvokeSkill) && skills.length > 0 ? formatModelVisibleSkills(skills) : "";
+	const skillsSection = hasInvokeSkill && skills.length > 0 ? formatModelVisibleSkills(skills) : "";
 
 	blocks.push(coreBlock("core.subconscious", "subconscious", SUBCONSCIOUS, 100));
 	blocks.push(coreBlock("core.base", "base", customPrompt ?? "", 150));

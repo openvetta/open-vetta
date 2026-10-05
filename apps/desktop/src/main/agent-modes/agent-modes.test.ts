@@ -73,9 +73,23 @@ describe("模式间只有提示词正文不同", () => {
 	it.each(modeFiles.map((mode) => mode.id))("%s 模式保留产物放置但不强制末尾文件清单", (id) => {
 		const prompt = getModePrompt(id);
 		expect(prompt).toContain("## Placing deliverables inside your answer");
-		expect(prompt).toContain("md_intro");
+		expect(prompt).toContain("Follow the actual tool's presentation options");
+		expect(prompt).not.toContain("md_intro");
+		expect(prompt).not.toContain("Key observations");
 		expect(prompt).not.toMatch(/deliverables (?:block|section|list|file list)/i);
 		expect(prompt).not.toContain("List every file you created or changed");
+	});
+
+	it.each(modeFiles.map((mode) => mode.id))("%s 模式不强制当前角色可能没有的工具", (id) => {
+		const prompt = getModePrompt(id);
+		expect(prompt).not.toMatch(
+			/\b(?:progress|ask_user_question|invoke_skill|spawn_agent|dispatch_workflows|wait_agent)\s*\(/,
+		);
+		expect(prompt).not.toMatch(
+			/`(?:progress|ask_user_question|invoke_skill|spawn_agent|dispatch_workflows|wait_agent)`/,
+		);
+		expect(prompt).toContain("Follow your assigned role");
+		expect(prompt).toContain("no fixed introductory template or closing section is required");
 	});
 });
 

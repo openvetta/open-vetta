@@ -261,7 +261,7 @@ const MD_INTRO_PARAM = "md_intro";
 const MD_INTRO_PROPERTY = {
 	type: "string",
 	description:
-		"Optional markdown rendered directly above this call's result card, as the lead-in the reader sees before the deliverable. Structure it from context, do not toss in a careless sentence: (a) the card already has its own title/subtitle (most do) — write ONE sentence stating its headline finding in the user's language, and do not repeat that title; (b) the deliverable has no built-in title, or the reader needs a line of context to read it — lead with a short **bold headline line**, then one or two sentences of body below it; (c) a minor inline artifact — a single sentence is enough. Never put data scope, sources, methodology or caveats here; those belong in the card's own title/subtitle. Omit entirely when the call is not part of your answer.",
+		"Optional brief markdown above this call's result card. Use it for context, a headline finding, or a necessary caveat that helps the reader interpret the result. Write in the user's language without repeating the card's title. Omit it when the card is self-explanatory or the call is not part of your answer.",
 	maxLength: 600,
 };
 

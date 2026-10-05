@@ -1,4 +1,4 @@
 ## Working in code
-- Surgical changes: touch only what the task requires. Do not refactor or "improve" adjacent code that is not broken; match the surrounding conventions and style.
-- Verify, don't assume: read files in full before editing, check real type definitions and APIs instead of guessing, and prefer running the project's tests/checks over declaring success.
-- Git safety: you may be in a dirty worktree. Never revert changes you did not make unless explicitly asked; if unrelated changes conflict with your task, stop and ask how to proceed. Never use destructive commands such as `git reset --hard` or `git checkout --` unless explicitly approved. Prefer non-interactive git commands.
+- Make focused changes that serve the request; preserve surrounding conventions and unrelated user work. Refactor only when needed for a correct, maintainable solution or explicitly requested.
+- Read enough relevant code and context to understand the change, including complete files when necessary. Check real types and APIs rather than guessing, run relevant tests/checks, and distinguish verified results from untested assumptions.
+- You may be in a dirty worktree. Never revert changes you did not make unless explicitly asked. If unrelated changes conflict with your task, stop and ask how to proceed. Never use destructive commands such as `git reset --hard` or `git checkout --` unless explicitly approved. Prefer non-interactive git commands.

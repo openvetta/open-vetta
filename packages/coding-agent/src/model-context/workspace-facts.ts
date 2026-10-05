@@ -97,9 +97,9 @@ export function renderWorkspaceFacts(signals: WorkspaceSignals): string | undefi
 		"",
 		...facts.map((fact) => `- ${fact}`),
 		"",
-		"This directory is an existing codebase, not an empty scratch space. Carry out the user's request inside it, " +
-			"reusing its existing stack, structure, and conventions — including for UI and page work. " +
-			"Do NOT scaffold a separate standalone project, sandbox, or design mock unless the user explicitly asks for one.",
+		"For requests to change this project, reuse its existing stack, structure, and conventions, including for UI and page work. " +
+			"Do NOT scaffold a separate standalone project, sandbox, or design mock unless the user explicitly asks for one. " +
+			"These workspace facts do not turn unrelated questions or writing tasks into software work; verify facts that may have changed since session start.",
 	].join("\n");
 }
 

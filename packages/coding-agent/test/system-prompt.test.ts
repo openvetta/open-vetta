@@ -58,7 +58,13 @@ describe("buildSystemPrompt", () => {
 				{ name: "pdf", description: "Handle PDF files", type: "skill" as const, disableModelInvocation: false },
 			];
 
-			expect(buildSystemPrompt({ selectedTools: ["read"], contextFiles: [], skills })).toContain("Handle PDF files");
+			expect(buildSystemPrompt({ selectedTools: ["invoke_skill"], contextFiles: [], skills })).toContain(
+				"Handle PDF files",
+			);
+			expect(buildSystemPrompt({ selectedTools: ["read"], contextFiles: [], skills })).not.toContain("invoke_skill");
+			expect(buildSystemPrompt({ selectedTools: ["read"], contextFiles: [], skills })).not.toContain(
+				"Handle PDF files",
+			);
 			expect(buildSystemPrompt({ selectedTools: [], contextFiles: [], skills })).not.toContain("Handle PDF files");
 		});
 
@@ -185,6 +191,24 @@ describe("buildSystemPrompt", () => {
 			});
 
 			expect(prompt).not.toContain("Scoping rules:");
+		});
+	});
+
+	describe("task and delivery boundaries", () => {
+		test("keeps reviews read-only and permits direct answers without tools", () => {
+			const prompt = buildSystemPrompt({ selectedTools: [], contextFiles: [], skills: [] });
+			expect(prompt).toContain("Answer simple questions directly");
+			expect(prompt).toContain("Reviews, explanations, and diagnoses are read-only");
+			expect(prompt).toContain("required approvals");
+			expect(prompt).not.toContain("use `read`");
+			expect(prompt).not.toContain("run ls or find");
+		});
+
+		test("separates artifact delivery from the terminal response without a fixed report template", () => {
+			const prompt = buildSystemPrompt({ selectedTools: ["read", "write"], contextFiles: [], skills: [] });
+			expect(prompt).toContain("Deliveries and their explanations may be interleaved");
+			expect(prompt).toContain("After the final response that ends the turn");
+			expect(prompt).not.toContain("Once you begin the final answer, do not call more tools");
 		});
 	});
 

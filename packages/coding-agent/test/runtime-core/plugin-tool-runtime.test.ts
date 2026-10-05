@@ -151,7 +151,11 @@ describe("CodingAgentPluginToolRuntime", () => {
 			type: "object",
 			properties: {
 				title: { type: "string" },
-				md_intro: { type: "string", maxLength: 600 },
+				md_intro: {
+					type: "string",
+					maxLength: 600,
+					description: expect.stringContaining("a necessary caveat"),
+				},
 			},
 			required: ["title"],
 		});

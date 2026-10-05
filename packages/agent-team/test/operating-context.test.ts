@@ -65,6 +65,49 @@ describe("buildTeamOperatingContext", () => {
 		expect(buildTeamOperatingContext(roster, "leader", "Lead the work.")).toBe(`${shared}\n\n${leader}`);
 	});
 
+	it("lets the leader answer bounded requests without making every member run the full workflow", () => {
+		const leader = buildTeamOperatingContext(roster, "leader", "Lead the work.");
+		const builder = buildTeamOperatingContext(roster, "builder", "Build the work.");
+
+		expect(leader).toContain("Answer simple questions, status requests, and bounded read-only reviews directly");
+		expect(leader).toContain("your own enabled capabilities suffice");
+		expect(leader).toContain("Honor explicit user-requested workflows and required review");
+		expect(builder).not.toContain("Answer simple questions, status requests");
+		expect(builder).toContain("Return your result to the leader");
+		expect(builder).toContain("Do not repeat the leader's user-facing kickoff, plan, or final-delivery ceremony");
+		expect(builder).toContain("Surface blockers and required approvals to the leader");
+	});
+
+	it("keeps capability, approval, and durable task boundaries in both composed roles", () => {
+		for (const participantId of ["leader", "builder"]) {
+			const context = buildTeamOperatingContext(roster, participantId, "Follow your assignment.");
+			expect(context).toContain("Use only tools exposed in the current turn");
+			expect(context).toContain("do not grant capabilities or bypass approval requirements");
+			expect(context).toContain("Only the leader transfers Team task ownership");
+			expect(context).toContain("A wait timeout is not task failure");
+			expect(context).toContain("not teamTaskIds for team_wait_tasks");
+			expect(context).not.toMatch(/spawn_agent|subagent_spawn/);
+		}
+	});
+
+	it("moves leader guidance with the roster role while preserving the persona and assignment", () => {
+		const reassigned: TeamRosterSnapshot = {
+			...roster,
+			leaderParticipantId: "builder",
+			members: roster.members.map((member) => ({ ...member, isLeader: member.participantId === "builder" })),
+		};
+		const promoted = buildTeamOperatingContext(reassigned, "builder", "Build the work.", "Require security review.");
+		const formerLeader = buildTeamOperatingContext(reassigned, "leader", "Lead the work.");
+
+		expect(promoted).toContain("Team role: leader.");
+		expect(promoted).toContain("Answer simple questions, status requests");
+		expect(promoted).toContain("Build the work.");
+		expect(promoted).toContain("Require security review.");
+		expect(formerLeader).toContain("Team role: member.");
+		expect(formerLeader).toContain("Return your result to the leader");
+		expect(formerLeader).not.toContain("Answer simple questions, status requests");
+	});
+
 	it("appends the team assignment after the profile role instructions instead of replacing them", () => {
 		const member = buildTeamMemberOperatingContext(
 			roster,
