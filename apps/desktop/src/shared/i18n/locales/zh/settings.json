@@ -2279,5 +2279,7 @@
   "sshPromptRemember": "记住它（加密保存在本机，下次自动填）",
   "sshPromptSubmit": "继续连接",
   "sshPromptAccept": "确认并连接",
-  "sshPromptReject": "取消连接"
+  "sshPromptReject": "取消连接",
+  "selectAllFetchedModels": "全选",
+  "deselectAllFetchedModels": "取消全选"
 }

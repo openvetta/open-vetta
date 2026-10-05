@@ -2279,5 +2279,7 @@
   "sshPromptRemember": "Remember it (encrypted on this machine, filled in next time)",
   "sshPromptSubmit": "Continue connecting",
   "sshPromptAccept": "Confirm and connect",
-  "sshPromptReject": "Cancel connection"
+  "sshPromptReject": "Cancel connection",
+  "selectAllFetchedModels": "Select all",
+  "deselectAllFetchedModels": "Deselect all"
 }
