@@ -253,5 +253,8 @@
 		"hostInUse": "This host already has {{count}} project(s); binding here would disconnect them. Pick another host, or add this machine again separately for this project.",
 		"notOrphaned": "This project no longer needs rebinding. Try refreshing.",
 		"footnote": "The host takes over the identity recorded in the project. If you had chosen to remember a password, you may be asked for it once more."
+	},
+	"activityTab": {
+		"failed": "This plugin panel couldn’t be displayed. Try another panel."
 	}
 }

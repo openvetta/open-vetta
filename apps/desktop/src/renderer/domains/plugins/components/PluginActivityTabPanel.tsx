@@ -1,11 +1,12 @@
-import { Component, useMemo } from "react";
-import type { ErrorInfo, ReactNode } from "react";
-import { __ActivityTabContext } from "@vetta-org/plugin-sdk";
 import type { RegisteredActivityTab } from "@shared/store/atoms";
+import { __ActivityTabContext } from "@vetta-org/plugin-sdk";
+import type { ErrorInfo, ReactNode } from "react";
+import { Component, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { PluginI18nBoundary } from "../runtime/plugin-i18n";
 
 class PluginActivityTabErrorBoundary extends Component<
-	{ tabKey: string; children: ReactNode },
+	{ tabKey: string; errorLabel: string; children: ReactNode },
 	{ failed: boolean }
 > {
 	state = { failed: false };
@@ -21,8 +22,11 @@ class PluginActivityTabErrorBoundary extends Component<
 	render(): ReactNode {
 		if (this.state.failed) {
 			return (
-				<div className="flex min-h-0 flex-1 items-center justify-center p-4 text-[12px] text-muted-foreground">
-					插件面板渲染失败
+				<div
+					role="alert"
+					className="flex min-h-0 flex-1 items-center justify-center p-4 text-[12px] text-muted-foreground"
+				>
+					{this.props.errorLabel}
 				</div>
 			);
 		}
@@ -43,12 +47,13 @@ export function PluginActivityTabPanel({
 	cwd: string | null;
 	active: boolean;
 }): JSX.Element {
+	const { t } = useTranslation("project");
 	const TabComponent = tab.component;
 	const tabKey = `${tab.pluginId}:${tab.tabId}`;
 	const contextValue = useMemo(() => ({ cwd, active }), [cwd, active]);
 	return (
 		<div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-vetta-plugin-activity-tab={tabKey}>
-			<PluginActivityTabErrorBoundary tabKey={tabKey}>
+			<PluginActivityTabErrorBoundary key={tabKey} tabKey={tabKey} errorLabel={t("activityTab.failed")}>
 				<PluginI18nBoundary pluginId={tab.pluginId}>
 					<__ActivityTabContext.Provider value={contextValue}>
 						<TabComponent />

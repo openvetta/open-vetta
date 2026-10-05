@@ -1,8 +1,8 @@
 import { pluginWorkspaceViewsAtom } from "@shared/store/atoms";
 import { useMatches, useNavigate } from "@tanstack/react-router";
 import { useAtomValue } from "jotai";
-import { Component, useCallback, useEffect, useState } from "react";
 import type { ErrorInfo, JSX, ReactNode } from "react";
+import { Component, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { waitForPluginHostReady } from "../runtime/plugin-events";
 import { PluginI18nBoundary } from "../runtime/plugin-i18n";
@@ -31,7 +31,9 @@ function WorkspaceViewMessage({ text }: { text: string }): JSX.Element {
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
 			<div className="drag-region h-6 shrink-0" />
-			<div className="flex flex-1 items-center justify-center px-8 pb-8 text-[13px] text-muted-foreground">{text}</div>
+			<div className="flex flex-1 items-center justify-center px-8 pb-8 text-[13px] text-muted-foreground">
+				{text}
+			</div>
 		</div>
 	);
 }
@@ -85,7 +87,11 @@ export function PluginWorkspaceViewSurface({
 			className="vetta-plugin relative flex h-full w-full flex-1 flex-col overflow-hidden"
 			data-vetta-plugin-workspace-view={viewKey}
 		>
-			<WorkspaceViewErrorBoundary fallback={<WorkspaceViewMessage text={t("workspaceView.failed")} />} viewKey={viewKey}>
+			<WorkspaceViewErrorBoundary
+				key={viewKey}
+				fallback={<WorkspaceViewMessage text={t("workspaceView.failed")} />}
+				viewKey={viewKey}
+			>
 				<PluginI18nBoundary pluginId={view.pluginId}>
 					<ViewComponent pluginId={view.pluginId} viewId={view.viewId} />
 				</PluginI18nBoundary>
