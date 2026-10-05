@@ -1,6 +1,5 @@
+import { Button, cn, Switch } from "@vetta-org/ui";
 import type { JSX } from "react";
-import { Switch } from "@vetta-org/ui";
-import { cn } from "@vetta-org/ui";
 
 export interface WebhookEndpointRowView {
 	readonly id: string;
@@ -56,41 +55,50 @@ export function WebhookEndpointListView({
 				const controls = (
 					<div className="flex shrink-0 items-center gap-2">
 						<Switch
+							aria-label={endpoint.name}
 							checked={endpoint.enabled}
 							onCheckedChange={(value) => onToggle(endpoint.id, value)}
 						/>
-						<button
+						<Button
 							type="button"
 							onClick={() => onTest(endpoint.id)}
 							disabled={testingId === endpoint.id}
-							className="whitespace-nowrap rounded-md border border-input bg-secondary px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+							variant="outline"
+							size="sm"
 							title={labels.test}
 						>
 							{testingId === endpoint.id ? labels.testing : labels.test}
-						</button>
-						<button
+						</Button>
+						<Button
 							type="button"
 							onClick={() => onEdit(endpoint.id)}
-							className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+							variant="ghost"
+							size="icon-sm"
+							aria-label={labels.edit}
 							title={labels.edit}
 						>
-							<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
-						</button>
-						<button
+							<span className="icon-[solar--pen-2-linear] h-3.5 w-3.5" />
+						</Button>
+						<Button
 							type="button"
 							onClick={() => onDelete(endpoint.id)}
-							className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
+							variant="ghost"
+							size="icon-sm"
+							aria-label={labels.delete}
+							className="text-destructive hover:bg-destructive/10 hover:text-destructive"
 							title={labels.delete}
 						>
-							<span className="icon-[mdi--trash-can-outline] h-3.5 w-3.5" />
-						</button>
+							<span className="icon-[solar--trash-bin-trash-linear] h-3.5 w-3.5" />
+						</Button>
 					</div>
 				);
 
 				return (
 					<div key={endpoint.id} className="flex flex-col gap-2 px-5 py-3">
 						<div className="flex items-center gap-3">
-							{endpoint.iconClass && <span className={cn(endpoint.iconClass, "h-5 w-5 shrink-0 text-foreground")} />}
+							{endpoint.iconClass && (
+								<span className={cn(endpoint.iconClass, "h-5 w-5 shrink-0 text-foreground")} />
+							)}
 							<div className="min-w-0 flex-1">
 								<div className="flex min-w-0 items-center gap-2">
 									<span className="truncate text-[13px] font-medium text-foreground">{endpoint.name}</span>
@@ -111,9 +119,14 @@ export function WebhookEndpointListView({
 						</div>
 						{narrow && <div className="flex justify-end">{controls}</div>}
 						{message && (
-							<div className={cn("pl-8 text-[11px]", message.ok ? "text-muted-foreground" : "text-red-500")}>
+							<output
+								className={cn(
+									"block pl-8 text-[11px]",
+									message.ok ? "text-muted-foreground" : "text-destructive",
+								)}
+							>
 								{message.text}
-							</div>
+							</output>
 						)}
 					</div>
 				);

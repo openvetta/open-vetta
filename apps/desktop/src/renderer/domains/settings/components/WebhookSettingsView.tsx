@@ -1,9 +1,10 @@
-import { SettingsPageShellView, SettingSection } from "@vetta-org/theme-ui/settings";
+import { Button } from "@shared/components/ui/button";
+import { SettingSection, SettingsPageShellView } from "@vetta-org/theme-ui/settings";
 import { SettingsAiAssist } from "../ai-assist";
 import { SETTINGS_SECTION } from "../registry";
+import type { WebhookSettingsModel } from "./useWebhookSettingsModel";
 import { WebhookEditorDialog } from "./WebhookEditorDialog";
 import { WebhookEndpointList } from "./WebhookEndpointList";
-import type { WebhookSettingsModel } from "./useWebhookSettingsModel";
 
 export function WebhookSettingsView({ model }: { model: WebhookSettingsModel }): JSX.Element {
 	return (
@@ -21,14 +22,10 @@ export function WebhookSettingsView({ model }: { model: WebhookSettingsModel }):
 						title={
 							<div className="flex items-center justify-between">
 								<span>{model.labels.channels}</span>
-								<button
-									type="button"
-									onClick={model.actions.openCreate}
-									className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-								>
-									<span className="icon-[mdi--plus] h-4 w-4" />
+								<Button type="button" onClick={model.actions.openCreate} variant="primary" size="sm">
+									<span className="icon-[solar--add-circle-linear] h-4 w-4" />
 									{model.labels.add}
-								</button>
+								</Button>
 							</div>
 						}
 					>

@@ -1,4 +1,7 @@
-import { WebhookEndpointListView } from "@vetta-org/theme-ui/settings";
+import { Button } from "@shared/components/ui/button";
+import { Input } from "@shared/components/ui/input";
+import { cn } from "@shared/lib/utils";
+import type { WebhookEndpointListView } from "@vetta-org/theme-ui/settings";
 import {
 	Dialog,
 	DialogContent,
@@ -6,10 +9,9 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
+	Switch,
 } from "@vetta-org/ui";
-import { Switch } from "@vetta-org/ui";
-import { cn } from "@shared/lib/utils";
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { WebhookFormState, WebhookSettingsModel } from "./useWebhookSettingsModel";
 
 function WebhookTextField({
@@ -27,15 +29,19 @@ function WebhookTextField({
 	type?: "password" | "text";
 	value: string;
 }): JSX.Element {
+	const id = useId();
 	return (
 		<div>
-			<label className="mb-1 block text-[12px] font-medium text-foreground">{label}</label>
-			<input
+			<label htmlFor={id} className="mb-1 block text-[12px] font-medium text-foreground">
+				{label}
+			</label>
+			<Input
+				id={id}
 				type={type}
 				value={value}
 				onChange={(event) => onChange(event.target.value)}
 				placeholder={placeholder}
-				className={cn("w-full rounded-md border border-input bg-secondary px-2.5 py-1.5 text-[12px] text-foreground", className)}
+				className={cn("text-[12px]", className)}
 			/>
 		</div>
 	);
@@ -43,17 +49,18 @@ function WebhookTextField({
 
 function ProviderPicker({ model, isEdit }: { isEdit: boolean; model: WebhookSettingsModel }): JSX.Element {
 	return (
-		<div>
-			<label className="mb-1 block text-[12px] font-medium text-foreground">{model.labels.channelType}</label>
+		<fieldset className="min-w-0">
+			<legend className="mb-1 text-[12px] font-medium text-foreground">{model.labels.channelType}</legend>
 			<div className="flex gap-2">
 				{model.providers.map((provider) => (
 					<button
 						key={provider.kind}
 						type="button"
+						aria-pressed={model.form.kind === provider.kind}
 						disabled={isEdit && provider.kind !== model.form.kind}
 						onClick={() => model.actions.updateFormField("kind", provider.kind)}
 						className={cn(
-							"flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-[12px] transition-colors",
+							"flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-[12px] outline-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring",
 							model.form.kind === provider.kind
 								? "border-primary bg-primary/10 text-foreground"
 								: "border-input bg-secondary text-muted-foreground hover:bg-accent",
@@ -70,34 +77,42 @@ function ProviderPicker({ model, isEdit }: { isEdit: boolean; model: WebhookSett
 					{model.labels.channelLocked} {model.labels.channelType}
 				</div>
 			)}
-		</div>
+		</fieldset>
 	);
 }
 
 function SecretField({ model }: { model: WebhookSettingsModel }): JSX.Element {
 	const [showSecret, setShowSecret] = useState(false);
+	const id = useId();
 
 	return (
 		<div>
-			<label className="mb-1 block text-[12px] font-medium text-foreground">
+			<label htmlFor={id} className="mb-1 block text-[12px] font-medium text-foreground">
 				{model.labels.secret} <span className="text-muted-foreground">{model.labels.secretHint}</span>
 			</label>
 			<div className="flex items-center gap-1.5">
-				<input
+				<Input
+					id={id}
 					type={showSecret ? "text" : "password"}
 					value={model.form.signSecret}
 					onChange={(event) => model.actions.updateFormField("signSecret", event.target.value)}
 					placeholder={model.form.kind === "feishu" ? "secret" : "SECxxxx"}
-					className="flex-1 rounded-md border border-input bg-secondary px-2.5 py-1.5 text-[12px] text-foreground"
+					className="flex-1 text-[12px]"
 				/>
-				<button
+				<Button
 					type="button"
+					variant="ghost"
+					size="icon-sm"
 					onClick={() => setShowSecret((value) => !value)}
-					className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
 					aria-label={showSecret ? model.labels.hide : model.labels.show}
 				>
-					<span className={cn(showSecret ? "icon-[mdi--eye-off-outline]" : "icon-[mdi--eye-outline]", "h-3.5 w-3.5")} />
-				</button>
+					<span
+						className={cn(
+							showSecret ? "icon-[solar--eye-closed-linear]" : "icon-[solar--eye-linear]",
+							"h-3.5 w-3.5",
+						)}
+					/>
+				</Button>
 			</div>
 		</div>
 	);
@@ -112,6 +127,7 @@ function MentionOptions({ model }: { model: WebhookSettingsModel }): JSX.Element
 					<div className="text-[11px] text-muted-foreground">{model.labels.atAllDesc}</div>
 				</div>
 				<Switch
+					aria-label={model.labels.atAll}
 					checked={model.form.feishuMentionAll}
 					onCheckedChange={(value) => model.actions.updateFormField("feishuMentionAll", value)}
 				/>
@@ -127,6 +143,7 @@ function MentionOptions({ model }: { model: WebhookSettingsModel }): JSX.Element
 					<div className="text-[11px] text-muted-foreground">{model.labels.atAllPerm}</div>
 				</div>
 				<Switch
+					aria-label={model.labels.atAll}
 					checked={model.form.dingtalkMentionAll}
 					onCheckedChange={(value) => model.actions.updateFormField("dingtalkMentionAll", value)}
 				/>
@@ -166,13 +183,19 @@ export function WebhookEditorDialog({ model }: { model: WebhookSettingsModel }):
 
 	return (
 		<Dialog open={model.editorOpen} onOpenChange={model.actions.closeEditor}>
-			<DialogContent className="sm:max-w-[480px]">
+			<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[480px]">
 				<DialogHeader>
 					<DialogTitle>{isEdit ? model.labels.editTitle : model.labels.addTitle}</DialogTitle>
 					<DialogDescription>{isEdit ? model.labels.editHint : model.labels.addHint}</DialogDescription>
 				</DialogHeader>
 
-				<div className="space-y-3 py-2">
+				<form
+					className="space-y-3 py-2"
+					onSubmit={(event) => {
+						event.preventDefault();
+						if (!model.saving) void model.actions.submit();
+					}}
+				>
 					<ProviderPicker model={model} isEdit={isEdit} />
 					<WebhookTextField
 						label={model.labels.name}
@@ -196,28 +219,28 @@ export function WebhookEditorDialog({ model }: { model: WebhookSettingsModel }):
 					<MentionOptions model={model} />
 
 					<div className="min-h-[18px] text-[12px]">
-						{model.editorError && <span className="text-red-500">{model.editorError}</span>}
+						{model.editorError && (
+							<span role="alert" className="text-destructive">
+								{model.editorError}
+							</span>
+						)}
 					</div>
-				</div>
 
-				<DialogFooter>
-					<button
-						type="button"
-						onClick={() => model.actions.closeEditor(false)}
-						disabled={model.saving}
-						className="rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-					>
-						{model.labels.cancel}
-					</button>
-					<button
-						type="button"
-						onClick={() => void model.actions.submit()}
-						disabled={model.saving}
-						className="rounded-lg bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-					>
-						{model.saving ? model.labels.saving : model.labels.save}
-					</button>
-				</DialogFooter>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							onClick={() => model.actions.closeEditor(false)}
+							disabled={model.saving}
+						>
+							{model.labels.cancel}
+						</Button>
+						<Button type="submit" variant="primary" size="sm" disabled={model.saving}>
+							{model.saving ? model.labels.saving : model.labels.save}
+						</Button>
+					</DialogFooter>
+				</form>
 			</DialogContent>
 		</Dialog>
 	);
