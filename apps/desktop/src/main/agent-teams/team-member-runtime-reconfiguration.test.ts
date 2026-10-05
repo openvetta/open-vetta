@@ -34,6 +34,55 @@ function sessionDocument(): TeamSessionDocument {
 const logger = { info: vi.fn(), error: vi.fn() };
 
 describe("reconfigureTeamMemberRuntime", () => {
+	it("retains a reopened runtime on save failure and retries without changing the saved binding", async () => {
+		const session = sessionDocument();
+		const savedSnapshot = structuredClone(session);
+		const path = session.memberRuntime.leader!.sessionPath;
+		const paths = new Map([["old-runtime", path]]);
+		const disposeSession = vi.fn(async (id: string) => {
+			paths.delete(id);
+		});
+		const runtime: TeamMemberRuntimeReconfigurationHost = {
+			getSessionPath: (id) => paths.get(id),
+			createSession: async () => {
+				paths.set("new-runtime", path);
+				return { sessionId: "new-runtime" };
+			},
+			disposeSession,
+		};
+		const saveError = new Error("metadata write failed");
+		let persisted = session;
+		const persist = vi.fn(async (next: TeamSessionDocument) => {
+			persisted = structuredClone(next);
+		});
+		persist.mockRejectedValueOnce(saveError);
+		const reconfigure = () =>
+			reconfigureTeamMemberRuntime({
+				session: persisted,
+				memberId: "leader",
+				agentProfileId: "agent",
+				agentProfileRevision: 3,
+				runtime,
+				resolveConfig: async (sessionPath) => ({ cwd: session.cwd, sessionPath }),
+				persist,
+				logger,
+			});
+
+		await expect(reconfigure()).rejects.toBe(saveError);
+		expect([...paths]).toEqual([["new-runtime", path]]);
+		expect(disposeSession.mock.calls).toEqual([["old-runtime"]]);
+		expect(persisted).toBe(session);
+		expect(session).toEqual(savedSnapshot);
+		const next = await reconfigure();
+		expect(next.memberRuntime.leader).toMatchObject({
+			sessionId: "new-runtime",
+			sessionPath: path,
+			agentProfileRevision: 3,
+		});
+		expect(persisted).toEqual(next);
+		expect([...paths]).toEqual([["new-runtime", path]]);
+	});
+
 	it("reopens the same history with the latest profile revision and persists the new binding", async () => {
 		const paths = new Map([["old-runtime", "C:/sessions/leader.jsonl"]]);
 		const calls: string[] = [];

@@ -32,12 +32,13 @@ export async function restoreTeamMemberRuntimes<TRuntimeTool>(input: {
 	readonly runtime: TeamRuntimeResumeHost;
 	readonly createRuntimeTools: () => readonly TRuntimeTool[];
 	readonly resolveConfig: (config: TeamRuntimeResumeConfig<TRuntimeTool>) => Promise<TeamRuntimeResolvedConfig>;
+	readonly prepareRuntime?: (sessionId: string) => void;
 	readonly persist: (session: TeamSessionDocument) => Promise<void>;
 	readonly now?: () => number;
 	readonly logger: TeamRuntimeRestoreLogger;
 }): Promise<TeamSessionDocument> {
 	const restoredRuntime = { ...input.session.memberRuntime };
-	const createdSessionIds: string[] = [];
+	let restoredMemberCount = 0;
 	let changed = false;
 	try {
 		const results = await Promise.allSettled(
@@ -47,6 +48,7 @@ export async function restoreTeamMemberRuntimes<TRuntimeTool>(input: {
 					if (activePath !== runtimeState.sessionPath) {
 						throw new Error(`Runtime session id is already bound to another path: ${runtimeState.sessionId}`);
 					}
+					input.prepareRuntime?.(runtimeState.sessionId);
 					return { memberId, runtimeState, changed: false };
 				}
 
@@ -57,7 +59,8 @@ export async function restoreTeamMemberRuntimes<TRuntimeTool>(input: {
 					runtimeTools: input.createRuntimeTools(),
 				});
 				const created = await input.runtime.createSession(resolved.config);
-				createdSessionIds.push(created.sessionId);
+				restoredMemberCount += 1;
+				input.prepareRuntime?.(created.sessionId);
 				const sessionPath = input.runtime.getSessionPath(created.sessionId);
 				if (sessionPath !== runtimeState.sessionPath) {
 					throw new Error(`Restored team member session path changed: ${memberId}`);
@@ -94,25 +97,27 @@ export async function restoreTeamMemberRuntimes<TRuntimeTool>(input: {
 			restoredRuntime[result.value.memberId] = result.value.runtimeState;
 			changed ||= result.value.changed;
 		}
+
+		if (!changed) return input.session;
+		const restored: TeamSessionDocument = {
+			...input.session,
+			revision: input.session.revision + 1,
+			updatedAt: (input.now ?? Date.now)(),
+			memberRuntime: restoredRuntime,
+		};
+		await input.persist(restored);
+		return restored;
 	} catch (error) {
-		await Promise.allSettled(createdSessionIds.map((sessionId) => input.runtime.disposeSession(sessionId)));
-		input.logger.error("team session runtime restore rolled back", {
+		// Opening a persisted path may borrow an active or pending Runtime, and
+		// another caller may adopt it before persistence finishes. The host owns
+		// its lifetime; a failed Team binding must not dispose that shared resource.
+		input.logger.error("team session runtime restore failed", {
 			teamSessionId: input.session.id,
-			restoredMemberCount: createdSessionIds.length,
+			restoredMemberCount,
 			error: errorMessage(error),
 		});
 		throw error;
 	}
-
-	if (!changed) return input.session;
-	const restored: TeamSessionDocument = {
-		...input.session,
-		revision: input.session.revision + 1,
-		updatedAt: (input.now ?? Date.now)(),
-		memberRuntime: restoredRuntime,
-	};
-	await input.persist(restored);
-	return restored;
 }
 
 function errorMessage(error: unknown): string {

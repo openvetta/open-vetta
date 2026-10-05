@@ -48,11 +48,9 @@ export async function reconfigureTeamMemberRuntime(input: {
 	}
 
 	const config = await input.resolveConfig(current.sessionPath);
-	let createdSessionId: string | undefined;
 	try {
 		if (activePath) await input.runtime.disposeSession(current.sessionId);
 		const created = await input.runtime.createSession(config);
-		createdSessionId = created.sessionId;
 		const sessionPath = input.runtime.getSessionPath(created.sessionId);
 		if (sessionPath !== current.sessionPath) {
 			throw new Error(`Reconfigured team member session path changed: ${input.memberId}`);
@@ -84,7 +82,8 @@ export async function reconfigureTeamMemberRuntime(input: {
 		});
 		return next;
 	} catch (error) {
-		if (createdSessionId) await input.runtime.disposeSession(createdSessionId).catch(() => undefined);
+		// The reopened path may already be shared with another caller. Retain its
+		// host-owned Runtime on failure so retry cannot invalidate that caller.
 		input.logger.error("team member runtime reconfiguration failed", {
 			teamSessionId: input.session.id,
 			memberId: input.memberId,

@@ -45,6 +45,10 @@ export interface TeamRuntimeManagerOptions {
 /** Owns Team Runtime creation, restoration, configuration, policy, and disposal boundaries. */
 export class TeamRuntimeManager {
 	private readonly options: TeamRuntimeManagerOptions;
+	private readonly pendingCoordinationBindings = new Map<
+		string,
+		NonNullable<TeamSessionDocument["coordinationRuntime"]>
+	>();
 
 	constructor(options: TeamRuntimeManagerOptions) {
 		this.options = options;
@@ -98,19 +102,25 @@ export class TeamRuntimeManager {
 			"other",
 			"interactive",
 		);
-		const created = await this.options.runtime().createSession(resolved.config);
-		this.applyDefaultTeamToolPolicy(created.sessionId);
-		const sessionPath = this.options.runtime().getSessionPath(created.sessionId);
-		if (!sessionPath) throw new Error("Runtime did not expose team member session path");
-		return {
-			sessionId: created.sessionId,
-			sessionPath,
-			agentProfileId: profile.id,
-			agentProfileRevision: profile.revision,
-			assignmentFingerprint: teamMemberAssignmentFingerprint(member.assignment),
-			rosterFingerprint: teamRosterFingerprint(roster),
-			deliveredEventIds: [],
-		};
+		const runtime = this.options.runtime();
+		const created = await runtime.createSession(resolved.config);
+		try {
+			this.applyDefaultTeamToolPolicy(created.sessionId);
+			const sessionPath = runtime.getSessionPath(created.sessionId);
+			if (!sessionPath) throw new Error("Runtime did not expose team member session path");
+			return {
+				sessionId: created.sessionId,
+				sessionPath,
+				agentProfileId: profile.id,
+				agentProfileRevision: profile.revision,
+				assignmentFingerprint: teamMemberAssignmentFingerprint(member.assignment),
+				rosterFingerprint: teamRosterFingerprint(roster),
+				deliveredEventIds: [],
+			};
+		} catch (error) {
+			if (!resolved.config.sessionPath?.trim()) await this.releaseUncommittedRuntime(runtime, created.sessionId);
+			throw error;
+		}
 	}
 
 	async createCoordinationRuntime(
@@ -129,18 +139,24 @@ export class TeamRuntimeManager {
 			"other",
 			"interactive",
 		);
-		const created = await this.options.runtime().createSession(resolved.config);
-		if (sessionId && created.sessionId !== sessionId) {
-			await this.options.runtime().disposeSession(created.sessionId);
-			throw new Error("Restored team coordination session identity changed");
+		const runtime = this.options.runtime();
+		const created = await runtime.createSession(resolved.config);
+		try {
+			if (sessionId && created.sessionId !== sessionId) {
+				throw new Error("Restored team coordination session identity changed");
+			}
+			const resolvedPath = runtime.getSessionPath(created.sessionId);
+			if (!resolvedPath) throw new Error("Runtime did not expose team coordination session path");
+			if (sessionPath && resolvedPath !== sessionPath) {
+				throw new Error("Restored team coordination session path changed");
+			}
+			return { sessionId: created.sessionId, sessionPath: resolvedPath };
+		} catch (error) {
+			if (!resolved.config.sessionPath?.trim()) {
+				await this.releaseUncommittedRuntime(runtime, created.sessionId);
+			}
+			throw error;
 		}
-		const resolvedPath = this.options.runtime().getSessionPath(created.sessionId);
-		if (!resolvedPath) throw new Error("Runtime did not expose team coordination session path");
-		if (sessionPath && resolvedPath !== sessionPath) {
-			await this.options.runtime().disposeSession(created.sessionId);
-			throw new Error("Restored team coordination session path changed");
-		}
-		return { sessionId: created.sessionId, sessionPath: resolvedPath };
 	}
 
 	async ensureCoordinationRuntime(session: TeamSessionDocument): Promise<TeamSessionDocument> {
@@ -151,30 +167,52 @@ export class TeamRuntimeManager {
 				if (activePath !== current.sessionPath) {
 					throw new Error(`Runtime session id is already bound to another path: ${current.sessionId}`);
 				}
+				this.pendingCoordinationBindings.delete(session.id);
 				return session;
 			}
 		}
+		const retryBinding = current ?? this.pendingCoordinationBindings.get(session.id);
 		const coordinationRuntime = await this.createCoordinationRuntime(
 			session.cwd,
-			current?.sessionPath,
-			current?.sessionId ?? session.id,
+			retryBinding?.sessionPath,
+			retryBinding?.sessionId ?? session.id,
 			session.executionMode ?? "full-access",
 		);
+		// Retain the path acquired by this manager when the first metadata write
+		// fails. This is a retry reference, never evidence of disposal ownership.
+		if (!current) this.pendingCoordinationBindings.set(session.id, coordinationRuntime);
 		const next: TeamSessionDocument = {
 			...session,
 			revision: session.revision + 1,
 			updatedAt: Date.now(),
 			coordinationRuntime,
 		};
+		// Persistence may expose the new path before a later step fails. Once this
+		// operation yields, another caller can borrow it; only the host may retire it.
 		await this.options.sessionState.persist(next);
+		if (this.pendingCoordinationBindings.get(session.id) === coordinationRuntime) {
+			this.pendingCoordinationBindings.delete(session.id);
+		}
 		return next;
 	}
 
+	private async releaseUncommittedRuntime(runtime: RuntimeHost, sessionId: string): Promise<void> {
+		try {
+			await runtime.disposeSession(sessionId);
+		} catch (error) {
+			log.warn("failed to release uncommitted team runtime", {
+				runtimeSessionId: sessionId,
+				error: error instanceof Error ? error.message : String(error),
+			});
+		}
+	}
+
 	async restoreMembers(session: TeamSessionDocument, document: AgentTeamDocument): Promise<TeamSessionDocument> {
-		const restored = await restoreTeamMemberRuntimes({
+		return restoreTeamMemberRuntimes({
 			session,
 			runtime: this.options.runtime(),
 			createRuntimeTools: () => this.options.createTeamToolRegistrations(session.id),
+			prepareRuntime: (sessionId) => this.applyDefaultTeamToolPolicy(sessionId),
 			resolveConfig: async ({ memberId, sessionPath, runtimeTools }) => {
 				const profile = this.resolveMemberProfile(session, document, memberId);
 				return {
@@ -197,10 +235,6 @@ export class TeamRuntimeManager {
 			persist: (next) => this.options.sessionState.persist(next),
 			logger: log,
 		});
-		for (const runtimeState of Object.values(restored.memberRuntime)) {
-			this.applyDefaultTeamToolPolicy(runtimeState.sessionId);
-		}
-		return restored;
 	}
 
 	async ensureMemberConfiguration(
@@ -228,11 +262,15 @@ export class TeamRuntimeManager {
 					this.options.createTeamToolRegistrations(session.id),
 					session.executionMode ?? "full-access",
 				),
-			persist: (next) => this.options.sessionState.persist(next),
+			persist: async (next) => {
+				const runtimeState = next.memberRuntime[memberId];
+				if (runtimeState) this.applyDefaultTeamToolPolicy(runtimeState.sessionId);
+				await this.options.sessionState.persist(next);
+			},
 			logger: log,
 		});
 		const runtimeState = configured.memberRuntime[memberId];
-		if (runtimeState) this.applyDefaultTeamToolPolicy(runtimeState.sessionId);
+		if (configured === session && runtimeState) this.applyDefaultTeamToolPolicy(runtimeState.sessionId);
 		return configured;
 	}
 
