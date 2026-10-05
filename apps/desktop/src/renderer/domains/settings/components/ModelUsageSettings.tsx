@@ -1,5 +1,5 @@
-import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Button } from "@shared/components/ui/button";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { ModelUsageOverviewView, ModelUsagePricingView } from "@vetta-org/theme-ui/settings";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -26,10 +26,7 @@ export function ModelUsageSettings(): JSX.Element {
 	};
 	const { state, actions, config } = model;
 
-	const slots = useMemo(
-		() => buildOverviewSlots(state.summary),
-		[state.summary],
-	);
+	const slots = useMemo(() => buildOverviewSlots(state.summary), [state.summary]);
 
 	const overviewModels = useMemo(() => {
 		const summary = state.summary;
@@ -126,33 +123,40 @@ export function ModelUsageSettings(): JSX.Element {
 			totalCost: item.costTotal,
 			cacheSavings: item.cacheSavings,
 			cacheHitRate: item.cacheHitRate,
-			slotCosts: slots.map((slot) => slot.byModel.find((part) => part.key === `${item.provider}/${item.model}`)?.cost ?? 0),
+			slotCosts: slots.map(
+				(slot) => slot.byModel.find((part) => part.key === `${item.provider}/${item.model}`)?.cost ?? 0,
+			),
 		}));
 	}, [overviewModels, slots]);
 
 	const composition = useMemo(() => {
 		const summary = state.summary;
 		const cacheSavings = overviewModels.reduce((sum, item) => sum + item.cacheSavings, 0);
-		const cacheReadCost = summary?.models.reduce((sum, item) => {
-			const price = lookupModelMeta(config, item.provider, item.model).cacheReadPrice;
-			return sum + (price !== undefined ? (item.cacheRead * price) / 1_000_000 : 0);
-		}, 0) ?? 0;
+		const cacheReadCost =
+			summary?.models.reduce((sum, item) => {
+				const price = lookupModelMeta(config, item.provider, item.model).cacheReadPrice;
+				return sum + (price !== undefined ? (item.cacheRead * price) / 1_000_000 : 0);
+			}, 0) ?? 0;
 		return {
-			inputCost: summary?.models.reduce((sum, item) => {
-				const price = lookupModelMeta(config, item.provider, item.model).inputPrice;
-				return sum + (price !== undefined ? (item.input * price) / 1_000_000 : 0);
-			}, 0) ?? 0,
+			inputCost:
+				summary?.models.reduce((sum, item) => {
+					const price = lookupModelMeta(config, item.provider, item.model).inputPrice;
+					return sum + (price !== undefined ? (item.input * price) / 1_000_000 : 0);
+				}, 0) ?? 0,
 			cacheReadCost,
-			cacheWriteCost: summary?.models.reduce((sum, item) => {
-				const price = lookupModelMeta(config, item.provider, item.model).cacheWritePrice;
-				return sum + (price !== undefined ? (item.cacheWrite * price) / 1_000_000 : 0);
-			}, 0) ?? 0,
-			outputCost: summary?.models.reduce((sum, item) => {
-				const price = lookupModelMeta(config, item.provider, item.model).outputPrice;
-				return sum + (price !== undefined ? (item.output * price) / 1_000_000 : 0);
-			}, 0) ?? 0,
+			cacheWriteCost:
+				summary?.models.reduce((sum, item) => {
+					const price = lookupModelMeta(config, item.provider, item.model).cacheWritePrice;
+					return sum + (price !== undefined ? (item.cacheWrite * price) / 1_000_000 : 0);
+				}, 0) ?? 0,
+			outputCost:
+				summary?.models.reduce((sum, item) => {
+					const price = lookupModelMeta(config, item.provider, item.model).outputPrice;
+					return sum + (price !== undefined ? (item.output * price) / 1_000_000 : 0);
+				}, 0) ?? 0,
 			cacheSavings,
-			cacheSavingsShare: summary && summary.costTotal + cacheSavings > 0 ? cacheSavings / (summary.costTotal + cacheSavings) : 0,
+			cacheSavingsShare:
+				summary && summary.costTotal + cacheSavings > 0 ? cacheSavings / (summary.costTotal + cacheSavings) : 0,
 			inputTokens: formatModelUsageTokens(summary?.input ?? 0),
 			cacheReadTokens: formatModelUsageTokens(summary?.cacheRead ?? 0),
 			cacheWriteTokens: formatModelUsageTokens(summary?.cacheWrite ?? 0),
@@ -160,27 +164,24 @@ export function ModelUsageSettings(): JSX.Element {
 		};
 	}, [state.summary, overviewModels, config]);
 
-	const budget = useMemo(() => {
-		const used = state.summary?.costTotal ?? 0;
-		const total = 150;
-		const now = Date.now();
-		const from = state.summary?.from ?? now;
-		const elapsedDays = Math.max(1, (now - from) / (24 * 60 * 60 * 1000));
-		const daysInMonth = new Date(new Date(now).getFullYear(), new Date(now).getMonth() + 1, 0).getDate();
-		const projected = (used / elapsedDays) * daysInMonth;
-		return { used, total, projected };
-	}, [state.summary]);
-
 	const empty = !state.loading && !state.error && (state.summary?.requests ?? 0) === 0;
-	const selectedSlotLabel = (slots.find((slot) => String(slot.startedAt) === state.selectedSlotKey) ?? slots.at(-1))?.label ?? "";
+	const selectedSlotLabel =
+		(slots.find((slot) => String(slot.startedAt) === state.selectedSlotKey) ?? slots.at(-1))?.label ?? "";
 
 	return (
 		<div className="@container mx-auto w-full max-w-[1240px] px-8 pt-6 pb-8">
-			{state.loading && !state.summary && <div role="status" className="mb-4 text-[12px] text-muted-foreground">{t("loading")}</div>}
+			{state.loading && !state.summary && (
+				<output className="block mb-4 text-[12px] text-muted-foreground">{t("loading")}</output>
+			)}
 			{state.error && (
-				<div role="alert" className="mb-4 flex items-center gap-3 rounded-lg border border-destructive/40 p-3 text-[12px] text-foreground">
+				<div
+					role="alert"
+					className="mb-4 flex items-center gap-3 rounded-lg border border-destructive/40 p-3 text-[12px] text-foreground"
+				>
 					<span>{t("modelUsage.loadFailed")}</span>
-					<Button type="button" variant="outline" size="sm" onClick={actions.retry}>{t("modelUsage.retry")}</Button>
+					<Button type="button" variant="outline" size="sm" onClick={actions.retry}>
+						{t("modelUsage.retry")}
+					</Button>
 				</div>
 			)}
 			{view === "overview" ? (
@@ -211,7 +212,7 @@ export function ModelUsageSettings(): JSX.Element {
 						pricingLink: t("modelUsage.pricingLink"),
 						stats: {
 							periodCost: t("modelUsage.stats.periodCost"),
-							vsLastPeriod: (value) => t("modelUsage.stats.vsLastPeriod") + " " + value,
+							vsLastPeriod: (value) => `${t("modelUsage.stats.vsLastPeriod")} ${value}`,
 							totalTokens: t("modelUsage.stats.totalTokens"),
 							activeModels: (count) => t("modelUsage.stats.activeModels", { count }),
 							requests: t("modelUsage.stats.requests"),
@@ -266,9 +267,12 @@ export function ModelUsageSettings(): JSX.Element {
 			) : (
 				<ModelUsagePricingView
 					models={pricingModels}
-					slots={slots.map((slot) => ({ startedAt: slot.startedAt, label: slot.label, totalCost: slot.totalCost }))}
+					slots={slots.map((slot) => ({
+						startedAt: slot.startedAt,
+						label: slot.label,
+						totalCost: slot.totalCost,
+					}))}
 					composition={composition}
-					budget={budget}
 					configuredCount={overviewModels.filter((item) => item.inputPrice !== undefined).length}
 					totalCount={overviewModels.length}
 					avgCacheDiscount={avgCacheDiscountOf(overviewModels)}
@@ -295,6 +299,7 @@ export function ModelUsageSettings(): JSX.Element {
 						cacheWriteLine: (tokens) => t("modelUsage.pricing.cacheWriteLine", { tokens }),
 						outputLine: (tokens) => t("modelUsage.pricing.outputLine", { tokens }),
 						budgetTitle: t("modelUsage.pricing.budgetTitle"),
+						budgetUnconfigured: t("modelUsage.pricing.budgetUnconfigured"),
 						budgetSafe: t("modelUsage.pricing.budgetSafe"),
 						budgetHint: (cost) => t("modelUsage.pricing.budgetHint", { cost }),
 						catalogTitle: t("modelUsage.pricing.catalogTitle"),

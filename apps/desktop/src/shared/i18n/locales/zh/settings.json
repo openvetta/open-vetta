@@ -1126,7 +1126,7 @@
    "section_model-usage-pricing": "价格标准与账单拆解",
    "modelUsage": {
      "title": "模型用量与计费洞察",
-     "description": "按时段追踪各模型的 Token 消耗结构、响应延迟、Prompt 缓存命中率及对应官方单价账单",
+     "description": "按时段查看本地记录的模型 Token 用量、缓存命中率与费用估算；实际费用以服务商账单为准",
      "childOverview": "时段与指标总览",
      "childPricing": "价格标准与账单拆解",
      "realtime": "实时统计",
@@ -1194,7 +1194,7 @@
     "retry": "重试读取",
      "pricing": {
        "title": "价格标准与时段账单拆解",
-       "description": "基于 ~/.vetta/agent/models.json 的四维费率（输入 / 输出 / 缓存读 / 缓存写）核算各时段成本与缓存节省",
+       "description": "按已配置的输入、输出、缓存读取和写入单价估算成本与缓存节省；不代表账户余额或服务商账单",
        "scrollHint": "表格可左右滚动，查看完整时段和单价。",
        "syncOfficial": "同步服务商官方牌价",
        "exportCsv": "导出 CSV 对账单",
@@ -1213,6 +1213,7 @@
        "cacheWriteLine": "缓存写入 (Cache Write · {{tokens}})",
        "outputLine": "模型输出 (Output · {{tokens}})",
        "budgetTitle": "月度预算阈值预警",
+       "budgetUnconfigured": "尚未配置预算；此处费用为本地使用估算，不代表账户余额或服务商账单。",
        "budgetSafe": "预算安全",
        "budgetHint": "按当前日均流速预计月末支出 {{cost}}",
        "catalogTitle": "模型四维计费单价目录 (USD / 1M Tokens)",

@@ -1126,7 +1126,7 @@
   "section_model-usage-pricing": "Pricing & bill breakdown",
   "modelUsage": {
     "title": "Model usage & billing insights",
-    "description": "Track token mix, latency, prompt-cache hit rate and official-price billing per model over time",
+    "description": "Track locally recorded model tokens, cache hits and estimated costs over time. Your provider invoice determines actual charges.",
     "childOverview": "Time slots & metrics",
     "childPricing": "Pricing & bill breakdown",
     "realtime": "Live",
@@ -1194,7 +1194,7 @@
     "retry": "Retry loading",
     "pricing": {
       "title": "Pricing & bill breakdown",
-      "description": "Cost per slot computed from the four price dimensions (input / output / cache read / cache write) in ~/.vetta/agent/models.json",
+      "description": "Estimate costs and cache savings using configured input, output, cache-read and cache-write prices. These estimates are not your account balance or provider invoice.",
       "scrollHint": "Scroll tables horizontally to see every time slot and price.",
       "syncOfficial": "Sync official prices",
       "exportCsv": "Export CSV statement",
@@ -1213,6 +1213,7 @@
       "cacheWriteLine": "Cache write ({{tokens}})",
       "outputLine": "Output ({{tokens}})",
       "budgetTitle": "Monthly budget alert",
+      "budgetUnconfigured": "No budget is configured. Costs shown here are local usage estimates, not your account balance or provider invoice.",
       "budgetSafe": "Within budget",
       "budgetHint": "Projected month-end spend {{cost}} at current daily rate",
       "catalogTitle": "Model price catalog (USD / 1M tokens)",

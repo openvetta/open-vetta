@@ -1,10 +1,17 @@
 // @vitest-environment jsdom
+
+import { localModelsConfigAtom } from "@shared/store/model-catalog-atoms";
+import {
+	createMemoryHistory,
+	createRootRoute,
+	createRoute,
+	createRouter,
+	RouterProvider,
+} from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
-import { createMemoryHistory, createRootRoute, createRoute, createRouter, RouterProvider } from "@tanstack/react-router";
 import userEvent from "@testing-library/user-event";
 import { getDefaultStore } from "jotai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { localModelsConfigAtom } from "@shared/store/model-catalog-atoms";
 import { ModelUsageSettings } from "./ModelUsageSettings";
 import { buildOverviewSlots } from "./useModelUsageModel";
 
@@ -36,7 +43,16 @@ const SUMMARY = {
 			maxDurationMs: 90_000,
 			outputSpeed: 78,
 			buckets: [
-				{ startedAt: Date.UTC(2026, 8, 23, 14, 0, 0), requests: 2, errors: 0, input: 10_000_000, output: 1_500_000, cacheRead: 27_000_000, cacheWrite: 1_800_000, costTotal: 13.0 },
+				{
+					startedAt: Date.UTC(2026, 8, 23, 14, 0, 0),
+					requests: 2,
+					errors: 0,
+					input: 10_000_000,
+					output: 1_500_000,
+					cacheRead: 27_000_000,
+					cacheWrite: 1_800_000,
+					costTotal: 13.0,
+				},
 			],
 		},
 		{
@@ -55,7 +71,16 @@ const SUMMARY = {
 			maxDurationMs: 60_000,
 			outputSpeed: 71,
 			buckets: [
-				{ startedAt: Date.UTC(2026, 8, 23, 14, 0, 0), requests: 1, errors: 0, input: 6_000_000, output: 1_000_000, cacheRead: 10_000_000, cacheWrite: 800_000, costTotal: 6.0 },
+				{
+					startedAt: Date.UTC(2026, 8, 23, 14, 0, 0),
+					requests: 1,
+					errors: 0,
+					input: 6_000_000,
+					output: 1_000_000,
+					cacheRead: 10_000_000,
+					cacheWrite: 800_000,
+					costTotal: 6.0,
+				},
 			],
 		},
 	],
@@ -66,12 +91,18 @@ const CONFIG = {
 		anthropic: {
 			api: "anthropic-messages",
 			models: [
-				{ id: "claude-sonnet-4-5", name: "Claude Sonnet 4.5", cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 } },
+				{
+					id: "claude-sonnet-4-5",
+					name: "Claude Sonnet 4.5",
+					cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+				},
 			],
 		},
 		openai: {
 			api: "openai-responses",
-			models: [{ id: "gpt-5.4", name: "GPT-5.4", cost: { input: 2.5, output: 10, cacheRead: 0.25, cacheWrite: 2.5 } }],
+			models: [
+				{ id: "gpt-5.4", name: "GPT-5.4", cost: { input: 2.5, output: 10, cacheRead: 0.25, cacheWrite: 2.5 } },
+			],
 		},
 	},
 	defaultModel: "anthropic/claude-sonnet-4-5",
@@ -80,7 +111,10 @@ const CONFIG = {
 vi.mock("react-i18next", () => ({
 	useTranslation: () => ({
 		t: (key: string, params?: Record<string, unknown>) => {
-			if (params) return `${key}(${Object.entries(params).map(([k, v]) => `${k}=${v}`).join(",")})`;
+			if (params)
+				return `${key}(${Object.entries(params)
+					.map(([k, v]) => `${k}=${v}`)
+					.join(",")})`;
 			return key;
 		},
 	}),
@@ -133,10 +167,15 @@ describe("ModelUsageSettings", () => {
 			...SUMMARY,
 			from,
 			to: now,
-			models: [{ ...SUMMARY.models[0], buckets: [
-				{ ...SUMMARY.models[0].buckets[0], startedAt: first, requests: 1 },
-				{ ...SUMMARY.models[0].buckets[0], startedAt: current, requests: 1 },
-			] }],
+			models: [
+				{
+					...SUMMARY.models[0],
+					buckets: [
+						{ ...SUMMARY.models[0].buckets[0], startedAt: first, requests: 1 },
+						{ ...SUMMARY.models[0].buckets[0], startedAt: current, requests: 1 },
+					],
+				},
+			],
 		};
 		const slots = buildOverviewSlots(summary);
 		expect(slots[0]?.startedAt).toBe(first);
@@ -176,6 +215,9 @@ describe("ModelUsageSettings", () => {
 		expect(screen.getByRole("region", { name: "modelUsage.pricing.catalogTitle" }).tabIndex).toBe(0);
 		expect(screen.getByText("$3.00")).toBeTruthy();
 		expect(screen.getByText("$15.00")).toBeTruthy();
+		expect(screen.getByText("modelUsage.pricing.budgetUnconfigured")).toBeTruthy();
+		expect(screen.queryByText("modelUsage.pricing.budgetSafe")).toBeNull();
+		expect(screen.queryByText(/\$150\.00/)).toBeNull();
 		await user.click(screen.getByRole("button", { name: /exportCsv/i }));
 		await waitFor(() => expect(exportCsvMock).toHaveBeenCalled());
 		await user.click(screen.getByRole("button", { name: /childOverview/i }));
@@ -189,8 +231,12 @@ describe("ModelUsageSettings", () => {
 		const user = userEvent.setup();
 		renderModelUsage();
 		await screen.findByText("Claude Sonnet 4.5");
-		await user.click(screen.getByRole("button", { name: /14-16/ }));
-		expect(screen.getByText("modelUsage.peak.slotDetail(range=14-16)")).toBeTruthy();
+		// 时段按用户本地时间呈现；同一 UTC 样本在隔离测试的时区中可能跨日。
+		const startedAt = SUMMARY.models[0].buckets[0].startedAt;
+		const hour = (time: number) => String(new Date(time).getHours()).padStart(2, "0");
+		const slotLabel = `${hour(startedAt)}-${hour(startedAt + 2 * 60 * 60 * 1000)}`;
+		await user.click(screen.getByRole("button", { name: new RegExp(slotLabel) }));
+		expect(screen.getByText(`modelUsage.peak.slotDetail(range=${slotLabel})`)).toBeTruthy();
 		await user.click(screen.getByRole("button", { name: "modelUsage.range.7d" }));
 		await waitFor(() => {
 			const query = summaryMock.mock.lastCall?.[0];
