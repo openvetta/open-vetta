@@ -741,10 +741,7 @@ export function useTeamChatModel(
 					await waitForCommittedPaint();
 					clearTeamSessionHandoff(activeHandoff.sessionId);
 				}
-				if (cancelledRequests.current.delete(requestId)) {
-					setStatus("ready");
-					return;
-				}
+				if (cancelledRequests.current.delete(requestId)) return;
 				const next = await window.vetta.agentTeams.sendMessage(readySession.id, {
 					requestId,
 					text,
@@ -755,17 +752,28 @@ export function useTeamChatModel(
 					...(requestReasoning ? { reasoning: requestReasoning } : {}),
 					...(streamingBehavior ? { streamingBehavior } : {}),
 				});
-				setSnapshot((current) =>
+				// Stop revoked this request's UI ownership. Durable history still arrives
+				// through the session subscription, but this response can predate the stop.
+				if (cancelledRequests.current.delete(requestId)) return;
+				const current = snapshotRef.current;
+				const latestSnapshot =
 					!current ||
 					next.session.revision > current.session.revision ||
 					next.conversationRevision >= current.conversationRevision
 						? next
-						: current,
-				);
+						: current;
+				snapshotRef.current = latestSnapshot;
+				setSnapshot(latestSnapshot);
 				setSessions((current) => withTeamChatSnapshot(current, next));
 				setContextUsages((current) => ({ ...current, ...readSnapshotContextUsages(next) }));
 				setError(undefined);
-				if (inFlightRequestIds.current.size <= 1) setStatus("ready");
+				// The leader's response settles this send, not the members it delegated.
+				if (inFlightRequestIds.current.size <= 1) {
+					const hasRunningTurn = Object.values(streamsRef.current).some(
+						(turn) => turn.message.phase === "streaming",
+					);
+					setStatus(hasRunningTurn || snapshotHasRunningWork(latestSnapshot) ? "streaming" : "ready");
+				}
 				notifyTeamSessionsChanged(teamId);
 				console.info("[agent-team] send-message IPC completed", {
 					teamId,
@@ -791,20 +799,17 @@ export function useTeamChatModel(
 					elapsedMs: Date.now() - startedAt,
 					error: cause instanceof Error ? cause.message : String(cause),
 				});
-				if (cancelledRequests.current.delete(requestId)) {
-					if (inFlightRequestIds.current.size <= 1) setStatus("ready");
-				} else {
-					setError((current) =>
-						current?.turnId === requestId
-							? current
-							: {
-									message: errorMessage(cause),
-									turnId: requestId,
-									authorId: session?.leaderMemberId ?? team?.leaderMemberId,
-								},
-					);
-					if (inFlightRequestIds.current.size <= 1) setStatus("error");
-				}
+				if (cancelledRequests.current.delete(requestId)) return;
+				setError((current) =>
+					current?.turnId === requestId
+						? current
+						: {
+								message: errorMessage(cause),
+								turnId: requestId,
+								authorId: session?.leaderMemberId ?? team?.leaderMemberId,
+							},
+				);
+				if (inFlightRequestIds.current.size <= 1) setStatus("error");
 				const restoreSubmittedDraft = draftRef.current.length === 0;
 				updateDraft((current) => current || draftText);
 				if (restoreSubmittedDraft) {
@@ -867,6 +872,15 @@ export function useTeamChatModel(
 		);
 		streamsRef.current = abortedStreams;
 		setStreams(abortedStreams);
+		const currentSnapshot = snapshotRef.current;
+		if (currentSnapshot?.display?.workingMemberIds?.length) {
+			const stoppedSnapshot = {
+				...currentSnapshot,
+				display: { ...currentSnapshot.display, workingMemberIds: [] },
+			};
+			snapshotRef.current = stoppedSnapshot;
+			setSnapshot(stoppedSnapshot);
+		}
 		setStatus("ready");
 		if (!target) return;
 		try {

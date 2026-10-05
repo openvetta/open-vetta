@@ -5,9 +5,9 @@ import type {
 	DesktopTeamSessionStreamEvent,
 } from "@preload/api-types/team-conversation-display";
 import type { ChatConversationItem } from "@shared/store/atoms";
-import { createAssistantMessage, type AssistantMessage } from "@vetta/ai";
-import { createAgentTeamFixture, type TeamSessionDocument } from "@vetta/agent-team";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { createAgentTeamFixture, type TeamSessionDocument } from "@vetta/agent-team";
+import { type AssistantMessage, createAssistantMessage } from "@vetta/ai";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TeamChatView } from "./TeamChatView";
@@ -72,10 +72,11 @@ vi.mock("./TeamComposerConnector", () => ({
 		model,
 		actions,
 	}: {
-		model: { readonly draft: string; readonly canSend: boolean };
+		model: { readonly draft: string; readonly canSend: boolean; readonly status: string };
 		actions: { readonly setDraft: (value: string) => void; readonly send: () => Promise<void> };
 	}) => (
 		<div>
+			<output aria-label="团队状态">{model.status}</output>
 			<input
 				aria-label="团队任务"
 				value={model.draft}
@@ -318,7 +319,11 @@ describe("Team delegation message-to-UI flow", () => {
 			});
 		});
 		await act(async () => {
-			rejectSend?.(new Error("Error invoking remote method 'vetta:agent-teams:send-message': Error: Retryable HTTP Error: Internal Server Error"));
+			rejectSend?.(
+				new Error(
+					"Error invoking remote method 'vetta:agent-teams:send-message': Error: Retryable HTTP Error: Internal Server Error",
+				),
+			);
 		});
 		const error = within(screen.getByTestId("message-list")).getByTestId("conversation-error");
 		expect(error.getAttribute("data-kind")).toBe("server");
@@ -486,6 +491,7 @@ describe("Team delegation message-to-UI flow", () => {
 		await waitFor(() =>
 			expect(within(screen.getByTestId("team-member-reply-card")).getByText("正在处理")).toBeTruthy(),
 		);
+		expect(screen.getByLabelText("团队状态").textContent).toBe("streaming");
 		expect(assistantRows()).toHaveLength(1);
 		expect(screen.getAllByTestId("team-member-reply-card")).toHaveLength(1);
 
@@ -518,6 +524,18 @@ describe("Team delegation message-to-UI flow", () => {
 		};
 		act(() => {
 			streamListener?.({ type: "session-updated", teamSessionId: session.id, snapshot: finalSnapshot });
+			// Native completion closes every member stream, even when legacy display
+			// fixtures use different live and persisted message identities.
+			streamListener?.({
+				type: "conversation.agent-message-discard",
+				conversationId: session.id,
+				messageId: "architect-live-step",
+				turnId: "architect-turn",
+				author: { kind: "agent", id: architect.id },
+				sequence: 2,
+				reason: "completed",
+				timestamp: 4,
+			});
 			streamListener?.({
 				type: "conversation.agent-message-discard",
 				conversationId: session.id,
@@ -532,6 +550,7 @@ describe("Team delegation message-to-UI flow", () => {
 		await act(async () => resolveSend?.(finalSnapshot));
 
 		await waitFor(() => expect(screen.getByText(finalText)).toBeTruthy());
+		expect(screen.getByLabelText("团队状态").textContent).toBe("ready");
 		expect(assistantRows()).toHaveLength(1);
 		expect(screen.getAllByText("委派架构设计")).toHaveLength(1);
 		expect(screen.getAllByTestId("team-member-reply-card")).toHaveLength(1);
