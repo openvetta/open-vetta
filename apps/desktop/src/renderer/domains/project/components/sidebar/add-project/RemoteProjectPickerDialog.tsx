@@ -36,11 +36,7 @@ export function RemoteProjectPickerDialog({
 					</DialogDescription>
 				</DialogHeader>
 
-				{model.selectedHostId === null ? (
-					<HostStep model={model} t={t} />
-				) : (
-					<DirectoryStep model={model} t={t} />
-				)}
+				{model.selectedHostId === null ? <HostStep model={model} t={t} /> : <DirectoryStep model={model} t={t} />}
 
 				<DialogFooter>
 					{model.selectedHostId !== null && (
@@ -71,7 +67,23 @@ type Translate = ReturnType<typeof useTranslation<"project">>["t"];
 
 function HostStep({ model, t }: { model: Model; t: Translate }): JSX.Element {
 	if (model.hostsLoading) {
-		return <p className="px-1 py-6 text-center text-[13px] text-muted-foreground">{t("remotePicker.loading")}</p>;
+		return (
+			<output className="block px-1 py-6 text-center text-[13px] text-muted-foreground">
+				{t("remotePicker.loading")}
+			</output>
+		);
+	}
+	if (model.hostsError) {
+		return (
+			<div className="flex flex-col items-center gap-3 px-1 py-6 text-center">
+				<p role="alert" className="text-[13px] text-destructive">
+					{t("remotePicker.hostsFailed")}
+				</p>
+				<Button variant="outline" onClick={model.retry}>
+					{t("remotePicker.retry")}
+				</Button>
+			</div>
+		);
 	}
 	if (model.hosts.length === 0) {
 		return (
@@ -119,7 +131,9 @@ function DirectoryStep({ model, t }: { model: Model; t: Translate }): JSX.Elemen
 
 			{model.error !== null ? (
 				<div className="px-1 py-6 text-center">
-					<p className="text-[13px] text-destructive">{t("remotePicker.browseFailed")}</p>
+					<p role="alert" className="text-[13px] text-destructive">
+						{t("remotePicker.browseFailed")}
+					</p>
 					{/* 原始 SSH 报错收进二级披露：它能定位问题，但不该当作首行文案。 */}
 					<details className="mt-2 text-left">
 						<summary className="cursor-pointer text-[11px] text-muted-foreground">
@@ -129,11 +143,16 @@ function DirectoryStep({ model, t }: { model: Model; t: Translate }): JSX.Elemen
 							{model.error}
 						</pre>
 					</details>
+					<Button variant="outline" className="mt-3" onClick={model.retry}>
+						{t("remotePicker.retry")}
+					</Button>
 				</div>
 			) : (
 				<ul className="flex max-h-[280px] flex-col gap-1 overflow-auto">
 					{model.browsing && (
-						<li className="px-3 py-2.5 text-[13px] text-muted-foreground">{t("remotePicker.loading")}</li>
+						<li className="px-3 py-2.5 text-[13px] text-muted-foreground">
+							<output>{t("remotePicker.loading")}</output>
+						</li>
 					)}
 					{!model.browsing && model.entries.length === 0 && (
 						<li className="px-3 py-2.5 text-[13px] text-muted-foreground">{t("remotePicker.emptyDir")}</li>

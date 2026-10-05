@@ -238,7 +238,9 @@
 		"backToHosts": "Pick another host",
 		"cancel": "Cancel",
 		"confirm": "Add this folder as a project",
-		"failedTitle": "Could not add this project"
+		"failedTitle": "Could not add this project",
+		"hostsFailed": "Couldn’t load the host list. Try again.",
+		"retry": "Retry"
 	},
 	"orphanRemote": {
 		"title": "This project's host is no longer in your host list",

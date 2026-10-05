@@ -238,7 +238,9 @@
 		"backToHosts": "换一台主机",
 		"cancel": "取消",
 		"confirm": "添加此目录为项目",
-		"failedTitle": "无法添加这个项目"
+		"failedTitle": "无法添加这个项目",
+		"hostsFailed": "无法读取主机列表，请重试。",
+		"retry": "重试"
 	},
 	"orphanRemote": {
 		"title": "这个项目所在的主机已不在列表里",
