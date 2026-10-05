@@ -1,6 +1,6 @@
 import { type FsEntry, fileTreeCacheAtom } from "@shared/store/atoms";
 import type { FileExplorerSelectOptions } from "@vetta-org/theme-ui/file-explorer";
-import { getDefaultStore } from "jotai";
+import { useStore } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { emitPluginFileExplorerSelectionChanged } from "../../plugins/runtime/plugin-file-explorer-host";
 import {
@@ -31,6 +31,7 @@ export function useFileExplorerSelection(input: {
 	cache: ReadonlyMap<string, readonly FsEntry[]>;
 	expandedDirs: ReadonlySet<string>;
 }) {
+	const store = useStore();
 	const [state, setState] = useState<FileExplorerSelectionState>(EMPTY_FILE_EXPLORER_SELECTION);
 
 	const flatPaths = useMemo(
@@ -45,11 +46,14 @@ export function useFileExplorerSelection(input: {
 		return collectEntriesByPaths(input.cache, [state.focusedPath])[0] ?? null;
 	}, [input.cache, state.focusedPath]);
 
-	const commit = useCallback((next: FileExplorerSelectionState) => {
-		setState(next);
-		const entries = collectEntriesByPaths(getDefaultStore().get(fileTreeCacheAtom), next.paths);
-		emitPluginFileExplorerSelectionChanged(entries);
-	}, []);
+	const commit = useCallback(
+		(next: FileExplorerSelectionState) => {
+			setState(next);
+			const entries = collectEntriesByPaths(store.get(fileTreeCacheAtom), next.paths);
+			emitPluginFileExplorerSelectionChanged(entries);
+		},
+		[store],
+	);
 
 	const clear = useCallback(() => {
 		commit(EMPTY_FILE_EXPLORER_SELECTION);
@@ -59,35 +63,36 @@ export function useFileExplorerSelection(input: {
 		(entry: FsEntry, options: FileExplorerSelectOptions) => {
 			setState((prev) => {
 				const next = applyFileExplorerSelection(prev, flatPaths, entry.path, options);
-				const entries = collectEntriesByPaths(getDefaultStore().get(fileTreeCacheAtom), next.paths);
+				const entries = collectEntriesByPaths(store.get(fileTreeCacheAtom), next.paths);
 				// Defer plugin emit out of the pure updater path via microtask.
 				queueMicrotask(() => emitPluginFileExplorerSelectionChanged(entries));
 				return next;
 			});
 		},
-		[flatPaths],
+		[flatPaths, store],
 	);
 
 	/** Right-click: if already multi-selected, keep set; otherwise select the target alone. */
-	const prepareContextTarget = useCallback((entry: FsEntry) => {
-		setState((prev) => {
-			if (prev.paths.includes(entry.path)) {
-				if (prev.focusedPath === entry.path) return prev;
-				return { ...prev, focusedPath: entry.path };
-			}
-			const next = {
-				paths: [entry.path],
-				anchorPath: entry.path,
-				focusedPath: entry.path,
-			};
-			queueMicrotask(() =>
-				emitPluginFileExplorerSelectionChanged(
-					collectEntriesByPaths(getDefaultStore().get(fileTreeCacheAtom), next.paths),
-				),
-			);
-			return next;
-		});
-	}, []);
+	const prepareContextTarget = useCallback(
+		(entry: FsEntry) => {
+			setState((prev) => {
+				if (prev.paths.includes(entry.path)) {
+					if (prev.focusedPath === entry.path) return prev;
+					return { ...prev, focusedPath: entry.path };
+				}
+				const next = {
+					paths: [entry.path],
+					anchorPath: entry.path,
+					focusedPath: entry.path,
+				};
+				queueMicrotask(() =>
+					emitPluginFileExplorerSelectionChanged(collectEntriesByPaths(store.get(fileTreeCacheAtom), next.paths)),
+				);
+				return next;
+			});
+		},
+		[store],
+	);
 
 	const selectAll = useCallback(() => {
 		commit(selectAllVisible(flatPaths));
@@ -98,13 +103,13 @@ export function useFileExplorerSelection(input: {
 			let result = EMPTY_FILE_EXPLORER_SELECTION;
 			setState((prev) => {
 				result = moveFileExplorerFocus(prev, flatPaths, delta, extend);
-				const entries = collectEntriesByPaths(getDefaultStore().get(fileTreeCacheAtom), result.paths);
+				const entries = collectEntriesByPaths(store.get(fileTreeCacheAtom), result.paths);
 				queueMicrotask(() => emitPluginFileExplorerSelectionChanged(entries));
 				return result;
 			});
 			return result;
 		},
-		[flatPaths],
+		[flatPaths, store],
 	);
 
 	const replaceWith = useCallback(
@@ -137,14 +142,12 @@ export function useFileExplorerSelection(input: {
 					return prev;
 				}
 				queueMicrotask(() =>
-					emitPluginFileExplorerSelectionChanged(
-						collectEntriesByPaths(getDefaultStore().get(fileTreeCacheAtom), next.paths),
-					),
+					emitPluginFileExplorerSelectionChanged(collectEntriesByPaths(store.get(fileTreeCacheAtom), next.paths)),
 				);
 				return next;
 			});
 		},
-		[flatPaths],
+		[flatPaths, store],
 	);
 
 	const entryByPath = useCallback(

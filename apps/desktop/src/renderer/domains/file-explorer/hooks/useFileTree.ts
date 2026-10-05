@@ -1,5 +1,5 @@
 import { createFileExplorerVisibility } from "@shared/lib/file-explorer-preferences";
-import { isSubPath, pathBasename, pathDirname, pathJoin } from "@shared/lib/utils";
+import { isSubPath, pathBasename, pathDirname, pathJoin, pathNormalize } from "@shared/lib/utils";
 import {
 	activeSessionAtom,
 	expandedDirsAtom,
@@ -8,10 +8,11 @@ import {
 	fileTreeCacheAtom,
 	loadingDirsAtom,
 } from "@shared/store/atoms";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom, useAtomValue, useStore } from "jotai";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { emitPluginFileExplorerFilesChanged } from "../../plugins/runtime/plugin-file-explorer-host";
 import { createDirectoryReloadScheduler } from "./file-tree-watch-coalesce";
+import { useFileTreeDirectoryLoader } from "./useFileTreeDirectoryLoader";
 
 /**
  * @param cwdOverride 显式指定的根目录。不传则回退到当前活动 session 的 cwd，
@@ -23,7 +24,9 @@ export function useFileTree(cwdOverride?: string | null) {
 	const [loadingDirs, setLoadingDirs] = useAtom(loadingDirsAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
 	const rootCwd = cwdOverride ?? activeSession?.cwd ?? null;
-	const prevCwdRef = useRef<string | null>(null);
+	const sessionPath = activeSession?.sessionPath ?? null;
+	const store = useStore();
+	const { loadDir, getGeneration } = useFileTreeDirectoryLoader(rootCwd, sessionPath);
 	const preferences = useAtomValue(fileExplorerPreferencesAtom);
 	const visibleCache = useMemo(() => {
 		if (!rootCwd) return cache;
@@ -34,25 +37,6 @@ export function useFileTree(cwdOverride?: string | null) {
 				.map(([directory, entries]) => [directory, entries.filter((entry) => visible(entry.path))]),
 		);
 	}, [cache, rootCwd, preferences]);
-
-	const loadDir = useCallback(
-		async (dirPath: string) => {
-			setLoadingDirs((prev) => new Set([...prev, dirPath]));
-			try {
-				const entries = await window.vetta.fs.readDir(dirPath);
-				setCache((prev) => new Map([...prev, [dirPath, entries as FsEntry[]]]));
-			} catch (err) {
-				console.error("Failed to load directory:", dirPath, err);
-			} finally {
-				setLoadingDirs((prev) => {
-					const next = new Set(prev);
-					next.delete(dirPath);
-					return next;
-				});
-			}
-		},
-		[setCache, setLoadingDirs],
-	);
 
 	const toggleDir = useCallback(
 		(dirPath: string) => {
@@ -91,7 +75,7 @@ export function useFileTree(cwdOverride?: string | null) {
 			emitPluginFileExplorerFilesChanged([{ type: "moved", oldPath, path: newPath }]);
 			// Refresh parent directory
 			const parentDir = pathDirname(oldPath);
-			await loadDir(parentDir);
+			await loadDir(parentDir, true);
 		},
 		[loadDir],
 	);
@@ -170,7 +154,7 @@ export function useFileTree(cwdOverride?: string | null) {
 			} catch (err) {
 				console.error("Move failed, refreshing:", err);
 				// Rollback by reloading both directories
-				await Promise.all([loadDir(srcParent), loadDir(destDir)]);
+				await Promise.all([loadDir(srcParent, true), loadDir(destDir, true)]);
 			}
 		},
 		[setCache, loadDir],
@@ -178,41 +162,71 @@ export function useFileTree(cwdOverride?: string | null) {
 
 	const refreshDir = useCallback(
 		async (dirPath: string) => {
-			await loadDir(dirPath);
+			await loadDir(dirPath, true);
 		},
 		[loadDir],
 	);
 
 	const revealPath = useCallback(
-		async (entryPath: string) => {
-			if (!rootCwd || !isSubPath(entryPath, rootCwd)) {
+		async (entryPath: string, signal?: AbortSignal): Promise<FsEntry> => {
+			const generation = getGeneration();
+			const checkCurrent = () => {
+				if (generation < 0 || signal?.aborted || generation !== getGeneration())
+					throw new Error("File reveal was superseded");
+			};
+			checkCurrent();
+			const windowsRoot = rootCwd != null && (/^[A-Za-z]:[\\/]/.test(rootCwd) || /^[\\/]{2}/.test(rootCwd));
+			const normalizePath = (path: string) => {
+				const normalized = pathNormalize(path);
+				return windowsRoot ? normalized.toLowerCase() : normalized;
+			};
+			const root = rootCwd ? normalizePath(rootCwd) : "";
+			const target = normalizePath(entryPath);
+			const prefix = root.endsWith("/") ? root : `${root}/`;
+			if (!rootCwd || !target.startsWith(prefix) || target === root) {
 				throw new Error(`Path is outside the active workspace: ${entryPath}`);
 			}
-			if (entryPath !== rootCwd && !createFileExplorerVisibility(rootCwd, preferences)(entryPath)) {
+			if (!createFileExplorerVisibility(rootCwd, preferences)(entryPath)) {
 				throw new Error("Path is hidden by the file explorer display settings");
 			}
-			const directories: string[] = [rootCwd];
-			let parent = pathDirname(entryPath);
-			while (parent !== rootCwd && isSubPath(parent, rootCwd)) {
-				directories.splice(1, 0, parent);
-				const next = pathDirname(parent);
-				if (next === parent) break;
-				parent = next;
+			const segments = target.slice(prefix.length).split("/");
+			const directories: string[] = [];
+			let directory = rootCwd;
+			let entry: FsEntry | undefined;
+			for (const [index, segment] of segments.entries()) {
+				checkCurrent();
+				const expected = normalizePath(pathJoin(directory, segment));
+				const cached = store.get(fileTreeCacheAtom).get(directory);
+				let entries = cached ?? (await loadDir(directory));
+				checkCurrent();
+				entry = entries?.find((candidate) => normalizePath(candidate.path) === expected);
+				// A new file may not be in a previously loaded directory yet. Refresh only that directory.
+				if (!entry) {
+					entries = await loadDir(directory, true);
+					checkCurrent();
+					entry = entries?.find((candidate) => normalizePath(candidate.path) === expected);
+				}
+				if (!entry) throw new Error(`Path is not visible in the active workspace: ${entryPath}`);
+				if (index < segments.length - 1) {
+					if (!entry.isDirectory) throw new Error(`Path is not a directory: ${entry.path}`);
+					directory = entry.path;
+					directories.push(directory);
+				}
 			}
-			for (const directory of directories) await loadDir(directory);
+			checkCurrent();
+			if (!entry) throw new Error(`Path is not visible in the active workspace: ${entryPath}`);
 			setExpandedDirs((previous) => {
-				const next = new Set(previous);
-				for (const directory of directories.slice(1)) next.add(directory);
-				return next;
+				if (directories.every((directory) => previous.has(directory))) return previous;
+				return new Set([...previous, ...directories]);
 			});
+			return entry;
 		},
-		[rootCwd, loadDir, setExpandedDirs, preferences],
+		[rootCwd, loadDir, getGeneration, store, setExpandedDirs, preferences],
 	);
 
-	// When the resolved cwd changes, clear cache and load new root
+	// Reset both workspace and session ownership before starting the new root read.
 	useEffect(() => {
-		if (rootCwd === prevCwdRef.current) return;
-		prevCwdRef.current = rootCwd;
+		void sessionPath;
 
 		setCache(new Map());
 		setExpandedDirs(new Set());
@@ -221,7 +235,7 @@ export function useFileTree(cwdOverride?: string | null) {
 		if (rootCwd) {
 			void loadDir(rootCwd);
 		}
-	}, [rootCwd, setCache, setExpandedDirs, setLoadingDirs, loadDir]);
+	}, [rootCwd, sessionPath, setCache, setExpandedDirs, setLoadingDirs, loadDir]);
 
 	// Watch expanded directories + root for filesystem changes
 	const watchedDirsRef = useRef<Set<string>>(new Set());
@@ -261,7 +275,7 @@ export function useFileTree(cwdOverride?: string | null) {
 		const scheduler = createDirectoryReloadScheduler((dirPath: string) => {
 			emitPluginFileExplorerFilesChanged([{ type: "changed", path: dirPath }]);
 			if (watchedDirsRef.current.has(dirPath)) {
-				void loadDir(dirPath);
+				void loadDir(dirPath, true);
 			}
 		});
 		const unsub = window.vetta.fs.onDirChanged((dirPath: string) => {
@@ -286,5 +300,6 @@ export function useFileTree(cwdOverride?: string | null) {
 		moveEntry,
 		refreshDir,
 		revealPath,
+		getGeneration,
 	};
 }

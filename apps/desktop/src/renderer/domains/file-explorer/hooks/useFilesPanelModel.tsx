@@ -1,15 +1,10 @@
-import { Button } from "@shared/components/ui/button";
-import {
-	FILE_EXPLORER_ENTRY_EXISTS_ERROR,
-	getFileExplorerEntryNameIssue,
-	type FileExplorerEntryNameIssue,
-} from "@/preload/file-explorer-entry-name";
 import type {
 	FileExplorerEntryKind,
 	FileTransferAction,
 	FileTransferConflictPolicy,
 	FileTransferPlan,
 } from "@preload/fs-types";
+import { Button } from "@shared/components/ui/button";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { copyFilePathsToClipboard } from "@shared/lib/file-path-clipboard";
 import { isWindows } from "@shared/lib/platform";
@@ -19,15 +14,14 @@ import {
 	confirmDialogAtom,
 	defaultConversationCwdAtom,
 	defaultImConversationCwdAtom,
+	type FilePreviewItem,
+	type FsEntry,
 	fileContextMenuAtom,
-	fileTreeCacheAtom,
 	filePreviewAtom,
 	getProjectDisplayName,
 	inlineFilePreviewAtom,
 	inlineFilePreviewContextReadonlyAtom,
 	openInlineFilePreviewAtom,
-	type FilePreviewItem,
-	type FsEntry,
 	pluginFileExplorerToolbarActionsAtom,
 	renamingPathAtom,
 } from "@shared/store/atoms";
@@ -38,9 +32,14 @@ import type {
 	FilesPanelViewProps,
 } from "@vetta-org/theme-ui/file-explorer";
 import { findFileTreeElement } from "@vetta-org/theme-ui/file-explorer";
-import { getDefaultStore, useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { type KeyboardEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+	FILE_EXPLORER_ENTRY_EXISTS_ERROR,
+	type FileExplorerEntryNameIssue,
+	getFileExplorerEntryNameIssue,
+} from "@/preload/file-explorer-entry-name";
 import {
 	bindPluginFileExplorerHost,
 	emitPluginFileExplorerFilesChanged,
@@ -48,9 +47,9 @@ import {
 import { PluginInlineI18nBoundary, usePluginTextResolver } from "../../plugins/runtime/plugin-i18n";
 import { ConfirmDeleteDialog } from "../components/ConfirmDeleteDialog";
 import { FileContextMenu } from "../components/FileContextMenu";
+import { FileExplorerSettings } from "../components/FileExplorerSettings";
 import { FileTransferDialog } from "../components/FileTransferDialog";
 import { FileTree } from "../components/FileTree";
-import { FileExplorerSettings } from "../components/FileExplorerSettings";
 import { type FileExplorerClipboard, resolvePasteDirectory } from "../services/clipboard";
 import { resolveCreateParentDirectory } from "../services/create-entry";
 import { isProjectInternalDrop } from "../services/file-drop";
@@ -58,6 +57,7 @@ import { sortFileExplorerActions } from "../services/plugin-contributions";
 import { cacheAppFileDragIcons } from "../services/rasterize-app-file-icon";
 import { useFileExplorerSelection } from "./useFileExplorerSelection";
 import { useFileTree } from "./useFileTree";
+import { usePreviewFileReveal } from "./usePreviewFileReveal";
 
 function isEditableEventTarget(target: EventTarget | null): boolean {
 	if (!(target instanceof HTMLElement)) return false;
@@ -80,9 +80,11 @@ export function useFilesPanelModel(cwd?: string | null): FilesPanelViewProps {
 		moveEntry,
 		refreshDir,
 		revealPath,
+		getGeneration,
 	} = useFileTree(cwd);
 
 	const selection = useFileExplorerSelection({ rootDir, cache, expandedDirs });
+	usePreviewFileReveal(rootDir, revealPath, selection.replaceWith);
 
 	const [contextMenu, setContextMenu] = useAtom(fileContextMenuAtom);
 	const setPreview = useSetAtom(inlineFilePreviewAtom);
@@ -262,15 +264,13 @@ export function useFilesPanelModel(cwd?: string | null): FilesPanelViewProps {
 
 	useEffect(() => {
 		const handle = bindPluginFileExplorerHost({
-			getWorkspaceRoot: () =>
-				rootDir ? { name: getProjectDisplayName(rootDir, defaultCwd), path: rootDir } : null,
+			getWorkspaceRoot: () => (rootDir ? { name: getProjectDisplayName(rootDir, defaultCwd), path: rootDir } : null),
 			getSelection: () => selection.selectedEntries.map((entry) => ({ ...entry })),
 			reveal: async (path, options) => {
 				if (!rootDir) throw new Error("File explorer has no active workspace");
-				await revealPath(path);
-				const entries = [...getDefaultStore().get(fileTreeCacheAtom).values()].flat();
-				const entry = entries.find((candidate) => candidate.path === path);
-				if (!entry) throw new Error(`Path is not visible in the active workspace: ${path}`);
+				const generation = getGeneration();
+				const entry = await revealPath(path);
+				if (generation < 0 || generation !== getGeneration()) throw new Error("File reveal was superseded");
 				if (options?.select !== false) {
 					selection.replaceWith(entry);
 				} else if (options?.focus) {
@@ -280,7 +280,7 @@ export function useFilesPanelModel(cwd?: string | null): FilesPanelViewProps {
 					// Rows are virtualized and not focusable: focus the tree container, which keeps
 					// the focused row as aria-activedescendant and scrolls it into view on focus.
 					requestAnimationFrame(() => {
-						findFileTreeElement(rootDir)?.focus({ preventScroll: true });
+						if (generation === getGeneration()) findFileTreeElement(rootDir)?.focus({ preventScroll: true });
 					});
 				}
 			},
@@ -294,7 +294,7 @@ export function useFilesPanelModel(cwd?: string | null): FilesPanelViewProps {
 			},
 		});
 		return () => handle.dispose();
-	}, [defaultCwd, refreshDir, revealPath, rootDir, selection]);
+	}, [defaultCwd, refreshDir, revealPath, getGeneration, rootDir, selection]);
 
 	useEffect(() => {
 		if (narrow || previewCtx != null || !rootDir) return;
@@ -464,8 +464,7 @@ export function useFilesPanelModel(cwd?: string | null): FilesPanelViewProps {
 		(destinationOverride?: string) => {
 			if (!rootDir || !clipboard || clipboard.entries.length === 0) return;
 			const destinationDirectory =
-				destinationOverride ??
-				resolvePasteDirectory(rootDir, selection.focusedEntry, selection.selectedEntries);
+				destinationOverride ?? resolvePasteDirectory(rootDir, selection.focusedEntry, selection.selectedEntries);
 			const sourcePaths = clipboard.entries.map((entry) => entry.path);
 			void window.vetta.fs
 				.prepareTransfer(sourcePaths, destinationDirectory)
@@ -618,23 +617,13 @@ export function useFilesPanelModel(cwd?: string | null): FilesPanelViewProps {
 	const projectName = getProjectDisplayName(rootDir, defaultCwd);
 
 	const clearArtifactsButton: ReactNode = clearArtifactsScope ? (
-		<Button
-			variant="ghost"
-			size="icon-xs"
-			title={t("fileExplorer.clearArtifacts")}
-			onClick={handleClearArtifacts}
-		>
+		<Button variant="ghost" size="icon-xs" title={t("fileExplorer.clearArtifacts")} onClick={handleClearArtifacts}>
 			<span className="icon-[solar--broom-linear] h-3.5 w-3.5" />
 		</Button>
 	) : undefined;
 
 	const refreshButton = (
-		<Button
-			variant="ghost"
-			size="icon-xs"
-			title={t("fileExplorer.refresh")}
-			onClick={() => void refreshDir(rootDir)}
-		>
+		<Button variant="ghost" size="icon-xs" title={t("fileExplorer.refresh")} onClick={() => void refreshDir(rootDir)}>
 			<span className="icon-[solar--refresh-linear] h-3.5 w-3.5" />
 		</Button>
 	);
@@ -664,12 +653,7 @@ export function useFilesPanelModel(cwd?: string | null): FilesPanelViewProps {
 	));
 	const toolbarActions = (
 		<>
-			<Button
-				variant="ghost"
-				size="icon-xs"
-				title={t("fileExplorer.newFile")}
-				onClick={() => beginCreate("file")}
-			>
+			<Button variant="ghost" size="icon-xs" title={t("fileExplorer.newFile")} onClick={() => beginCreate("file")}>
 				<span className="icon-[solar--document-add-linear] h-3.5 w-3.5" />
 			</Button>
 			<Button
