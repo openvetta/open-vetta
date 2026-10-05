@@ -66,7 +66,13 @@ describe("RuntimeHost running-changed reason", () => {
 	function assistantFinal(stopReason: string): SessionEvent {
 		return {
 			...base(),
-			type: "message.final",
+			schemaVersion: 1,
+			eventId: "assistant-done",
+			channel: "assistant",
+			source: "agent",
+			modelCallIndex: 1,
+			type: "done",
+			reason: "stop",
 			message: { role: "assistant", stopReason } as unknown as Message,
 		} as SessionEvent;
 	}
@@ -103,6 +109,20 @@ describe("RuntimeHost running-changed reason", () => {
 		emit(assistantFinal("end_turn"));
 		emit(lifecycle("agent_end"));
 		expect(reasons.at(-1)).toEqual({ running: false, reason: "agent_end" });
+	});
+
+	it("assistant done 保留取消终态，后续真正的失败仍暂停队列", async () => {
+		const { emit, reasons } = await setup();
+		emit(lifecycle("agent_start"));
+		emit(errorEvent());
+		emit(assistantFinal("aborted"));
+		emit(lifecycle("agent_end"));
+		expect(reasons.at(-1)).toEqual({ running: false, reason: "aborted" });
+		emit(lifecycle("agent_start"));
+		emit(assistantFinal("toolUse"));
+		emit(errorEvent());
+		emit(lifecycle("agent_end"));
+		expect(reasons.at(-1)).toEqual({ running: false, reason: "error" });
 	});
 
 	it("回合外的合成 error（pre-stream 校验失败）不影响下一回合的 reason", async () => {
