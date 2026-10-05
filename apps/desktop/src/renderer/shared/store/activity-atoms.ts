@@ -29,8 +29,8 @@ export const ACTIVITY_PANEL_MIN_WIDTH = 260;
 export const ACTIVITY_PANEL_MIN_CHAT_AREA = 384;
 
 /**
- * 文件 tab 内嵌预览的「显示阈值」：面板宽度 ≥ 此值才展示右侧预览框，否则只剩目录树。
- * 拖窄到阈值以下自动收起预览，拖宽回来自动恢复；无选中文件时跨过阈值默认选第一个文件。
+ * 文件 tab 的树/预览分栏阈值。保留宽度打开的上下文文件，在阈值以下用文件/树切换显示。
+ * 文件树主动展开的预览仍在拖窄时收起；无选中文件时拖宽默认选第一个文件。
  */
 export const ACTIVITY_PANEL_PREVIEW_MIN_WIDTH = 520;
 
@@ -97,7 +97,7 @@ const activityPanelPreviewAvailableBaseAtom = atom(
 );
 
 /**
- * 文件区是否有足够宽度展示内嵌预览。消费者只订阅这个离散状态，避免面板逐像素变化时
+ * 文件区是否有足够宽度同时展示目录树与内嵌预览。消费者只订阅这个离散状态，避免面板逐像素变化时
  * 重渲染文件树和预览内容。拖拽外壳会在实时宽度跨过阈值时同步它。
  */
 export const activityPanelPreviewAvailableAtom = atom((get) => get(activityPanelPreviewAvailableBaseAtom));

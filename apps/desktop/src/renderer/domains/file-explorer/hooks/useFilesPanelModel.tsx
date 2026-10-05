@@ -21,6 +21,7 @@ import {
 	getProjectDisplayName,
 	inlineFilePreviewAtom,
 	inlineFilePreviewContextReadonlyAtom,
+	inlinePreviewAutoOpenSuppressedAtom,
 	openInlineFilePreviewAtom,
 	pluginFileExplorerToolbarActionsAtom,
 	renamingPathAtom,
@@ -92,6 +93,7 @@ export function useFilesPanelModel(cwd?: string | null): FilesPanelViewProps {
 	const setGlobalPreview = useSetAtom(filePreviewAtom);
 	const narrow = useNarrowScreen();
 	const previewCtx = useAtomValue(inlineFilePreviewContextReadonlyAtom);
+	const [autoOpenSuppressed, setAutoOpenSuppressed] = useAtom(inlinePreviewAutoOpenSuppressedAtom);
 	const previewAvailable = useAtomValue(activityPanelPreviewAvailableAtom);
 	const [deleteTargets, setDeleteTargets] = useState<FsEntry[] | null>(null);
 	const [errorToast, setErrorToast] = useState<string | null>(null);
@@ -297,13 +299,16 @@ export function useFilesPanelModel(cwd?: string | null): FilesPanelViewProps {
 	}, [defaultCwd, refreshDir, revealPath, getGeneration, rootDir, selection]);
 
 	useEffect(() => {
-		if (narrow || previewCtx != null || !rootDir) return;
-		if (!previewAvailable) return;
+		if (!previewAvailable) {
+			setAutoOpenSuppressed(false);
+			return;
+		}
+		if (narrow || previewCtx != null || !rootDir || autoOpenSuppressed) return;
 		const files = (cache.get(rootDir) ?? []).filter((e) => !e.isDirectory);
 		if (files.length === 0) return;
 		const items: FilePreviewItem[] = files.map((e) => ({ name: e.name, path: e.path, size: e.size }));
 		setPreview({ items, index: 0 });
-	}, [narrow, previewCtx, rootDir, previewAvailable, cache, setPreview]);
+	}, [narrow, previewCtx, rootDir, previewAvailable, autoOpenSuppressed, cache, setPreview, setAutoOpenSuppressed]);
 
 	useEffect(() => {
 		function handleMove(e: Event) {

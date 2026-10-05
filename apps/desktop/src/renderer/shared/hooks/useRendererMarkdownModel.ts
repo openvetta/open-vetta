@@ -47,7 +47,7 @@ export function useRendererMarkdownModel(
 				if (workspaceId) {
 					setActivityTabByProject((previous) => new Map(previous).set(workspaceId, "file"));
 				}
-				openInlineFilePreview({ name, path: resolved });
+				openInlineFilePreview({ name, path: resolved }, "preserve");
 				return;
 			}
 			setFilePreview({ name, path: resolved });

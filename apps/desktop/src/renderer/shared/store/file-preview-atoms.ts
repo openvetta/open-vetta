@@ -69,7 +69,7 @@ export const filePreviewContextReadonlyAtom = atom(
  * 内嵌（活动面板内）文件预览上下文。
  *
  * 与全局 Dialog 形态的 {@link filePreviewAtom} 区分：当此 atom 非空时，
- * 文件预览以"侧栏内分屏"的方式显示，而不是弹出 Dialog。
+ * 文件预览显示在侧栏内（宽栏分屏、窄栏切换），而不是弹出 Dialog。
  * 文件树（FilesPanel）走这条路径；聊天附件等其他入口仍走 Dialog。
  */
 const inlineFilePreviewContextAtom = atom<FilePreviewContext | null>(null);
@@ -100,27 +100,46 @@ export const inlineFilePreviewContextReadonlyAtom = atom(
 /** 内嵌预览展开前的面板宽度，用于关闭/离开时回拉。null 表示当前不是「主动点开」拉宽的。 */
 const inlinePreviewRestoreWidthAtom = atom<number | null>(null);
 
-/**
- * 主动点开文件预览：记住当前宽度（仅首次），经 host API 把面板拉到 max，再写入预览上下文。
- * 文件树点击 / 聊天附件卡片等「显式」入口走这里——会把面板拉宽以展示预览。
- */
-export const openInlineFilePreviewAtom = atom(null, (get, set, value: FilePreviewItem | FilePreviewContext) => {
-	if (get(inlinePreviewRestoreWidthAtom) === null) {
-		set(inlinePreviewRestoreWidthAtom, get(activityPanelWidthAtom));
-	}
-	set(setActivityPanelWidthAtom, "max");
-	set(inlineFilePreviewAtom, value);
-});
+/** 上下文文件链接保留当前面板宽度；文件树的主动打开仍使用展开/回拉行为。 */
+const inlinePreviewWidthBehaviorAtom = atom<"expand" | "preserve">("expand");
+export const inlineFilePreviewPreservesWidthAtom = atom((get) => get(inlinePreviewWidthBehaviorAtom) === "preserve");
+
+/** 用户关闭预览后，直到再次拖窄或主动打开前，不自动选中首个文件。 */
+export const inlinePreviewAutoOpenSuppressedAtom = atom(false);
 
 /**
- * 关闭内嵌预览：清空预览上下文，并把面板宽度回拉到点开前（若有记录）。
- * 关闭按钮、切走文件 tab、切换 session 都走这里，保证不残留「拉宽」形态。
+ * 文件树主动点开时记住当前宽度（仅首次）并拉到 max；上下文链接传 preserve 保留宽度。
+ */
+export const openInlineFilePreviewAtom = atom(
+	null,
+	(get, set, value: FilePreviewItem | FilePreviewContext, widthBehavior: "expand" | "preserve" = "expand") => {
+		set(inlinePreviewWidthBehaviorAtom, widthBehavior);
+		set(inlinePreviewAutoOpenSuppressedAtom, false);
+		if (widthBehavior === "preserve") {
+			// 接管已有预览时也清除旧的回拉记录，关闭时不再覆盖用户当前宽度。
+			set(inlinePreviewRestoreWidthAtom, null);
+		} else {
+			if (get(inlinePreviewRestoreWidthAtom) === null) {
+				set(inlinePreviewRestoreWidthAtom, get(activityPanelWidthAtom));
+			}
+			set(setActivityPanelWidthAtom, "max");
+		}
+		set(inlineFilePreviewAtom, value);
+	},
+);
+
+/**
+ * 关闭、离开文件 tab 或切换 session 时清空预览；只有展开型入口回拉宽度。
  */
 export const closeInlineFilePreviewAtom = atom(null, (get, set) => {
 	const hadPreview = get(inlineFilePreviewContextAtom) !== null;
+	const preserveWidth = get(inlineFilePreviewPreservesWidthAtom);
 	set(inlineFilePreviewAtom, null);
 	const restore = get(inlinePreviewRestoreWidthAtom);
 	set(inlinePreviewRestoreWidthAtom, null);
+	set(inlinePreviewWidthBehaviorAtom, "expand");
+	if (hadPreview) set(inlinePreviewAutoOpenSuppressedAtom, true);
+	if (preserveWidth) return;
 	// 从未打开过内嵌预览（既无主动点开记录、当前也无预览上下文）时不碰宽度——否则切走文件
 	// tab 的卸载清理会把其它来源（如插件 openActivityTab 拉到 max）刚设的宽度误重置为默认。
 	if (!hadPreview && restore === null) return;

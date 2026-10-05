@@ -5,6 +5,7 @@ import {
 	type FilePreviewContext,
 	inlineFilePreviewAtom,
 	inlineFilePreviewContextReadonlyAtom,
+	inlineFilePreviewPreservesWidthAtom,
 } from "@shared/store/atoms";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
@@ -19,12 +20,15 @@ export interface FileTabContentModel {
 	showPreview: boolean;
 	treeWidth: number;
 	treeCollapsed: boolean;
+	compact: boolean;
 	previewMounted: boolean;
 	previewCtx: FilePreviewContext | null;
 	canPrev: boolean;
 	canNext: boolean;
 	onTreeResize: (delta: number) => void;
 	toggleTree: () => void;
+	showCompactTree: () => void;
+	showCompactPreview: () => void;
 	goPrev: () => void;
 	goNext: () => void;
 	closePreview: () => void;
@@ -35,6 +39,7 @@ export function useFileTabContentModel(): FileTabContentModel {
 	const setPreview = useSetAtom(inlineFilePreviewAtom);
 	const closePreview = useSetAtom(closeInlineFilePreviewAtom);
 	const previewAvailable = useAtomValue(activityPanelPreviewAvailableAtom);
+	const preservesWidth = useAtomValue(inlineFilePreviewPreservesWidthAtom);
 	const { goPrev, goNext } = usePreviewNav((updater) => {
 		if (typeof updater === "function") {
 			setPreviewCtx(updater(previewCtx));
@@ -44,7 +49,13 @@ export function useFileTabContentModel(): FileTabContentModel {
 	});
 	const onClosePreview = useCallback(() => closePreview(), [closePreview]);
 
-	const showPreview = previewCtx !== null && previewAvailable;
+	const compact = previewCtx !== null && preservesWidth && !previewAvailable;
+	// A new context request (even for the same file) returns from the compact tree to its preview.
+	const [treeOnlyContext, setTreeOnlyContext] = useState<FilePreviewContext | null>(null);
+	const compactTreeVisible = compact && treeOnlyContext === previewCtx;
+	const showCompactTree = useCallback(() => setTreeOnlyContext(previewCtx), [previewCtx]);
+	const showCompactPreview = useCallback(() => setTreeOnlyContext(null), []);
+	const showPreview = previewCtx !== null && (previewAvailable || (compact && !compactTreeVisible));
 	const [previewMounted, setPreviewMounted] = useState(false);
 	useEffect(() => {
 		if (!showPreview) {
@@ -61,7 +72,13 @@ export function useFileTabContentModel(): FileTabContentModel {
 	}, []);
 
 	const [treeCollapsed, setTreeCollapsed] = useState(false);
-	const toggleTree = useCallback(() => setTreeCollapsed((collapsed) => !collapsed), []);
+	const toggleTree = useCallback(() => {
+		if (compact) {
+			setTreeOnlyContext((current) => (current === previewCtx ? null : previewCtx));
+		} else {
+			setTreeCollapsed((collapsed) => !collapsed);
+		}
+	}, [compact, previewCtx]);
 	useEffect(() => {
 		if (!showPreview) setTreeCollapsed(false);
 	}, [showPreview]);
@@ -69,16 +86,19 @@ export function useFileTabContentModel(): FileTabContentModel {
 	useEffect(() => () => closePreview(), [closePreview]);
 
 	return {
-		showTree: !showPreview || !treeCollapsed,
+		showTree: !showPreview || (!compact && !treeCollapsed),
 		showPreview,
 		treeWidth,
-		treeCollapsed,
+		treeCollapsed: compact || treeCollapsed,
+		compact,
 		previewMounted,
 		previewCtx,
 		canPrev: previewCtx !== null && previewCtx.index > 0,
 		canNext: previewCtx !== null && previewCtx.index < previewCtx.items.length - 1,
 		onTreeResize,
 		toggleTree,
+		showCompactTree,
+		showCompactPreview,
 		goPrev,
 		goNext,
 		closePreview: onClosePreview,

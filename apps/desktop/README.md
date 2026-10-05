@@ -64,6 +64,21 @@ See [team task recovery](docs/agent-team-recovery.md) for automatic recovery lim
 
 ## Development
 
+### File preview navigation
+
+Opening a file link in a conversation keeps the activity panel's current width. Below 520px,
+use the file-list and preview buttons to switch views; wider panels retain the split layout.
+Closing that preview keeps the chosen width. Explicit file-tree activation retains its expand-and-restore behavior.
+
+The preview toolbar copies the current local file's absolute path. For SSH files it copies the full remote
+location, including host identity; it does not turn the URI into a misleading local path.
+Clipboard failures show a retry message. The existing file-tree copy command shares this feedback.
+
+The tree follows the current preview by loading only its missing ancestor directories, expanding them,
+selecting the file, and scrolling its virtual row into view without moving keyboard focus.
+Manual selection and folding remain available. Hidden, missing, or out-of-project files leave the tree usable,
+and old directory reads cannot update a newly selected project or session.
+
 ### Sidebar conversation search
 
 Use the search button in the sidebar's top action row to open the floating panel. It searches titles,
