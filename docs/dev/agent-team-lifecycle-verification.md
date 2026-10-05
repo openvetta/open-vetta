@@ -53,3 +53,15 @@
 - [UI 异步生命周期](../../apps/desktop/src/renderer/domains/conversation/connectors/team/useTeamChatModel.lifecycle.test.tsx)、[现有聊天 Hook](../../apps/desktop/src/renderer/domains/conversation/connectors/team/useTeamChatModel.test.tsx)、[委派到界面的连续流程](../../apps/desktop/src/renderer/domains/conversation/connectors/team/TeamChatDelegationFlow.test.tsx)
 
 复跑遵循 [质量门禁](./quality-gates.md)，使用仓库 `scripts/quality/run-vitest.mjs`，不使用裸 `bun test`。公共记录变更需检查 Agent Team 包及其消费者；定向测试、整包测试、类型检查与真实环境验收分别报告，不能互相替代。
+
+## 本轮执行记录
+
+代码快照：`b84dee95fe92b8316fb023c3b60d4948af571e5b`。下列分组有重叠，不能相加作为总覆盖数。
+
+- 原工作区定向验证通过：UI 54 项、停止与恢复 95 项、结果发布及服务恢复 105 项、Runtime 三个直接文件 31 项；相关 package 合同 31 项通过
+- `agent-team` 整包通过：13 文件、85 项。当前改动的 26 个 TypeScript/TSX 文件 Biome 通过，独立复核未发现本轮范围内剩余阻断
+- 焦点 Desktop 类型检查通过：继承原编译选项与类型根，限定 28 个根文件及其依赖。它不是全量标准 `tsc` 通过；全量 Desktop 类型检查此前在本机耗尽内存，本轮没有继续反复重跑
+- 保守 `test:changed` 扩到 Desktop 整包后未完成：现有 Marketplace 用例只替换 archive 下载，install 路径仍可能调用未替换的 manifest `fetch`，该用例出现超时。测试及该实现与检查前基线相同；本轮没有扩大外部请求授权或修改这个无关用例
+- 固定快照上额外执行 Team 正向文件列表：48 文件、388 项通过，另 14 个套件在收集/初始化阶段失败。其中包括外部依赖软链触发 Vite SVG 路径拒绝、旧用例依赖 package 工作目录、模块加载超时；未绕过路径限制，不能把这次联合执行记为全绿
+
+复跑组件用例应使用正常安装依赖的 checkout，并从 `apps/desktop` 运行其测试入口；不要用跨工作树的依赖软链代替完整测试环境。以上限制不抹掉已有故障注入证据，也不能由单项通过推断未完成的整包、标准类型或真实环境验收已经通过。
