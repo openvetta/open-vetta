@@ -1,17 +1,16 @@
 import { KnowledgeHowItWorksDialog } from "@shared/components/KnowledgeHowItWorksDialog";
 import { ModelSelect } from "@shared/components/ModelSelect";
-import { Switch } from "@vetta-org/ui";
+import { Button } from "@shared/components/ui/button";
 import { cn } from "@shared/lib/utils";
+import { MotionSelect, SettingRow, SettingSection } from "@vetta-org/theme-ui/settings";
+import { Switch } from "@vetta-org/ui";
 import { useMemo, useState } from "react";
 import { SettingsAiAssist } from "../ai-assist";
 import { SETTINGS_SECTION } from "../registry";
-import { MotionSelect, SettingRow, SettingSection } from "@vetta-org/theme-ui/settings";
 import type { KnowledgeBaseSettingsModel } from "./useKnowledgeBaseSettingsModel";
 
 export function KnowledgeBaseSettingsView({ model }: { model: KnowledgeBaseSettingsModel }): JSX.Element {
 	const [howItWorksOpen, setHowItWorksOpen] = useState(false);
-	const btnClass =
-		"inline-flex items-center gap-1.5 rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50";
 
 	const intervalOptions = useMemo(
 		() => [
@@ -38,14 +37,10 @@ export function KnowledgeBaseSettingsView({ model }: { model: KnowledgeBaseSetti
 				<h1 className="text-[20px] font-bold text-foreground">{model.labels.title}</h1>
 				<div className="flex flex-wrap items-center gap-2">
 					<SettingsAiAssist tabId="knowledge" />
-					<button
-						type="button"
-						onClick={() => setHowItWorksOpen(true)}
-						className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-					>
-						<span className="icon-[mdi--lightbulb-on-outline] h-4 w-4" />
+					<Button type="button" onClick={() => setHowItWorksOpen(true)} variant="ghost" size="sm">
+						<span className="icon-[solar--lightbulb-linear] h-4 w-4" />
 						<span>{model.labels.howItWorks}</span>
-					</button>
+					</Button>
 				</div>
 			</div>
 
@@ -55,10 +50,15 @@ export function KnowledgeBaseSettingsView({ model }: { model: KnowledgeBaseSetti
 				description={model.labels.howItWorksDescription}
 			>
 				<SettingRow title={model.labels.enable} description={model.labels.enableDescription}>
-					<Switch checked={model.enabled} onCheckedChange={model.actions.toggle} />
+					<Switch
+						aria-label={model.labels.enable}
+						checked={model.enabled}
+						onCheckedChange={model.actions.toggle}
+					/>
 				</SettingRow>
 				<SettingRow title={model.labels.interval} description={model.labels.intervalDescription}>
 					<MotionSelect
+						aria-label={model.labels.interval}
 						value={String(model.interval)}
 						onValueChange={model.actions.changeInterval}
 						options={intervalOptions}
@@ -68,6 +68,7 @@ export function KnowledgeBaseSettingsView({ model }: { model: KnowledgeBaseSetti
 				</SettingRow>
 				<SettingRow title={model.labels.parallel} description={model.labels.parallelDescription}>
 					<MotionSelect
+						aria-label={model.labels.parallel}
 						value={String(model.agentConcurrency)}
 						onValueChange={model.actions.changeAgentConcurrency}
 						options={concurrencyOptions}
@@ -88,27 +89,41 @@ export function KnowledgeBaseSettingsView({ model }: { model: KnowledgeBaseSetti
 									"h-8 w-[220px] max-w-full rounded-lg border-border bg-card px-2.5 text-[12px] font-medium hover:bg-accent data-[state=open]:bg-accent",
 									model.enabled && !model.modelKey && "border-amber-500/50",
 								)}
-								reasoning={{ value: model.reasoningLevel || undefined, onChange: model.actions.changeReasoning }}
+								reasoning={{
+									value: model.reasoningLevel || undefined,
+									onChange: model.actions.changeReasoning,
+								}}
 							/>
-							<button
+							<Button
 								type="button"
 								onClick={() => void model.actions.probe()}
 								disabled={!model.enabled || model.probing || !model.modelKey}
-								className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+								variant="outline"
+								size="sm"
 							>
 								<span>{model.labels.testConnect}</span>
 								{model.probing ? (
-									<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
+									<span className="icon-[solar--refresh-linear] h-3.5 w-3.5 animate-spin" />
 								) : model.probeResult?.ok ? (
-									<span className="icon-[mdi--check] h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+									<span className="icon-[solar--check-circle-linear] h-3.5 w-3.5 text-emerald-400" />
 								) : model.probeResult && !model.probeResult.ok ? (
-									<span className="icon-[mdi--close] h-3.5 w-3.5 text-red-500" />
+									<span className="icon-[solar--close-circle-linear] h-3.5 w-3.5 text-destructive" />
 								) : null}
-							</button>
+							</Button>
 						</div>
+						{model.probeResult && (
+							<output
+								className={cn(
+									"max-w-full break-words text-[12px]",
+									model.probeResult.ok ? "text-emerald-400" : "text-destructive",
+								)}
+							>
+								{model.probeResult.msg}
+							</output>
+						)}
 						{model.enabled && !model.modelKey && (
 							<span className="flex max-w-full items-center gap-1 text-[11px] text-amber-500">
-								<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5 shrink-0" />
+								<span className="icon-[solar--danger-circle-linear] h-3.5 w-3.5 shrink-0" />
 								<span className="truncate">{model.labels.noModelSelected}</span>
 							</span>
 						)}
@@ -122,43 +137,46 @@ export function KnowledgeBaseSettingsView({ model }: { model: KnowledgeBaseSetti
 				description={model.status ?? undefined}
 			>
 				<SettingRow title={model.labels.processNow} description={model.labels.processNowDescription}>
-					<button
+					<Button
 						type="button"
 						onClick={() => void model.actions.scan()}
 						disabled={!model.enabled || !model.modelKey || model.busy !== null}
-						className={btnClass}
+						variant="outline"
+						size="sm"
 					>
 						<span>{model.labels.processNowButton}</span>
-						{model.busy === "scan" && <span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />}
-					</button>
+						{model.busy === "scan" && <span className="icon-[solar--refresh-linear] h-3.5 w-3.5 animate-spin" />}
+					</Button>
 				</SettingRow>
 				<SettingRow title={model.labels.retryFailed} description={model.labels.retryFailedDescription}>
-					<button
+					<Button
 						type="button"
 						onClick={() => void model.actions.retryFailed()}
 						disabled={!model.enabled || !model.modelKey || model.busy !== null}
-						className={btnClass}
+						variant="outline"
+						size="sm"
 					>
 						<span>{model.labels.retryFailedButton}</span>
-						{model.busy === "retry" && <span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />}
-					</button>
+						{model.busy === "retry" && <span className="icon-[solar--refresh-linear] h-3.5 w-3.5 animate-spin" />}
+					</Button>
 				</SettingRow>
 				<SettingRow title={model.labels.records} description={model.labels.recordsDescription}>
-					<button type="button" onClick={() => void model.actions.openRecords()} className={btnClass}>
+					<Button type="button" onClick={() => void model.actions.openRecords()} variant="outline" size="sm">
 						<span>{model.labels.viewRecords}</span>
-					</button>
+					</Button>
 				</SettingRow>
 				<SettingRow title={model.labels.clearWiki} description={model.labels.clearWikiDescription} border={false}>
-					<button
+					<Button
 						type="button"
 						onClick={model.actions.clearWiki}
 						disabled={model.busy !== null}
-						className="inline-flex items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[12px] text-red-500 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+						variant="destructive"
+						size="sm"
 					>
-						<span className="icon-[mdi--trash-can-outline] h-3.5 w-3.5" />
+						<span className="icon-[solar--trash-bin-trash-linear] h-3.5 w-3.5" />
 						<span>{model.labels.clearWikiButton}</span>
-						{model.busy === "clear" && <span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />}
-					</button>
+						{model.busy === "clear" && <span className="icon-[solar--refresh-linear] h-3.5 w-3.5 animate-spin" />}
+					</Button>
 				</SettingRow>
 			</SettingSection>
 
