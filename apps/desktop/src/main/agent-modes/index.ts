@@ -9,7 +9,7 @@
  * 都只对桌面有意义，CLI 与 SDK 宿主不传 agentMode。
  * coding-agent 只保留一个 `core.mode` block 槽位，正文由宿主经 `resolveModePrompt` 注入。
  *
- * 模式之间只有提示词正文不同：叙事方式与 Deliverables 清单由共享 partial 统一，不设任何
+ * 模式之间只有提示词正文不同：叙事方式与产物放置由共享 partial 统一，不设任何
  * 按模式切换的渲染能力位。
  *
  * 与 persona 正交：mode 提示词作为独立 `mode` block 注入，用户仍可另选 persona。

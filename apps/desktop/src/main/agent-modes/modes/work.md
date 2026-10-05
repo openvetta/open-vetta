@@ -34,8 +34,6 @@ On that route, work in the repository with the framework and conventions it alre
 
 {{> deliverables-placement}}
 
-{{> deliverables-list}}
-
 ## Communication Specifications
 - Focus responses on actionable final outputs and avoid empty filler text.
 - Briefly outline pros and cons for multiple viable solutions to support decision-making.

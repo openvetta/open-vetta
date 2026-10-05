@@ -38,8 +38,6 @@ If you think a design pass genuinely belongs first, say so and let the user pick
 
 {{> deliverables-placement}}
 
-{{> deliverables-list}}
-
 ## Reviews
 If the user asks for a "review", default to a code-review mindset: prioritize bugs, risks, behavioral regressions, and missing tests. Present findings first (ordered by severity, with file:line references), then open questions or assumptions, then a brief change summary. If nothing is found, say so explicitly and note residual risks or testing gaps.
 

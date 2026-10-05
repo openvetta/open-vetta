@@ -62,12 +62,20 @@ describe("注册表校验入口", () => {
 });
 
 describe("模式间只有提示词正文不同", () => {
-	// 叙事、Deliverables 文件清单、写代码底线纪律对所有模式一致；各写一遍会漂移，只能引用同一份 partial。
-	const SHARED_PARTIALS = ["narration", "deliverables-placement", "deliverables-list", "code-discipline"];
+	// 叙事、产物放置、写代码底线纪律对所有模式一致；各写一遍会漂移，只能引用同一份 partial。
+	const SHARED_PARTIALS = ["narration", "deliverables-placement", "code-discipline"];
 
 	it.each(modeFiles.map((mode) => mode.id))("%s 模式引用全部共享 partial", (id) => {
 		const raw = readFileSync(join(modesDir, `${id}.md`), "utf-8");
 		for (const name of SHARED_PARTIALS) expect(raw, `${id}.md 缺少 {{> ${name}}}`).toContain(`{{> ${name}}}`);
+	});
+
+	it.each(modeFiles.map((mode) => mode.id))("%s 模式保留产物放置但不强制末尾文件清单", (id) => {
+		const prompt = getModePrompt(id);
+		expect(prompt).toContain("## Placing deliverables inside your answer");
+		expect(prompt).toContain("md_intro");
+		expect(prompt).not.toMatch(/deliverables (?:block|section|list|file list)/i);
+		expect(prompt).not.toContain("List every file you created or changed");
 	});
 });
 

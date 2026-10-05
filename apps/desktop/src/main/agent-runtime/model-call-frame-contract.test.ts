@@ -265,33 +265,41 @@ describe("Desktop RuntimeHost model-call frame contract", () => {
 
 	// 工作模式注册表归 desktop 所有（ADR-0071 修订）：coding-agent 只保留 core.mode 槽位。
 	// 这条用例验证整条注入链——宿主 resolver → composition → Prompt Runtime → system prompt。
-	it("carries the Desktop-owned mode prompt into the system prompt of the session's agentMode", async () => {
-		const cwd = await temporaryDirectory("desktop-frame-mode-prompt-workspace-");
-		const server = await createServer();
-		const model = { ...MODEL, baseUrl: server.baseUrl };
-		const agentStateDir = await temporaryDirectory("desktop-frame-mode-prompt-agent-");
-		const fixture = createRuntimeFixture("runtime", agentStateDir, model);
-		fixtures.push(fixture);
+	it.each(["coding", "work"])(
+		"carries the %s mode without a mandatory final file list",
+		async (agentMode) => {
+			const cwd = await temporaryDirectory("desktop-frame-mode-prompt-workspace-");
+			const server = await createServer();
+			const model = { ...MODEL, baseUrl: server.baseUrl };
+			const agentStateDir = await temporaryDirectory("desktop-frame-mode-prompt-agent-");
+			const fixture = createRuntimeFixture("runtime", agentStateDir, model);
+			fixtures.push(fixture);
 
-		const created = await fixture.runtime.createSession({
-			cwd,
-			agentDir: agentStateDir,
-			sessionDir: await temporaryDirectory("desktop-frame-mode-prompt-sessions-"),
-			model,
-			thinkingLevel: "off",
-			agent: createCodingAgentRuntimeSessionSelection({
-				scenario: "conversation",
-				agentMode: "coding",
-				includeAgentSkills: false,
-			}),
-			executionMode: "full-access",
-		});
-		await fixture.runtime.prompt(created.sessionId, { text: "State the active mode" });
+			const created = await fixture.runtime.createSession({
+				cwd,
+				agentDir: agentStateDir,
+				sessionDir: await temporaryDirectory("desktop-frame-mode-prompt-sessions-"),
+				model,
+				thinkingLevel: "off",
+				agent: createCodingAgentRuntimeSessionSelection({
+					scenario: "conversation",
+					agentMode,
+					includeAgentSkills: false,
+				}),
+				executionMode: "full-access",
+			});
+			await fixture.runtime.prompt(created.sessionId, { text: "State the active mode" });
 
-		const systemPrompt = collectStringValues(observeRequest(server, 0).body.input).join("\n");
-		expect(systemPrompt).toContain(getModePrompt("coding"));
-		expect(systemPrompt).not.toContain(getModePrompt("work"));
-	}, 30_000);
+			const systemPrompt = collectStringValues(observeRequest(server, 0).body.input).join("\n");
+			expect(systemPrompt).toContain(getModePrompt(agentMode));
+			expect(systemPrompt).not.toContain(getModePrompt(agentMode === "coding" ? "work" : "coding"));
+			expect(systemPrompt).toContain("MANDATORY file-link format");
+			expect(systemPrompt).toContain("[filename.ext](</abs/path/with spaces/filename.ext>)");
+			expect(systemPrompt).not.toMatch(/deliverables (?:block|section|list|file list)/i);
+			expect(systemPrompt).not.toContain("List every file you created or changed");
+		},
+		30_000,
+	);
 
 	async function observeBackends(
 		cwd: string,

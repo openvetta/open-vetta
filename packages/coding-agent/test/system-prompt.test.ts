@@ -127,7 +127,7 @@ describe("buildSystemPrompt", () => {
 			expect(prompt).not.toContain("Render web URLs");
 		});
 
-		test("desktop scenarios keep rendering guidelines", () => {
+		test("desktop scenarios keep file links without requiring a final file list", () => {
 			for (const scenario of ["conversation", "project", "batch", "automation", "im-claw"] as const) {
 				const prompt = buildSystemPrompt({
 					selectedTools: ["read", "bash", "edit", "write"],
@@ -137,9 +137,21 @@ describe("buildSystemPrompt", () => {
 				});
 
 				expect(prompt).toContain("MANDATORY file-link format");
-				expect(prompt).toContain("deliverables block");
+				expect(prompt).toContain("Render web URLs");
+				expect(prompt).not.toMatch(/deliverables (?:block|section|list|file list)/i);
+				expect(prompt).not.toContain("List every file you created or changed");
 			}
 		});
+
+		test.each([undefined, ["read"], ["edit"], ["write"], ["bash"], ["shell"]])(
+			"does not require a final file list with tools %j",
+			(selectedTools) => {
+				const prompt = buildSystemPrompt({ selectedTools, contextFiles: [], skills: [] });
+				expect(prompt).toContain("MANDATORY file-link format");
+				expect(prompt).not.toMatch(/deliverables (?:block|section|list|file list)/i);
+				expect(prompt).not.toContain("List every file you created or changed");
+			},
+		);
 
 		test("unset scenario keeps rendering guidelines (legacy SDK behavior)", () => {
 			const prompt = buildSystemPrompt({

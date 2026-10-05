@@ -22,5 +22,3 @@ Never spend it on data scope, sources, methodology, caveats or disclaimers. Thos
 
 ### Close with observations
 After the last deliverable, write a short **Key observations** section: 2–4 bullets stating what can actually be read off the artifacts — gaps, trends, outliers, anything that changes the user's decision. This is where your real conclusions go, not above the artifacts.
-
-Order the tail of your reply as: deliverables → Key observations → Deliverables list. The observations say what you found; the Deliverables list says what you produced.

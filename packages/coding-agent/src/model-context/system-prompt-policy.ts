@@ -118,12 +118,6 @@ const FILE_LINK_GUIDANCE =
 	"Use the exact absolute path returned by tools — never invent one; if you genuinely only have a relative path, leave it as plain text rather than fabricating an absolute one. " +
 	"The only exception is paths inside fenced code blocks or shell command examples — keep those as-is.";
 
-const DELIVERABLES_GUIDANCE =
-	"If you created, edited, or wrote ANY file during this turn, the VERY LAST thing in your final message MUST be one aggregated deliverables block — this is mandatory with NO exception, even for a single file or a one-line edit; never end such a turn without it. " +
-	"Format: a short heading in the user's language ('交付物:' for Chinese, 'Deliverables:' for English) followed by an unordered list where each item uses the standard CommonMark absolute file-link form — `- [filename.ext](</abs/path/with spaces/filename.ext>)`. The link label is the bare file name, never the full path. " +
-	"This block is the ONLY place outputs are listed (do not also scatter the same links earlier). List every file you created or changed for the user, plus user-facing outputs; exclude ONLY pure throwaway scaffolding, temp files, and files you merely read without changing. " +
-	"The single case where you omit this block is a turn that changed no files at all.";
-
 const URL_LINK_GUIDANCE =
 	"Render web URLs in your prose as markdown links with descriptive text, e.g. [Vite docs](https://vitejs.dev), instead of bare URLs. Keep URLs as-is inside code blocks and shell examples.";
 
@@ -317,9 +311,6 @@ function buildGuidelines(tools: string[], scenario?: ConversationScenario): stri
 	guidelinesList.push(FINAL_ANSWER_ORDER_GUIDANCE);
 	if (hasUiRendering) {
 		guidelinesList.push(FILE_LINK_GUIDANCE);
-		if (hasEdit || hasWrite || hasSelectedCommandTool) {
-			guidelinesList.push(DELIVERABLES_GUIDANCE);
-		}
 		guidelinesList.push(URL_LINK_GUIDANCE);
 	}
 	guidelinesList.push(
