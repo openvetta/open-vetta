@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
-import type { Usage } from "@vetta/ai";
 import { createConversationAgentMessage } from "@shared/conversation";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { Usage } from "@vetta/ai";
 import { type ComponentProps, Fragment, type ReactNode, useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MessageListView } from "./MessageListView";
@@ -355,6 +355,40 @@ describe("MessageListView virtualization", () => {
 		expect(captured.messageItemProps).toHaveLength(2);
 		expect(captured.messageItemProps[0].sessionUsages).toEqual([firstUsage, secondUsage]);
 		expect(captured.messageItemProps[1].sessionUsages).toEqual([firstUsage, secondUsage]);
+	});
+
+	it("流式文字沿用用量引用，模型调用结束与会话切换仍更新用量", () => {
+		const firstUsage = usage({ input: 20, output: 10 });
+		const secondUsage = usage({ input: 5, output: 7 });
+		const first = createConversationAgentMessage({ id: "message-1", text: "done", blocks: [], usages: [firstUsage] });
+		const tail = createConversationAgentMessage({ id: "message-2", text: "start", blocks: [], phase: "streaming" });
+		const initial = props(true, true);
+		initial.model.messages = [first, tail];
+		const { rerender } = render(<MessageListView {...initial} />);
+		const initialUsages = captured.messageItemProps[0].sessionUsages;
+
+		const streamed = {
+			...initial,
+			model: { ...initial.model, messages: [first, { ...tail, text: "streaming response" }] },
+		};
+		captured.messageItemProps = [];
+		rerender(<MessageListView {...streamed} />);
+		expect(captured.messageItemProps[0].sessionUsages).toBe(initialUsages);
+		expect(captured.messageItemProps[1].sessionUsages).toBe(initialUsages);
+
+		captured.messageItemProps = [];
+		rerender(
+			<MessageListView
+				{...streamed}
+				model={{ ...streamed.model, messages: [first, { ...tail, usages: [secondUsage] }] }}
+			/>,
+		);
+		expect(captured.messageItemProps[0].sessionUsages).toEqual([firstUsage, secondUsage]);
+		expect(captured.messageItemProps[0].sessionUsages).not.toBe(initialUsages);
+
+		captured.messageItemProps = [];
+		rerender(<MessageListView {...props(true)} sessionId="/sessions/without-usage.jsonl" />);
+		expect(captured.messageItemProps[0].sessionUsages).toEqual([]);
 	});
 });
 

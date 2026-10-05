@@ -28,10 +28,17 @@ export function collectModelSwitchLabels(
 	return switches;
 }
 
-export function collectAgentUsages(messages: readonly ChatConversationItem[]): readonly Usage[] {
+/** Preserve the row prop when streaming changes content without adding model-call usage. */
+export function collectAgentUsages(
+	messages: readonly ChatConversationItem[],
+	previous?: readonly Usage[],
+): readonly Usage[] {
 	const usages: Usage[] = [];
 	for (const message of messages) {
 		if (message.kind === "agent" && message.usages) usages.push(...message.usages);
+	}
+	if (previous && previous.length === usages.length && previous.every((usage, index) => usage === usages[index])) {
+		return previous;
 	}
 	return usages;
 }

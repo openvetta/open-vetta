@@ -1,6 +1,5 @@
-import { MessageFeed, MessageFeedLayout } from "@vetta-org/theme-ui/chat";
 import { useMessageFeedActiveItem } from "@shared/components/message-feed/useMessageFeedActiveItem";
-import { PerfMessageScrollProfiler } from "@shared/lib/perf-message-scroll-profiler";
+import { conversationItemRenderKey } from "@shared/conversation";
 import {
 	perfMessageScrollAttach,
 	perfMessageScrollEnabled,
@@ -9,19 +8,17 @@ import {
 	perfMessageScrollRecordRenderedItems,
 	perfMessageScrollRecordTotalHeight,
 } from "@shared/lib/perf-message-scroll";
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import type { ReactNode } from "react";
-import type { ListItem, ListRange, SizeFunction } from "react-virtuoso";
+import { PerfMessageScrollProfiler } from "@shared/lib/perf-message-scroll-profiler";
 import type { Usage } from "@vetta/ai/protocol";
-import { conversationItemRenderKey } from "@shared/conversation";
+import { MessageFeed, MessageFeedLayout } from "@vetta-org/theme-ui/chat";
+import type { ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import type { ListItem, ListRange, SizeFunction } from "react-virtuoso";
+import { ExportMessageList, MessageItem, ModelSwitchBoundary } from "./MessageItem";
 import { MessageRow } from "./MessageRendering";
-import { MessageItem, ModelSwitchBoundary, ExportMessageList } from "./MessageItem";
-import { collectAgentUsages } from "./message-list-derived";
 import { MessageTimeline } from "./MessageTimeline";
-import {
-	buildMessageHeightEstimates,
-	createMessageItemSizeRecorder,
-} from "./message-height-estimates";
+import { buildMessageHeightEstimates, createMessageItemSizeRecorder } from "./message-height-estimates";
+import { collectAgentUsages } from "./message-list-derived";
 import type { ChatConversationItem, MessageListModel, MessageListProps } from "./types";
 
 export { ExportMessageList };
@@ -95,10 +92,7 @@ export function MessageListView({
 	const scrollerElement = scroll.scrollerElement;
 	const diagnosticsEnabled = perfMessageScrollEnabled();
 	const virtualizerKey = useMessageVirtualizerKey(sessionId, messages);
-	const heightEstimates = useMemo(
-		() => buildMessageHeightEstimates(messages, sessionId),
-		[messages, sessionId],
-	);
+	const heightEstimates = useMemo(() => buildMessageHeightEstimates(messages, sessionId), [messages, sessionId]);
 	const itemSize = useMemo<SizeFunction>(() => {
 		const measure = createMessageItemSizeRecorder(messages, sessionId);
 		if (!diagnosticsEnabled) return measure;
@@ -147,12 +141,11 @@ export function MessageListView({
 		}
 		return null;
 	}, [messages]);
-	const sessionUsages = useMemo<readonly Usage[]>(
-		() => collectAgentUsages(deferredContentReady ? messages : messages.slice(-4)),
+	const sessionUsagesRef = useRef<readonly Usage[]>([]);
+	sessionUsagesRef.current = useMemo<readonly Usage[]>(
+		() => collectAgentUsages(deferredContentReady ? messages : messages.slice(-4), sessionUsagesRef.current),
 		[deferredContentReady, messages],
 	);
-	const sessionUsagesRef = useRef(sessionUsages);
-	sessionUsagesRef.current = sessionUsages;
 	const itemContent = useCallback(
 		(index: number, message: ChatConversationItem) => {
 			return (
@@ -190,43 +183,43 @@ export function MessageListView({
 	);
 
 	return (
-		<>
-			<MessageFeed.Root>
-				<MessageFeedLayout.Frame asChild>
-					<div data-message-viewport="stable">
-						<MessageFeedLayout.Viewport>
-							<PerfMessageScrollProfiler>
-								<MessageFeedLayout.Virtualizer asChild>
-									<MessageFeed.VirtualList
-										key={virtualizerKey}
-										virtuosoRef={scroll.virtuosoRef}
-										restoreStateFrom={scroll.restoreStateFrom}
-										scrollerRef={scroll.scrollerRef}
-										items={messages}
-										getKey={conversationItemRenderKey}
-										atBottomStateChange={scroll.onAtBottomChange}
-										totalListHeightChanged={handleTotalListHeightChange}
-										followOutput={scroll.followOutput}
-										atBottomThreshold={80}
-										itemsRendered={handleItemsRendered}
-										{...(diagnosticsEnabled ? { rangeChanged: handleRangeChanged } : {})}
-										overscan={0}
-										increaseViewportBy={VIEWPORT_BUFFER}
-										heightEstimates={heightEstimates}
-										itemSize={itemSize}
-										initialTopMostItemIndex={scroll.initialTopMostItemIndex}
-									>
-										{(message, index) => itemContent(index, message)}
-									</MessageFeed.VirtualList>
-								</MessageFeedLayout.Virtualizer>
-							</PerfMessageScrollProfiler>
-						</MessageFeedLayout.Viewport>
-						<MessageFeed.Footer>
-							<div className="pb-16">{children}</div>
-						</MessageFeed.Footer>
-						{/* 悬浮在会话区域左缘，不占消息列宽度；窄于 52rem 时消息列铺满整个会话区，
+		<MessageFeed.Root>
+			<MessageFeedLayout.Frame asChild>
+				<div data-message-viewport="stable">
+					<MessageFeedLayout.Viewport>
+						<PerfMessageScrollProfiler>
+							<MessageFeedLayout.Virtualizer asChild>
+								<MessageFeed.VirtualList
+									key={virtualizerKey}
+									virtuosoRef={scroll.virtuosoRef}
+									restoreStateFrom={scroll.restoreStateFrom}
+									scrollerRef={scroll.scrollerRef}
+									items={messages}
+									getKey={conversationItemRenderKey}
+									atBottomStateChange={scroll.onAtBottomChange}
+									totalListHeightChanged={handleTotalListHeightChange}
+									followOutput={scroll.followOutput}
+									atBottomThreshold={80}
+									itemsRendered={handleItemsRendered}
+									{...(diagnosticsEnabled ? { rangeChanged: handleRangeChanged } : {})}
+									overscan={0}
+									increaseViewportBy={VIEWPORT_BUFFER}
+									heightEstimates={heightEstimates}
+									itemSize={itemSize}
+									initialTopMostItemIndex={scroll.initialTopMostItemIndex}
+								>
+									{(message, index) => itemContent(index, message)}
+								</MessageFeed.VirtualList>
+							</MessageFeedLayout.Virtualizer>
+						</PerfMessageScrollProfiler>
+					</MessageFeedLayout.Viewport>
+					<MessageFeed.Footer>
+						<div className="pb-16">{children}</div>
+					</MessageFeed.Footer>
+					{/* 悬浮在会话区域左缘，不占消息列宽度；窄于 52rem 时消息列铺满整个会话区，
 						    目录会压住气泡，直接整条隐藏。 */}
-						{deferredContentReady ? <MessageFeedLayout.LeftRail>
+					{deferredContentReady ? (
+						<MessageFeedLayout.LeftRail>
 							<MessageFeedLayout.RailContent>
 								<MessageTimeline
 									key={sessionId ?? "message-timeline"}
@@ -235,10 +228,10 @@ export function MessageListView({
 									onNavigate={scroll.scrollToMessage}
 								/>
 							</MessageFeedLayout.RailContent>
-						</MessageFeedLayout.LeftRail> : null}
-					</div>
-				</MessageFeedLayout.Frame>
-			</MessageFeed.Root>
-		</>
+						</MessageFeedLayout.LeftRail>
+					) : null}
+				</div>
+			</MessageFeedLayout.Frame>
+		</MessageFeed.Root>
 	);
 }
