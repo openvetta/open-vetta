@@ -1,25 +1,22 @@
 import { PixelMarioBlocks } from "@shared/components/mario/PixelMarioBlocks";
 import { cn } from "@shared/lib/utils";
 import type { CursorStyle } from "@shared/theme/cursor";
-import {
-	NEW_SESSION_TEXTURE_COMPONENTS,
-	type NewSessionTextureId,
-} from "@shared/theme/new-session-texture";
+import { NEW_SESSION_TEXTURE_COMPONENTS, type NewSessionTextureId } from "@shared/theme/new-session-texture";
 import type { OrnamentId } from "@shared/theme/ornament";
+import type { SidebarStyle } from "@shared/theme/sidebar-style";
 import type { ThemeDef } from "@shared/theme/tokens";
-import { memo } from "react";
+import { MotionSelect, SettingHeading } from "@vetta-org/theme-ui/settings";
 import type { CSSProperties, ReactNode } from "react";
+import { memo } from "react";
 import { SettingsAiAssist } from "../ai-assist";
 import appearanceMascot from "../assets/appearance-mascot.webp";
 import themeLock from "../assets/theme-lock.webp";
 import { SETTINGS_SECTION } from "../registry";
-import { MotionSelect, SettingHeading } from "@vetta-org/theme-ui/settings";
-import type { SidebarStyle } from "@shared/theme/sidebar-style";
 import type {
 	AppearanceCursorOption,
-	AppearanceOrnamentOption,
 	AppearanceLanguageOption,
 	AppearanceModeOption,
+	AppearanceOrnamentOption,
 	AppearanceSettingsModel,
 	AppearanceSidebarStyleOption,
 	AppearanceTextureOption,
@@ -47,19 +44,22 @@ function languageOptionLabel(option: AppearanceLanguageOption): JSX.Element {
 }
 
 const LanguageSelect = memo(function LanguageSelect({
+	label,
 	language,
 	languages,
 	onSelect,
 }: {
+	label: string;
 	language: string;
 	languages: AppearanceLanguageOption[];
 	onSelect: (lang: AppearanceLanguageOption["value"]) => void;
 }): JSX.Element {
 	return (
 		<MotionSelect
+			aria-label={label}
 			value={language}
 			onValueChange={(next) => onSelect(next as AppearanceLanguageOption["value"])}
-			triggerClassName="w-[260px]"
+			triggerClassName="w-[260px] max-w-full"
 			options={languages.map((option) => ({
 				value: option.value,
 				label: languageOptionLabel(option),
@@ -101,9 +101,10 @@ const ModeCard = memo(function ModeCard({
 	return (
 		<button
 			type="button"
+			aria-pressed={active}
 			onClick={(event) => onSelect(mode, { x: event.clientX, y: event.clientY })}
 			className={cn(
-				"group relative flex items-center gap-2.5 rounded-lg border bg-card px-3 py-2 text-left transition-all",
+				"group relative flex items-center gap-2.5 rounded-lg border bg-card px-3 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring",
 				active ? SELECTION_ACTIVE : SELECTION_IDLE,
 			)}
 		>
@@ -139,13 +140,14 @@ const ThemeCard = memo(function ThemeCard({
 	return (
 		<button
 			type="button"
+			aria-pressed={active}
 			onClick={(event) => onSelect(theme.id, { x: event.clientX, y: event.clientY })}
-			className="group flex flex-col items-stretch gap-2 text-left"
+			className="group flex flex-col items-stretch gap-2 rounded-lg text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
 		>
 			<div
 				className={cn(
 					// 主题色预览本身带底色，选中只改 1px border 色，不叠 ring / bg
-					"relative aspect-[16/9] w-full overflow-hidden rounded-lg border transition-all",
+					"relative aspect-[16/9] w-full overflow-hidden rounded-lg border transition-colors",
 					active ? "border-primary/50" : "border-border/60 group-hover:border-primary/40",
 				)}
 				style={{ background: palette.background }}
@@ -184,16 +186,28 @@ const ThemeCard = memo(function ThemeCard({
 						boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
 					}}
 				>
-					<div className="flex items-center gap-1 px-1.5 py-1" style={{ borderBottom: `1px solid ${palette.border}` }}>
+					<div
+						className="flex items-center gap-1 px-1.5 py-1"
+						style={{ borderBottom: `1px solid ${palette.border}` }}
+					>
 						<span className="h-1 w-1 rounded-full" style={{ background: palette.destructive }} />
 						<span className="h-1 w-1 rounded-full" style={{ background: palette.chart1 }} />
 						<span className="h-1 w-1 rounded-full" style={{ background: palette.primary }} />
 					</div>
 					<div className="space-y-[5px] px-2 py-2.5">
-						<div className="h-[3px] w-[80%] rounded-full" style={{ background: palette.foreground, opacity: 0.75 }} />
+						<div
+							className="h-[3px] w-[80%] rounded-full"
+							style={{ background: palette.foreground, opacity: 0.75 }}
+						/>
 						<div className="h-[3px] w-[60%] rounded-full" style={{ background: palette.mutedForeground }} />
-						<div className="h-[3px] w-[70%] rounded-full" style={{ background: palette.mutedForeground, opacity: 0.7 }} />
-						<div className="h-[3px] w-[45%] rounded-full" style={{ background: palette.mutedForeground, opacity: 0.7 }} />
+						<div
+							className="h-[3px] w-[70%] rounded-full"
+							style={{ background: palette.mutedForeground, opacity: 0.7 }}
+						/>
+						<div
+							className="h-[3px] w-[45%] rounded-full"
+							style={{ background: palette.mutedForeground, opacity: 0.7 }}
+						/>
 						<div className="flex items-center gap-1 pt-1.5">
 							<span className="h-2.5 w-6 rounded-sm" style={{ background: palette.primary }} />
 							<span className="h-2.5 w-4 rounded-sm" style={{ background: palette.accent }} />
@@ -202,7 +216,12 @@ const ThemeCard = memo(function ThemeCard({
 				</div>
 				{active && <SelectionCheckBadge />}
 			</div>
-			<span className={cn("text-[12px] transition-colors", active ? "font-medium text-foreground" : "text-muted-foreground")}>
+			<span
+				className={cn(
+					"text-[12px] transition-colors",
+					active ? "font-medium text-foreground" : "text-muted-foreground",
+				)}
+			>
 				{theme.label}
 			</span>
 		</button>
@@ -224,10 +243,11 @@ const UiThemeCard = memo(function UiThemeCard({
 	return (
 		<button
 			type="button"
+			aria-pressed={active}
 			disabled={disabled}
 			onClick={() => onSelect(id)}
 			className={cn(
-				"group relative rounded-xl border bg-card text-left transition-all",
+				"group relative rounded-xl border bg-card text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring",
 				active ? SELECTION_ACTIVE : SELECTION_IDLE,
 				disabled && "cursor-not-allowed",
 			)}
@@ -264,7 +284,7 @@ function SidebarStylePreview({ style }: { style: SidebarStyle }): JSX.Element {
 			<div
 				className={cn(
 					"w-[34%] shrink-0 bg-muted",
-					classic ? "border-r border-border" : "rounded-[3px] border border-border",
+					classic ? "border-r border-border" : "rounded-sm border border-border",
 				)}
 			/>
 			<div className="flex-1" />
@@ -284,9 +304,10 @@ const SidebarStyleCard = memo(function SidebarStyleCard({
 	return (
 		<button
 			type="button"
+			aria-pressed={active}
 			onClick={() => onSelect(id)}
 			className={cn(
-				"group relative flex min-h-[72px] items-center gap-3 rounded-xl border bg-card px-3.5 py-3 text-left transition-all",
+				"group relative flex min-h-[72px] items-center gap-3 rounded-xl border bg-card px-3.5 py-3 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring",
 				active ? SELECTION_ACTIVE : SELECTION_IDLE,
 			)}
 		>
@@ -314,10 +335,11 @@ const CursorStyleCard = memo(function CursorStyleCard({
 	return (
 		<button
 			type="button"
+			aria-pressed={active}
 			onClick={() => onSelect(id)}
 			className={cn(
 				// 两列宽卡：略增高预览区，与上方主题卡节奏一致
-				"group relative flex min-h-[72px] items-center gap-3 rounded-xl border bg-card px-3.5 py-3 text-left transition-all",
+				"group relative flex min-h-[72px] items-center gap-3 rounded-xl border bg-card px-3.5 py-3 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring",
 				active ? SELECTION_ACTIVE : SELECTION_IDLE,
 			)}
 		>
@@ -360,9 +382,9 @@ function OrnamentPreview({ id, preview }: { id: OrnamentId; preview?: string }):
 				<PixelMarioBlocks unit={2.25} popped className="pointer-events-none translate-y-[19px]" />
 			) : (
 				// 「无」：用虚线圈标出这块空着的位置，而不是留一片看不出所以然的空白。
-				// border 那档灰在浅色下几乎糊进卡片底色里，改用 muted-foreground 并加粗到 2px，
+				// border 那档灰在浅色下几乎糊进卡片底色里，改用 muted-foreground，
 				// 圈里再补一枚斜杠，深浅两套主题下都一眼看得出这项是「空着」。
-				<span className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/50">
+				<span className="flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-muted-foreground/50">
 					<span className="icon-[mdi--close] h-5 w-5 text-muted-foreground/60" />
 				</span>
 			)}
@@ -390,14 +412,15 @@ function DecorCard({
 	return (
 		<button
 			type="button"
+			aria-pressed={active}
 			onClick={onSelect}
 			// 描述文字在方格里塞不下又不该丢，挂成 title 让需要的人悬停能看到。
 			title={hint}
-			className="group flex flex-col items-stretch gap-2 text-left"
+			className="group flex flex-col items-stretch gap-2 rounded-lg text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
 		>
 			<div
 				className={cn(
-					"relative aspect-square w-full overflow-hidden rounded-lg border bg-card transition-all",
+					"relative aspect-square w-full overflow-hidden rounded-lg border bg-card transition-colors",
 					active ? SELECTION_ACTIVE : SELECTION_IDLE,
 				)}
 			>
@@ -495,9 +518,18 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 			{/* 语言区 + 右侧外观吉祥物 */}
 			<div className="mb-6 flex items-center gap-4 pr-10">
 				<div className="min-w-0 flex-1">
-					<SettingHeading title={model.labels.sections.language} section={SETTINGS_SECTION["appearance-language"]} className="mb-1" />
+					<SettingHeading
+						title={model.labels.sections.language}
+						section={SETTINGS_SECTION["appearance-language"]}
+						className="mb-1"
+					/>
 					<p className="mb-3 text-[12px] text-muted-foreground">{model.labels.languageHint}</p>
-					<LanguageSelect language={model.language} languages={model.languages} onSelect={model.actions.changeLanguage} />
+					<LanguageSelect
+						label={model.labels.sections.language}
+						language={model.language}
+						languages={model.languages}
+						onSelect={model.actions.changeLanguage}
+					/>
 				</div>
 				{!model.narrow && (
 					<div className="flex h-[100px] w-[120px] shrink-0 items-center justify-center">
@@ -513,7 +545,11 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 			</div>
 
 			<div className="mb-6">
-				<SettingHeading title={model.labels.sections.mode} section={SETTINGS_SECTION["appearance-mode"]} className="mb-3" />
+				<SettingHeading
+					title={model.labels.sections.mode}
+					section={SETTINGS_SECTION["appearance-mode"]}
+					className="mb-3"
+				/>
 				<div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
 					{model.modeOptions.map((mode) => (
 						<ModeCard
@@ -531,7 +567,11 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 
 			{model.showUiTheme && (
 				<div className="mb-6">
-					<SettingHeading title={model.labels.sections.uiTheme} section={SETTINGS_SECTION["appearance-ui-theme"]} className="mb-3" />
+					<SettingHeading
+						title={model.labels.sections.uiTheme}
+						section={SETTINGS_SECTION["appearance-ui-theme"]}
+						className="mb-3"
+					/>
 					<div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
 						{model.uiThemes.map((theme) => (
 							<UiThemeCard key={theme.id} {...theme} onSelect={model.actions.selectUiTheme} />
@@ -542,7 +582,11 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 
 			{model.activeUiThemeId === "default" && (
 				<div className="mb-6">
-					<SettingHeading title={model.labels.sections.theme} section={SETTINGS_SECTION["appearance-theme"]} className="mb-3" />
+					<SettingHeading
+						title={model.labels.sections.theme}
+						section={SETTINGS_SECTION["appearance-theme"]}
+						className="mb-3"
+					/>
 					<div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
 						{model.themes.map((theme) => (
 							<ThemeCard
@@ -566,7 +610,11 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 
 				{/* 装饰件：输入框上方那块挂饰位 */}
 				<div className="mb-5">
-					<SettingHeading title={model.labels.sections.ornament} section={SETTINGS_SECTION["appearance-ornament"]} className="mb-1 text-[13px]" />
+					<SettingHeading
+						title={model.labels.sections.ornament}
+						section={SETTINGS_SECTION["appearance-ornament"]}
+						className="mb-1 text-[13px]"
+					/>
 					<p className="mb-3 text-[12px] text-muted-foreground">{model.labels.ornamentHint}</p>
 					<div className="grid grid-cols-4 gap-3">
 						{model.ornamentOptions.map((option) => (
@@ -577,7 +625,11 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 
 				{/* 纹理：整页背后的底衬 */}
 				<div>
-					<SettingHeading title={model.labels.sections.texture} section={SETTINGS_SECTION["appearance-texture"]} className="mb-1 text-[13px]" />
+					<SettingHeading
+						title={model.labels.sections.texture}
+						section={SETTINGS_SECTION["appearance-texture"]}
+						className="mb-1 text-[13px]"
+					/>
 					<p className="mb-3 text-[12px] text-muted-foreground">{model.labels.textureHint}</p>
 					<div className="grid grid-cols-4 gap-3">
 						{model.textureOptions.map((option) => (
@@ -588,7 +640,11 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 			</div>
 
 			<div className="mb-6">
-				<SettingHeading title={model.labels.sections.sidebar} section={SETTINGS_SECTION["appearance-sidebar"]} className="mb-3" />
+				<SettingHeading
+					title={model.labels.sections.sidebar}
+					section={SETTINGS_SECTION["appearance-sidebar"]}
+					className="mb-3"
+				/>
 				<div className="grid grid-cols-2 gap-3">
 					{model.sidebarStyleOptions.map((option) => (
 						<SidebarStyleCard key={option.id} {...option} onSelect={model.actions.setSidebarStyle} />
@@ -598,14 +654,14 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 
 			{/* 鼠标指针：两列卡片，排在本页最末 */}
 			<div className="mb-6">
-				<SettingHeading title={model.labels.sections.cursor} section={SETTINGS_SECTION["appearance-cursor"]} className="mb-3" />
+				<SettingHeading
+					title={model.labels.sections.cursor}
+					section={SETTINGS_SECTION["appearance-cursor"]}
+					className="mb-3"
+				/>
 				<div className="grid grid-cols-2 gap-3">
 					{model.cursorOptions.map((option) => (
-						<CursorStyleCard
-							key={option.id}
-							{...option}
-							onSelect={model.actions.setCursorStyle}
-						/>
+						<CursorStyleCard key={option.id} {...option} onSelect={model.actions.setCursorStyle} />
 					))}
 				</div>
 			</div>

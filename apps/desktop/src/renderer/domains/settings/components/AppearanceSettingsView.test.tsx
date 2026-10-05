@@ -3,8 +3,10 @@
  * 外观设置页的「新会话页装饰」这块区域：装饰件与纹理收在同一块里，
  * 用户点纹理卡片能把选择交回模型，选中态跟着走。
  */
+import { THEMES } from "@shared/theme/themes";
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { AppearanceSettingsModel } from "./useAppearanceSettingsModel";
 
@@ -115,8 +117,8 @@ describe("AppearanceSettingsView 的新会话页装饰区域", () => {
 		const grid = view.getByTitle("textureGridHint");
 		const none = view.getByTitle("textureNoneHint");
 
-		expect(grid.querySelector('[class*="mdi--check"]')).not.toBeNull();
-		expect(none.querySelector('[class*="mdi--check"]')).toBeNull();
+		expect(grid.getAttribute("aria-pressed")).toBe("true");
+		expect(none.getAttribute("aria-pressed")).toBe("false");
 	});
 
 	it("切换外观模式时不会重新渲染无关的装饰预览", () => {
@@ -131,5 +133,78 @@ describe("AppearanceSettingsView 的新会话页装饰区域", () => {
 		view.rerender(<AppearanceSettingsView model={{ ...initial, mode: "light" }} />);
 
 		expect(renderMarioPreview).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe("外观设置的键盘和选中语义", () => {
+	it("七类外观选择均向辅助技术暴露当前值，语言选择器带字段名称", () => {
+		const theme = THEMES[0]!;
+		const view = render(
+			<AppearanceSettingsView
+				model={model({
+					showUiTheme: true,
+					languages: [{ value: "system", native: "跟随系统", alt: "System" }],
+					modeOptions: [{ value: "dark", label: "深色", hint: "夜间外观", icon: "" }],
+					uiThemes: [
+						{
+							id: "default",
+							label: "默认界面",
+							hint: "经典布局",
+							active: true,
+							disabled: false,
+							unavailable: false,
+							preview: "/test-theme.webp",
+						},
+					],
+					themes: [theme],
+					themeName: theme.id,
+					sidebarStyleOptions: [{ id: "classic", label: "经典侧栏", hint: "贴边", active: true }],
+					cursorOptions: [{ id: "default", label: "默认指针", hint: "系统指针", active: true }],
+				})}
+			/>,
+		);
+
+		for (const name of [
+			"深色 夜间外观",
+			"默认界面 经典布局",
+			theme.label,
+			"经典侧栏 贴边",
+			"默认指针 系统指针",
+			"网格",
+		]) {
+			expect(view.getByRole("button", { name, pressed: true })).toBeTruthy();
+		}
+		expect(view.getByTitle("ornamentNoneHint").getAttribute("aria-pressed")).toBe("true");
+		expect(view.getByRole("button", { name: "语言" })).toBeTruthy();
+	});
+
+	it("键盘选纹理后当前值立即更新，再用空格切回网格", async () => {
+		function Harness(): JSX.Element {
+			const [textureId, setTexture] = useState<"none" | "grid">("grid");
+			return (
+				<AppearanceSettingsView
+					model={model({
+						textureId,
+						textureOptions: [
+							{ id: "none", label: "无纹理", hint: "不使用纹理", active: textureId === "none" },
+							{ id: "grid", label: "网格", hint: "网格纹理", active: textureId === "grid" },
+						],
+						actions: {
+							setTexture: (id) => {
+								if (id === "none" || id === "grid") setTexture(id);
+							},
+						},
+					})}
+				/>
+			);
+		}
+		const user = userEvent.setup();
+		const view = render(<Harness />);
+		view.getByRole("button", { name: "无纹理", pressed: false }).focus();
+		await user.keyboard("{Enter}");
+		expect(view.getByRole("button", { name: "无纹理", pressed: true })).toBeTruthy();
+		view.getByRole("button", { name: "网格", pressed: false }).focus();
+		await user.keyboard(" ");
+		expect(view.getByRole("button", { name: "网格", pressed: true })).toBeTruthy();
 	});
 });
