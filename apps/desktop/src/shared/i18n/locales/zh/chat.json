@@ -1122,5 +1122,8 @@
 		"actionCreate": "新建页面",
 		"actionUpdate": "更新页面",
 		"originalLocation": "原位置：{{path}}"
+	},
+	"filePreview": {
+		"failed": "预览失败，文件可能已损坏或格式不受支持"
 	}
 }

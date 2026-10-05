@@ -38,8 +38,11 @@ export class PreviewErrorBoundary extends Component<PreviewErrorBoundaryProps, S
 		if (this.state.error) {
 			if (this.props.fallback) return this.props.fallback;
 			return (
-				<div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-muted-foreground/50">
-					<span className="icon-[mdi--alert-circle-outline] text-[40px]" />
+				<div
+					role="alert"
+					className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-muted-foreground"
+				>
+					<span aria-hidden className="icon-[solar--danger-circle-linear] h-10 w-10" />
 					<span className="text-[13px]">
 						{this.props.errorMessage ?? "Preview failed; file may be corrupt or unsupported"}
 					</span>

@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
 import { PreviewErrorBoundary as ThemePreviewErrorBoundary } from "@vetta-org/theme-ui/file-preview";
+import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 interface Props {
 	resetKey?: unknown;
@@ -7,14 +8,11 @@ interface Props {
 	fallback?: ReactNode;
 }
 
-/** Desktop adapter: injects existing Chinese fallback copy. */
+/** Desktop adapter: injects localized fallback copy. */
 export function PreviewErrorBoundary({ resetKey, children, fallback }: Props): JSX.Element {
+	const { t } = useTranslation("chat");
 	return (
-		<ThemePreviewErrorBoundary
-			resetKey={resetKey}
-			fallback={fallback}
-			errorMessage="预览失败，文件可能已损坏或格式不受支持"
-		>
+		<ThemePreviewErrorBoundary resetKey={resetKey} fallback={fallback} errorMessage={t("filePreview.failed")}>
 			{children}
 		</ThemePreviewErrorBoundary>
 	);
