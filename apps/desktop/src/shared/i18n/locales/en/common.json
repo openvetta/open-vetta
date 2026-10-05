@@ -1060,5 +1060,13 @@
 			"project": "Project",
 			"batch": "Batch"
 		}
+	},
+	"routeError": {
+		"bannerTitle": "This page ran into a problem",
+		"home": "Back to home",
+		"pageTitle": "The page could not be loaded",
+		"retry": "Retry",
+		"retryPage": "Retry this page",
+		"suggestion": "You can retry this page, or return home to continue working."
 	}
 }
