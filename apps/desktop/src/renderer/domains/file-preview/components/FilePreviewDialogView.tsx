@@ -1,8 +1,5 @@
-import type { FilePreviewContext, FilePreviewItem } from "@vetta-org/theme-ui/file-preview";
-import {
-	FilePreviewDialogView as ThemeFilePreviewDialogView,
-	ThumbnailView,
-} from "@vetta-org/theme-ui/file-preview";
+import type { FilePathCopyAction, FilePreviewContext, FilePreviewItem } from "@vetta-org/theme-ui/file-preview";
+import { FilePreviewDialogView as ThemeFilePreviewDialogView, ThumbnailView } from "@vetta-org/theme-ui/file-preview";
 import { useImageSrc } from "../hooks/useLightboxImageModel";
 import { LightboxImage } from "./LightboxImage";
 import { PreviewBody } from "./PreviewContent";
@@ -24,7 +21,8 @@ export interface FilePreviewDialogViewProps {
 	readonly onGoNext: () => void;
 	readonly onGoPrev: () => void;
 	readonly onSelectIndex: (index: number) => void;
-	readonly onShowInFolder: (path: string) => void;
+	readonly onShowInFolder?: (path: string) => void;
+	readonly copyPathAction?: FilePathCopyAction;
 }
 
 /**
@@ -41,6 +39,7 @@ export function FilePreviewDialogView({
 	onGoPrev,
 	onSelectIndex,
 	onShowInFolder,
+	copyPathAction,
 }: FilePreviewDialogViewProps): JSX.Element {
 	return (
 		<ThemeFilePreviewDialogView
@@ -54,10 +53,9 @@ export function FilePreviewDialogView({
 			onGoPrev={onGoPrev}
 			onSelectIndex={onSelectIndex}
 			onShowInFolder={onShowInFolder}
+			copyPathAction={copyPathAction}
 			lightbox={
-				item ? (
-					<LightboxImage key={item.path ?? item.url ?? item.name} item={item} onClose={onClose} />
-				) : null
+				item ? <LightboxImage key={item.path ?? item.url ?? item.name} item={item} onClose={onClose} /> : null
 			}
 			previewBody={
 				item ? (

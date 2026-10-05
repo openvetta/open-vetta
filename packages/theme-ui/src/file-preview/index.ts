@@ -1,3 +1,5 @@
+export type { FilePathCopyAction } from "./FilePathCopyButton";
+export { FilePathCopyButton } from "./FilePathCopyButton";
 export type {
 	FilePreviewDialogViewLabels,
 	FilePreviewDialogViewProps,

@@ -1,5 +1,7 @@
+import { createFilePathCopyAction } from "@shared/lib/file-path-clipboard";
 import { type ShortcutBinding, useShortcutScope } from "@shared/shortcuts";
 import { type FilePreviewItem, filePreviewContextReadonlyAtom } from "@shared/store/atoms";
+import { isSshProjectUri } from "@vetta/ssh-transport/project-uri";
 import { useAtom } from "jotai";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -53,6 +55,10 @@ export function useFilePreviewDialogModel(): FilePreviewDialogModel {
 		onGoNext: goNext,
 		onGoPrev: goPrev,
 		onSelectIndex: selectIndex,
-		onShowInFolder: (path) => void window.vetta.shell.showItemInFolder(path),
+		onShowInFolder:
+			item?.path && !isSshProjectUri(item.path)
+				? (path) => void window.vetta.shell.showItemInFolder(path)
+				: undefined,
+		copyPathAction: createFilePathCopyAction(item?.path),
 	};
 }

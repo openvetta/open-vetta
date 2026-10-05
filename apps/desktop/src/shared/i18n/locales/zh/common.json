@@ -26,6 +26,12 @@
 		"install": "立即重启"
 	},
 	"filePreview": {
+		"copyAbsolutePath": "复制绝对路径",
+		"copyPathShort": "复制路径",
+		"copyRemoteLocation": "复制远程位置（含 SSH 主机）",
+		"copyRemoteLocationShort": "复制远程位置",
+		"pathCopied": "文件路径已复制",
+		"copyPathFailed": "无法复制文件路径，请重试",
 		"showInFolder": "在文件夹中显示",
 		"download": "下载",
 		"close": "关闭 (Esc)"

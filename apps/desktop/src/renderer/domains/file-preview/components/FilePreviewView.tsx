@@ -1,3 +1,4 @@
+import { createFilePathCopyAction } from "@shared/lib/file-path-clipboard";
 import type { FilePreviewContext } from "@vetta-org/theme-ui/file-preview";
 import { FilePreviewView as ThemeFilePreviewView } from "@vetta-org/theme-ui/file-preview";
 import { useCallback, useMemo } from "react";
@@ -80,6 +81,7 @@ export function FilePreviewView({
 			onToggleSidebar={onToggleSidebar}
 			sidebarCollapsed={sidebarCollapsed}
 			onDownload={onDownload}
+			copyPathAction={createFilePathCopyAction(item?.path)}
 			renderBody={renderBody}
 		/>
 	);
@@ -89,12 +91,7 @@ export function FilePreviewView({
  * Hook 返回标准的 prev/next/close 导航回调，绑定到一个可写的预览上下文 atom。
  */
 export function usePreviewNav(
-	setCtx: (
-		ctx:
-			| FilePreviewContext
-			| null
-			| ((prev: FilePreviewContext | null) => FilePreviewContext | null),
-	) => void,
+	setCtx: (ctx: FilePreviewContext | null | ((prev: FilePreviewContext | null) => FilePreviewContext | null)) => void,
 ): {
 	goPrev: () => void;
 	goNext: () => void;

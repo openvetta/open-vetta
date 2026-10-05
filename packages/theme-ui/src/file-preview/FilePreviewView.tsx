@@ -1,5 +1,6 @@
 import { cn } from "@vetta-org/ui";
-import { useCallback, useState, type JSX, type ReactNode } from "react";
+import { type JSX, type ReactNode, useCallback, useState } from "react";
+import { type FilePathCopyAction, FilePathCopyButton } from "./FilePathCopyButton";
 import type { FilePreviewContext, FilePreviewItem } from "./types";
 
 export interface FilePreviewViewLabels {
@@ -23,6 +24,7 @@ export interface FilePreviewViewProps {
 	onToggleSidebar?: () => void;
 	sidebarCollapsed?: boolean;
 	onDownload?: (item: FilePreviewItem) => void;
+	copyPathAction?: FilePathCopyAction;
 	/** Host builds body; refreshNonce increments on toolbar refresh. */
 	renderBody: (item: FilePreviewItem, refreshNonce: number) => ReactNode;
 }
@@ -42,6 +44,7 @@ export function FilePreviewView({
 	onToggleSidebar,
 	sidebarCollapsed,
 	onDownload,
+	copyPathAction,
 	renderBody,
 }: FilePreviewViewProps): JSX.Element | null {
 	const total = ctx.items.length;
@@ -54,7 +57,7 @@ export function FilePreviewView({
 	const canNavigate = total > 1;
 
 	return (
-		<div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+		<div className="@container flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
 			<Header
 				item={item}
 				labels={labels}
@@ -68,6 +71,7 @@ export function FilePreviewView({
 				onToggleSidebar={onToggleSidebar}
 				sidebarCollapsed={sidebarCollapsed}
 				onDownload={onDownload}
+				copyPathAction={copyPathAction}
 			/>
 			{renderBody(item, refreshNonce)}
 		</div>
@@ -87,6 +91,7 @@ function Header({
 	onToggleSidebar,
 	sidebarCollapsed,
 	onDownload,
+	copyPathAction,
 }: {
 	item: FilePreviewItem;
 	labels: FilePreviewViewLabels;
@@ -100,10 +105,11 @@ function Header({
 	onToggleSidebar?: () => void;
 	sidebarCollapsed?: boolean;
 	onDownload?: (item: FilePreviewItem) => void;
+	copyPathAction?: FilePathCopyAction;
 }): JSX.Element {
 	const downloadable = !!item.url;
 	return (
-		<div className="flex shrink-0 items-center gap-1.5 border-b border-border/40 py-1.5 pl-2 pr-3">
+		<div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/40 py-1.5 pl-2 pr-3">
 			{onToggleSidebar && (
 				<HeaderButton
 					icon="icon-[mdi--dock-left]"
@@ -111,12 +117,8 @@ function Header({
 					onClick={onToggleSidebar}
 				/>
 			)}
-			<h2 className="-ml-0.5 min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">
-				{item.name}
-			</h2>
-			{position && (
-				<span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/70">{position}</span>
-			)}
+			<h2 className="-ml-0.5 min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">{item.name}</h2>
+			{position && <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/70">{position}</span>}
 			{onPrev && (
 				<HeaderButton icon="icon-[mdi--chevron-left]" title={labels.prev} onClick={onPrev} disabled={!canPrev} />
 			)}
@@ -126,6 +128,7 @@ function Header({
 			{downloadable && onDownload && (
 				<HeaderButton icon="icon-[mdi--download]" title={labels.download} onClick={() => onDownload(item)} />
 			)}
+			{copyPathAction && <FilePathCopyButton {...copyPathAction} />}
 			<HeaderButton icon="icon-[mdi--refresh]" title={labels.refresh} onClick={onRefresh} />
 			<HeaderButton icon="icon-[mdi--close]" title={labels.close} onClick={onClose} />
 		</div>
@@ -151,9 +154,7 @@ function HeaderButton({
 			disabled={disabled}
 			className={cn(
 				"flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors",
-				disabled
-					? "text-muted-foreground/30"
-					: "text-muted-foreground/70 hover:bg-muted hover:text-foreground",
+				disabled ? "text-muted-foreground/30" : "text-muted-foreground/70 hover:bg-muted hover:text-foreground",
 			)}
 		>
 			<span className={cn(icon, "h-4 w-4")} />

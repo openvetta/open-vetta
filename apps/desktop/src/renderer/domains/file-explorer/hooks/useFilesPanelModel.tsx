@@ -11,6 +11,7 @@ import type {
 	FileTransferPlan,
 } from "@preload/fs-types";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
+import { copyFilePathsToClipboard } from "@shared/lib/file-path-clipboard";
 import { isWindows } from "@shared/lib/platform";
 import { isSubPath, pathBasename, pathDirname } from "@shared/lib/utils";
 import {
@@ -455,7 +456,7 @@ export function useFilesPanelModel(cwd?: string | null): FilesPanelViewProps {
 
 	const copyPathsToSystemClipboard = useCallback((entries: readonly FsEntry[]) => {
 		if (entries.length === 0) return;
-		void navigator.clipboard.writeText(entries.map((entry) => entry.path).join("\n"));
+		void copyFilePathsToClipboard(entries.map((entry) => entry.path));
 	}, []);
 
 	/** Copy-only paste. Optional destination override for root/background menu. */

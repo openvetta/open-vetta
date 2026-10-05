@@ -26,6 +26,12 @@
 		"install": "Restart Now"
 	},
 	"filePreview": {
+		"copyAbsolutePath": "Copy absolute path",
+		"copyPathShort": "Copy path",
+		"copyRemoteLocation": "Copy remote location (including SSH host)",
+		"copyRemoteLocationShort": "Copy remote location",
+		"pathCopied": "File path copied",
+		"copyPathFailed": "Could not copy the file path. Please try again.",
 		"showInFolder": "Show in Folder",
 		"download": "Download",
 		"close": "Close (Esc)"

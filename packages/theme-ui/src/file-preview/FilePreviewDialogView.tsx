@@ -1,13 +1,14 @@
-import { ThemeSurface } from "../appearance";
 import { cn } from "@vetta-org/ui";
 import { AnimatePresence, motion } from "motion/react";
 import type { JSX, MouseEvent, ReactNode } from "react";
+import { ThemeSurface } from "../appearance";
+import { type FilePathCopyAction, FilePathCopyButton } from "./FilePathCopyButton";
 import {
-	IMAGE_EXTENSIONS,
-	getExtension,
-	getPreviewLabel,
 	type FilePreviewContext,
 	type FilePreviewItem,
+	getExtension,
+	getPreviewLabel,
+	IMAGE_EXTENSIONS,
 } from "./types";
 
 export interface FilePreviewDialogViewLabels {
@@ -26,7 +27,8 @@ export interface FilePreviewDialogViewProps {
 	readonly onGoNext: () => void;
 	readonly onGoPrev: () => void;
 	readonly onSelectIndex: (index: number) => void;
-	readonly onShowInFolder: (path: string) => void;
+	readonly onShowInFolder?: (path: string) => void;
+	readonly copyPathAction?: FilePathCopyAction;
 	/** Host lightbox (resolves image src via IPC). */
 	readonly lightbox: ReactNode;
 	/** Non-image preview body. */
@@ -53,6 +55,7 @@ export function FilePreviewDialogView({
 	onGoPrev,
 	onSelectIndex: _onSelectIndex,
 	onShowInFolder,
+	copyPathAction,
 	lightbox,
 	previewBody,
 	thumbnails,
@@ -64,12 +67,17 @@ export function FilePreviewDialogView({
 			{context && item && (
 				<motion.div
 					// no-drag：盖住下层页面顶部的 -webkit-app-region: drag，否则那块区域的点击会被系统拖窗口接管，浮层按钮点不了
-					className="no-drag fixed inset-0 z-50 bg-background/95"
+					className="@container no-drag fixed inset-0 z-50 bg-background/95"
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
 					exit={{ opacity: 0 }}
 					transition={{ duration: 0.18, ease: "easeOut" }}
-					onClick={onClose}
+					role="dialog"
+					aria-modal="true"
+					aria-label={item.name}
+					onClick={(event) => {
+						if (event.target === event.currentTarget) onClose();
+					}}
 				>
 					<ThemeSurface slot="root.filePreviewDialog" />
 					{isImage(item) ? (
@@ -78,10 +86,7 @@ export function FilePreviewDialogView({
 						</div>
 					) : (
 						<div className="pointer-events-none absolute inset-0 flex items-center justify-center p-10 pt-16">
-							<div
-								className="pointer-events-auto relative flex h-full max-h-[85vh] w-full max-w-[80vw] flex-col overflow-visible rounded-xl border border-border bg-background shadow-lg"
-								onClick={stop}
-							>
+							<div className="pointer-events-auto relative flex h-full max-h-[85vh] w-full max-w-[80vw] flex-col overflow-visible rounded-xl border border-border bg-background shadow-lg">
 								<ThemeSurface slot="root.filePreviewDialog.panel" />
 								<div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[inherit]">
 									<div className="flex shrink-0 items-center border-b border-border/50 px-4 py-2.5">
@@ -101,7 +106,8 @@ export function FilePreviewDialogView({
 								{context.index + 1} / {context.items.length}
 							</span>
 						)}
-						{item.path && (
+						{copyPathAction && <FilePathCopyButton {...copyPathAction} />}
+						{item.path && onShowInFolder && (
 							<OverlayButton
 								icon="icon-[mdi--folder-open-outline]"
 								title={labels.showInFolder}
@@ -140,10 +146,7 @@ export function FilePreviewDialogView({
 					)}
 
 					{isImage(item) && (
-						<div
-							className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-2 px-4 pb-4"
-							onClick={stop}
-						>
+						<div className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-2 px-4 pb-4">
 							{isImageGroup && thumbnails}
 							<span className="max-w-[80vw] truncate text-[12px] text-muted-foreground">
 								{getPreviewLabel(item)}
@@ -200,9 +203,7 @@ export function OverlayArrow({
 				disabled ? "text-muted-foreground/30" : "bg-accent/50 text-foreground hover:bg-accent",
 			)}
 		>
-			<span
-				className={cn(side === "left" ? "icon-[mdi--chevron-left]" : "icon-[mdi--chevron-right]", "h-6 w-6")}
-			/>
+			<span className={cn(side === "left" ? "icon-[mdi--chevron-left]" : "icon-[mdi--chevron-right]", "h-6 w-6")} />
 		</button>
 	);
 }
