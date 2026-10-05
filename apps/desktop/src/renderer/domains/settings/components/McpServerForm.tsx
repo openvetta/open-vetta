@@ -1,14 +1,10 @@
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Button } from "@vetta-org/ui";
 import { SegmentedControl } from "@shared/components/ui/segmented-control";
 import { cn } from "@shared/lib/utils";
 import { CheckboxField, InputField, TextareaField } from "@vetta-org/theme-ui/settings";
-import {
-	isMcpFormValid,
-	type McpServerFormState,
-	type McpTransportType,
-} from "./useMcpSettingsModel";
+import { Button } from "@vetta-org/ui";
+import { useId, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { isMcpFormValid, type McpServerFormState, type McpTransportType } from "./useMcpSettingsModel";
 
 export function McpServerForm({
 	form,
@@ -26,14 +22,19 @@ export function McpServerForm({
 	saveLabel: string;
 }): JSX.Element {
 	const { t } = useTranslation("settings");
+	const formId = useId();
 	const [advancedOpen, setAdvancedOpen] = useState(() => hasAdvancedValues(form));
 
 	return (
 		<>
 			<div className="grid grid-cols-2 gap-3">
 				<div className={form.transport === "http" ? "col-span-2" : undefined}>
-					<label className="mb-1 block text-[11px] text-muted-foreground">{t("serverName")} *</label>
+					<label htmlFor={`${formId}-serverName`} className="mb-1 block text-[11px] text-muted-foreground">
+						{t("serverName")} *
+					</label>
 					<InputField
+						id={`${formId}-serverName`}
+						aria-label={t("serverName")}
 						value={form.name}
 						onChange={(value) => setForm((current) => ({ ...current, name: value }))}
 						placeholder="e.g. playwright"
@@ -50,6 +51,7 @@ export function McpServerForm({
 				<button
 					type="button"
 					onClick={() => setAdvancedOpen((open) => !open)}
+					aria-expanded={advancedOpen}
 					className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
 				>
 					<span
@@ -63,8 +65,8 @@ export function McpServerForm({
 
 				{advancedOpen && (
 					<div className="mt-3 grid grid-cols-2 gap-3 border-t border-border/50 pt-3">
-						<div className="col-span-2">
-							<label className="mb-1 block text-[11px] text-muted-foreground">{t("transportType")}</label>
+						<fieldset className="col-span-2 min-w-0">
+							<legend className="mb-1 block text-[11px] text-muted-foreground">{t("transportType")}</legend>
 							<SegmentedControl
 								items={[
 									{ key: "stdio" as McpTransportType, label: t("stdio") },
@@ -73,23 +75,37 @@ export function McpServerForm({
 								value={form.transport}
 								onChange={(transport) => setForm((current) => ({ ...current, transport }))}
 							/>
-						</div>
+						</fieldset>
 						{form.transport === "stdio" ? (
 							<StdioAdvancedFields form={form} setForm={setForm} />
 						) : (
 							<HttpAdvancedFields form={form} setForm={setForm} />
 						)}
 						<div>
-							<label className="mb-1 block text-[11px] text-muted-foreground">{t("startupTimeout")}</label>
+							<label
+								htmlFor={`${formId}-startupTimeout`}
+								className="mb-1 block text-[11px] text-muted-foreground"
+							>
+								{t("startupTimeout")}
+							</label>
 							<InputField
+								id={`${formId}-startupTimeout`}
+								aria-label={t("startupTimeout")}
 								value={form.startupTimeout}
 								onChange={(value) => setForm((current) => ({ ...current, startupTimeout: value }))}
 								placeholder={t("default10000")}
 							/>
 						</div>
 						<div className="col-span-2">
-							<label className="mb-1 block text-[11px] text-muted-foreground">{t("autoApproveTools")}</label>
+							<label
+								htmlFor={`${formId}-autoApproveTools`}
+								className="mb-1 block text-[11px] text-muted-foreground"
+							>
+								{t("autoApproveTools")}
+							</label>
 							<InputField
+								id={`${formId}-autoApproveTools`}
+								aria-label={t("autoApproveTools")}
 								value={form.autoApprove}
 								onChange={(value) => setForm((current) => ({ ...current, autoApprove: value }))}
 								placeholder="e.g. read_file, list_directory"
@@ -144,19 +160,28 @@ function StdioBasicFields({
 	setForm: React.Dispatch<React.SetStateAction<McpServerFormState>>;
 }): JSX.Element {
 	const { t } = useTranslation("settings");
+	const formId = useId();
 	return (
 		<>
 			<div>
-				<label className="mb-1 block text-[11px] text-muted-foreground">{t("command")} *</label>
+				<label htmlFor={`${formId}-command`} className="mb-1 block text-[11px] text-muted-foreground">
+					{t("command")} *
+				</label>
 				<InputField
+					id={`${formId}-command`}
+					aria-label={t("command")}
 					value={form.command}
 					onChange={(value) => setForm((current) => ({ ...current, command: value }))}
 					placeholder="e.g. npx, node, uvx"
 				/>
 			</div>
 			<div className="col-span-2">
-				<label className="mb-1 block text-[11px] text-muted-foreground">{t("arguments")}</label>
+				<label htmlFor={`${formId}-arguments`} className="mb-1 block text-[11px] text-muted-foreground">
+					{t("arguments")}
+				</label>
 				<InputField
+					id={`${formId}-arguments`}
+					aria-label={t("arguments")}
 					value={form.args}
 					onChange={(value) => setForm((current) => ({ ...current, args: value }))}
 					placeholder="e.g. -y, @playwright/mcp@latest"
@@ -174,20 +199,29 @@ function StdioAdvancedFields({
 	setForm: React.Dispatch<React.SetStateAction<McpServerFormState>>;
 }): JSX.Element {
 	const { t } = useTranslation("settings");
+	const formId = useId();
 	return (
 		<>
 			<div className="col-span-2">
-				<label className="mb-1 block text-[11px] text-muted-foreground">{t("envVariables")}</label>
+				<label htmlFor={`${formId}-envVariables`} className="mb-1 block text-[11px] text-muted-foreground">
+					{t("envVariables")}
+				</label>
 				<TextareaField
+					id={`${formId}-envVariables`}
+					aria-label={t("envVariables")}
 					value={form.env}
 					onChange={(value) => setForm((current) => ({ ...current, env: value }))}
-					placeholder={"GITHUB_TOKEN=${GITHUB_TOKEN}\nNODE_ENV=production"}
+					placeholder={`GITHUB_TOKEN=\${GITHUB_TOKEN}\nNODE_ENV=production`}
 					rows={3}
 				/>
 			</div>
 			<div className="col-span-2">
-				<label className="mb-1 block text-[11px] text-muted-foreground">{t("workDirectory")}</label>
+				<label htmlFor={`${formId}-workDirectory`} className="mb-1 block text-[11px] text-muted-foreground">
+					{t("workDirectory")}
+				</label>
 				<InputField
+					id={`${formId}-workDirectory`}
+					aria-label={t("workDirectory")}
 					value={form.cwd}
 					onChange={(value) => setForm((current) => ({ ...current, cwd: value }))}
 					placeholder="e.g. ${PROJECT_ROOT}"
@@ -205,10 +239,15 @@ function HttpBasicFields({
 	setForm: React.Dispatch<React.SetStateAction<McpServerFormState>>;
 }): JSX.Element {
 	const { t } = useTranslation("settings");
+	const formId = useId();
 	return (
 		<div className="col-span-2">
-			<label className="mb-1 block text-[11px] text-muted-foreground">{t("sseUrl")} *</label>
+			<label htmlFor={`${formId}-sseUrl`} className="mb-1 block text-[11px] text-muted-foreground">
+				{t("sseUrl")} *
+			</label>
 			<InputField
+				id={`${formId}-sseUrl`}
+				aria-label={t("sseUrl")}
 				value={form.url}
 				onChange={(value) => setForm((current) => ({ ...current, url: value }))}
 				placeholder="e.g. https://mcp.exa.ai/mcp"
@@ -225,13 +264,18 @@ function HttpAdvancedFields({
 	setForm: React.Dispatch<React.SetStateAction<McpServerFormState>>;
 }): JSX.Element {
 	const { t } = useTranslation("settings");
+	const formId = useId();
 	return (
 		<div className="col-span-2">
-			<label className="mb-1 block text-[11px] text-muted-foreground">{t("requestHeaders")}</label>
+			<label htmlFor={`${formId}-requestHeaders`} className="mb-1 block text-[11px] text-muted-foreground">
+				{t("requestHeaders")}
+			</label>
 			<TextareaField
+				id={`${formId}-requestHeaders`}
+				aria-label={t("requestHeaders")}
 				value={form.headers}
 				onChange={(value) => setForm((current) => ({ ...current, headers: value }))}
-				placeholder={"Authorization=Bearer ${EXA_TOKEN}"}
+				placeholder={`Authorization=Bearer \${EXA_TOKEN}`}
 				rows={2}
 			/>
 		</div>

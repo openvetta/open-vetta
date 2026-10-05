@@ -1,5 +1,5 @@
-import { useTranslation } from "react-i18next";
 import { ModelsProviderFormView } from "@vetta-org/theme-ui/settings";
+import { useTranslation } from "react-i18next";
 import { API_OPTIONS, type ProviderFormState } from "./useModelsSettingsModel";
 
 export function ModelsProviderForm({
@@ -34,6 +34,8 @@ export function ModelsProviderForm({
 			onCopyApiKey={onCopyApiKey}
 			labels={{
 				providerName: t("providerName"),
+				baseUrl: t("baseUrl"),
+				apiKey: t("apiKey"),
 				apiType: t("apiType"),
 				apiKeyPlaceholder: t(replacingApiKey ? "replaceApiKeyPlaceholder" : "apiKeyPlaceholder"),
 				customHeaders: t("customHeaders"),

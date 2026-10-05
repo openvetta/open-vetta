@@ -1,15 +1,19 @@
 import { Button } from "@shared/components/ui/button";
 import { Switch } from "@shared/components/ui/switch";
+import QRCode from "qrcode";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import QRCode from "qrcode";
 import type { RemotePairingState } from "../../../../preload/api-types/remote-pairing";
 
 const DEFAULT_RELAY = "https://relay.flowerwine.dpdns.org";
 
 export function RemotePairingSettings(): JSX.Element {
 	const { t } = useTranslation("settings");
-	const [state, setState] = useState<RemotePairingState>({ status: "idle", inputEnabled: false, inputSupported: false });
+	const [state, setState] = useState<RemotePairingState>({
+		status: "idle",
+		inputEnabled: false,
+		inputSupported: false,
+	});
 	const [qr, setQr] = useState<string>();
 	const [busy, setBusy] = useState(false);
 
@@ -74,7 +78,13 @@ export function RemotePairingSettings(): JSX.Element {
 						<h2 className="text-[14px] font-semibold text-foreground">{t("remote.pairingTitle")}</h2>
 						<p className="mt-1 text-[12px] text-muted-foreground">{t("remote.pairingDescription")}</p>
 					</div>
-					<span className={state.status === "ready" ? "text-[12px] text-emerald-400" : "text-[12px] text-muted-foreground"}>{statusLabel}</span>
+					<span
+						className={
+							state.status === "ready" ? "text-[12px] text-emerald-400" : "text-[12px] text-muted-foreground"
+						}
+					>
+						{statusLabel}
+					</span>
 				</div>
 				<div className="flex items-center justify-between gap-3">
 					<span className="text-[12px] text-muted-foreground">{t("remote.relayConfigured")}</span>
@@ -87,7 +97,9 @@ export function RemotePairingSettings(): JSX.Element {
 					{qr ? (
 						<div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
 							<img src={qr} alt={t("remote.qrAlt")} className="h-[280px] w-[280px] rounded-lg bg-white p-2" />
-							<p className="mt-3 max-w-[360px] text-center text-[12px] leading-relaxed text-muted-foreground">{t("remote.qrHint")}</p>
+							<p className="mt-3 max-w-[360px] text-center text-[12px] leading-relaxed text-muted-foreground">
+								{t("remote.qrHint")}
+							</p>
 						</div>
 					) : (
 						<div className="flex min-h-[270px] flex-col items-center justify-center text-muted-foreground">
@@ -102,9 +114,12 @@ export function RemotePairingSettings(): JSX.Element {
 				<div className="flex items-center justify-between gap-4 py-3">
 					<div>
 						<h2 className="text-[14px] font-semibold text-foreground">{t("remote.inputTitle")}</h2>
-						<p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{t("remote.inputDescription")}</p>
+						<p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+							{t("remote.inputDescription")}
+						</p>
 					</div>
 					<Switch
+						aria-label={t("remote.inputTitle")}
 						checked={state.inputEnabled}
 						disabled={(state.status !== "ready" && state.status !== "connected") || !state.inputSupported}
 						onCheckedChange={(enabled) => void setInputEnabled(enabled)}

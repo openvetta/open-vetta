@@ -1,5 +1,5 @@
-import type { JSX, ReactNode } from "react";
 import { Switch } from "@vetta-org/ui";
+import type { JSX, ReactNode } from "react";
 import { SettingRow, SettingSection, type SettingSectionMeta } from "./SettingChrome";
 
 export interface PetDecorationView {
@@ -82,10 +82,11 @@ export function PetSettingsView({
 
 			<SettingSection title={labels.sections.display} section={sections.display}>
 				<SettingRow title={labels.showPet} description={labels.showPetDescription}>
-					<Switch checked={enabled} onCheckedChange={onChangeEnabled} />
+					<Switch aria-label={labels.showPet} checked={enabled} onCheckedChange={onChangeEnabled} />
 				</SettingRow>
 				<SettingRow title={labels.alwaysOnTop} description={labels.alwaysOnTopDescription} border={false}>
 					<Switch
+						aria-label={labels.alwaysOnTop}
 						checked={alwaysOnTop}
 						onCheckedChange={onChangeAlwaysOnTop}
 						disabled={!enabled}
@@ -101,10 +102,7 @@ export function PetSettingsView({
 				>
 					<div className="grid grid-cols-2 gap-3 p-4">
 						{decorations.map((decoration) => (
-							<div
-								key={decoration.id}
-								className="overflow-hidden rounded-lg border border-border bg-card"
-							>
+							<div key={decoration.id} className="overflow-hidden rounded-lg border border-border bg-card">
 								<div className="flex h-28 items-center justify-center bg-muted">
 									{decoration.found ? (
 										<img
@@ -124,9 +122,7 @@ export function PetSettingsView({
 										{decoration.label}
 									</div>
 									<div className="shrink-0 text-[11px] text-muted-foreground">
-										{decoration.found
-											? labels.decorationAvailable
-											: labels.decorationMissing}
+										{decoration.found ? labels.decorationAvailable : labels.decorationMissing}
 									</div>
 								</div>
 							</div>
@@ -148,12 +144,9 @@ export function PetSettingsView({
 				section={sections.developer}
 				description={labels.developerDescription}
 			>
-				<SettingRow
-					title={labels.debugFrame}
-					description={labels.debugFrameDescription}
-					border={false}
-				>
+				<SettingRow title={labels.debugFrame} description={labels.debugFrameDescription} border={false}>
 					<Switch
+						aria-label={labels.debugFrame}
 						checked={debugFrame}
 						onCheckedChange={onChangeDebugFrame}
 						disabled={!enabled}

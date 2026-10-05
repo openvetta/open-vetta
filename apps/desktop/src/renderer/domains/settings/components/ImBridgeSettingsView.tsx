@@ -1,25 +1,25 @@
 import { ModelSelect } from "@shared/components/ModelSelect";
-import { Button, Switch, cn } from "@vetta-org/ui";
 import { ImChannelIconView, SettingHeading, SettingRow, SettingSection } from "@vetta-org/theme-ui/settings";
+import { Button, cn, Switch } from "@vetta-org/ui";
 import { useTranslation } from "react-i18next";
 import { SettingsAiAssist } from "../ai-assist";
 import { SETTINGS_SECTION } from "../registry";
-import { ImChannelCard } from "./ImChannelCard";
 import { FeishuBindDialog } from "./FeishuBindDialog";
+import { ImChannelCard } from "./ImChannelCard";
+import { ImChannelConfigDialog } from "./ImChannelConfigDialog";
+import { ImChannelGuideDialog } from "./ImChannelGuideDialog";
 import { ImFeishuDialog } from "./ImFeishuDialog";
 import { ImLegacyImportBanner } from "./ImLegacyImportBanner";
 import { ImLogDrawer } from "./ImLogDrawer";
 import { ImStatusBadge } from "./ImStatusBadge";
 import {
 	IM_CHANNELS,
-	isImChannelConfigured,
 	type ImChannelDescriptor,
 	type ImGenericChannelTransport,
+	isImChannelConfigured,
 } from "./im-channel-catalog";
-import type { ImBridgeSettingsModel } from "./useImBridgeSettingsModel";
-import { ImChannelConfigDialog } from "./ImChannelConfigDialog";
-import { ImChannelGuideDialog } from "./ImChannelGuideDialog";
 import { SignalBindDialog } from "./SignalBindDialog";
+import type { ImBridgeSettingsModel } from "./useImBridgeSettingsModel";
 import { WechatBindDialog } from "./WechatBindDialog";
 
 const GENERIC_CHANNEL_DESC_KEY = {
@@ -110,8 +110,7 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 			)}
 
 			{feedback && (
-				<div
-					role="status"
+				<output
 					className={cn(
 						"mb-4 flex items-start gap-2 rounded-xl border px-3.5 py-2.5 text-[12px]",
 						feedbackIsError
@@ -121,13 +120,11 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 				>
 					<span
 						className={cn(
-							feedbackIsError
-								? "icon-[solar--danger-triangle-linear]"
-								: "icon-[solar--check-circle-linear]",
+							feedbackIsError ? "icon-[solar--danger-triangle-linear]" : "icon-[solar--check-circle-linear]",
 							"mt-px h-3.5 w-3.5 shrink-0",
 						)}
 					/>
-					<span className="min-w-0 flex-1">{feedback}</span>
+					<span className="block min-w-0 flex-1">{feedback}</span>
 					<Button
 						variant="ghost"
 						size="icon-xs"
@@ -137,7 +134,7 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 					>
 						<span className="icon-[solar--close-circle-linear] h-3 w-3" />
 					</Button>
-				</div>
+				</output>
 			)}
 
 			{/* 概览：当前活动渠道与连接状态 + 总开关 + 对话模型 */}
@@ -145,9 +142,7 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 				<div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
 					<ImChannelIconView icon={activeChannel.icon} isActive className="h-10 w-10" />
 					<div className="min-w-0 flex-1 basis-40">
-						<div className="truncate text-[15px] font-semibold text-foreground">
-							{activePresentation.name}
-						</div>
+						<div className="truncate text-[15px] font-semibold text-foreground">{activePresentation.name}</div>
 						<div className="mt-0.5 truncate text-[12px] text-muted-foreground">
 							{t("imbActiveChannel")} · {activePresentation.subtitle}
 						</div>
@@ -156,6 +151,7 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 				</div>
 				<SettingRow title={t("enableImBridge")} description={t("enableImBridgeDesc")}>
 					<Switch
+						aria-label={t("enableImBridge")}
 						checked={config.enabled}
 						onCheckedChange={(checked) => void model.onToggleEnabled(checked)}
 						disabled={model.saving}
@@ -218,10 +214,7 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 			{/* 消息渠道：同时只有一个活动渠道，其余为待用配置 */}
 			<div className="mb-6 p-1.5" data-setting-section-highlight-target={SETTINGS_SECTION["imbridge-channels"].id}>
 				<div className="mb-3 flex items-baseline gap-2">
-					<SettingHeading
-						section={SETTINGS_SECTION["imbridge-channels"]}
-						title={t("section_imbridge-channels")}
-					/>
+					<SettingHeading section={SETTINGS_SECTION["imbridge-channels"]} title={t("section_imbridge-channels")} />
 					<span className="text-[12px] text-muted-foreground">
 						{t("channelsCountValue", { count: IM_CHANNELS.length })}
 					</span>
@@ -241,9 +234,7 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 								transportStatus={model.transportStatus}
 								configureLabel={presentation.configureLabel}
 								onConfigure={presentation.onConfigure}
-								onActivate={
-									isActive ? undefined : () => void model.onSwitchTransport(channel.transport)
-								}
+								onActivate={isActive ? undefined : () => void model.onSwitchTransport(channel.transport)}
 							/>
 						);
 					})}
@@ -261,7 +252,10 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 				onConfirmedRefresh={model.onFeishuConfirmedRefresh}
 				onOpenManual={model.onOpenFeishuDialog}
 			/>
-			<ImChannelConfigDialog model={model.channelDialog} onOpenGuide={(transport) => model.setGuideTransport(transport)} />
+			<ImChannelConfigDialog
+				model={model.channelDialog}
+				onOpenGuide={(transport) => model.setGuideTransport(transport)}
+			/>
 			<WechatBindDialog
 				onOpenGuide={() => model.setGuideTransport("wechat")}
 				open={model.wechatDialogOpen}
@@ -308,12 +302,7 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 							<span className="icon-[solar--document-text-linear] h-3.5 w-3.5" />
 							{t("viewLogs")}
 						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => void model.onRestart()}
-							disabled={!config.enabled}
-						>
+						<Button variant="outline" size="sm" onClick={() => void model.onRestart()} disabled={!config.enabled}>
 							<span className="icon-[solar--restart-linear] h-3.5 w-3.5" />
 							{t("restartBridgeBtn")}
 						</Button>

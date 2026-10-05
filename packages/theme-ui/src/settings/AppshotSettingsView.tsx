@@ -91,6 +91,7 @@ export function AppshotSettingsView({
 			<SettingSection title={labels.sectionShortcut} section={gestureSection}>
 				<SettingRow title={labels.shortcutTitle} description={labels.shortcutDescription} border={false}>
 					<MotionSelect
+						aria-label={labels.shortcutTitle}
 						value={gestureValue}
 						onValueChange={onGestureChange}
 						options={gestureOptions}

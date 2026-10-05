@@ -24,15 +24,46 @@ describe("custom model pricing", () => {
 		(window as unknown as { vetta: unknown }).vetta = {
 			models: {
 				get: async () => config,
-				set: async (next: ModelsConfigData) => { config = next; },
+				set: async (next: ModelsConfigData) => {
+					config = next;
+				},
 			},
 		};
 		getDefaultStore().set(localModelsConfigAtom, config);
 		render(<TestProvider />);
 
-		await user.click(screen.getByRole("button", { name: /custom/ }));
+		await user.click(screen.getByTitle("edit"));
+		for (const name of ["providerName", "baseUrl", "apiKey", "customHeaders"]) {
+			await user.click(screen.getByText(name));
+			expect(document.activeElement).toBe(screen.getByLabelText(name));
+		}
+		await user.click(screen.getByText("apiType", { selector: "label" }));
+		expect(screen.getByRole("button", { name: "apiType", expanded: true })).toBeTruthy();
+		await user.keyboard("{Escape}");
+		await user.click(screen.getByRole("button", { name: "cancel" }));
 		await user.click(screen.getByRole("button", { name: "addModel" }));
-		await user.type(screen.getByPlaceholderText("modelIdPlaceholder"), "my-model");
+		for (const name of [
+			"modelId",
+			"displayName",
+			"contextWindow",
+			"maxOutputTokens",
+			"costInput",
+			"costOutput",
+			"costCacheRead",
+			"costCacheWrite",
+		]) {
+			await user.click(screen.getByText(name));
+			expect(document.activeElement).toBe(screen.getByRole("textbox", { name }));
+		}
+		await user.click(screen.getByText("apiType", { selector: "label" }));
+		expect(screen.getByRole("button", { name: "apiType", expanded: true })).toBeTruthy();
+		await user.keyboard("{Escape}");
+		expect(screen.getByRole("group", { name: "inputCapability" })).toBeTruthy();
+		await user.type(screen.getByRole("textbox", { name: "modelId" }), "my-model");
+		const imageInput = screen.getByRole("checkbox", { name: "Image" });
+		imageInput.focus();
+		await user.keyboard(" ");
+		expect(screen.getByRole("checkbox", { name: "Image", checked: true })).toBeTruthy();
 		await user.type(screen.getByRole("textbox", { name: "costInput" }), "1.25");
 		await user.type(screen.getByRole("textbox", { name: "costOutput" }), "8");
 		await user.type(screen.getByRole("textbox", { name: "costCacheRead" }), "0.125");
@@ -40,16 +71,25 @@ describe("custom model pricing", () => {
 		expect(screen.getByText("modelPriceInvalid")).toBeTruthy();
 		await user.type(screen.getByRole("textbox", { name: "costCacheWrite" }), "2");
 		await user.click(screen.getByRole("button", { name: "add" }));
-		await waitFor(() => expect(config.providers.custom?.models?.[0]?.cost).toEqual({
-			input: 1.25, output: 8, cacheRead: 0.125, cacheWrite: 2,
-		}));
+		await waitFor(() =>
+			expect(config.providers.custom?.models?.[0]?.cost).toEqual({
+				input: 1.25,
+				output: 8,
+				cacheRead: 0.125,
+				cacheWrite: 2,
+			}),
+		);
 
 		await user.click(screen.getByTitle("editModel"));
 		expect((screen.getByRole("textbox", { name: "costInput" }) as HTMLInputElement).value).toBe("1.25");
-		fireEvent.change(screen.getByPlaceholderText("optional"), { target: { value: "Renamed model" } });
+		fireEvent.change(screen.getByRole("textbox", { name: "displayName" }), { target: { value: "Renamed model" } });
 		await user.click(screen.getByRole("button", { name: "save" }));
-		await waitFor(() => expect(config.providers.custom?.models?.[0]).toMatchObject({
-			id: "my-model", name: "Renamed model", cost: { input: 1.25, output: 8, cacheRead: 0.125, cacheWrite: 2 },
-		}));
+		await waitFor(() =>
+			expect(config.providers.custom?.models?.[0]).toMatchObject({
+				id: "my-model",
+				name: "Renamed model",
+				cost: { input: 1.25, output: 8, cacheRead: 0.125, cacheWrite: 2 },
+			}),
+		);
 	});
 });

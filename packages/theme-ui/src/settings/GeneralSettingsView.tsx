@@ -1,5 +1,5 @@
-import type { JSX, ReactNode } from "react";
 import { Button, Switch } from "@vetta-org/ui";
+import type { JSX, ReactNode } from "react";
 import { MotionSelect } from "./MotionSelect";
 import { SettingRow, SettingSection, type SettingSectionMeta } from "./SettingChrome";
 
@@ -119,6 +119,7 @@ export function GeneralSettingsView({
 				</SettingRow>
 				<SettingRow title={labels.sandboxTitle} description={labels.sandboxDescription}>
 					<MotionSelect
+						aria-label={labels.sandboxTitle}
 						value={executionMode}
 						onValueChange={onExecutionModeChange}
 						triggerClassName="min-w-[120px]"
@@ -138,7 +139,11 @@ export function GeneralSettingsView({
 					description={labels.systemNotificationsDescription}
 					border={false}
 				>
-					<Switch checked={notificationsEnabled} onCheckedChange={onNotificationsChange} />
+					<Switch
+						aria-label={labels.systemNotifications}
+						checked={notificationsEnabled}
+						onCheckedChange={onNotificationsChange}
+					/>
 				</SettingRow>
 			</SettingSection>
 
@@ -146,11 +151,7 @@ export function GeneralSettingsView({
 
 			<SettingSection title={labels.sections.app} section={sections.app}>
 				{/* 与下方 App 引导同一 SettingRow：左标题+描述，右 outline sm 按钮。 */}
-				<SettingRow
-					title={labels.appVersion}
-					description={updatesDescription || undefined}
-					border={!updatesDetail}
-				>
+				<SettingRow title={labels.appVersion} description={updatesDescription || undefined} border={!updatesDetail}>
 					{updatesAction}
 				</SettingRow>
 				{updatesDetail ? <div className="border-b border-border px-5 pb-4">{updatesDetail}</div> : null}
@@ -163,7 +164,7 @@ export function GeneralSettingsView({
 
 			<SettingSection title={labels.sections.developer} section={sections.developer}>
 				<SettingRow title={labels.debugMode} description={labels.debugModeDescription}>
-					<Switch checked={debugMode} onCheckedChange={onDebugChange} />
+					<Switch aria-label={labels.debugMode} checked={debugMode} onCheckedChange={onDebugChange} />
 				</SettingRow>
 				<SettingRow
 					title={labels.exportDiagnostics}

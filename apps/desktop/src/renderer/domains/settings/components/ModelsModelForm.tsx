@@ -1,18 +1,18 @@
 import { getReasoningPreset } from "@vetta/ai/reasoning-presets";
-import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
-import { Button } from "@vetta-org/ui";
-import { cn } from "@shared/lib/utils";
-import { CheckboxField } from "./McpSettings";
 import { InputField, SelectField } from "@vetta-org/theme-ui/settings";
+import { Button } from "@vetta-org/ui";
+import { useId, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { CheckboxField } from "./McpSettings";
+import { MODEL_PRICE_FIELDS, type ModelPriceField, parseModelPrice } from "./modelPriceDraft";
 import { CONTEXT_WINDOW_PICKS, MAX_OUTPUT_PICKS, NumberQuickPicks } from "./NumberQuickPicks";
-import { MODEL_PRICE_FIELDS, parseModelPrice, type ModelPriceField } from "./modelPriceDraft";
 import {
 	buildModelApiOptions,
 	CANDIDATE_REASONING_LEVELS,
 	INPUT_OPTIONS,
 	type ModelFormState,
 } from "./useModelsSettingsModel";
+
 const PRICE_LABEL_KEYS = {
 	input: "costInput",
 	output: "costOutput",
@@ -36,6 +36,7 @@ export function ModelsModelForm({
 	saveLabel: string;
 }): JSX.Element {
 	const { t } = useTranslation("settings");
+	const formId = useId();
 	const inheritLabel = t("inheritedFromProvider");
 	const apiOptions = useMemo(() => buildModelApiOptions(form.api, inheritLabel), [form.api, inheritLabel]);
 	const invalidPrice = parseModelPrice(form.price) === null;
@@ -51,56 +52,61 @@ export function ModelsModelForm({
 		<>
 			<div className="grid grid-cols-2 gap-3">
 				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">{t("modelId")}</label>
+					<label htmlFor={`${formId}-modelId`} className="mb-1 block text-[11px] text-muted-foreground">
+						{t("modelId")}
+					</label>
 					<InputField
+						id={`${formId}-modelId`}
+						aria-label={t("modelId")}
 						value={form.id}
 						onChange={(value) => setForm((current) => ({ ...current, id: value }))}
 						placeholder={t("modelIdPlaceholder")}
 					/>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">{t("displayName")}</label>
+					<label htmlFor={`${formId}-displayName`} className="mb-1 block text-[11px] text-muted-foreground">
+						{t("displayName")}
+					</label>
 					<InputField
+						id={`${formId}-displayName`}
+						aria-label={t("displayName")}
 						value={form.name}
 						onChange={(value) => setForm((current) => ({ ...current, name: value }))}
 						placeholder={t("optional")}
 					/>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">{t("apiType")}</label>
+					<label htmlFor={`${formId}-apiType`} className="mb-1 block text-[11px] text-muted-foreground">
+						{t("apiType")}
+					</label>
 					<SelectField
+						id={`${formId}-apiType`}
+						aria-label={t("apiType")}
 						value={form.api}
 						onChange={(value) => setForm((current) => ({ ...current, api: value }))}
 						options={apiOptions}
 					/>
 				</div>
-				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">{t("inputCapability")}</label>
+				<fieldset className="min-w-0">
+					<legend className="mb-1 block text-[11px] text-muted-foreground">{t("inputCapability")}</legend>
 					<div className="flex h-8 items-center gap-3">
 						{INPUT_OPTIONS.map((option) => (
-							<label key={option.value} className="flex cursor-pointer select-none items-center gap-1.5">
-								<button
-									type="button"
-									onClick={() => toggleInput(option.value)}
-									className={cn(
-										"flex h-4 w-4 items-center justify-center rounded border transition-colors",
-										form.input.includes(option.value)
-											? "border-primary bg-primary"
-											: "border-input bg-secondary hover:bg-accent",
-									)}
-								>
-									{form.input.includes(option.value) && (
-										<span className="icon-[mdi--check] h-3 w-3 text-primary-foreground" />
-									)}
-								</button>
-								<span className="text-[12px] text-foreground">{option.label}</span>
-							</label>
+							<CheckboxField
+								key={option.value}
+								checked={form.input.includes(option.value)}
+								onChange={() => toggleInput(option.value)}
+								label={option.label}
+							/>
 						))}
 					</div>
-				</div>
+				</fieldset>
 				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">{t("contextWindow")}</label>
+					<label htmlFor={`${formId}-contextWindow`} className="mb-1 block text-[11px] text-muted-foreground">
+						{t("contextWindow")}
+					</label>
 					<InputField
+						id={`${formId}-contextWindow`}
+						aria-label={t("contextWindow")}
 						value={form.contextWindow}
 						onChange={(value) => setForm((current) => ({ ...current, contextWindow: value }))}
 						placeholder={t("contextWindowPlaceholder")}
@@ -112,8 +118,12 @@ export function ModelsModelForm({
 					/>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">{t("maxOutputTokens")}</label>
+					<label htmlFor={`${formId}-maxOutputTokens`} className="mb-1 block text-[11px] text-muted-foreground">
+						{t("maxOutputTokens")}
+					</label>
 					<InputField
+						id={`${formId}-maxOutputTokens`}
+						aria-label={t("maxOutputTokens")}
 						value={form.maxTokens}
 						onChange={(value) => setForm((current) => ({ ...current, maxTokens: value }))}
 						placeholder={t("maxOutputTokensPlaceholder")}
@@ -130,11 +140,18 @@ export function ModelsModelForm({
 					</div>
 					<div className="grid grid-cols-2 gap-3">
 						{MODEL_PRICE_FIELDS.map((field) => (
-							<label key={field} className="block text-[11px] text-muted-foreground">
+							<label
+								key={field}
+								htmlFor={`${formId}-price-${field}`}
+								className="block text-[11px] text-muted-foreground"
+							>
 								<span className="mb-1 block">{t(PRICE_LABEL_KEYS[field])}</span>
 								<InputField
+									id={`${formId}-price-${field}`}
 									value={form.price[field]}
-									onChange={(value) => setForm((current) => ({ ...current, price: { ...current.price, [field]: value } }))}
+									onChange={(value) =>
+										setForm((current) => ({ ...current, price: { ...current.price, [field]: value } }))
+									}
 									placeholder="0"
 									aria-label={t(PRICE_LABEL_KEYS[field])}
 								/>
@@ -178,16 +195,16 @@ function ReasoningLevelsEditor({
 	].filter((candidate) => !form.reasoningLevels.includes(candidate));
 
 	return (
-		<div className="col-span-2">
-			<label className="mb-1 block text-[11px] text-muted-foreground">{t("reasoningLevels")}</label>
+		<fieldset className="col-span-2 min-w-0">
+			<legend className="mb-1 block text-[11px] text-muted-foreground">{t("reasoningLevels")}</legend>
 			<div className="space-y-1.5">
 				{form.reasoningLevels.length === 0 && (
 					<p className="text-[11px] text-muted-foreground/70">{t("reasoningLevelsEmpty")}</p>
 				)}
 				{form.reasoningLevels.map((level, index) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: rows are positional and editable
 					<div key={index} className="flex items-center gap-2">
 						<InputField
+							aria-label={t("reasoningLevels")}
 							value={level}
 							onChange={(value) =>
 								setForm((current) => {
@@ -208,6 +225,7 @@ function ReasoningLevelsEditor({
 							variant="outline"
 							size="xs"
 							disabled={!level.trim()}
+							aria-pressed={form.defaultReasoningLevel === level && Boolean(level.trim())}
 							onClick={() => setForm((current) => ({ ...current, defaultReasoningLevel: level }))}
 							className={
 								form.defaultReasoningLevel === level && level.trim()
@@ -228,7 +246,9 @@ function ReasoningLevelsEditor({
 										...current,
 										reasoningLevels: levels,
 										defaultReasoningLevel:
-											current.defaultReasoningLevel === removed ? (levels[0] ?? "") : current.defaultReasoningLevel,
+											current.defaultReasoningLevel === removed
+												? (levels[0] ?? "")
+												: current.defaultReasoningLevel,
 									};
 								})
 							}
@@ -241,7 +261,9 @@ function ReasoningLevelsEditor({
 					<Button
 						variant="outline"
 						size="xs"
-						onClick={() => setForm((current) => ({ ...current, reasoningLevels: [...current.reasoningLevels, ""] }))}
+						onClick={() =>
+							setForm((current) => ({ ...current, reasoningLevels: [...current.reasoningLevels, ""] }))
+						}
 					>
 						{t("reasoningAdd")}
 					</Button>
@@ -286,6 +308,6 @@ function ReasoningLevelsEditor({
 					</div>
 				)}
 			</div>
-		</div>
+		</fieldset>
 	);
 }

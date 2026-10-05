@@ -1,14 +1,13 @@
-import { Button } from "@vetta-org/ui";
-import { Switch } from "@vetta-org/ui";
+import { MotionSelect, SettingHeading, SettingRow, SettingSection } from "@vetta-org/theme-ui/settings";
+import { Button, Switch } from "@vetta-org/ui";
 import { useMemo } from "react";
 import { SettingsAiAssist } from "../ai-assist";
 import { SETTINGS_SECTION } from "../registry";
-import { MotionSelect, SettingHeading, SettingRow, SettingSection } from "@vetta-org/theme-ui/settings";
-import type { AgentSettingsModel } from "./useAgentSettingsModel";
-import { RuntimeConfigurationSections } from "./RuntimeConfigurationSections";
-import type { RuntimeConfigurationModel } from "./useRuntimeConfigurationModel";
 import { ImageGenerationSettingsSection } from "./ImageGenerationSettingsSection";
+import { RuntimeConfigurationSections } from "./RuntimeConfigurationSections";
+import type { AgentSettingsModel } from "./useAgentSettingsModel";
 import type { ImageGenerationSettingsModel } from "./useImageGenerationSettingsModel";
+import type { RuntimeConfigurationModel } from "./useRuntimeConfigurationModel";
 
 export interface AgentSettingsViewProps {
 	model: AgentSettingsModel;
@@ -16,7 +15,11 @@ export interface AgentSettingsViewProps {
 	runtimeConfiguration: RuntimeConfigurationModel;
 }
 
-export function AgentSettingsView({ model, imageGeneration, runtimeConfiguration }: AgentSettingsViewProps): JSX.Element {
+export function AgentSettingsView({
+	model,
+	imageGeneration,
+	runtimeConfiguration,
+}: AgentSettingsViewProps): JSX.Element {
 	const personaOptions = useMemo(
 		() => model.personas.map((persona) => ({ value: persona.id, label: persona.label })),
 		[model.personas],
@@ -62,6 +65,7 @@ export function AgentSettingsView({ model, imageGeneration, runtimeConfiguration
 						{model.labels.customInstructionsDescription}
 					</p>
 					<textarea
+						aria-label={model.labels.customInstructions}
 						value={model.customPrompt}
 						onChange={(event) => model.actions.setCustomPrompt(event.target.value)}
 						placeholder={model.labels.customInstructionsPlaceholder}
@@ -91,17 +95,16 @@ export function AgentSettingsView({ model, imageGeneration, runtimeConfiguration
 
 			<div>
 				<SettingSection title={model.labels.sections.experimental} section={SETTINGS_SECTION["agent-experimental"]}>
-					<SettingRow
-						title={model.labels.appOp}
-						description={model.labels.appOpDescription}
-					>
-						<Switch checked={model.vettaCliEnabled} onCheckedChange={model.actions.toggleVettaCli} />
-					</SettingRow>
-					<SettingRow
-						title={model.labels.inputPrediction}
-						description={model.labels.inputPredictionDescription}
-					>
+					<SettingRow title={model.labels.appOp} description={model.labels.appOpDescription}>
 						<Switch
+							aria-label={model.labels.appOp}
+							checked={model.vettaCliEnabled}
+							onCheckedChange={model.actions.toggleVettaCli}
+						/>
+					</SettingRow>
+					<SettingRow title={model.labels.inputPrediction} description={model.labels.inputPredictionDescription}>
+						<Switch
+							aria-label={model.labels.inputPrediction}
 							checked={model.promptPredictionEnabled}
 							onCheckedChange={model.actions.togglePromptPrediction}
 						/>
@@ -111,7 +114,11 @@ export function AgentSettingsView({ model, imageGeneration, runtimeConfiguration
 						description={model.labels.agentSkillDescription}
 						border={false}
 					>
-						<Switch checked={model.agentSkillsEnabled} onCheckedChange={model.actions.toggleAgentSkills} />
+						<Switch
+							aria-label={model.labels.agentSkill}
+							checked={model.agentSkillsEnabled}
+							onCheckedChange={model.actions.toggleAgentSkills}
+						/>
 					</SettingRow>
 				</SettingSection>
 			</div>

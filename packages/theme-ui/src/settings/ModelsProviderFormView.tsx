@@ -1,5 +1,5 @@
-import type { JSX } from "react";
 import { Button } from "@vetta-org/ui";
+import { type JSX, useId } from "react";
 import { CheckboxField, InputField, SelectField } from "./SettingsFormFields";
 
 export interface ModelsProviderFormStateView {
@@ -13,6 +13,8 @@ export interface ModelsProviderFormStateView {
 
 export interface ModelsProviderFormViewLabels {
 	readonly providerName: string;
+	readonly baseUrl: string;
+	readonly apiKey: string;
 	readonly apiType: string;
 	readonly apiKeyPlaceholder: string;
 	readonly customHeaders: string;
@@ -46,38 +48,55 @@ export function ModelsProviderFormView({
 	labels,
 	onCopyApiKey,
 }: ModelsProviderFormViewProps): JSX.Element {
+	const formId = useId();
 	return (
 		<>
 			<div className="grid grid-cols-2 gap-3">
 				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">{labels.providerName}</label>
+					<label htmlFor={`${formId}-providerName`} className="mb-1 block text-[11px] text-muted-foreground">
+						{labels.providerName}
+					</label>
 					<InputField
+						id={`${formId}-providerName`}
+						aria-label={labels.providerName}
 						value={form.name}
 						onChange={(value) => onChange({ name: value })}
 						placeholder={labels.namePlaceholder}
 					/>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">{labels.apiType}</label>
+					<label htmlFor={`${formId}-apiType`} className="mb-1 block text-[11px] text-muted-foreground">
+						{labels.apiType}
+					</label>
 					<SelectField
+						id={`${formId}-apiType`}
+						aria-label={labels.apiType}
 						value={form.api}
 						onChange={(value) => onChange({ api: value })}
 						options={[...apiOptions]}
 					/>
 				</div>
 				<div className="col-span-2">
-					<label className="mb-1 block text-[11px] text-muted-foreground">Base URL</label>
+					<label htmlFor={`${formId}-baseUrl`} className="mb-1 block text-[11px] text-muted-foreground">
+						{labels.baseUrl}
+					</label>
 					<InputField
+						id={`${formId}-baseUrl`}
+						aria-label={labels.baseUrl}
 						value={form.baseUrl}
 						onChange={(value) => onChange({ baseUrl: value })}
 						placeholder={labels.baseUrlPlaceholder}
 					/>
 				</div>
 				<div className="col-span-2">
-					<label className="mb-1 block text-[11px] text-muted-foreground">API Key</label>
+					<label htmlFor={`${formId}-apiKey`} className="mb-1 block text-[11px] text-muted-foreground">
+						{labels.apiKey}
+					</label>
 					<div className="flex items-center gap-2">
 						<div className="min-w-0 flex-1">
 							<InputField
+								id={`${formId}-apiKey`}
+								aria-label={labels.apiKey}
 								value={form.apiKey}
 								onChange={(value) => onChange({ apiKey: value })}
 								placeholder={labels.apiKeyPlaceholder}
@@ -98,8 +117,12 @@ export function ModelsProviderFormView({
 					</div>
 				</div>
 				<div className="col-span-2">
-					<label className="mb-1 block text-[11px] text-muted-foreground">{labels.customHeaders}</label>
+					<label htmlFor={`${formId}-customHeaders`} className="mb-1 block text-[11px] text-muted-foreground">
+						{labels.customHeaders}
+					</label>
 					<textarea
+						id={`${formId}-customHeaders`}
+						aria-label={labels.customHeaders}
 						value={form.headers}
 						onChange={(event) => onChange({ headers: event.target.value })}
 						placeholder={"X-Custom-Header: value\nAuthorization: Bearer xxx"}

@@ -1,5 +1,5 @@
-import type { FocusEventHandler, JSX, KeyboardEvent } from "react";
 import { cn } from "@vetta-org/ui";
+import type { FocusEventHandler, JSX, KeyboardEvent, Ref } from "react";
 import { MotionSelect } from "./MotionSelect";
 
 /**
@@ -12,16 +12,22 @@ export const SETTINGS_SELECT_TRIGGER_CLASS = "";
 export const SETTINGS_SELECT_ITEM_CLASS = "";
 
 export function SelectField({
+	id,
 	value,
 	onChange,
 	options,
+	"aria-label": ariaLabel,
 }: {
+	id?: string;
 	value: string;
 	onChange: (v: string) => void;
 	options: { value: string; label: string }[];
+	"aria-label"?: string;
 }): JSX.Element {
 	return (
 		<MotionSelect
+			id={id}
+			aria-label={ariaLabel}
 			value={value}
 			onValueChange={onChange}
 			options={options}
@@ -31,6 +37,8 @@ export function SelectField({
 }
 
 export function InputField({
+	id,
+	ref,
 	value,
 	onChange,
 	placeholder,
@@ -42,6 +50,8 @@ export function InputField({
 	"aria-label": ariaLabel,
 	className,
 }: {
+	id?: string;
+	ref?: Ref<HTMLInputElement>;
 	value: string;
 	onChange: (v: string) => void;
 	placeholder?: string;
@@ -55,6 +65,8 @@ export function InputField({
 }): JSX.Element {
 	return (
 		<input
+			id={id}
+			ref={ref}
 			type={type}
 			value={value}
 			disabled={disabled}
@@ -62,6 +74,7 @@ export function InputField({
 			onBlur={onBlur}
 			onKeyDown={onKeyDown}
 			placeholder={placeholder}
+			// biome-ignore lint/a11y/noAutofocus: Preserve the public native input contract for callers that explicitly request initial focus.
 			autoFocus={autoFocus}
 			aria-label={ariaLabel}
 			className={cn(
@@ -73,18 +86,24 @@ export function InputField({
 }
 
 export function TextareaField({
+	id,
 	value,
 	onChange,
 	placeholder,
 	rows = 3,
+	"aria-label": ariaLabel,
 }: {
+	id?: string;
 	value: string;
 	onChange: (v: string) => void;
 	placeholder?: string;
 	rows?: number;
+	"aria-label"?: string;
 }): JSX.Element {
 	return (
 		<textarea
+			id={id}
+			aria-label={ariaLabel}
 			value={value}
 			onChange={(e) => onChange(e.target.value)}
 			placeholder={placeholder}
@@ -105,16 +124,12 @@ export function CheckboxField({
 }): JSX.Element {
 	return (
 		<label className="flex cursor-pointer select-none items-center gap-2">
-			<button
-				type="button"
-				onClick={() => onChange(!checked)}
-				className={cn(
-					"flex h-4 w-4 items-center justify-center rounded border transition-colors",
-					checked ? "border-primary bg-primary" : "border-border bg-card hover:bg-accent",
-				)}
-			>
-				{checked && <span className="icon-[mdi--check] h-3 w-3 text-primary-foreground" />}
-			</button>
+			<input
+				type="checkbox"
+				checked={checked}
+				onChange={(event) => onChange(event.target.checked)}
+				className="h-4 w-4 shrink-0 cursor-pointer accent-primary focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-ring"
+			/>
 			<span className="text-[12px] text-foreground">{label}</span>
 		</label>
 	);

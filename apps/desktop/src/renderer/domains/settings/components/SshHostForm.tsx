@@ -1,4 +1,5 @@
 import { Button } from "@shared/components/ui/button";
+import { useEffect, useId, useRef } from "react";
 import { InputField } from "./SettingsFormFields";
 import type { SshHostsSettingsModel } from "./useSshHostsSettingsModel";
 
@@ -14,6 +15,11 @@ import type { SshHostsSettingsModel } from "./useSshHostsSettingsModel";
 export function SshHostForm({ model, heading }: { model: SshHostsSettingsModel; heading: string }): JSX.Element {
 	const { labels, form, actions } = model;
 	const canSubmit = form.target.trim().length > 0 && !model.saving;
+	const formId = useId();
+	const targetRef = useRef<HTMLInputElement>(null);
+	useEffect(() => {
+		targetRef.current?.focus();
+	}, []);
 
 	return (
 		<form
@@ -25,18 +31,20 @@ export function SshHostForm({ model, heading }: { model: SshHostsSettingsModel; 
 		>
 			<p className="text-[13px] font-medium text-foreground">{heading}</p>
 
-			<Field label={labels.fieldTarget} hint={labels.fieldTargetHint}>
+			<Field inputId={`${formId}-target`} label={labels.fieldTarget} hint={labels.fieldTargetHint}>
 				<InputField
+					id={`${formId}-target`}
+					ref={targetRef}
 					value={form.target}
 					onChange={(value) => actions.setForm({ target: value })}
 					placeholder="build-01"
 					aria-label={labels.fieldTarget}
-					autoFocus
 				/>
 			</Field>
 
-			<Field label={labels.fieldLabel} hint={labels.fieldLabelHint}>
+			<Field inputId={`${formId}-label`} label={labels.fieldLabel} hint={labels.fieldLabelHint}>
 				<InputField
+					id={`${formId}-label`}
 					value={form.label}
 					onChange={(value) => actions.setForm({ label: value })}
 					placeholder={form.target}
@@ -44,8 +52,9 @@ export function SshHostForm({ model, heading }: { model: SshHostsSettingsModel; 
 				/>
 			</Field>
 
-			<Field label={labels.fieldPort}>
+			<Field inputId={`${formId}-port`} label={labels.fieldPort}>
 				<InputField
+					id={`${formId}-port`}
 					value={form.port}
 					onChange={(value) => actions.setForm({ port: value.replace(/\D/g, "") })}
 					placeholder="22"
@@ -53,8 +62,9 @@ export function SshHostForm({ model, heading }: { model: SshHostsSettingsModel; 
 				/>
 			</Field>
 
-			<Field label={labels.fieldIdentityFile} hint={labels.fieldIdentityFileHint}>
+			<Field inputId={`${formId}-identity`} label={labels.fieldIdentityFile} hint={labels.fieldIdentityFileHint}>
 				<InputField
+					id={`${formId}-identity`}
 					value={form.identityFile}
 					onChange={(value) => actions.setForm({ identityFile: value })}
 					placeholder="~/.ssh/id_ed25519"
@@ -82,16 +92,18 @@ export function SshHostForm({ model, heading }: { model: SshHostsSettingsModel; 
 
 /** 可见 label + 可选说明。占位符不能替代 label——一开始输入它就消失了。 */
 function Field({
+	inputId,
 	label,
 	hint,
 	children,
 }: {
+	inputId: string;
 	label: string;
 	hint?: string;
 	children: React.ReactNode;
 }): JSX.Element {
 	return (
-		<label className="flex flex-col gap-1.5">
+		<label htmlFor={inputId} className="flex flex-col gap-1.5">
 			<span className="text-[12px] font-medium text-foreground">{label}</span>
 			{children}
 			{hint !== undefined && <span className="text-[11px] text-muted-foreground">{hint}</span>}

@@ -119,6 +119,7 @@ describe("ImBridgeSettingsView", () => {
 		const view = render(<ImBridgeSettingsView model={model({ transportStatus: "online" })} />);
 		expect(view.getAllByText("imbStatusOnline").length).toBeGreaterThan(0);
 		expect(view.getByText(/imbActiveChannel/)).toBeDefined();
+		expect(view.getByRole("switch", { name: "enableImBridge", checked: false })).toBeTruthy();
 	});
 
 	it("点击其它渠道卡切换活动渠道", async () => {
@@ -136,9 +137,7 @@ describe("ImBridgeSettingsView", () => {
 
 	it("保存失败时在页面上给出可见反馈，并可关闭", async () => {
 		const onDismissFeedback = vi.fn();
-		const view = render(
-			<ImBridgeSettingsView model={model({ saveError: "请先选择对话模型", onDismissFeedback })} />,
-		);
+		const view = render(<ImBridgeSettingsView model={model({ saveError: "请先选择对话模型", onDismissFeedback })} />);
 
 		expect(view.getByRole("status").textContent).toContain("请先选择对话模型");
 		await userEvent.click(view.getByRole("button", { name: "imbDismissMessage" }));

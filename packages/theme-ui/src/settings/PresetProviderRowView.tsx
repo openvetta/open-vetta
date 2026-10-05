@@ -1,6 +1,6 @@
-import { useRef, type JSX, type ReactNode } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import { Button, cn } from "@vetta-org/ui";
+import { AnimatePresence, motion } from "motion/react";
+import { type JSX, type ReactNode, useCallback, useRef } from "react";
 import { InputField } from "./SettingsFormFields";
 import { shouldCloseEmptyApiKeyEditor } from "./shouldCloseEmptyApiKeyEditor";
 
@@ -80,6 +80,9 @@ export function PresetProviderRowView({
 	const canEditKey = !row.offline;
 	const editing = canEditKey && row.isOpen;
 	const editorRef = useRef<HTMLDivElement>(null);
+	const focusEditor = useCallback((input: HTMLInputElement | null) => {
+		input?.focus();
+	}, []);
 	// blur 后 microtask 再读,避免闭包拿到过期 draft/saving。
 	const draftKeyRef = useRef(draftKey);
 	const savingRef = useRef(saving);
@@ -150,12 +153,7 @@ export function PresetProviderRowView({
 				</button>
 
 				{/* 宽度瞬时切换；mode=wait 防双内容叠宽，但 exit 时长必须为 0。 */}
-				<div
-					className={cn(
-						"flex h-8 items-center justify-end",
-						editing ? "w-[18.5rem]" : "w-auto",
-					)}
-				>
+				<div className={cn("flex h-8 items-center justify-end", editing ? "w-[18.5rem]" : "w-auto")}>
 					<AnimatePresence mode="wait" initial={false}>
 						{editing ? (
 							<motion.div
@@ -168,14 +166,12 @@ export function PresetProviderRowView({
 							>
 								<div className="min-w-0 flex-1">
 									<InputField
+										ref={focusEditor}
 										value={draftKey}
 										onChange={onDraftKeyChange}
-										placeholder={
-											row.hasApiKey ? labels.encryptedApiKeyPlaceholder : labels.apiKeyPlaceholder
-										}
+										placeholder={row.hasApiKey ? labels.encryptedApiKeyPlaceholder : labels.apiKeyPlaceholder}
 										type="password"
 										disabled={saving}
-										autoFocus
 										aria-label={labels.apiKeyDirect(row.displayName)}
 										className="h-8 rounded-md px-2 text-[12px]"
 										onBlur={(event) => handleEditorBlur(event.relatedTarget)}
@@ -243,10 +239,7 @@ export function PresetProviderRowView({
 										className="text-muted-foreground hover:text-foreground"
 									>
 										<span
-											className={cn(
-												"icon-[mdi--refresh] h-3.5 w-3.5",
-												row.refreshing && "animate-spin",
-											)}
+											className={cn("icon-[mdi--refresh] h-3.5 w-3.5", row.refreshing && "animate-spin")}
 										/>
 									</Button>
 								)}
@@ -292,9 +285,7 @@ export function PresetProviderRowView({
 			</div>
 
 			{/* 错误行独立展示,编辑态也能看到校验失败原因。 */}
-			{row.modelsError && (
-				<div className="truncate px-5 pb-2.5 text-[11px] text-amber-400">{row.modelsError}</div>
-			)}
+			{row.modelsError && <div className="truncate px-5 pb-2.5 text-[11px] text-amber-400">{row.modelsError}</div>}
 
 			{row.isExpanded && modelsList}
 		</div>

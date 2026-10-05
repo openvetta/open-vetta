@@ -1,5 +1,5 @@
-import type { JSX } from "react";
 import { cn } from "@vetta-org/ui";
+import type { JSX } from "react";
 import { MotionSelect } from "./MotionSelect";
 import { SettingRow, SettingSection, type SettingSectionMeta } from "./SettingChrome";
 
@@ -43,6 +43,7 @@ export function QuickPanelSettingsSectionView({
 		<SettingSection section={section} title={sectionTitle}>
 			<SettingRow title={triggerTitle} description={triggerDescription}>
 				<MotionSelect
+					aria-label={triggerTitle}
 					value={trigger}
 					onValueChange={onTriggerChange}
 					options={triggerOptions}
@@ -53,6 +54,7 @@ export function QuickPanelSettingsSectionView({
 			<SettingRow title={behaviorTitle} description={behaviorDescription} border={false}>
 				<div className={cn("transition-opacity", behaviorDisabled && "pointer-events-none opacity-40")}>
 					<MotionSelect
+						aria-label={behaviorTitle}
 						value={behavior}
 						onValueChange={onBehaviorChange}
 						options={behaviorOptions}

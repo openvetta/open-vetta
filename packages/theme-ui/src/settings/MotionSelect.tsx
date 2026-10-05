@@ -1,6 +1,6 @@
-import { useState, type JSX, type ReactNode } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import { cn, Popover, PopoverContent, PopoverTrigger } from "@vetta-org/ui";
+import { AnimatePresence, motion } from "motion/react";
+import { type JSX, type ReactNode, useId, useState } from "react";
 
 /**
  * 设置页 motion 下拉（对齐原 Agent 人设）。
@@ -21,6 +21,7 @@ export interface MotionSelectOption {
 }
 
 export interface MotionSelectProps {
+	readonly id?: string;
 	readonly value: string;
 	readonly onValueChange: (value: string) => void;
 	readonly options: readonly MotionSelectOption[];
@@ -32,6 +33,7 @@ export interface MotionSelectProps {
 }
 
 export function MotionSelect({
+	id,
 	value,
 	onValueChange,
 	options,
@@ -41,6 +43,7 @@ export function MotionSelect({
 	"aria-label": ariaLabel,
 }: MotionSelectProps): JSX.Element {
 	const [open, setOpen] = useState(false);
+	const valueId = useId();
 	const selected = options.find((option) => option.value === value);
 	const display = selected?.label ?? placeholder ?? "";
 
@@ -48,8 +51,10 @@ export function MotionSelect({
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
 				<button
+					id={id}
 					type="button"
 					aria-label={ariaLabel}
+					aria-describedby={ariaLabel ? valueId : undefined}
 					disabled={disabled}
 					className={cn(
 						// 与 @vetta-org/ui SelectTrigger 同皮
@@ -61,7 +66,9 @@ export function MotionSelect({
 						triggerClassName,
 					)}
 				>
-					<span className="min-w-0 flex-1 truncate text-left">{display}</span>
+					<span id={valueId} className="min-w-0 flex-1 truncate text-left">
+						{display}
+					</span>
 					<span className="icon-[mdi--chevron-down] ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
 				</button>
 			</PopoverTrigger>
@@ -104,9 +111,7 @@ export function MotionSelect({
 											// 与 @vetta-org/ui SelectItem / 原 Agent 菜单项同皮
 											"flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium transition-colors outline-none",
 											"disabled:pointer-events-none disabled:opacity-50",
-											isSelected
-												? "bg-accent text-foreground"
-												: "text-foreground hover:bg-accent",
+											isSelected ? "bg-accent text-foreground" : "text-foreground hover:bg-accent",
 										)}
 									>
 										<span className="min-w-0 flex-1 truncate text-left">{option.label}</span>
