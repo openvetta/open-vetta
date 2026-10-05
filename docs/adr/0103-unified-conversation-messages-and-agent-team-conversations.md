@@ -131,3 +131,18 @@ Main 提供的公开 Snapshot 和实时事件，不能自行把协调历史与�
 本机观察投影不自动升级为协调公共事实，也不自动进入 `TeamSharedContextService`、其他成员模型上下文、远程 telemetry 或公共 Team 历史。允许 thinking 预览时，Desktop display DTO/stream event 必须携带稳定的 `teamSessionId`、`memberId`、`requestId`、`sourceTurnId`、`messageId`、`sequence` 和终态信息；Renderer 不得从无关联的时间戳或文本内容猜测归属。
 
 第一阶段默认将 thinking 作为 display-only 的实时/本地恢复数据：协调 Conversation 仍只保存公开结果和阶段摘要；导出、复制、搜索、日志和跨成员上下文是否包含 thinking 由后续独立决策确定。旧 Renderer 应忽略新增 display 字段，旧快照缺少 thinking 时由公开 progress、工具阶段或文本摘要降级。该修订替代本 ADR 对本机 Renderer display projection 的绝对禁止，但不改变成员模型上下文隔离和公共持久化边界。
+
+## 修订：精确恢复多步骤公开结果（2026-10）
+
+一次 Team attempt 的公开消息可能聚合多个私有 assistant entry。正常发布在执行开始时用已存在的 entry id 集合界定
+该 attempt；`sourceTurnId` 是 Team 层关联，私有 `HistoryEntry` 消息没有该字段，retry/continue 也不保证生成新 user
+entry，因此崩溃后不能按最近一条 user 消息、文本或时间戳猜测聚合范围。
+
+`agent-team.publication-operation.v1` 增加可选 `sourceMessageEntryIds`：按原始顺序保存该 attempt 的唯一 assistant
+entry 引用，末项必须等于既有 `sourceMessageEntryId`。不复制正文、不迁移旧记录；旧记录继续按既有单来源合同恢复，
+不声称能够重建缺少依据的完整多步骤内容。已有公共消息仍是发布事实源；需要从私有历史重建时，逐项校验来源与成员/attempt
+所属 Conversation，任何来源缺失都保持 `needs-recovery`，不把截断内容当成完整结果。共享 checkpoint 已包含该公开结果时，
+对应全部私有 assistant 文本均可省略，避免重复导入；thinking 与工具输出的共享边界保持不变。
+
+已有 publication 的 attempt 只能由 publication 状态机恢复，legacy backfill 不得把未完成的结果改写为终止进度。
+没有可归属的持久 prompt 时，legacy backfill 不猜测之前私有历史属于当前任务。

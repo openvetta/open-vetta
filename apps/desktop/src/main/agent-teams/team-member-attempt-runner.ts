@@ -13,7 +13,6 @@ import {
 } from "@vetta/agent-team";
 import { type AssistantMessage, isAIError } from "@vetta/ai";
 import {
-	type HistoryEntry,
 	type PromptAttachmentRef,
 	type RuntimeHost,
 	readRuntimeFailure,
@@ -24,7 +23,7 @@ import type { TeamCollaborationStore } from "./team-collaboration-store.js";
 import { findTeamAttemptFailure, findTeamAttemptResult, isTeamAttemptFinalResult } from "./team-member-result.js";
 import type { TeamMemberTurnRequest } from "./team-member-turn-request.js";
 import { TeamNotificationJournal, undeliveredTeamNotifications } from "./team-notification-journal.js";
-import { publicAssistantMessage } from "./team-public-message.js";
+import { publicTeamAttemptResult } from "./team-public-message.js";
 import type { TeamPublicationWorkflow } from "./team-publication-workflow.js";
 import type { TeamRuntimeManager } from "./team-runtime-manager.js";
 import type { TeamSessionEventHub } from "./team-session-event-hub.js";
@@ -523,7 +522,7 @@ export class TeamMemberAttemptRunner {
 			attempt: collaboration.attempt,
 			sourceTurnId,
 			sourceMessageEntryId: attemptResult.entryId,
-			assistant: publicAttemptAssistantMessage(attemptHistory, previousEntryIds, assistant),
+			...publicTeamAttemptResult(attemptHistory, previousEntryIds, assistant),
 			completeWorkItem: async (messageId) => {
 				await this.options.settleAttempt(
 					configuredSession,
@@ -567,7 +566,8 @@ export class TeamMemberAttemptRunner {
 		const history = this.options.runtime().getFullHistory(runtimeSessionId);
 		const result = findTeamAttemptResult(history, previousEntryIds);
 		if (!result) return undefined;
-		const assistant = publicAttemptAssistantMessage(history, previousEntryIds, result.message);
+		const publicResult = publicTeamAttemptResult(history, previousEntryIds, result.message);
+		const { assistant } = publicResult;
 		if (!hasPublicAssistantContent(assistant)) return undefined;
 		return this.options.publicationWorkflow.publishPartialAttempt({
 			session,
@@ -575,7 +575,7 @@ export class TeamMemberAttemptRunner {
 			attempt: collaboration.attempt,
 			sourceTurnId,
 			sourceMessageEntryId: result.entryId,
-			assistant,
+			...publicResult,
 			...(purpose ? { purpose } : {}),
 		});
 	}
@@ -628,7 +628,8 @@ export class TeamMemberAttemptRunner {
 			const history = this.options.runtime().getFullHistory(input.runtimeSessionId);
 			const result = findTeamAttemptResult(history, input.previousEntryIds);
 			if (!result) return;
-			const assistant = publicAttemptAssistantMessage(history, input.previousEntryIds, result.message);
+			const publicResult = publicTeamAttemptResult(history, input.previousEntryIds, result.message);
+			const { assistant } = publicResult;
 			if (!hasPublicAssistantContent(assistant)) return;
 			await this.options.publicationWorkflow.publishTerminalAttempt({
 				session: input.session,
@@ -636,7 +637,7 @@ export class TeamMemberAttemptRunner {
 				attempt: input.attempt,
 				sourceTurnId: input.sourceTurnId,
 				sourceMessageEntryId: result.entryId,
-				assistant,
+				...publicResult,
 			});
 		} catch (error) {
 			log.error("team terminal partial publication failed", {
@@ -648,24 +649,6 @@ export class TeamMemberAttemptRunner {
 			});
 		}
 	}
-}
-
-function publicAttemptAssistantMessage(
-	history: readonly HistoryEntry[],
-	previousEntryIds: ReadonlySet<string>,
-	terminal: AssistantMessage,
-): AssistantMessage {
-	const content = history.flatMap((entry) => {
-		if (
-			entry.type !== "message" ||
-			!entry.entryId ||
-			previousEntryIds.has(entry.entryId) ||
-			entry.message.role !== "assistant"
-		)
-			return [];
-		return publicAssistantMessage(entry.message).content;
-	});
-	return { ...publicAssistantMessage(terminal), content };
 }
 
 function errorMessage(error: unknown): string {

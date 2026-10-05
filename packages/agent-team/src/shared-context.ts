@@ -437,7 +437,7 @@ export function findTeamPrivateEntriesCoveredByCheckpoint(input: {
 						publicEntryIds.has(publication.publicMessageEntryId) &&
 						(publication.state === "message-published" || publication.state === "completed"),
 				)
-				.map((publication) => publication.sourceMessageEntryId),
+				.flatMap((publication) => publication.sourceMessageEntryIds ?? [publication.sourceMessageEntryId]),
 		),
 	].sort();
 }

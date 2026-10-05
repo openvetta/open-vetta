@@ -41,6 +41,7 @@ export function findTeamAttemptResult(
 
 /** A publishable attempt result ends normally with visible text; anything else is only partial progress. */
 export function isTeamAttemptFinalResult(message: AssistantMessage): boolean {
-	if (message.stopReason === "error" || message.stopReason === "aborted") return false;
+	if (message.stopReason === "error" || message.stopReason === "aborted" || message.stopReason === "toolUse")
+		return false;
 	return message.content.some((part) => part.type === "text" && part.text.trim().length > 0);
 }

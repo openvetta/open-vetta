@@ -2,7 +2,7 @@ import { createAssistantMessage } from "@vetta/ai";
 import type { HistoryEntry } from "@vetta/runtime-core";
 import { describe, expect, it } from "vitest";
 import { collectPublishedToolExecutions } from "./team-conversation-display.js";
-import { findTeamAttemptFailure, findTeamAttemptResult } from "./team-member-result.js";
+import { findTeamAttemptFailure, findTeamAttemptResult, isTeamAttemptFinalResult } from "./team-member-result.js";
 
 const assistant = createAssistantMessage(
 	{ api: "openai-responses", provider: "openai", model: "model" },
@@ -10,6 +10,16 @@ const assistant = createAssistantMessage(
 );
 
 describe("Team attempt result identity", () => {
+	it("keeps text accompanying an unfinished tool call distinct from a final answer", () => {
+		const progress = {
+			...assistant,
+			content: [{ type: "text" as const, text: "Checking the file" }],
+			stopReason: "toolUse" as const,
+		};
+		expect(isTeamAttemptFinalResult(progress)).toBe(false);
+		expect(isTeamAttemptFinalResult({ ...progress, stopReason: "stop" })).toBe(true);
+	});
+
 	it("finds the new durable response after private context compaction", () => {
 		const history: HistoryEntry[] = [
 			{ type: "message", entryId: "old", message: assistant },

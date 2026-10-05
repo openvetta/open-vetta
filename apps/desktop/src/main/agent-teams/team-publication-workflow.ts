@@ -11,7 +11,7 @@ import type { AssistantMessage } from "@vetta/ai";
 import type { RuntimeHost } from "@vetta/runtime-core";
 import type { TeamCollaborationStore } from "./team-collaboration-store.js";
 import { isTeamAttemptFinalResult } from "./team-member-result.js";
-import { publicAssistantMessage } from "./team-public-message.js";
+import { publicAssistantMessage, recoverPublicTeamAttemptResult } from "./team-public-message.js";
 import type { TeamSessionStateRepository } from "./team-session-state-repository.js";
 
 export interface TeamPublicationWorkflowOptions {
@@ -46,6 +46,7 @@ export class TeamPublicationWorkflow {
 		readonly attempt: TeamMemberTurnAttempt;
 		readonly sourceTurnId: string;
 		readonly sourceMessageEntryId: string;
+		readonly sourceMessageEntryIds?: readonly string[];
 		readonly assistant: AssistantMessage;
 		readonly recovered?: boolean;
 		readonly purpose?: "terminal-partial";
@@ -66,6 +67,7 @@ export class TeamPublicationWorkflow {
 			sourceParticipantConversationId: runtimeState.sessionId,
 			sourceTurnId: input.sourceTurnId,
 			sourceMessageEntryId: input.sourceMessageEntryId,
+			...(input.sourceMessageEntryIds ? { sourceMessageEntryIds: input.sourceMessageEntryIds } : {}),
 			publicMessageEntryId: publicMessageId,
 			state: "prepared",
 			generation: input.attempt.attempt,
@@ -118,6 +120,7 @@ export class TeamPublicationWorkflow {
 		readonly attempt: TeamMemberTurnAttempt;
 		readonly sourceTurnId: string;
 		readonly sourceMessageEntryId: string;
+		readonly sourceMessageEntryIds?: readonly string[];
 		readonly assistant: AssistantMessage;
 		readonly recovered?: boolean;
 	}): Promise<string> {
@@ -143,6 +146,7 @@ export class TeamPublicationWorkflow {
 		readonly attempt: TeamMemberTurnAttempt;
 		readonly sourceTurnId: string;
 		readonly sourceMessageEntryId: string;
+		readonly sourceMessageEntryIds?: readonly string[];
 		readonly assistant: AssistantMessage;
 		readonly completeWorkItem: (publicMessageId: string) => Promise<void>;
 	}): Promise<string> {
@@ -162,6 +166,7 @@ export class TeamPublicationWorkflow {
 			sourceParticipantConversationId: runtimeState.sessionId,
 			sourceTurnId: input.sourceTurnId,
 			sourceMessageEntryId: input.sourceMessageEntryId,
+			...(input.sourceMessageEntryIds ? { sourceMessageEntryIds: input.sourceMessageEntryIds } : {}),
 			publicMessageEntryId: publicMessageId,
 			state: "prepared",
 			generation: input.attempt.attempt,
@@ -209,16 +214,28 @@ export class TeamPublicationWorkflow {
 				.runtime()
 				.readSessionDocument(coordination.sessionId)
 				.entries.find((entry) => entry.id === publicMessageId);
-			const sourceEntry = this.options
-				.runtime()
-				.getFullHistory(publication.sourceParticipantConversationId)
-				.find((entry) => entry.type === "message" && entry.entryId === publication.sourceMessageEntryId);
+			const runtimeState = session.memberRuntime[item.assignedToParticipantId];
+			if (
+				publication.sourceParticipantConversationId !== attempt.participantConversationId ||
+				(!publicEntry && publication.sourceParticipantConversationId !== runtimeState?.sessionId) ||
+				(publicEntry &&
+					(publicEntry.type !== "message" ||
+						publicEntry.kind !== "agent" ||
+						publicEntry.author.id !== item.assignedToParticipantId ||
+						publicEntry.turnId !== item.requestTurnId))
+			) {
+				await this.markNeedsRecovery(session, publication, item, attempt, publicMessageId);
+				continue;
+			}
 			const assistant =
 				publicEntry?.type === "message" && publicEntry.kind === "agent"
 					? publicEntry.message
-					: sourceEntry?.type === "message"
-						? sourceEntry.message
-						: undefined;
+					: recoverPublicTeamAttemptResult(
+							this.options.runtime().getFullHistory(publication.sourceParticipantConversationId),
+							publication.sourceMessageEntryId,
+							publication.sourceMessageEntryIds,
+						);
+
 			if (assistant?.role !== "assistant" || !hasPublicAssistantContent(assistant)) {
 				await this.markNeedsRecovery(session, publication, item, attempt, publicMessageId);
 				continue;
@@ -234,6 +251,9 @@ export class TeamPublicationWorkflow {
 					attempt,
 					sourceTurnId: publication.sourceTurnId,
 					sourceMessageEntryId: publication.sourceMessageEntryId,
+					...(publication.sourceMessageEntryIds
+						? { sourceMessageEntryIds: publication.sourceMessageEntryIds }
+						: {}),
 					assistant,
 					recovered: true,
 				});
@@ -249,6 +269,9 @@ export class TeamPublicationWorkflow {
 					attempt,
 					sourceTurnId: publication.sourceTurnId,
 					sourceMessageEntryId: publication.sourceMessageEntryId,
+					...(publication.sourceMessageEntryIds
+						? { sourceMessageEntryIds: publication.sourceMessageEntryIds }
+						: {}),
 					assistant,
 				});
 				continue;
@@ -294,15 +317,16 @@ export class TeamPublicationWorkflow {
 			if (!item) continue;
 			const runtimeState = session.memberRuntime[item.assignedToParticipantId];
 			if (!runtimeState) continue;
-			const publication = publications.find(
-				(candidate) => candidate.operationId === `publish:${item.id}:${attempt.id}`,
-			);
+			// The publication ledger owns modern attempts, including interrupted writes.
+			// Legacy backfill must not close an unfinished result as a terminal partial.
+			if (publications.some((candidate) => candidate.operationId === `publish:${item.id}:${attempt.id}`)) continue;
 			const history = this.options.runtime().getFullHistory(runtimeState.sessionId);
 			const objective = item.objective.trim();
 			const matchingUserIndex = history.reduce(
 				(index, entry, currentIndex) =>
 					entry.type === "message" &&
 					entry.message.role === "user" &&
+					entry.message.timestamp >= item.createdAt &&
 					entry.message.timestamp <= attempt.lastProgressAt &&
 					objective.length > 0 &&
 					messageText(entry.message.content).includes(objective)
@@ -310,18 +334,10 @@ export class TeamPublicationWorkflow {
 						: index,
 				-1,
 			);
-			const lastUserIndex =
-				matchingUserIndex >= 0
-					? matchingUserIndex
-					: history.reduce(
-							(index, entry, currentIndex) =>
-								entry.type === "message" &&
-								entry.message.role === "user" &&
-								entry.message.timestamp <= attempt.lastProgressAt
-									? currentIndex
-									: index,
-							-1,
-						);
+			// No persisted prompt means there is no evidence that this private history
+			// belongs to the attempt (for example, it may have been stopped during setup).
+			if (matchingUserIndex < 0) continue;
+			const lastUserIndex = matchingUserIndex;
 			const nextUserOffset = history
 				.slice(lastUserIndex + 1)
 				.findIndex((entry) => entry.type === "message" && entry.message.role === "user");
@@ -344,7 +360,7 @@ export class TeamPublicationWorkflow {
 				session.id,
 				item.requestTurnId,
 				item.assignedToParticipantId,
-				publication?.sourceTurnId ?? attempt.sourceTurnId,
+				attempt.sourceTurnId,
 			);
 			if (existingIds.has(publicMessageId)) continue;
 			const terminalMessage = {
@@ -363,8 +379,9 @@ export class TeamPublicationWorkflow {
 				session,
 				item,
 				attempt,
-				sourceTurnId: publication?.sourceTurnId ?? attempt.sourceTurnId,
-				sourceMessageEntryId: publication?.sourceMessageEntryId ?? lastCandidate.entryId,
+				sourceTurnId: attempt.sourceTurnId,
+				sourceMessageEntryId: lastCandidate.entryId,
+				sourceMessageEntryIds: candidates.flatMap((candidate) => (candidate.entryId ? [candidate.entryId] : [])),
 				assistant: terminalMessage,
 				recovered: true,
 			});

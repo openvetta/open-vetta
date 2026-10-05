@@ -281,6 +281,8 @@ export interface TeamPublicationOperationRecord {
 	readonly sourceParticipantConversationId: string;
 	readonly sourceTurnId: string;
 	readonly sourceMessageEntryId: string;
+	/** Ordered, unique assistant entries in this attempt; the terminal source is last. */
+	readonly sourceMessageEntryIds?: readonly string[];
 	readonly publicMessageEntryId?: string;
 	readonly state: "prepared" | "message-published" | "completed" | "needs-recovery";
 	readonly generation: number;
@@ -542,6 +544,12 @@ export function isTeamPublicationOperationRecord(value: unknown): value is TeamP
 		isNonEmptyString(value.sourceParticipantConversationId) &&
 		isNonEmptyString(value.sourceTurnId) &&
 		isNonEmptyString(value.sourceMessageEntryId) &&
+		(value.sourceMessageEntryIds === undefined ||
+			(Array.isArray(value.sourceMessageEntryIds) &&
+				value.sourceMessageEntryIds.length > 0 &&
+				value.sourceMessageEntryIds.every(isNonEmptyString) &&
+				new Set(value.sourceMessageEntryIds).size === value.sourceMessageEntryIds.length &&
+				value.sourceMessageEntryIds.at(-1) === value.sourceMessageEntryId)) &&
 		(value.publicMessageEntryId === undefined || isNonEmptyString(value.publicMessageEntryId)) &&
 		(value.state === "prepared" ||
 			value.state === "message-published" ||
