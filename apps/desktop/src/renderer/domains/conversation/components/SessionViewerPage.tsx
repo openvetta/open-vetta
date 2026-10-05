@@ -4,9 +4,9 @@ import { cn } from "@shared/lib/utils";
 import { pageHeaderRightSlotAtom } from "@shared/store/atoms";
 import { useActiveSessionRuntimeIds } from "@shared/workspace/active-session-runtime";
 import { createActivityWorkspace } from "@shared/workspace/activity-workspace";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useThemeSurface } from "@vetta-org/theme-sdk/appearance";
 import { SessionViewerPageView } from "@vetta-org/theme-ui/chat";
-import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useSetAtom } from "jotai";
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -34,8 +34,14 @@ export function SessionViewerPage(): JSX.Element {
 	const header = useMemo(
 		() => (
 			<div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-				{isSubagent ? <Button size="sm" variant="ghost" onClick={() => void navigate({ to: "/" })}>{t("subagentCard.back")}</Button> : null}
-				<span className="hidden truncate sm:inline">{t(isSubagent ? "subagentCard.viewerSubtitle" : "sessionViewer.header.subtitle")}</span>
+				{isSubagent ? (
+					<Button size="sm" variant="ghost" onClick={() => void navigate({ to: "/" })}>
+						{t("subagentCard.back")}
+					</Button>
+				) : null}
+				<span className="hidden truncate sm:inline">
+					{t(isSubagent ? "subagentCard.viewerSubtitle" : "sessionViewer.header.subtitle")}
+				</span>
 				<span
 					className={
 						model.isIm
@@ -99,6 +105,10 @@ export function SessionViewerPage(): JSX.Element {
 			emptyPathLabel={model.emptyPathLabel}
 			error={model.error}
 			errorPrefix={model.errorPrefix}
+			loading={model.loading}
+			loadingLabel={t("sessionViewer.loading")}
+			retryLabel={t("sessionViewer.retry")}
+			onRetry={model.onRetry}
 			hasPath={Boolean(model.path)}
 			exportHost={
 				model.exporting ? (
@@ -119,11 +129,7 @@ export function SessionViewerPage(): JSX.Element {
 			}
 			activityPanel={
 				model.isKnowledge ? (
-					<ActivityPanel
-						workspace={workspace}
-						enablePluginTabs={false}
-						knowledgeHistory
-					/>
+					<ActivityPanel workspace={workspace} enablePluginTabs={false} knowledgeHistory />
 				) : (
 					<ActivityPanel workspace={workspace} enablePluginTabs={false} />
 				)

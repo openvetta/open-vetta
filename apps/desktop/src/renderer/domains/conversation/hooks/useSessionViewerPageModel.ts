@@ -25,6 +25,8 @@ function isPathUnderDir(filePath: string, dir: string): boolean {
 export interface SessionViewerPageModel {
 	path: string;
 	error: string | null;
+	loading: boolean;
+	onRetry: () => void;
 	messages: ChatConversationItem[];
 	exporting: boolean;
 	exportTitle: string;
@@ -46,8 +48,15 @@ export function useSessionViewerPageModel(): SessionViewerPageModel {
 	const encodedPath = params.path as string | undefined;
 	const path = encodedPath ? decodeURIComponent(encodedPath) : "";
 
-	const [messages, setMessages] = useState<ChatConversationItem[]>([]);
-	const [error, setError] = useState<string | null>(null);
+	const [viewer, setViewer] = useState<{
+		path: string;
+		attempt: number;
+		messages: ChatConversationItem[];
+		error: string | null;
+		loading: boolean;
+	}>({ path, attempt: 0, messages: [], error: null, loading: Boolean(path) });
+	const [attempt, setAttempt] = useState(0);
+	const onRetry = useCallback(() => setAttempt((previous) => previous + 1), []);
 	const [exporting, setExporting] = useState(false);
 	const imCwd = useAtomValue(defaultImConversationCwdAtom);
 	const kbCwd = useAtomValue(knowledgeProcessingCwdAtom);
@@ -74,6 +83,8 @@ export function useSessionViewerPageModel(): SessionViewerPageModel {
 	}, [inlinePreviewActive, closeInlinePreview, setPanelOpen]);
 
 	useEffect(() => {
+		setViewer({ path, attempt, messages: [], error: null, loading: Boolean(path) });
+		setExporting(false);
 		if (!path) return;
 		let cancelled = false;
 		let unsubscribe: (() => void) | undefined;
@@ -82,14 +93,28 @@ export function useSessionViewerPageModel(): SessionViewerPageModel {
 			try {
 				const initial = await window.vetta.session.openViewer(path);
 				if (cancelled) return;
-				setMessages(fullHistoryToChat(initial.history));
+				setViewer({ path, attempt, messages: fullHistoryToChat(initial.history), error: null, loading: false });
 
 				unsubscribe = await window.vetta.session.subscribeViewer(path, (snapshot) => {
-					setMessages(fullHistoryToChat(snapshot.history));
+					if (!cancelled) {
+						setViewer({
+							path,
+							attempt,
+							messages: fullHistoryToChat(snapshot.history),
+							error: null,
+							loading: false,
+						});
+					}
 				});
 				if (cancelled) unsubscribe?.();
 			} catch (err) {
-				if (!cancelled) setError((err as Error).message);
+				if (!cancelled) {
+					setViewer((previous) => ({
+						...previous,
+						error: err instanceof Error ? err.message : String(err),
+						loading: false,
+					}));
+				}
 			}
 		})();
 
@@ -97,13 +122,20 @@ export function useSessionViewerPageModel(): SessionViewerPageModel {
 			cancelled = true;
 			unsubscribe?.();
 		};
-	}, [path]);
+	}, [path, attempt]);
+
+	const current =
+		viewer.path === path && viewer.attempt === attempt
+			? viewer
+			: { messages: [], error: null, loading: Boolean(path) };
 
 	return {
 		path,
-		error,
-		messages,
-		exporting,
+		error: current.error,
+		messages: current.messages,
+		loading: current.loading,
+		onRetry,
+		exporting: exporting && viewer.path === path,
 		exportTitle,
 		isKnowledge,
 		isIm,

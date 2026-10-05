@@ -1000,7 +1000,9 @@
 		"panelToggleButton": {
 			"titleClose": "Close activity panel",
 			"titleOpen": "Open activity panel"
-		}
+		},
+		"loading": "Loading conversation…",
+		"retry": "Retry loading"
 	},
 	"skillPromptArea": {
 		"missingBadge": "Not installed",

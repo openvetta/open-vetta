@@ -1000,7 +1000,9 @@
 		"panelToggleButton": {
 			"titleClose": "关闭活动面板",
 			"titleOpen": "打开活动面板"
-		}
+		},
+		"loading": "正在读取会话…",
+		"retry": "重新读取"
 	},
 	"skillPromptArea": {
 		"missingBadge": "未安装",
