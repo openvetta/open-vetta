@@ -56,6 +56,7 @@ import {
 	type TeamStreamState,
 	updateScopedTeamDraft,
 } from "./teamChatModel";
+import { useTeamChatViewScope } from "./useTeamChatViewScope";
 
 export function useTeamChatModel(
 	teamId: string,
@@ -81,10 +82,18 @@ export function useTeamChatModel(
 			? storedSnapshot
 			: undefined;
 	const session = snapshot?.session;
+	const ownsView = useTeamChatViewScope({
+		teamId,
+		preferredSessionId,
+		loadedSessionId: session?.id,
+		createNewSession,
+	});
 	const effectiveModelKey = session?.modelSettings?.modelKey ?? selectedModel;
 	const effectiveReasoning =
 		session?.modelSettings?.reasoning ?? (effectiveModelKey ? reasoningByModel[effectiveModelKey] : undefined);
 	const [draftsByTeam, setDraftsByTeam] = useState<Readonly<Record<string, string>>>({});
+	const draftsByTeamRef = useRef(draftsByTeam);
+	draftsByTeamRef.current = draftsByTeam;
 	const [historyByTeam, setHistoryByTeam] = useState<Readonly<Record<string, readonly string[]>>>({});
 	const [attachmentsByTeam, setAttachmentsByTeam] = useState<
 		Readonly<Record<string, readonly TeamAttachmentViewModel[]>>
@@ -94,7 +103,8 @@ export function useTeamChatModel(
 		Readonly<Record<string, readonly SerializedMemberMention[]>>
 	>({});
 	const [failedMemberIds, setFailedMemberIds] = useState<ReadonlySet<string>>(() => new Set());
-	const [pending, setPending] = useState<TeamPendingRequest>();
+	const [storedPending, setPending] = useState<TeamPendingRequest & { readonly ownsView: () => boolean }>();
+	const pending = storedPending?.ownsView() ? storedPending : undefined;
 	const [streams, setStreams] = useState<TeamStreamState>({});
 	const [status, setStatus] = useState<TeamChatStatus>("loading");
 	const [, startTeamTransition] = useTransition();
@@ -114,6 +124,7 @@ export function useTeamChatModel(
 	// every request identity so an earlier completion cannot clear the newer
 	// request's pending state or flip the composer back to ready prematurely.
 	const inFlightRequestIds = useRef(new Set<string>());
+	const latestDraftRequests = useRef(new Map<string, string>());
 	const pendingRef = useRef<TeamPendingRequest | undefined>(undefined);
 	const streamsRef = useRef<TeamStreamState>({});
 	pendingRef.current = pending;
@@ -170,6 +181,7 @@ export function useTeamChatModel(
 	);
 	const applyLoadedSession = useCallback(
 		(loaded: Awaited<ReturnType<typeof loadTeamChatSession>>) => {
+			if (!ownsView()) return;
 			loadedSessionRef.current = { teamId, sessionId: loaded.snapshot.session.id };
 			if (loaded.document) setDocument(loaded.document);
 			snapshotRef.current = loaded.snapshot;
@@ -178,11 +190,12 @@ export function useTeamChatModel(
 			setSessions(loaded.sessions);
 			setStatus(snapshotHasRunningWork(loaded.snapshot) ? "streaming" : "ready");
 		},
-		[teamId],
+		[ownsView, teamId],
 	);
 	const applyBootstrap = useCallback(
 		(bootstrap: Awaited<ReturnType<typeof loadTeamChatBootstrap>>) => {
 			startTeamTransition(() => {
+				if (!ownsView()) return;
 				setDocument(bootstrap.document);
 				const current = snapshotRef.current;
 				const fromSnapshot =
@@ -194,7 +207,7 @@ export function useTeamChatModel(
 				setSessions((existing) => mergeTeamChatBootstrapSessions(fromSnapshot, existing, activeSessionId));
 			});
 		},
-		[teamId],
+		[ownsView, teamId],
 	);
 
 	useEffect(() => {
@@ -213,11 +226,12 @@ export function useTeamChatModel(
 		setSnapshot(undefined);
 		streamsRef.current = {};
 		setStreams({});
-		// StrictMode replays setup after the handoff send has acquired this state.
-		// Keep that request alive until send settles; clearing it here makes the
-		// feed empty when session creation releases the first-paint handoff.
-		if (!handoff) {
-			inFlightRequestIds.current.clear();
+		// StrictMode retains this handoff's request, never another conversation's
+		// pending send. Those accepted requests keep executing in the background.
+		for (const requestId of inFlightRequestIds.current) {
+			if (requestId !== handoff?.requestId) inFlightRequestIds.current.delete(requestId);
+		}
+		if (!handoff || pendingRef.current?.requestId !== handoff.requestId) {
 			pendingRef.current = undefined;
 			setPending(undefined);
 		}
@@ -288,11 +302,12 @@ export function useTeamChatModel(
 			try {
 				applyLoadedSession(await loadTeamChatSession(teamId, sessionId));
 			} catch (cause) {
+				if (!ownsView()) return;
 				setError({ message: errorMessage(cause) });
 				setStatus("error");
 			}
 		},
-		[applyLoadedSession, session?.id, teamId],
+		[applyLoadedSession, ownsView, session?.id, teamId],
 	);
 	const createSession = useCallback(async () => {
 		if (pendingRef.current) return undefined;
@@ -302,13 +317,14 @@ export function useTeamChatModel(
 			const loaded = await createTeamChatSession(teamId, document, sessions);
 			applyLoadedSession(loaded);
 			notifyTeamSessionsChanged(teamId);
-			return loaded.snapshot.session.id;
+			return ownsView() ? loaded.snapshot.session.id : undefined;
 		} catch (cause) {
+			if (!ownsView()) return undefined;
 			setError({ message: errorMessage(cause) });
 			setStatus("error");
 			return undefined;
 		}
-	}, [applyLoadedSession, document, sessions, teamId]);
+	}, [applyLoadedSession, document, ownsView, sessions, teamId]);
 	const updateModelSettings = useCallback(
 		async (modelKey: string, reasoning?: string) => {
 			if (!session) return;
@@ -318,12 +334,14 @@ export function useTeamChatModel(
 					modelKey,
 					...(reasoning ? { reasoning } : {}),
 				});
+				if (!ownsView()) return;
 				setSnapshot(next);
 			} catch (cause) {
+				if (!ownsView()) return;
 				setError({ message: errorMessage(cause) });
 			}
 		},
-		[session],
+		[ownsView, session],
 	);
 	const selectModel = useCallback(
 		(modelKey: string, defaultReasoning?: string) =>
@@ -349,7 +367,7 @@ export function useTeamChatModel(
 				event.type === "session-snapshot" || event.type === "session-updated"
 					? event.teamSessionId
 					: event.conversationId;
-			if (!mounted || eventSessionId !== session.id) return;
+			if (!mounted || !ownsView() || eventSessionId !== session.id) return;
 			// session-updated 用快照的 messages 把已落盘的 turn 从流里裁掉。这个裁剪
 			// 必须和快照的采纳同进同退：快照因版本过旧被拒时若照裁不误，这条回复就从
 			// 流和快照两边同时消失（页面重进才恢复）。
@@ -444,20 +462,22 @@ export function useTeamChatModel(
 			mounted = false;
 			unsubscribe?.();
 		};
-	}, [session?.id, t, teamId]);
+	}, [ownsView, session?.id, t, teamId]);
 
 	const setExecutionMode = useCallback(
 		async (mode: SessionExecutionMode) => {
 			if (!session) return;
 			try {
 				const next = await window.vetta.agentTeams.setExecutionMode(session.id, mode);
+				if (!ownsView()) return;
 				setSnapshot(next);
 			} catch (cause) {
+				if (!ownsView()) return;
 				setError({ message: errorMessage(cause) });
 				throw cause;
 			}
 		},
-		[session],
+		[ownsView, session],
 	);
 	const memberRuntimeIds = useMemo(
 		() =>
@@ -661,6 +681,7 @@ export function useTeamChatModel(
 			const requestModelKey = activeHandoff?.modelKey ?? effectiveModelKey;
 			const requestReasoning = activeHandoff?.reasoning ?? effectiveReasoning;
 			const nextPending = {
+				ownsView,
 				requestId,
 				text,
 				displayText: draftText,
@@ -671,6 +692,7 @@ export function useTeamChatModel(
 				timestamp: activeHandoff?.timestamp ?? Date.now(),
 			};
 			pendingRef.current = nextPending;
+			latestDraftRequests.current.set(draftScope, requestId);
 			inFlightRequestIds.current.add(requestId);
 			setPending(nextPending);
 			setStatus("sending");
@@ -732,11 +754,13 @@ export function useTeamChatModel(
 				if (!readySession) throw new Error("Team session is still preparing");
 				activeSessionId = readySession.id;
 				if (activeHandoff && loaded) {
-					loadedSessionRef.current = { teamId, sessionId: readySession.id };
-					if (loaded.document) setDocument(loaded.document);
-					setSnapshot(loaded.snapshot);
-					setContextUsages(readSnapshotContextUsages(loaded.snapshot));
-					setSessions(loaded.sessions);
+					if (ownsView()) {
+						loadedSessionRef.current = { teamId, sessionId: readySession.id };
+						if (loaded.document) setDocument(loaded.document);
+						setSnapshot(loaded.snapshot);
+						setContextUsages(readSnapshotContextUsages(loaded.snapshot));
+						setSessions(loaded.sessions);
+					}
 					notifyTeamSessionsChanged(teamId);
 					await waitForCommittedPaint();
 					clearTeamSessionHandoff(activeHandoff.sessionId);
@@ -755,24 +779,26 @@ export function useTeamChatModel(
 				// Stop revoked this request's UI ownership. Durable history still arrives
 				// through the session subscription, but this response can predate the stop.
 				if (cancelledRequests.current.delete(requestId)) return;
-				const current = snapshotRef.current;
-				const latestSnapshot =
-					!current ||
-					next.session.revision > current.session.revision ||
-					next.conversationRevision >= current.conversationRevision
-						? next
-						: current;
-				snapshotRef.current = latestSnapshot;
-				setSnapshot(latestSnapshot);
-				setSessions((current) => withTeamChatSnapshot(current, next));
-				setContextUsages((current) => ({ ...current, ...readSnapshotContextUsages(next) }));
-				setError(undefined);
-				// The leader's response settles this send, not the members it delegated.
-				if (inFlightRequestIds.current.size <= 1) {
-					const hasRunningTurn = Object.values(streamsRef.current).some(
-						(turn) => turn.message.phase === "streaming",
-					);
-					setStatus(hasRunningTurn || snapshotHasRunningWork(latestSnapshot) ? "streaming" : "ready");
+				if (ownsView()) {
+					const current = snapshotRef.current;
+					const latestSnapshot =
+						!current ||
+						next.session.revision > current.session.revision ||
+						next.conversationRevision >= current.conversationRevision
+							? next
+							: current;
+					snapshotRef.current = latestSnapshot;
+					setSnapshot(latestSnapshot);
+					setSessions((current) => withTeamChatSnapshot(current, next));
+					setContextUsages((current) => ({ ...current, ...readSnapshotContextUsages(next) }));
+					setError(undefined);
+					// The leader's response settles this send, not the members it delegated.
+					if (inFlightRequestIds.current.size <= 1) {
+						const hasRunningTurn = Object.values(streamsRef.current).some(
+							(turn) => turn.message.phase === "streaming",
+						);
+						setStatus(hasRunningTurn || snapshotHasRunningWork(latestSnapshot) ? "streaming" : "ready");
+					}
 				}
 				notifyTeamSessionsChanged(teamId);
 				console.info("[agent-team] send-message IPC completed", {
@@ -800,29 +826,38 @@ export function useTeamChatModel(
 					error: cause instanceof Error ? cause.message : String(cause),
 				});
 				if (cancelledRequests.current.delete(requestId)) return;
-				setError((current) =>
-					current?.turnId === requestId
-						? current
-						: {
-								message: errorMessage(cause),
-								turnId: requestId,
-								authorId: session?.leaderMemberId ?? team?.leaderMemberId,
-							},
-				);
-				if (inFlightRequestIds.current.size <= 1) setStatus("error");
-				const restoreSubmittedDraft = draftRef.current.length === 0;
+				const currentView = ownsView();
+				if (currentView) {
+					setError((current) =>
+						current?.turnId === requestId
+							? current
+							: {
+									message: errorMessage(cause),
+									turnId: requestId,
+									authorId: session?.leaderMemberId ?? team?.leaderMemberId,
+								},
+					);
+					if (inFlightRequestIds.current.size <= 1) setStatus("error");
+				}
+				if (latestDraftRequests.current.get(draftScope) !== requestId) return;
+				const restoreSubmittedDraft =
+					(currentView ? draftRef.current : (draftsByTeamRef.current[draftScope] ?? "")).length === 0;
 				updateDraft((current) => current || draftText);
 				if (restoreSubmittedDraft) {
-					draftRef.current = draftText;
 					setMemberMentionsByTeam((current) => ({ ...current, [draftScope]: sentMemberMentions }));
-					setSelectedMemberIds([...new Set(sentMemberMentions.map((mention) => mention.participantId))]);
+					if (currentView) {
+						draftRef.current = draftText;
+						setSelectedMemberIds([...new Set(sentMemberMentions.map((mention) => mention.participantId))]);
+					}
 				}
 				updateAttachments((current) => mergeAttachments(current, sentAttachments));
 			} finally {
 				inFlightRequestIds.current.delete(requestId);
-				if (pendingRef.current?.requestId === requestId) pendingRef.current = undefined;
-				setPending((current) => (current?.requestId === requestId ? undefined : current));
-				if (inFlightRequestIds.current.size > 0) setStatus("sending");
+				if (ownsView()) {
+					if (pendingRef.current?.requestId === requestId) pendingRef.current = undefined;
+					setPending((current) => (current?.requestId === requestId ? undefined : current));
+					if (inFlightRequestIds.current.size > 0) setStatus("sending");
+				}
 			}
 		},
 		[
@@ -842,6 +877,7 @@ export function useTeamChatModel(
 			handoffDocument,
 			preferredSessionId,
 			sessions,
+			ownsView,
 		],
 	);
 
@@ -887,10 +923,11 @@ export function useTeamChatModel(
 			await window.vetta.agentTeams.abort(target.id);
 		} catch (cause) {
 			if (request) cancelledRequests.current.delete(request.requestId);
+			if (!ownsView()) return;
 			setError({ message: errorMessage(cause) });
 			setStatus("error");
 		}
-	}, []);
+	}, [ownsView]);
 
 	const labels = useMemo(
 		() => ({
