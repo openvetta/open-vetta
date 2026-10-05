@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { createConversationUserMessage } from "@shared/conversation";
-import type { OpenSessionOptions, SessionExecutionMode } from "@shared/store/atoms";
+import type { OpenSessionOptions, SessionExecutionMode, StagedSendInput } from "@shared/store/atoms";
 import { getDefaultStore } from "jotai";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -55,7 +55,7 @@ vi.mock("../services/context-composition-cache", () => ({
 interface SessionManagerProbe {
 	sendMessage(
 		overrideText?: string,
-		options?: { stagedInput?: import("@shared/store/atoms").StagedSendInput },
+		options?: { stagedInput?: StagedSendInput },
 	): Promise<{ status: "sent" | "queued" | "failed"; error?: { message: string }; queueItemId?: string } | undefined>;
 	openSession(
 		cwd: string,
@@ -94,7 +94,7 @@ let container: HTMLDivElement | null = null;
 let root: Root | null = null;
 let manager: SessionManagerProbe | null = null;
 
-beforeEach(() => {
+beforeEach(async () => {
 	installStorage();
 	vi.resetModules();
 	vi.clearAllMocks();
@@ -119,6 +119,9 @@ beforeEach(() => {
 			},
 		},
 	});
+	// Prepare the module graph before the behavior test budget starts.
+	await import("@shared/store/atoms");
+	await import("./useSessionManager");
 });
 
 afterEach(async () => {
