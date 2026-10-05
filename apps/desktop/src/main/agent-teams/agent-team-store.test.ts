@@ -151,6 +151,66 @@ describe("AgentTeamStore transaction boundary", () => {
 		});
 	});
 
+	it.each(["library", "copy"] as const)(
+		"edits the %s profile independently after making a team-only copy",
+		async (target) => {
+			const repository = new MemoryRepository();
+			const store = new AgentTeamStore({ repository, createId: createIdSequence(), now: () => 10 });
+			const original = await store.createAgent(agentInput("Reviewer"));
+			const team = await store.createTeam({
+				name: "Independent review",
+				members: [{ agentProfileId: original.id, handle: "reviewer", bindingKind: "copy", leader: true }],
+			});
+			const copy = (await store.read()).agents.find((agent) => agent.id === team.members[0].binding.agentProfileId);
+			if (!copy) throw new Error("Expected a team-only profile");
+			const edited = target === "library" ? original : copy;
+			const unchanged = target === "library" ? copy : original;
+			const updated = await store.updateAgent(edited.id, {
+				expectedRevision: edited.revision,
+				name: `${target} reviewer`,
+				description: "Reviews only the intended scope",
+				mentionHandle: edited.mentionHandle,
+				abilities: edited.abilities,
+			});
+			expect(updated).toMatchObject({ id: edited.id, name: `${target} reviewer`, mentionHandle: "reviewer" });
+			const reloaded = await new AgentTeamStore({ repository }).read();
+			expect(reloaded.agents.find((agent) => agent.id === unchanged.id)).toEqual(unchanged);
+			expect(reloaded.agents.find((agent) => agent.id === edited.id)?.description).toBe(
+				"Reviews only the intended scope",
+			);
+			expect(reloaded.teams.find((candidate) => candidate.id === team.id)?.members).toEqual(team.members);
+		},
+	);
+
+	it("continues rejecting duplicate library handles and duplicate routing handles inside a team", async () => {
+		const repository = new MemoryRepository();
+		const store = new AgentTeamStore({ repository, createId: createIdSequence(), now: () => 10 });
+		const first = await store.createAgent(agentInput("First"));
+		const second = await store.createAgent(agentInput("Second"));
+		await expect(store.createAgent({ ...agentInput("Duplicate"), mentionHandle: "@FIRST" })).rejects.toThrow(
+			"Mention handle already exists",
+		);
+		await expect(
+			store.updateAgent(second.id, {
+				expectedRevision: second.revision,
+				name: second.name,
+				description: second.description,
+				mentionHandle: "@FIRST",
+				abilities: second.abilities,
+			}),
+		).rejects.toThrow("Mention handle already exists");
+		await expect(
+			store.createTeam({
+				name: "Ambiguous routing",
+				members: [
+					{ agentProfileId: first.id, handle: "review", bindingKind: "copy", leader: true },
+					{ agentProfileId: second.id, handle: "@REVIEW", bindingKind: "reference", leader: false },
+				],
+			}),
+		).rejects.toThrow("Duplicate team member handle");
+		expect((await store.read()).agents.filter((agent) => agent.scope.kind === "team")).toHaveLength(0);
+	});
+
 	it("clears the system prompt override when the editor is left empty", async () => {
 		const repository = new MemoryRepository();
 		const store = new AgentTeamStore({ repository, createId: createIdSequence(), now: () => 10 });

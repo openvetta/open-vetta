@@ -148,7 +148,7 @@ export class AgentTeamStore {
 				createdAt: now,
 				updatedAt: now,
 			};
-			this.ensureUniqueHandle(document, created.mentionHandle, undefined);
+			this.validateAgentHandle(document, created, created.mentionHandle);
 			return {
 				document: { ...document, revision: document.revision + 1, agents: [...document.agents, created] },
 				result: created,
@@ -167,7 +167,7 @@ export class AgentTeamStore {
 			if (current.source) throw new Error(PROVIDED_RESOURCE_WRITE_ERROR);
 			if (current.revision !== input.expectedRevision)
 				throw new Error("Agent profile changed; reload before saving");
-			this.ensureUniqueHandle(document, normalizeMentionHandle(input.mentionHandle), agentProfileId);
+			this.validateAgentHandle(document, current, normalizeMentionHandle(input.mentionHandle));
 			const next: AgentProfile = {
 				...current,
 				name: input.name.trim(),
@@ -455,9 +455,18 @@ export class AgentTeamStore {
 		};
 	}
 
-	private ensureUniqueHandle(document: AgentTeamDocument, handle: string, exceptId: string | undefined): void {
+	private validateAgentHandle(document: AgentTeamDocument, profile: AgentProfile, handle: string): void {
 		if (!handle) throw new Error("Mention handle must not be empty");
-		if (document.agents.some((agent) => agent.id !== exceptId && agent.mentionHandle === handle))
+		// 副本保留来源档案的 handle；只在智能体库内去重。团队内路由由 member.handle 独立校验。
+		if (profile.scope.kind !== "library") return;
+		if (
+			document.agents.some(
+				(agent) =>
+					agent.scope.kind === "library" &&
+					agent.id !== profile.id &&
+					normalizeMentionHandle(agent.mentionHandle) === handle,
+			)
+		)
 			throw new Error(`Mention handle already exists: ${handle}`);
 	}
 
