@@ -498,6 +498,20 @@ export class TeamCollaborationStore {
 			for (const item of state.workItems) {
 				await this.appendTeamStopCancellation(session, state, item);
 			}
+			await this.appendTeamStopDeliveryCancellations(session, state.deliveries);
+		});
+	}
+
+	/** Cleans up only the message whose admission crossed a stop boundary. */
+	cancelMessageForTeamStop(session: TeamSessionDocument, messageId: string): Promise<void> {
+		return this.mutations.run(session.id, async () => {
+			const state = this.read(session);
+			const deliveries = state.deliveries.filter((delivery) => delivery.messageId === messageId);
+			for (const delivery of deliveries) {
+				const item = state.workItems.find((candidate) => candidate.id === delivery.workItemId);
+				if (item) await this.appendTeamStopCancellation(session, state, item);
+			}
+			await this.appendTeamStopDeliveryCancellations(session, deliveries);
 		});
 	}
 
@@ -578,6 +592,24 @@ export class TeamCollaborationStore {
 			"agent-team.work-item.v1",
 			transitionTeamWorkItem(item, { state: "cancelled", updatedAt: now }),
 		);
+	}
+
+	private async appendTeamStopDeliveryCancellations(
+		session: TeamSessionDocument,
+		deliveries: readonly TeamMessageDelivery[],
+	): Promise<void> {
+		const workItems = new Map(this.read(session).workItems.map((item) => [item.id, item]));
+		for (const delivery of deliveries) {
+			if (delivery.state !== "pending" && delivery.state !== "waiting") continue;
+			const item = delivery.workItemId ? workItems.get(delivery.workItemId) : undefined;
+			// Completed results and failures still reconcile to their matching delivery outcome.
+			if (item?.state === "completed" || item?.state === "failed") continue;
+			await this.append(
+				session,
+				"agent-team.message-delivery.v1",
+				transitionTeamMessageDelivery(delivery, { state: "cancelled", updatedAt: Date.now() }),
+			);
+		}
 	}
 }
 

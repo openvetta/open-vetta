@@ -14,6 +14,8 @@ import type { TeamCollaborationStore } from "./team-collaboration-store.js";
 
 export interface TeamMessageControlHost {
 	readSession(id: string): Promise<TeamSessionDocument>;
+	isStopped(teamSessionId: string): boolean;
+	stopGeneration(teamSessionId: string): number;
 	resolveTarget(session: TeamSessionDocument, handle: string): string | undefined;
 	appendMessage(sessionId: string, message: ConversationMessageRecord): Promise<{ readonly entryId: string }>;
 	appendMetadata(sessionId: string, customType: string, data: unknown): Promise<void>;
@@ -33,23 +35,35 @@ export class TeamMessageControlService {
 	}
 
 	async recoverSession(session: TeamSessionDocument): Promise<void> {
+		if (this.host.isStopped(session.id)) return;
+		const stopGeneration = this.host.stopGeneration(session.id);
 		for (const delivery of this.store.read(session).deliveries) {
-			if (delivery.state === "pending") {
-				if (delivery.intent === "inform") {
-					const delivered = await this.store.updateDelivery(session, delivery.id, { state: "delivered" });
-					this.host.onDelivery(session, delivered);
+			try {
+				this.assertAdmissionCurrent(session, stopGeneration);
+				if (delivery.state === "pending") {
+					if (delivery.intent === "inform") {
+						const delivered = await this.store.updateDelivery(session, delivery.id, { state: "delivered" });
+						this.host.onDelivery(session, delivered);
+						continue;
+					}
+					const item = await this.ensureQuestionWorkItem(session, delivery);
+					this.assertAdmissionCurrent(session, stopGeneration);
+					const waiting = await this.store.updateDelivery(session, delivery.id, { state: "waiting" });
+					this.assertAdmissionCurrent(session, stopGeneration);
+					this.host.onDelivery(session, waiting);
+					this.assertAdmissionCurrent(session, stopGeneration);
+					if (item.state === "queued") this.host.startWorkItem(session, item);
 					continue;
 				}
-				const item = await this.ensureQuestionWorkItem(session, delivery);
-				const waiting = await this.store.updateDelivery(session, delivery.id, { state: "waiting" });
-				this.host.onDelivery(session, waiting);
-				if (item.state === "queued") this.host.startWorkItem(session, item);
-				continue;
+				const item = delivery.workItemId
+					? this.store.read(session).workItems.find((candidate) => candidate.id === delivery.workItemId)
+					: undefined;
+				if (item) await this.reconcileWorkItem(session, item);
+			} finally {
+				if (!this.isAdmissionCurrent(session, stopGeneration)) {
+					await this.store.cancelMessageForTeamStop(session, delivery.messageId);
+				}
 			}
-			const item = delivery.workItemId
-				? this.store.read(session).workItems.find((candidate) => candidate.id === delivery.workItemId)
-				: undefined;
-			if (item) await this.reconcileWorkItem(session, item);
 		}
 	}
 
@@ -73,8 +87,11 @@ export class TeamMessageControlService {
 	}
 
 	private async sendMessage(teamSessionId: string, input: TeamSendMessageRequest): Promise<TeamSendMessageResult> {
+		if (this.host.isStopped(teamSessionId)) throw new Error("Team session was stopped");
+		const stopGeneration = this.host.stopGeneration(teamSessionId);
 		input.signal.throwIfAborted();
 		const session = await this.host.readSession(teamSessionId);
+		this.assertAdmissionCurrent(session, stopGeneration);
 		const sourceMemberId = Object.entries(session.memberRuntime).find(
 			([, runtime]) => runtime.sessionId === input.sourceRuntimeSessionId,
 		)?.[0];
@@ -96,101 +113,123 @@ export class TeamMessageControlService {
 			input.sourceTurnId,
 			input.requestId,
 		]);
-		const routing: TeamMessageRoutingRecord = {
-			customType: "agent-team.message-routing.v1",
-			messageEntryId: messageId,
-			addressedParticipantIds: recipients,
-			requestId: input.requestId,
-			intent: input.intent,
-		};
-		const coordination = session.coordinationRuntime;
-		if (!coordination) throw new Error("Team coordination conversation is unavailable");
-		const document = this.store.readDocument(session);
-		const existingRouting = document.entries.find(
-			(entry) =>
-				entry.type === "custom" &&
-				entry.customType === routing.customType &&
-				isRouting(entry.data) &&
-				entry.data.messageEntryId === messageId,
-		);
-		if (
-			existingRouting?.type === "custom" &&
-			isRouting(existingRouting.data) &&
-			(!sameIds(existingRouting.data.addressedParticipantIds ?? [], recipients) ||
-				existingRouting.data.requestId !== input.requestId ||
-				existingRouting.data.intent !== input.intent)
-		) {
-			throw new Error(`Team message request id was reused with different routing: ${input.requestId}`);
-		}
-		const existingMessage = document.entries.find((entry) => entry.id === messageId);
-		if (
-			existingMessage &&
-			(existingMessage.type !== "message" ||
-				existingMessage.kind !== "agent" ||
-				existingMessage.author.id !== sourceMemberId ||
-				existingMessage.turnId !== input.sourceTurnId ||
-				agentText(existingMessage.message.content) !== input.text)
-		) {
-			throw new Error(`Team message request id was reused with different content: ${input.requestId}`);
-		}
-		const timestamp =
-			existingMessage?.type === "message" && existingMessage.kind === "agent"
-				? existingMessage.message.timestamp
-				: Date.now();
-		const agentProfileId = session.memberRuntime[sourceMemberId]?.agentProfileId;
-		await this.host.appendMessage(coordination.sessionId, {
-			kind: "agent",
-			id: messageId,
-			turnId: input.sourceTurnId,
-			timestamp,
-			author: { kind: "agent", id: sourceMemberId, ...(agentProfileId ? { agentId: agentProfileId } : {}) },
-			message: {
-				...createAssistantMessage(input.modelIdentity, { timestamp }),
-				content: [{ type: "text", text: input.text }],
-			},
-		});
-		if (!existingRouting) await this.host.appendMetadata(coordination.sessionId, routing.customType, routing);
-		const pending = recipients.map((toParticipantId): TeamMessageDelivery => {
-			const id = stableTeamEventId(["delivery", messageId, toParticipantId]);
-			const requestId = `question:${id}`;
-			return {
-				id,
-				messageId,
-				fromParticipantId: sourceMemberId,
-				toParticipantId,
+		try {
+			const routing: TeamMessageRoutingRecord = {
+				customType: "agent-team.message-routing.v1",
+				messageEntryId: messageId,
+				addressedParticipantIds: recipients,
+				requestId: input.requestId,
 				intent: input.intent,
-				state: "pending",
-				...(input.intent === "question" ? { workItemId: `work:${requestId}:${toParticipantId}` } : {}),
-				sourceTurnId: input.sourceTurnId,
-				toolCallId: input.toolCallId,
-				createdAt: timestamp,
-				updatedAt: timestamp,
 			};
-		});
-		const deliveries = await this.store.createDeliveries(session, pending);
-		input.signal.throwIfAborted();
-		for (const delivery of deliveries) {
-			if (delivery.state !== "pending") continue;
-			if (input.intent === "inform") {
-				const delivered = await this.store.updateDelivery(session, delivery.id, { state: "delivered" });
-				this.host.onDelivery(session, delivered);
-				continue;
+			const coordination = session.coordinationRuntime;
+			if (!coordination) throw new Error("Team coordination conversation is unavailable");
+			const document = this.store.readDocument(session);
+			const existingRouting = document.entries.find(
+				(entry) =>
+					entry.type === "custom" &&
+					entry.customType === routing.customType &&
+					isRouting(entry.data) &&
+					entry.data.messageEntryId === messageId,
+			);
+			if (
+				existingRouting?.type === "custom" &&
+				isRouting(existingRouting.data) &&
+				(!sameIds(existingRouting.data.addressedParticipantIds ?? [], recipients) ||
+					existingRouting.data.requestId !== input.requestId ||
+					existingRouting.data.intent !== input.intent)
+			) {
+				throw new Error(`Team message request id was reused with different routing: ${input.requestId}`);
 			}
-			const requestId = `question:${delivery.id}`;
-			const admitted = await this.store.enqueue({
-				session,
-				memberId: delivery.toParticipantId,
-				requestId,
-				...(delivery.toolCallId ? { originToolCallId: delivery.toolCallId } : {}),
-				createdByParticipantId: sourceMemberId,
-				objective: questionPrompt(session, delivery, input.text),
-				kind: "question",
+			const existingMessage = document.entries.find((entry) => entry.id === messageId);
+			if (
+				existingMessage &&
+				(existingMessage.type !== "message" ||
+					existingMessage.kind !== "agent" ||
+					existingMessage.author.id !== sourceMemberId ||
+					existingMessage.turnId !== input.sourceTurnId ||
+					agentText(existingMessage.message.content) !== input.text)
+			) {
+				throw new Error(`Team message request id was reused with different content: ${input.requestId}`);
+			}
+			const timestamp =
+				existingMessage?.type === "message" && existingMessage.kind === "agent"
+					? existingMessage.message.timestamp
+					: Date.now();
+			const agentProfileId = session.memberRuntime[sourceMemberId]?.agentProfileId;
+			await this.host.appendMessage(coordination.sessionId, {
+				kind: "agent",
+				id: messageId,
+				turnId: input.sourceTurnId,
+				timestamp,
+				author: { kind: "agent", id: sourceMemberId, ...(agentProfileId ? { agentId: agentProfileId } : {}) },
+				message: {
+					...createAssistantMessage(input.modelIdentity, { timestamp }),
+					content: [{ type: "text", text: input.text }],
+				},
 			});
-			const waiting = await this.store.updateDelivery(session, delivery.id, { state: "waiting" });
-			this.host.onDelivery(session, waiting);
-			if (admitted.workItem.state === "queued") this.host.startWorkItem(session, admitted.workItem);
+			// A persisted teammate message needs its routing even if stop won the race;
+			// otherwise it is projected as an ordinary public answer after reopening.
+			if (!existingRouting) await this.host.appendMetadata(coordination.sessionId, routing.customType, routing);
+			this.assertAdmissionCurrent(session, stopGeneration);
+			const pending = recipients.map((toParticipantId): TeamMessageDelivery => {
+				const id = stableTeamEventId(["delivery", messageId, toParticipantId]);
+				const requestId = `question:${id}`;
+				return {
+					id,
+					messageId,
+					fromParticipantId: sourceMemberId,
+					toParticipantId,
+					intent: input.intent,
+					state: "pending",
+					...(input.intent === "question" ? { workItemId: `work:${requestId}:${toParticipantId}` } : {}),
+					sourceTurnId: input.sourceTurnId,
+					toolCallId: input.toolCallId,
+					createdAt: timestamp,
+					updatedAt: timestamp,
+				};
+			});
+			const deliveries = await this.store.createDeliveries(session, pending);
+			this.assertAdmissionCurrent(session, stopGeneration);
+			input.signal.throwIfAborted();
+			for (const delivery of deliveries) {
+				this.assertAdmissionCurrent(session, stopGeneration);
+				if (delivery.state !== "pending") continue;
+				if (input.intent === "inform") {
+					const delivered = await this.store.updateDelivery(session, delivery.id, { state: "delivered" });
+					this.host.onDelivery(session, delivered);
+					continue;
+				}
+				const requestId = `question:${delivery.id}`;
+				const admitted = await this.store.enqueue({
+					session,
+					memberId: delivery.toParticipantId,
+					requestId,
+					...(delivery.toolCallId ? { originToolCallId: delivery.toolCallId } : {}),
+					createdByParticipantId: sourceMemberId,
+					objective: questionPrompt(session, delivery, input.text),
+					kind: "question",
+				});
+				this.assertAdmissionCurrent(session, stopGeneration);
+				const waiting = await this.store.updateDelivery(session, delivery.id, { state: "waiting" });
+				this.assertAdmissionCurrent(session, stopGeneration);
+				this.host.onDelivery(session, waiting);
+				this.assertAdmissionCurrent(session, stopGeneration);
+				if (admitted.workItem.state === "queued") this.host.startWorkItem(session, admitted.workItem);
+			}
+			return { messageId, deliveryIds: deliveries.map((delivery) => delivery.id) };
+		} finally {
+			if (!this.isAdmissionCurrent(session, stopGeneration)) {
+				await this.store.cancelMessageForTeamStop(session, messageId);
+			}
 		}
-		return { messageId, deliveryIds: deliveries.map((delivery) => delivery.id) };
+	}
+
+	private isAdmissionCurrent(session: TeamSessionDocument, stopGeneration: number): boolean {
+		return !this.host.isStopped(session.id) && this.host.stopGeneration(session.id) === stopGeneration;
+	}
+
+	private assertAdmissionCurrent(session: TeamSessionDocument, stopGeneration: number): void {
+		if (!this.isAdmissionCurrent(session, stopGeneration)) throw new Error("Team session was stopped");
 	}
 
 	private async ensureQuestionWorkItem(

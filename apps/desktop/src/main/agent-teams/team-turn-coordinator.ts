@@ -124,6 +124,8 @@ export class TeamTurnCoordinator {
 		});
 		this.messageControl = new TeamMessageControlService(options.collaborationStore, {
 			readSession: options.readSession,
+			isStopped: (sessionId) => this.stopped.has(sessionId),
+			stopGeneration: (sessionId) => this.stopGenerations.get(sessionId) ?? 0,
 			resolveTarget: (session, handle) => resolveMemberByHandle(this.syntheticTeam(session), handle)?.id,
 			appendMessage: (sessionId, message) => options.runtime().appendConversationMessage(sessionId, message),
 			appendMetadata: (sessionId, customType, data) =>

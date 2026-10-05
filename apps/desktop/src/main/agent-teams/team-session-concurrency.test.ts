@@ -734,6 +734,204 @@ describe("Team member concurrency", () => {
 		await completed;
 	});
 
+	it.each(["inform", "question"] as const)("refuses new %s messages after the team was stopped", async (intent) => {
+		const fixture = await createFixture();
+		const [leader, member] = fixture.members;
+		await fixture.service.abort(fixture.session.id);
+		await expect(
+			fixture.service.messageControls(fixture.session.id).sendMessage({
+				...taskCaller(fixture, leader),
+				requestId: "stopped-message",
+				recipientHandles: [fixture.session.memberHandles[member]!],
+				intent,
+				text: "Do not restart stopped work",
+				modelIdentity: { api: "openai-responses", provider: "openai", model: "test" },
+			}),
+		).rejects.toThrow("Team session was stopped");
+		expect((await fixture.service.readCollaborationState(fixture.session.id)).deliveries).toHaveLength(0);
+		expect(fixture.runtime.prompt).not.toHaveBeenCalled();
+	});
+
+	it("does not admit an old question after stop and a newer user turn race with message persistence", async () => {
+		const fixture = await createFixture();
+		const [leader, member] = fixture.members;
+		const append = fixture.runtime.appendSessionMetadataEntry;
+		const routingStarted = deferred();
+		const releaseRouting = deferred();
+		vi.spyOn(fixture.runtime, "appendSessionMetadataEntry").mockImplementation(async (id, type, data) => {
+			await append(id, type, data);
+			if (
+				type === "agent-team.message-routing.v1" &&
+				typeof data === "object" &&
+				data !== null &&
+				"requestId" in data &&
+				data.requestId === "old-question"
+			) {
+				routingStarted.resolve();
+				await releaseRouting.promise;
+			}
+		});
+		const question = fixture.service.messageControls(fixture.session.id).sendMessage({
+			...taskCaller(fixture, leader),
+			requestId: "old-question",
+			recipientHandles: [fixture.session.memberHandles[member]!],
+			intent: "question",
+			text: "Old question",
+			modelIdentity: { api: "openai-responses", provider: "openai", model: "test" },
+		});
+		const outcome = question.then(
+			() => "accepted",
+			(error: unknown) => (error instanceof Error ? error.message : String(error)),
+		);
+		await routingStarted.promise;
+		await fixture.service.abort(fixture.session.id);
+		const fresh = fixture.turn(leader, "New request");
+		const send = fixture.service.send(fixture.session.id, {
+			requestId: "new-request",
+			text: "New request",
+			targetMemberIds: [leader],
+		});
+		await fresh.started.promise;
+		fresh.finish.resolve();
+		await send;
+		releaseRouting.resolve();
+		expect(await outcome).toBe("Team session was stopped");
+		const restored = fixture.restartService();
+		await restored.read(fixture.session.id, fixture.session.coordinationRuntime!.sessionPath);
+		const state = await restored.readCollaborationState(fixture.session.id);
+		expect(state.deliveries).toHaveLength(0);
+		expect(state.workItems).toHaveLength(1);
+		expect(state.workItems[0]).toMatchObject({ requestTurnId: "new-request", state: "completed" });
+		expect(fixture.runtime.prompt).toHaveBeenCalledTimes(1);
+		await restored.abort(fixture.session.id);
+	});
+
+	it("preserves teammate routing when stop races with the public message write", async () => {
+		const fixture = await createFixture();
+		const [leader, member] = fixture.members;
+		const append = fixture.runtime.appendConversationMessage;
+		const messageStarted = deferred();
+		const releaseMessage = deferred();
+		const caller = taskCaller(fixture, leader);
+		let messageId: string | undefined;
+		vi.spyOn(fixture.runtime, "appendConversationMessage").mockImplementation(async (id, record) => {
+			const result = await append(id, record);
+			if (record.kind === "agent" && record.turnId === caller.sourceTurnId) {
+				messageId = record.id;
+				messageStarted.resolve();
+				await releaseMessage.promise;
+			}
+			return result;
+		});
+		const question = fixture.service.messageControls(fixture.session.id).sendMessage({
+			...caller,
+			requestId: "stop-before-routing",
+			recipientHandles: [fixture.session.memberHandles[member]!],
+			intent: "question",
+			text: "A question for my teammate",
+			modelIdentity: { api: "openai-responses", provider: "openai", model: "test" },
+		});
+		const outcome = question.then(
+			() => "accepted",
+			(error: unknown) => (error instanceof Error ? error.message : String(error)),
+		);
+		await messageStarted.promise;
+		await fixture.service.abort(fixture.session.id);
+		releaseMessage.resolve();
+		expect(await outcome).toBe("Team session was stopped");
+		const coordination = fixture.runtime.readSessionDocument(fixture.session.coordinationRuntime!.sessionId);
+		expect(coordination.entries).toContainEqual(
+			expect.objectContaining({
+				type: "custom",
+				customType: "agent-team.message-routing.v1",
+				data: expect.objectContaining({
+					messageEntryId: messageId,
+					addressedParticipantIds: [member],
+					intent: "question",
+				}),
+			}),
+		);
+		const restored = fixture.restartService();
+		await restored.read(fixture.session.id, fixture.session.coordinationRuntime!.sessionPath);
+		expect((await restored.readSnapshot(fixture.session.id)).messages).not.toContainEqual(
+			expect.objectContaining({ id: messageId }),
+		);
+		const state = await restored.readCollaborationState(fixture.session.id);
+		expect(state.deliveries).toHaveLength(0);
+		expect(state.workItems).toHaveLength(0);
+		expect(fixture.runtime.prompt).not.toHaveBeenCalled();
+	});
+
+	it("durably cancels a pending question delivery on team stop before a new user turn", async () => {
+		const fixture = await createFixture();
+		const [leader, member] = fixture.members;
+		const controller = new AbortController();
+		fixture.abortAfterPendingDelivery(controller);
+		await expect(
+			fixture.service.messageControls(fixture.session.id).sendMessage({
+				...taskCaller(fixture, leader),
+				signal: controller.signal,
+				requestId: "pending-before-stop",
+				recipientHandles: [fixture.session.memberHandles[member]!],
+				intent: "question",
+				text: "Do not revive this question",
+				modelIdentity: { api: "openai-responses", provider: "openai", model: "test" },
+			}),
+		).rejects.toThrow();
+		await fixture.service.abort(fixture.session.id);
+		expect((await fixture.service.readCollaborationState(fixture.session.id)).deliveries[0]?.state).toBe("cancelled");
+		const fresh = fixture.turn(leader, "Continue with new work");
+		const send = fixture.service.send(fixture.session.id, {
+			requestId: "after-pending-stop",
+			text: "Continue with new work",
+			targetMemberIds: [leader],
+		});
+		await fresh.started.promise;
+		fresh.finish.resolve();
+		await send;
+		const restored = fixture.restartService();
+		await restored.read(fixture.session.id, fixture.session.coordinationRuntime!.sessionPath);
+		expect((await restored.readCollaborationState(fixture.session.id)).deliveries[0]?.state).toBe("cancelled");
+		expect(fixture.runtime.prompt).toHaveBeenCalledTimes(1);
+		await restored.abort(fixture.session.id);
+	});
+
+	it("cancels a question delivery that is still being persisted when the team stops", async () => {
+		const fixture = await createFixture();
+		const [leader, member] = fixture.members;
+		const append = fixture.runtime.appendSessionMetadataEntry;
+		const deliveryStarted = deferred();
+		const releaseDelivery = deferred();
+		vi.spyOn(fixture.runtime, "appendSessionMetadataEntry").mockImplementation(async (id, type, data) => {
+			await append(id, type, data);
+			if (type === "agent-team.message-delivery.v1" && isTeamMessageDelivery(data) && data.state === "pending") {
+				deliveryStarted.resolve();
+				await releaseDelivery.promise;
+			}
+		});
+		const question = fixture.service.messageControls(fixture.session.id).sendMessage({
+			...taskCaller(fixture, leader),
+			requestId: "stopped-during-delivery",
+			recipientHandles: [fixture.session.memberHandles[member]!],
+			intent: "question",
+			text: "Stop during delivery",
+			modelIdentity: { api: "openai-responses", provider: "openai", model: "test" },
+		});
+		const outcome = question.then(
+			() => "accepted",
+			(error: unknown) => (error instanceof Error ? error.message : String(error)),
+		);
+		await deliveryStarted.promise;
+		const stop = fixture.service.abort(fixture.session.id);
+		releaseDelivery.resolve();
+		await stop;
+		expect(await outcome).toBe("Team session was stopped");
+		const state = await fixture.service.readCollaborationState(fixture.session.id);
+		expect(state.deliveries).toMatchObject([{ state: "cancelled" }]);
+		expect(state.workItems).toHaveLength(0);
+		expect(fixture.runtime.prompt).not.toHaveBeenCalled();
+	});
+
 	it("creates independent question deliveries and runs all addressed members in parallel", async () => {
 		const fixture = await createFixture();
 		const [leader, first] = fixture.members;
