@@ -743,7 +743,12 @@ export class AgentTeamSessionService {
 					Object.entries(persisted.memberRuntime).filter(([memberId]) => desiredMemberIds.has(memberId)),
 				),
 			};
-			const restored = await this.runtimeManager.restoreMembers(prepared, document);
+			// Legacy sessions have no coordination store yet; restored member bindings
+			// must have somewhere durable to commit before they can be adopted.
+			const restorable = prepared.coordinationRuntime
+				? prepared
+				: await this.runtimeManager.ensureCoordinationRuntime(prepared);
+			const restored = await this.runtimeManager.restoreMembers(restorable, document);
 			const coordinated = await this.migrateLoadedSession(
 				await this.runtimeManager.ensureCoordinationRuntime(restored),
 			);
@@ -759,6 +764,15 @@ export class AgentTeamSessionService {
 			await this.recoverRestoredSession(reconciled);
 			return this.sessionState.get(id) ?? reconciled;
 		} catch (error) {
+			// Runtime bindings and publication steps may already be durable. Retain
+			// their path, but never let a partially recovered session take the cache
+			// shortcut on the next user read. Existing runtimes remain reusable.
+			const retryPath =
+				coordinationSessionPath ??
+				this.sessionState.coordinationPath(id) ??
+				this.sessionState.get(id)?.coordinationRuntime?.sessionPath;
+			this.sessionState.remove(id);
+			if (retryPath) this.sessionState.rememberCoordinationPath(id, retryPath);
 			log.error("failed to load team session", { teamSessionId: id, error: errorMessage(error) });
 			throw new Error(`Team session could not be loaded: ${id}`, { cause: error });
 		}
