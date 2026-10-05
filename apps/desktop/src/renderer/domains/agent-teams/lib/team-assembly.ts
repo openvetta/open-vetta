@@ -136,8 +136,9 @@ export function buildUpdateTeamInput(
 	const existingByAgentId = new Map(team.members.map((member) => [member.binding.agentProfileId, member]));
 	const members: UpdateTeamMemberInput[] = [];
 	for (const agentId of draft.memberIds) {
-		if (!agentsById.has(agentId)) continue;
 		const existing = existingByAgentId.get(agentId);
+		// 已有成员由稳定的 memberId 保留，展示档案暂未加载不能等价于移除成员。
+		if (!existing && !agentsById.has(agentId)) continue;
 		members.push(
 			existing
 				? {

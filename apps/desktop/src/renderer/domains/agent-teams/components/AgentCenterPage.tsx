@@ -1,10 +1,10 @@
 import { teamDisplayName } from "@shared/agent-teams/agent-team-presentation";
+import { notifyAgentTeamConfigurationChanged } from "@shared/agent-teams/team-session-events";
 import { confirmDialogAtom, pageHeaderTitleHiddenAtom } from "@shared/store/atoms";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { notifyAgentTeamConfigurationChanged } from "@shared/agent-teams/team-session-events";
 import { useAgentCenterModel } from "../hooks/useAgentCenterModel";
 import { AgentCenterView } from "./AgentCenterView";
 import { AgentProfileSheet } from "./AgentProfileSheet";
@@ -37,10 +37,7 @@ export function AgentCenterPage(): JSX.Element {
 		(agentId: string) => void navigate({ to: "/agents", search: { agent: agentId }, replace: true }),
 		[navigate],
 	);
-	const closeSheets = useCallback(
-		() => void navigate({ to: "/agents", search: {}, replace: true }),
-		[navigate],
-	);
+	const closeSheets = useCallback(() => void navigate({ to: "/agents", search: {}, replace: true }), [navigate]);
 
 	// 关闭动画期间保留抽屉内容，Vaul 报告退出动画结束后才卸载。
 	const [agentMounted, setAgentMounted] = useState(agentParam !== undefined);
@@ -143,8 +140,10 @@ export function AgentCenterPage(): JSX.Element {
 					onPreview={model.actions.previewAgent}
 					onSave={model.actions.saveAgent}
 					onCreate={model.actions.createAgentFromDraft}
-					// 提供方维护的档案不给删除入口：它由提供方装卸，删了下次启动也会回来。
-					{...(sheetAgent?.source ? {} : { onDelete: () => void requestDeleteAgent() })}
+					// 副本通过团队设置移除；提供方维护的档案由提供方装卸。
+					{...(sheetAgent?.source || sheetAgent?.scope.kind === "team"
+						? {}
+						: { onDelete: () => void requestDeleteAgent() })}
 				/>
 			)}
 

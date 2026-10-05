@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 
 import { confirmDialogAtom } from "@shared/store/atoms";
-import type { AgentProfileDeleteImpact } from "@vetta/agent-team";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import type { AgentProfileDeleteImpact } from "@vetta/agent-team";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentCenterPage } from "./AgentCenterPage";
 
 const mocks = vi.hoisted(() => ({
@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 	selectTeam: vi.fn(),
 	navigate: vi.fn(),
 	search: vi.fn(() => ({ agent: "agent" })),
+	teamCopy: false,
 }));
 
 const agent = {
@@ -56,11 +57,12 @@ vi.mock("./AgentCenterView", () => ({
 	),
 }));
 vi.mock("./AgentProfileSheet", () => ({
-	AgentProfileSheet: ({ onDelete }: { onDelete?: () => void }) => (
-		<button type="button" onClick={onDelete}>
-			delete-agent
-		</button>
-	),
+	AgentProfileSheet: ({ onDelete }: { onDelete?: () => void }) =>
+		onDelete ? (
+			<button type="button" onClick={onDelete}>
+				delete-agent
+			</button>
+		) : null,
 }));
 vi.mock("./TeamSettingsSheet", () => ({ TeamSettingsSheet: () => <div>team sheet</div> }));
 vi.mock("../hooks/useAgentCenterModel", () => ({
@@ -70,7 +72,7 @@ vi.mock("../hooks/useAgentCenterModel", () => ({
 		teams: [team],
 		agents: [agent],
 		selectedTeam: team,
-		findAgent: () => agent,
+		findAgent: () => (mocks.teamCopy ? { ...agent, scope: { kind: "team", teamId: team.id } } : agent),
 		findTeam: () => team,
 		blueprints: [],
 		capabilities: [],
@@ -90,6 +92,16 @@ vi.mock("../hooks/useAgentCenterModel", () => ({
 }));
 
 describe("AgentCenterPage", () => {
+	beforeEach(() => {
+		mocks.teamCopy = false;
+	});
+
+	it("keeps library deletion out of a team-only member's profile", () => {
+		mocks.teamCopy = true;
+		render(<AgentCenterPage />);
+		expect(screen.queryByRole("button", { name: "delete-agent" })).toBeNull();
+	});
+
 	it("shows every affected team and deletes with the reviewed reference set", async () => {
 		const impact: AgentProfileDeleteImpact = {
 			agentProfileId: "agent",

@@ -1,13 +1,14 @@
-import type { AgentProfile, TeamDefinition } from "@vetta/agent-team";
+import type { TeamDefinition } from "@vetta/agent-team";
 import { useCallback, useMemo } from "react";
 import { buildCreateTeamInput, buildUpdateTeamInput, type TeamAssemblyDraft } from "../lib/team-assembly";
 import { type AgentTeamResources, agentTeamErrorMessage } from "./useAgentTeamResources";
 
 /** 团队编队的读写；智能体本身的编辑由 `useAgentLibraryModel` 负责。 */
-export function useTeamRosterModel(resources: AgentTeamResources, agents: readonly AgentProfile[]) {
+export function useTeamRosterModel(resources: AgentTeamResources) {
 	const { document, setDocument, setError, reload } = resources;
 	const teams = useMemo(() => document?.teams ?? [], [document]);
-	const agentsById = useMemo(() => new Map(agents.map((agent) => [agent.id, agent])), [agents]);
+	// 阵容还包含仅属于团队的副本；智能体库的筛选不能成为成员身份的事实源。
+	const agentsById = useMemo(() => new Map(document?.agents.map((agent) => [agent.id, agent]) ?? []), [document]);
 
 	const saveAssembly = useCallback(
 		async (draft: TeamAssemblyDraft): Promise<TeamDefinition | undefined> => {
@@ -30,13 +31,21 @@ export function useTeamRosterModel(resources: AgentTeamResources, agents: readon
 						: current,
 				);
 				setError(undefined);
+				// copy 的 Profile ID 由主进程生成，保存返回的 Team 不含其档案。
+				// 同步完整配置，才能立即显示新副本并移除已删除的副本。
+				if (
+					saved.members.some((member) => member.binding.kind === "copy") ||
+					existing?.members.some((member) => member.binding.kind === "copy")
+				) {
+					await reload();
+				}
 				return saved;
 			} catch (cause) {
 				setError(agentTeamErrorMessage(cause));
 				return undefined;
 			}
 		},
-		[agentsById, setDocument, setError, teams],
+		[agentsById, reload, setDocument, setError, teams],
 	);
 
 	const deleteTeam = useCallback(

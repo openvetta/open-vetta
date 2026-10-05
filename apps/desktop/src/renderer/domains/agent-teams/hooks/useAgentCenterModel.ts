@@ -17,7 +17,7 @@ import { useTeamRosterModel } from "./useTeamRosterModel";
 export function useAgentCenterModel(copy: AgentLibraryCopy) {
 	const resources = useAgentTeamResources();
 	const library = useAgentLibraryModel(resources, copy);
-	const roster = useTeamRosterModel(resources, library.libraryAgents);
+	const roster = useTeamRosterModel(resources);
 	const { createAgent } = library.actions;
 	const { saveAssembly } = roster.actions;
 
@@ -107,7 +107,7 @@ export function useAgentCenterModel(copy: AgentLibraryCopy) {
 		assembly,
 		assemblyLeaderId: assembly ? assemblyLeaderId(assembly) : undefined,
 		assemblySubmittable: assembly ? canSubmitAssembly(assembly) : false,
-		findAgent: (agentId: string) => library.libraryAgents.find((agent) => agent.id === agentId),
+		findAgent: (agentId: string) => roster.agentsById.get(agentId),
 		findTeam: (teamId: string) => roster.teams.find((team) => team.id === teamId),
 		actions: {
 			...library.actions,

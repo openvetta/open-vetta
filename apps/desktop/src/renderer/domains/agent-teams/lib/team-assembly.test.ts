@@ -149,6 +149,14 @@ describe("team assembly submission", () => {
 		]);
 	});
 
+	it("retains existing members even while their profile is absent from the display cache", () => {
+		const input = buildUpdateTeamInput(assemblyDraftFromTeam(team), team, new Map([["a", agent("a")]]));
+		expect(input.members).toEqual([
+			{ kind: "existing", memberId: "member-a", leader: false, assignment: {} },
+			{ kind: "existing", memberId: "member-b", leader: true, assignment: {} },
+		]);
+	});
+
 	it("carries a drafted assignment into the update input", () => {
 		const input = buildUpdateTeamInput(
 			{
