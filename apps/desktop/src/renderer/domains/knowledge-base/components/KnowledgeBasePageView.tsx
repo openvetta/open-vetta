@@ -1,8 +1,9 @@
-import { KnowledgeFilesSkeleton } from "@vetta-org/theme-ui/knowledge";
-import { useTranslation } from "react-i18next";
-import { AnimatePresence, motion } from "motion/react";
-import { Button, cn } from "@vetta-org/ui";
 import { KnowledgeHowItWorksDialog } from "@shared/components/KnowledgeHowItWorksDialog";
+import { Input } from "@shared/components/ui/input";
+import { KnowledgeFilesSkeleton } from "@vetta-org/theme-ui/knowledge";
+import { Button, cn } from "@vetta-org/ui";
+import { AnimatePresence, motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 import { SettingsAiAssist } from "../../settings/ai-assist";
 import type { useKnowledgeBasePageModel } from "../hooks/useKnowledgeBasePageModel";
 import { knowledgeBaseDisplayName } from "../lib/knowledge-base";
@@ -37,9 +38,7 @@ export function KnowledgeBasePageView({ model }: KnowledgeBasePageViewProps): JS
 						<h1 className="mt-5 text-[20px] font-bold tracking-tight text-foreground">
 							{t("kbPageDisabledTitle")}
 						</h1>
-						<p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-							{t("kbPageDisabledDesc")}
-						</p>
+						<p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{t("kbPageDisabledDesc")}</p>
 						<div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
 							<Button variant="primary" onClick={model.enableKnowledgeBase}>
 								<span className="icon-[mdi--power] h-4 w-4" />
@@ -60,23 +59,14 @@ export function KnowledgeBasePageView({ model }: KnowledgeBasePageViewProps): JS
 					</motion.div>
 				</div>
 
-				<KnowledgeHowItWorksDialog
-					open={model.howItWorksOpen}
-					onClose={() => model.setHowItWorksOpen(false)}
-				/>
+				<KnowledgeHowItWorksDialog open={model.howItWorksOpen} onClose={() => model.setHowItWorksOpen(false)} />
 			</div>
 		);
 	}
 
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
-			<input
-				ref={model.fileInputRef}
-				type="file"
-				multiple
-				className="hidden"
-				onChange={model.onFilesPicked}
-			/>
+			<input ref={model.fileInputRef} type="file" multiple className="hidden" onChange={model.onFilesPicked} />
 
 			<header
 				className={cn(
@@ -122,13 +112,16 @@ export function KnowledgeBasePageView({ model }: KnowledgeBasePageViewProps): JS
 						initial={{ opacity: 0, y: -6 }}
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ duration: 0.4, delay: 0.06, ease: EASE_OUT }}
-						className={cn(
-							"flex shrink-0 items-center gap-2",
-							model.narrow ? "flex-wrap justify-end" : "",
-						)}
+						className={cn("flex shrink-0 items-center gap-2", model.narrow ? "flex-wrap justify-end" : "")}
 					>
-						<Button variant="ghost" size="icon-sm" title={t("kbPageRefresh")} onClick={() => void model.refresh()}>
-							<span className="icon-[mdi--refresh] h-4 w-4" />
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							title={t("kbPageRefresh")}
+							aria-label={t("kbPageRefresh")}
+							onClick={() => void model.refresh()}
+						>
+							<span className="icon-[solar--refresh-linear] h-4 w-4" aria-hidden="true" />
 						</Button>
 						<div className="flex items-center rounded-lg bg-muted/55 p-0.5">
 							{(
@@ -141,6 +134,7 @@ export function KnowledgeBasePageView({ model }: KnowledgeBasePageViewProps): JS
 									key={mode}
 									type="button"
 									title={title}
+									aria-label={title}
 									aria-pressed={model.viewMode === mode}
 									onClick={() => model.setViewMode(mode)}
 									className={cn(
@@ -159,12 +153,17 @@ export function KnowledgeBasePageView({ model }: KnowledgeBasePageViewProps): JS
 							onPickFolders={model.pickFoldersForActiveBase}
 						/>
 						<div className="relative w-28 sm:w-40">
-							<span className="icon-[mdi--magnify] absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
-							<input
+							<span
+								className="icon-[solar--magnifer-linear] absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40"
+								aria-hidden="true"
+							/>
+							<Input
+								type="search"
+								aria-label={t("kbPageSearch")}
 								value={model.search}
 								onChange={(event) => model.setSearch(event.target.value)}
 								placeholder={t("kbPageSearch")}
-								className="h-8 w-full min-w-0 rounded-lg border border-transparent bg-secondary pl-7 pr-2.5 text-[12px] shadow-none outline-none placeholder:text-muted-foreground/45 hover:bg-accent focus-visible:border-primary/25 focus-visible:bg-background/70"
+								className="h-8 w-full min-w-0 bg-secondary pl-7 pr-2.5 text-[12px]"
 							/>
 						</div>
 					</motion.div>
@@ -204,10 +203,7 @@ export function KnowledgeBasePageView({ model }: KnowledgeBasePageViewProps): JS
 				/>
 			)}
 
-			<KnowledgeHowItWorksDialog
-				open={model.howItWorksOpen}
-				onClose={() => model.setHowItWorksOpen(false)}
-			/>
+			<KnowledgeHowItWorksDialog open={model.howItWorksOpen} onClose={() => model.setHowItWorksOpen(false)} />
 
 			{model.pendingOpen && model.activeBase && (
 				<KnowledgePendingFilesDialog

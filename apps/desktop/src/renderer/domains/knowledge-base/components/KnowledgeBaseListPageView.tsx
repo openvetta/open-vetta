@@ -1,9 +1,9 @@
-import { KnowledgeBreadcrumbView } from "@vetta-org/theme-ui/knowledge";
-import { useTranslation } from "react-i18next";
-import { AnimatePresence, motion } from "motion/react";
-import { Button } from "@vetta-org/ui";
-
+import { Input } from "@shared/components/ui/input";
 import { cn } from "@shared/lib/utils";
+import type { KnowledgeBreadcrumbView } from "@vetta-org/theme-ui/knowledge";
+import { Button } from "@vetta-org/ui";
+import { AnimatePresence, motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 import { SettingsAiAssist } from "../../settings/ai-assist";
 import type { useKnowledgeBaseListModel } from "../hooks/useKnowledgeBaseListModel";
 import {
@@ -41,9 +41,10 @@ export function KnowledgeBaseListPageView({ model }: KnowledgeBaseListPageViewPr
 							variant="ghost"
 							size="icon-sm"
 							title={t("kbAllBack")}
+							aria-label={t("kbAllBack")}
 							onClick={model.goBack}
 						>
-							<span className="icon-[mdi--arrow-left] h-4 w-4" />
+							<span className="icon-[solar--arrow-left-linear] h-4 w-4" aria-hidden="true" />
 						</Button>
 						<h1 className="text-[24px] font-bold tracking-tight text-foreground">{t("kbAllTitle")}</h1>
 						<motion.span
@@ -65,17 +66,22 @@ export function KnowledgeBaseListPageView({ model }: KnowledgeBaseListPageViewPr
 					className="flex items-center gap-2"
 				>
 					<div className={cn("relative", model.narrow ? "min-w-0 flex-1" : "w-64")}>
-						<span className="icon-[mdi--magnify] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
-						<input
+						<span
+							className="icon-[solar--magnifer-linear] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40"
+							aria-hidden="true"
+						/>
+						<Input
+							type="search"
+							aria-label={t("kbAllSearch")}
 							value={model.search}
 							onChange={(event) => model.setSearch(event.target.value)}
 							placeholder={t("kbAllSearch")}
-							className="h-8 w-full min-w-0 rounded-lg border border-transparent bg-secondary pl-8 pr-3 text-[12px] shadow-none outline-none placeholder:text-muted-foreground/45 hover:bg-accent focus-visible:border-primary/25 focus-visible:bg-background/70"
+							className="h-8 w-full min-w-0 bg-secondary pl-8 pr-3 text-[12px]"
 						/>
 					</div>
 					<SettingsAiAssist tabId="knowledgeBase" />
 					<Button variant="primary" onClick={model.createKnowledgeBase}>
-						<span className="icon-[mdi--plus] h-4 w-4" />
+						<span className="icon-[solar--add-circle-linear] h-4 w-4" aria-hidden="true" />
 						{t("kbCreateBase")}
 					</Button>
 				</motion.div>
@@ -91,7 +97,7 @@ export function KnowledgeBaseListPageView({ model }: KnowledgeBaseListPageViewPr
 							animate={{ opacity: 1, y: 0 }}
 							exit={{ opacity: 0, y: 6 }}
 							transition={{ duration: 0.35, ease: EASE_OUT }}
-							className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3"
+							className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))] gap-3"
 						>
 							<AnimatePresence mode="popLayout">
 								{model.filteredBases.map((base, index) => {
@@ -122,10 +128,10 @@ export function KnowledgeBaseListPageView({ model }: KnowledgeBaseListPageViewPr
 												variant="ghost"
 												onClick={() => model.openKnowledgeBase(base)}
 												className={cn(
-													"group h-auto min-h-36 w-full items-stretch justify-start whitespace-normal rounded-xl border p-4 text-left transition-[background-color,border-color,box-shadow]",
+													"group h-auto min-h-36 w-full items-stretch justify-start whitespace-normal rounded-xl border p-4 text-left transition-colors",
 													active
-														? "border-primary/25 bg-primary/6 hover:bg-primary/10 hover:shadow-sm"
-														: "border-border bg-muted/25 hover:bg-muted/55 hover:shadow-sm",
+														? "border-primary/25 bg-primary/5 hover:bg-primary/10"
+														: "border-border/50 bg-card/40 hover:border-primary/40 hover:bg-card/60",
 												)}
 											>
 												<div className="flex w-full flex-col">
@@ -134,17 +140,17 @@ export function KnowledgeBaseListPageView({ model }: KnowledgeBaseListPageViewPr
 															className={cn(
 																"flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors",
 																active
-																	? "bg-primary/12 text-primary"
+																	? "bg-primary/10 text-primary"
 																	: "bg-accent text-muted-foreground group-hover:text-foreground",
 															)}
 														>
-															<span className="icon-[mdi--book-open-variant-outline] h-4 w-4" />
+															<span className="icon-[solar--book-2-linear] h-4 w-4" aria-hidden="true" />
 														</div>
 														{active && (
 															<motion.span
 																initial={{ opacity: 0, scale: 0.85 }}
 																animate={{ opacity: 1, scale: 1 }}
-																className="rounded-full bg-primary/10 px-2 py-0.5 text-[9.5px] font-medium text-primary"
+																className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
 															>
 																{t("kbCurrent")}
 															</motion.span>
@@ -185,9 +191,7 @@ export function KnowledgeBaseListPageView({ model }: KnowledgeBaseListPageViewPr
 								{model.knowledgeBases.length === 0 ? t("kbAllEmptyNone") : t("kbAllEmptyNoMatch")}
 							</p>
 							<p className="mt-1 text-[11px] text-muted-foreground/55">
-								{model.knowledgeBases.length === 0
-									? t("kbAllEmptyNoneDesc")
-									: t("kbAllEmptyNoMatchDesc")}
+								{model.knowledgeBases.length === 0 ? t("kbAllEmptyNoneDesc") : t("kbAllEmptyNoMatchDesc")}
 							</p>
 							{model.knowledgeBases.length === 0 && (
 								<Button variant="primary" className="mt-4" onClick={model.createKnowledgeBase}>

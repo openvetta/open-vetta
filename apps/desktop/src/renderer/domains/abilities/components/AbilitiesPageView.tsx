@@ -1,18 +1,19 @@
+import { Input } from "@shared/components/ui/input";
+import { CapabilitiesTour } from "@shared/tour";
 import { SegmentedControl } from "@vetta-org/theme-ui/shared";
 import { Button } from "@vetta-org/ui";
 import { motion } from "motion/react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CapabilitiesTour } from "@shared/tour";
 import { SettingsAiAssist } from "../../settings/ai-assist";
 import { resolveCategoryLabel } from "../lib/ability-presentation";
 import {
 	ABILITY_CATEGORY_CONNECTORS,
 	ABILITY_CATEGORY_UNCATEGORIZED,
 	ABILITY_CATEGORY_VETTA_BUILTIN,
-	ENABLE_ABILITY_CATEGORIES,
 	type AbilitiesModel,
 	type AbilityScope,
+	ENABLE_ABILITY_CATEGORIES,
 } from "../types";
 import { AbilitiesBanner } from "./AbilitiesBanner";
 import { AbilityCard } from "./AbilityCard";
@@ -89,12 +90,13 @@ export function AbilitiesPageView({
 						<div data-tour="capabilities-search-add" className="flex min-w-0 flex-wrap items-center gap-2">
 							<div className="relative w-56 shrink-0">
 								<span className="icon-[solar--magnifer-linear] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
-								<input
-									type="text"
+								<Input
+									type="search"
+									aria-label={t("search.placeholder")}
 									placeholder={t("search.placeholder")}
 									value={model.searchQuery}
 									onChange={(event) => model.setSearchQuery(event.target.value)}
-									className="h-8 w-full rounded-lg bg-secondary pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors hover:bg-accent focus:bg-accent focus:outline-none"
+									className="h-8 w-full bg-secondary pl-8 pr-3 text-[12px]"
 								/>
 							</div>
 							<AddAbilityMenu
@@ -138,17 +140,20 @@ export function AbilitiesPageView({
 					</div>
 
 					{model.errors.length > 0 && (
-						<div className="flex items-start gap-2 rounded-lg bg-muted/60 px-3 py-2 text-[12px] text-muted-foreground/70">
+						<div
+							role="alert"
+							className="flex items-start gap-2 rounded-lg bg-muted/60 px-3 py-2 text-[12px] text-muted-foreground/70"
+						>
 							<span className="icon-[solar--info-circle-linear] mt-0.5 h-3.5 w-3.5 shrink-0" />
 							<span>{t("error.partial", { error: model.errors.join(" / ") })}</span>
 						</div>
 					)}
 					<div data-tour="capabilities-list">
 						{model.loading ? (
-							<div className="flex min-h-52 flex-col items-center justify-center gap-2 text-muted-foreground/60">
+							<output className="flex min-h-52 flex-col items-center justify-center gap-2 text-muted-foreground/60">
 								<span className="icon-[solar--refresh-linear] h-8 w-8 animate-spin" />
 								<span className="text-[12px]">{t("loading")}</span>
-							</div>
+							</output>
 						) : model.items.length === 0 ? (
 							<div className="flex min-h-52 flex-col items-center justify-center gap-3 rounded-xl border border-border/50 bg-card/30 text-center">
 								<span className="icon-[solar--magic-stick-3-linear] h-10 w-10 text-muted-foreground/50" />
@@ -178,13 +183,17 @@ export function AbilitiesPageView({
 															? t("group.connectors")
 															: group.category === ABILITY_CATEGORY_VETTA_BUILTIN
 																? t("group.vettaBuiltin")
-																: resolveCategoryLabel(group.category, group.categoryI18n, i18n.language)}
+																: resolveCategoryLabel(
+																		group.category,
+																		group.categoryI18n,
+																		i18n.language,
+																	)}
 												</h2>
 												<span className="text-[11px] tabular-nums text-muted-foreground/50">
 													{group.items.length}
 												</span>
 											</div>
-											<div className="grid grid-cols-2 gap-x-3 gap-y-0.5 lg:grid-cols-3">
+											<div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))] gap-3">
 												{group.items.map((item) => (
 													<AbilityCard key={item.id} item={item} model={model} />
 												))}
@@ -192,7 +201,7 @@ export function AbilitiesPageView({
 										</section>
 									))
 								) : (
-									<div className="grid grid-cols-2 gap-x-3 gap-y-0.5 lg:grid-cols-3">
+									<div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))] gap-3">
 										{model.items.map((item) => (
 											<AbilityCard key={item.id} item={item} model={model} />
 										))}
