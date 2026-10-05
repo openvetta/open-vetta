@@ -166,11 +166,18 @@ export function useMessageFeedScrollModel<T>({
 				: { resetKey: currentResetKey, enabled: shouldFollow },
 		);
 	}, []);
+	// Only a position the reader chose is remembered. While the feed follows its tail the
+	// viewport may be anywhere on the way to the bottom (estimated heights, content still
+	// measuring); remembering that would bring the feed back mid-way with following off.
 	const captureState = useCallback(() => {
 		const key = stateKeyRef.current;
 		const itemCount = stateItemCountRef.current;
 		const identity = stateItemIdentityRef.current;
 		if (!key || itemCount === 0) return;
+		if (shouldFollowBottomRef.current) {
+			feedStateCache.delete(key);
+			return;
+		}
 		const handle = virtuosoRef.current;
 		if (!handle || typeof handle.getState !== "function") return;
 		handle.getState((snapshot) => cacheFeedState(key, itemCount, identity, snapshot));
@@ -243,6 +250,35 @@ export function useMessageFeedScrollModel<T>({
 				lastUserScrollDirectionRef.current = "up";
 				stopFollowingBottom();
 			} else if (event.deltaY > 0) {
+				lastUserScrollDirectionRef.current = "down";
+			}
+		},
+		[stopFollowingBottom],
+	);
+	// Observe the focused scroller's native keys, not an app shortcut. Descendant controls
+	// own their keys, and the shortcut stack runs in document capture before this listener.
+	// Never preventDefault: the browser still performs the actual keyboard scrolling.
+	const onNativeScrollKeyDown = useCallback(
+		(event: KeyboardEvent) => {
+			if (
+				event.target !== event.currentTarget ||
+				event.defaultPrevented ||
+				event.isComposing ||
+				event.altKey ||
+				event.ctrlKey ||
+				event.metaKey
+			) {
+				return;
+			}
+			if (
+				event.key === "ArrowUp" ||
+				event.key === "PageUp" ||
+				event.key === "Home" ||
+				(event.key === " " && event.shiftKey)
+			) {
+				lastUserScrollDirectionRef.current = "up";
+				stopFollowingBottom();
+			} else if (event.key === "ArrowDown" || event.key === "PageDown" || event.key === "End" || event.key === " ") {
 				lastUserScrollDirectionRef.current = "down";
 			}
 		},
@@ -402,6 +438,7 @@ export function useMessageFeedScrollModel<T>({
 		const element = scrollerElement;
 		if (!element) return;
 		element.addEventListener("wheel", onWheel, { passive: true });
+		element.addEventListener("keydown", onNativeScrollKeyDown);
 		element.addEventListener("touchstart", onTouchStart, { passive: true });
 		element.addEventListener("touchmove", onTouchMove, { passive: true });
 		element.addEventListener("pointerdown", onPointerDown, { passive: true });
@@ -415,6 +452,7 @@ export function useMessageFeedScrollModel<T>({
 		resizeObserver.observe(element);
 		return () => {
 			element.removeEventListener("wheel", onWheel);
+			element.removeEventListener("keydown", onNativeScrollKeyDown);
 			element.removeEventListener("touchstart", onTouchStart);
 			element.removeEventListener("touchmove", onTouchMove);
 			element.removeEventListener("pointerdown", onPointerDown);
@@ -435,6 +473,7 @@ export function useMessageFeedScrollModel<T>({
 		};
 	}, [
 		captureState,
+		onNativeScrollKeyDown,
 		onPointerDown,
 		onPointerEnd,
 		onScroll,
