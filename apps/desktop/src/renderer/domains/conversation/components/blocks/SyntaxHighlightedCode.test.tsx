@@ -39,36 +39,60 @@ describe("SyntaxHighlightedCode", () => {
 		);
 	});
 	afterEach(() => {
+		vi.useRealTimers();
 		vi.unstubAllGlobals();
 	});
 
 	it("keeps a growing Markdown tail plain, reveals it at stream pace, then flushes and highlights the final code", async () => {
+		// Rendering cost must not count as stream arrival time or change the reveal budget.
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+		const darkHighlight = deferred<string>();
+		const lightHighlight = deferred<string>();
+		codeToHtml.mockReturnValueOnce(darkHighlight.promise).mockReturnValueOnce(lightHighlight.promise);
 		const firstCode = Array.from({ length: 80 }, (_, index) => `const value${index} = ${index};`).join("\n");
 		const finalLine = "console.log('complete immediately');";
+		const finalCode = `${firstCode}\n${finalLine}`;
 		const initial = `${"Long streamed prose. ".repeat(200)}\n\n\`\`\`ts\n${firstCode}`;
 		const completed = `${initial}\n${finalLine}\n\`\`\``;
-		const view = render(
-			<MarkdownContent {...markdownEnvironment} text={initial} theme="dark" isStreamingTail />,
-		);
+		const view = render(<MarkdownContent {...markdownEnvironment} text={initial} theme="dark" isStreamingTail />);
 
 		expect(view.container.textContent).toContain("value79");
+		expect(codeToHtml).not.toHaveBeenCalled();
 		view.rerender(<MarkdownContent {...markdownEnvironment} text={completed} theme="dark" isStreamingTail />);
 		expect(view.container.textContent).not.toContain(finalLine);
 		expect(codeToHtml).not.toHaveBeenCalled();
+		const beforeTick = view.container.textContent ?? "";
+		act(() => {
+			vi.advanceTimersByTime(100);
+		});
+		expect(view.container.textContent?.length).toBeGreaterThan(beforeTick.length);
+		expect(view.container.textContent).not.toContain(finalLine);
+		expect(codeToHtml).not.toHaveBeenCalled();
 
-		view.rerender(
-			<MarkdownContent {...markdownEnvironment} text={completed} theme="dark" isStreamingTail={false} />,
-		);
+		view.rerender(<MarkdownContent {...markdownEnvironment} text={completed} theme="dark" isStreamingTail={false} />);
 		expect(view.container.textContent).toContain(finalLine);
-		await waitFor(() => expect(codeToHtml).toHaveBeenCalledTimes(1));
-		await waitFor(() => expect(view.container.querySelector('[data-highlight-theme="github-dark-default"]')).not.toBeNull());
+		expect(codeToHtml).toHaveBeenCalledTimes(1);
+		expect(codeToHtml).toHaveBeenLastCalledWith(finalCode, { lang: "ts", theme: "github-dark-default" });
+		await act(async () => {
+			darkHighlight.resolve(
+				`<pre data-highlight-theme="github-dark-default"><code>highlighted:${finalCode}</code></pre>`,
+			);
+		});
+		expect(view.container.querySelector('[data-highlight-theme="github-dark-default"]')).not.toBeNull();
 
 		view.rerender(
 			<MarkdownContent {...markdownEnvironment} text={completed} theme="light" isStreamingTail={false} />,
 		);
 		expect(view.container.textContent).toContain(finalLine);
-		await waitFor(() => expect(codeToHtml).toHaveBeenCalledTimes(2));
-		await waitFor(() => expect(view.container.querySelector('[data-highlight-theme="github-light-default"]')).not.toBeNull());
+		expect(codeToHtml).toHaveBeenCalledTimes(2);
+		expect(codeToHtml).toHaveBeenLastCalledWith(finalCode, { lang: "ts", theme: "github-light-default" });
+		await act(async () => {
+			lightHighlight.resolve(
+				`<pre data-highlight-theme="github-light-default"><code>highlighted:${finalCode}</code></pre>`,
+			);
+		});
+		expect(view.container.querySelector('[data-highlight-theme="github-light-default"]')).not.toBeNull();
 
 		view.unmount();
 		const restored = render(
@@ -115,7 +139,9 @@ describe("SyntaxHighlightedCode", () => {
 			pending.resolve("<pre>shared highlighted result</pre>");
 			await pending.promise;
 		});
-		await waitFor(() => expect(view.container.textContent).toBe("shared highlighted resultshared highlighted result"));
+		await waitFor(() =>
+			expect(view.container.textContent).toBe("shared highlighted resultshared highlighted result"),
+		);
 	});
 
 	it("does not cache or render an obsolete highlight after the code changes", async () => {
@@ -179,7 +205,13 @@ describe("SyntaxHighlightedCode", () => {
 
 	it("evicts old highlights once more than 300 distinct blocks are retained", async () => {
 		const codes = Array.from({ length: 301 }, (_, index) => `const entryLimit${index} = true;`);
-		const view = render(<>{codes.map((code) => <SyntaxHighlightedCode key={code} code={code} lang="ts" theme="dark" />)}</>);
+		const view = render(
+			<>
+				{codes.map((code) => (
+					<SyntaxHighlightedCode key={code} code={code} lang="ts" theme="dark" />
+				))}
+			</>,
+		);
 		await waitFor(() => expect(view.container.querySelectorAll("[data-highlight-theme]")).toHaveLength(301));
 		expect(codeToHtml).toHaveBeenCalledTimes(301);
 		view.unmount();
