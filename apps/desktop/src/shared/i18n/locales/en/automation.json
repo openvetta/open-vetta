@@ -182,7 +182,8 @@
 			"system-sleep": "The computer was asleep"
 		},
 		"missedMany": "Missed {{times}} times, until {{until}} · {{reason}}",
-		"notifyFailed": "Notification failed: {{error}}"
+		"notifyFailed": "Notification failed: {{error}}",
+		"loadFailed": "Couldn’t load execution history. Refresh to try again."
 	},
 	"suspended": {
 		"session-deleted": "The bound session was deleted. Pick a session again, then enable it.",

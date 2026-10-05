@@ -182,7 +182,8 @@
 			"system-sleep": "系统休眠"
 		},
 		"missedMany": "错过 {{times}} 次，至 {{until}} · {{reason}}",
-		"notifyFailed": "通知发送失败：{{error}}"
+		"notifyFailed": "通知发送失败：{{error}}",
+		"loadFailed": "无法读取执行记录，请刷新重试。"
 	},
 	"suspended": {
 		"session-deleted": "绑定的会话已删除，重新选择会话后再启用",

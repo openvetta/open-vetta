@@ -1,6 +1,6 @@
 import {
-	ExecutionHistoryView as ThemeExecutionHistoryView,
 	type ExecutionHistoryViewLabels,
+	ExecutionHistoryView as ThemeExecutionHistoryView,
 } from "@vetta-org/theme-ui/scheduler";
 import { useTranslation } from "react-i18next";
 import type { ExecutionHistoryRecordModel } from "../hooks/useExecutionHistoryModel";
@@ -10,6 +10,7 @@ export type { ExecutionHistoryStatus } from "@vetta-org/theme-ui/scheduler";
 export interface ExecutionHistoryViewProps {
 	readonly embedded?: boolean;
 	readonly isLoading: boolean;
+	readonly error: string | null;
 	readonly records: readonly ExecutionHistoryRecordModel[];
 	readonly onOpenRecord: (record: ExecutionHistoryRecordModel["record"]) => void;
 	readonly onRefresh: () => void;
@@ -18,6 +19,7 @@ export interface ExecutionHistoryViewProps {
 export function ExecutionHistoryView({
 	embedded = false,
 	isLoading,
+	error,
 	records,
 	onOpenRecord,
 	onRefresh,
@@ -35,6 +37,7 @@ export function ExecutionHistoryView({
 		<ThemeExecutionHistoryView
 			embedded={embedded}
 			isLoading={isLoading}
+			error={error}
 			labels={labels}
 			records={records.map((r) => ({
 				durationLabel: r.durationLabel,

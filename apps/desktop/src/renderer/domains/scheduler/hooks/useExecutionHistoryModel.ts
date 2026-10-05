@@ -2,7 +2,7 @@ import type { TaskExecutionRecord } from "@shared/store/atoms";
 import { openSessionFnRef, scheduledRecordsVersionAtom } from "@shared/store/atoms";
 import type { TFunction } from "i18next";
 import { useAtomValue } from "jotai";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 export interface ExecutionHistoryRecordModel {
@@ -19,6 +19,7 @@ export interface ExecutionHistoryRecordModel {
 
 export interface ExecutionHistoryModel {
 	readonly isLoading: boolean;
+	readonly error: string | null;
 	readonly records: readonly ExecutionHistoryRecordModel[];
 	readonly onOpenRecord: (record: TaskExecutionRecord) => void;
 	readonly onRefresh: () => void;
@@ -29,16 +30,33 @@ export function useExecutionHistoryModel(taskId: string): ExecutionHistoryModel 
 	const locale = i18n.language === "en" ? "en-US" : "zh-CN";
 	const [records, setRecords] = useState<TaskExecutionRecord[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+	const requestVersion = useRef(0);
+	const recordsTaskId = useRef(taskId);
 	const recordsVersion = useAtomValue(scheduledRecordsVersionAtom);
 
 	const loadRecords = useCallback(async (): Promise<void> => {
+		const request = ++requestVersion.current;
 		setIsLoading(true);
+		setError(null);
 		try {
 			const loaded = await window.vetta.scheduler.getRecords(taskId);
-			setRecords(loaded);
+			if (request === requestVersion.current) setRecords(loaded);
+		} catch {
+			if (request === requestVersion.current) setError(t("history.loadFailed"));
 		} finally {
-			setIsLoading(false);
+			if (request === requestVersion.current) setIsLoading(false);
 		}
+	}, [taskId, t]);
+
+	useEffect(() => {
+		if (recordsTaskId.current !== taskId) {
+			recordsTaskId.current = taskId;
+			setRecords([]);
+		}
+		return () => {
+			requestVersion.current += 1;
+		};
 	}, [taskId]);
 
 	useEffect(() => {
@@ -57,6 +75,7 @@ export function useExecutionHistoryModel(taskId: string): ExecutionHistoryModel 
 	return useMemo(
 		() => ({
 			isLoading,
+			error,
 			records: records.map((record) => ({
 				durationLabel:
 					record.durationMs != null && record.durationMs > 0 ? formatDuration(record.durationMs) : null,
@@ -78,7 +97,7 @@ export function useExecutionHistoryModel(taskId: string): ExecutionHistoryModel 
 				void loadRecords();
 			},
 		}),
-		[isLoading, loadRecords, locale, records, t],
+		[error, isLoading, loadRecords, locale, records, t],
 	);
 }
 
