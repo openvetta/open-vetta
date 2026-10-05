@@ -2133,8 +2133,9 @@ describe("Team member concurrency", () => {
 			targetMemberIds: [leader],
 		});
 		await cleanupStarted.promise;
-		await fixture.service.abort(fixture.session.id);
+		const stop = fixture.service.abort(fixture.session.id);
 		releaseCleanup.resolve();
+		await stop;
 		await expect(send).resolves.toBeDefined();
 		const stopRecords = fixture.runtime
 			.readSessionDocument(coordinationId)

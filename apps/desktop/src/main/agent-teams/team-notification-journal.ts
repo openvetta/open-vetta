@@ -34,6 +34,10 @@ export class TeamNotificationJournal {
 	async resume(session: TeamSessionDocument, signal?: AbortSignal): Promise<void> {
 		signal?.throwIfAborted();
 		if (!this.isStopped(session)) return;
+		// Stop may have persisted its marker before a crash or failed cancellation
+		// write. Finish that barrier before making any old work recoverable again.
+		await this.store.cancelForTeamStop(session);
+		signal?.throwIfAborted();
 		// A new user turn must not resurrect notices from before the stop, including
 		// a task that settled just before its pending record could be persisted.
 		for (const item of this.store.read(session).workItems) await this.record(session, item, true);

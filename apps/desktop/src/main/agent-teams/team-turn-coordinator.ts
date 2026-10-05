@@ -30,6 +30,7 @@ import { TeamMemberScheduler } from "./team-member-scheduler.js";
 import type { TeamMemberTurnRequest } from "./team-member-turn-request.js";
 import { TeamMessageControlService } from "./team-message-control-service.js";
 import { TeamNotificationJournal } from "./team-notification-journal.js";
+import { TeamOperationQueue } from "./team-operation-queue.js";
 import { TeamRecoveryMonitor } from "./team-recovery-monitor.js";
 import type { TeamSessionEventHub } from "./team-session-event-hub.js";
 import type { TeamSessionStateRepository } from "./team-session-state-repository.js";
@@ -62,6 +63,9 @@ export class TeamTurnCoordinator {
 	/** Sessions the user stopped. Cleared only by the next user send. */
 	private readonly stopped = new Set<string>();
 	private readonly stopGenerations = new Map<string, number>();
+	/** Only durable stop/resume transitions share this queue; member execution never does. */
+	private readonly stopTransitions = new TeamOperationQueue();
+	private readonly pendingStops = new Map<string, Set<Promise<void>>>();
 	/** Completion notices waiting for an initiator's lane, keyed by Team session and member. */
 	private readonly pendingContinuations = new Set<string>();
 	private readonly notificationJournal: TeamNotificationJournal;
@@ -190,8 +194,6 @@ export class TeamTurnCoordinator {
 	}
 	async send(sessionId: string, input: SendTeamMessageInput): Promise<TeamSessionDocument> {
 		const startedAt = Date.now();
-		// A new user turn is the only thing that lifts a stop.
-		this.stopped.delete(sessionId);
 		log.info("team message send started", {
 			teamSessionId: sessionId,
 			requestId: input.requestId,
@@ -203,9 +205,22 @@ export class TeamTurnCoordinator {
 		});
 		const controller = this.trackRequest(sessionId);
 		try {
-			const loaded = await this.options.readSession(sessionId);
-			await this.notificationJournal.resume(loaded, controller.signal);
+			// Runtime cancellation can finish by stopping background work. Let every
+			// earlier stop finish before a new turn can create work in those runtimes.
+			await Promise.allSettled([...(this.pendingStops.get(sessionId) ?? [])]);
 			controller.signal.throwIfAborted();
+			const loaded = await this.options.readSession(sessionId);
+			await this.stopTransitions.run(sessionId, async () => {
+				controller.signal.throwIfAborted();
+				// If the previous stop could not write either durable fact, retain its
+				// in-memory intent and retry the marker before repairing cancellations.
+				if (this.stopped.has(sessionId) && !this.notificationJournal.isStopped(loaded)) {
+					await this.notificationJournal.stop(loaded);
+				}
+				await this.notificationJournal.resume(loaded, controller.signal);
+			});
+			controller.signal.throwIfAborted();
+			// Keep admission closed until the old stop and every cancellation are durable.
 			this.stopped.delete(sessionId);
 			this.recoveryMonitor.start();
 			const result = await this.sendInternal(sessionId, input, controller.signal);
@@ -253,12 +268,26 @@ export class TeamTurnCoordinator {
 		for (const controller of this.activeSends.get(sessionId) ?? []) controller.abort();
 		for (const controller of this.memberCancellations.get(sessionId)?.values() ?? []) controller.abort();
 		const session = this.options.sessionState.get(sessionId);
-		await Promise.all([
+		const completion = Promise.allSettled([
 			session
-				? this.notificationJournal.stop(session).finally(() => this.taskControl.stopTeam(session))
+				? this.stopTransitions.run(sessionId, () =>
+						this.notificationJournal.stop(session).finally(() => this.taskControl.stopTeam(session)),
+					)
 				: Promise.resolve(),
 			this.abortRuntimes(session),
-		]);
+		]).then((results) => {
+			const failed = results.find((result) => result.status === "rejected");
+			if (failed?.status === "rejected") throw failed.reason;
+		});
+		const pending = this.pendingStops.get(sessionId) ?? new Set<Promise<void>>();
+		pending.add(completion);
+		this.pendingStops.set(sessionId, pending);
+		try {
+			await completion;
+		} finally {
+			pending.delete(completion);
+			if (pending.size === 0) this.pendingStops.delete(sessionId);
+		}
 		log.info("team session stopped", { teamSessionId: sessionId });
 	}
 
