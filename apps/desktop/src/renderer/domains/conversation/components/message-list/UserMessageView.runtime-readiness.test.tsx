@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { render, screen } from "@testing-library/react";
 import { createConversationUserMessage } from "@shared/conversation";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 
@@ -37,9 +37,9 @@ vi.mock("../../hooks/useUserMessageActions", () => ({
 	useUserMessageContextMenu: () => ({ model: null, onContextMenu: vi.fn() }),
 }));
 
-import { UserMessage } from "./UserMessage";
-import { SessionUserMessage } from "./SessionUserMessage";
 import { TokenChip } from "../input-bar/editor/nodes/TokenChip";
+import { SessionUserMessage } from "./SessionUserMessage";
+import { UserMessage } from "./UserMessage";
 
 beforeAll(() => {
 	vi.stubGlobal(
@@ -77,7 +77,7 @@ it("Runtime 恢复期间消息操作保持可用并立即接受点击", async ()
 	expect(onBranchNext).toHaveBeenCalledOnce();
 });
 
-it("已发送的成员 mention 与输入框复用同一枚 Token 视觉组件", () => {
+it("已发送的成员 mention 复用输入框 Token 并使用深浅模式语义色", () => {
 	const { container } = render(
 		<>
 			<TokenChip label="@Architect" title="composer-token" tone="member" />
@@ -106,6 +106,8 @@ it("已发送的成员 mention 与输入框复用同一枚 Token 视觉组件", 
 	const tokens = container.querySelectorAll<HTMLElement>("[data-inline-token='true']");
 	expect(tokens).toHaveLength(2);
 	expect(tokens[1]?.className).toBe(tokens[0]?.className);
+	expect(tokens[1]?.className).toContain("text-primary");
+	expect(tokens[1]?.className).not.toContain("sky-");
 	expect(screen.getByText("请").tagName).toBe("STRONG");
 });
 
