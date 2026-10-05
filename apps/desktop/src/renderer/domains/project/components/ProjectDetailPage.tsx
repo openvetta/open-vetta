@@ -1,11 +1,11 @@
 import { CurrentScenarioActivityPanel } from "@domains/activity-panel/components/ActivityPanel";
-import { ProjectDetailPageView } from "@vetta-org/theme-ui/project";
-import { motion } from "motion/react";
-import { BatchQueueStatus } from "./BatchQueueStatus";
-import { useProjectDetailPageModel } from "../hooks/useProjectDetailPageModel";
 import { useActiveSessionRuntimeIds } from "@shared/workspace/active-session-runtime";
 import { createActivityWorkspace } from "@shared/workspace/activity-workspace";
 import { useParams } from "@tanstack/react-router";
+import { ProjectDetailPageView } from "@vetta-org/theme-ui/project";
+import { motion } from "motion/react";
+import { useProjectDetailPageModel } from "../hooks/useProjectDetailPageModel";
+import { BatchQueueStatus } from "./BatchQueueStatus";
 import { OrphanRemoteProjectGuard } from "./orphan-remote/OrphanRemoteProjectGuard";
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
@@ -53,6 +53,8 @@ function ProjectDetailPageContent(): JSX.Element {
 			isDirty={model.isDirty}
 			labels={model.labels}
 			loading={model.loading}
+			loadError={model.loadError}
+			onReload={model.onReload}
 			onContentChange={model.onContentChange}
 			onEditorBlur={model.onEditorBlur}
 			onEditorFocus={model.onEditorFocus}

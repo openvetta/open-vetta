@@ -1,6 +1,6 @@
 import { Button, cn } from "@vetta-org/ui";
 import { AnimatePresence, motion } from "motion/react";
-import type { JSX, ReactNode, RefObject } from "react";
+import { type JSX, type ReactNode, type RefObject, useId } from "react";
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
@@ -23,6 +23,7 @@ export interface ProjectDetailPageViewLabels {
 	agentsMdHint: string;
 	quickSave: string;
 	saveShortcut: string;
+	retry?: string;
 }
 
 export interface ProjectDetailPageViewProps {
@@ -40,6 +41,8 @@ export interface ProjectDetailPageViewProps {
 	isDirty: boolean;
 	labels: ProjectDetailPageViewLabels;
 	loading: boolean;
+	loadError?: string | null;
+	onReload?: () => void;
 	onContentChange: (value: string) => void;
 	onEditorBlur: () => void;
 	onEditorFocus: () => void;
@@ -68,6 +71,8 @@ export function ProjectDetailPageView({
 	isDirty,
 	labels,
 	loading,
+	loadError,
+	onReload,
 	onContentChange,
 	onEditorBlur,
 	onEditorFocus,
@@ -82,10 +87,11 @@ export function ProjectDetailPageView({
 	taskCountLabel,
 	textareaRef,
 }: ProjectDetailPageViewProps): JSX.Element {
+	const editorLabelId = useId();
 	const metrics = [
-		{ icon: "icon-[mdi--chat-outline]", value: sessionCountLabel },
-		createdAtLabel ? { icon: "icon-[mdi--calendar-outline]", value: createdAtLabel } : null,
-		taskCountLabel ? { icon: "icon-[mdi--layers-outline]", value: taskCountLabel } : null,
+		{ icon: "icon-[solar--chat-round-line-linear]", value: sessionCountLabel },
+		createdAtLabel ? { icon: "icon-[solar--calendar-linear]", value: createdAtLabel } : null,
+		taskCountLabel ? { icon: "icon-[solar--layers-linear]", value: taskCountLabel } : null,
 	].filter((item): item is { icon: string; value: string } => item != null);
 
 	return (
@@ -193,15 +199,11 @@ export function ProjectDetailPageView({
 									{metrics.map((item, index) => (
 										<span
 											key={item.value}
-											className="inline-flex max-w-full items-center gap-1.5 text-[11.5px] text-muted-foreground/70"
+											className="inline-flex max-w-full items-center gap-1.5 text-[11px] text-muted-foreground/70"
 										>
-											{index > 0 && (
-												<span className="mr-0.5 h-3 w-px shrink-0 bg-border/50" aria-hidden />
-											)}
+											{index > 0 && <span className="mr-0.5 h-3 w-px shrink-0 bg-border/50" aria-hidden />}
 											<span className={cn(item.icon, "h-3.5 w-3.5 shrink-0 opacity-60")} />
-											<span className="min-w-0 truncate whitespace-nowrap tabular-nums">
-												{item.value}
-											</span>
+											<span className="min-w-0 truncate whitespace-nowrap tabular-nums">{item.value}</span>
 										</span>
 									))}
 								</div>
@@ -222,16 +224,17 @@ export function ProjectDetailPageView({
 							{/* Document shell */}
 							<div
 								className={cn(
-									"flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border bg-card/50 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-sm transition-[border-color,box-shadow] duration-300",
-									editorFocused
-										? "border-primary/40 shadow-[0_0_0_1px_color-mix(in_oklab,var(--primary)_18%,transparent),0_8px_24px_-12px_color-mix(in_oklab,var(--primary)_25%,transparent)]"
-										: "border-border/50",
+									"flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card/50 backdrop-blur-sm transition-colors duration-200",
+									editorFocused ? "border-primary/40 ring-1 ring-inset ring-primary/30" : "border-border/50",
 								)}
 							>
 								{/* Editor chrome */}
 								<div className="flex shrink-0 flex-wrap items-center justify-between gap-x-2 gap-y-2 border-b border-border/40 px-3 py-2 @md:px-4 @md:py-2.5">
 									<div className="flex min-w-0 flex-1 items-center gap-2">
-										<h2 className="min-w-0 truncate text-[13px] font-semibold tracking-tight text-foreground">
+										<h2
+											id={editorLabelId}
+											className="min-w-0 truncate text-[13px] font-semibold tracking-tight text-foreground"
+										>
 											{labels.persona}
 										</h2>
 										<span className="hidden shrink-0 rounded-md border border-border/40 bg-background/60 px-1.5 py-px font-mono text-[10px] text-muted-foreground/55 @min-[22rem]:inline">
@@ -244,13 +247,10 @@ export function ProjectDetailPageView({
 													initial={{ opacity: 0, scale: 0.6 }}
 													animate={{ opacity: 1, scale: 1 }}
 													exit={{ opacity: 0, scale: 0.6 }}
-													className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500"
+													className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-400"
 													title={labels.unsavedChanges}
 												>
-													<span className="relative flex h-1.5 w-1.5">
-														<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-60" />
-														<span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-500" />
-													</span>
+													<span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />
 													<span className="hidden @min-[28rem]:inline">{labels.unsavedChanges}</span>
 												</motion.span>
 											)}
@@ -262,25 +262,28 @@ export function ProjectDetailPageView({
 											{saveStatus === "saved" && (
 												<motion.span
 													key="saved"
+													role="status"
 													initial={{ opacity: 0, x: 6 }}
 													animate={{ opacity: 1, x: 0 }}
 													exit={{ opacity: 0, x: 6 }}
-													className="hidden items-center gap-1 text-[11px] font-medium text-emerald-500 @min-[22rem]:flex"
+													className="hidden items-center gap-1 text-[11px] font-medium text-emerald-400 @min-[22rem]:flex"
 												>
-													<span className="icon-[mdi--check-circle] h-3.5 w-3.5" />
+													<span className="icon-[solar--check-circle-linear] h-3.5 w-3.5" />
 													{labels.saved}
 												</motion.span>
 											)}
 											{saveStatus === "error" && (
 												<motion.span
 													key="error"
+													role="alert"
+													aria-label={labels.saveFailed}
 													initial={{ opacity: 0, x: 6 }}
 													animate={{ opacity: 1, x: 0 }}
 													exit={{ opacity: 0, x: 6 }}
 													className="flex items-center gap-1 text-[11px] font-medium text-destructive"
 													title={labels.saveFailed}
 												>
-													<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5" />
+													<span className="icon-[solar--danger-circle-linear] h-3.5 w-3.5" />
 													<span className="hidden @min-[22rem]:inline">{labels.saveFailed}</span>
 												</motion.span>
 											)}
@@ -290,14 +293,14 @@ export function ProjectDetailPageView({
 											variant={isDirty ? "primary" : "outline"}
 											size="sm"
 											onClick={onSave}
-											disabled={!isDirty || saveStatus === "saving"}
+											disabled={Boolean(loadError) || loading || !isDirty || saveStatus === "saving"}
 											title={labels.save}
 											aria-label={labels.save}
 										>
 											{saveStatus === "saving" ? (
-												<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
+												<span className="icon-[solar--refresh-linear] h-3.5 w-3.5 animate-spin" />
 											) : (
-												<span className="icon-[mdi--content-save-outline] h-3.5 w-3.5" />
+												<span className="icon-[solar--diskette-linear] h-3.5 w-3.5" />
 											)}
 											<span className="hidden @min-[18rem]:inline">{labels.save}</span>
 										</Button>
@@ -306,8 +309,24 @@ export function ProjectDetailPageView({
 
 								{/* Editor body */}
 								{loading ? (
-									<div className="flex flex-1 items-center justify-center py-16">
-										<span className="icon-[mdi--loading] h-5 w-5 animate-spin text-primary/50" />
+									<output
+										aria-busy="true"
+										aria-labelledby={editorLabelId}
+										className="flex flex-1 items-center justify-center py-16"
+									>
+										<span
+											aria-hidden
+											className="icon-[solar--refresh-linear] h-5 w-5 animate-spin text-primary/50"
+										/>
+									</output>
+								) : loadError ? (
+									<div role="alert" className="flex flex-1 flex-col items-center justify-center gap-3 p-5">
+										<p className="text-[13px] text-destructive">{loadError}</p>
+										{onReload && labels.retry && (
+											<Button variant="outline" onClick={onReload}>
+												{labels.retry}
+											</Button>
+										)}
 									</div>
 								) : (
 									<div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
@@ -320,6 +339,7 @@ export function ProjectDetailPageView({
 										/>
 										<textarea
 											ref={textareaRef}
+											aria-labelledby={editorLabelId}
 											value={content}
 											onChange={(e) => onContentChange(e.target.value)}
 											onFocus={onEditorFocus}
@@ -333,7 +353,7 @@ export function ProjectDetailPageView({
 
 								{/* Footer hint */}
 								<div className="flex shrink-0 items-center gap-1.5 overflow-hidden border-t border-border/30 bg-accent/10 px-3 py-2 text-[11px] text-muted-foreground/50 @md:px-4">
-									<span className="icon-[mdi--information-outline] h-3 w-3 shrink-0 opacity-60" />
+									<span className="icon-[solar--info-circle-linear] h-3 w-3 shrink-0 opacity-60" />
 									<span className="min-w-0 flex-1 truncate">{labels.agentsMdHint}</span>
 									<kbd className="shrink-0 rounded-md border border-border/40 bg-background/70 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/70">
 										{labels.saveShortcut}

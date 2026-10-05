@@ -166,7 +166,9 @@
 		"save": "Save",
 		"editorPlaceholder": "Write AGENTS.md project instructions here...",
 		"agentsMdHint": "AGENTS.md defines project-level AI instructions; every session loads this file automatically.",
-		"quickSave": "Quick save"
+		"quickSave": "Quick save",
+		"loadFailed": "Couldn’t read the project instructions. Retry before editing to avoid overwriting the file.",
+		"retry": "Retry loading"
 	},
 	"exportDialog": {
 		"title": "Export project",

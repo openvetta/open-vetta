@@ -166,7 +166,9 @@
 		"save": "保存",
 		"editorPlaceholder": "在此编写 AGENTS.md 项目指令...",
 		"agentsMdHint": "AGENTS.md 用于定义项目级别的 AI 指令，所有会话都会自动加载此文件。",
-		"quickSave": "快速保存"
+		"quickSave": "快速保存",
+		"loadFailed": "无法读取项目说明，重试成功后再编辑，避免覆盖原文件。",
+		"retry": "重新读取"
 	},
 	"exportDialog": {
 		"title": "导出项目",

@@ -15,8 +15,7 @@ import type { ProjectDetailPageViewProps } from "@vetta-org/theme-ui/project";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-
-type SaveStatus = "idle" | "saving" | "saved" | "error";
+import { useProjectInstructions } from "./useProjectInstructions";
 
 function formatDate(ts: number, locale: string): string {
 	const d = new Date(ts);
@@ -51,49 +50,6 @@ function useProjectDetail(cwd: string) {
 	return { project, sessionCount: sessions.length, batchProject: null };
 }
 
-function useAgentsMd(cwd: string) {
-	const [content, setContent] = useState("");
-	const [original, setOriginal] = useState("");
-	const [loading, setLoading] = useState(true);
-	const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
-
-	const filePath = `${cwd}/AGENTS.md`;
-
-	const load = useCallback(async () => {
-		setLoading(true);
-		try {
-			const result = await window.vetta.fs.readFile(filePath);
-			setContent(result.content);
-			setOriginal(result.content);
-		} catch {
-			setContent("");
-			setOriginal("");
-		}
-		setLoading(false);
-	}, [filePath]);
-
-	useEffect(() => {
-		void load();
-	}, [load]);
-
-	const save = useCallback(async () => {
-		setSaveStatus("saving");
-		try {
-			await window.vetta.fs.writeFile(filePath, content);
-			setOriginal(content);
-			setSaveStatus("saved");
-			setTimeout(() => setSaveStatus("idle"), 2000);
-		} catch {
-			setSaveStatus("error");
-			setTimeout(() => setSaveStatus("idle"), 3000);
-		}
-	}, [filePath, content]);
-
-	const isDirty = content !== original;
-
-	return { content, setContent, loading, save, saveStatus, isDirty };
-}
-
 function useCreatedAt(cwd: string) {
 	const [createdAt, setCreatedAt] = useState<number | null>(null);
 
@@ -122,7 +78,8 @@ export function useProjectDetailPageModel(): ProjectDetailPageModel {
 
 	const { project, sessionCount, batchProject } = useProjectDetail(decodedCwd);
 	const createdAt = useCreatedAt(decodedCwd);
-	const { content, setContent, loading, save, saveStatus, isDirty } = useAgentsMd(decodedCwd);
+	const { content, setContent, loading, loadError, reload, save, saveStatus, isDirty } =
+		useProjectInstructions(decodedCwd);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const isPersonal = useAtomValue(isPersonalModeAtom);
 	const [activityOpen, setActivityOpen] = useAtom(activityPanelOpenAtom);
@@ -207,9 +164,12 @@ export function useProjectDetailPageModel(): ProjectDetailPageModel {
 			editorPlaceholder: t("detail.editorPlaceholder"),
 			agentsMdHint: t("detail.agentsMdHint"),
 			quickSave: t("detail.quickSave"),
+			retry: t("detail.retry"),
 			saveShortcut: isMac ? "⌘+S" : "Ctrl+S",
 		},
 		loading,
+		loadError: loadError ? t("detail.loadFailed") : null,
+		onReload: reload,
 		projectType: project?.type,
 		projectTypeLabel,
 		saveStatus,
