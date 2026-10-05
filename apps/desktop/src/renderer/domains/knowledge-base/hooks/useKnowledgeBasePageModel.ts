@@ -15,7 +15,7 @@ import {
 import { knowledgeBaseEnabledAtom } from "@shared/store/plugin-atoms";
 import { useNavigate } from "@tanstack/react-router";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { KnowledgeImportConfirmation } from "../components/KnowledgeImportDialog";
 import {
@@ -45,6 +45,8 @@ export function useKnowledgeBasePageModel() {
 	const fileStatuses = useAtomValue(knowledgeFileStatusesAtom);
 	const setNavTarget = useSetAtom(knowledgeNavTargetAtom);
 	const { fileInputRef, openFilePicker, openFolderPicker, onFilesPicked } = useKnowledgeImportSources();
+	const importPending = useRef(false);
+	const createdImportBase = useRef<{ draft: typeof draft; id: string } | null>(null);
 
 	const activeBase = knowledgeBases.find((base) => base.id === activeId) ?? knowledgeBases[0] ?? null;
 
@@ -118,23 +120,28 @@ export function useKnowledgeBasePageModel() {
 
 	const confirmImport = useCallback(
 		async ({ targetId, name, sourcePaths }: KnowledgeImportConfirmation) => {
-			setDraft(null);
+			if (importPending.current) return;
+			importPending.current = true;
 			try {
-				let kbId = targetId;
+				const created = createdImportBase.current;
+				let kbId = targetId ?? (created?.draft === draft && created?.id === name ? name : null);
 				if (!kbId) {
 					await window.vetta.knowledge.create(name);
 					kbId = name;
+					createdImportBase.current = { draft, id: kbId };
 				}
 				if (sourcePaths.length > 0) {
 					await window.vetta.knowledge.addFiles(kbId, sourcePaths, false);
 				}
-				await refresh();
+				setDraft(null);
 				setActiveId(kbId);
-			} catch (err) {
-				showError(err);
+				// 导入已保存；列表刷新失败不能让用户重试同一次文件导入。
+				void refresh().catch(showError);
+			} finally {
+				importPending.current = false;
 			}
 		},
-		[refresh, setActiveId, setDraft, showError],
+		[draft, refresh, setActiveId, setDraft, showError],
 	);
 
 	const renameBase = useCallback(

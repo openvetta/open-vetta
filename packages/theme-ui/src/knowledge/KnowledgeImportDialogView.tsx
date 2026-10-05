@@ -1,14 +1,14 @@
-import { useState, type JSX } from "react";
 import {
 	Button,
+	cn,
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	cn,
 } from "@vetta-org/ui";
+import { type JSX, useState } from "react";
 
 const NEW_BASE = "__new__";
 
@@ -29,6 +29,7 @@ export interface KnowledgeImportDialogViewLabels {
 	readonly createBtn: string;
 	readonly startBtn: string;
 	readonly newBaseName: string;
+	readonly processing?: string;
 }
 
 export interface KnowledgeImportDialogViewProps {
@@ -36,13 +37,11 @@ export interface KnowledgeImportDialogViewProps {
 	readonly knowledgeBases: readonly KnowledgeImportBaseOptionView[];
 	readonly initialTargetId: string;
 	readonly onClose: () => void;
-	readonly onConfirm: (confirmation: {
-		targetId: string | null;
-		name: string;
-		sourcePaths: string[];
-	}) => void;
+	readonly onConfirm: (confirmation: { targetId: string | null; name: string; sourcePaths: string[] }) => void;
 	readonly sourcePaths: readonly string[];
 	readonly labels: KnowledgeImportDialogViewLabels;
+	readonly submitting?: boolean;
+	readonly error?: string | null;
 }
 
 export function KnowledgeImportDialogView({
@@ -53,6 +52,8 @@ export function KnowledgeImportDialogView({
 	onConfirm,
 	sourcePaths,
 	labels,
+	submitting = false,
+	error,
 }: KnowledgeImportDialogViewProps): JSX.Element {
 	const [target, setTarget] = useState(initialTargetId);
 	const [name, setName] = useState(labels.newBaseName);
@@ -70,8 +71,8 @@ export function KnowledgeImportDialogView({
 	};
 
 	return (
-		<Dialog open onOpenChange={(open) => !open && onClose()}>
-			<DialogContent className="sm:max-w-[460px]">
+		<Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
+			<DialogContent className="sm:max-w-[460px]" aria-busy={submitting}>
 				<DialogHeader>
 					<div className="flex items-start gap-3">
 						<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -94,6 +95,7 @@ export function KnowledgeImportDialogView({
 								<button
 									key={base.id}
 									type="button"
+									disabled={submitting}
 									onClick={() => setTarget(base.id)}
 									className={cn(
 										"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] transition-colors",
@@ -107,6 +109,7 @@ export function KnowledgeImportDialogView({
 							))}
 							<button
 								type="button"
+								disabled={submitting}
 								onClick={() => setTarget(NEW_BASE)}
 								className={cn(
 									"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] font-medium transition-colors",
@@ -126,23 +129,32 @@ export function KnowledgeImportDialogView({
 						<input
 							id="knowledge-base-name"
 							value={name}
+							disabled={submitting}
 							onChange={(event) => setName(event.target.value)}
 							className={cn(
 								"mt-1.5 h-9 w-full min-w-0 rounded-lg border border-border/60 bg-background px-2.5 py-1 text-[12px] font-normal shadow-none outline-none focus-visible:border-ring/60",
 							)}
-							// biome-ignore lint/a11y/noAutofocus: preserve original dialog focus
 							autoFocus
 						/>
 					</label>
 				)}
 
+				{error && (
+					<p role="alert" className="break-words text-[12px] text-destructive">
+						{error}
+					</p>
+				)}
 				<DialogFooter>
-					<Button variant="ghost" onClick={onClose}>
+					<Button variant="ghost" onClick={onClose} disabled={submitting}>
 						{labels.cancel}
 					</Button>
-					<Button variant="primary" disabled={!canSubmit} onClick={confirm}>
+					<Button variant="primary" disabled={!canSubmit || submitting} onClick={confirm}>
 						<span className="icon-[mdi--folder-check-outline] h-4 w-4" />
-						{createOnly ? labels.createBtn : labels.startBtn}
+						{submitting && labels.processing
+							? labels.processing
+							: createOnly
+								? labels.createBtn
+								: labels.startBtn}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

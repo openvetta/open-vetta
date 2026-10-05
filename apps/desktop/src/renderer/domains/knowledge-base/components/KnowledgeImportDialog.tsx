@@ -1,9 +1,7 @@
-import { useTranslation } from "react-i18next";
 import type { KnowledgeBase, KnowledgeImportDraft } from "@shared/types/knowledge-base";
-import {
-	KnowledgeImportDialogView,
-	KNOWLEDGE_IMPORT_NEW_BASE,
-} from "@vetta-org/theme-ui/knowledge";
+import { KNOWLEDGE_IMPORT_NEW_BASE, KnowledgeImportDialogView } from "@vetta-org/theme-ui/knowledge";
+import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { knowledgeBaseDisplayName } from "../lib/knowledge-base";
 
 export interface KnowledgeImportConfirmation {
@@ -18,7 +16,7 @@ interface KnowledgeImportDialogProps {
 	activeKnowledgeBaseId: string | null;
 	knowledgeBases: KnowledgeBase[];
 	onClose: () => void;
-	onConfirm: (confirmation: KnowledgeImportConfirmation) => void;
+	onConfirm: (confirmation: KnowledgeImportConfirmation) => void | Promise<void>;
 }
 
 export function KnowledgeImportDialog({
@@ -29,6 +27,9 @@ export function KnowledgeImportDialog({
 	onConfirm,
 }: KnowledgeImportDialogProps): JSX.Element {
 	const { t } = useTranslation(["settings", "common"]);
+	const [submitting, setSubmitting] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const pending = useRef(false);
 	const createOnly = draft.createOnly ?? false;
 	const initialTarget = createOnly
 		? KNOWLEDGE_IMPORT_NEW_BASE
@@ -44,7 +45,23 @@ export function KnowledgeImportDialog({
 			}))}
 			initialTargetId={initialTarget}
 			onClose={onClose}
-			onConfirm={onConfirm}
+			submitting={submitting}
+			error={error}
+			onConfirm={(confirmation) => {
+				if (pending.current) return;
+				pending.current = true;
+				setSubmitting(true);
+				setError(null);
+				void Promise.resolve()
+					.then(() => onConfirm(confirmation))
+					.catch((reason: unknown) => {
+						setError(reason instanceof Error ? reason.message : t("kbPageOpFailed"));
+					})
+					.finally(() => {
+						pending.current = false;
+						setSubmitting(false);
+					});
+			}}
 			labels={{
 				createTitle: t("kbImportCreateTitle"),
 				addTitle: t("kbImportAddTitle"),
@@ -57,6 +74,7 @@ export function KnowledgeImportDialog({
 				createBtn: t("kbImportCreateBtn"),
 				startBtn: t("kbImportStartBtn"),
 				newBaseName: t("kbImportNewBaseName"),
+				processing: t("common:actionApproval.processing"),
 			}}
 		/>
 	);
