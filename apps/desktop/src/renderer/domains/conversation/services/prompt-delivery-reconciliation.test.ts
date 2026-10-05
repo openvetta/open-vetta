@@ -14,15 +14,16 @@ describe("prompt delivery reconciliation", () => {
 	});
 
 	it("treats extension-handled input as accepted without inventing a running Turn", () => {
-		expect(
-			classifyPromptDeliveryReconciliation({ status: "handled", inputId: "input", timestamp: 3 }),
-		).toEqual({ kind: "handled" });
+		expect(classifyPromptDeliveryReconciliation({ status: "handled", inputId: "input", timestamp: 3 })).toEqual({
+			kind: "handled",
+		});
 	});
 
 	it("treats active and completed durable inputs as accepted instead of retry candidates", () => {
-		expect(
-			classifyPromptDeliveryReconciliation({ status: "active", inputId: "input", turnId: "turn-1" }),
-		).toEqual({ kind: "running", turnId: "turn-1" });
+		expect(classifyPromptDeliveryReconciliation({ status: "active", inputId: "input", turnId: "turn-1" })).toEqual({
+			kind: "running",
+			turnId: "turn-1",
+		});
 		expect(
 			classifyPromptDeliveryReconciliation({
 				status: "completed",
@@ -70,6 +71,10 @@ describe("prompt delivery reconciliation", () => {
 				turnIds: ["turn-1", "turn-2"],
 				reason: "multiple_turns",
 			}),
-		).toEqual({ kind: "ambiguous", turnIds: ["turn-1", "turn-2"] });
+		).toEqual({
+			kind: "ambiguous",
+			turnIds: ["turn-1", "turn-2"],
+			reason: "multiple_turns",
+		});
 	});
 });
