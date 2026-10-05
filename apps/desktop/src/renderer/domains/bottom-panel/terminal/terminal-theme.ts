@@ -38,6 +38,36 @@ function readColor(read: CssVariableReader, name: string): string {
 	return value || (FALLBACKS[name] ?? "#000000");
 }
 
+function withOpacity(color: string, opacity: number): string {
+	const rgb = color.match(/^rgba?\(\s*([^()]*)\s*\)$/i)?.[1];
+	if (rgb) {
+		const channels = rgb
+			.split(/\s*[,/]\s*|\s+/)
+			.filter(Boolean)
+			.slice(0, 3)
+			.map((channel) => {
+				if (!/^\d+(?:\.\d+)?%?$/.test(channel)) return Number.NaN;
+				const value = Number.parseFloat(channel);
+				return channel.endsWith("%") ? Math.round(((value * 255) / 100) * 1000) / 1000 : value;
+			});
+		if (channels.length === 3 && channels.every((channel) => channel >= 0 && channel <= 255)) {
+			return `rgba(${channels[0]}, ${channels[1]}, ${channels[2]}, ${opacity})`;
+		}
+	}
+
+	const hex = color.match(/^#([\da-f]{3,8})$/i)?.[1];
+	if (hex && [3, 4, 6, 8].includes(hex.length)) {
+		const channelWidth = hex.length <= 4 ? 1 : 2;
+		const channels = [0, 1, 2].map((index) => {
+			const value = hex.slice(index * channelWidth, (index + 1) * channelWidth);
+			return Number.parseInt(channelWidth === 1 ? value.repeat(2) : value, 16);
+		});
+		return `rgba(${channels[0]}, ${channels[1]}, ${channels[2]}, ${opacity})`;
+	}
+
+	return withOpacity(FALLBACKS["--primary"], opacity);
+}
+
 export function buildTerminalTheme(read: CssVariableReader): ITheme {
 	const background = readColor(read, "--background");
 	const foreground = readColor(read, "--foreground");
@@ -47,8 +77,9 @@ export function buildTerminalTheme(read: CssVariableReader): ITheme {
 		foreground,
 		cursor: primary,
 		cursorAccent: background,
-		// 选区用主色的半透明叠加，跟 UI 的选中态同源。
-		selectionBackground: `color-mix(in srgb, ${primary} 30%, transparent)`,
+		// xterm 会把 color-mix() 里的 rgb() 误当成不透明色，mono 浅色主题因此会画出纯黑选区。
+		selectionBackground: withOpacity(primary, 0.3),
+		selectionForeground: foreground,
 		black: readColor(read, "--term-black"),
 		red: readColor(read, "--term-red"),
 		green: readColor(read, "--term-green"),

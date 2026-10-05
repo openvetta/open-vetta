@@ -23,13 +23,32 @@ describe("buildTerminalTheme", () => {
 		expect(theme.background).toBeTruthy();
 		expect(theme.brightWhite).toBeTruthy();
 		expect(theme.blue).toBeTruthy();
+		expect(theme.selectionBackground).toBe("rgba(122, 162, 247, 0.3)");
 	});
 
-	it("光标用主色，选区用主色的半透明叠加", () => {
-		const theme = buildTerminalTheme(reader({ "--primary": "rgb(10, 20, 30)" }));
+	it("浅色默认主题的选区向 xterm 提供可解析的透明色，并保持文字可读", () => {
+		const theme = buildTerminalTheme(
+			reader({
+				"--background": "rgb(255, 255, 255)",
+				"--foreground": "rgb(0, 0, 0)",
+				"--primary": "rgb(0, 0, 0)",
+			}),
+		);
 
-		expect(theme.cursor).toBe("rgb(10, 20, 30)");
-		expect(theme.selectionBackground).toContain("rgb(10, 20, 30)");
+		expect(theme.cursor).toBe("rgb(0, 0, 0)");
+		expect(theme.selectionBackground).toBe("rgba(0, 0, 0, 0.3)");
+		expect(theme.selectionForeground).toBe("rgb(0, 0, 0)");
+	});
+
+	it.each([
+		["#abc", "rgba(170, 187, 204, 0.3)"],
+		["#aabbccdd", "rgba(170, 187, 204, 0.3)"],
+		["rgb(100% 50% 0% / 0.8)", "rgba(255, 127.5, 0, 0.3)"],
+		["rgba(1, 2, 3, 0.5)", "rgba(1, 2, 3, 0.3)"],
+		["color-mix(in srgb, rgb(0, 0, 0) 30%, transparent)", "rgba(122, 162, 247, 0.3)"],
+		["rgb(-1, 0, 0)", "rgba(122, 162, 247, 0.3)"],
+	])("把主题色 %s 转为透明选区，无法解析时安全回退", (primary, expected) => {
+		expect(buildTerminalTheme(reader({ "--primary": primary })).selectionBackground).toBe(expected);
 	});
 
 	it("解析出完整 16 色，缺一个都会让部分输出失色", () => {
