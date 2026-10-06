@@ -1,14 +1,7 @@
-import { parseInputSegments } from "@shared/lib/input-tokens";
+import { getBuiltinMcpPresetByName, resolveMcpPresetIconUrl } from "@domains/settings/mcp/builtin-mcp-presets";
 import { RendererMarkdownContent } from "@shared/components/RendererMarkdownContent";
-import {
-	getBuiltinMcpPresetByName,
-	resolveMcpPresetIconUrl,
-} from "@domains/settings/mcp/builtin-mcp-presets";
-import {
-	type InlineTokenAnnotation,
-	type InlineTokenPiece,
-	type InlineTokenSupport,
-} from "@vetta-org/theme-ui/chat";
+import { parseInputSegments } from "@shared/lib/input-tokens";
+import type { InlineTokenAnnotation, InlineTokenPiece, InlineTokenSupport } from "@vetta-org/theme-ui/chat";
 import { memo, useMemo } from "react";
 
 interface MarkdownContentProps {
@@ -16,6 +9,8 @@ interface MarkdownContentProps {
 	/** 仅当本 block 是「正在 streaming 消息」的最后一个 text block 时为 true，
 	 * 启用分块渐现效果。 */
 	isStreamingTail?: boolean;
+	isMessageStreaming?: boolean;
+	exportMode?: boolean;
 	className?: string;
 	/**
 	 * 用户消息传入：把 `@skill:名字` / `@scene:名字` / `@绝对路径` 渲染成行内胶囊。
@@ -54,6 +49,8 @@ function lookupConnector(name: string): { label: string; iconUrl?: string } | un
 export const MarkdownContent = memo(function MarkdownContent({
 	text,
 	isStreamingTail = false,
+	isMessageStreaming = isStreamingTail,
+	exportMode = false,
 	className,
 	inlineTokens,
 }: MarkdownContentProps) {
@@ -77,6 +74,8 @@ export const MarkdownContent = memo(function MarkdownContent({
 		<RendererMarkdownContent
 			text={text}
 			isStreamingTail={isStreamingTail}
+			isMessageStreaming={isMessageStreaming}
+			exportMode={exportMode}
 			className={className}
 			{...(inlineTokenSupport ? { inlineTokens: inlineTokenSupport } : {})}
 		/>

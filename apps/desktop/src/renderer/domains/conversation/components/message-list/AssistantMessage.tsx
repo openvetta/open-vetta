@@ -1,12 +1,12 @@
 import { BotAvatar } from "@shared/components/BotAvatar";
 import type { ConversationParticipantViewModel } from "@shared/conversation";
 import type { ChatAgentMessageViewModel, ChatToolCallPresentationViewModel } from "@shared/store/atoms";
-import { useThemeSurface } from "@vetta-org/theme-sdk/appearance";
 import type { Usage } from "@vetta/ai/protocol";
+import { useThemeSurface } from "@vetta-org/theme-sdk/appearance";
 import { ThemeSurface } from "@vetta-org/theme-ui/appearance";
 import {
-	AssistantMessage as AssistantMessagePrimitive,
 	AgentAvatarView,
+	AssistantMessage as AssistantMessagePrimitive,
 	Message,
 	MessageLayout,
 	StreamingIndicator as ThemeStreamingIndicator,
@@ -14,16 +14,17 @@ import {
 import { memo, useId, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useAssistantMessageModel } from "../../hooks/useAssistantMessageModel";
+import { TextBlockView } from "../blocks/TextBlock";
 import { MessageCardsHost } from "../MessageCardsHost";
+import { useExpansion } from "./expansionStore";
+import { CopyButton, formatTime, RelativeTimeLabel } from "./MessageActions";
 import { SegmentRenderer } from "./MessageBlockSegments";
+import { MessageTokenUsage } from "./MessageTokenUsage";
 import type { BlockSegment } from "./messageBlockModel";
 import { segmentKey } from "./messageBlockModel";
-import { useExpansion } from "./expansionStore";
 import { workSegmentKey } from "./progressGroupModel";
-import { WorkSegmentRenderer } from "./WorkSegmentRenderer";
-import { CopyButton, formatTime, RelativeTimeLabel } from "./MessageActions";
-import { MessageTokenUsage } from "./MessageTokenUsage";
 import { formatTurnDuration } from "./turnDuration";
+import { WorkSegmentRenderer } from "./WorkSegmentRenderer";
 
 /** Desktop wrapper: injects i18n streaming phrases into theme-ui indicator. */
 export function StreamingIndicator(): JSX.Element {
@@ -142,21 +143,13 @@ export const AssistantMessage = memo(function AssistantMessage({
 
 	return (
 		<Message.Root>
-			<MessageLayout.Incoming
-				className={surface?.rootClassName}
-				data-theme-surface-root="chat.assistantMessage"
-			>
+			<MessageLayout.Incoming className={surface?.rootClassName} data-theme-surface-root="chat.assistantMessage">
 				<ThemeSurface slot="chat.assistantMessage" />
 				<MessageLayout.IncomingSurface>
 					<MessageLayout.Header>
 						<MessageLayout.HeaderLeading asChild>
 							{participant ? (
-								<AgentAvatarView
-									name={participant.name}
-									avatar={participant.avatar}
-									active={isCurrentlyStreaming}
-									size="lg"
-								/>
+								<AgentAvatarView name={participant.name} avatar={participant.avatar} active={isCurrentlyStreaming} size="lg" />
 							) : (
 								<BotAvatar active={isCurrentlyStreaming} />
 							)}
@@ -166,9 +159,7 @@ export const AssistantMessage = memo(function AssistantMessage({
 						{durationAvailable ? (
 							<>
 								<span className="text-[11px] text-muted-foreground/20">·</span>
-								<Message.Meta>
-									{formatTurnDuration(message.durationSeconds ?? 0, t)}
-								</Message.Meta>
+								<Message.Meta>{formatTurnDuration(message.durationSeconds ?? 0, t)}</Message.Meta>
 							</>
 						) : null}
 						{isCurrentlyStreaming ? (
@@ -204,44 +195,40 @@ export const AssistantMessage = memo(function AssistantMessage({
 					<div>
 						{hasBlocks ? (
 							<div className="flex flex-col gap-0.5">
-						{exportProcessSegments.length > 0 && (
-							<div
-								id={exportFoldPanelId}
-								data-export-collapse-panel=""
-								hidden
-								className="flex flex-col gap-0.5"
-							>
-								{exportProcessSegments.map((segment) => (
-									<SegmentRenderer
-										key={`export-${segmentKey(segment)}`}
+								{exportProcessSegments.length > 0 && (
+									<div id={exportFoldPanelId} data-export-collapse-panel="" hidden className="flex flex-col gap-0.5">
+										{exportProcessSegments.map((segment) => (
+											<SegmentRenderer
+												key={`export-${segmentKey(segment)}`}
+												segment={segment}
+												presentation={presentationFor(segment)}
+												exportMode
+											/>
+										))}
+									</div>
+								)}
+								{segments.map((segment, index) => (
+									<WorkSegmentRenderer
+										key={workSegmentKey(segment)}
 										segment={segment}
-										presentation={presentationFor(segment)}
-										exportMode
+										isStreamingTail={index === streamingTailIndex}
+										isMessageStreaming={isCurrentlyStreaming}
+										isLiveActivity={isCurrentlyStreaming && index === segments.length - 1}
+										liveThinkingId={liveThinkingId}
+										presentation={presentationFor(segment as BlockSegment)}
+										onTeamMemberOpen={onTeamMemberOpen}
+										animateIn={isCurrentlyStreaming && index === segments.length - 1}
+										exportMode={exportMode}
 									/>
 								))}
 							</div>
-						)}
-						{segments.map((segment, index) => (
-							<WorkSegmentRenderer
-								key={workSegmentKey(segment)}
-								segment={segment}
-								isStreamingTail={index === streamingTailIndex}
-								isLiveActivity={isCurrentlyStreaming && index === segments.length - 1}
-								liveThinkingId={liveThinkingId}
-								presentation={presentationFor(segment as BlockSegment)}
-								onTeamMemberOpen={onTeamMemberOpen}
-								animateIn={isCurrentlyStreaming && index === segments.length - 1}
+						) : !isAwaitingFirstActivity ? (
+							<TextBlockView
+								text={message.text || "\u2026"}
+								isStreamingTail={isCurrentlyStreaming}
+								isMessageStreaming={isCurrentlyStreaming}
 								exportMode={exportMode}
 							/>
-						))}
-							</div>
-						) : !isAwaitingFirstActivity ? (
-							<div
-								className="text-[14px] leading-[1.6] text-foreground"
-								style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-							>
-								{message.text || "\u2026"}
-							</div>
 						) : null}
 					</div>
 
@@ -255,19 +242,15 @@ export const AssistantMessage = memo(function AssistantMessage({
 						<MessageLayout.Footer asChild>
 							<div className="gap-2">
 								{hasActions ? (
-					<div className="flex items-center gap-1">
-						{conclusionText.length > 0 && <CopyButton getText={() => conclusionText} />}
-						{(message.endedAt ?? message.timestamp) && (
-							<RelativeTimeLabel endedAt={(message.endedAt ?? message.timestamp) as number} />
-						)}
-						{showTokenUsage && (
-							<MessageTokenUsage usages={message.usages ?? []} sessionUsages={sessionUsages} />
-						)}
-					</div>
+									<div className="flex items-center gap-1">
+										{conclusionText.length > 0 && <CopyButton getText={() => conclusionText} />}
+										{(message.endedAt ?? message.timestamp) && (
+											<RelativeTimeLabel endedAt={(message.endedAt ?? message.timestamp) as number} />
+										)}
+										{showTokenUsage && <MessageTokenUsage usages={message.usages ?? []} sessionUsages={sessionUsages} />}
+									</div>
 								) : null}
-								{isPredicting ? (
-									<AssistantMessagePrimitive.PredictingStatus label={labels.predicting} />
-								) : null}
+								{isPredicting ? <AssistantMessagePrimitive.PredictingStatus label={labels.predicting} /> : null}
 							</div>
 						</MessageLayout.Footer>
 					) : null}

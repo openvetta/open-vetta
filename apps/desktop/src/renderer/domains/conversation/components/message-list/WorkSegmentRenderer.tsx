@@ -1,5 +1,4 @@
-import type { ThinkingBlock, ToolCallBlock } from "@shared/store/atoms";
-import type { ChatToolCallPresentationViewModel } from "@shared/store/atoms";
+import type { ChatToolCallPresentationViewModel, ThinkingBlock, ToolCallBlock } from "@shared/store/atoms";
 import { languageAtom, pluginAgentToolLabelsAtom, pluginI18nByIdAtom } from "@shared/store/atoms";
 import { LiveThinkingView, ProgressGroup, SegmentShell } from "@vetta-org/theme-ui/chat";
 import { useAtomValue } from "jotai";
@@ -10,12 +9,12 @@ import { TextBlockView } from "../blocks/TextBlock";
 import { ConciseThinkingBlockView } from "../blocks/ThinkingBlock";
 import { EmbeddedToolCallBlockView, ToolCallBlockView } from "../blocks/ToolCallBlock";
 import { toolLabel } from "../blocks/tool-views/shared/parse-tool";
+import { ContentRenderer } from "./ContentRendering";
 import { useExpansion } from "./expansionStore";
 import type { GroupBlock, ProgressGroupSegment, WorkSegment } from "./progressGroupModel";
 import { isProgressGroupDone } from "./progressGroupModel";
-import { compactWorkActivityText, selectWorkGroupActivity } from "./workActivityModel";
 import { ToolCallPresentation } from "./ToolCallPresentation";
-import { ContentRenderer } from "./ContentRendering";
+import { compactWorkActivityText, selectWorkGroupActivity } from "./workActivityModel";
 
 function useToolLabelInputs(): void {
 	// toolLabel reads these stores outside React; subscribe here so live titles and rows
@@ -101,9 +100,7 @@ const StageGroup = memo(function StageGroup({
 			<ProgressGroup.Frame>
 				<ProgressGroup.Trigger>
 					<ProgressGroup.Status />
-					<ProgressGroup.Title>
-						{liveTitle ?? segment.summary ?? segment.label ?? fallbackTitle}
-					</ProgressGroup.Title>
+					<ProgressGroup.Title>{liveTitle ?? segment.summary ?? segment.label ?? fallbackTitle}</ProgressGroup.Title>
 					<ProgressGroup.Chevron />
 				</ProgressGroup.Trigger>
 				<ProgressGroup.Content>
@@ -138,6 +135,7 @@ interface WorkSegmentRendererProps {
 	presentation?: ChatToolCallPresentationViewModel;
 	onTeamMemberOpen?: (memberId: string) => void;
 	isStreamingTail?: boolean;
+	isMessageStreaming?: boolean;
 	/** This is the last process segment in the currently streaming assistant turn. */
 	isLiveActivity?: boolean;
 	/** 仍在追加的 thinking block id：就地换成实时滚动卡片。 */
@@ -153,6 +151,7 @@ function areBlocksEqual(previous: GroupBlock[], next: GroupBlock[]): boolean {
 function arePropsEqual(previous: WorkSegmentRendererProps, next: WorkSegmentRendererProps): boolean {
 	if (
 		previous.isStreamingTail !== next.isStreamingTail ||
+		previous.isMessageStreaming !== next.isMessageStreaming ||
 		previous.isLiveActivity !== next.isLiveActivity ||
 		previous.liveThinkingId !== next.liveThinkingId ||
 		previous.animateIn !== next.animateIn ||
@@ -188,6 +187,7 @@ export const WorkSegmentRenderer = memo(function WorkSegmentRenderer({
 	presentation,
 	onTeamMemberOpen,
 	isStreamingTail = false,
+	isMessageStreaming = isStreamingTail,
 	isLiveActivity = false,
 	liveThinkingId,
 	animateIn = false,
@@ -241,7 +241,14 @@ export const WorkSegmentRenderer = memo(function WorkSegmentRenderer({
 	} else {
 		switch (segment.block.type) {
 			case "text":
-				content = <TextBlockView text={segment.block.text} isStreamingTail={isStreamingTail} />;
+				content = (
+					<TextBlockView
+						text={segment.block.text}
+						isStreamingTail={isStreamingTail}
+						isMessageStreaming={isMessageStreaming}
+						exportMode={exportMode}
+					/>
+				);
 				break;
 			case "thinking":
 				// 正在追加的那条就地展示实时滚动卡片，结束后回到折叠条。

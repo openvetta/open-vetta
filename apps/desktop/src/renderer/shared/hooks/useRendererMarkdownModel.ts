@@ -74,6 +74,18 @@ export function useRendererMarkdownModel(
 		() => ({
 			copy: t("copyButton.label"),
 			copied: t("copyButton.copied"),
+			html: {
+				title: t("htmlAnswer.title"),
+				preview: t("htmlAnswer.preview"),
+				source: t("htmlAnswer.source"),
+				expand: t("htmlAnswer.expand"),
+				collapse: t("htmlAnswer.collapse"),
+				waiting: t("htmlAnswer.waiting"),
+				incomplete: t("htmlAnswer.incomplete"),
+				tooLarge: t("htmlAnswer.tooLarge"),
+				safety: t("htmlAnswer.safety"),
+				copyFailed: t("htmlAnswer.copyFailed"),
+			},
 		}),
 		[t],
 	);

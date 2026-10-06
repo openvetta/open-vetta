@@ -26,5 +26,14 @@
     "type": "skill",
     "alias": "发布能力",
     "description": "把 skill、scene、MCP、插件或能力套装提交到 Vetta 能力市场，讲清必填字段、多语言与审核流程。"
+  },
+  "answer-me-with-html": {
+    "name": "answer-me-with-html",
+    "version": "1.0.0",
+    "source": "builtin",
+    "enabled": true,
+    "type": "skill",
+    "alias": "HTML可视化回答",
+    "description": "在主会话中直接用 HTML 展示复杂解释、对比与报告，支持就地预览、查看源码与复制。"
   }
 }

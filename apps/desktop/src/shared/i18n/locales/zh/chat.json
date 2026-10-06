@@ -1125,5 +1125,17 @@
 	},
 	"filePreview": {
 		"failed": "预览失败，文件可能已损坏或格式不受支持"
+	},
+	"htmlAnswer": {
+		"title": "HTML 回答",
+		"preview": "预览",
+		"source": "源码",
+		"expand": "增高回答",
+		"collapse": "收起回答",
+		"waiting": "正在生成，完成后在此显示 HTML 回答",
+		"incomplete": "HTML 围栏尚未完成，可先查看或复制源码",
+		"tooLarge": "内容过大，暂不预览。可查看或复制源码",
+		"safety": "离线显示：支持样式与原生折叠；脚本、外部资源和页面跳转已禁用",
+		"copyFailed": "复制失败，请重试或从源码中选取内容"
 	}
 }

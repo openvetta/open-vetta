@@ -1,9 +1,8 @@
-import { createContext, memo, useContext, useMemo, useRef } from "react";
 import type { JSX } from "react";
-import ReactMarkdown from "react-markdown";
+import { createContext, memo, useContext, useMemo, useRef } from "react";
 import type { Components, Options } from "react-markdown";
+import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { DefaultCodeBlock } from "./CodeBlock";
 import {
 	MarkdownTable,
 	MarkdownTableBody,
@@ -13,20 +12,23 @@ import {
 	MarkdownTableRow,
 } from "../shared/MarkdownTable";
 import { SkillTypeIcon } from "../skills/skill-icon";
+import { DefaultCodeBlock } from "./CodeBlock";
+import type { HtmlAnswerLabels, MarkdownDefinition } from "./definition";
+import { useMarkdownDefinition } from "./definition";
+import { HtmlAnswerCodeBlock } from "./HtmlAnswerCodeBlock";
+import { isClosedHtmlFence, isHtmlPreviewLanguage } from "./html-answer";
 import { InlineTokenChip } from "./InlineTokenChip";
-import { chatUrlTransform, classifyMarkdownLink, normalizeLocalFileLinksInMarkdown } from "./markdown-link";
-import { useStreamingDisplayText, rehypeStreamingChunks } from "./streaming";
+import type { InlineTokenSupport } from "./inline-tokens";
 import {
 	INLINE_TOKEN_TAG,
+	projectAnnotationsToNormalizedMarkdown,
 	rehypeInlineTokens,
 	remarkInlineTokenAnnotations,
-	projectAnnotationsToNormalizedMarkdown,
 } from "./inline-tokens";
-import type { InlineTokenSupport } from "./inline-tokens";
+import { chatUrlTransform, classifyMarkdownLink, normalizeLocalFileLinksInMarkdown } from "./markdown-link";
 import type { HastElement } from "./nodes";
-import { useMarkdownDefinition } from "./definition";
-import type { MarkdownDefinition } from "./definition";
 import { splitStableMarkdownBlocks } from "./stable-blocks";
+import { rehypeStreamingChunks, useStreamingDisplayText } from "./streaming";
 
 /** 文件 / 链接 badge 的公共样式：半透明主题色底 + 主题色描边与文字。 */
 const LINK_BADGE_CLASS =
@@ -34,7 +36,13 @@ const LINK_BADGE_CLASS =
 
 const remarkPlugins = [remarkGfm];
 
-const MarkdownCodeLiveContext = createContext(false);
+const MarkdownCodeContext = createContext<{
+	live: boolean;
+	streaming: boolean;
+	text: string;
+	theme: "light" | "dark";
+	labels: MarkdownLabels;
+}>({ live: false, streaming: false, text: "", theme: "light", labels: { copy: "", copied: "" } });
 
 function cn(...parts: Array<string | false | null | undefined>): string {
 	return parts.filter(Boolean).join(" ");
@@ -43,6 +51,8 @@ function cn(...parts: Array<string | false | null | undefined>): string {
 export interface MarkdownLabels {
 	copy: string;
 	copied: string;
+	/** Localized host opt-in to inline HTML answer controls. */
+	html?: HtmlAnswerLabels;
 	/** 表格工具条：复制成 GFM 表格 / CSV。 */
 }
 
@@ -50,6 +60,8 @@ export interface MarkdownContentProps {
 	definition?: MarkdownDefinition;
 	text: string;
 	isStreamingTail?: boolean;
+	/** Entire reply lifecycle, separate from which text fragment animates. */
+	isMessageStreaming?: boolean;
 	className?: string;
 	theme: "light" | "dark";
 	labels: MarkdownLabels;
@@ -75,6 +87,9 @@ interface MarkdownDocumentProps {
 	definition: MarkdownDefinition;
 	inlineTokens?: InlineTokenSupport;
 	live: boolean;
+	streaming: boolean;
+	theme: "light" | "dark";
+	labels: MarkdownLabels;
 	text: string;
 }
 
@@ -88,6 +103,9 @@ const MarkdownDocument = memo(function MarkdownDocument({
 	definition,
 	inlineTokens,
 	live,
+	streaming,
+	theme,
+	labels,
 	text,
 }: MarkdownDocumentProps): JSX.Element {
 	const hasStructuredAnnotations = inlineTokens?.annotations !== undefined;
@@ -108,11 +126,7 @@ const MarkdownDocument = memo(function MarkdownDocument({
 	const activeRemarkPlugins = useMemo(
 		() =>
 			normalizedAnnotations?.length
-				? [
-						...remarkPlugins,
-						...(definition.remarkPlugins ?? []),
-						() => remarkInlineTokenAnnotations(normalizedAnnotations),
-					]
+				? [...remarkPlugins, ...(definition.remarkPlugins ?? []), () => remarkInlineTokenAnnotations(normalizedAnnotations)]
 				: [...remarkPlugins, ...(definition.remarkPlugins ?? [])],
 		[normalizedAnnotations, definition],
 	);
@@ -120,8 +134,12 @@ const MarkdownDocument = memo(function MarkdownDocument({
 		() => ({ ...components, ...definition.components, ...definition.elements }),
 		[components, definition],
 	);
+	const codeContext = useMemo(
+		() => ({ live, streaming, text: markdownSource, theme, labels }),
+		[live, streaming, markdownSource, theme, labels],
+	);
 	return (
-		<MarkdownCodeLiveContext.Provider value={live}>
+		<MarkdownCodeContext.Provider value={codeContext}>
 			<ReactMarkdown
 				remarkPlugins={activeRemarkPlugins}
 				rehypePlugins={rehypePlugins}
@@ -130,7 +148,7 @@ const MarkdownDocument = memo(function MarkdownDocument({
 			>
 				{markdownSource}
 			</ReactMarkdown>
-		</MarkdownCodeLiveContext.Provider>
+		</MarkdownCodeContext.Provider>
 	);
 });
 
@@ -139,11 +157,12 @@ const MarkdownDocument = memo(function MarkdownDocument({
  *
  * `components` 映射的函数引用必须在 streaming 期间保持稳定：React 把 components.p 等
  * 当成元素类型；引用一变就会整树 remount，流式短语的 DOM 身份与代码块状态都会重置，
- * 表现为 text block 高频闪烁。labels / 回调通过 ref 读取，不进 deps。
+ * 表现为 text block 高频闪烁。theme / labels 由文档 Context 更新，宿主回调通过 ref 读取。
  */
 export const MarkdownContent = memo(function MarkdownContent({
 	text,
 	isStreamingTail = false,
+	isMessageStreaming = isStreamingTail,
 	className,
 	theme,
 	labels,
@@ -160,12 +179,10 @@ export const MarkdownContent = memo(function MarkdownContent({
 	// displayText 按到达速率追赶宿主快照；流结束时 hook 会立即 flush 剩余内容。
 	const { displayText, animateChunks } = useStreamingDisplayText(text, isStreamingTail);
 
-	const labelsRef = useRef(labels);
 	const getFileIconClassRef = useRef(getFileIconClass);
 	const onOpenFileRef = useRef(onOpenFile);
 	const onOpenUrlRef = useRef(onOpenUrl);
 	const inlineTokensRef = useRef(inlineTokens);
-	labelsRef.current = labels;
 	getFileIconClassRef.current = getFileIconClass;
 	onOpenFileRef.current = onOpenFile;
 	onOpenUrlRef.current = onOpenUrl;
@@ -173,9 +190,7 @@ export const MarkdownContent = memo(function MarkdownContent({
 
 	const components = useMemo<Components>(
 		() => ({
-			h1: ({ children }) => (
-				<h1 className="mb-3 mt-4 text-[20px] font-bold leading-tight text-foreground">{children}</h1>
-			),
+			h1: ({ children }) => <h1 className="mb-3 mt-4 text-[20px] font-bold leading-tight text-foreground">{children}</h1>,
 			h2: ({ children }) => (
 				<h2 className="mb-2 mt-3.5 text-[17px] font-bold leading-tight text-foreground">{children}</h2>
 			),
@@ -193,15 +208,27 @@ export const MarkdownContent = memo(function MarkdownContent({
 				</ol>
 			),
 			li: ({ children }) => <li>{children}</li>,
-			code: function MarkdownCode({ className: codeClassName, children }) {
-				const live = useContext(MarkdownCodeLiveContext);
-				const raw = String(children);
+			code: function MarkdownCode({ className: codeClassName, children, node }) {
+				const context = useContext(MarkdownCodeContext);
+				const raw = String(children ?? "");
 				const isBlock = (codeClassName?.startsWith("language-") ?? false) || raw.includes("\n");
 				if (isBlock) {
 					const lang = codeClassName?.replace("language-", "") ?? "";
 					const code = raw.replace(/\n$/, "");
-					const CodeBlock = definitionRef.current.codeBlock ?? DefaultCodeBlock;
-					return <CodeBlock lang={lang} code={code} theme={theme} labels={labelsRef.current} live={live} />;
+					const CodeBlock =
+						definitionRef.current.codeBlock ??
+						(context.labels.html && isHtmlPreviewLanguage(lang) ? HtmlAnswerCodeBlock : DefaultCodeBlock);
+					return (
+						<CodeBlock
+							lang={lang}
+							code={code}
+							theme={context.theme}
+							labels={context.labels}
+							live={context.live}
+							streaming={context.streaming}
+							closed={isHtmlPreviewLanguage(lang) && isClosedHtmlFence(context.text, node?.position, code)}
+						/>
+					);
 				}
 				return <code className="rounded bg-muted px-1 py-0.5 text-[13px] text-foreground">{children}</code>;
 			},
@@ -281,9 +308,7 @@ export const MarkdownContent = memo(function MarkdownContent({
 				}
 				if (kind === "skill" || kind === "scene") {
 					const ability =
-						kind === "scene"
-							? inlineTokensRef.current?.getScene?.(value)
-							: inlineTokensRef.current?.getSkill?.(value);
+						kind === "scene" ? inlineTokensRef.current?.getScene?.(value) : inlineTokensRef.current?.getSkill?.(value);
 					return (
 						<InlineTokenChip
 							iconNode={<SkillTypeIcon type={kind} icon={ability?.icon} className="h-3 w-3" />}
@@ -311,12 +336,7 @@ export const MarkdownContent = memo(function MarkdownContent({
 						<InlineTokenChip
 							iconNode={
 								member.avatar ? (
-									<img
-										src={member.avatar}
-										alt=""
-										draggable={false}
-										className="h-3 w-3 rounded-full object-cover"
-									/>
+									<img src={member.avatar} alt="" draggable={false} className="h-3 w-3 rounded-full object-cover" />
 								) : undefined
 							}
 							label={`@${member.label || handle}`}
@@ -338,8 +358,8 @@ export const MarkdownContent = memo(function MarkdownContent({
 				);
 			},
 		}),
-		// theme 进 deps：代码块高亮主题变化时需要换组件树。其余 host 注入值走 ref。
-		[theme],
+		// Theme and labels use document context; node types stay stable.
+		[],
 	);
 
 	// 分段 span 一旦挂上就保留到实例卸载：结束时若把 rehype 插件撤掉，整个尾块会重建 DOM，
@@ -366,6 +386,9 @@ export const MarkdownContent = memo(function MarkdownContent({
 					components={components}
 					definition={definition}
 					live={false}
+					streaming={isMessageStreaming}
+					theme={theme}
+					labels={labels}
 					text={block}
 				/>
 			))}
@@ -377,6 +400,9 @@ export const MarkdownContent = memo(function MarkdownContent({
 					definition={definition}
 					inlineTokens={inlineTokens}
 					live={isStreamingTail}
+					streaming={isMessageStreaming}
+					theme={theme}
+					labels={labels}
 					text={tail}
 				/>
 			) : null}

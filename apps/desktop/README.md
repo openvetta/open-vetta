@@ -62,6 +62,24 @@ initialize, start, audio, and stop.
 
 See [team task recovery](docs/agent-team-recovery.md) for automatic recovery limits, initiator notifications, and stop behavior.
 
+## Inline HTML answers
+
+Ask Vetta to show a visual explanation directly in the main conversation, for example:
+“直接在主会话用 HTML 展示这个方案对比，不要生成文件或打开侧栏。”
+The built-in **Visual HTML answers** skill produces one complete `html-preview` fenced document in the assistant reply.
+The answer appears between the message's surrounding paragraphs once streaming ends and the fence closes.
+It does not need a file or the activity panel. Ordinary `html` code starts as source with an optional manual preview.
+
+Source inspection, original-source copying, and a taller reading area stay inside the message. Both structured
+text blocks and text-only restored assistant replies use this same renderer. History remains ordinary Markdown.
+Incomplete or oversized blocks retain their source without automatic preview.
+
+The preview supports HTML/CSS, inline SVG, embedded raster images and native disclosure controls. Scripts,
+external resources, links, popups, file access and form submission are disabled. Copying the original source
+does not sanitize it. The authored document owns its colors; it need not match the host's dark/light theme.
+The maintained MIT template subset and exclusions are documented in the built-in skill's
+[NOTICE](../../packages/skill-presets/answer-me-with-html/NOTICE).
+
 ## Development
 
 ### File preview navigation

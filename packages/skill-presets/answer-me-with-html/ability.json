@@ -1,0 +1,58 @@
+{
+	"schemaVersion": 1,
+	"type": "skill",
+	"slug": "answer-me-with-html",
+	"version": "1.0.0",
+	"detail": {
+		"blocks": [
+			{
+				"type": "feature-grid",
+				"title": "直接在主会话阅读可视化回答",
+				"items": [
+					{
+						"title": "帮助理解复杂内容",
+						"description": "用清晰的结论、对比表、信息卡与时间线组织解释和报告。",
+						"icon": "solar:document-bold"
+					},
+					{
+						"title": "就在回复中查看",
+						"description": "直接在主会话展示 HTML，可就地切换预览、查看源码与复制。",
+						"icon": "solar:chat-round-bold"
+					},
+					{
+						"title": "自包含静态内容",
+						"description": "无需安装工具或生成文件，不加载外部资源，也不执行脚本。",
+						"icon": "solar:shield-bold"
+					}
+				]
+			}
+		],
+		"i18n": {
+			"en": {
+				"blocks": [
+					{
+						"type": "feature-grid",
+						"title": "Read visual answers directly in the conversation",
+						"items": [
+							{
+								"title": "Understand complex content",
+								"description": "Organize explanations and reports with conclusions, comparison tables, key facts, and timelines.",
+								"icon": "solar:document-bold"
+							},
+							{
+								"title": "View answers in place",
+								"description": "Display HTML directly in the main conversation, with Preview, Source, and Copy controls.",
+								"icon": "solar:chat-round-bold"
+							},
+							{
+								"title": "Self-contained static content",
+								"description": "No tools to install or files to create; no external resources or scripts.",
+								"icon": "solar:shield-bold"
+							}
+						]
+					}
+				]
+			}
+		}
+	}
+}

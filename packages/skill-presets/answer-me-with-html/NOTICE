@@ -1,0 +1,32 @@
+Vetta static HTML answer adaptation
+
+Upstream: QingYunA/answer-me-with-html
+Repository: https://github.com/QingYunA/answer-me-with-html
+Version: 0.4.9
+Pinned commit: 4afe054b1a7f99b43c316c1951b113ae7c775f4e
+License: MIT (complete upstream notice in LICENSE and answer-template.html)
+LICENSE Git blob: 17eca290eefa4fa9d5594edcad845be8df899eb0
+
+Adapted sources at that commit:
+- src/templates/sheet.js: am-sheet, am-grid, and panel reading order
+- src/templates/doc.js: single-column am-doc / am-doc-body structure
+- src/templates/panel.js: am-head, panel header, identifier, title, body
+- src/themes/index.js: shadcn light-theme variables and system font stacks
+- src/themes/base.css: panel, callout, key-value, timeline, and table styling
+- src/components/callout.js: semantic note and title/body structure
+- src/components/kv.js: definition-list cells and full-row metadata
+- src/components/timeline.js: ordered vertical milestones and highlight state
+- src/markdown.js: horizontally contained tables and text status indicators
+
+Vetta changes:
+- Deliver self-contained HTML in a closed html-preview fence in the main
+  assistant conversation; ordinary html fences remain source-first.
+- Use inline static CSS, fluid narrow-card layouts (260px / 360px), semantic
+  captions/headings, explicit status text, and native details/summary.
+- Define theme variables without requiring html data attributes, and preserve
+  the content language on body because root attributes may be sanitized away.
+- Remove compiler dependencies, custom DSL, CLI/generators, client runtime,
+  toolbar/TOC links, external resources, scripts, video/audio, and network use.
+
+This is a curated static presentation adaptation, not the upstream compiler
+or a React library. No upstream executable code is bundled or run.

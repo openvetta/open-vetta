@@ -81,6 +81,10 @@
 		"publish-ability": {
 			"name": "Publish Ability",
 			"description": "Submit a skill, scene, MCP server, plugin, or ability bundle to the Vetta marketplace, covering required fields, localization, and the review flow."
+		},
+		"answer-me-with-html": {
+			"name": "Visual HTML answers",
+			"description": "Show complex explanations, reports and comparisons as HTML answers directly in the main conversation; keep simple replies concise."
 		}
 	}
 }

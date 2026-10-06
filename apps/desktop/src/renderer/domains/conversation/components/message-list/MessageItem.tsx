@@ -1,3 +1,7 @@
+import { RendererMarkdownScope } from "@shared/components/RendererMarkdownScope";
+import type { ConversationParticipantViewModel } from "@shared/conversation";
+import { useRendererMarkdownModel } from "@shared/hooks/useRendererMarkdownModel";
+import type { Usage } from "@vetta/ai/protocol";
 import {
 	CompactionBoundaryView,
 	ExportMessageListView,
@@ -6,15 +10,13 @@ import {
 	MessageVisual,
 	ModelSwitchBoundaryView,
 } from "@vetta-org/theme-ui/chat";
-import { forwardRef, memo } from "react";
+import { forwardRef, memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import type { Usage } from "@vetta/ai/protocol";
-import type { ChatConversationItem } from "./types";
-import type { ConversationParticipantViewModel } from "@shared/conversation";
 import { AssistantMessage } from "./AssistantMessage";
-import { TeamMemberReplyCard } from "./TeamMemberReplyCard";
-import { ReadonlyUserMessage } from "./ReadonlyUserMessage";
 import { useMessageRendering } from "./MessageRendering";
+import { ReadonlyUserMessage } from "./ReadonlyUserMessage";
+import { TeamMemberReplyCard } from "./TeamMemberReplyCard";
+import type { ChatConversationItem } from "./types";
 
 export const CompactionBoundary = memo(function CompactionBoundary() {
 	const { t } = useTranslation("chat");
@@ -94,20 +96,27 @@ export const DefaultMessageItem = memo(function DefaultMessageItem({
 
 export const ExportMessageList = forwardRef<HTMLDivElement, { messages: readonly ChatConversationItem[] }>(
 	function ExportMessageList({ messages }, ref) {
+		const markdown = useRendererMarkdownModel();
+		// Export snapshots have no React handlers; keep HTML source readable for
+		// every message role instead of cloning a live iframe/control surface.
+		const staticMarkdown = useMemo(
+			() => ({
+				...markdown,
+				labels: { copy: markdown.labels.copy, copied: markdown.labels.copied },
+			}),
+			[markdown],
+		);
 		const tailMessageId = messages.at(-1)?.id ?? null;
 		return (
-			<ExportMessageListView listRef={ref}>
-				{messages.map((message) => (
-					<div key={message.id} className="pb-5">
-						<MessageItem
-							message={message}
-							isTailMessage={message.id === tailMessageId}
-							isStreaming={false}
-							exportMode
-						/>
-					</div>
-				))}
-			</ExportMessageListView>
+			<RendererMarkdownScope value={staticMarkdown}>
+				<ExportMessageListView listRef={ref}>
+					{messages.map((message) => (
+						<div key={message.id} className="pb-5">
+							<MessageItem message={message} isTailMessage={message.id === tailMessageId} isStreaming={false} exportMode />
+						</div>
+					))}
+				</ExportMessageListView>
+			</RendererMarkdownScope>
 		);
 	},
 );

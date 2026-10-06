@@ -1,4 +1,6 @@
-import { useMemo, useState, type JSX } from "react";
+import type { JSX } from "react";
+import { useMemo, useState } from "react";
+import { createHtmlPreviewDocument } from "./html-preview-security";
 
 export interface HtmlPreviewViewProps {
 	readonly content: string;
@@ -37,11 +39,13 @@ html body {
   height: 100% !important;
   min-height: 0 !important;
   max-height: 100%;
-  overflow-x: hidden !important;
+  overflow-x: auto !important;
   overflow-y: auto !important;
   scrollbar-width: thin;
   scrollbar-color: ${thumb} transparent;
 }
+html body, html body *, html body *::before, html body *::after { box-sizing: border-box; }
+html body img, html body svg { max-width: 100%; }
 /* Also style nested overflow nodes (match .vetta-app-ui * on the host). */
 html body * {
   scrollbar-width: thin;
@@ -73,25 +77,6 @@ html body *::-webkit-scrollbar-corner {
 `.trim();
 }
 
-/**
- * Inject chrome CSS into a full HTML document's <head> (last wins over page CSS).
- * Prepending before <!DOCTYPE> is dropped by browsers and never applies.
- */
-function injectPreviewChrome(content: string): string {
-	const styleTag = `<style data-preview-chrome>${previewChromeStyle()}</style>`;
-	if (/<\/head>/i.test(content)) {
-		return content.replace(/<\/head>/i, `${styleTag}</head>`);
-	}
-	if (/<head(\s[^>]*)?>/i.test(content)) {
-		return content.replace(/<head(\s[^>]*)?>/i, (m) => `${m}${styleTag}`);
-	}
-	if (/<html(\s[^>]*)?>/i.test(content)) {
-		return content.replace(/<html(\s[^>]*)?>/i, (m) => `${m}<head>${styleTag}</head>`);
-	}
-	// Fragment / incomplete HTML — wrap so body rules still match.
-	return `<!DOCTYPE html><html><head>${styleTag}</head><body>${content}</body></html>`;
-}
-
 function HtmlPreviewFrame({
 	srcDoc,
 	title,
@@ -107,7 +92,8 @@ function HtmlPreviewFrame({
 			<iframe
 				title={title}
 				srcDoc={srcDoc}
-				sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+				sandbox=""
+				referrerPolicy="no-referrer"
 				onLoad={() => setLoadedSrcDoc(srcDoc)}
 				className={`absolute inset-0 h-full w-full border-0 bg-white ${
 					loaded ? "opacity-100" : "opacity-0"
@@ -124,7 +110,7 @@ function HtmlPreviewFrame({
  * Does not follow app light/dark theme; the HTML document owns its look.
  */
 export function HtmlPreviewView({ content, title }: HtmlPreviewViewProps): JSX.Element {
-	const srcDoc = useMemo(() => injectPreviewChrome(content), [content]);
+	const srcDoc = useMemo(() => createHtmlPreviewDocument(content, previewChromeStyle()), [content]);
 
 	return (
 		<div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">

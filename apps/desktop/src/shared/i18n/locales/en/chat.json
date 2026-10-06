@@ -1125,5 +1125,17 @@
 	},
 	"filePreview": {
 		"failed": "Preview failed. The file may be damaged or its format unsupported."
+	},
+	"htmlAnswer": {
+		"title": "HTML answer",
+		"preview": "Preview",
+		"source": "Source",
+		"expand": "Taller answer",
+		"collapse": "Compact answer",
+		"waiting": "Generating. The HTML answer will appear here when complete",
+		"incomplete": "The HTML fence is unfinished. You can view or copy its source",
+		"tooLarge": "Too large to preview. You can view or copy its source",
+		"safety": "Offline display: styles and native disclosure work; scripts, external resources and navigation are disabled",
+		"copyFailed": "Copy failed. Try again or select the source text"
 	}
 }

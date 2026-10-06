@@ -1,16 +1,33 @@
-import { createContext, useContext } from "react";
 import type { ComponentType, ReactNode } from "react";
+import { createContext, useContext } from "react";
 import type { Components, ExtraProps, Options } from "react-markdown";
 
 export type MarkdownElementProps = ExtraProps & { children?: ReactNode };
+
+export interface HtmlAnswerLabels {
+	readonly title: string;
+	readonly preview: string;
+	readonly source: string;
+	readonly expand: string;
+	readonly collapse: string;
+	readonly waiting: string;
+	readonly incomplete: string;
+	readonly tooLarge: string;
+	readonly safety: string;
+	readonly copyFailed: string;
+}
 
 export interface MarkdownCodeBlockProps {
 	code: string;
 	lang: string;
 	theme: "light" | "dark";
-	labels: { copy: string; copied: string };
+	labels: { copy: string; copied: string; html?: HtmlAnswerLabels };
 	/** 流式尾块：代码仍可能增长时跳过 Shiki，只显示等宽纯文本。 */
 	live?: boolean;
+	/** Whether the original Markdown fence explicitly closes. */
+	closed?: boolean;
+	/** The whole text block is still arriving, including its stable fenced sections. */
+	streaming?: boolean;
 }
 
 /** Definitions are immutable, local to a React subtree, and contain no host state. */

@@ -1,3 +1,4 @@
+import type { ChatToolCallPresentationViewModel } from "@shared/store/atoms";
 import { LiveThinkingView, SegmentShell, ToolCallGroupView } from "@vetta-org/theme-ui/chat";
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
@@ -5,19 +6,18 @@ import { ErrorBlockView } from "../blocks/ErrorBlock";
 import { TextBlockView } from "../blocks/TextBlock";
 import { ThinkingBlockView } from "../blocks/ThinkingBlock";
 import { ToolCallBlockView } from "../blocks/ToolCallBlock";
-import type { BlockSegment } from "./messageBlockModel";
-import type { ChatToolCallPresentationViewModel } from "@shared/store/atoms";
-import { ToolCallPresentation } from "./ToolCallPresentation";
 import { ContentRenderer } from "./ContentRendering";
+import type { BlockSegment } from "./messageBlockModel";
 import type { GroupBlock } from "./progressGroupModel";
+import { ToolCallPresentation } from "./ToolCallPresentation";
 
+export type { AssistantFoldData, BlockSegment } from "./messageBlockModel";
 export {
 	findLastProcessBlockIndex,
 	getAssistantFoldData,
 	groupBlocks,
 	segmentKey,
 } from "./messageBlockModel";
-export type { AssistantFoldData, BlockSegment } from "./messageBlockModel";
 
 const ToolCallGroup = memo(function ToolCallGroup({
 	blocks,
@@ -49,12 +49,7 @@ const ToolCallGroup = memo(function ToolCallGroup({
 	}
 
 	return (
-		<ToolCallGroupView
-			blockCount={blocks.length}
-			summary={summary.join("，")}
-			allDone={allDone}
-			exportMode={exportMode}
-		>
+		<ToolCallGroupView blockCount={blocks.length} summary={summary.join("，")} allDone={allDone} exportMode={exportMode}>
 			{blocks.map((block) => (
 				<ContentRenderer
 					key={block.type === "tool_call" ? block.toolCallId : block.id}
@@ -97,6 +92,7 @@ interface SegmentRendererProps {
 	presentation?: ChatToolCallPresentationViewModel;
 	onTeamMemberOpen?: (memberId: string) => void;
 	isStreamingTail?: boolean;
+	isMessageStreaming?: boolean;
 	/** 仍在追加的 thinking block id：就地换成实时滚动卡片。 */
 	liveThinkingId?: string | null;
 	animateIn?: boolean;
@@ -119,6 +115,7 @@ function areSegmentsEqual(previous: BlockSegment, next: BlockSegment): boolean {
 function areSegmentRendererPropsEqual(previous: SegmentRendererProps, next: SegmentRendererProps): boolean {
 	return (
 		previous.isStreamingTail === next.isStreamingTail &&
+		previous.isMessageStreaming === next.isMessageStreaming &&
 		previous.liveThinkingId === next.liveThinkingId &&
 		previous.animateIn === next.animateIn &&
 		previous.exportMode === next.exportMode &&
@@ -133,6 +130,7 @@ export const SegmentRenderer = memo(function SegmentRenderer({
 	presentation,
 	onTeamMemberOpen,
 	isStreamingTail = false,
+	isMessageStreaming = isStreamingTail,
 	liveThinkingId,
 	animateIn = false,
 	exportMode = false,
@@ -145,7 +143,14 @@ export const SegmentRenderer = memo(function SegmentRenderer({
 	} else {
 		switch (segment.block.type) {
 			case "text":
-				content = <TextBlockView text={segment.block.text} isStreamingTail={isStreamingTail} />;
+				content = (
+					<TextBlockView
+						text={segment.block.text}
+						isStreamingTail={isStreamingTail}
+						isMessageStreaming={isMessageStreaming}
+						exportMode={exportMode}
+					/>
+				);
 				break;
 			case "thinking":
 				// 正在追加的那条就地展示实时滚动卡片，结束后回到折叠条。

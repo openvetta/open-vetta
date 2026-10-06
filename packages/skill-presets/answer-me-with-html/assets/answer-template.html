@@ -1,0 +1,191 @@
+<!doctype html>
+<!--
+Adapted from QingYunA/answer-me-with-html 0.4.9
+Commit: 4afe054b1a7f99b43c316c1951b113ae7c775f4e
+Keep this complete notice when reusing the template.
+MIT License
+
+Copyright (c) 2026 Answer me with HTML contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>回答标题</title>
+<style>
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --radius: 8px; --shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); --bw: 1px;
+  --bg: #fafafa; --paper: #ffffff; --ink: #09090b; --ink-2: #52525b; --ink-3: #71717a;
+  --line: #e4e4e7; --line-2: #f0f0f2; --fill: #f4f4f5;
+  --accent: #2563eb; --accent-bg: #eff6ff;
+  --ok: #15803d; --ok-bg: #f0fdf4; --err: #dc2626; --err-bg: #fef2f2;
+  --warn: #92400e; --warn-bg: #fffbeb; --head-bg: #18181b; --head-fg: #fafafa;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-sans); font-size: 14px; line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+code, pre, kbd { font-family: var(--font-mono); }
+.am-sheet, .am-doc { width: 100%; max-width: 1120px; margin: 0 auto; padding: 20px; }
+.am-doc { max-width: 860px; }
+.am-head { margin: 0 0 18px; }
+.am-head h1 { margin: 0; font-size: 24px; line-height: 1.3; letter-spacing: -0.01em; }
+.am-sub { margin: 6px 0 0; color: var(--ink-2); }
+.am-head-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 10px; font-size: 12px; color: var(--ink-2); }
+.am-head-meta b { font-family: var(--font-mono); font-weight: 400; margin-right: 6px; }
+.am-intro { margin-top: 12px; max-width: 80ch; }
+.am-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.am-span-wide { grid-column: 1 / -1; }
+.am-doc-body > .am-panel + .am-panel { margin-top: 16px; }
+.am-panel {
+  background: var(--paper); border: var(--bw) solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); min-width: 0; max-width: 100%;
+}
+.am-panel-head { display: flex; align-items: start; border-bottom: var(--bw) solid var(--line); }
+.am-panel-id {
+  display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  min-width: 24px; min-height: 24px; margin: 10px 0 10px 12px; padding: 0 5px;
+  border-radius: 6px; background: var(--head-bg); color: var(--head-fg); font-weight: 600; font-size: 12px;
+}
+.am-panel-head h2 { min-width: 0; margin: 0; padding: 10px 12px; font-size: 15px; font-weight: 600; flex: 1; }
+.am-panel-body { min-width: 0; padding: 14px; }
+.am-panel-body > * + * { margin-top: 12px; }
+.am-md > :first-child { margin-top: 0; }
+.am-md > :last-child { margin-bottom: 0; }
+.am-md p { margin: 0 0 8px; }
+.am-md ul, .am-md ol { margin: 0 0 8px; padding-left: 20px; }
+.am-md li + li { margin-top: 4px; }
+.am-md h3 { margin: 14px 0 6px; font-size: 14px; }
+.am-md :not(pre) > code { font-size: 0.9em; background: var(--fill); padding: 1px 5px; border-radius: 4px; }
+.am-table-wrap { max-width: 100%; overflow-x: auto; }
+.am-table-wrap:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.am-md table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.am-md caption { text-align: left; font-weight: 600; padding: 0 0 8px; }
+.am-md th { text-align: left; color: var(--ink-2); font-weight: 600; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+.am-md td { padding: 8px 10px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+.am-md tbody tr:nth-child(even) { background: var(--fill); }
+.am-status { font-weight: 600; }
+.am-status--ok { color: var(--ok); }
+.am-status--no { color: var(--err); }
+.am-status--warn { color: var(--warn); }
+.am-callout {
+  border: 1px solid var(--line-2); border-left: 3px solid var(--accent); background: var(--accent-bg);
+  padding: 10px 14px; border-radius: var(--radius);
+}
+.am-callout--ok { border-left-color: var(--ok); background: var(--ok-bg); }
+.am-callout--warn { border-left-color: var(--warn); background: var(--warn-bg); }
+.am-callout--err { border-left-color: var(--err); background: var(--err-bg); }
+.am-callout-title { font-weight: 600; margin-bottom: 4px; }
+.am-kv {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0;
+  border-top: var(--bw) solid var(--line); border-left: var(--bw) solid var(--line);
+}
+.am-kv-cell { border-right: var(--bw) solid var(--line); border-bottom: var(--bw) solid var(--line); padding: 6px 10px 8px; min-width: 0; }
+.am-kv-cell--wide { grid-column: 1 / -1; }
+.am-kv dt { font: 12px/1.4 var(--font-mono); color: var(--ink-2); }
+.am-kv dd { margin: 2px 0 0; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.am-kv-cell--wide dd { font-size: 16px; font-weight: 600; }
+.am-timeline { list-style: none; margin: 0; padding: 0; }
+.am-timeline--v li { position: relative; padding: 0 0 14px 22px; }
+.am-timeline--v li::before { content: ""; position: absolute; left: 5px; top: 6px; bottom: -6px; border-left: var(--bw) solid var(--line); }
+.am-timeline--v li:last-child::before { display: none; }
+.am-tl-dot { position: absolute; left: 0; top: 6px; width: 11px; height: 11px; border: var(--bw) solid var(--line); border-radius: 50%; background: var(--paper); }
+.am-tl-item--hi .am-tl-dot { background: var(--accent); border-color: var(--accent); }
+.am-tl-when { font: 12px var(--font-mono); color: var(--ink-2); margin-right: 8px; }
+.am-tl-title { font-size: 14px; font-weight: 600; }
+.am-tl-text { display: block; margin-top: 2px; font-size: 13px; color: var(--ink-2); }
+details { border-top: 1px solid var(--line); padding-top: 10px; }
+summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+details > p { margin-top: 8px; }
+@media (max-width: 560px) {
+  .am-sheet, .am-doc { padding: 12px; }
+  .am-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .am-head h1 { font-size: 21px; }
+  .am-md th, .am-md td { min-width: 6em; }
+}
+@media (max-width: 360px) {
+  .am-sheet, .am-doc { padding: 8px; }
+  .am-panel-body { padding: 12px; }
+  .am-kv { grid-template-columns: minmax(0, 1fr); }
+}
+@media print {
+  body { background: var(--paper); }
+  .am-panel { break-inside: avoid; box-shadow: none; }
+}
+</style>
+</head>
+<body lang="zh-CN">
+<main class="am-sheet" aria-labelledby="answer-title">
+  <header class="am-head">
+    <h1 id="answer-title">回答标题</h1>
+    <p class="am-sub">用一句话说明本回答要帮助用户理解什么或作出什么决定。</p>
+    <div class="am-intro am-callout" role="note">
+      <div class="am-callout-title">先给结论</div>
+      <div class="am-callout-body">在这里写有依据的结论，并交代重要条件。删除所有示例占位内容。</div>
+    </div>
+  </header>
+  <div class="am-grid">
+    <section class="am-panel" aria-labelledby="context-title">
+      <header class="am-panel-head"><span class="am-panel-id" aria-hidden="true">01</span><h2 id="context-title">判断依据</h2></header>
+      <div class="am-panel-body am-md">
+        <dl class="am-kv">
+          <div class="am-kv-cell am-kv-cell--wide"><dt>目标</dt><dd>填写用户实际要达成的目标</dd></div>
+          <div class="am-kv-cell"><dt>范围</dt><dd>填写已确认的范围</dd></div>
+          <div class="am-kv-cell"><dt>证据</dt><dd>填写来源及时间，链接放在预览外</dd></div>
+        </dl>
+        <p>补充必要的背景和假设，让读者知道结论适用的条件。</p>
+      </div>
+    </section>
+    <section class="am-panel" aria-labelledby="steps-title">
+      <header class="am-panel-head"><span class="am-panel-id" aria-hidden="true">02</span><h2 id="steps-title">推进顺序</h2></header>
+      <div class="am-panel-body">
+        <ol class="am-timeline am-timeline--v">
+          <li class="am-tl-item am-tl-item--hi"><span class="am-tl-when">第一步</span><span class="am-tl-dot" aria-hidden="true"></span><span class="am-tl-title">当前需要确认的事项</span><span class="am-tl-text">填写下一步所需的条件或证据。</span></li>
+          <li class="am-tl-item"><span class="am-tl-when">第二步</span><span class="am-tl-dot" aria-hidden="true"></span><span class="am-tl-title">条件满足后的行动</span><span class="am-tl-text">填写行动及可检查的完成标准。</span></li>
+        </ol>
+      </div>
+    </section>
+    <section class="am-panel am-span-wide" aria-labelledby="comparison-title">
+      <header class="am-panel-head"><span class="am-panel-id" aria-hidden="true">03</span><h2 id="comparison-title">对照与限制</h2></header>
+      <div class="am-panel-body am-md">
+        <div class="am-table-wrap" role="region" aria-label="方案比较，可横向滚动" tabindex="0">
+          <table>
+            <caption>按同一标准比较，未知内容明确标注</caption>
+            <thead><tr><th scope="col">判断标准</th><th scope="col">方案一</th><th scope="col">方案二</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">适用条件</th><td>填写已确认条件</td><td>填写已确认条件</td></tr>
+              <tr><th scope="row">待核实信息</th><td><span class="am-status am-status--warn">待核实</span>：说明缺口</td><td>说明已有证据</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="am-callout am-callout--warn" role="note"><div class="am-callout-title">重要限制</div><div class="am-callout-body">填写会改变结论的风险、限制或尚未确认的信息。</div></div>
+        <details><summary>查看补充说明</summary><p>只把非必要的细节放在这里，关键结论和限制保持可见。</p></details>
+      </div>
+    </section>
+  </div>
+</main>
+</body>
+</html>
