@@ -1,0 +1,50 @@
+name: release-signing-preflight
+run-name: Signed macOS release configuration preflight
+
+on:
+  push:
+    branches: [release/signing-preflight-20261007]
+    paths: [.github/workflows/release-signing-preflight.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  signing-presence:
+    if: github.repository == 'Ling0925/open-vetta'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check only signing secret presence
+        env:
+          HAS_MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 != '' }}
+          HAS_MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD != '' }}
+          HAS_APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 != '' }}
+          HAS_APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID != '' }}
+          HAS_APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER != '' }}
+          HAS_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID != '' }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const keys = [
+            'MACOS_CERTIFICATE_P12_BASE64',
+            'MACOS_CERTIFICATE_PASSWORD',
+            'APPLE_API_KEY_P8_BASE64',
+            'APPLE_API_KEY_ID',
+            'APPLE_API_ISSUER',
+            'APPLE_TEAM_ID',
+          ];
+          let missing = 0;
+          for (const key of keys) {
+            const present = process.env[`HAS_${key}`];
+            if (present !== 'true' && present !== 'false') {
+              throw new Error(`Invalid boolean presence result for ${key}`);
+            }
+            console.log(`${key}: ${present === 'true' ? 'present' : 'missing'}`);
+            if (present === 'false') missing += 1;
+          }
+          if (missing > 0) {
+            console.error('::error::Signing configuration is incomplete. No certificate was downloaded and no build or release was created.');
+            process.exitCode = 1;
+          }
+          NODE
