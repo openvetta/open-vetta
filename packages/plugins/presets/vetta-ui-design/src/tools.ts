@@ -9,6 +9,7 @@ import {
 import { captureFrameOffscreen, offscreenRasterSupported } from "./canvas/offscreen-raster";
 import { screenshotCardDescriptor, SCREENSHOT_TOOL_NAME } from "./cards/screenshot-card";
 import { pruneSnapshots, snapshotPath } from "./cards/snapshots";
+import { registerDirectionTool } from "./direction/direction-tool";
 import { registerHistoryTools } from "./history/history-tools";
 import { registerExportTool } from "./materials/export-tool";
 import { setDesignPresence } from "./vetd/design-presence";
@@ -586,6 +587,7 @@ export function registerDesignTools(ctx: PluginContext): void {
 
 	// 版本历史的两个工具在 history/history-tools.ts：历史相关的东西全归那一处。
 	registerExportTool(ctx, { scopeUse: SCOPE_USE });
+	registerDirectionTool(ctx, { scopeUse: SCOPE_USE });
 	registerHistoryTools(ctx, { resolveVetdPath, scopeUse: SCOPE_USE });
 
 	interface NotesInput {
