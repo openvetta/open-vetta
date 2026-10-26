@@ -14,6 +14,13 @@ import { imageryMode, signaturesFor } from "./deal";
 import { axisFromSettings, type FontAxis, fontImports, fontsourcePackage, registeredFamily } from "./fontsource";
 import type { AppStyle, TasteHero, TasteLibrary, TastePalette, TasteSection, TasteType } from "./library";
 
+/**
+ * 保留品牌配色时最容易出的事：品牌色被当成主题色铺满全屏（实测里 Emby 绿上了 logo、
+ * 角标、标题圆点、进度条、按钮和底栏）。品牌色进 `primary`，其余照方向的比例走中性色。
+ */
+const BRAND_COLOUR_BUDGET =
+	"Map the brand onto `--color-surface` (ground), `--color-surface-foreground` (text), `--color-panel`, `--color-muted` and `--color-primary` / `--color-primary-foreground` in theme.css: its hue becomes `--color-primary` and goes on the one primary action and at most one other thing (the main data element, or the active state); the ground, panels and text stay neutral, and no second hue is added for decoration. A brand colour on every badge, bullet, link and icon is the generated look this budget exists to stop.";
+
 /** 比这更窄的画框按手机版式交代。 */
 const PHONE_MAX_WIDTH = 600;
 /** 「一屏」的高度，版式里的 svh 按它换算。与 product-size.ts 的 desktop / mobile 一致。 */
@@ -321,6 +328,7 @@ export function renderPageSheet(
 
 	p("## 3. theme.css");
 	if (!type || !palette) p(`Kept from the brand: ${[!type && "type", !palette && "colour"].filter(Boolean).join(" and ")}.`);
+	if (!palette) p(BRAND_COLOUR_BUDGET);
 	if (fonts.packages.length > 0) {
 		p(`Install first, in one call: vetd_install with packages ${JSON.stringify(fonts.packages)}. Then replace theme.css with:`);
 	}
@@ -482,6 +490,7 @@ export function renderAppSheet(lib: TasteLibrary, input: AppInput, choice: AppCh
 			]);
 	p("## 2. theme.css");
 	if (keepPalette || keepType) p(`Kept from the brand: ${[keepPalette && "colour", keepType && "type"].filter(Boolean).join(" and ")}.`);
+	if (keepPalette) p(`${BRAND_COLOUR_BUDGET} ${style.colourBudget ? `This style's budget: ${style.colourBudget}.` : ""}`.trim());
 	if (fonts.packages.length > 0) {
 		p(`Install first, in one call: vetd_install with packages ${JSON.stringify(fonts.packages)}. Then replace theme.css with:`);
 	}

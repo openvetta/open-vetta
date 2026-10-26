@@ -87,8 +87,10 @@ describe("页面方向表", () => {
 		const chosen = choose({ lib, rnd: seededRandom(2), history: [] }, dealt.record, dealt.options[0].id, NOW);
 		const sheet = renderPageSheet(lib, input, chosen.choice as PageChoice, desktop);
 		expect(sheet.packages).toEqual([]);
-		expect(sheet.text).not.toMatch(/--color-|--font-/);
+		// 不发任何颜色、字体 token，但要交代品牌色怎么分配，否则品牌色会铺满全屏。
+		expect(sheet.text).not.toMatch(/^\t--(?:color|font)-/m);
 		expect(sheet.text).toContain("Kept from the brand: type and colour.");
+		expect(sheet.text).toMatch(/its hue becomes `--color-primary` and goes on the one primary action/);
 	});
 
 	it("手机画框给手机版式，并按手机宽度换算 vw", () => {
