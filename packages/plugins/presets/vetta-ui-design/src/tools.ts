@@ -19,6 +19,7 @@ import {
 	openDealSession,
 	styleFixedByPack,
 } from "./direction/deal-service";
+import { registerAssetsTool } from "./assets/assets-tool";
 import { registerDirectionTool } from "./direction/direction-tool";
 import { DIRECTION_FILE } from "./direction/record";
 import { readDirectionTells } from "./direction/direction-file";
@@ -648,6 +649,7 @@ export function registerDesignTools(ctx: PluginContext): void {
 	// 版本历史的两个工具在 history/history-tools.ts：历史相关的东西全归那一处。
 	registerExportTool(ctx, { scopeUse: SCOPE_USE });
 	registerDirectionTool(ctx, { scopeUse: SCOPE_USE });
+	registerAssetsTool(ctx, { scopeUse: SCOPE_USE });
 	registerHistoryTools(ctx, { resolveVetdPath, scopeUse: SCOPE_USE });
 
 	interface NotesInput {

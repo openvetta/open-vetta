@@ -18,6 +18,7 @@ Every adaptation to `.vetd` frames lives in `src/direction/`, not here:
 | Dropping motion, scroll scenes, photographs and studied-site references | `src/direction/library.ts` |
 | Dealing (ported from `scripts/draw.mjs` and `scripts/lib/app-draw.mjs`) | `src/direction/deal.ts` |
 | The sheet the agent reads, in theme.css tokens and fontsource imports | `src/direction/sheet.ts` |
+| Searching `photos.json` (Unsplash photographs served by picsum.photos) | `src/assets/sources.ts` |
 
 Keeping the data untouched is what lets an upstream release be taken by copying
 files, without merging anything. `test/direction-library.test.ts` fails when an
@@ -25,8 +26,7 @@ update breaks an assumption the adapters make.
 
 ## What was not copied
 
-- `sites.json`, `photos.json`: studied-site notes and remote photographs. Frames
-  cannot load remote images, and the sites are only cited in the sheet.
+- `sites.json`: studied-site notes, only cited in the upstream sheet.
 - `motions.json`, `scenes.json`: frames are fixed-size and static.
 - `references/*.md` and `SKILL.md`: their rules were rewritten once for frames in
   the skill (`agent/skills/vetta-ui-design/`). When an upstream changelog entry
@@ -35,7 +35,7 @@ update breaks an assumption the adapters make.
 ## Syncing
 
 1. Clone the upstream repository at the new commit.
-2. Copy `skills/taste-skill/library/{directions,heroes,sections,palettes,type,app}.json`
+2. Copy `skills/taste-skill/library/{directions,heroes,sections,palettes,type,app,photos}.json`
    over the files in `library/`, and update the commit above.
 3. Run the plugin tests. A typeface the upstream newly uses fails the library test
    until someone checks npm for `@fontsource(-variable)/<slug>` and lists it in

@@ -44,6 +44,7 @@ const HEAVY_TOOLS = [
 	"vetd_restore",
 	"vetd_export",
 	"vetd_direction",
+	"vetd_assets",
 ] as const;
 
 describe("重工具描述", () => {
