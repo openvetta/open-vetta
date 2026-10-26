@@ -75,60 +75,17 @@ year, a version, a status) or goes.
 
 ## Landing pages
 
-**The three-column icon-tile feature grid.** Three equal cards, icon above title
-above two lines. → Vary spans (2:1, a 2×2 lead tile), pull icons inline, drop the
-cards for typographic rows, or use fewer items.
-
-**Full-height centred hero.** One short sentence centred in a viewport-tall
-block with one big button. → Hero as tall as its content, biased left or right,
-headline + a real lede + the action visible in the first 800 px.
-
-**The default nav.** Wordmark left, 4–5 links, button right, full width, hairline
-below — on every kind of site. → A nav that fits the genre: a masthead for
-editorial, a detached floating pill for product sites, two links when there are
-two destinations, a side rail for long documents.
-
-**The default footer.** Four link columns (Product / Company / Resources / Legal),
-social icon row, tiny copyright. → Close the page instead: a closing statement,
-one inline line, a colophon. Link columns only for a real hub with a real sitemap.
-
-**Re-drawn chrome.** Fake browser bars with traffic-light dots around a screenshot,
-CSS phone bezels with a notch, fake window chrome around a code block. → Show the
-content itself with at most a hairline frame. Device mockups come from the
-canvas's mockup export, never from markup inside a frame.
-
-**The template sequence.** Hero → logo strip → three features → testimonials →
-pricing → CTA → footer, identically every time. → Pick a structure from
-`landing-structures.md`; include only the sections the brief needs.
+Governed by the house rules in SKILL.md and the dealt direction sheet: the hero
+and every section come from its blueprints, so the template sequence, the icon
+feature grid and the default nav and footer never get a chance to appear. One
+tell the sheet cannot prevent: **re-drawn chrome** — fake browser bars, CSS phone
+bezels, window chrome around a code block. Show the content itself; device
+mockups come from the canvas's mockup export, never from markup inside a frame.
 
 ## App screens and dashboards
 
-**The generated dashboard row.** Four identical KPI cards, each with an icon
-chip, a big number, a green "+12.5 %" and a sparkline. → Only real, decision-
-relevant metrics; vary emphasis (one lead figure, the rest quieter inline);
-drop the icon chips.
-
-**Everything is boxed.** Every panel carrying the same border, radius and shadow
-on a grey page; a divider under every heading; a border on the nav and the
-sidebar. → Space, the shared gutter and surface tone carry the structure; cards
-for things that are objects (a project, an order), and lines where they answer
-`whitespace.md`'s question.
-
-**Lists as card grids.** Twelve records rendered as twelve cards. → A table or a
-dense list with aligned columns when people compare or scan records.
-
-**Rainbow charts.** Every series a different saturated color, gradient area fills,
-3D or glossy bars. → Anchor-derived series, one highlighted, the rest muted;
-flat fills.
-
-**Icon-for-every-nav-item sidebar sprawl.** Fifteen top-level items with random
-glyphs. → Group, collapse, and keep glyphs that genuinely help recognition.
-
-**Gradient avatar circles and initials everywhere.** → Neutral tinted avatars;
-color only when it encodes something (a user's assigned color, a status).
-
-**Status by color alone.** Green/red dots with no label. → Dot plus text, or a
-labelled badge.
+`app-screens.md` § Tells of generated dashboards, and the dealt app sheet's
+"Off-style here" line.
 
 ## Mobile screens
 

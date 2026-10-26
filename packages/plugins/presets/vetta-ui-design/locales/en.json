@@ -321,6 +321,8 @@
 	"tool.vetd_history": "Design history",
 	"tool.vetd_restore": "Restore design version",
 	"tool.vetd_export": "Export design",
+	"tool.vetd_direction": "Design direction",
+	"tool.vetd_assets": "Design pictures",
 	"history.peek": "Peek",
 	"history.peeking": "Peeking",
 	"history.peek.banner": "Viewing an older version",

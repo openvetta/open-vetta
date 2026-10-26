@@ -94,9 +94,15 @@ export function NotesDrawer({ store, session, cwd, onLocate, offsetTop, onClose 
 	return (
 		// 悬浮而非贴边：画布是无限的，抽屉贴死左边缘会读成「面板被截断了」。
 		// 高度跟着内容走，只在超过画布 80% 时才封顶——两条备注不该占满整条边。
+		// 指针事件截断在这里：面板浮在画布根里，而备注工具下画布根的 pointerdown 就是
+		// 「在这里新建备注」，不截断的话点面板里任何按钮都会在点击处顺带弹出草稿。
+		// biome-ignore lint/a11y/noStaticElementInteractions: pointer-capture shield for canvas chrome
 		<div
 			className="vetd-note vetd-note-drawer-enter vetd-note-surface pointer-events-auto absolute z-40 flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-popover shadow-2xl ring-1 ring-black/5"
 			style={{ top: PANEL_TOP + offsetTop, left: PANEL_GAP, width: PANEL_WIDTH, maxHeight: PANEL_MAX_HEIGHT }}
+			onPointerDown={(event) => event.stopPropagation()}
+			onPointerMove={(event) => event.stopPropagation()}
+			onPointerUp={(event) => event.stopPropagation()}
 		>
 			<header className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2.5">
 				<span className="text-xs font-semibold text-foreground">{t("notes.drawer.title")}</span>

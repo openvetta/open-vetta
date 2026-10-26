@@ -40,14 +40,25 @@ function vetdSourceAttr({ types: t }) {
 	};
 }
 
-/** Inject the design dir as a Tailwind `@source` so utility classes in frames are detected. */
+/**
+ * Inject the design dir as a Tailwind `@source` so utility classes in frames are detected.
+ *
+ * design.json is carved out: @tailwindcss/vite answers a change to any scanned file
+ * that is not a JS/CSS module with a full-reload of every page, and the canvas
+ * rewrites that manifest after every zoom, pan and frame move. Left in, each
+ * gesture reloaded every live frame ~1s after it ended — a white flash on the
+ * selected frame. The manifest holds layout only, never class names.
+ */
 function vetdThemeSource() {
 	return {
 		name: "vetd-theme-source",
 		enforce: "pre",
 		transform(code, id) {
 			if (!id.replaceAll("\\", "/").endsWith("src/styles.css")) return null;
-			return code.replace("/*__VETD_SOURCE__*/", `@source "${designRootPosix}";`);
+			return code.replace(
+				"/*__VETD_SOURCE__*/",
+				`@source "${designRootPosix}";\n@source not "${designRootPosix}/design.json";`,
+			);
 		},
 	};
 }

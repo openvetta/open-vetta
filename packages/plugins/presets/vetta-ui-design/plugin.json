@@ -46,8 +46,7 @@
 	],
 	"network": {
 		"allowedHosts": [
-			"cdn.jsdelivr.net",
-			"raw.githubusercontent.com"
+			"*"
 		]
 	},
 	"commands": [

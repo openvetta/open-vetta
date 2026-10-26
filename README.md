@@ -202,6 +202,8 @@ Longer, searchable threads still belong in [GitHub Discussions](https://github.c
 
 Open Vetta builds on work from the wider open-source ecosystem, including pi, Codex CLI, MCP, Electron, React, Bun, models.dev, and the projects listed in [`NOTICE`](NOTICE). The complete third-party inventory and original notices live there.
 
+Special thanks to [taste-skill](https://github.com/Leonxlnx/taste-skill) (MIT) and its author. The design-direction library, app-screen rules and Unsplash photo index in the vetta-ui-design plugin come from this project. Its careful study of award-winning sites and real product screens is what moves vetta-ui-design away from templated design.
+
 Licensed under [Apache-2.0](LICENSE).
 
 - **Friends & Links:** [LINUX DO](https://linux.do/) - A Chinese community for technology enthusiasts. This project is linked with and endorsed by LINUX DO.

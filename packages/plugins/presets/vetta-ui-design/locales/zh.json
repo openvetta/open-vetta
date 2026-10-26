@@ -321,6 +321,8 @@
 	"tool.vetd_history": "设计版本历史",
 	"tool.vetd_restore": "恢复设计版本",
 	"tool.vetd_export": "导出设计产物",
+	"tool.vetd_direction": "设计方向",
+	"tool.vetd_assets": "设计配图",
 	"history.peek": "查看",
 	"history.peeking": "查看中",
 	"history.peek.banner": "正在查看旧版本",

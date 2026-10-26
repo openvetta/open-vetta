@@ -173,6 +173,8 @@ Pull Request 发往 **`dev`** 分支。贡献地图、测试要求与评审门�
 
 Open Vetta 建立在广泛的开源生态之上，包括 pi、Codex CLI、MCP、Electron、React、Bun、models.dev，以及 [`NOTICE`](NOTICE) 中列出的项目。完整第三方清单与原始版权声明以该文件为准。
 
+特别感谢 [taste-skill](https://github.com/Leonxlnx/taste-skill)（MIT）及其作者。设计插件 vetta-ui-design 的设计方向库、App 界面规则与 Unsplash 照片索引都来自这个项目，它对真实获奖网站与产品界面的研究扎实而用心，是 vetta-ui-design 摆脱模板化设计的基础。
+
 本项目采用 [Apache-2.0](LICENSE) 许可。
 
 - **友情链接：** [LINUX DO](https://linux.do/) - 一个面向技术爱好者的中文社区，本项目链接并认可 LINUX DO，欢迎佬友交流和反馈。

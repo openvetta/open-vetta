@@ -128,3 +128,31 @@ it("坐在左上角标题区下方，查看模式时再让开横幅", () => {
 	const panel = host.querySelector<HTMLElement>(".vetd-note-drawer-enter");
 	expect(panel?.style.top).toBe("48px");
 });
+
+it("面板里的按下不冒泡到画布根，备注工具不会在点击处再落一条草稿", () => {
+	// 画布根的 onPointerDown 在备注工具下就是「在这里新建备注」：面板浮在画布里，
+	// 不截断的话点「关闭」「清除已完成」都会顺带在点击位置弹出草稿输入框。
+	const done = store.addNote({ kind: "free", x: 0, y: 0 }, "已完成的");
+	store.appendMessage(done.id, "agent", "改好了");
+	let canvasDowns = 0;
+	act(() => {
+		root.render(
+			// biome-ignore lint/a11y/noStaticElementInteractions: stands in for the canvas root
+			<div onPointerDown={() => (canvasDowns += 1)}>
+				<NotesDrawer store={store} session={session} cwd="/repo" onLocate={() => {}} offsetTop={0} onClose={() => {}} />
+			</div>,
+		);
+	});
+
+	const close = document.body.querySelector<HTMLElement>('[aria-label="notes.close"]');
+	const clear = [...document.body.querySelectorAll("button")].find(
+		(button) => button.textContent === "notes.drawer.clearResolved",
+	);
+	if (!close || !clear) throw new Error("drawer buttons not rendered");
+	for (const target of [close, clear]) {
+		act(() => {
+			target.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+		});
+	}
+	expect(canvasDowns).toBe(0);
+});

@@ -9,6 +9,20 @@ import {
 import { captureFrameOffscreen, offscreenRasterSupported } from "./canvas/offscreen-raster";
 import { screenshotCardDescriptor, SCREENSHOT_TOOL_NAME } from "./cards/screenshot-card";
 import { pruneSnapshots, snapshotPath } from "./cards/snapshots";
+import { APP_KINDS, ASSETS, PAGE_SECTORS } from "./direction/deal";
+import {
+	CHOOSE_NOTE,
+	dealInputFor,
+	dealIntoDesign,
+	DirectionError,
+	directionModeFor,
+	openDealSession,
+	styleFixedByPack,
+} from "./direction/deal-service";
+import { registerAssetsTool } from "./assets/assets-tool";
+import { registerDirectionTool } from "./direction/direction-tool";
+import { DIRECTION_FILE } from "./direction/record";
+import { readDirectionTells } from "./direction/direction-file";
 import { registerHistoryTools } from "./history/history-tools";
 import { registerExportTool } from "./materials/export-tool";
 import { setDesignPresence } from "./vetd/design-presence";
@@ -25,6 +39,7 @@ import { readDesignDependencies } from "./vetd/design-package";
 import { findVetdFiles } from "./vetd/discover";
 import { inspectIssues } from "./vetd/inspect";
 import { layoutIssues } from "./vetd/layout-probe";
+import { tellIssues } from "./vetd/tells-probe";
 import { PRODUCT_SIZE_SUMMARY, PRODUCT_TYPES, resolveDefaultFrameSize } from "./vetd/product-size";
 import { DESIGN_ONLY_TOOLS } from "./vetd/tool-gate";
 import {
@@ -46,6 +61,11 @@ interface CreateInput {
 	name?: string;
 	product?: string;
 	frameSize?: { width: number; height: number };
+	brief?: string;
+	sector?: string;
+	kind?: string;
+	keep?: string[];
+	have?: string[];
 }
 
 type ScreenshotInput = ScreenshotSelectionInput;
@@ -120,7 +140,7 @@ export function registerDesignTools(ctx: PluginContext): void {
 		// 反向触发段（Do NOT / Only for）是误调防线的第一层：这个工具会在用户工作区
 		// 里建一整棵目录，模型在「写个页面」这种指令上最容易把它当成实现路径。
 		description:
-			"Create a new Vetta UI Design document (a `<name>.vetd/` directory holding design.json + sources) in the current workspace and open it on the design canvas. Requires the product type (or an explicit frame size) — that is what the design defaults to, so decide it from the user's request BEFORE calling. Each frames/<id>.tsx is one canvas frame AND one route — invoke the vetta-ui-design skill for the rules before writing any of them.\nDo NOT use when the user is writing or modifying code in an existing codebase — implement the page directly in that repo's own framework instead.\nOnly for standalone visual exploration decoupled from any codebase, when the user asked for a design/mockup rather than working code.",
+			"Create a new Vetta UI Design document (a `<name>.vetd/` directory holding design.json + sources) in the current workspace and open it on the design canvas. Requires the product type (or an explicit frame size) — that is what the design defaults to, so decide it from the user's request BEFORE calling. Each frames/<id>.tsx is one canvas frame AND one route — invoke the vetta-ui-design skill for the rules before writing any of them. For a landing page or app screens also pass `brief` and `sector` (landing) or `kind` (mobile / desktop): the result deals three art directions to choose from with vetd_direction.\nDo NOT use when the user is writing or modifying code in an existing codebase — implement the page directly in that repo's own framework instead.\nOnly for standalone visual exploration decoupled from any codebase, when the user asked for a design/mockup rather than working code.",
 		parameters: {
 			type: "object",
 			properties: {
@@ -144,6 +164,20 @@ export function registerDesignTools(ctx: PluginContext): void {
 					description:
 						"Explicit default size in PIXELS, for whatever `product` cannot express — the user named a size (`800x800`), or a physical format you convert yourself (A4 at 96dpi is 794x1123, at 300dpi 2480x3508). Wins over `product` when both are given.",
 				},
+				brief: { type: "string", description: "landing / mobile / desktop: one line about the subject, in English." },
+				sector: { type: "string", enum: [...PAGE_SECTORS], description: "landing: the closest sector." },
+				kind: { type: "string", enum: [...APP_KINDS], description: "mobile / desktop: the closest kind of product." },
+				keep: {
+					type: "array",
+					items: { type: "string", enum: ["palette", "type"] },
+					description:
+						"What an existing brand the user named already fixes (its colour → palette); only the rest is dealt.",
+				},
+				have: {
+					type: "array",
+					items: { type: "string", enum: [...ASSETS] },
+					description: "Assets that really exist (the project's own photos, real UI screenshots, an image-tool you can call).",
+				},
 			},
 			additionalProperties: false,
 		},
@@ -158,6 +192,26 @@ export function registerDesignTools(ctx: PluginContext): void {
 					ok: false,
 					error: `Pass \`product\` (${PRODUCT_TYPES.join(" | ")}) or an explicit \`frameSize\` in pixels. This is the size the design defaults to — decide it from what the user asked for, do not guess after the fact.`,
 				};
+			}
+			// 落地页与 App 在建目录之前先校验发牌参数：缺了就整个调用失败，而不是先建出
+			// 一份没有方向的设计——那样模型会直接开画，发牌这一步就再也回不来了。
+			const directionMode = directionModeFor(trigger.input.product);
+			let dealSession: Awaited<ReturnType<typeof openDealSession>> | null = null;
+			let dealParams: CreateInput | null = null;
+			if (directionMode) {
+				const packed = await styleFixedByPack(host.fs, session.cwd, null);
+				const keep = [...new Set([...(trigger.input.keep ?? []), ...(packed ? ["palette", "type"] : [])])];
+				dealParams = { ...trigger.input, keep };
+				dealSession = await openDealSession(ctx);
+				try {
+					dealInputFor(dealSession, directionMode, dealParams);
+				} catch (error) {
+					if (!(error instanceof DirectionError)) throw error;
+					return {
+						ok: false,
+						error: `${error.message} A ${trigger.input.product} design starts by dealing its art direction, so vetd_create needs it up front — pass \`brief\` too.`,
+					};
+				}
 			}
 			const result = await scaffoldDesign(host.fs, session.cwd, trigger.input.name ?? "design", defaultFrameSize);
 			// Provider 在一个 Turn 内只执行一次：仅更新 presence 只能让下一 Turn 开闸。
@@ -175,12 +229,17 @@ export function registerDesignTools(ctx: PluginContext): void {
 			);
 			ctx.ui.setActivityTabVisible(CANVAS_TAB_ID, true, { cwd: session.cwd });
 			ctx.ui.openActivityTab(CANVAS_TAB_ID, { width: "max", cwd: session.cwd });
+			const options =
+				directionMode && dealSession && dealParams
+					? await dealIntoDesign(dealSession, host.fs, result.dirPath, directionMode, dealParams)
+					: null;
 			return {
 				ok: true,
 				vetdPath: result.vetdPath,
 				sourcesDir: result.dirPath,
 				defaultFrameSize,
-				note: `Design created and opened on the canvas, with NO frames yet. Its default size is ${defaultFrameSize.width}x${defaultFrameSize.height} — still declare it per frame: every frames/<id>.tsx starts with \`export const frame = { width: ${defaultFrameSize.width}, height: ${defaultFrameSize.height}, title }\`, and a screen of a different product type declares its own. Never edit design.json. More than one screen? Write the shared chrome FIRST (components/, or frames/_layout.tsx), then every frame as a short skeleton so the whole set reaches the canvas immediately, and only then fill them in one at a time — see the vetta-ui-design skill.`,
+				...(options ? { direction: { mode: directionMode, options, next: CHOOSE_NOTE } } : {}),
+				note: `${options ? "FIRST choose one of `direction.options` with vetd_direction and apply its sheet — no frame before that. " : ""}Design created and opened on the canvas, with NO frames yet. Its default size is ${defaultFrameSize.width}x${defaultFrameSize.height} — still declare it per frame: every frames/<id>.tsx starts with \`export const frame = { width: ${defaultFrameSize.width}, height: ${defaultFrameSize.height}, title }\`, and a screen of a different product type declares its own. Never edit design.json. More than one screen? Write the shared chrome FIRST (components/, or frames/_layout.tsx), then every frame as a short skeleton so the whole set reaches the canvas immediately, and only then fill them in one at a time — see the vetta-ui-design skill.`,
 			};
 		},
 	});
@@ -239,9 +298,10 @@ export function registerDesignTools(ctx: PluginContext): void {
 			}
 			const { dirPath, vetdPath } = controller.session;
 			// 源码检查与指纹各做一次，而不是跟帧数线性重复。
-			const [sourceIssues, sourceFingerprints] = await Promise.all([
+			const [sourceIssues, sourceFingerprints, tells] = await Promise.all([
 				inspectIssues(ctx, host.fs, dirPath),
 				designSourceFingerprints(host.fs, dirPath, known),
+				readDirectionTells(host.fs, dirPath),
 			]);
 			const useOffscreen = offscreenRasterSupported();
 			type Success = {
@@ -321,8 +381,10 @@ export function registerDesignTools(ctx: PluginContext): void {
 					return { ok: false, frame: frameId, retryable: true, error: `Frame failed to build during capture:\n${lateError}` };
 				}
 				const frameIssues = [
-					...sourceIssues.filter((issue) => issue.file === `frames/${frameId}.tsx`),
+					// 整份设计级的 issue（发了方向没选）报给每一帧：哪一帧都不该在它清掉前算完成。
+					...sourceIssues.filter((issue) => issue.file === `frames/${frameId}.tsx` || issue.file === DIRECTION_FILE),
 					...layoutIssues(probe, frameId),
+					...tellIssues(probe, frameId, tells),
 				];
 				const capturedAt = Date.now();
 				const path = snapshotPath(dirPath, frameId, capturedAt);
@@ -586,6 +648,8 @@ export function registerDesignTools(ctx: PluginContext): void {
 
 	// 版本历史的两个工具在 history/history-tools.ts：历史相关的东西全归那一处。
 	registerExportTool(ctx, { scopeUse: SCOPE_USE });
+	registerDirectionTool(ctx, { scopeUse: SCOPE_USE });
+	registerAssetsTool(ctx, { scopeUse: SCOPE_USE });
 	registerHistoryTools(ctx, { resolveVetdPath, scopeUse: SCOPE_USE });
 
 	interface NotesInput {

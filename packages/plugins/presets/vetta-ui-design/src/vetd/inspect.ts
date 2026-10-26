@@ -11,6 +11,7 @@
 import type { PluginContext } from "@vetta-org/plugin-sdk";
 import { checkSources, type SourceFile, type SourceIssue } from "./check-sources";
 import { checkSyntax } from "./check-syntax";
+import { readDirectionIssues } from "../direction/direction-file";
 import { readDesignDependencies } from "./design-package";
 
 /** 送进机检的全部设计源码：画框与共享组件。 */
@@ -47,15 +48,16 @@ export async function inspectIssues(
 	fs: PluginContext["fs"],
 	dirPath: string,
 ): Promise<SourceIssue[]> {
-	const [ruleIssues, syntaxIssues] = await Promise.all([
+	const [ruleIssues, syntaxIssues, designIssues] = await Promise.all([
 		Promise.all([
 			collectSources(fs, dirPath),
 			readThemeCss(fs, dirPath),
 			readDesignDependencies(fs, dirPath),
 		]).then(([files, themeCss, dependencies]) => checkSources(files, themeCss, dependencies)),
 		checkSyntax(ctx, dirPath),
+		readDirectionIssues(fs, dirPath),
 	]);
-	return [...syntaxIssues, ...ruleIssues];
+	return [...syntaxIssues, ...designIssues, ...ruleIssues];
 }
 
 /** 设计的 theme.css，用于判定颜色 token 是否声明过。读不到返回 null（该项检查随之关闭）。 */
