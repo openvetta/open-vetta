@@ -112,6 +112,37 @@ Used as the distribution source for the portable Node runtime provisioned on
 demand.
 
 --------------------------------------------------------------------------------
+taste-skill
+--------------------------------------------------------------------------------
+Copyright (c) 2026 Leonxlnx
+Source:  https://github.com/Leonxlnx/taste-skill
+License: MIT
+
+The design-direction library, the app-screen rules and the Unsplash photo index
+of the `vetta-ui-design` plugin come from taste-skill v2. Its library data is
+distributed unmodified under
+`packages/plugins/presets/vetta-ui-design/vendor/taste-skill/`, with the original
+license; the dealing logic and the app-screen chapter were ported and rewritten
+for the plugin.
+
+Licensed under the MIT License, whose text is identical to the one reproduced in
+the pi entry above, with the copyright line of this entry.
+
+--------------------------------------------------------------------------------
+Hallmark
+--------------------------------------------------------------------------------
+Copyright (c) 2026 Hallmark contributors
+Source:  https://github.com/Nutlope/hallmark
+License: MIT
+
+Parts of the design references of the `vetta-ui-design` plugin
+(`agent/skills/vetta-ui-design/references/taste/`) are adapted from Hallmark;
+the full license is reproduced in that directory's `UPSTREAM.md`.
+
+Licensed under the MIT License, whose text is identical to the one reproduced in
+the pi entry above, with the copyright line of this entry.
+
+--------------------------------------------------------------------------------
 Cowart
 --------------------------------------------------------------------------------
 Source: https://github.com/zhongerxin/Cowart
