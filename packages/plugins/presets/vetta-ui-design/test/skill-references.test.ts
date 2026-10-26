@@ -23,6 +23,16 @@ describe("vetta-ui-design skill references", () => {
 		}
 	});
 
+	it("names only reference files that ship with the skill from the direction sheets", () => {
+		// 方向表是工具返回的文字，不在 skill 目录里，路径写错时同样无声无息。
+		const sheet = readFileSync(join(__dirname, "../src/direction/sheet.ts"), "utf8");
+		const paths = [...new Set([...sheet.matchAll(/(references\/[\w./-]+\.md)/g)].map((match) => match[1]))];
+		expect(paths).toContain("references/taste/app-screens.md");
+		for (const path of paths) {
+			expect(existsSync(join(SKILL_DIR, path)), `${path} is named by sheet.ts but missing`).toBe(true);
+		}
+	});
+
 	it("keeps cross-references inside the reference files resolvable", () => {
 		for (const file of ["references/quality.md", "references/taste/directions.md"]) {
 			for (const path of referencedPaths(readFileSync(join(SKILL_DIR, file), "utf8"))) {

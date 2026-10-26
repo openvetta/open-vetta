@@ -84,32 +84,8 @@ mockups come from the canvas's mockup export, never from markup inside a frame.
 
 ## App screens and dashboards
 
-**The generated dashboard row.** Four identical KPI cards, each with an icon
-chip, a big number, a green "+12.5 %" and a sparkline. → Only real, decision-
-relevant metrics; vary emphasis (one lead figure, the rest quieter inline);
-drop the icon chips.
-
-**Everything is boxed.** Every panel carrying the same border, radius and shadow
-on a grey page; a divider under every heading; a border on the nav and the
-sidebar. → Space, the shared gutter and surface tone carry the structure; cards
-for things that are objects (a project, an order), and lines where they answer
-`whitespace.md`'s question.
-
-**Lists as card grids.** Twelve records rendered as twelve cards. → A table or a
-dense list with aligned columns when people compare or scan records.
-
-**Rainbow charts.** Every series a different saturated color, gradient area fills,
-3D or glossy bars. → Anchor-derived series, one highlighted, the rest muted;
-flat fills.
-
-**Icon-for-every-nav-item sidebar sprawl.** Fifteen top-level items with random
-glyphs. → Group, collapse, and keep glyphs that genuinely help recognition.
-
-**Gradient avatar circles and initials everywhere.** → Neutral tinted avatars;
-color only when it encodes something (a user's assigned color, a status).
-
-**Status by color alone.** Green/red dots with no label. → Dot plus text, or a
-labelled badge.
+`app-screens.md` § Tells of generated dashboards, and the dealt app sheet's
+"Off-style here" line.
 
 ## Mobile screens
 

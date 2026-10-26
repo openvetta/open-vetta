@@ -22,8 +22,12 @@ posters).
 | `typography.md` | `typography.md` (font catalogue narrowed to packages verified on fontsource) |
 | `anti-patterns.md` | `anti-patterns.md` + the screenshot-visible gates of `slop-test.md` |
 | `copy.md` | `copy.md`, plus Chinese-language equivalents |
-| `app-density.md` | not in Hallmark — written for this skill |
 | `whitespace.md` | not in Hallmark — written for this skill |
+
+`app-screens.md` is not from Hallmark: it condenses `references/app-screens.md`
+of taste-skill v2 (MIT, commit and license in `vendor/taste-skill/` at the plugin
+root), rewritten for fixed-size frames — no inspector, no `charts.js`, no
+responsive widths. It replaced the hand-written `app-density.md`.
 
 Since the taste-skill integration (`vendor/taste-skill/` at the plugin root),
 landing pages and app screens get their direction dealt by `vetd_direction`;

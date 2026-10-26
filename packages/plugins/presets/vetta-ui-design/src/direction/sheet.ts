@@ -452,7 +452,7 @@ export function renderAppSheet(lib: TasteLibrary, input: AppInput, choice: AppCh
 	);
 	if (input.brief) p(`Brief: ${input.brief}`);
 	p();
-	p("Adopt this style whole and keep its move intact; what it does not fix comes from references/app-screens.md. The values");
+	p("Adopt this style whole and keep its move intact; what it does not fix comes from references/taste/app-screens.md. The values");
 	p("were measured on real product screens: use them as given rather than rounding them toward your habits.");
 	p();
 	p("## 1. The style");
@@ -523,7 +523,7 @@ export function renderAppSheet(lib: TasteLibrary, input: AppInput, choice: AppCh
 		p();
 		if (!pattern) {
 			p(`### ${screen.name}`);
-			p("No pattern in the library for this screen and this kind of product. Compose it from references/app-screens.md.");
+			p("No pattern in the library for this screen and this kind of product. Compose it from references/taste/app-screens.md.");
 			continue;
 		}
 		p(`### ${screen.name} — ${pattern.name}`);
