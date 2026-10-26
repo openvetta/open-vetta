@@ -8,7 +8,15 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { seededRandom } from "../src/direction/deal";
 import { adaptLibrary } from "../src/direction/library";
-import { allowedTells, appInputFrom, choose, pageInputFrom, startDeal, tellsFor } from "../src/direction/record";
+import {
+	allowedTells,
+	appInputFrom,
+	choose,
+	directionIssues,
+	pageInputFrom,
+	startDeal,
+	tellsFor,
+} from "../src/direction/record";
 import { layoutIssues } from "../src/vetd/layout-probe";
 import { TELL_RULE_IDS, TELLS_PROBE_SCRIPT, tellIssues } from "../src/vetd/tells-probe";
 
@@ -108,11 +116,23 @@ describe("方向决定放行哪些规则", () => {
 	});
 	const NOW = "2026-10-26T00:00:00.000Z";
 
-	it("选定前不报，选定后按落地页或 App 报", () => {
+	it("发过牌就按落地页或 App 报，不等选定；没发过牌的设计不报", () => {
+		// 实测：模型拿到候选不选就开画，正是最需要拦的时候。
 		const dealer = { lib, rnd: seededRandom(1), history: [] };
 		const { record, options } = startDeal(dealer, "page", pageInputFrom({ sector: "saas" }), 1, NOW);
-		expect(tellsFor(record)).toBeNull();
+		expect(tellsFor(null)).toBeNull();
+		expect(tellsFor(record)).toEqual({ mode: "page", allow: [] });
 		expect(tellsFor(choose(dealer, record, options[0].id, NOW))).toEqual({ mode: "page", allow: [] });
+	});
+
+	it("发了牌没选是整份设计的 issue，选定后消失", () => {
+		const dealer = { lib, rnd: seededRandom(1), history: [] };
+		const { record, options } = startDeal(dealer, "app", appInputFrom({ kind: "finance" }, lib), 1, NOW);
+		const [issue] = directionIssues(record);
+		expect(issue).toMatchObject({ file: "direction.json", rule: "direction-not-chosen" });
+		expect(issue.message).toContain(options[0].id);
+		expect(directionIssues(choose(dealer, record, options[0].id, NOW))).toEqual([]);
+		expect(directionIssues(null)).toEqual([]);
 	});
 
 	it("带阴影的 App 风格放行阴影；保留品牌配色字体时表面规则归品牌", () => {

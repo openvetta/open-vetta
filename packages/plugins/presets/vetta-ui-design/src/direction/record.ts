@@ -34,6 +34,7 @@ import {
 	type PageSector,
 	type PageTone,
 } from "./deal";
+import type { SourceIssue } from "../vetd/check-sources";
 import type { TasteLibrary } from "./library";
 
 export const DIRECTION_FILE = "direction.json";
@@ -60,10 +61,28 @@ export interface DirectionTells {
 	allow: readonly string[];
 }
 
-/** 还没选定方向时不报：候选阶段的设计还在用脚手架配色，报出来全是噪音。 */
+/**
+ * 发过牌就报，不等选定：实测里模型拿到候选后可能不选就开画，那正是最需要拦的时候。
+ * 没有 direction.json 的（幻灯片、海报、旧设计）不报。
+ */
 export function tellsFor(record: DirectionRecord | null): DirectionTells | null {
-	if (!record?.choice) return null;
+	if (!record) return null;
 	return { mode: record.mode, allow: record.allow };
+}
+
+export const DIRECTION_NOT_CHOSEN_RULE = "direction-not-chosen";
+
+/** 发了牌却没选：作为整份设计的 issue 报给每一帧，直到选定为止。 */
+export function directionIssues(record: DirectionRecord | null): SourceIssue[] {
+	if (!record || record.choice) return [];
+	return [
+		{
+			file: DIRECTION_FILE,
+			line: null,
+			rule: DIRECTION_NOT_CHOSEN_RULE,
+			message: `Directions were dealt for this design but none was chosen (${record.options.join(", ")}). Call vetd_direction with action "choose" and one id, then install its fonts and write its theme.css — frames built before that sit on a palette and type nobody chose.`,
+		},
+	];
 }
 
 /**
@@ -204,7 +223,7 @@ export function startDeal(
 			at: now,
 			options: options.map((o) => o.id),
 			choice: null,
-			allow: [],
+			allow: allowedTells(dealer.lib, { input, choice: null }),
 			redraws: [],
 		},
 		options,

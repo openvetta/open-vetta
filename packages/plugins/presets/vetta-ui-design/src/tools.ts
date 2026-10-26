@@ -10,6 +10,7 @@ import { captureFrameOffscreen, offscreenRasterSupported } from "./canvas/offscr
 import { screenshotCardDescriptor, SCREENSHOT_TOOL_NAME } from "./cards/screenshot-card";
 import { pruneSnapshots, snapshotPath } from "./cards/snapshots";
 import { registerDirectionTool } from "./direction/direction-tool";
+import { DIRECTION_FILE } from "./direction/record";
 import { readDirectionTells } from "./direction/direction-file";
 import { registerHistoryTools } from "./history/history-tools";
 import { registerExportTool } from "./materials/export-tool";
@@ -325,7 +326,8 @@ export function registerDesignTools(ctx: PluginContext): void {
 					return { ok: false, frame: frameId, retryable: true, error: `Frame failed to build during capture:\n${lateError}` };
 				}
 				const frameIssues = [
-					...sourceIssues.filter((issue) => issue.file === `frames/${frameId}.tsx`),
+					// 整份设计级的 issue（发了方向没选）报给每一帧：哪一帧都不该在它清掉前算完成。
+					...sourceIssues.filter((issue) => issue.file === `frames/${frameId}.tsx` || issue.file === DIRECTION_FILE),
 					...layoutIssues(probe, frameId),
 					...tellIssues(probe, frameId, tells),
 				];
