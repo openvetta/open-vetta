@@ -157,7 +157,7 @@ export function registerDirectionTool(ctx: PluginContext, options: DirectionTool
 						saved: DIRECTION_FILE,
 						...(sheet && sheet.packages.length > 0 ? { install: sheet.packages } : {}),
 						sheet: sheet?.text ?? "",
-						note: "Install the fonts and write theme.css exactly as the sheet gives them before the first frame, then state the direction in one line of your reply. In a later turn, `show` reprints this sheet.",
+						note: "Before the first frame: install the fonts, write theme.css exactly as the sheet gives them, and get the pictures its Pictures section asks for with vetd_assets; then state the direction in one line of your reply. In a later turn, `show` reprints this sheet.",
 					};
 				}
 

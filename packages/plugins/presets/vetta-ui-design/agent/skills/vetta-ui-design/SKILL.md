@@ -87,7 +87,7 @@ same way. The templates below are already correct on all of it:
 - `<Link to>` from react-router for internal screens, never `<a href="/…">`, and
   never a locally redefined `Link`/`useNavigate`/`useLocation`.
 - No remote image URLs (`<img>`, `background-image`) — they break screenshots.
-  Import from `assets/`, or use a gradient/token color/Iconify glyph.
+  Import from `assets/`; `vetd_assets` finds real pictures and downloads them there.
 - Normal formatting, one element per line for nested markup. Everything on one
   line destroys element→source mapping, and the user's "Ask Vetta" edits then
   point every element at the same line.
@@ -320,7 +320,7 @@ invented**:
    the first blank; if it still works, the idea is the category's. App: pick the
    product's face from the sheet's list.
 4. **Apply it before any frame**: `vetd_install` the sheet's fonts, write its
-   `theme.css`, and state the direction in one line of your reply —
+   `theme.css`, get its pictures with `vetd_assets`, and state the direction —
    `Direction: <direction> · <type> · <palette>`. The user redirects from there.
 5. **Write the words before the markup** (`references/taste/copy.md`): the whole
    content of every section the brief asks for, at full density. Sample details

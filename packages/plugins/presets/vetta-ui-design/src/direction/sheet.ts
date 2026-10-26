@@ -235,13 +235,15 @@ export function adjustments(text: string, type: TasteType | null): string[] {
 	return notes;
 }
 
+const FIND =
+	"Find them with `vetd_assets` `search` — queries from your inventory (its place, its materials, its objects, its era, its weather), in plain English — read the contact sheet, and `get` each pick at the slot's display size.";
+
 const IMAGERY: Record<ImageryMode, string> = {
-	own: "Use the project's own images in every picture slot: put them in `assets/` and import them relatively. Slots they cannot fill get a full field of a palette colour with type on it.",
+	own: `Use the project's own images in every picture slot: put them in \`assets/\` and import them relatively. For slots they cannot fill, real pictures of the subject's world. ${FIND}`,
 	interface:
-		"**This subject is software, so its pictures are its own interface.** Wherever a blueprint says photograph or image, build a believable fragment of the product in TSX at true size (real labels, numbers that add up, one row selected or hovered), mark its root `data-ui`, and crop or scale it the way the blueprint treats a photograph. Never grey bars, never a device frame or browser chrome.",
-	generated:
-		"No photographs of the subject exist. Generate pictures with the image tool you have (one family of four to six, one light, one treatment), save them into `assets/` and import them. Never let a generated picture pass for a real product, room, dish or person; name them in your report so they can be replaced.",
-	none: "No pictures exist and none can be fetched (frames cannot load remote images). Where a blueprint calls for a photograph, use a full field of a palette colour carrying type at scale, or a flat drawing of the subject's own object made with divs in the palette's colours. Never a grey placeholder, a stock icon or an abstract blob. In your report, list the slots that want real pictures so the user can supply them.",
+		"**This subject is software, so its pictures are its own interface.** Wherever a blueprint says photograph or image, build a believable fragment of the product in TSX at true size (real labels, numbers that add up, one row selected or hovered), mark its root `data-ui`, and crop or scale it the way the blueprint treats a photograph. Never grey bars, never a device frame or browser chrome. If the product works on something physical (ships, plants, buildings, a city), one or two real pictures of that world can carry a section: `vetd_assets`, never passed off as the product's customers.",
+	"no-product-photo": `**There are no photographs of the product and none can be faked.** Where the sheet calls for the object, draw it in TSX large and in its real colours, never a grey placeholder. Around it, real pictures of its world — its material up close, its workshop, its town, a museum piece of its kind — never one a visitor could take for the product. ${FIND}`,
+	found: `**Real pictures carry this page.** Plan the set before building: four to twelve pictures of one family (one light, one treatment, the same crop ratios), the subject's world rather than the category's. ${FIND} A found picture shows the world around the client, never the client's own product, room, dish or team.`,
 };
 
 function sectionHeading(index: number, role: string, section: TasteSection | null): string {
@@ -359,6 +361,7 @@ export function renderPageSheet(
 	}
 	p("## 6. Pictures");
 	p(IMAGERY[imageryMode(input)]);
+	p("Never fill a picture slot with a gradient or a flat box holding an icon: `tell-fake-media` reports it, and a landing page with fewer than four real pictures reports `tell-few-pictures`.");
 	p();
 	if (shared.length > 0) {
 		p("Adjusted throughout — every blueprint below that disagrees with this design does so here:");
@@ -526,6 +529,11 @@ export function renderAppSheet(lib: TasteLibrary, input: AppInput, choice: AppCh
 		if (!phone && numbers.length > 0) p(`Numbers: ${numbers.join("; ")}.`);
 		p();
 	}
+	p("## Pictures");
+	p(
+		"When the product's content is visual — films, music, shops, places, people, food — every cover, thumbnail, backdrop and avatar is a real picture: `vetd_assets` `search`, then `get` at the slot's display size, before the screen is built. Real film posters and brand artwork are not downloaded: make the catalogue fictional, a real photograph under a title set in the dealt type. A gradient or a flat box holding an icon in a picture slot reports `tell-fake-media`.",
+	);
+	p();
 	p("## 5. Screens");
 	for (const screen of choice.screens) {
 		const pattern = screen.patternId ? lib.app.patterns.find((x) => x.id === screen.patternId) : undefined;

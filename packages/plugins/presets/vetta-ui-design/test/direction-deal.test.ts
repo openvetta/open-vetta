@@ -53,10 +53,10 @@ describe("页面发牌", () => {
 		expect(next.some((id) => recent.includes(id))).toBe(false);
 	});
 
-	it("没有图片可用时，图片位优先发不靠照片撑的版式", () => {
-		const input = pageInputFrom({ sector: "restaurant" });
-		expect(imageryMode(input)).toBe("none");
-		const dir = lib.directions.find((d) => d.sectors.includes("restaurant"));
+	it("软件和实物商品避开靠照片撑的版式；其余行业用找来的真实图片", () => {
+		const input = pageInputFrom({ sector: "saas" });
+		expect(imageryMode(input)).toBe("interface");
+		const dir = lib.directions.find((d) => d.sectors.includes("saas"));
 		expect(dir).toBeDefined();
 		const pool = sectionPool(dealer(1), dir!, "gallery", input);
 		const honest = pool.filter(
@@ -67,8 +67,8 @@ describe("页面发牌", () => {
 		// 适配层只在至少还剩两个可选时才收窄，否则保留原池子。
 		if (honest.length >= 2) expect(pool).toEqual(honest);
 		expect(imageryMode(pageInputFrom({ sector: "restaurant", have: ["photography"] }))).toBe("own");
-		expect(imageryMode(pageInputFrom({ sector: "restaurant", have: ["image-tool"] }))).toBe("generated");
-		expect(imageryMode(saas())).toBe("interface");
+		expect(imageryMode(pageInputFrom({ sector: "restaurant" }))).toBe("found");
+		expect(imageryMode(pageInputFrom({ sector: "ecommerce" }))).toBe("no-product-photo");
 	});
 
 	it("deal → choose 得到完整方向；keep 的那几格不发", () => {

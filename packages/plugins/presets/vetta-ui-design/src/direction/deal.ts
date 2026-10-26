@@ -67,12 +67,8 @@ export const APP_KINDS = [
 	"report",
 ] as const;
 
-/**
- * 设计手里真实拥有的素材。`image-tool` 是 frame 特有的一项：上游可以去开放馆藏搜图，
- * frame 不能加载远程图片，能补上图片位的只有用户放进 assets/ 的图，或会话里可用的
- * 生图工具。
- */
-export const ASSETS = ["photography", "product-photo", "product-ui", "illustration", "image-tool"] as const;
+/** 项目自己真实拥有的素材。找来的图（vetd_assets）不算，那是每份设计都能拿到的。 */
+export const ASSETS = ["photography", "product-photo", "product-ui", "illustration"] as const;
 
 export type PageSector = (typeof PAGE_SECTORS)[number];
 export type PageTone = (typeof PAGE_TONES)[number];
@@ -237,20 +233,20 @@ export function defaultSections(sector: PageSector): string[] {
 }
 
 /**
- * 这次构建能诚实拿出什么图。决定发哪些版式、以及方向表怎么交代图片位。
- *
- * 比上游多一档 `none`：上游没有自有图片时会去开放馆藏搜真实照片，frame 做不到，
- * 所以既没有自有图片、也没有生图工具时，优先发不靠照片撑的版式。
+ * 这次构建能诚实拿出什么图。决定发哪些版式、以及方向表怎么交代图片位。与上游一致：
+ * 没有自有图片时去开放图库找真实照片（vetd_assets），只有软件（图就是它自己的界面）和
+ * 实物商品（找来的图不能冒充商品本身）两类避开靠照片撑的版式。
  */
-export type ImageryMode = "own" | "interface" | "generated" | "none";
+export type ImageryMode = "own" | "interface" | "no-product-photo" | "found";
 
 const SOFTWARE_SECTORS: readonly string[] = ["saas", "dev-tool", "ai-product", "consumer-app", "finance"];
+const PRODUCT_SECTORS: readonly string[] = ["physical-product", "ecommerce"];
 
 export function imageryMode(input: Pick<PageInput, "have" | "sector">): ImageryMode {
 	if (input.have.includes("product-photo") || input.have.includes("photography")) return "own";
 	if (SOFTWARE_SECTORS.includes(input.sector)) return "interface";
-	if (input.have.includes("image-tool")) return "generated";
-	return "none";
+	if (PRODUCT_SECTORS.includes(input.sector)) return "no-product-photo";
+	return "found";
 }
 
 const pictureLed = (section: TasteSection) => section.tags.includes("photo-led") || section.tags.includes("object-led");
@@ -271,7 +267,7 @@ function directionPool(dealer: Dealer, input: PageInput): TasteDirection[] {
 	const feasible = pool.filter((d) => d.needs.every(has));
 	if (feasible.length > 0) pool = feasible;
 	const mode = imageryMode(input);
-	if (mode === "interface" || mode === "none") {
+	if (mode === "interface" || mode === "no-product-photo") {
 		const plain = pool.filter((d) => !d.needsPictures);
 		if (plain.length >= 3) pool = plain;
 	}
@@ -342,8 +338,11 @@ export function sectionPool(dealer: Dealer, dir: TasteDirection, role: string, i
 		const plain = pool.filter((s) => !softwareOnly(s));
 		if (plain.length > 0) pool = plain;
 	}
-	if (mode === "interface" || mode === "none") {
-		const honest = pool.filter(worksWithoutPictures);
+	if (mode === "interface" || mode === "no-product-photo") {
+		// 实物商品只避开「拿物件本身当主角」的版式；软件避开所有靠照片撑的。
+		const honest = pool.filter((s) =>
+			mode === "interface" ? worksWithoutPictures(s) : !s.tags.includes("object-led") || worksWithoutPictures(s),
+		);
 		if (honest.length >= 2) pool = honest;
 	}
 	const byDirection = pool.filter((s) => s.directions.includes(dir.id));
