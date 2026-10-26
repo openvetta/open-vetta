@@ -298,20 +298,23 @@ defaults, every design converges on the same thing — the scaffold's indigo and
 slate, one system sans, centred cards, a three-column feature row — and users
 recognise it instantly as generated. Asked to invent a look, you will pick that
 default too, so for a **landing page or app screens the look is dealt, not
-invented**. Before the first frame:
+invented**:
 
-1. **Inventory the subject** in your notes. Page: eight to twelve things that
+1. **Inventory the subject** in your notes, before `vetd_create`. Page: eight to twelve things that
    belong to this client and no competitor — its name and what it means, its
    place, the numbers in the brief, the constraint it lives with, its materials,
    rituals and printed things. Then write the page's argument, one claim and its
    proof per section; a section with no claim is cut. App: the data the screens
    hold, the jobs people do there, and the one question the first screen answers.
-2. **Deal.** `vetd_direction` with `action: "deal"`, `for: "page"` (sector, brief,
-   the sections of your argument) or `for: "app"` (kind, brief, screens), and
-   `have` for the assets that really exist. Choose the option whose way of
-   composing can carry an item from your inventory — not the most familiar one —
-   with `action: "choose"`. Adopt the sheet; `redraw` one slot only for a reason
-   you can state, and report it.
+2. **Deal and choose.** `vetd_create` deals three directions when you pass
+   `brief` plus `sector` (landing) or `kind` (mobile, desktop), `have` for the
+   assets that really exist, and `keep: ["palette"]` when the user named a brand
+   whose colour stays. Choose the option whose way of composing can carry an item
+   from your inventory — not the most familiar one — with `vetd_direction`
+   `action: "choose"`; until then every capture reports `direction-not-chosen`.
+   To re-deal for your argument's sections or specific screens, `vetd_direction`
+   with `action: "deal"`. Adopt the sheet; `redraw` one slot only for a reason you
+   can state, and report it.
 3. **Find the idea** (page): "On this page, [something only this subject has]
    becomes [the device the direction calls for]." Put the nearest competitor in
    the first blank; if it still works, the idea is the category's. App: pick the

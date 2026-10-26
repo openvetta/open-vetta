@@ -7,10 +7,10 @@
  */
 import type { PluginContext } from "@vetta-org/plugin-sdk";
 import { getCanvasController } from "../canvas/design-runtime";
-import { APP_KINDS, ASSETS, type AppInput, type Dealer, PAGE_SECTORS, PAGE_TONES, type PageInput, seededRandom } from "./deal";
-import { loadTasteLibrary, type TasteLibrary } from "./library";
+import { APP_KINDS, ASSETS, type AppInput, PAGE_SECTORS, PAGE_TONES, type PageInput } from "./deal";
+import { CHOOSE_NOTE, dealIntoDesign, HISTORY_PATH, openDealSession, styleFixedByPack } from "./deal-service";
+import type { TasteLibrary } from "./library";
 import {
-	appInputFrom,
 	choose,
 	type DealParams,
 	type DealtOption,
@@ -19,22 +19,13 @@ import {
 	type DirectionMode,
 	type DirectionRecord,
 	historyEntry,
-	pageInputFrom,
-	parseHistory,
 	pushHistory,
 	redraw,
-	startDeal,
 } from "./record";
 import { readDirectionRecord, writeDirectionRecord } from "./direction-file";
 import { renderAppSheet, renderPageSheet } from "./sheet";
 
 export const DIRECTION_TOOL_NAME = "vetd_direction";
-
-/** 每次发牌一个新种子；种子记进 direction.json，同一种子能复现同一副牌。 */
-const randomSeed = () => (crypto.getRandomValues(new Uint32Array(1))[0] & 0x7fffffff) || 1;
-
-/** 跨设计的发牌历史，只用来让连续几份设计不撞车。 */
-const HISTORY_PATH = "direction/history.json";
 
 interface DirectionInput extends DealParams {
 	action?: unknown;
@@ -55,11 +46,8 @@ function sheetFor(lib: TasteLibrary, record: DirectionRecord, frameWidth: number
 		: renderAppSheet(lib, record.input as AppInput, record.choice, ctx);
 }
 
-const DEAL_NOTE =
-	"Hold each option against your inventory of the subject and choose the one whose way of composing can carry something only this client has — not the most familiar one. Then call again with action \"choose\" and its id.";
-
 function dealtResult(mode: DirectionMode, options: DealtOption[]) {
-	return { ok: true, mode, options, note: DEAL_NOTE };
+	return { ok: true, mode, options, note: CHOOSE_NOTE };
 }
 
 export function registerDirectionTool(ctx: PluginContext, options: DirectionToolOptions): void {
@@ -131,31 +119,21 @@ export function registerDirectionTool(ctx: PluginContext, options: DirectionTool
 			const input = trigger.input;
 			const now = new Date().toISOString();
 			const writeRecord = (record: DirectionRecord) => writeDirectionRecord(host.fs, dirPath, record);
-			const readHistory = async () =>
-				parseHistory(await ctx.storage.readFile(HISTORY_PATH, "utf8").catch(() => null));
 
 			try {
-				const lib = await loadTasteLibrary();
-				const history = await readHistory();
-				const seed = randomSeed();
-				const dealer: Dealer = { lib, rnd: seededRandom(seed), history };
+				const dealSession = await openDealSession(ctx);
+				const { lib, dealer, history } = dealSession;
 
 				if (input.action === "deal") {
 					const mode: DirectionMode | null = input.for === "page" || input.for === "app" ? input.for : null;
 					if (!mode) throw new DirectionError('Pass `for`: "page" or "app".');
 					const keep = Array.isArray(input.keep) ? input.keep : [];
-					const fixedByStyle =
-						(await host.fs.stat(`${dirPath}/DESIGN.md`).catch(() => null)) !== null ||
-						(await host.fs.stat(`${session.cwd}/design-resources`).catch(() => null)) !== null;
-					if (fixedByStyle && !(keep.includes("palette") && keep.includes("type"))) {
+					if ((await styleFixedByPack(host.fs, session.cwd, dirPath)) && !(keep.includes("palette") && keep.includes("type"))) {
 						throw new DirectionError(
 							'This design follows a style pack or DESIGN.md, which fixes colour and type. Deal composition only, with keep: ["palette", "type"], or skip the draw.',
 						);
 					}
-					const dealInput = mode === "page" ? pageInputFrom(input) : appInputFrom(input, lib);
-					const dealt = startDeal(dealer, mode, dealInput, seed, now);
-					await writeRecord(dealt.record);
-					return dealtResult(mode, dealt.options);
+					return dealtResult(mode, await dealIntoDesign(dealSession, host.fs, dirPath, mode, input));
 				}
 
 				const record = await readDirectionRecord(host.fs, dirPath);

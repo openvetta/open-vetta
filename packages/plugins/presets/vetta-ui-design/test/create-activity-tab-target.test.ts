@@ -36,6 +36,7 @@ describe("vetd_create activity-tab target", () => {
 				},
 			},
 			ui: { setActivityTabVisible, openActivityTab },
+			storage: { readFile: async () => null, writeFile: async () => ({ revision: "1", changedPaths: [] }) },
 		} as unknown as PluginContext;
 		registerDesignTools(ctx);
 	});
@@ -50,7 +51,7 @@ describe("vetd_create activity-tab target", () => {
 		await createHandler({
 			host: { fs },
 			session: { cwd: SESSION_CWD },
-			trigger: { input: { name: "dashboard", product: "desktop" } },
+			trigger: { input: { name: "dashboard", product: "desktop", kind: "analytics", brief: "marketing analytics" } },
 			actions: { tools: { enable: enableTool } },
 		} as never);
 
