@@ -10,6 +10,7 @@ import { captureFrameOffscreen, offscreenRasterSupported } from "./canvas/offscr
 import { screenshotCardDescriptor, SCREENSHOT_TOOL_NAME } from "./cards/screenshot-card";
 import { pruneSnapshots, snapshotPath } from "./cards/snapshots";
 import { registerDirectionTool } from "./direction/direction-tool";
+import { readDirectionTells } from "./direction/direction-file";
 import { registerHistoryTools } from "./history/history-tools";
 import { registerExportTool } from "./materials/export-tool";
 import { setDesignPresence } from "./vetd/design-presence";
@@ -26,6 +27,7 @@ import { readDesignDependencies } from "./vetd/design-package";
 import { findVetdFiles } from "./vetd/discover";
 import { inspectIssues } from "./vetd/inspect";
 import { layoutIssues } from "./vetd/layout-probe";
+import { tellIssues } from "./vetd/tells-probe";
 import { PRODUCT_SIZE_SUMMARY, PRODUCT_TYPES, resolveDefaultFrameSize } from "./vetd/product-size";
 import { DESIGN_ONLY_TOOLS } from "./vetd/tool-gate";
 import {
@@ -240,9 +242,10 @@ export function registerDesignTools(ctx: PluginContext): void {
 			}
 			const { dirPath, vetdPath } = controller.session;
 			// 源码检查与指纹各做一次，而不是跟帧数线性重复。
-			const [sourceIssues, sourceFingerprints] = await Promise.all([
+			const [sourceIssues, sourceFingerprints, tells] = await Promise.all([
 				inspectIssues(ctx, host.fs, dirPath),
 				designSourceFingerprints(host.fs, dirPath, known),
+				readDirectionTells(host.fs, dirPath),
 			]);
 			const useOffscreen = offscreenRasterSupported();
 			type Success = {
@@ -324,6 +327,7 @@ export function registerDesignTools(ctx: PluginContext): void {
 				const frameIssues = [
 					...sourceIssues.filter((issue) => issue.file === `frames/${frameId}.tsx`),
 					...layoutIssues(probe, frameId),
+					...tellIssues(probe, frameId, tells),
 				];
 				const capturedAt = Date.now();
 				const path = snapshotPath(dirPath, frameId, capturedAt);

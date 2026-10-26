@@ -49,7 +49,38 @@ export interface DirectionRecord {
 	/** 最近一次 deal 发出的候选 id，choose 只能从这里挑。 */
 	options: string[];
 	choice: PageChoice | AppChoice | null;
+	/** 这份方向放行的生成感规则（vetd/tells-probe.ts 的规则 id），choose / redraw 时算好存下。 */
+	allow: string[];
 	redraws: { slot: string; reason: string; at: string }[];
+}
+
+/** 截图机检要知道的那一点：按落地页还是 App 的阈值判，以及哪些规则被方向放行。 */
+export interface DirectionTells {
+	mode: DirectionMode;
+	allow: readonly string[];
+}
+
+/** 还没选定方向时不报：候选阶段的设计还在用脚手架配色，报出来全是噪音。 */
+export function tellsFor(record: DirectionRecord | null): DirectionTells | null {
+	if (!record?.choice) return null;
+	return { mode: record.mode, allow: record.allow };
+}
+
+/**
+ * 保留品牌配色与字体时，渐变、阴影、玻璃、字体数这类表面规则归品牌（风格包、
+ * DESIGN.md）管，不归方向管；版式类的（小字、标题行数、图标方块）照报。
+ */
+const BRAND_OWNED_TELLS = ["tell-gradient", "tell-gradient-text", "tell-shadow", "tell-glass", "tell-font-count", "tell-mono"];
+
+export function allowedTells(lib: TasteLibrary, record: Pick<DirectionRecord, "input" | "choice">): string[] {
+	const allow = new Set<string>();
+	const { keep } = record.input;
+	if (keep.includes("palette") && keep.includes("type")) for (const rule of BRAND_OWNED_TELLS) allow.add(rule);
+	const choice = record.choice;
+	if (choice && "styleId" in choice && lib.app.styles.find((s) => s.id === choice.styleId)?.shadow) {
+		allow.add("tell-shadow");
+	}
+	return [...allow];
 }
 
 export class DirectionError extends Error {}
@@ -165,7 +196,17 @@ export function startDeal(
 					summary: `${s.idea} The move: ${s.signature}`,
 				}));
 	return {
-		record: { version: 1, mode, input, seed, at: now, options: options.map((o) => o.id), choice: null, redraws: [] },
+		record: {
+			version: 1,
+			mode,
+			input,
+			seed,
+			at: now,
+			options: options.map((o) => o.id),
+			choice: null,
+			allow: [],
+			redraws: [],
+		},
 		options,
 	};
 }
@@ -179,7 +220,7 @@ export function choose(dealer: Dealer, record: DirectionRecord, id: string, now:
 	const choice =
 		record.mode === "page" ? dealPage(dealer, record.input as PageInput, id) : dealApp(dealer, record.input as AppInput, id);
 	if (!choice) throw new DirectionError(`\`${id}\` is no longer in the library. Deal again.`);
-	return { ...record, choice, at: now };
+	return { ...record, choice, allow: allowedTells(dealer.lib, { input: record.input, choice }), at: now };
 }
 
 /** 记进跨设计的历史，只记 id。 */
@@ -279,7 +320,10 @@ export function redraw(
 		} else {
 			throw new DirectionError(`Unknown slot "${slot}". App slots: ${APP_SLOTS.join(", ")}.`);
 		}
-		return { record: { ...record, choice: updated, redraws: log, at: now }, options: null };
+		return {
+			record: { ...record, choice: updated, allow: allowedTells(dealer.lib, { input, choice: updated }), redraws: log, at: now },
+			options: null,
+		};
 	}
 	throw new DirectionError("direction.json is inconsistent (mode and choice disagree). Deal again.");
 }
@@ -323,6 +367,7 @@ export function parseDirectionRecord(text: string): DirectionRecord | null {
 		at: typeof value.at === "string" ? value.at : "",
 		options: value.options.filter((id): id is string => typeof id === "string"),
 		choice: choice as PageChoice | AppChoice | null,
+		allow: Array.isArray(value.allow) ? value.allow.filter((rule): rule is string => typeof rule === "string") : [],
 		redraws: Array.isArray(value.redraws)
 			? value.redraws.filter(
 					(entry): entry is DirectionRecord["redraws"][number] =>

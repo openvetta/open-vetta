@@ -13,6 +13,14 @@ import { HOME_FRAME_ID } from "../../engine/src/routes";
 import { STORAGE_SEED_PARAM, type StorageEntries } from "../../engine/src/storage-sync";
 import { getPluginCtx } from "../plugin-context";
 import { LAYOUT_PROBE_SCRIPT } from "../vetd/layout-probe";
+import { TELLS_PROBE_SCRIPT } from "../vetd/tells-probe";
+
+/**
+ * 交付截图上跑的探针：渲染缺陷与生成感两组规则拼成一个数组返回。分属两个模块，是因为
+ * 判据性质不同（一定画错了 vs 审美规则），各自由 layoutIssues / tellIssues 只认自己的
+ * 规则名去解释。
+ */
+const DELIVERY_PROBE_SCRIPT = `[...(${LAYOUT_PROBE_SCRIPT}), ...(${TELLS_PROBE_SCRIPT})]`;
 
 /**
  * 画布位图队列可以并行占用的离屏会话数。
@@ -194,7 +202,7 @@ export async function captureFrameOffscreen(request: OffscreenRasterRequest): Pr
 		// （见 engine/src/main.tsx 的 FramePainted）；图片解码另等 complete。
 		readyExpression: FRAME_READY_EXPRESSION,
 		settleMs: 300,
-		...(request.probeLayout === true ? { probeScript: LAYOUT_PROBE_SCRIPT } : {}),
+		...(request.probeLayout === true ? { probeScript: DELIVERY_PROBE_SCRIPT } : {}),
 		timeoutMs: 20_000,
 		format: "jpeg",
 		quality: request.quality,

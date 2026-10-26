@@ -20,13 +20,12 @@ import {
 	type DirectionRecord,
 	historyEntry,
 	pageInputFrom,
-	parseDirectionRecord,
 	parseHistory,
 	pushHistory,
 	redraw,
-	serializeDirectionRecord,
 	startDeal,
 } from "./record";
+import { readDirectionRecord, writeDirectionRecord } from "./direction-file";
 import { renderAppSheet, renderPageSheet } from "./sheet";
 
 export const DIRECTION_TOOL_NAME = "vetd_direction";
@@ -129,15 +128,9 @@ export function registerDirectionTool(ctx: PluginContext, options: DirectionTool
 			}
 			const { dirPath } = controller.session;
 			const frameWidth = controller.session.manifest.defaultFrameSize?.width ?? 1440;
-			const recordPath = `${dirPath}/${DIRECTION_FILE}`;
 			const input = trigger.input;
 			const now = new Date().toISOString();
-
-			const readRecord = async (): Promise<DirectionRecord | null> => {
-				const found = await host.fs.readFile(recordPath).catch(() => null);
-				return found ? parseDirectionRecord(found.content) : null;
-			};
-			const writeRecord = (record: DirectionRecord) => host.fs.writeFile(recordPath, serializeDirectionRecord(record));
+			const writeRecord = (record: DirectionRecord) => writeDirectionRecord(host.fs, dirPath, record);
 			const readHistory = async () =>
 				parseHistory(await ctx.storage.readFile(HISTORY_PATH, "utf8").catch(() => null));
 
@@ -165,7 +158,7 @@ export function registerDirectionTool(ctx: PluginContext, options: DirectionTool
 					return dealtResult(mode, dealt.options);
 				}
 
-				const record = await readRecord();
+				const record = await readDirectionRecord(host.fs, dirPath);
 				if (!record) {
 					throw new DirectionError(`This design has no ${DIRECTION_FILE} yet. Deal first with action "deal".`);
 				}

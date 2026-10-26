@@ -83,7 +83,11 @@ you added last.
   where content was expected, an unstyled control.
 
 **5. Generated-UI tells** — taste, but taste that users read as "AI made this"
-within a second. Look for each in the shot; the fixes are in
+within a second. On a design whose direction was dealt (`vetd_direction`),
+`vetd_screenshot` measures gradients, resting shadows, glass, tiny tracked
+labels, small text, monospace, typeface count, long headlines, icon tiles and
+emoji, and reports them as `tell-*` issues with their fix — clear those like any
+other issue. Look for the rest in the shot; the fixes are in
 `references/taste/anti-patterns.md`.
 
 - The scaffold palette still in place: indigo primary, slate surfaces and text,

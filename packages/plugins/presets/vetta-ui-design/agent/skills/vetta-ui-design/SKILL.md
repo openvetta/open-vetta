@@ -352,7 +352,7 @@ colour — never another ornament, and never leave a screen thin.
 | No tiny tracked uppercase labels | Sentence case at a readable size |
 | No icon-topped feature cards, icons in tinted squares, rows of identical cards | The dealt blueprint |
 | No styled accent word in a headline; two typefaces at most | One face, one colour; the words carry it |
-| Running text in full ink, 16px on pages (14px in apps), never under 11px | Grey is for secondary notes |
+| Running text in full ink at 16px on pages (14px in apps); nothing under 13px on pages, 11px in apps | Grey is for secondary notes |
 | Equal outer margins; no section huddled on one side of an empty half | Close the void with a picture, list or column |
 | No cream-and-terracotta, no violet or indigo, unless dealt | The dealt palette |
 
