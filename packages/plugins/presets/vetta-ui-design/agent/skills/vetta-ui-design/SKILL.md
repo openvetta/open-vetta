@@ -120,37 +120,16 @@ Install everything you need in ONE call, then import normally.
 
 ### Typefaces are packages too
 
-System fonts alone cannot give a display face and a body face that differ, and
-that sameness is a large part of why generated UI looks generated. A typeface is
-an npm package here like any other library:
-
-1. `vetd_install` the faces — `@fontsource-variable/<slug>` when the family has
-   a variable build (one file covers every weight), else `@fontsource/<slug>`,
-   whose bare import is weight 400 only — import each other weight you use
-   (`@import "@fontsource/<slug>/700.css";`) or the browser fakes the bold.
-2. Import them at the TOP of `theme.css`, above `@theme`. Install first: theme.css
-   feeds every frame, so importing a package that is not there yet breaks the
-   styling of the whole canvas, not one frame.
-3. Declare them as `--font-*` tokens and use the matching `font-*` class.
-
-```css
-@import "@fontsource-variable/fraunces";
-@import "@fontsource-variable/geist";
-
-@theme {
-	--font-display: "Fraunces Variable", "Songti SC", "SimSun", ui-serif, serif;
-	--font-sans: "Geist Variable", "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
-}
-```
-
-The family name must be the one the package registers: the `-variable` packages
-append ` Variable`, the static ones do not. A mismatch silently falls back —
-`issues` reports it, as it reports an installed face nobody imports.
-
-Latin faces only. CJK packages are megabytes per weight; Chinese and Japanese
-copy uses the platform faces listed after the Latin one in the stack above
-(serif: Songti SC / SimSun; sans: PingFang SC / Microsoft YaHei), so every stack
-names both.
+System fonts give every design the same voice. A typeface is an npm package here
+— a dealt direction sheet gives the exact packages, imports and tokens. By hand:
+`vetd_install` `@fontsource-variable/<slug>` (one file, every weight) or
+`@fontsource/<slug>` (bare import is 400 only; import each other weight as
+`@fontsource/<slug>/700.css` or the browser fakes the bold), import them at the
+TOP of `theme.css` above `@theme` — install first, or the whole canvas loses its
+styling — and declare `--font-*` tokens. The family name must be the registered
+one: `-variable` packages append ` Variable`, static ones do not; `issues`
+reports a mismatch. Latin faces only: every stack continues with the platform CJK
+faces (serif: "Songti SC", "SimSun"; sans: "PingFang SC", "Microsoft YaHei").
 
 ### The one thing nothing catches: a token that does not exist
 
@@ -175,7 +154,9 @@ engineering console answers it for most of their lines. What it catches is the
 line drawn out of habit — the box around every section, the rule under every
 heading — which is a generated-UI tell rather than neutral styling.
 `references/taste/whitespace.md` has the substitutions, the per-product-type
-notes, and the cases where lines are the design.
+notes, and the cases where lines are the design. On a landing page the answer
+outside tables, forms and `data-ui` interface fragments is always no — a house
+rule below.
 
 ## Pick the product type
 
@@ -284,8 +265,8 @@ export function NavBar() {
 **New document**: pick the product type → `vetd_create` with it → set the
 direction → start building. Do NOT offer the user a menu of styles: design
 systems are a thing the user opts into from the Design sidebar, not something you
-propose. Just design well for what they asked for, deriving the palette and type
-scale from the product itself.
+propose. Just design well for what they asked for; the direction step below
+decides the look.
 
 If the **project root** has a `design-resources/<slug>/` directory, the user
 started this project from that style in the Design sidebar; it is the style
@@ -314,25 +295,66 @@ system — read it first and follow it, and do NOT rewrite it or `theme.css`.
 
 **Set the direction** when neither a pack nor `DESIGN.md` sets the style. Left to
 defaults, every design converges on the same thing — the scaffold's indigo and
-slate, one system sans at two sizes, centred cards, a three-column feature row —
-and users recognise it instantly as generated. Before the first frame:
+slate, one system sans, centred cards, a three-column feature row — and users
+recognise it instantly as generated. Asked to invent a look, you will pick that
+default too, so for a **landing page or app screens the look is dealt, not
+invented**. Before the first frame:
 
-1. Read `references/taste/directions.md` and `references/taste/whitespace.md`,
-   then the file for the product type:
-   `references/taste/landing-structures.md` for a landing page,
-   `references/taste/app-density.md` for app screens and dashboards.
-2. Decide tone, anchor hue, type pairing and structure, and state them in one
-   line of your reply — `Direction: technical · cobalt (256°) · Space Grotesk +
-   Geist · dense workbench`. The user redirects from that line; no menu.
-3. Rewrite every value in the scaffold `theme.css` with the direction's palette
-   (keep the token names), `vetd_install` the two faces, and import them at the
-   top of `theme.css` — all before the first frame, so no frame is ever built on
-   the placeholder palette.
+1. **Inventory the subject** in your notes. Page: eight to twelve things that
+   belong to this client and no competitor — its name and what it means, its
+   place, the numbers in the brief, the constraint it lives with, its materials,
+   rituals and printed things. Then write the page's argument, one claim and its
+   proof per section; a section with no claim is cut. App: the data the screens
+   hold, the jobs people do there, and the one question the first screen answers.
+2. **Deal.** `vetd_direction` with `action: "deal"`, `for: "page"` (sector, brief,
+   the sections of your argument) or `for: "app"` (kind, brief, screens), and
+   `have` for the assets that really exist. Choose the option whose way of
+   composing can carry an item from your inventory — not the most familiar one —
+   with `action: "choose"`. Adopt the sheet; `redraw` one slot only for a reason
+   you can state, and report it.
+3. **Find the idea** (page): "On this page, [something only this subject has]
+   becomes [the device the direction calls for]." Put the nearest competitor in
+   the first blank; if it still works, the idea is the category's. App: pick the
+   product's face from the sheet's list.
+4. **Apply it before any frame**: `vetd_install` the sheet's fonts, write its
+   `theme.css`, and state the direction in one line of your reply —
+   `Direction: <direction> · <type> · <palette>`. The user redirects from there.
+5. **Write the words before the markup** (`references/taste/copy.md`): the whole
+   content of every section the brief asks for, at full density. Sample details
+   are fine and listed in your report; proof — customers, quotes, logos, figures
+   — is never invented.
 
-Read `references/taste/color.md`, `typography.md` and `copy.md` when a decision
-in them is in front of you, not up front. With a pack or `DESIGN.md` in charge,
-skip the direction and still screen every capture against
-`references/taste/anti-patterns.md` — no style asks for those.
+Adding screens in a later session: `vetd_direction` with `action: "show"` reprints
+the design's sheet; build from it rather than from memory.
+
+**Slides, posters and infographics** are not dealt: read
+`references/taste/directions.md` and set tone, anchor hue, type pairing and
+structure yourself, then apply it the same way (step 4).
+
+With a pack or `DESIGN.md` in charge, skip the colour and type: a landing page or
+app may still deal its composition with `keep: ["palette", "type"]`. Every capture
+is still screened against the house rules below, except a device the pack or
+`DESIGN.md` explicitly asks for.
+
+### House rules
+
+They hold on every landing page and app screen, whatever the direction. Removing
+ornament leaves space: fill it with scale, the full content, or a field of flat
+colour — never another ornament, and never leave a screen thin.
+
+| Rule | Instead |
+| --- | --- |
+| Headlines two lines or fewer; one `h1` on the first screen that says what this is | Cut words, then widen the measure, size last |
+| No eyebrow labels, pill badges or "New ·" chips above headings | Put it in the heading or the first sentence |
+| No monospace outside code (an app sheet may name one for IDs) | The text face, `tabular-nums` for figures |
+| No 01 / 02 / 03 index numbering | Order by position, size or words; a real `<ol>` |
+| No gradients, glows or glass; no shadow on anything at rest | Flat colour, a tone step between surfaces |
+| No tiny tracked uppercase labels | Sentence case at a readable size |
+| No icon-topped feature cards, icons in tinted squares, rows of identical cards | The dealt blueprint |
+| No styled accent word in a headline; two typefaces at most | One face, one colour; the words carry it |
+| Running text in full ink, 16px on pages (14px in apps), never under 11px | Grey is for secondary notes |
+| Equal outer margins; no section huddled on one side of an empty half | Close the void with a picture, list or column |
+| No cream-and-terracotta, no violet or indigo, unless dealt | The dealt palette |
 
 **Existing document**: `vetd_status` ONCE first. It returns the frame ids/sizes,
 `sharedShell` (existing `_layout.tsx` + `components/` — reuse them) and
@@ -532,11 +554,10 @@ Resolve against `$SKILL_DIR`. Do not read them all up front.
 | --- | --- |
 | `references/interaction.md` | Wiring clicks, `_layout.tsx`, cross-screen flows |
 | `references/quality.md` | Reviewing a screenshot; before declaring any frame done |
-| `references/taste/directions.md` | Before the first frame of a new design with no pack or `DESIGN.md` |
+| `references/taste/directions.md` | A slide, poster or infographic with no pack or `DESIGN.md` (landing pages and apps are dealt) |
 | `references/taste/whitespace.md` | Weighing whether a line, divider or card wrapper earns its place; a capture looks boxed-in |
-| `references/taste/landing-structures.md` | Product type is a landing page |
 | `references/taste/app-density.md` | Product type is app screens or a dashboard |
-| `references/taste/color.md` | Building or changing the palette, chart or status colors |
-| `references/taste/typography.md` | Choosing faces, the type scale, CJK font stacks |
+| `references/taste/color.md` | Setting a palette by hand; chart and status colors |
+| `references/taste/typography.md` | Choosing faces by hand, the type scale, CJK font stacks |
 | `references/taste/copy.md` | Writing headlines, labels, empty and error states |
 | `references/taste/anti-patterns.md` | A capture looks generic, or a tell from quality.md § 5 needs its fix |

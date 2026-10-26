@@ -75,31 +75,12 @@ year, a version, a status) or goes.
 
 ## Landing pages
 
-**The three-column icon-tile feature grid.** Three equal cards, icon above title
-above two lines. → Vary spans (2:1, a 2×2 lead tile), pull icons inline, drop the
-cards for typographic rows, or use fewer items.
-
-**Full-height centred hero.** One short sentence centred in a viewport-tall
-block with one big button. → Hero as tall as its content, biased left or right,
-headline + a real lede + the action visible in the first 800 px.
-
-**The default nav.** Wordmark left, 4–5 links, button right, full width, hairline
-below — on every kind of site. → A nav that fits the genre: a masthead for
-editorial, a detached floating pill for product sites, two links when there are
-two destinations, a side rail for long documents.
-
-**The default footer.** Four link columns (Product / Company / Resources / Legal),
-social icon row, tiny copyright. → Close the page instead: a closing statement,
-one inline line, a colophon. Link columns only for a real hub with a real sitemap.
-
-**Re-drawn chrome.** Fake browser bars with traffic-light dots around a screenshot,
-CSS phone bezels with a notch, fake window chrome around a code block. → Show the
-content itself with at most a hairline frame. Device mockups come from the
-canvas's mockup export, never from markup inside a frame.
-
-**The template sequence.** Hero → logo strip → three features → testimonials →
-pricing → CTA → footer, identically every time. → Pick a structure from
-`landing-structures.md`; include only the sections the brief needs.
+Governed by the house rules in SKILL.md and the dealt direction sheet: the hero
+and every section come from its blueprints, so the template sequence, the icon
+feature grid and the default nav and footer never get a chance to appear. One
+tell the sheet cannot prevent: **re-drawn chrome** — fake browser bars, CSS phone
+bezels, window chrome around a code block. Show the content itself; device
+mockups come from the canvas's mockup export, never from markup inside a frame.
 
 ## App screens and dashboards
 

@@ -1,13 +1,15 @@
 # Directions
 
-Read before the first frame of a new design that has no style pack and no
-`DESIGN.md`. A direction is four decisions made on purpose, instead of the
-indigo-on-slate, one-sans, centred-card defaults that every model reaches for:
+Read before the first frame of a slide, poster or infographic that has no style
+pack and no `DESIGN.md` — landing pages and app screens get their direction dealt
+by `vetd_direction` instead. A direction is four decisions made on purpose,
+instead of the indigo-on-slate, one-sans, centred-card defaults that every model
+reaches for:
 
 1. **Tone** — one extreme, named.
 2. **Anchor hue** — the single hue the whole palette leans toward.
 3. **Type pairing** — a display face and a body face that visibly differ.
-4. **Structure** — the page shape (landing: `landing-structures.md`; app: `app-density.md`).
+4. **Structure** — one focal element and where it sits; for a deck, the rhythm across slides.
 
 State it in one line in your reply before building, so the user can redirect
 cheaply:
@@ -160,11 +162,10 @@ default.
 
 ## Product types
 
-- **App screens and dashboards** take the palette and type pairing, not the page
-  structure. Density and hierarchy come from `app-density.md`.
-- **Landing pages** take everything, plus one structure from `landing-structures.md`.
-- **Slides and posters** take the pairing at its most extreme: a display size
-  several steps above body, one focal element, the accent at most once.
+**Slides and posters** take the pairing at its most extreme: a display size
+several steps above body, one focal element, the accent at most once. An
+**infographic** takes the palette for its data colours (`color.md`) and keeps the
+type quiet so the figures lead.
 
 ## Who outranks this file
 
