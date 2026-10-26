@@ -85,8 +85,9 @@ you added last.
 **5. Generated-UI tells** — taste, but taste that users read as "AI made this"
 within a second. On a design whose direction was dealt (`vetd_direction`),
 `vetd_screenshot` measures gradients, resting shadows, glass, tiny tracked
-labels, small text, monospace, typeface count, long headlines, icon tiles and
-emoji, and reports them as `tell-*` issues with their fix — clear those like any
+labels, small text, monospace, typeface count, long headlines, icon tiles,
+emoji, picture slots faked with a gradient and an icon, and a landing page with
+too few real pictures, and reports them as `tell-*` issues with their fix — clear those like any
 other issue. Look for the rest in the shot; the fixes are in
 `references/taste/anti-patterns.md`.
 
@@ -122,7 +123,8 @@ remote URL that renders perfectly on screen will still:
   of remote images turns a ~100ms shot into seconds.
 
 Local assets are served same-origin by the engine dev server and have neither
-problem.
+problem. `vetd_assets` downloads a picture into `assets/` cropped to its slot and
+records its credit, so a real picture costs one call, not a placeholder.
 
 ## When a frame fails to build
 

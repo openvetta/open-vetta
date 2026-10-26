@@ -177,6 +177,40 @@ export const TELLS_PROBE_SCRIPT = `(() => {
 		if (tiles.length >= 3) push("tell-icon-tile", tiles[0], tiles.length + " icons in tinted squares", tiles.length);
 	});
 
+	// 假图片位：一块渐变里放一个图标充当海报、封面或缩略图（实测 Emby 稿的海报全是
+	// 这样）。只认渐变：纯色方块配图标是按钮和图标方块，另有规则。嵌套时报最里层。
+	safe(() => {
+		const fakes = [];
+		for (const el of all) {
+			const r = el.getBoundingClientRect();
+			if (r.width < 64 || r.height < 64) continue;
+			if (r.width > window.innerWidth * 0.95 && r.height > window.innerHeight * 0.5) continue;
+			if (!/gradient\\(/.test(getComputedStyle(el).backgroundImage || "")) continue;
+			if (el.querySelector("img, video, picture, canvas")) continue;
+			if (!el.querySelector('[class*="icon-["], svg')) continue;
+			if ((el.textContent || "").trim().length > 40) continue;
+			fakes.push(el);
+		}
+		const innermost = fakes.filter((a) => !fakes.some((b) => b !== a && a.contains(b)));
+		for (const el of innermost) {
+			const r = el.getBoundingClientRect();
+			push("tell-fake-media", el, Math.round(r.width) + "x" + Math.round(r.height) + " gradient holding an icon", innermost.length);
+		}
+	});
+
+	// 真实图片数：<img>、<video>，以及用 url() 铺的背景图，面积至少 64x64。整帧一个计数。
+	safe(() => {
+		let pictures = 0;
+		for (const el of all) {
+			const r = el.getBoundingClientRect();
+			if (r.width < 64 || r.height < 64) continue;
+			const tag = el.tagName;
+			if ((tag === "IMG" && el.naturalWidth > 0) || tag === "VIDEO") { pictures += 1; continue; }
+			if (/url\\(/.test(getComputedStyle(el).backgroundImage || "")) pictures += 1;
+		}
+		push("tell-few-pictures", root, pictures + " real picture(s)", pictures);
+	});
+
 	// 只认默认按表情渲染的字符：© ® ™、箭头这类文字符号不算。
 	safe(() => {
 		for (const el of textEls) {
@@ -260,6 +294,17 @@ const TELL_RULES: Record<string, TellRule> = {
 		applies: () => true,
 		message: (f) =>
 			`${f.detail}. Icon-topped cards and icons in tinted squares are generated-UI tells: put a plain 16px icon inline with its label, or drop it and let the words and numbers lead.`,
+	},
+	"tell-fake-media": {
+		applies: () => true,
+		message: (f) =>
+			`Picture slot faked with ${f.detail}${quote(f)}. A poster, cover, thumbnail or backdrop is a real picture: vetd_assets search, then get it at this slot's size and use it with object-cover. Real film posters and brand art are not downloaded — make the item fictional with a real photograph under its title.`,
+	},
+	"tell-few-pictures": {
+		// 只管落地页：App 屏幕可以完全没有图（设置页、报表），有没有该由内容决定。
+		applies: (f, mode) => mode === "page" && (f.value ?? 0) < 4,
+		message: (f) =>
+			`The page carries ${f.detail}. A landing page needs at least four, usually six to twelve, of one family: find them with vetd_assets (queries from the subject's place, materials and objects) and place them large where the blueprints put pictures.`,
 	},
 	"tell-emoji": {
 		applies: () => true,

@@ -63,6 +63,12 @@ describe("tellIssues", () => {
 		expect(tellIssues([tell("tell-micro-label")], "home", page)).toHaveLength(1);
 
 		expect(tellIssues([tell("tell-mono")], "home", app)).toEqual([]);
+
+		// 图片数只管落地页；App 屏幕可以完全没有图。
+		expect(tellIssues([tell("tell-few-pictures", { value: 2 })], "home", page)).toHaveLength(1);
+		expect(tellIssues([tell("tell-few-pictures", { value: 6 })], "home", page)).toEqual([]);
+		expect(tellIssues([tell("tell-few-pictures", { value: 0 })], "home", app)).toEqual([]);
+		expect(tellIssues([tell("tell-fake-media")], "home", app)).toHaveLength(1);
 		expect(tellIssues([tell("tell-headline-lines")], "home", app)).toEqual([]);
 	});
 
