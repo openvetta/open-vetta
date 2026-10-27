@@ -11,6 +11,7 @@ import type { ProductType } from "../vetd/product-size";
 import { type DealHistoryEntry, type Dealer, seededRandom } from "./deal";
 import { writeDirectionRecord } from "./direction-file";
 import { loadTasteLibrary, type TasteLibrary } from "./library";
+import type { StatedIntent, ToneQuestion } from "./intent";
 import {
 	appInputFrom,
 	type DealParams,
@@ -67,19 +68,43 @@ export function dealInputFor(session: DealSession, mode: DirectionMode, params: 
 	return mode === "page" ? pageInputFrom(params) : appInputFrom(params, session.lib);
 }
 
+export interface DealtDirection {
+	options: DealtOption[];
+	/** 要问用户的题（ask_user_question 的形状）；为空表示用户已说清楚，直接选。 */
+	ask: ToneQuestion[];
+}
+
 export async function dealIntoDesign(
 	session: DealSession,
 	fs: PluginFsApi,
 	dirPath: string,
 	mode: DirectionMode,
 	params: DealParams,
-): Promise<DealtOption[]> {
-	const dealt = startDeal(session.dealer, mode, dealInputFor(session, mode, params), session.seed, new Date().toISOString());
+	stated: StatedIntent,
+): Promise<DealtDirection> {
+	const dealt = startDeal(
+		session.dealer,
+		mode,
+		dealInputFor(session, mode, params),
+		session.seed,
+		new Date().toISOString(),
+		stated,
+	);
 	await writeDirectionRecord(fs, dirPath, dealt.record);
-	return dealt.options;
+	return { options: dealt.options, ask: dealt.record.intent?.questions ?? [] };
 }
 
-export const CHOOSE_NOTE =
-	'Hold each option against your inventory of the subject and pick the one whose way of composing can carry something only this client has — not the most familiar one. Then call vetd_direction with action "choose" and its id, and apply the sheet it returns before writing any frame. Until a direction is chosen, every capture reports `direction-not-chosen`.';
+const CHOOSE =
+	'call vetd_direction with action "choose" and its id, and apply the sheet it returns before writing any frame. Until a direction is chosen, every capture reports `direction-not-chosen`.';
+
+/** 用户已说清楚（或说了直接做）：模型按用户的话挑。 */
+export const CHOOSE_NOTE = `Hold each option against what the user said and your inventory of the subject, and pick the one whose way of composing can carry something only this client has — not the most familiar one. Then ${CHOOSE}`;
+
+/** 有缺口：先问，再带着回答选。 */
+export const ASK_NOTE = `Before choosing, ask the user exactly the questions in \`ask\` — one ask_user_question call, in the user's language, keeping each option's meaning; for the "direction" question put the option you recommend first with the badge "推荐"/"Recommended". Do not ask anything the user already said, and nothing else. Then ${CHOOSE} Pass the picked values as \`answers\` (the direction answer is the id). If the user typed their own look instead, deal again with it as \`intent.mood\`.`;
+
+export function dealtNote(ask: readonly ToneQuestion[]): string {
+	return ask.length > 0 ? ASK_NOTE : CHOOSE_NOTE;
+}
 
 export { DirectionError };

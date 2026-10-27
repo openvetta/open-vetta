@@ -124,7 +124,9 @@ describe("App 方向表", () => {
 			const input = appInputFrom({ kind: style.suits.find((k) => k in lib.app.kinds) ?? "finance" }, lib);
 			const rnd = seededRandom(9);
 			const { record } = startDeal({ lib, rnd, history: [] }, "app", input, 9, NOW);
-			const chosen = choose({ lib, rnd, history: [] }, { ...record, options: [style.id] }, style.id, NOW);
+			const chosen = choose({ lib, rnd, history: [] }, { ...record, options: [style.id] }, style.id, NOW, {
+				emphasis: "pictures",
+			});
 			const sheet = renderAppSheet(lib, input, chosen.choice as never, desktop);
 			expect(sheet.text.length, style.id).toBeLessThan(APP_SHEET_BUDGET);
 			expect(new Set(importedPackages(sheet.text)), style.id).toEqual(new Set(sheet.packages));

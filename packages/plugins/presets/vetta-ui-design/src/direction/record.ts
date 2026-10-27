@@ -35,6 +35,7 @@ import {
 	type PageTone,
 } from "./deal";
 import type { SourceIssue } from "../vetd/check-sources";
+import { checkAnswers, type Intent, IntentError, keepsBrandPalette, type StatedIntent, toneQuestions } from "./intent";
 import type { TasteLibrary } from "./library";
 
 export const DIRECTION_FILE = "direction.json";
@@ -53,6 +54,8 @@ export interface DirectionRecord {
 	/** 这份方向放行的生成感规则（vetd/tells-probe.ts 的规则 id），choose / redraw 时算好存下。 */
 	allow: string[];
 	redraws: { slot: string; reason: string; at: string }[];
+	/** 用户给的设计基调、要问的题与回答（intent.ts）。 */
+	intent?: Intent;
 }
 
 /** 截图机检要知道的那一点：按落地页还是 App 的阈值判，以及哪些规则被方向放行。 */
@@ -80,7 +83,11 @@ export function directionIssues(record: DirectionRecord | null): SourceIssue[] {
 			file: DIRECTION_FILE,
 			line: null,
 			rule: DIRECTION_NOT_CHOSEN_RULE,
-			message: `Directions were dealt for this design but none was chosen (${record.options.join(", ")}). Call vetd_direction with action "choose" and one id, then install its fonts and write its theme.css — frames built before that sit on a palette and type nobody chose.`,
+			message: `${
+				record.intent?.questions.length
+					? `The user has not been asked yet (${record.intent.questions.map((q) => q.id).join(", ")}): vetd_direction with action "show" lists the questions; ask them with ask_user_question, then choose with the answers.`
+					: `Directions were dealt for this design but none was chosen (${record.options.join(", ")}). Call vetd_direction with action "choose" and one id.`
+			} Then install its fonts and write its theme.css — frames built before that sit on a palette and type nobody chose.`,
 		},
 	];
 }
@@ -201,6 +208,7 @@ export function startDeal(
 	input: PageInput | AppInput,
 	seed: number,
 	now: string,
+	stated: StatedIntent = {},
 ): { record: DirectionRecord; options: DealtOption[] } {
 	const options: DealtOption[] =
 		mode === "page"
@@ -225,21 +233,54 @@ export function startDeal(
 			choice: null,
 			allow: allowedTells(dealer.lib, { input, choice: null }),
 			redraws: [],
+			intent: { stated, questions: toneQuestions(mode, stated, options), answers: null },
 		},
 		options,
 	};
 }
 
-export function choose(dealer: Dealer, record: DirectionRecord, id: string, now: string): DirectionRecord {
+/**
+ * 选定方向。发牌时列出过要问用户的题，就必须带着回答来：选定之后再问已经晚了，
+ * 方向表、字体和配色都已经按没问过的那一版写进设计了。
+ */
+export function choose(
+	dealer: Dealer,
+	record: DirectionRecord,
+	id: string,
+	now: string,
+	answers?: unknown,
+): DirectionRecord {
 	if (!record.options.includes(id)) {
 		throw new DirectionError(
 			`\`${id}\` was not dealt for this design. Choose one of: ${record.options.join(", ")} — or deal again.`,
 		);
 	}
-	const choice =
-		record.mode === "page" ? dealPage(dealer, record.input as PageInput, id) : dealApp(dealer, record.input as AppInput, id);
+	let intent = record.intent;
+	let input = record.input;
+	if (intent && intent.questions.length > 0) {
+		try {
+			intent = { ...intent, answers: checkAnswers(intent.questions, answers, id) };
+		} catch (error) {
+			if (error instanceof IntentError) throw new DirectionError(error.message);
+			throw error;
+		}
+		// 品牌色那一题改的是「调色板发不发」：用户不要品牌色就照常发，要就保留品牌的。
+		const keepBrand = keepsBrandPalette(intent.answers);
+		if (keepBrand !== null) {
+			const others = input.keep.filter((slot) => slot !== "palette");
+			input = { ...input, keep: keepBrand ? [...others, "palette"] : others } as typeof input;
+		}
+	}
+	const choice = record.mode === "page" ? dealPage(dealer, input as PageInput, id) : dealApp(dealer, input as AppInput, id);
 	if (!choice) throw new DirectionError(`\`${id}\` is no longer in the library. Deal again.`);
-	return { ...record, choice, allow: allowedTells(dealer.lib, { input: record.input, choice }), at: now };
+	return {
+		...record,
+		input,
+		choice,
+		allow: allowedTells(dealer.lib, { input, choice }),
+		at: now,
+		...(intent ? { intent } : {}),
+	};
 }
 
 /** 记进跨设计的历史，只记 id。 */
@@ -287,7 +328,7 @@ export function redraw(
 		const dir = dealer.lib.directions.find((d) => d.id === choice.directionId);
 		if (!dir) throw new DirectionError("The saved direction is no longer in the library. Deal again.");
 		if (slot === "direction") {
-			const next = startDeal(dealer, "page", { ...input, avoid: [...input.avoid, dir.id] }, record.seed, now);
+			const next = startDeal(dealer, "page", { ...input, avoid: [...input.avoid, dir.id] }, record.seed, now, record.intent?.stated);
 			return { record: { ...next.record, redraws: log }, options: next.options };
 		}
 		const updated: PageChoice = { ...choice, sections: [...choice.sections] };
@@ -320,7 +361,7 @@ export function redraw(
 	if (record.mode === "app" && "styleId" in choice) {
 		const input = record.input as AppInput;
 		if (slot === "style") {
-			const next = startDeal(dealer, "app", { ...input, avoid: [...input.avoid, choice.styleId] }, record.seed, now);
+			const next = startDeal(dealer, "app", { ...input, avoid: [...input.avoid, choice.styleId] }, record.seed, now, record.intent?.stated);
 			return { record: { ...next.record, redraws: log }, options: next.options };
 		}
 		const style = dealer.lib.app.styles.find((s) => s.id === choice.styleId);
@@ -387,6 +428,7 @@ export function parseDirectionRecord(text: string): DirectionRecord | null {
 		options: value.options.filter((id): id is string => typeof id === "string"),
 		choice: choice as PageChoice | AppChoice | null,
 		allow: Array.isArray(value.allow) ? value.allow.filter((rule): rule is string => typeof rule === "string") : [],
+		...(parseIntent(value.intent) ? { intent: parseIntent(value.intent) as Intent } : {}),
 		redraws: Array.isArray(value.redraws)
 			? value.redraws.filter(
 					(entry): entry is DirectionRecord["redraws"][number] =>
@@ -394,6 +436,17 @@ export function parseDirectionRecord(text: string): DirectionRecord | null {
 				)
 			: [],
 	};
+}
+
+/** 旧版 direction.json 没有 intent；结构不对也当没有，不因此作废整份方向。 */
+function parseIntent(value: unknown): Intent | null {
+	if (!isObj(value) || !isObj(value.stated) || !Array.isArray(value.questions)) return null;
+	const questions = value.questions.filter(
+		(question): question is Intent["questions"][number] =>
+			isObj(question) && typeof question.id === "string" && Array.isArray(question.options),
+	);
+	const answers = isObj(value.answers) ? (value.answers as Intent["answers"]) : null;
+	return { stated: value.stated as Intent["stated"], questions, answers };
 }
 
 export function serializeDirectionRecord(record: DirectionRecord): string {

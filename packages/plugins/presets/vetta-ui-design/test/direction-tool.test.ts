@@ -107,9 +107,26 @@ describe("vetd_direction", () => {
 		openDesign(390);
 		const dealt = await call({ action: "deal", for: "app", kind: "wallet" });
 		const [first] = dealt.options as { id: string }[];
-		const chosen = await call({ action: "choose", id: first.id });
+		const chosen = await call({ action: "choose", id: first.id, answers: { emphasis: "pictures" } });
 		expect(chosen.sheet).toMatch(/^# App sheet — /);
 		expect(chosen.sheet).toContain("frame 390px wide");
+	});
+
+	it("缺侧重时先问：show 列出问题，不带回答的 choose 被拒，带上回答才能选", async () => {
+		const dealt = await call({ action: "deal", for: "app", kind: "community", intent: { mood: "极简", colour: "深色" } });
+		expect((dealt.ask as { id: string }[]).map((q) => q.id)).toEqual(["emphasis"]);
+		expect(dealt.note).toMatch(/ask_user_question/);
+		const shown = await call({ action: "show" });
+		expect((shown.ask as { id: string }[]).map((q) => q.id)).toEqual(["emphasis"]);
+		const [first] = dealt.options as { id: string }[];
+		expect(await call({ action: "choose", id: first!.id })).toMatchObject({ ok: false, error: expect.stringMatching(/emphasis/) });
+		const chosen = await call({ action: "choose", id: first!.id, answers: { emphasis: "information" } });
+		expect(chosen.ok).toBe(true);
+		expect(chosen.sheet).toContain("information leads");
+
+		// 不带 intent 的重发沿用上次的基调，不会把「极简、深色」丢掉。
+		const again = await call({ action: "deal", for: "app", kind: "community" });
+		expect((again.ask as { id: string }[]).map((q) => q.id)).toEqual(["emphasis"]);
 	});
 
 	it("跟随风格包或 DESIGN.md 的设计只发构图", async () => {

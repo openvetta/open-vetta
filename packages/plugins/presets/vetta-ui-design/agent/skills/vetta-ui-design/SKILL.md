@@ -306,15 +306,15 @@ invented**:
    rituals and printed things. Then write the page's argument, one claim and its
    proof per section; a section with no claim is cut. App: the data the screens
    hold, the jobs people do there, and the one question the first screen answers.
-2. **Deal and choose.** `vetd_create` deals three directions when you pass
-   `brief` plus `sector` (landing) or `kind` (mobile, desktop), `have` for the
-   assets that really exist, and `keep: ["palette"]` when the user named a brand
-   whose colour stays. Choose the option whose way of composing can carry an item
-   from your inventory — not the most familiar one — with `vetd_direction`
-   `action: "choose"`; until then every capture reports `direction-not-chosen`.
-   To re-deal for your argument's sections or specific screens, `vetd_direction`
-   with `action: "deal"`. Adopt the sheet; `redraw` one slot only for a reason you
-   can state, and report it.
+2. **Deal, ask what is missing, choose.** `vetd_create` deals three directions
+   when you pass `brief`, `sector` (landing) or `kind` (mobile, desktop), `have`,
+   and `intent` — only what the user actually said (look, colour, emphasis,
+   brand, or "just go ahead"). What they said is binding; never ask it again. If
+   `direction.ask` comes back, ask exactly those questions in one
+   `ask_user_question` call, then `vetd_direction` `action: "choose"` with the
+   `answers`; otherwise choose the option that can carry an item from your
+   inventory. Re-deal with `action: "deal"`; `redraw` one slot only for a stated
+   reason, and report it.
 3. **Find the idea** (page): "On this page, [something only this subject has]
    becomes [the device the direction calls for]." Put the nearest competitor in
    the first blank; if it still works, the idea is the category's. App: pick the
