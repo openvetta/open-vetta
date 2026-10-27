@@ -323,15 +323,27 @@ invented**:
    rituals and printed things. Then write the page's argument, one claim and its
    proof per section; a section with no claim is cut. App: the data the screens
    hold, the jobs people do there, and the one question the first screen answers.
-2. **Deal, ask what is missing, choose.** `vetd_create` deals three directions
-   when you pass `brief`, `sector` (landing) or `kind` (mobile, desktop), `have`,
-   and `intent` — only what the user actually said (look, colour, emphasis,
-   brand, or "just go ahead"). What they said is binding; never ask it again. If
-   `direction.ask` comes back, ask exactly those questions in one
-   `ask_user_question` call, then `vetd_direction` `action: "choose"` with the
-   `answers`; otherwise choose the option that can carry an item from your
-   inventory. Re-deal with `action: "deal"`; `redraw` one slot only for a stated
-   reason, and report it.
+2. **Learn the preferences, deal, choose.** Learn what the user wants before
+   designing, without pestering them: no fixed list of questions and no quota —
+   ask only what their words left open and the answer would visibly change the
+   design; a detailed prompt needs few or none, "just go ahead" needs none. If
+   the prompt does not say what the product is or does (so you cannot pick
+   `kind` or `sector`, or the screens), ask that first, before `vetd_create`.
+   `vetd_create` deals three directions when you pass `brief`, `sector`
+   (landing) or `kind` (mobile, desktop), `have`, and `intent` — only what the
+   user actually said or answered. What they said is binding; never ask it
+   again. If `direction.ask` comes back it is the look question, whose options
+   say what each look is like: ask it, and in the same `ask_user_question` call
+   anything else the prompt left open (the tool's `next` has the rules). Then
+   `vetd_direction` `action: "choose"` with the look as `id` and the extra
+   answers as `preferences`; if the look was already set, choose the option that
+   can carry an item from your inventory. Re-deal with `action: "deal"`;
+   `redraw` one slot only for a stated reason, and report it. Every `kind` is a
+   work tool (dashboards, back offices, editors): for a customer-facing app
+   (ordering, media, retail) take the nearest for structure and, when none of
+   its looks fits what the user described, ask your own look question with two
+   or three concrete looks (theme, colours, type, feel) and deal again with
+   the answer as `intent.mood`.
 3. **Find the idea** (page): "On this page, [something only this subject has]
    becomes [the device the direction calls for]." Put the nearest competitor in
    the first blank; if it still works, the idea is the category's. App: pick the

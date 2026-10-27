@@ -70,9 +70,10 @@ describe("vetd_create 发方向", () => {
 		const direction = result.direction as { mode: string; options: { id: string }[]; next: string };
 		expect(direction.mode).toBe("app");
 		expect(direction.options.length).toBeGreaterThanOrEqual(2);
-		// 没给任何基调：先问气质（挑候选）和侧重，再选。
+		// 没给任何基调：必问气质（挑候选），其余问什么由 agent 读用户原话定。
 		expect(direction.next).toMatch(/ask_user_question/);
-		expect((result.direction as { ask: { id: string }[] }).ask.map((q) => q.id)).toEqual(["direction", "emphasis"]);
+		expect(direction.next).toMatch(/without pestering/);
+		expect((result.direction as { ask: { id: string }[] }).ask.map((q) => q.id)).toEqual(["direction"]);
 		expect(result.note).toMatch(/^FIRST ask the user `direction\.ask`/);
 		expect(savedDirection("emby-mobile")).toMatchObject({
 			mode: "app",
@@ -95,6 +96,20 @@ describe("vetd_create 发方向", () => {
 		expect(savedDirection("emby-clear").intent).toMatchObject({
 			stated: { mood: "像 Apple TV", colour: "深色", emphasis: "海报大图为主" },
 			questions: [],
+		});
+	});
+
+	it("建之前已经问过用户的题：随 intent.preferences 存进设计", async () => {
+		const result = await create({
+			name: "coffee-app",
+			product: "mobile",
+			kind: "commerce",
+			brief: "coffee ordering app",
+			intent: { preferences: [{ question: "这个咖啡 App 主要做什么？", answer: "顾客点单取餐" }] },
+		});
+		expect(result.ok).toBe(true);
+		expect(savedDirection("coffee-app").intent).toMatchObject({
+			stated: { preferences: [{ question: "这个咖啡 App 主要做什么？", answer: "顾客点单取餐" }] },
 		});
 	});
 

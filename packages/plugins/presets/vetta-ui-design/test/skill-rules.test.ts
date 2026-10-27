@@ -26,6 +26,7 @@ const SKILL_RULES: Record<string, (string | RegExp)[]> = {
 	"shared chrome is written once": ["`_layout.tsx`", "<Outlet />", "`components/`"],
 	"product type comes first": ["`product`", "`frameSize`", "390x844", "1440x900"],
 	"landing and app looks are dealt": ["`vetd_direction`", '`action: "choose"`', '`action: "show"`', "`direction.ask`"],
+	"learn preferences without pestering": ["without pestering", "`preferences`", "`direction.ask`", "`intent.mood`", /Every `kind` is a work tool/],
 	"house rules table": ["### House rules", "eyebrow", "monospace", "gradients", "01 / 02 / 03", "13px", "terracotta"],
 	"existing design starts from vetd_status": ["`vetd_status` ONCE", "`sharedShell`"],
 	"history goes through vetd_history / vetd_restore": ["`vetd_history`", "`vetd_restore`"],

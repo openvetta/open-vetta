@@ -9,7 +9,7 @@ import type { PluginContext } from "@vetta-org/plugin-sdk";
 import { getCanvasController } from "../canvas/design-runtime";
 import { APP_KINDS, ASSETS, type AppInput, PAGE_SECTORS, PAGE_TONES, type PageInput } from "./deal";
 import { dealIntoDesign, dealtNote, HISTORY_PATH, openDealSession, styleFixedByPack } from "./deal-service";
-import { INTENT_SCHEMA, statedIntentFrom, type ToneQuestion } from "./intent";
+import { INTENT_SCHEMA, PREFERENCES_SCHEMA, preferencesFrom, statedIntentFrom, type ToneQuestion } from "./intent";
 import type { TasteLibrary } from "./library";
 import {
 	choose,
@@ -32,6 +32,7 @@ interface DirectionInput extends DealParams {
 	action?: unknown;
 	intent?: unknown;
 	answers?: unknown;
+	preferences?: unknown;
 	id?: unknown;
 	slot?: unknown;
 	reason?: unknown;
@@ -106,8 +107,9 @@ export function registerDirectionTool(ctx: PluginContext, options: DirectionTool
 				answers: {
 					type: "object",
 					additionalProperties: { type: "string" },
-					description: "choose: the user's picks for the questions in `ask`, by question id (emphasis, brandColour).",
+					description: "choose: the user's picks for the questions in `ask`, by question id (the look answer is `id`).",
 				},
+				preferences: PREFERENCES_SCHEMA,
 				slot: {
 					type: "string",
 					description: "redraw: page — direction, hero, type, palette, section:<role>; app — style, shell, screen:<name>.",
@@ -155,7 +157,7 @@ export function registerDirectionTool(ctx: PluginContext, options: DirectionTool
 
 				if (input.action === "choose") {
 					if (typeof input.id !== "string") throw new DirectionError("Pass `id`, one of the dealt options.");
-					const chosen = choose(dealer, record, input.id, now, input.answers);
+					const chosen = choose(dealer, record, input.id, now, input.answers, preferencesFrom(input.preferences));
 					await writeRecord(chosen);
 					const entry = historyEntry(chosen);
 					if (entry) {

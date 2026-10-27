@@ -35,8 +35,17 @@ import {
 	type PageTone,
 } from "./deal";
 import type { SourceIssue } from "../vetd/check-sources";
-import { checkAnswers, type Intent, IntentError, keepsBrandPalette, type StatedIntent, toneQuestions } from "./intent";
-import type { TasteLibrary } from "./library";
+import {
+	checkAnswers,
+	type Intent,
+	IntentError,
+	keepsBrandPalette,
+	mergePreferences,
+	type Preference,
+	type StatedIntent,
+	toneQuestions,
+} from "./intent";
+import type { AppShell, AppStyle, TasteLibrary } from "./library";
 
 export const DIRECTION_FILE = "direction.json";
 
@@ -193,6 +202,23 @@ export interface DealtOption {
 	id: string;
 	name: string;
 	summary: string;
+	/** 一眼看得出长什么样的几个特征（明暗、颜色、字体、外壳）；有它风格题的选项才不是空谈。 */
+	look?: string;
+}
+
+/** App 风格的「看得见的特征」：用户读完这一行就知道大致是什么样子，不必懂设计语言。 */
+export function appLook(style: AppStyle, shells: readonly AppShell[]): string {
+	const { colors } = style;
+	const shell = shells.find((candidate) => candidate.id === style.shell)?.name;
+	const parts = [
+		style.theme === "dark" ? "Dark" : "Light",
+		[colors.ground && `ground ${colors.ground}`, colors.text && `text ${colors.text}`, colors.accent && `accent ${colors.accent}`]
+			.filter(Boolean)
+			.join(", "),
+		style.font.family,
+		shell,
+	];
+	return parts.filter(Boolean).join(" · ");
 }
 
 const firstSentences = (text: string, count: number) =>
@@ -221,6 +247,7 @@ export function startDeal(
 					id: s.id,
 					name: `${s.name} (${s.theme})`,
 					summary: `${s.idea} The move: ${s.signature}`,
+					look: appLook(s, dealer.lib.app.shells),
 				}));
 	return {
 		record: {
@@ -249,6 +276,7 @@ export function choose(
 	id: string,
 	now: string,
 	answers?: unknown,
+	preferences?: readonly Preference[],
 ): DirectionRecord {
 	if (!record.options.includes(id)) {
 		throw new DirectionError(
@@ -273,6 +301,10 @@ export function choose(
 	}
 	const choice = record.mode === "page" ? dealPage(dealer, input as PageInput, id) : dealApp(dealer, input as AppInput, id);
 	if (!choice) throw new DirectionError(`\`${id}\` is no longer in the library. Deal again.`);
+	if (preferences && preferences.length > 0) {
+		const base: Intent = intent ?? { stated: {}, questions: [], answers: null };
+		intent = { ...base, stated: { ...base.stated, preferences: mergePreferences(base.stated.preferences, preferences) } };
+	}
 	return {
 		...record,
 		input,

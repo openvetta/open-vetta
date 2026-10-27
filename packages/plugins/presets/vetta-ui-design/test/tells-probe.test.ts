@@ -137,8 +137,8 @@ describe("方向决定放行哪些规则", () => {
 		const [issue] = directionIssues(record);
 		expect(issue).toMatchObject({ file: "direction.json", rule: "direction-not-chosen" });
 		// 还有没问的题时，提示的是先问用户，而不是直接选。
-		expect(issue.message).toMatch(/not been asked yet \(direction, emphasis\)/);
-		expect(directionIssues(choose(dealer, record, options[0].id, NOW, { emphasis: "pictures" }))).toEqual([]);
+		expect(issue.message).toMatch(/not been asked yet \(direction\)/);
+		expect(directionIssues(choose(dealer, record, options[0].id, NOW))).toEqual([]);
 		expect(directionIssues(null)).toEqual([]);
 	});
 

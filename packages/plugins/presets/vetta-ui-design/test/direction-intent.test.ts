@@ -1,19 +1,26 @@
 /**
- * 设计基调：说清楚的照做，只问会大幅改变结果的缺口。
+ * 设计基调：向用户了解偏好，但不过度打扰。
  *
- * 用例按讨论里定下的几种需求写：只说了深色、给了参考产品、缺侧重、落地页、要直接做、
- * 点名品牌没说颜色。问不问由规则决定，不让模型临场判断。
+ * 工具只保证气质（看起来像什么）这一题必问——选项来自实际发出的候选；其余问什么、问几题
+ * 归 agent 读用户原话来定，这里不预设题库。agent 问过的题与回答记进 preferences，
+ * 作为硬条件写进方向表，之后追加页面沿用。
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { seededRandom } from "../src/direction/deal";
-import { checkAnswers, intentLines, statedIntentFrom, toneQuestions } from "../src/direction/intent";
+import {
+	checkAnswers,
+	intentLines,
+	mergePreferences,
+	preferencesFrom,
+	statedIntentFrom,
+	toneQuestions,
+} from "../src/direction/intent";
 import { adaptLibrary } from "../src/direction/library";
 import {
 	appInputFrom,
 	choose,
-	DirectionError,
 	pageInputFrom,
 	parseDirectionRecord,
 	redraw,
@@ -42,42 +49,53 @@ const options = [
 const ids = (mode: "page" | "app", stated: Parameters<typeof toneQuestions>[1]) =>
 	toneQuestions(mode, stated, options).map((question) => question.id);
 
-describe("问哪几题", () => {
-	it("「深色风格」只说了色调：问气质和侧重，不问颜色", () => {
-		expect(ids("app", { colour: "深色", brand: "Emby" })).toEqual(["direction", "emphasis"]);
-	});
-
-	it("给了参考产品、色调和侧重：一题不问", () => {
-		expect(ids("app", { mood: "像 Apple TV", colour: "深色", emphasis: "海报大图为主" })).toEqual([]);
-	});
-
-	it("「深色、极简」缺侧重：只问侧重", () => {
-		expect(ids("app", { mood: "极简", colour: "深色" })).toEqual(["emphasis"]);
-	});
-
-	it("落地页的侧重由论点决定，不问", () => {
-		expect(ids("page", { mood: "像 Stripe", colour: "#0f766e" })).toEqual([]);
+describe("工具必问的只有气质", () => {
+	it("没说气质：只问气质，App 与落地页一样，不再预设侧重和品牌色", () => {
+		expect(ids("app", {})).toEqual(["direction"]);
+		expect(ids("app", { colour: "深色", brand: "Emby" })).toEqual(["direction"]);
 		expect(ids("page", {})).toEqual(["direction"]);
+	});
+
+	it("给了参考产品或气质：一题不问", () => {
+		expect(ids("app", { mood: "像 Apple TV", colour: "深色", emphasis: "海报大图为主" })).toEqual([]);
+		expect(ids("app", { mood: "极简", brand: "Emby" })).toEqual([]);
 	});
 
 	it("用户说了直接做：一题不问", () => {
 		expect(ids("app", { goAhead: true })).toEqual([]);
 	});
 
-	it("点名品牌却没说颜色：问品牌色怎么用，推荐只上主操作", () => {
-		const [question] = toneQuestions("page", { mood: "极简", brand: "Emby" }, options);
-		expect(question?.id).toBe("brandColour");
-		expect(question?.question).toContain("Emby");
-		expect(question?.options[0]).toMatchObject({ value: "action-only", badges: ["Recommended"] });
+	it("候选不到两个就没有可挑的：不问", () => {
+		expect(toneQuestions("app", {}, options.slice(0, 1))).toEqual([]);
 	});
 
 	it("题目是 ask_user_question 的形状：每题 2-4 个选项，不自带「其他」", () => {
-		for (const question of toneQuestions("app", { brand: "Emby" }, [...options, { id: "d", name: "D", summary: "d" }, { id: "e", name: "E", summary: "e" }])) {
+		const many = [...options, { id: "d", name: "D", summary: "d" }, { id: "e", name: "E", summary: "e" }];
+		for (const question of toneQuestions("app", {}, many)) {
 			expect(question.options.length).toBeGreaterThanOrEqual(2);
 			expect(question.options.length).toBeLessThanOrEqual(4);
 			expect(question.header.length).toBeLessThanOrEqual(24);
 			expect(question.options.map((option) => option.label.toLowerCase())).not.toContain("other");
 		}
+	});
+
+	it("选项描述把看得见的特征放在前面，再接一句做法", () => {
+		const [question] = toneQuestions("app", {}, [
+			{ id: "a", name: "A (light)", summary: "Quiet ledger. The move: ink only.", look: "Light · ground #f8f8f8 · Geist" },
+			{ id: "b", name: "B (dark)", summary: "Night mode. The move: lightness.", look: "Dark · ground #000000 · Inter" },
+		]);
+		expect(question?.options[0]?.description).toBe("Light · ground #f8f8f8 · Geist. Quiet ledger.");
+		expect(question?.options[1]?.description).toBe("Dark · ground #000000 · Inter. Night mode.");
+	});
+
+	it("真实发出的 App 候选都带着看得见的特征：明暗、底色、强调色、字体", () => {
+		const dealt = startDeal(dealer(), "app", appInputFrom({ kind: "community" }, lib), 1, NOW);
+		for (const option of dealt.options) {
+			expect(option.look, option.id).toMatch(/^(Light|Dark) · ground #[0-9a-f]{6}/i);
+			expect(option.look, option.id).toMatch(/accent #[0-9a-f]{6}/i);
+		}
+		const question = dealt.record.intent?.questions[0];
+		expect(question?.options[0]?.description).toContain(dealt.options[0]!.look);
 	});
 
 	it("入参只认这几个键，空串当没说", () => {
@@ -86,34 +104,61 @@ describe("问哪几题", () => {
 	});
 });
 
+describe("agent 自己问的题记成偏好", () => {
+	it("只认问题和回答都非空的条目，空白修剪", () => {
+		expect(
+			preferencesFrom([
+				{ question: " 这个 App 给谁用？ ", answer: " 顾客点单取餐 " },
+				{ question: "半截", answer: "" },
+				{ question: "", answer: "没题目" },
+				"not an object",
+			]),
+		).toEqual([{ question: "这个 App 给谁用？", answer: "顾客点单取餐" }]);
+		expect(preferencesFrom("nope")).toEqual([]);
+		expect(statedIntentFrom({ preferences: [{ question: "q", answer: "a" }] }).preferences).toEqual([{ question: "q", answer: "a" }]);
+	});
+
+	it("同一道题再答一次以最新的为准", () => {
+		const merged = mergePreferences(
+			[{ question: "明暗？", answer: "亮色" }],
+			[
+				{ question: "明暗？", answer: "深色" },
+				{ question: "素材？", answer: "有 logo" },
+			],
+		);
+		expect(merged).toEqual([
+			{ question: "明暗？", answer: "深色" },
+			{ question: "素材？", answer: "有 logo" },
+		]);
+	});
+
+	it("choose 时带上的偏好存进设计，不影响气质题的核对", () => {
+		const dealt = startDeal(dealer(), "app", appInputFrom({ kind: "community" }, lib), 1, NOW);
+		const chosen = choose(dealer(), dealt.record, dealt.options[0]!.id, NOW, undefined, [
+			{ question: "明暗？", answer: "深色" },
+		]);
+		expect(chosen.intent?.stated.preferences).toEqual([{ question: "明暗？", answer: "深色" }]);
+		expect(chosen.intent?.answers).toEqual({ direction: dealt.options[0]!.id });
+	});
+});
+
 describe("回答", () => {
-	const questions = toneQuestions("app", { brand: "Emby" }, options);
-
-	it("每道问过的题都要有答案，选项题只认列出的值；方向题的答案就是选中的 id", () => {
-		expect(() => checkAnswers(questions, {}, "a")).toThrow(/emphasis.*brandColour/);
-		expect(() => checkAnswers(questions, { emphasis: "posters", brandColour: "none" }, "a")).toThrow(/emphasis/);
-		expect(checkAnswers(questions, { emphasis: "pictures", brandColour: "none" }, "b")).toEqual({
-			direction: "b",
-			emphasis: "pictures",
-			brandColour: "none",
-		});
-	});
-
-	it("没问用户就选：拒绝并说明怎么问", () => {
-		const dealt = startDeal(dealer(), "app", appInputFrom({ kind: "community" }, lib), 1, NOW, { brand: "Emby" });
-		expect(() => choose(dealer(), dealt.record, dealt.options[0]!.id, NOW)).toThrow(DirectionError);
-		expect(() => choose(dealer(), dealt.record, dealt.options[0]!.id, NOW)).toThrow(/ask_user_question/);
-	});
-
-	it("品牌色答「不用」就照常发配色，答「只上主操作」就保留品牌配色", () => {
-		const input = appInputFrom({ kind: "community" }, lib);
-		const dealt = startDeal(dealer(), "app", input, 1, NOW, { brand: "Emby" });
-		const id = dealt.options[0]!.id;
-		const none = choose(dealer(), dealt.record, id, NOW, { emphasis: "pictures", brandColour: "none" });
-		expect(none.input.keep).not.toContain("palette");
-		const kept = choose(dealer(), dealt.record, id, NOW, { emphasis: "pictures", brandColour: "action-only" });
-		expect(kept.input.keep).toContain("palette");
-		expect(kept.intent?.answers).toMatchObject({ emphasis: "pictures", brandColour: "action-only" });
+	it("方向题的答案就是选中的 id；老记录里留下的选项题仍然核对", () => {
+		const legacy = [
+			...toneQuestions("app", {}, options),
+			{
+				id: "emphasis" as const,
+				question: "What should the screens put first?",
+				header: "Emphasis",
+				options: [
+					{ value: "pictures", label: "Pictures lead", description: "" },
+					{ value: "information", label: "Information leads", description: "" },
+				],
+			},
+		];
+		expect(() => checkAnswers(legacy, {}, "a")).toThrow(/emphasis/);
+		expect(() => checkAnswers(legacy, { emphasis: "posters" }, "a")).toThrow(/emphasis/);
+		expect(checkAnswers(legacy, { emphasis: "pictures" }, "b")).toEqual({ direction: "b", emphasis: "pictures" });
 	});
 
 	it("用户说清楚了的设计不用回答就能选", () => {
@@ -127,9 +172,12 @@ describe("方向表与记录", () => {
 	it("用户的原话与回答排在方向表最前，标明它们高于方向表", () => {
 		const dealt = startDeal(dealer(), "app", appInputFrom({ kind: "community" }, lib), 1, NOW, {
 			colour: "深色",
+			emphasis: "海报大图为主",
 			brand: "Emby",
 		});
-		const chosen = choose(dealer(), dealt.record, dealt.options[0]!.id, NOW, { emphasis: "pictures" });
+		const chosen = choose(dealer(), dealt.record, dealt.options[0]!.id, NOW, undefined, [
+			{ question: "这个 App 给谁用？", answer: "顾客点单取餐" },
+		]);
 		const sheet = renderAppSheet(lib, chosen.input as never, chosen.choice as never, {
 			frameWidth: 390,
 			seed: 1,
@@ -140,15 +188,16 @@ describe("方向表与记录", () => {
 		expect(head).toBeGreaterThan(0);
 		expect(head).toBeLessThan(sheet.indexOf("## 1. The style"));
 		expect(sheet).toContain('- Colour: "深色"');
-		expect(sheet).toContain("pictures lead");
+		expect(sheet).toContain('- Emphasis: "海报大图为主"');
+		expect(sheet).toContain('- Asked "这个 App 给谁用？" — the user answered "顾客点单取餐". Binding.');
 		expect(intentLines(undefined)).toEqual([]);
 	});
 
-	it("换方向时沿用用户说过的基调；写出去读回来不丢", () => {
+	it("换方向时沿用用户说过的基调和偏好；写出去读回来不丢", () => {
 		const dealt = startDeal(dealer(), "page", pageInputFrom({ sector: "saas" }), 1, NOW, { mood: "像 Linear" });
-		const chosen = choose(dealer(), dealt.record, dealt.options[0]!.id, NOW);
+		const chosen = choose(dealer(), dealt.record, dealt.options[0]!.id, NOW, undefined, [{ question: "q", answer: "a" }]);
 		const next = redraw(dealer(2), chosen, "direction", "too loud for the brief", NOW);
-		expect(next.record.intent?.stated).toEqual({ mood: "像 Linear" });
+		expect(next.record.intent?.stated).toEqual({ mood: "像 Linear", preferences: [{ question: "q", answer: "a" }] });
 		expect(parseDirectionRecord(serializeDirectionRecord(chosen))?.intent).toEqual(chosen.intent);
 		// 旧版 direction.json 没有 intent，照样能读。
 		const legacy = JSON.parse(serializeDirectionRecord(chosen));

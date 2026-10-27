@@ -168,7 +168,12 @@ export function registerDesignTools(ctx: PluginContext): void {
 				},
 				brief: { type: "string", description: "landing / mobile / desktop: one line about the subject, in English." },
 				sector: { type: "string", enum: [...PAGE_SECTORS], description: "landing: the closest sector." },
-				kind: { type: "string", enum: [...APP_KINDS], description: "mobile / desktop: the closest kind of product." },
+				kind: {
+					type: "string",
+					enum: [...APP_KINDS],
+					description:
+						"mobile / desktop: the closest kind of product. Every kind is a work tool; a customer-facing app (ordering, media, retail) takes the nearest one for structure — see the skill.",
+				},
 				keep: {
 					type: "array",
 					items: { type: "string", enum: ["palette", "type"] },
