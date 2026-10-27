@@ -536,7 +536,7 @@ Resolve against `$SKILL_DIR`. Do not read them all up front.
 | `references/quality.md` | Reviewing a screenshot; before declaring any frame done |
 | `references/taste/directions.md` | A slide, poster or infographic with no pack or `DESIGN.md` (landing pages and apps are dealt) |
 | `references/taste/whitespace.md` | Weighing whether a line, divider or card wrapper earns its place; a capture looks boxed-in |
-| `references/taste/app-screens.md` | Product type is app screens or a dashboard — read it whole before the first screen |
+| `references/taste/app-screens.md` | Product type is app screens or a dashboard — read it before the first screen; the dealt sheet ends with the parts (`app/*.md`) its screens use |
 | `references/taste/color.md` | Setting a palette by hand; chart and status colors |
 | `references/taste/typography.md` | Choosing faces by hand, the type scale, CJK font stacks |
 | `references/taste/copy.md` | Writing headlines, labels, empty and error states |

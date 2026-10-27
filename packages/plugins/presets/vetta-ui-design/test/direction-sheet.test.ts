@@ -27,6 +27,8 @@ const desktop = { frameWidth: 1440, seed: 1, redraws: [] };
 /** 方向表进上下文的上限。上游原表约 26KB；这里砍掉了 frame 用不上的段落。 */
 const PAGE_SHEET_BUDGET = 20_000;
 const APP_SHEET_BUDGET = 12_000;
+/** 第 6 节附带的参考部件另算：它们是 references/ 的内容随表送出，不是表自己的篇幅。 */
+const APP_REFERENCE_BUDGET = 7_000;
 
 const importedPackages = (text: string) =>
 	[...text.matchAll(/@import "(@fontsource(?:-variable)?\/[^/"]+)/g)].map((m) => m[1]);
@@ -128,7 +130,9 @@ describe("App 方向表", () => {
 				emphasis: "pictures",
 			});
 			const sheet = renderAppSheet(lib, input, chosen.choice as never, desktop);
-			expect(sheet.text.length, style.id).toBeLessThan(APP_SHEET_BUDGET);
+			const [body, references = ""] = sheet.text.split("\n## 6. Reference for these screens");
+			expect(body.length, style.id).toBeLessThan(APP_SHEET_BUDGET);
+			expect(references.length, style.id).toBeLessThan(APP_REFERENCE_BUDGET);
 			expect(new Set(importedPackages(sheet.text)), style.id).toEqual(new Set(sheet.packages));
 			for (const token of ["surface", "surface-foreground", "panel", "muted", "primary", "primary-foreground"]) {
 				expect(sheet.text, `${style.id}: ${token}`).toContain(`--color-${token}: `);
