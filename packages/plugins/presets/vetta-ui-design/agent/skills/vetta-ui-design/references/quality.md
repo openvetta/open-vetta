@@ -91,8 +91,8 @@ too few real pictures, and reports them as `tell-*` issues with their fix — cl
 other issue. Look for the rest in the shot; the fixes are in
 `references/taste/anti-patterns.md`.
 
-- The scaffold palette still in place: indigo primary, slate surfaces and text,
-  amber accent.
+- The scaffold's neutral placeholder still in theme.css (`theme-placeholder`
+  reports it), or a hand-picked indigo primary on slate.
 - Display and body in the same face; an italic headline or italic emphasis word.
 - Purple/blue gradient surfaces, gradient text, blurred blobs, decorative glass.
 - Card-in-card, side-stripe cards, colored glow shadows, or lines and boxes doing

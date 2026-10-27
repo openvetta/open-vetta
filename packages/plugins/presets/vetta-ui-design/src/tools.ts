@@ -35,7 +35,7 @@ import { composeNotePins } from "./notes/annotate";
 import { notesFilePath } from "./notes/notes-store";
 import { type DesignNote, type NotesFile, noteStatus, parseNotesFile, pendingNotes } from "./notes/types";
 import { CANVAS_TAB_ID } from "./tab-ids";
-import type { SourceIssue } from "./vetd/check-sources";
+import { type SourceIssue, THEME_PLACEHOLDER_RULE } from "./vetd/check-sources";
 import { blockingSyntaxIssues, SYNTAX_RULE } from "./vetd/check-syntax";
 import { readDesignDependencies } from "./vetd/design-package";
 import { findVetdFiles } from "./vetd/discover";
@@ -415,8 +415,11 @@ export function registerDesignTools(ctx: PluginContext): void {
 					return { ok: false, frame: frameId, retryable: true, error: `Frame failed to build during capture:\n${lateError}` };
 				}
 				const frameIssues = [
-					// 整份设计级的 issue（发了方向没选）报给每一帧：哪一帧都不该在它清掉前算完成。
-					...sourceIssues.filter((issue) => issue.file === `frames/${frameId}.tsx` || issue.file === DIRECTION_FILE),
+					// 整份设计级的 issue（发了方向没选、主题还是占位）报给每一帧：哪一帧都不该在它清掉前算完成。
+					...sourceIssues.filter(
+						(issue) =>
+							issue.file === `frames/${frameId}.tsx` || issue.file === DIRECTION_FILE || issue.rule === THEME_PLACEHOLDER_RULE,
+					),
 					...layoutIssues(probe, frameId),
 					...tellIssues(probe, frameId, tells),
 				];

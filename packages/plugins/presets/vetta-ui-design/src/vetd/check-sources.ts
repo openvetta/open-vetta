@@ -14,6 +14,7 @@
 import { isFrameFile } from "../../engine/src/routes";
 import { ENGINE_PROVIDED_PACKAGES } from "../engine/engine-files";
 import { parseFrameMeta } from "./frame-meta";
+import { PLACEHOLDER_THEME_MARK } from "./scaffold";
 
 export interface SourceIssue {
 	/** 相对设计包目录的路径，如 `frames/login.tsx`。 */
@@ -438,6 +439,25 @@ function checkFrameSize(file: SourceFile, others: readonly SourceFile[]): Source
  * 每条规则每个文件只报一次：同一个毛病在一个文件里往往命中几十行，全报出来会把
  * vetd_status 的返回撑爆，而 agent 需要的信息第一条就给全了。
  */
+export const THEME_PLACEHOLDER_RULE = "theme-placeholder";
+
+/**
+ * 画框已经开写，theme.css 却还是脚手架的占位：配色字体没人定过，画出来的就是默认样子。
+ * 整份设计级的问题，截图时报给每一帧。
+ */
+function checkPlaceholderTheme(themeCss: string, files: readonly SourceFile[]): SourceIssue[] {
+	if (!themeCss.includes(PLACEHOLDER_THEME_MARK) || !files.some((file) => frameIdOf(file.path) !== null)) return [];
+	return [
+		{
+			file: "theme.css",
+			line: 1,
+			rule: THEME_PLACEHOLDER_RULE,
+			message:
+				"theme.css is still the scaffold's neutral placeholder, so every frame sits on colours and type nobody chose. Write the direction's theme.css over the whole file (vetd_direction `show` reprints it), or for a slide or poster set your own palette and faces.",
+		},
+	];
+}
+
 export function checkSources(
 	files: readonly SourceFile[],
 	themeCss: string | null = null,
@@ -448,7 +468,11 @@ export function checkSources(
 	const installed = new Set([...ENGINE_PACKAGES, ...designDependencies]);
 	const rules = rulesFor(installed);
 	if (themeCss !== null) {
-		issues.push(...checkThemeImports(themeCss, installed), ...checkFontTokens(themeCss, files, installed));
+		issues.push(
+			...checkPlaceholderTheme(themeCss, files),
+			...checkThemeImports(themeCss, installed),
+			...checkFontTokens(themeCss, files, installed),
+		);
 	}
 	for (const file of files) {
 		const sizeIssue = checkFrameSize(file, files);

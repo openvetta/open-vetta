@@ -311,8 +311,8 @@ If `DESIGN.md` exists in the design document, the user has already applied a
 system — read it first and follow it, and do NOT rewrite it or `theme.css`.
 
 **Set the direction** when neither a pack nor `DESIGN.md` sets the style. Left to
-defaults, every design converges on the same thing — the scaffold's indigo and
-slate, one system sans, white cards on grey, a three-column feature row — and
+defaults, every design converges on the same thing — indigo and slate, one
+system sans, white cards on grey, a three-column feature row — and
 users recognise it instantly as generated. Following a fixed template is the
 other way to get there. So the look is decided on purpose: a **landing page is
 dealt** three directions from a researched library; **app screens are proposed**
