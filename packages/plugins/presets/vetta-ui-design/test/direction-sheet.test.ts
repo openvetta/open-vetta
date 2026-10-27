@@ -9,6 +9,7 @@ import { type PageChoice, seededRandom } from "../src/direction/deal";
 import { fontImports } from "../src/direction/fontsource";
 import { adaptLibrary } from "../src/direction/library";
 import { appInputFrom, choose, pageInputFrom, startDeal } from "../src/direction/record";
+import { chosenApp, OBVIOUS } from "./proposal-fixture";
 import { readableOn, renderAppSheet, renderPageSheet, resolveClamp } from "../src/direction/sheet";
 
 const LIB_DIR = join(__dirname, "../vendor/taste-skill/library");
@@ -19,7 +20,6 @@ const lib = adaptLibrary({
 	sections: read("sections"),
 	type: read("type"),
 	palettes: read("palettes"),
-	app: read("app"),
 });
 const NOW = "2026-10-26T00:00:00.000Z";
 const desktop = { frameWidth: 1440, seed: 1, redraws: [] };
@@ -27,7 +27,7 @@ const desktop = { frameWidth: 1440, seed: 1, redraws: [] };
 /** 方向表进上下文的上限。上游原表约 26KB；这里砍掉了 frame 用不上的段落。 */
 const PAGE_SHEET_BUDGET = 20_000;
 const APP_SHEET_BUDGET = 12_000;
-/** 第 6 节附带的参考部件另算：它们是 references/ 的内容随表送出，不是表自己的篇幅。 */
+/** 最后一节附带的参考部件另算：它们是 references/ 的内容随表送出，不是表自己的篇幅。 */
 const APP_REFERENCE_BUDGET = 7_000;
 
 const importedPackages = (text: string) =>
@@ -72,7 +72,7 @@ describe("页面方向表", () => {
 		for (const dir of lib.directions) {
 			const input = pageInputFrom({ sector: dir.sectors.find((s) => s !== "*") ?? "other" });
 			const rnd = seededRandom(11);
-			const { record } = startDeal({ lib, rnd, history: [] }, "page", input, 11, NOW);
+			const { record } = startDeal({ lib, rnd, history: [] }, input, 11, NOW);
 			const chosen = choose({ lib, rnd, history: [] }, { ...record, options: [dir.id] }, dir.id, NOW);
 			const sheet = renderPageSheet(lib, input, chosen.choice as PageChoice, desktop);
 			expect(sheet.text.length, dir.id).toBeLessThan(PAGE_SHEET_BUDGET);
@@ -85,7 +85,7 @@ describe("页面方向表", () => {
 
 	it("保留品牌配色与字体时，只给构图", () => {
 		const input = pageInputFrom({ sector: "saas", keep: ["palette", "type"] });
-		const dealt = startDeal({ lib, rnd: seededRandom(2), history: [] }, "page", input, 2, NOW);
+		const dealt = startDeal({ lib, rnd: seededRandom(2), history: [] }, input, 2, NOW);
 		const chosen = choose({ lib, rnd: seededRandom(2), history: [] }, dealt.record, dealt.options[0].id, NOW);
 		const sheet = renderPageSheet(lib, input, chosen.choice as PageChoice, desktop);
 		expect(sheet.packages).toEqual([]);
@@ -97,7 +97,7 @@ describe("页面方向表", () => {
 
 	it("手机画框给手机版式，并按手机宽度换算 vw", () => {
 		const input = pageInputFrom({ sector: "restaurant" });
-		const dealt = startDeal({ lib, rnd: seededRandom(4), history: [] }, "page", input, 4, NOW);
+		const dealt = startDeal({ lib, rnd: seededRandom(4), history: [] }, input, 4, NOW);
 		const choice = choose({ lib, rnd: seededRandom(4), history: [] }, dealt.record, dealt.options[0].id, NOW)
 			.choice as PageChoice;
 		const hero = lib.heroes.find((h) => h.id === choice.heroId)!;
@@ -121,23 +121,56 @@ describe("页面方向表", () => {
 });
 
 describe("App 方向表", () => {
-	it("每个风格的表都沿用脚手架 token 名，篇幅在预算内", () => {
-		for (const style of lib.app.styles) {
-			const input = appInputFrom({ kind: style.suits.find((k) => k in lib.app.kinds) ?? "finance" }, lib);
-			const rnd = seededRandom(9);
-			const { record } = startDeal({ lib, rnd, history: [] }, "app", input, 9, NOW);
-			const chosen = choose({ lib, rnd, history: [] }, { ...record, options: [style.id] }, style.id, NOW, {
-				emphasis: "pictures",
-			});
-			const sheet = renderAppSheet(lib, input, chosen.choice as never, desktop);
-			const [body, references = ""] = sheet.text.split("\n## 6. Reference for these screens");
-			expect(body.length, style.id).toBeLessThan(APP_SHEET_BUDGET);
-			expect(references.length, style.id).toBeLessThan(APP_REFERENCE_BUDGET);
-			expect(new Set(importedPackages(sheet.text)), style.id).toEqual(new Set(sheet.packages));
+	const input = appInputFrom({ brief: "coffee ordering app" });
+	const sheetOf = (id: string, frameWidth = 1440, keep: ("palette" | "type")[] = []) => {
+		const kept = appInputFrom({ brief: "coffee ordering app", keep });
+		const { record, proposal } = chosenApp(kept, id);
+		return renderAppSheet(kept, proposal, record.obvious ?? "", { ...desktop, frameWidth });
+	};
+
+	it("每一案的表都沿用脚手架 token 名、装的包就是 import 的包，篇幅在预算内", () => {
+		for (const id of ["roast-ledger", "night-counter", "tamper-green"]) {
+			const sheet = sheetOf(id);
+			const [body, references = ""] = sheet.text.split("\n## 7. Reference for these screens");
+			expect(body.length, id).toBeLessThan(APP_SHEET_BUDGET);
+			expect(references.length, id).toBeLessThan(APP_REFERENCE_BUDGET);
+			expect(new Set(importedPackages(sheet.text)), id).toEqual(new Set(sheet.packages));
 			for (const token of ["surface", "surface-foreground", "panel", "muted", "primary", "primary-foreground"]) {
-				expect(sheet.text, `${style.id}: ${token}`).toContain(`--color-${token}: `);
+				expect(sheet.text, `${id}: ${token}`).toContain(`--color-${token}: `);
 			}
-			expect(sheet.text, style.id).not.toMatch(/https?:\/\/|fonts\.googleapis/);
+			expect(sheet.text, id).toMatch(/--font-display: "[^"]+",/);
+			expect(sheet.text, id).not.toMatch(/https?:\/\/|fonts\.googleapis/);
 		}
+	});
+
+	it("表里写着这一案的想法、要避开的平庸版本和截图后的竞品自查", () => {
+		const { text } = sheetOf("roast-ledger");
+		expect(text).toContain("On these screens, the roast date printed on every bag becomes the ordering spine of the menu.");
+		expect(text).toContain(`**The obvious version (do not drift back to it):** ${OBVIOUS}`);
+		expect(text).toMatch(/swap the logo for the nearest competitor/);
+		expect(text).toMatch(/No expressive devices/);
+	});
+
+	it("只有 400 一个字重的静态字体只 import 400", () => {
+		const { record } = chosenApp(input, "roast-ledger");
+		const proposal = { ...record.proposals![0], type: { display: "DM Serif Display", text: "Figtree", class: "serif-display" as const } };
+		const sheet = renderAppSheet(input, proposal, "", desktop);
+		expect(sheet.text).toContain('@import "@fontsource/dm-serif-display/400.css";');
+		expect(sheet.text).not.toContain("dm-serif-display/700.css");
+	});
+
+	it("保留品牌配色字体时不出颜色字体 token，只交代品牌色怎么分配", () => {
+		const sheet = sheetOf("roast-ledger", 1440, ["palette", "type"]);
+		expect(sheet.packages).toEqual([]);
+		expect(sheet.text).not.toMatch(/^\t--(?:color|font)-/m);
+		expect(sheet.text).toMatch(/its hue becomes `--color-primary`/);
+	});
+
+	it("手机宽度带手机部件，桌面带外壳", () => {
+		const [, phone] = sheetOf("night-counter", 390).text.split("\n## 7. Reference for these screens");
+		expect(phone).toContain("### The phone");
+		expect(phone).not.toContain("### Shell");
+		const [, wide] = sheetOf("night-counter", 1440).text.split("\n## 7. Reference for these screens");
+		expect(wide).toContain("### Shell");
 	});
 });

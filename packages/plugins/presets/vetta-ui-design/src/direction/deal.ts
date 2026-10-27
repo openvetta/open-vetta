@@ -1,20 +1,18 @@
 /**
- * 发方向：从研究库里按需求随机发牌，模型只在发出的几项里挑。
+ * 发方向（落地页）：从研究库里按需求随机发牌，模型只在发出的几项里挑。App 屏幕不发牌，
+ * 由 agent 自拟三个方向、工具校验，见 proposal.ts。
  *
  * 为什么由代码来抽而不是让模型「自己定一个方向」：让模型凭空定调性、主色和字体，它
  * 每次都会落到同一类默认值上——这正是设计稿千篇一律的来源。抽牌是随机的，但只在适合
  * 这份需求（行业、调性、真实拥有的素材）的范围里抽，并避开最近几次发过的。
  *
- * 逻辑移植自 taste-skill 的 scripts/draw.mjs 与 scripts/lib/app-draw.mjs（MIT，见
+ * 逻辑移植自 taste-skill 的 scripts/draw.mjs（MIT，见
  * vendor/taste-skill/UPSTREAM.md）。删掉的部分：动效、滚动场景、照片集、研究样本站点
  * ——frame 是固定尺寸的静态画面，也不能加载远程图片。
  *
  * 这里全是纯函数：随机数和历史记录都由调用方传入，测试可以固定种子。
  */
 import type {
-	AppPattern,
-	AppShell,
-	AppStyle,
 	TasteDirection,
 	TasteHero,
 	TasteLibrary,
@@ -49,23 +47,6 @@ export const PAGE_SECTORS = [
 ] as const;
 
 export const PAGE_TONES = ["quiet", "bold", "warm", "technical", "playful", "luxury", "editorial"] as const;
-
-/** 与 vendor app.json 的 `kinds` 键一致；test/direction-library.test.ts 守着这一点。 */
-export const APP_KINDS = [
-	"finance",
-	"wallet",
-	"commerce",
-	"analytics",
-	"devtools",
-	"builder",
-	"creator",
-	"smb-admin",
-	"workspace",
-	"community",
-	"support",
-	"markets",
-	"report",
-] as const;
 
 /** 项目自己真实拥有的素材。找来的图（vetd_assets）不算，那是每份设计都能拿到的。 */
 export const ASSETS = ["photography", "product-photo", "product-ui", "illustration"] as const;
@@ -158,9 +139,8 @@ export interface PageInput {
 }
 
 export interface AppInput {
-	kind: string;
 	brief: string;
-	theme: "light" | "dark" | null;
+	/** 要设计的屏幕，agent 自己的叫法。 */
 	screens: string[];
 	keep: KeepSlot[];
 	avoid: string[];
@@ -174,10 +154,9 @@ export interface PageChoice {
 	sections: { role: string; id: string | null }[];
 }
 
+/** App 选定的是 agent 提的某一案；提案本身存在 direction.json 的 `proposals` 里。 */
 export interface AppChoice {
-	styleId: string;
-	shellId: string;
-	screens: { name: string; patternId: string | null }[];
+	proposalId: string;
 }
 
 /** 最近发过的方向，新的在前。跨设计保存在插件存储里，只用来避开重复。 */
@@ -188,8 +167,11 @@ export interface DealHistoryEntry {
 	hero?: string;
 	type?: string;
 	palette?: string;
-	style?: string;
-	shell?: string;
+	/** App：选定方向的明暗、主色色系、标题字类别与标题字，用来让下一份设计避开。 */
+	theme?: "light" | "dark";
+	hue?: string;
+	typeClass?: string;
+	display?: string;
 }
 
 export interface Dealer {
@@ -391,89 +373,4 @@ export function dealPage(dealer: Dealer, input: PageInput, directionId: string):
 		paletteId: input.keep.includes("palette") ? null : dealPalette(dealer, dir, []).id,
 		sections,
 	};
-}
-
-// ---------- App 屏幕 ----------
-
-/** 库里有版式的屏幕名（overview、list、settings…）。 */
-export function appScreens(lib: TasteLibrary): string[] {
-	return [
-		...new Set(lib.app.patterns.map((p) => p.screen).filter((screen): screen is string => screen !== null)),
-	];
-}
-
-function stylePool(dealer: Dealer, input: AppInput): AppStyle[] {
-	const { styles, kinds } = dealer.lib.app;
-	const preferred = kinds[input.kind]?.styles ?? [];
-	let pool = styles.filter((s) => !input.avoid.includes(s.id));
-	if (input.theme) {
-		const themed = pool.filter((s) => s.theme === input.theme);
-		if (themed.length > 0) pool = themed;
-	}
-	const fit = pool.filter((s) => preferred.includes(s.id) || s.suits.includes(input.kind));
-	if (fit.length >= 2) pool = fit;
-	return pool.length > 0 ? pool : styles;
-}
-
-export function dealAppOptions(dealer: Dealer, input: AppInput, count = 3): AppStyle[] {
-	const pool = stylePool(dealer, input);
-	const recentStyles = recent(dealer, "style", "app", 3);
-	let rest = pool.filter((s) => !recentStyles.includes(s.id));
-	if (rest.length < count) rest = [...pool];
-	const out: AppStyle[] = [];
-	while (out.length < count && rest.length > 0) {
-		const chosen = pick(dealer.rnd, rest);
-		out.push(chosen);
-		rest = rest.filter((s) => s !== chosen);
-	}
-	return out;
-}
-
-/** 风格自带的外壳往往承载了它的一部分辨识度，所以大约三次里发两次。 */
-export function dealShell(dealer: Dealer, style: AppStyle, exclude: string[]): AppShell {
-	const { shells } = dealer.lib.app;
-	const own = shells.find((s) => s.id === style.shell && !exclude.includes(s.id));
-	const alternatives = shells.filter((s) => style.shellAlternatives.includes(s.id) && !exclude.includes(s.id));
-	if (own && (alternatives.length === 0 || dealer.rnd() < 0.66)) return own;
-	if (alternatives.length > 0) return pick(dealer.rnd, alternatives);
-	const rest = shells.filter((s) => !exclude.includes(s.id));
-	return pick(dealer.rnd, rest.length > 0 ? rest : shells);
-}
-
-/**
- * 为另一类产品写的版式会把那类产品的家具一起带进来（请假规划里冒出一条入门引导），
- * 所以没有适合这类产品的版式时宁可不发，让方向表交代按规则自己组。
- */
-export function dealScreen(
-	dealer: Dealer,
-	name: string,
-	input: AppInput,
-	exclude: string[],
-): AppPattern | null {
-	const pool = dealer.lib.app.patterns.filter(
-		(p) => p.screen === name && !exclude.includes(p.id) && (!p.kinds || p.kinds.includes(input.kind)),
-	);
-	return pool.length > 0 ? pick(dealer.rnd, pool) : null;
-}
-
-export function dealApp(dealer: Dealer, input: AppInput, styleId: string): AppChoice | null {
-	const style = dealer.lib.app.styles.find((s) => s.id === styleId);
-	if (!style) return null;
-	return {
-		styleId: style.id,
-		shellId: dealShell(dealer, style, []).id,
-		screens: input.screens.map((name) => ({ name, patternId: dealScreen(dealer, name, input, [])?.id ?? null })),
-	};
-}
-
-/** 需求里点名的、只有这类产品才有的元素（能量流、售罄条…）。 */
-export function signaturesFor(lib: TasteLibrary, brief: string): AppPattern[] {
-	const text = brief.toLowerCase();
-	return lib.app.patterns.filter(
-		(p) =>
-			p.signature &&
-			p.cues.some((cue) =>
-				new RegExp(`(^|[^a-z])${cue.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i").test(text),
-			),
-	);
 }

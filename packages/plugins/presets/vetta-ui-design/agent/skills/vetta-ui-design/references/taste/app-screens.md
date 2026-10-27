@@ -7,9 +7,9 @@ landing page; the interface fragments on it follow this file for their insides.
 
 Numbers are from taste-skill v2's study of 23 real product screens (see
 `UPSTREAM.md`); **house rule** marks what goes past it. This file holds what
-every screen needs. The dealt app sheet (`vetd_direction`) fixes the style's
-tokens, type, shell and screen patterns, and ends with the reference parts that
-apply to its screens. Without a sheet, read the parts you need from `app/`:
+every screen needs. The app sheet (`vetd_direction`) holds the direction you
+proposed — its idea, tokens, type and layout — and ends with the reference
+parts. Without a sheet, read the parts you need from `app/`:
 `shell`, `kpis`, `charts`, `tables`, `forms`, `values` (type and colour), `phone`.
 
 ## What separates real screens from generated ones
@@ -29,14 +29,13 @@ correct screens lost to richer ones: the first screen was thin, the product had 
 name, restraint hid meaning, there was nothing to do. Quiet is the start, not the
 goal. **Give the product a face**:
 
-- one face from the sheet's list (a ground from the product's world, a figure
-  face with character, the brand hue on the main data element), visible on the
-  first screen;
+- the sheet's idea, visible on the first screen (a ground from the product's
+  world, a figure face with character, the brand hue on the main data element);
 - the product's mark and name at the top of the shell, and the scope (workspace,
   team, account) as a switcher or breadcrumb;
 - **one element only this product has**, built from its own things — an energy
   home's power flow, a bakery's sell-out strip, a leave planner's cover against
-  the minimum. The sheet lists the ones the brief names; otherwise invent one;
+  the minimum;
 - the one chart hue on the main data element — a screen whose only hue is a delta
   reads as a kit;
 - people as themselves (a stable initial and a pale tint of their own hue), and
@@ -126,7 +125,7 @@ entrance.
 | 1px borders on cards, panels, tables, controls | About 1.1-1.3:1 against the ground; controls one step stronger |
 | Small labels above values | 12-14px sentence case at 4.5:1; meta 11-12px; nothing under 11px; at most one tracked uppercase label per screen |
 | Rows of identical cards | Peer objects only, 3-6 across, no orphan, no icon on top |
-| Monospace | IDs and code, or every figure as the style's decision |
+| Monospace | IDs and code, or every figure as the direction's decision |
 | Pills | Inside rows and beside a value, never above a heading |
 | Index numbers | Only as data: a rank, a node number |
 | Shadows | On what floats; a resting card at most a small blur under 8% black |
@@ -148,7 +147,7 @@ entrance.
 | Saturated status chips with white text | Pale tints with dark text of the same hue |
 | The accent on every button, tab and link | Near-black primary; the accent on data |
 | A top bar with search, a bell and an avatar, mostly empty | No top bar, or one that holds something real |
-| Geist or Inter on #f8f8f8, white 12px cards, no hue on the data | The face from the sheet and one element only this product has |
+| Geist or Inter on #f8f8f8, white 12px cards, no hue on the data | The sheet's type and one element only this product has |
 | An illustration and "No data yet" in an empty chart | The zero line and one sentence |
 
 A screen with every tell removed and nothing in their place is a tidy template.

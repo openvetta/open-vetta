@@ -9,12 +9,13 @@
  * （图片集、动效、滚动场景、参考站点）不渲染；与手机无关时不带手机版式，反之亦然；
  * 每份表都一样的规则写在 SKILL.md，不在这里重复。
  */
-import type { AppChoice, ImageryMode, PageChoice, PageInput, AppInput } from "./deal";
-import { imageryMode, signaturesFor } from "./deal";
-import { axisFromSettings, type FontAxis, fontImports, fontsourcePackage, registeredFamily } from "./fontsource";
+import type { AppInput, ImageryMode, PageChoice, PageInput } from "./deal";
+import { imageryMode } from "./deal";
+import { availableWeights, axisFromSettings, type FontAxis, fontImports, fontsourcePackage, registeredFamily } from "./fontsource";
 import { type Intent, intentLines } from "./intent";
-import type { AppStyle, TasteHero, TasteLibrary, TastePalette, TasteSection, TasteType } from "./library";
-import { renderTopic, screenTopics, sheetTopics } from "./topics";
+import type { TasteHero, TasteLibrary, TastePalette, TasteSection, TasteType } from "./library";
+import { type AppProposal, readableOn, type TypeClass } from "./proposal";
+import { renderTopic, sheetTopics } from "./topics";
 
 /**
  * 保留品牌配色时最容易出的事：品牌色被当成主题色铺满全屏（实测里 Emby 绿上了 logo、
@@ -415,99 +416,88 @@ export function renderPageSheet(
 
 // ---------- App 屏幕 ----------
 
+export { readableOn };
+
 const kebab = (key: string) => key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
 
-/** 主色上的文字用黑还是白：取对比度高的那个。 */
-export function readableOn(hex: string): string {
-	const match = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-	if (!match) return "#ffffff";
-	const n = Number.parseInt(match[1], 16);
-	const channel = (value: number) => {
-		const c = value / 255;
-		return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-	};
-	const luminance = 0.2126 * channel((n >> 16) & 255) + 0.7152 * channel((n >> 8) & 255) + 0.0722 * channel(n & 255);
-	return (1.05 / (luminance + 0.05) >= (luminance + 0.05) / 0.05) ? "#ffffff" : "#0a0a0a";
-}
+const SERIF_TYPE: readonly TypeClass[] = ["serif-display", "serif-light-large", "serif-text", "slab"];
 
-/** App 风格的 token → 脚手架 token 名。`surface` 是页面底色，与页面方向表一致。 */
-const APP_COLOR_NAMES: Record<string, string> = {
-	ground: "surface",
-	text: "surface-foreground",
-	surface: "panel",
-	accent: "primary",
-};
-
-function appTokens(style: AppStyle): string[] {
+/** 提案的颜色 → 脚手架 token 名，与页面方向表一致：`surface` 是底色。 */
+function proposalTokens(proposal: AppProposal, keepPalette: boolean, keepType: boolean): string[] {
 	const lines: string[] = [];
-	for (const [key, value] of Object.entries(style.colors)) {
-		lines.push(`--color-${APP_COLOR_NAMES[key] ?? kebab(key)}: ${value};`);
+	const c = proposal.colours;
+	if (c && !keepPalette) {
+		lines.push(
+			`--color-surface: ${c.ground}; /* ground */`,
+			`--color-panel: ${c.panel}; /* the tone step: panels, inputs, tiles */`,
+			`--color-surface-foreground: ${c.text}; /* text, full strength */`,
+			`--color-muted: ${c.muted}; /* secondary notes only */`,
+			`--color-primary: ${c.accent};`,
+			`--color-primary-foreground: ${c.onAccent};`,
+		);
+		for (const [token, value] of Object.entries(c.extra)) lines.push(`--color-${kebab(token)}: ${value};`);
 	}
-	if (style.colors.accent) lines.push(`--color-primary-foreground: ${readableOn(style.colors.accent)};`);
-	style.chart.forEach((colour, index) => lines.push(`--color-chart-${index + 1}: ${colour};`));
-	for (const [name, [bg, ink]] of Object.entries(style.pills)) {
-		lines.push(`--color-pill-${name}: ${bg};`, `--color-pill-${name}-foreground: ${ink};`);
+	if (proposal.radius !== null) lines.push(`--radius-card: ${proposal.radius}px;`);
+	const t = proposal.type;
+	if (t && !keepType) {
+		const serif = SERIF_TYPE.includes(t.class);
+		lines.push(`--font-display: ${stack(t.display, serif && t.class !== "serif-text")};`);
+		lines.push(`--font-sans: ${stack(t.text, t.text === t.display ? serif : false)};`);
+		if (t.class === "mono") lines.push(`--font-mono: ${stack(t.display, false)};`);
 	}
-	for (const [name, radius] of Object.entries(style.radius)) lines.push(`--radius-${name}: ${radius}px;`);
-	for (const [name, size] of Object.entries(style.font.sizes)) lines.push(`--text-${name}: ${size}px;`);
-	lines.push(`--font-sans: ${stack(style.font.family, false)};`);
-	if (style.font.second) lines.push(`--font-mono: "${registeredFamily(style.font.second) ?? style.font.second}", ui-monospace, monospace;`);
 	return lines;
 }
 
-export function renderAppSheet(lib: TasteLibrary, input: AppInput, choice: AppChoice, ctx: SheetContext): RenderedSheet {
+const DEVICE_TEXT: Record<string, string> = {
+	gradient: "a gradient",
+	shadow: "shadows on resting surfaces",
+	glass: "glass (backdrop blur)",
+	mono: "a monospace face outside code",
+	"third-face": "a third typeface",
+	"tracked-caps": "small tracked capitals",
+};
+
+export function renderAppSheet(
+	input: AppInput,
+	proposal: AppProposal,
+	obvious: string,
+	ctx: SheetContext,
+): RenderedSheet {
 	const out: string[] = [];
 	const p = (line = "") => out.push(line);
-	const style = lib.app.styles.find((s) => s.id === choice.styleId);
-	if (!style) {
-		return {
-			text: `The saved app style \`${choice.styleId}\` is no longer in the library. Deal again with action "deal".`,
-			packages: [],
-		};
-	}
-	const shell = lib.app.shells.find((s) => s.id === choice.shellId);
 	const phone = isPhone(ctx);
 	const keepPalette = input.keep.includes("palette");
 	const keepType = input.keep.includes("type");
 
-	p(`# App sheet — ${style.name}`);
+	p(`# App sheet — ${proposal.name}`);
 	p(
-		`app · kind ${input.kind} · ${style.theme} · seed ${ctx.seed}${ctx.redraws.length > 0 ? ` · redraws ${ctx.redraws.length}` : ""} · frame ${ctx.frameWidth}px wide`,
+		`app · ${proposal.theme} · proposed${ctx.redraws.length > 0 ? ` · reproposed ${ctx.redraws.length}` : ""} · frame ${ctx.frameWidth}px wide`,
 	);
 	if (input.brief) p(`Brief: ${input.brief}`);
 	p();
-	p("Adopt this style whole and keep its move intact; what it does not fix comes from references/taste/app-screens.md. The values");
-	p("were measured on real product screens: use them as given rather than rounding them toward your habits.");
+	p("This is your own direction, written down so the screens hold to it. Build every screen from it; when a screen");
+	p("tempts you back toward the obvious version below, that is the moment the design turns generic.");
 	p();
 	userIntent(p, ctx.intent);
-	p("## 1. The style");
-	p(style.idea);
-	p(`**The move:** ${style.signature}`);
-	if (style.colourBudget) p(`**Colour budget:** ${style.colourBudget}.`);
-	if (style.avoid.length > 0) p(`**Off-style here:** ${style.avoid.join("; ")}.`);
+	p("## 1. The idea");
+	p(proposal.idea);
+	p(`**Departs from the obvious version:** ${proposal.departs}`);
+	p(`**The obvious version (do not drift back to it):** ${obvious}`);
 	p();
-	if (style.identity.length > 0) {
-		p("**Its face.** Choose one of these (or one of your own of the same weight) before you build and make sure it shows on");
-		p("the first screen. Without one the screen reads as a well-applied kit, not this product.");
-		for (const line of style.identity) p(`- ${line}`);
-		p();
-	}
-	const signatures = signaturesFor(lib, input.brief);
-	if (signatures.length > 0) {
-		p("**Elements only this kind of product has** (build one of them into a screen):");
-		for (const pattern of signatures) p(`- **${pattern.name}**. ${phone && pattern.phone ? pattern.phone : pattern.blueprint}`);
-		p();
-	}
+	p("## 2. Layout");
+	p(proposal.layout);
+	p();
 
-	const fonts = keepType
-		? { imports: [], packages: [] }
-		: fontBlock([
-				{ family: style.font.family, weights: style.font.weights, italic: false },
-				...(style.font.second ? [{ family: style.font.second, weights: [400, 500], italic: false }] : []),
-			]);
-	p("## 2. theme.css");
+	const t = keepType ? null : proposal.type;
+	const fonts = t
+		? fontBlock([
+				{ family: t.display, weights: availableWeights(t.display, [400, 500, 600, 700]), italic: false },
+				{ family: t.text, weights: availableWeights(t.text, [400, 500, 600]), italic: false },
+			])
+		: { imports: [], packages: [] };
+	p("## 3. theme.css");
 	if (keepPalette || keepType) p(`Kept from the brand: ${[keepPalette && "colour", keepType && "type"].filter(Boolean).join(" and ")}.`);
-	if (keepPalette) p(`${BRAND_COLOUR_BUDGET} ${style.colourBudget ? `This style's budget: ${style.colourBudget}.` : ""}`.trim());
+	if (keepPalette) p(BRAND_COLOUR_BUDGET);
 	if (fonts.packages.length > 0) {
 		p(`Install first, in one call: vetd_install with packages ${JSON.stringify(fonts.packages)}. Then replace theme.css with:`);
 	}
@@ -515,60 +505,40 @@ export function renderAppSheet(lib: TasteLibrary, input: AppInput, choice: AppCh
 	for (const line of fonts.imports) p(line);
 	if (fonts.imports.length > 0) p();
 	p("@theme {");
-	for (const line of appTokens(style)) {
-		if (keepPalette && line.startsWith("--color-")) continue;
-		if (keepType && line.startsWith("--font-")) continue;
-		p(`\t${line}`);
-	}
+	for (const line of proposalTokens(proposal, keepPalette, keepType)) p(`\t${line}`);
 	p("}");
 	p("```");
-	const metrics = Object.entries(style.metrics).map(([key, value]) => `${kebab(key)} ${value}px`);
-	if (metrics.length > 0) p(`Metrics: ${metrics.join(" · ")}. Density: ${style.density}. One gap value, horizontally and vertically.`);
-	p(
-		style.shadow
-			? `Cards in this style cast \`${style.shadow}\`; nothing else casts a shadow.`
-			: "No shadow on anything at rest.",
-	);
-	p();
-	p(`## 3. Type — ${style.font.family}`);
-	p(
-		`Weights ${style.font.weights.join(", ")}.${style.font.note ? ` ${style.font.note}` : ""}${style.font.second ? ` Second face \`font-mono\` (${style.font.second}) for IDs and keys only.` : ""}`,
-	);
-	p("`tabular-nums` on every table, KPI and figure that updates. Sentence case; no tracked capitals.");
-	p();
-	if (shell) {
-		p(`## 4. Shell — ${shell.name}`);
-		p(phone && shell.phone ? shell.phone : shell.blueprint);
-		const numbers = Object.entries(shell.numbers).map(([key, value]) => `${key} ${value}`);
-		if (!phone && numbers.length > 0) p(`Numbers: ${numbers.join("; ")}.`);
-		p();
+	if (t) {
+		p(
+			t.display === t.text
+				? `Type: ${t.display} (${t.class}) for everything, \`font-display\` on the largest words.`
+				: `Type: \`font-display\` ${t.display} (${t.class}) for the largest words, \`font-sans\` ${t.text} for the rest.`,
+		);
 	}
-	p("## Pictures");
-	p(
-		"When the product's content is visual — films, music, shops, places, people, food — every cover, thumbnail, backdrop and avatar is a real picture: `vetd_assets` `search`, then `get` at the slot's display size, before the screen is built. Real film posters and brand artwork are not downloaded: make the catalogue fictional, a real photograph under a title set in the dealt type. A gradient or a flat box holding an icon in a picture slot reports `tell-fake-media`.",
-	);
+	p("`tabular-nums` on every figure that is compared or updates.");
 	p();
-	p("## 5. Screens");
-	for (const screen of choice.screens) {
-		const pattern = screen.patternId ? lib.app.patterns.find((x) => x.id === screen.patternId) : undefined;
-		const parts = screenTopics(screen.patternId);
-		p();
-		if (!pattern) {
-			p(`### ${screen.name}`);
-			p("No pattern in the library for this screen and this kind of product. Compose it from references/taste/app-screens.md.");
-		} else {
-			p(`### ${screen.name} — ${pattern.name}`);
-			p(phone && pattern.phone ? pattern.phone : pattern.blueprint);
-		}
-		p(`Reference parts for this screen (section 6): ${parts.join(", ")}.`);
+	p("## 4. Devices");
+	if (proposal.devices.length === 0) {
+		p("No expressive devices: no gradient, glass, resting shadow, monospace outside code, third face or tracked capitals.");
+		p("The look comes from the idea, the colour, the type and the layout.");
+	} else {
+		p("This direction uses, for its stated reasons (the screenshot check lets them through):");
+		for (const { device, reason } of proposal.devices) p(`- ${DEVICE_TEXT[device] ?? device} — ${reason}`);
+		p("Use each where the reason applies, not everywhere. Every other house rule still holds.");
 	}
 	p();
-	p("## 6. Reference for these screens");
-	p("The parts of references/taste/app-screens.md that the screens above use; the file itself holds what every screen needs.");
-	for (const topic of sheetTopics(
-		choice.screens.map((screen) => screen.patternId),
-		{ phone, keepsStyle: keepPalette || keepType },
-	)) {
+	p("## 5. Pictures");
+	p(
+		"When the product's content is visual — films, music, shops, places, people, food — every cover, thumbnail, backdrop and avatar is a real picture: `vetd_assets` `search`, then `get` at the slot's display size, before the screen is built. Real film posters and brand artwork are not downloaded: make the catalogue fictional, a real photograph under a title set in this direction's type. A gradient or a flat box holding an icon in a picture slot reports `tell-fake-media`.",
+	);
+	p();
+	p("## 6. Check each screen");
+	p("After each screenshot, swap the logo for the nearest competitor's in your head: if the screen still works for them,");
+	p("its most prominent block is generic — rebuild that block from the idea above.");
+	p();
+	p("## 7. Reference for these screens");
+	p("The parts of references/taste/app-screens.md for building the screens; the file itself holds what every screen needs.");
+	for (const topic of sheetTopics({ phone })) {
 		p();
 		p(renderTopic(topic));
 	}

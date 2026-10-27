@@ -2,13 +2,13 @@
  * vendor 里的上游数据与适配层之间的约定。
  *
  * 上游更新靠整份覆盖拷贝（vendor/taste-skill/UPSTREAM.md），所以适配层对数据的每个
- * 假设都要在这里守住：新字体没人核对过、App 种类改了名、某个方向发不出任何字体——
+ * 假设都要在这里守住：新字体没人核对过、某个方向发不出任何字体——
  * 这些都不会在构建时报错，只会在 agent 发方向时悄悄发出一张坏表。
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { APP_KINDS, defaultSections, PAGE_SECTORS } from "../src/direction/deal";
+import { defaultSections, PAGE_SECTORS } from "../src/direction/deal";
 import { FONTSOURCE_FACES, UNAVAILABLE_FAMILIES } from "../src/direction/fontsource";
 import { adaptLibrary, loadTasteLibrary, type RawLibrary } from "../src/direction/library";
 
@@ -20,7 +20,6 @@ const raw: RawLibrary = {
 	sections: read("sections"),
 	type: read("type"),
 	palettes: read("palettes"),
-	app: read("app"),
 };
 const lib = adaptLibrary(raw);
 
@@ -29,20 +28,11 @@ interface RawType {
 	display: { family: string };
 	text: { family: string };
 }
-interface RawApp {
-	kinds: Record<string, unknown>;
-	styles: { tokens: { font: { family: string; second?: string } } }[];
-}
 
 describe("vendor 研究库的适配", () => {
 	it("上游用到的每个字体家族都核对过 fontsource（可装或已知不可装）", () => {
 		const families = new Set<string>();
 		for (const entry of raw.type as RawType[]) families.add(entry.display.family).add(entry.text.family);
-		for (const style of (raw.app as RawApp).styles) {
-			families.add(style.tokens.font.family);
-			const second = style.tokens.font.second?.split(",")[0]?.trim();
-			if (second && !/^(system|inter\b)/i.test(second)) families.add(second);
-		}
 		const unchecked = [...families].filter(
 			(family) => !(family in FONTSOURCE_FACES) && !UNAVAILABLE_FAMILIES.includes(family),
 		);
@@ -62,9 +52,8 @@ describe("vendor 研究库的适配", () => {
 		expect(lib.type.length).toBeGreaterThanOrEqual(20);
 	});
 
-	it("App 种类与工具 schema 的枚举一致", () => {
-		expect(Object.keys((raw.app as RawApp).kinds).sort()).toEqual([...APP_KINDS].sort());
-		expect(lib.app.styles).toHaveLength((raw.app as RawApp).styles.length);
+	it("上游的 App 风格库不再随插件打包：App 方向由 agent 自拟", () => {
+		expect(() => read("app")).toThrow();
 	});
 
 	it("没有一条上游数据因为缺字段被丢掉", () => {

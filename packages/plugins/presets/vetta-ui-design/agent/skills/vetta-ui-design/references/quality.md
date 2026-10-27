@@ -83,7 +83,7 @@ you added last.
   where content was expected, an unstyled control.
 
 **5. Generated-UI tells** — taste, but taste that users read as "AI made this"
-within a second. On a design whose direction was dealt (`vetd_direction`),
+within a second. On a design whose direction was dealt or proposed (`vetd_direction`),
 `vetd_screenshot` measures gradients, resting shadows, glass, tiny tracked
 labels, small text, monospace, typeface count, long headlines, icon tiles,
 emoji, picture slots faked with a gradient and an icon, and a landing page with

@@ -32,8 +32,9 @@ weight you use).
 | Atmospheric | Geist V (600) · Bricolage Grotesque V · Instrument Serif S | Geist V · Manrope V | Geist Mono V · JetBrains Mono V |
 
 **Overused as display — pick only with a reason:** Inter, Roboto, Open Sans, Lato,
-Poppins, Montserrat, DM Sans, Outfit, Sora, Playfair Display. They are what the
-average page already uses.
+Poppins, Montserrat, DM Sans, Manrope, Outfit, Sora, Playfair Display. They are
+what the average page already uses; app proposals that set Inter, DM Sans or
+Manrope as the display face are rejected.
 
 ### Chinese and other CJK copy
 

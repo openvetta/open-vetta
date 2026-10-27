@@ -18,6 +18,7 @@ import {
 	tellsFor,
 } from "../src/direction/record";
 import { layoutIssues } from "../src/vetd/layout-probe";
+import { chosenApp } from "./proposal-fixture";
 import { TELL_RULE_IDS, TELLS_PROBE_SCRIPT, tellIssues } from "../src/vetd/tells-probe";
 
 const page = { mode: "page" as const, allow: [] };
@@ -118,14 +119,13 @@ describe("方向决定放行哪些规则", () => {
 		sections: read("sections"),
 		type: read("type"),
 		palettes: read("palettes"),
-		app: read("app"),
 	});
 	const NOW = "2026-10-26T00:00:00.000Z";
 
 	it("发过牌就按落地页或 App 报，不等选定；没发过牌的设计不报", () => {
 		// 实测：模型拿到候选不选就开画，正是最需要拦的时候。
 		const dealer = { lib, rnd: seededRandom(1), history: [] };
-		const { record, options } = startDeal(dealer, "page", pageInputFrom({ sector: "saas" }), 1, NOW);
+		const { record, options } = startDeal(dealer, pageInputFrom({ sector: "saas" }), 1, NOW);
 		expect(tellsFor(null)).toBeNull();
 		expect(tellsFor(record)).toEqual({ mode: "page", allow: [] });
 		expect(tellsFor(choose(dealer, record, options[0].id, NOW))).toEqual({ mode: "page", allow: [] });
@@ -133,7 +133,7 @@ describe("方向决定放行哪些规则", () => {
 
 	it("发了牌没选是整份设计的 issue，选定后消失", () => {
 		const dealer = { lib, rnd: seededRandom(1), history: [] };
-		const { record, options } = startDeal(dealer, "app", appInputFrom({ kind: "finance" }, lib), 1, NOW);
+		const { record, options } = startDeal(dealer, pageInputFrom({ sector: "saas" }), 1, NOW);
 		const [issue] = directionIssues(record);
 		expect(issue).toMatchObject({ file: "direction.json", rule: "direction-not-chosen" });
 		// 还有没问的题时，提示的是先问用户，而不是直接选。
@@ -142,15 +142,16 @@ describe("方向决定放行哪些规则", () => {
 		expect(directionIssues(null)).toEqual([]);
 	});
 
-	it("带阴影的 App 风格放行阴影；保留品牌配色字体时表面规则归品牌", () => {
-		const shadowed = lib.app.styles.find((style) => style.shadow);
-		expect(shadowed).toBeDefined();
-		const input = appInputFrom({ kind: "markets" }, lib);
-		const choice = { styleId: shadowed!.id, shellId: "x", screens: [] };
-		expect(allowedTells(lib, { input, choice })).toEqual(["tell-shadow"]);
+	it("App 方向写明要用的手法才放行；保留品牌配色字体时表面规则归品牌", () => {
+		const input = appInputFrom({});
+		const { proposal } = chosenApp(input);
+		const glassy = { ...proposal, devices: [{ device: "glass" as const, reason: "the player floats over album art" }] };
+		const choice = { proposalId: glassy.id };
+		expect(allowedTells({ input, choice, proposals: [glassy] })).toEqual(["tell-glass"]);
+		expect(allowedTells({ input, choice, proposals: [proposal] })).toEqual([]);
 
 		const kept = pageInputFrom({ sector: "saas", keep: ["palette", "type"] });
-		const brandOwned = allowedTells(lib, {
+		const brandOwned = allowedTells({
 			input: kept,
 			choice: { directionId: "x", heroId: "x", typeId: null, paletteId: null, sections: [] },
 		});

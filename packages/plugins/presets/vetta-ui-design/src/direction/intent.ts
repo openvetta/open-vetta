@@ -104,7 +104,7 @@ export const BRAND_COLOUR_VALUES = ["action-only", "none", "main"] as const;
 /**
  * 工具必问的只有气质这一题：用户没说气质（也没给参考）就拿发出的候选让他挑，这是最
  * 影响结果的一题，选项又必须来自实际发出的候选，所以不交给模型临场出。
- * 其余要不要问、问什么，归 agent 读用户原话来定（见 ASK_NOTE）。
+ * 其余要不要问、问什么，归 agent 读用户原话来定（见 deal-service.ts 的 askNote）。
  * 老记录里的 emphasis / brandColour 题仍能被 checkAnswers 核对，但不会再生成。
  */
 export function toneQuestions(_mode: DirectionMode, stated: StatedIntent, options: readonly DealtOption[]): ToneQuestion[] {

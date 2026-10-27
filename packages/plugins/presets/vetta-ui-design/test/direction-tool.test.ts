@@ -1,6 +1,6 @@
 /**
- * vetd_direction 的常用流程：新设计发候选 → 挑一个拿方向表 → 下一轮 show 拿回同一张表
- * → 带理由重发一格。走真实的库与真实的 direction.json 读写，只把文件系统和插件存储换成
+ * vetd_direction 的常用流程：落地页发候选、App 收 agent 的提案 → 挑一个拿方向表 → 下一轮
+ * show 拿回同一张表 → 带理由重发一格。走真实的库与真实的 direction.json 读写，只把文件系统和插件存储换成
  * 内存实现。
  */
 import type {
@@ -12,6 +12,7 @@ import type {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { setCanvasController } from "../src/canvas/design-runtime";
 import { registerDirectionTool } from "../src/direction/direction-tool";
+import { loud, night, OBVIOUS, option } from "./proposal-fixture";
 
 type Handler = PluginAgentToolHandler<Record<string, unknown>>;
 
@@ -103,35 +104,62 @@ describe("vetd_direction", () => {
 		expect(saved.redraws).toEqual([expect.objectContaining({ slot: "palette", reason: "the client's brand colour is green" })]);
 	});
 
-	it("App 屏幕走 App 风格，手机画框给手机版式", async () => {
+	it("App 屏幕：deal 给提案说明与原料 → propose → choose → show；手机画框给手机版式，历史记下可比的几项", async () => {
 		openDesign(390);
-		const dealt = await call({ action: "deal", for: "app", kind: "wallet" });
-		const [first] = dealt.options as { id: string }[];
-		const chosen = await call({ action: "choose", id: first.id });
-		expect(chosen.sheet).toMatch(/^# App sheet — /);
+		const brief = await call({ action: "deal", for: "app", brief: "coffee ordering app" });
+		expect(brief).toMatchObject({ ok: true, mode: "app", propose: expect.stringMatching(/`obvious`/) });
+		const ingredients = brief.ingredients as { palettes: string[]; type: string[] };
+		expect(ingredients.palettes.length).toBeGreaterThan(0);
+		expect(ingredients.type.length).toBeGreaterThan(0);
+
+		const rejected = await call({ action: "propose", obvious: OBVIOUS, options: [option(), option({ id: "twin" }), loud()] });
+		expect(rejected).toMatchObject({ ok: false, error: expect.stringMatching(/same direction twice/) });
+
+		const proposed = await call({ action: "propose", obvious: OBVIOUS, options: [option(), night(), loud()] });
+		expect(proposed).toMatchObject({ ok: true, mode: "app" });
+		expect((proposed.ask as { id: string }[]).map((q) => q.id)).toEqual(["direction"]);
+		expect(proposed.note).toMatch(/propose again/);
+
+		const chosen = await call({ action: "choose", id: "night-counter" });
+		expect(chosen.sheet).toMatch(/^# App sheet — Night counter/);
 		expect(chosen.sheet).toContain("frame 390px wide");
+		expect(chosen.sheet).toContain("### The phone");
+		expect(chosen.install).toEqual(["@fontsource-variable/big-shoulders-display", "@fontsource-variable/public-sans"]);
+		expect(JSON.parse(storage.get("direction/history.json")!)).toEqual([
+			expect.objectContaining({ mode: "app", theme: "dark", hue: "orange", typeClass: "condensed-heavy" }),
+		]);
+		expect((await call({ action: "show" })).sheet).toBe(chosen.sheet);
+		expect(await call({ action: "redraw", slot: "style", reason: "x" })).toMatchObject({
+			ok: false,
+			error: expect.stringMatching(/"propose"/),
+		});
 	});
 
-	it("没说气质时先问：show 列出气质题；agent 自己问的题随 choose 记下并写进方向表", async () => {
-		const dealt = await call({ action: "deal", for: "app", kind: "community", intent: { colour: "深色" } });
-		expect((dealt.ask as { id: string }[]).map((q) => q.id)).toEqual(["direction"]);
-		expect(dealt.note).toMatch(/ask_user_question/);
+	it("没说气质时提案带气质题；agent 自己问的题随 choose 记下；不带 intent 的重来沿用基调", async () => {
+		await call({ action: "deal", for: "app", brief: "media library", intent: { colour: "深色" } });
+		const shownBefore = await call({ action: "show" });
+		expect(shownBefore).toMatchObject({ ok: true, chosen: false, propose: expect.any(String) });
+		// 还没选就重来一遍：基调和偏好都在。
+		await call({ action: "deal", for: "app", brief: "media library" });
+		const proposed = await call({ action: "propose", obvious: OBVIOUS, options: [option(), night(), loud()] });
 		const shown = await call({ action: "show" });
 		expect((shown.ask as { id: string }[]).map((q) => q.id)).toEqual(["direction"]);
-		const [first] = dealt.options as { id: string }[];
+		expect((shown.options as { id: string }[]).map((o) => o.id)).toEqual((proposed.options as { id: string }[]).map((o) => o.id));
 		const chosen = await call({
 			action: "choose",
-			id: first!.id,
+			id: "roast-ledger",
 			preferences: [{ question: "屏幕以什么为先？", answer: "海报大图" }],
 		});
 		expect(chosen.ok).toBe(true);
 		expect(chosen.sheet).toContain('- Asked "屏幕以什么为先？" — the user answered "海报大图". Binding.');
-
-		// 不带 intent 的重发沿用上次的基调和偏好，不会把用户说过的丢掉。
-		const again = await call({ action: "deal", for: "app", kind: "community" });
-		expect((again.ask as { id: string }[]).map((q) => q.id)).toEqual(["direction"]);
 		const saved = JSON.parse(files.get(`${DIR}/direction.json`)!);
 		expect(saved.intent.stated).toMatchObject({ colour: "深色", preferences: [{ question: "屏幕以什么为先？" }] });
+	});
+
+	it("没经过 vetd_create 的设计也能直接提案", async () => {
+		const proposed = await call({ action: "propose", brief: "x", obvious: OBVIOUS, options: [option(), night(), loud()] });
+		expect(proposed.ok).toBe(true);
+		expect(JSON.parse(files.get(`${DIR}/direction.json`)!)).toMatchObject({ mode: "app", options: ["roast-ledger", "night-counter", "tamper-green"] });
 	});
 
 	it("跟随风格包或 DESIGN.md 的设计只发构图", async () => {
