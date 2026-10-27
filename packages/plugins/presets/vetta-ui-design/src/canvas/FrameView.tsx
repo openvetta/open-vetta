@@ -41,6 +41,11 @@ interface FrameViewProps {
 	mounted: boolean;
 	/** false 时 iframe 收成 display:none，改用 `raster` 位图显示。 */
 	live: boolean;
+	/**
+	 * 交互期临时显示位图：iframe 保持布局、只透明掉，好让从 frame 里起手的手势继续
+	 * 把滚轮转发给画布。见 frame-raster.ts 的 isParked。
+	 */
+	parked: boolean;
 	raster: string | null;
 	/** 变化时 iframe 的 URL 跟着变，强制它重新导航（刷新按钮走这条路）。 */
 	reloadNonce: number;
@@ -107,6 +112,7 @@ export const FrameView = memo(function FrameView({
 	resizable,
 	mounted,
 	live,
+	parked,
 	raster,
 	reloadNonce,
 	paintTick,
@@ -411,7 +417,8 @@ export const FrameView = memo(function FrameView({
 						className="h-full w-full border-0"
 						style={{
 							pointerEvents: entered ? "auto" : "none",
-							display: keepLiveVisible ? "block" : "none",
+							display: keepLiveVisible || parked ? "block" : "none",
+							opacity: keepLiveVisible || !parked ? undefined : 0,
 						}}
 						// 文档 load 只用来起兜底计时：真正的交接信号是 paintTick。
 						onLoad={() => {

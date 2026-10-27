@@ -102,6 +102,16 @@ export interface FrameRasterState {
 	/** 挂载之后是否显示活体（而不是位图）。截图失败的 frame 会留在活体，是安全兜底。 */
 	isLive(frameId: string): boolean;
 	/**
+	 * 本该是活体、只因缩放/平移进行中才临时显示位图（见 interacting）。
+	 *
+	 * 这类 frame 的 iframe 不能 display:none：手势如果是从 frame 里起手的，触控板这一趟
+	 * 滚轮全程锁定在起手时命中的那个 iframe 上（生产环境里它是独立进程的跨源 iframe），
+	 * 收起来之后余下的滚轮全部丢失——画布 220ms 收不到输入就判定操作结束、把它放出来，
+	 * 它接住下一个 tick 又被收起，缩放于是约 230ms 才挪一步。只把它透明掉，转发就不断。
+	 * dev 下画布与引擎同站点、iframe 同进程，收起后滚轮会改投给画布，所以那边测不出来。
+	 */
+	isParked(frameId: string): boolean;
+	/**
 	 * 内容变了就作废旧位图，重新排队截图。调用方（DesignCanvas）在热更新到达、
 	 * 文件监听发现源码变更、以及交互改了 frame 尺寸时调用。
 	 */
@@ -591,28 +601,31 @@ export function useFrameRasters({
 
 	const isMounted = useCallback((frameId: string): boolean => mounted.has(frameId), [mounted]);
 
-	const liveSet = useMemo(() => {
+	const { liveSet, parkedSet } = useMemo(() => {
 		const live = new Set<string>();
+		const parked = new Set<string>();
 		for (const frameId of mounted) {
 			// 截图期间被强制拉活的不能动：display:none 的 iframe 没有布局，截出来是空的。
 			if (forced.has(frameId)) {
 				live.add(frameId);
 				continue;
 			}
-			// 缩放/平移途中，有位图的一律先用位图顶着（见 interacting）。没位图的留活体：
-			// 那是它此刻唯一有内容的那一层，收起来只会在操作期间变成一片空白。
-			if (interacting && rasters.has(frameId)) continue;
 			if (frameId === activeFrameId || dirty.has(frameId) || !rasters.has(frameId)) {
-				live.add(frameId);
+				// 缩放/平移途中，有位图的一律先用位图顶着（见 interacting）。没位图的留活体：
+				// 那是它此刻唯一有内容的那一层，收起来只会在操作期间变成一片空白。
+				if (interacting && rasters.has(frameId)) parked.add(frameId);
+				else live.add(frameId);
 			}
 		}
-		return live;
+		return { liveSet: live, parkedSet: parked };
 	}, [mounted, activeFrameId, forced, dirty, interacting, rasters]);
 
 	const liveRef = useRef(liveSet);
 	liveRef.current = liveSet;
 
 	const isLive = useCallback((frameId: string): boolean => liveSet.has(frameId), [liveSet]);
+
+	const isParked = useCallback((frameId: string): boolean => parkedSet.has(frameId), [parkedSet]);
 
 	const runLive = useCallback(async <T,>(frameId: string, run: () => Promise<T>): Promise<T> => {
 		// 本来就活着的话切过去只要一帧；如果它还没进过挂载窗口，iframe 是刚挂上的，
@@ -641,6 +654,7 @@ export function useFrameRasters({
 		rasterOf,
 		isMounted,
 		isLive,
+		isParked,
 		invalidate,
 		notifyRendered,
 		runLive,

@@ -402,10 +402,15 @@ it("交互期把有位图的 frame 降为位图，iframe 收起但不卸载", as
 		expect(latest.isLive("a")).toBe(false);
 		// 但必须还挂着——卸掉就要整页重新加载，操作结束会看见一轮重启。
 		expect(latest.isMounted("a")).toBe(true);
+		// 而且只能透明、不能 display:none：手势锁定在这个 iframe 上，收起来余下的滚轮全丢。
+		expect(latest.isParked("a")).toBe(true);
+		// 本来就只显示位图的 b 不在此列，照旧收着。
+		expect(latest.isParked("b")).toBe(false);
 
 		// 结束后恢复活体。
 		await render(false);
 		expect(latest.isLive("a")).toBe(true);
+		expect(latest.isParked("a")).toBe(false);
 	} finally {
 		setPluginCtx(null as unknown as PluginContext);
 	}
@@ -420,6 +425,7 @@ it("交互期没有位图的 frame 仍然保持活体", async () => {
 	});
 	expect(latest.rasterOf("a")).toBe(null);
 	expect(latest.isLive("a")).toBe(true);
+	expect(latest.isParked("a")).toBe(false);
 });
 
 /**
