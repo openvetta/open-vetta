@@ -12,7 +12,9 @@
 import type { AppChoice, ImageryMode, PageChoice, PageInput, AppInput } from "./deal";
 import { imageryMode, signaturesFor } from "./deal";
 import { axisFromSettings, type FontAxis, fontImports, fontsourcePackage, registeredFamily } from "./fontsource";
+import { type Intent, intentLines } from "./intent";
 import type { AppStyle, TasteHero, TasteLibrary, TastePalette, TasteSection, TasteType } from "./library";
+import { renderTopic, screenTopics, sheetTopics } from "./topics";
 
 /**
  * 保留品牌配色时最容易出的事：品牌色被当成主题色铺满全屏（实测里 Emby 绿上了 logo、
@@ -41,6 +43,16 @@ export interface SheetContext {
 	frameWidth: number;
 	seed: number;
 	redraws: readonly { slot: string; reason: string }[];
+	intent?: Intent;
+}
+
+/** 用户的原话与回答排在方向表最前：它们是硬条件，方向表的一切都在它们之下。 */
+function userIntent(p: (line?: string) => void, intent: Intent | undefined): void {
+	const lines = intentLines(intent);
+	if (lines.length === 0) return;
+	p("## What the user asked for — outranks everything below");
+	for (const line of lines) p(line);
+	p();
 }
 
 const isPhone = (ctx: SheetContext) => ctx.frameWidth > 0 && ctx.frameWidth < PHONE_MAX_WIDTH;
@@ -299,6 +311,7 @@ export function renderPageSheet(
 	p(`One screen is ${screenHeight}px tall, so 80svh = ${Math.round(screenHeight * 0.8)}px. Write those as pixels: a landing frame is several`);
 	p("screens tall, and vh/svh inside it measure the whole frame. Declare the frame's height as the page's real length.");
 	p();
+	userIntent(p, ctx.intent);
 	p("## 1. The idea");
 	p(dir.idea);
 	p();
@@ -466,6 +479,7 @@ export function renderAppSheet(lib: TasteLibrary, input: AppInput, choice: AppCh
 	p("Adopt this style whole and keep its move intact; what it does not fix comes from references/taste/app-screens.md. The values");
 	p("were measured on real product screens: use them as given rather than rounding them toward your habits.");
 	p();
+	userIntent(p, ctx.intent);
 	p("## 1. The style");
 	p(style.idea);
 	p(`**The move:** ${style.signature}`);
@@ -537,14 +551,26 @@ export function renderAppSheet(lib: TasteLibrary, input: AppInput, choice: AppCh
 	p("## 5. Screens");
 	for (const screen of choice.screens) {
 		const pattern = screen.patternId ? lib.app.patterns.find((x) => x.id === screen.patternId) : undefined;
+		const parts = screenTopics(screen.patternId);
 		p();
 		if (!pattern) {
 			p(`### ${screen.name}`);
 			p("No pattern in the library for this screen and this kind of product. Compose it from references/taste/app-screens.md.");
-			continue;
+		} else {
+			p(`### ${screen.name} — ${pattern.name}`);
+			p(phone && pattern.phone ? pattern.phone : pattern.blueprint);
 		}
-		p(`### ${screen.name} — ${pattern.name}`);
-		p(phone && pattern.phone ? pattern.phone : pattern.blueprint);
+		p(`Reference parts for this screen (section 6): ${parts.join(", ")}.`);
+	}
+	p();
+	p("## 6. Reference for these screens");
+	p("The parts of references/taste/app-screens.md that the screens above use; the file itself holds what every screen needs.");
+	for (const topic of sheetTopics(
+		choice.screens.map((screen) => screen.patternId),
+		{ phone, keepsStyle: keepPalette || keepType },
+	)) {
+		p();
+		p(renderTopic(topic));
 	}
 	return { text: out.join("\n"), packages: fonts.packages };
 }

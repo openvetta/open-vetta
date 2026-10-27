@@ -11,15 +11,16 @@ import { screenshotCardDescriptor, SCREENSHOT_TOOL_NAME } from "./cards/screensh
 import { pruneSnapshots, snapshotPath } from "./cards/snapshots";
 import { APP_KINDS, ASSETS, PAGE_SECTORS } from "./direction/deal";
 import {
-	CHOOSE_NOTE,
 	dealInputFor,
 	dealIntoDesign,
+	dealtNote,
 	DirectionError,
 	directionModeFor,
 	openDealSession,
 	styleFixedByPack,
 } from "./direction/deal-service";
 import { registerAssetsTool } from "./assets/assets-tool";
+import { INTENT_SCHEMA, statedIntentFrom } from "./direction/intent";
 import { registerDirectionTool } from "./direction/direction-tool";
 import { DIRECTION_FILE } from "./direction/record";
 import { readDirectionTells } from "./direction/direction-file";
@@ -66,6 +67,7 @@ interface CreateInput {
 	kind?: string;
 	keep?: string[];
 	have?: string[];
+	intent?: unknown;
 }
 
 type ScreenshotInput = ScreenshotSelectionInput;
@@ -166,7 +168,12 @@ export function registerDesignTools(ctx: PluginContext): void {
 				},
 				brief: { type: "string", description: "landing / mobile / desktop: one line about the subject, in English." },
 				sector: { type: "string", enum: [...PAGE_SECTORS], description: "landing: the closest sector." },
-				kind: { type: "string", enum: [...APP_KINDS], description: "mobile / desktop: the closest kind of product." },
+				kind: {
+					type: "string",
+					enum: [...APP_KINDS],
+					description:
+						"mobile / desktop: the closest kind of product. Every kind is a work tool; a customer-facing app (ordering, media, retail) takes the nearest one for structure — see the skill.",
+				},
 				keep: {
 					type: "array",
 					items: { type: "string", enum: ["palette", "type"] },
@@ -176,8 +183,9 @@ export function registerDesignTools(ctx: PluginContext): void {
 				have: {
 					type: "array",
 					items: { type: "string", enum: [...ASSETS] },
-					description: "Assets that really exist (the project's own photos, real UI screenshots, an image-tool you can call).",
+					description: "Assets that really exist (the project's own photos or product photos, real UI screenshots).",
 				},
+				intent: INTENT_SCHEMA,
 			},
 			additionalProperties: false,
 		},
@@ -229,17 +237,33 @@ export function registerDesignTools(ctx: PluginContext): void {
 			);
 			ctx.ui.setActivityTabVisible(CANVAS_TAB_ID, true, { cwd: session.cwd });
 			ctx.ui.openActivityTab(CANVAS_TAB_ID, { width: "max", cwd: session.cwd });
-			const options =
+			const dealt =
 				directionMode && dealSession && dealParams
-					? await dealIntoDesign(dealSession, host.fs, result.dirPath, directionMode, dealParams)
+					? await dealIntoDesign(
+							dealSession,
+							host.fs,
+							result.dirPath,
+							directionMode,
+							dealParams,
+							statedIntentFrom(trigger.input.intent),
+						)
 					: null;
 			return {
 				ok: true,
 				vetdPath: result.vetdPath,
 				sourcesDir: result.dirPath,
 				defaultFrameSize,
-				...(options ? { direction: { mode: directionMode, options, next: CHOOSE_NOTE } } : {}),
-				note: `${options ? "FIRST choose one of `direction.options` with vetd_direction and apply its sheet — no frame before that. " : ""}Design created and opened on the canvas, with NO frames yet. Its default size is ${defaultFrameSize.width}x${defaultFrameSize.height} — still declare it per frame: every frames/<id>.tsx starts with \`export const frame = { width: ${defaultFrameSize.width}, height: ${defaultFrameSize.height}, title }\`, and a screen of a different product type declares its own. Never edit design.json. More than one screen? Write the shared chrome FIRST (components/, or frames/_layout.tsx), then every frame as a short skeleton so the whole set reaches the canvas immediately, and only then fill them in one at a time — see the vetta-ui-design skill.`,
+				...(dealt
+					? {
+							direction: {
+								mode: directionMode,
+								options: dealt.options,
+								...(dealt.ask.length > 0 ? { ask: dealt.ask } : {}),
+								next: dealtNote(dealt.ask),
+							},
+						}
+					: {}),
+				note: `${dealt ? (dealt.ask.length > 0 ? "FIRST ask the user `direction.ask`, then choose with vetd_direction and apply its sheet — no frame before that. " : "FIRST choose one of `direction.options` with vetd_direction and apply its sheet — no frame before that. ") : ""}Design created and opened on the canvas, with NO frames yet. Its default size is ${defaultFrameSize.width}x${defaultFrameSize.height} — still declare it per frame: every frames/<id>.tsx starts with \`export const frame = { width: ${defaultFrameSize.width}, height: ${defaultFrameSize.height}, title }\`, and a screen of a different product type declares its own. Never edit design.json. More than one screen? Write the shared chrome FIRST (components/, or frames/_layout.tsx), then every frame as a short skeleton so the whole set reaches the canvas immediately, and only then fill them in one at a time — see the vetta-ui-design skill.`,
 			};
 		},
 	});

@@ -112,6 +112,28 @@ describe("vetd_direction", () => {
 		expect(chosen.sheet).toContain("frame 390px wide");
 	});
 
+	it("没说气质时先问：show 列出气质题；agent 自己问的题随 choose 记下并写进方向表", async () => {
+		const dealt = await call({ action: "deal", for: "app", kind: "community", intent: { colour: "深色" } });
+		expect((dealt.ask as { id: string }[]).map((q) => q.id)).toEqual(["direction"]);
+		expect(dealt.note).toMatch(/ask_user_question/);
+		const shown = await call({ action: "show" });
+		expect((shown.ask as { id: string }[]).map((q) => q.id)).toEqual(["direction"]);
+		const [first] = dealt.options as { id: string }[];
+		const chosen = await call({
+			action: "choose",
+			id: first!.id,
+			preferences: [{ question: "屏幕以什么为先？", answer: "海报大图" }],
+		});
+		expect(chosen.ok).toBe(true);
+		expect(chosen.sheet).toContain('- Asked "屏幕以什么为先？" — the user answered "海报大图". Binding.');
+
+		// 不带 intent 的重发沿用上次的基调和偏好，不会把用户说过的丢掉。
+		const again = await call({ action: "deal", for: "app", kind: "community" });
+		expect((again.ask as { id: string }[]).map((q) => q.id)).toEqual(["direction"]);
+		const saved = JSON.parse(files.get(`${DIR}/direction.json`)!);
+		expect(saved.intent.stated).toMatchObject({ colour: "深色", preferences: [{ question: "屏幕以什么为先？" }] });
+	});
+
 	it("跟随风格包或 DESIGN.md 的设计只发构图", async () => {
 		files.set(`${DIR}/DESIGN.md`, "# Brand");
 		const refused = await call({ action: "deal", for: "page", sector: "saas" });

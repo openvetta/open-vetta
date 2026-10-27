@@ -8,7 +8,8 @@
 import type { PluginContext } from "@vetta-org/plugin-sdk";
 import { getCanvasController } from "../canvas/design-runtime";
 import { APP_KINDS, ASSETS, type AppInput, PAGE_SECTORS, PAGE_TONES, type PageInput } from "./deal";
-import { CHOOSE_NOTE, dealIntoDesign, HISTORY_PATH, openDealSession, styleFixedByPack } from "./deal-service";
+import { dealIntoDesign, dealtNote, HISTORY_PATH, openDealSession, styleFixedByPack } from "./deal-service";
+import { INTENT_SCHEMA, PREFERENCES_SCHEMA, preferencesFrom, statedIntentFrom, type ToneQuestion } from "./intent";
 import type { TasteLibrary } from "./library";
 import {
 	choose,
@@ -29,6 +30,9 @@ export const DIRECTION_TOOL_NAME = "vetd_direction";
 
 interface DirectionInput extends DealParams {
 	action?: unknown;
+	intent?: unknown;
+	answers?: unknown;
+	preferences?: unknown;
 	id?: unknown;
 	slot?: unknown;
 	reason?: unknown;
@@ -40,14 +44,14 @@ interface DirectionToolOptions {
 
 function sheetFor(lib: TasteLibrary, record: DirectionRecord, frameWidth: number) {
 	if (!record.choice) return null;
-	const ctx = { frameWidth, seed: record.seed, redraws: record.redraws };
+	const ctx = { frameWidth, seed: record.seed, redraws: record.redraws, intent: record.intent };
 	return "directionId" in record.choice
 		? renderPageSheet(lib, record.input as PageInput, record.choice, ctx)
 		: renderAppSheet(lib, record.input as AppInput, record.choice, ctx);
 }
 
-function dealtResult(mode: DirectionMode, options: DealtOption[]) {
-	return { ok: true, mode, options, note: CHOOSE_NOTE };
+function dealtResult(mode: DirectionMode, dealt: { options: DealtOption[]; ask: ToneQuestion[] }) {
+	return { ok: true, mode, options: dealt.options, ...(dealt.ask.length > 0 ? { ask: dealt.ask } : {}), note: dealtNote(dealt.ask) };
 }
 
 export function registerDirectionTool(ctx: PluginContext, options: DirectionToolOptions): void {
@@ -98,7 +102,14 @@ export function registerDirectionTool(ctx: PluginContext, options: DirectionTool
 					items: { type: "string", enum: ["palette", "type"] },
 					description: "deal: slots a brand, style pack or DESIGN.md already fixes; only the rest is dealt.",
 				},
+				intent: INTENT_SCHEMA,
 				id: { type: "string", description: "choose: one of the dealt ids." },
+				answers: {
+					type: "object",
+					additionalProperties: { type: "string" },
+					description: "choose: the user's picks for the questions in `ask`, by question id (the look answer is `id`).",
+				},
+				preferences: PREFERENCES_SCHEMA,
 				slot: {
 					type: "string",
 					description: "redraw: page — direction, hero, type, palette, section:<role>; app — style, shell, screen:<name>.",
@@ -133,7 +144,10 @@ export function registerDirectionTool(ctx: PluginContext, options: DirectionTool
 							'This design follows a style pack or DESIGN.md, which fixes colour and type. Deal composition only, with keep: ["palette", "type"], or skip the draw.',
 						);
 					}
-					return dealtResult(mode, await dealIntoDesign(dealSession, host.fs, dirPath, mode, input));
+					// 不带 intent 的重发沿用上次记下的基调：用户说过的话不该因为重发而丢掉。
+					const previous = await readDirectionRecord(host.fs, dirPath);
+					const stated = input.intent !== undefined ? statedIntentFrom(input.intent) : (previous?.intent?.stated ?? {});
+					return dealtResult(mode, await dealIntoDesign(dealSession, host.fs, dirPath, mode, input, stated));
 				}
 
 				const record = await readDirectionRecord(host.fs, dirPath);
@@ -143,7 +157,7 @@ export function registerDirectionTool(ctx: PluginContext, options: DirectionTool
 
 				if (input.action === "choose") {
 					if (typeof input.id !== "string") throw new DirectionError("Pass `id`, one of the dealt options.");
-					const chosen = choose(dealer, record, input.id, now);
+					const chosen = choose(dealer, record, input.id, now, input.answers, preferencesFrom(input.preferences));
 					await writeRecord(chosen);
 					const entry = historyEntry(chosen);
 					if (entry) {
@@ -163,7 +177,14 @@ export function registerDirectionTool(ctx: PluginContext, options: DirectionTool
 
 				if (input.action === "show") {
 					if (!record.choice) {
-						return { ok: true, chosen: false, options: record.options, note: 'Options were dealt but none chosen yet: call "choose".' };
+						const ask = record.intent?.questions ?? [];
+						return {
+							ok: true,
+							chosen: false,
+							options: record.options,
+							...(ask.length > 0 ? { ask } : {}),
+							note: dealtNote(ask),
+						};
 					}
 					const sheet = sheetFor(lib, record, frameWidth);
 					return { ok: true, sheet: sheet?.text ?? "" };
@@ -173,7 +194,9 @@ export function registerDirectionTool(ctx: PluginContext, options: DirectionTool
 					if (typeof input.slot !== "string") throw new DirectionError("Pass `slot` to redraw.");
 					const result = redraw(dealer, record, input.slot, typeof input.reason === "string" ? input.reason : "", now);
 					await writeRecord(result.record);
-					if (result.options) return dealtResult(result.record.mode, result.options);
+					if (result.options) {
+						return dealtResult(result.record.mode, { options: result.options, ask: result.record.intent?.questions ?? [] });
+					}
 					const sheet = sheetFor(lib, result.record, frameWidth);
 					return {
 						ok: true,

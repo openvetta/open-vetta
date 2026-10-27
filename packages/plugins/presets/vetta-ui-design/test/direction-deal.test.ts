@@ -145,7 +145,7 @@ describe("App 发牌", () => {
 		const input = appInputFrom({ kind: "finance", brief: "invoice tool for freelancers" }, lib);
 		expect(input.screens).toEqual(lib.app.kinds.finance.screens);
 		const { record, options } = startDeal(dealer(2), "app", input, 2, NOW);
-		const chosen = choose(dealer(2), record, options[0].id, NOW);
+		const chosen = choose(dealer(2), record, options[0].id, NOW, { emphasis: "information" });
 		expect(chosen.choice).toMatchObject({ styleId: options[0].id });
 		expect(historyEntry(chosen)).toMatchObject({ mode: "app", style: options[0].id });
 		const shell = redraw(dealer(4), chosen, "shell", "users need labels, not an icon rail", NOW);

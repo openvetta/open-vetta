@@ -33,6 +33,23 @@ internalising before you start:
   overwritten seconds later. If a frame is not showing up the way you expect,
   the answer is always in the tsx.
 
+## The loop at a glance
+
+Every turn that designs something runs this sequence; each step is detailed
+under **Workflow** below.
+
+1. **Start**: a new document is `vetd_create` with the product type; an existing
+   one starts with `vetd_status` once.
+2. **Look**: for a landing page or app, ask what `vetd_create` asks, then
+   `vetd_direction` `choose`. Apply the direction (fonts, `theme.css`, pictures)
+   before any frame.
+3. **Build**: shared shell and a short file per frame first, then real content in
+   coherent batches. Each frame's `frame` meta line comes first.
+4. **Verify**: one `vetd_screenshot` batch, Read the overview once, fix with
+   `edit`, recheck only the frames you changed.
+5. **Finish**: when you touched a `.vetd` design, the last action is one
+   `vetd_notes` call; then report.
+
 ## It is a project, not a picture
 
 The output is a running front-end app the user can click through in preview, built
@@ -306,15 +323,27 @@ invented**:
    rituals and printed things. Then write the page's argument, one claim and its
    proof per section; a section with no claim is cut. App: the data the screens
    hold, the jobs people do there, and the one question the first screen answers.
-2. **Deal and choose.** `vetd_create` deals three directions when you pass
-   `brief` plus `sector` (landing) or `kind` (mobile, desktop), `have` for the
-   assets that really exist, and `keep: ["palette"]` when the user named a brand
-   whose colour stays. Choose the option whose way of composing can carry an item
-   from your inventory — not the most familiar one — with `vetd_direction`
-   `action: "choose"`; until then every capture reports `direction-not-chosen`.
-   To re-deal for your argument's sections or specific screens, `vetd_direction`
-   with `action: "deal"`. Adopt the sheet; `redraw` one slot only for a reason you
-   can state, and report it.
+2. **Learn the preferences, deal, choose.** Learn what the user wants before
+   designing, without pestering them: no fixed list of questions and no quota —
+   ask only what their words left open and the answer would visibly change the
+   design; a detailed prompt needs few or none, "just go ahead" needs none. If
+   the prompt does not say what the product is or does (so you cannot pick
+   `kind` or `sector`, or the screens), ask that first, before `vetd_create`.
+   `vetd_create` deals three directions when you pass `brief`, `sector`
+   (landing) or `kind` (mobile, desktop), `have`, and `intent` — only what the
+   user actually said or answered. What they said is binding; never ask it
+   again. If `direction.ask` comes back it is the look question, whose options
+   say what each look is like: ask it, and in the same `ask_user_question` call
+   anything else the prompt left open (the tool's `next` has the rules). Then
+   `vetd_direction` `action: "choose"` with the look as `id` and the extra
+   answers as `preferences`; if the look was already set, choose the option that
+   can carry an item from your inventory. Re-deal with `action: "deal"`;
+   `redraw` one slot only for a stated reason, and report it. Every `kind` is a
+   work tool (dashboards, back offices, editors): for a customer-facing app
+   (ordering, media, retail) take the nearest for structure and, when none of
+   its looks fits what the user described, ask your own look question with two
+   or three concrete looks (theme, colours, type, feel) and deal again with
+   the answer as `intent.mood`.
 3. **Find the idea** (page): "On this page, [something only this subject has]
    becomes [the device the direction calls for]." Put the nearest competitor in
    the first blank; if it still works, the idea is the category's. App: pick the
@@ -408,14 +437,11 @@ fits the visible result, and report the stalled finding when it is a false
 positive. `vetd_status.issues: []` is source-only and is never visual proof;
 `renderVerification` tells you whether prior captures are current or stale.
 
-Nothing will remind you. Writing a file tells you it was written, not that it
-renders — the checker only speaks through `vetd_screenshot` and `vetd_status`,
-and neither runs by itself. A frame you wrote but never included in a screenshot
-batch may be
-sitting on the canvas as a build error or at a size you never chose, and the
-turn will end that way: the user is looking at the canvas, so they see it and
-you do not. Batch verification keeps that safety without spending one model
-round and one image Read per frame.
+Nothing will remind you: the checker only speaks through `vetd_screenshot` and
+`vetd_status`, and neither runs by itself. A frame you wrote but never included
+in a screenshot batch may be sitting on the canvas as a build error or at a size
+you never chose, and the user sees it while you do not. Batch verification
+keeps that safety without one model round and one image Read per frame.
 
 **Check the structure**: for a UI product with more than one screen, or with
 chrome that repeats across screens, answer these four before reporting back.
@@ -433,77 +459,44 @@ single-screen designs.
 4. **Every touched frame included in the latest batch, and its overview actually Read?**
 
 **User notes on the canvas**: the user pins Figma-style notes onto frames (or
-onto empty canvas) — each is a request addressed to you. `vetd_notes` lists the
-pending ones: every note carries its thread, a source anchor re-resolved at read
-time (`element.source` = `frames/x.tsx:LINE` — the authoritative edit target
-unless `anchorStale`), and per-frame screenshots where numbered pins mark the
-exact spots. Take them **one at a time**: edit for one note, verify it with
-`vetd_screenshot`, then immediately `resolve` that one note before you start the
-next — never hold the replies back until every note is done. The user is watching
-the canvas, where each bubble flips to resolved the moment you reply, and a turn
-that dies halfway has to leave the finished ones already marked. That reply is
-what marks a note handled; never touch `.notes.json` yourself.
+empty canvas), or types an instruction into the badge on a selected frame or
+element — everything given from the canvas lands in `.notes.json` as a note, a
+request addressed to you. A message asking you to handle notes never carries the
+request text; `vetd_notes` is where you read it. Its `element.source`
+(`frames/x.tsx:LINE`, re-resolved at read time, authoritative unless
+`anchorStale`) is your edit target. If it points into `components/`, the change
+hits every frame using it — say so in your reply.
 
-Each `resolve` response tells you what is still pending — when notes remain it
-lists them in full, anchors and annotated screenshots included, so you can go
-straight into the next one without another lookup. Treat `pendingRemaining` as
-your loop condition: keep handling and resolving until a resolve comes back with
-`pendingRemaining: 0`. Anything that appears there but was not in your original
-list is something the user pinned while you were working. Notes reach you three ways: the
-user sends an explicit "handle my notes" prompt, `vetd_status` reports a
-`pendingNotes` count, and `vetd_screenshot` flags pending notes on the frame it
-just shot.
+Take them one at a time and `resolve` each one before starting the next; the
+reply is what marks a note handled, so never touch `.notes.json` yourself. Treat
+`pendingRemaining` in each `resolve` response as your loop condition and keep
+going until it is `0` — anything new in it is something the user pinned while you
+were working. Notes also reach you through an explicit "handle my notes" prompt,
+a `pendingNotes` count in `vetd_status`, and a flag on the frame
+`vetd_screenshot` just shot.
 
-Notes are also how the user talks to you **while you are working**: rather than
-interrupt your turn with a new message, they pin the request onto the canvas and
-let you pick it up. So a note can appear at any moment, including after your last
-screenshot — which is exactly why the Done check below runs `vetd_notes` even when
-nothing this turn mentioned notes, instead of waiting for some tool response to
-name one. That check is the only way those notes ever reach you: nothing will send
-you a follow-up message about them, so a note you skip just sits there unanswered.
+Users pin requests rather than interrupt a running turn, so a note can appear
+after your last screenshot and nothing will notify you of it. **Done** means:
+every frame you touched is represented in the latest screenshot batch and its
+overview was Read, each current frame capture is free of the three screenshot
+defects and of the generated-UI tells in `references/quality.md` § 5, its
+per-frame `issues` came back empty (or a repeated false positive is explicitly
+reported as stalled), and no user note is left pending. None of that is checked
+for you at the end of the turn, so before you report, name the frames you
+touched and confirm each one cleared all three.
 
-Every instruction the user gives from the canvas becomes a note, so a message
-asking you to handle canvas notes never carries the request text itself — the
-text lives in the notes, and `vetd_notes` is where you read it. You finish each
-one by replying through `vetd_notes`'s `resolve`, which is what puts your answer
-back on the canvas where the user asked and clears the pending badge.
+Hence a hard rule: **when you touched a `.vetd` design this turn, the final
+action — after the work, right before you write your summary — is one more
+`vetd_notes` call.** Run it even when nothing this turn mentioned notes. Anything
+still pending is work the user asked for while you were busy: do it now,
+`resolve` it, check again, and report only once a check comes back clean.
 
-**Everything from the canvas arrives as a note.** Whether the user pinned it with
-the note tool or typed it into the badge on a selected frame or element, it lands
-in `.notes.json` and reaches you through `vetd_notes` — there is no separate
-attachment format to learn. A note anchored to an element carries the exact
-`frames/xxx.tsx:LINE` in `element.source` (re-resolved at read time, authoritative
-unless `anchorStale`) plus its DOM path, classes and text, which is your edit
-target. If that location points into `components/`, the change hits every frame
-using it — say so in your reply.
-
-**Done** means: every frame you touched is represented in the latest screenshot
-batch and its overview was Read, each current frame capture is free of the three
-screenshot defects and of the generated-UI tells in `references/quality.md` § 5,
-its per-frame `issues` came back empty (or a repeated false positive is
-explicitly reported as stalled), and no user note is left pending.
-
-That last one has a hard rule, because nothing outside this turn will catch a
-miss: **when you touched a `.vetd` design this turn, the final action — after the
-work, right before you write your summary — is one more `vetd_notes` call.** Run
-it even when nothing this turn mentioned notes. Anything still pending is work the
-user asked for while you were busy: do it now, `resolve` it, then check again, and
-only report once a check comes back clean. Do not report first and leave it for
-"next turn" — the user deliberately did not interrupt you with a message, precisely
-because you were going to look here, and nothing will nudge you afterwards.
-
-The condition is the whole rule, so read it literally: **a turn in which you wrote
-or edited no file inside a `.vetd/` directory ends with no `vetd_notes` call at
-all.** Canvas notes only exist for designs on the canvas, so there is nothing to
-check when the work was anywhere else — editing pages in the user's own repo,
-answering a question, running tests, writing code that has no design attached.
-Calling it there is not a harmless extra check: it fails, and it tells the user
-you mistook their codebase for a design document. Same for every other `vetd_*`
-tool — none of them apply to work outside a `.vetd`.
-
-Not one of those three is checked for you at the end of the turn — if you
-report back without them, whatever is broken simply stays broken. So before you
-report, name the frames you touched and confirm each one cleared all three.
+The condition is the whole rule, so read it literally: **a turn in which you
+wrote or edited no file inside a `.vetd/` directory ends with no `vetd_notes`
+call at all** — editing pages in the user's own repo, answering a question,
+running tests. Calling it there is not a harmless extra check: it fails, and it
+tells the user you mistook their codebase for a design document. Same for every
+other `vetd_*` tool — none of them apply to work outside a `.vetd`.
 
 At that point stop and report — do not keep polishing. If something is still off
 but you have already revised it twice, say what it is instead of attempting a
@@ -513,23 +506,19 @@ third pass.
 
 When the user asks to export, download or hand off the design ("导出 PDF",
 "export all frames as images"), call `vetd_export`. It writes into the current
-working directory and each file holds the frame's FULL content, including what
-scrolls below the frame's viewport:
+working directory, and each file holds the frame's FULL content, including what
+scrolls below the viewport. `format: "pdf"` gives one `<design>-frames.pdf`, one
+page per frame; `format: "images"` gives one PNG per frame in a
+`<design>-frames/` folder. Omit `frames` for every frame in canvas order; pass
+`frames: [...]` when the user named specific screens.
 
-- `format: "pdf"` — one `<design>-frames.pdf`, one page per frame.
-- `format: "images"` — one PNG per frame in a `<design>-frames/` folder.
-- Omit `frames` for every frame in canvas order; pass `frames: [...]` when the
-  user named specific screens.
+**One format per request — the one the user asked for.** Never export both:
+every format re-renders every frame, so doing both doubles a slow export for a
+file nobody asked for. If the user did not say which, ask.
 
-**One format per request — the one the user asked for.** "Export PDF" means
-`pdf` only; "export images" means `images` only. Never export both: every
-format re-renders every frame, so doing both doubles a slow export for a file
-nobody asked for. If the user did not say which format, ask.
-
-**Export is not verification.** For checking a design, call `vetd_screenshot`.
-`vetd_export` runs no checks and is only for when the user asks for exported
-files — do not screenshot or re-verify before exporting, and do not Read the
-exported files afterwards. Just tell the user where they are.
+**Export is not verification.** It runs no checks: do not screenshot or
+re-verify before exporting, and do not Read the exported files afterwards. Just
+tell the user where they are.
 
 ## Do not rework
 
@@ -559,7 +548,7 @@ Resolve against `$SKILL_DIR`. Do not read them all up front.
 | `references/quality.md` | Reviewing a screenshot; before declaring any frame done |
 | `references/taste/directions.md` | A slide, poster or infographic with no pack or `DESIGN.md` (landing pages and apps are dealt) |
 | `references/taste/whitespace.md` | Weighing whether a line, divider or card wrapper earns its place; a capture looks boxed-in |
-| `references/taste/app-screens.md` | Product type is app screens or a dashboard — read it whole before the first screen |
+| `references/taste/app-screens.md` | Product type is app screens or a dashboard — read it before the first screen; the dealt sheet ends with the parts (`app/*.md`) its screens use |
 | `references/taste/color.md` | Setting a palette by hand; chart and status colors |
 | `references/taste/typography.md` | Choosing faces by hand, the type scale, CJK font stacks |
 | `references/taste/copy.md` | Writing headlines, labels, empty and error states |

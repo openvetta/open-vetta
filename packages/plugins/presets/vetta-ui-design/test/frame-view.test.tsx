@@ -41,6 +41,7 @@ function renderFrame(
 				resizable={false}
 				mounted={false}
 				live={false}
+				parked={false}
 				raster={raster}
 				reloadNonce={0}
 				paintTick={0}

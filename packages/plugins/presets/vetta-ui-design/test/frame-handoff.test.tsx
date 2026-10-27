@@ -47,6 +47,7 @@ interface Scene {
 	live: boolean;
 	paintTick: number;
 	mounted?: boolean;
+	parked?: boolean;
 }
 
 function mountFrame(scene: Scene): { host: HTMLElement; update(next: Scene): Promise<void>; cleanup(): void } {
@@ -66,6 +67,7 @@ function mountFrame(scene: Scene): { host: HTMLElement; update(next: Scene): Pro
 				resizable={false}
 				mounted={current.mounted ?? true}
 				live={current.live}
+				parked={current.parked ?? false}
 				raster="data:image/jpeg;base64,shot"
 				reloadNonce={0}
 				paintTick={current.paintTick}
@@ -156,6 +158,32 @@ it("iframe 从收起状态重新变活体时，位图同样要盖住这两帧", 
 		expect(rasterCovers(scene.host)).toBe(true);
 		await paintFrame();
 		expect(rasterCovers(scene.host)).toBe(false);
+	} finally {
+		scene.cleanup();
+	}
+});
+
+/**
+ * 缩放/平移期间的画框只能透明、不能 display:none：从 frame 里起手的手势全程锁定在这个
+ * iframe 上（生产环境它是独立进程），收起来之后余下的滚轮全部丢失，缩放约 230ms 才挪一步。
+ */
+it("交互期临时显示位图时 iframe 保持布局，只透明掉", async () => {
+	installRaf();
+	const scene = mountFrame({ live: true, paintTick: 0 });
+	try {
+		await scene.update({ live: true, paintTick: 1 });
+		await paintFrame();
+		await paintFrame();
+
+		await scene.update({ live: false, parked: true, paintTick: 1 });
+		const iframe = scene.host.querySelector("iframe");
+		expect(iframe?.style.display).toBe("block");
+		expect(iframe?.style.opacity).toBe("0");
+		expect(rasterCovers(scene.host)).toBe(true);
+
+		// 真正转为位图态（取消选中）时照旧收起。
+		await scene.update({ live: false, parked: false, paintTick: 1 });
+		expect(scene.host.querySelector("iframe")?.style.display).toBe("none");
 	} finally {
 		scene.cleanup();
 	}
