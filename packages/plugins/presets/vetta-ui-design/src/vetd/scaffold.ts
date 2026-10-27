@@ -4,17 +4,25 @@ import { emptyManifest, type FrameSize, manifestPathOf, type VetdManifest } from
 
 // 注意：这段是写进用户项目里的产物文件，不是插件 UI 文案，所以不走 locales；
 // 但也不能是中文——英文宿主的用户同样会拿到这个文件。
-export const DEFAULT_THEME_CSS = `/* Shared color system for this design document: Tailwind v4 @theme tokens,
- * used by every frame. Reference them as utilities (bg-primary,
- * text-surface-foreground, …); edit here to reskin the whole document. */
+/**
+ * 脚手架主题是中性灰的占位，不是一套能直接用的配色：旧版写的是 indigo / slate / amber，
+ * 正是一眼能认出的 AI 默认配色，模型没换就照着开画。占位带一个标记，check-sources 见到
+ * 标记还在而已有画框，就报 `theme-placeholder`，直到方向表的 theme.css 把它整个换掉。
+ */
+export const PLACEHOLDER_THEME_MARK = "vetd:placeholder-theme";
+
+export const DEFAULT_THEME_CSS = `/* ${PLACEHOLDER_THEME_MARK} — a neutral placeholder, not a palette.
+ * Replace this whole file with your direction's theme.css (Tailwind v4 @theme
+ * tokens, used by every frame as bg-primary, text-surface-foreground, …)
+ * before the first frame. */
 @theme {
-	--color-primary: #4f46e5;
+	--color-primary: #3d3d3d;
 	--color-primary-foreground: #ffffff;
-	--color-surface: #f8fafc;
-	--color-surface-foreground: #0f172a;
-	--color-muted: #64748b;
-	--color-accent: #f59e0b;
-	--color-danger: #ef4444;
+	--color-surface: #f5f5f5;
+	--color-surface-foreground: #171717;
+	--color-panel: #ebebeb;
+	--color-muted: #616161;
+	--color-danger: #b42318;
 }
 `;
 

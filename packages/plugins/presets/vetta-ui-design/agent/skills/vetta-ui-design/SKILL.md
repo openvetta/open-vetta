@@ -40,9 +40,9 @@ under **Workflow** below.
 
 1. **Start**: a new document is `vetd_create` with the product type; an existing
    one starts with `vetd_status` once.
-2. **Look**: for a landing page or app, ask what `vetd_create` asks, then
-   `vetd_direction` `choose`. Apply the direction (fonts, `theme.css`, pictures)
-   before any frame.
+2. **Look**: a landing page is dealt directions, app screens propose their own
+   with `vetd_direction` `propose`; ask the look question, then `choose`. Apply
+   the direction (fonts, `theme.css`, pictures) before any frame.
 3. **Build**: shared shell and a short file per frame first, then real content in
    coherent batches. Each frame's `frame` meta line comes first.
 4. **Verify**: one `vetd_screenshot` batch, Read the overview once, fix with
@@ -138,7 +138,7 @@ Install everything you need in ONE call, then import normally.
 ### Typefaces are packages too
 
 System fonts give every design the same voice. A typeface is an npm package here
-— a dealt direction sheet gives the exact packages, imports and tokens. By hand:
+— a direction sheet gives the exact packages, imports and tokens. By hand:
 `vetd_install` `@fontsource-variable/<slug>` (one file, every weight) or
 `@fontsource/<slug>` (bare import is 400 only; import each other weight as
 `@fontsource/<slug>/700.css` or the browser fakes the bold), import them at the
@@ -311,47 +311,50 @@ If `DESIGN.md` exists in the design document, the user has already applied a
 system — read it first and follow it, and do NOT rewrite it or `theme.css`.
 
 **Set the direction** when neither a pack nor `DESIGN.md` sets the style. Left to
-defaults, every design converges on the same thing — the scaffold's indigo and
-slate, one system sans, centred cards, a three-column feature row — and users
-recognise it instantly as generated. Asked to invent a look, you will pick that
-default too, so for a **landing page or app screens the look is dealt, not
-invented**:
+defaults, every design converges on the same thing — indigo and slate, one
+system sans, white cards on grey, a three-column feature row — and
+users recognise it instantly as generated. Following a fixed template is the
+other way to get there. So the look is decided on purpose: a **landing page is
+dealt** three directions from a researched library; **app screens are proposed**
+by you — three directions of your own, which the tool checks.
 
 1. **Inventory the subject** in your notes, before `vetd_create`. Page: eight to twelve things that
    belong to this client and no competitor — its name and what it means, its
    place, the numbers in the brief, the constraint it lives with, its materials,
    rituals and printed things. Then write the page's argument, one claim and its
    proof per section; a section with no claim is cut. App: the data the screens
-   hold, the jobs people do there, and the one question the first screen answers.
-2. **Learn the preferences, deal, choose.** Learn what the user wants before
-   designing, without pestering them: no fixed list of questions and no quota —
-   ask only what their words left open and the answer would visibly change the
-   design; a detailed prompt needs few or none, "just go ahead" needs none. If
-   the prompt does not say what the product is or does (so you cannot pick
-   `kind` or `sector`, or the screens), ask that first, before `vetd_create`.
-   `vetd_create` deals three directions when you pass `brief`, `sector`
-   (landing) or `kind` (mobile, desktop), `have`, and `intent` — only what the
-   user actually said or answered. What they said is binding; never ask it
-   again. If `direction.ask` comes back it is the look question, whose options
-   say what each look is like: ask it, and in the same `ask_user_question` call
-   anything else the prompt left open (the tool's `next` has the rules). Then
-   `vetd_direction` `action: "choose"` with the look as `id` and the extra
-   answers as `preferences`; if the look was already set, choose the option that
-   can carry an item from your inventory. Re-deal with `action: "deal"`;
-   `redraw` one slot only for a stated reason, and report it. Every `kind` is a
-   work tool (dashboards, back offices, editors): for a customer-facing app
-   (ordering, media, retail) take the nearest for structure and, when none of
-   its looks fits what the user described, ask your own look question with two
-   or three concrete looks (theme, colours, type, feel) and deal again with
-   the answer as `intent.mood`.
-3. **Find the idea** (page): "On this page, [something only this subject has]
-   becomes [the device the direction calls for]." Put the nearest competitor in
-   the first blank; if it still works, the idea is the category's. App: pick the
-   product's face from the sheet's list.
-4. **Apply it before any frame**: `vetd_install` the sheet's fonts, write its
+   hold, the jobs people do there, the one question the first screen answers, and
+   the things only this product has (its objects, units, rituals, places).
+2. **Learn the preferences.** Learn what the user wants before designing,
+   without pestering them: no fixed list of questions and no quota — ask only
+   what their words left open and the answer would visibly change the design; a
+   detailed prompt needs few or none, "just go ahead" needs none. If the prompt
+   does not say what the product is or does, ask that first, before
+   `vetd_create`. Pass `brief`, `sector` (landing), `have` and `intent` — only
+   what the user actually said or answered. What they said is binding; never ask
+   it again.
+3. **Get three directions.** Landing: `vetd_create` deals them. App:
+   `vetd_create` returns `direction.propose` and raw `ingredients`; write
+   `obvious` — the version you would make by habit (its colours, type, layout) —
+   then `vetd_direction` `action: "propose"` with three options that each depart
+   from it, each starting from something only this product has: "On these
+   screens, [that thing] becomes [the device]." Put the nearest competitor in the
+   first blank; if it still works, the idea is the category's. The three differ
+   in light/dark, accent colour family and display type class; the tool rejects
+   generated defaults (indigo, overused display faces, weak contrast), near
+   twins and repeats of recent designs — fix what it lists and propose again.
+4. **Choose.** If `direction.ask` (landing) or `ask` (app) comes back it is the
+   look question, whose options say what each look is like: ask it, and in the
+   same `ask_user_question` call anything else the prompt left open (the tool's
+   note has the rules). Then `vetd_direction` `action: "choose"` with the look as
+   `id` and the extra answers as `preferences`; if the look was already set,
+   choose the option that can carry an item from your inventory. If the user
+   describes their own look, deal again with it as `intent.mood` (an app then
+   proposes again with it). Landing slots `redraw` only for a stated reason.
+5. **Apply it before any frame**: `vetd_install` the sheet's fonts, write its
    `theme.css`, get its pictures with `vetd_assets`, and state the direction —
    `Direction: <direction> · <type> · <palette>`. The user redirects from there.
-5. **Write the words before the markup** (`references/taste/copy.md`): the whole
+6. **Write the words before the markup** (`references/taste/copy.md`): the whole
    content of every section the brief asks for, at full density. Sample details
    are fine and listed in your report; proof — customers, quotes, logos, figures
    — is never invented.
@@ -361,32 +364,44 @@ the design's sheet; build from it rather than from memory.
 
 **Slides, posters and infographics** are not dealt: read
 `references/taste/directions.md` and set tone, anchor hue, type pairing and
-structure yourself, then apply it the same way (step 4).
+structure yourself, then apply it the same way (step 5).
 
-With a pack or `DESIGN.md` in charge, skip the colour and type: a landing page or
-app may still deal its composition with `keep: ["palette", "type"]`. Every capture
-is still screened against the house rules below, except a device the pack or
-`DESIGN.md` explicitly asks for.
+With a pack or `DESIGN.md` in charge, skip the colour and type: a landing page
+may still deal its composition with `keep: ["palette", "type"]`, and app
+directions then differ in layout and light/dark only. Every capture is still
+screened against the house rules below, except a device the pack or `DESIGN.md`
+explicitly asks for.
 
 ### House rules
 
-They hold on every landing page and app screen, whatever the direction. Removing
-ornament leaves space: fill it with scale, the full content, or a field of flat
-colour — never another ornament, and never leave a screen thin.
+They hold on every landing page and app screen, whatever the direction. The first
+table is generated defaults — the things users read as "AI made this" — and holds
+always. Removing them leaves space: fill it with scale, the full content, or a
+field of flat colour — never another ornament, and never leave a screen thin.
 
 | Rule | Instead |
 | --- | --- |
 | Headlines two lines or fewer; one `h1` on the first screen that says what this is | Cut words, then widen the measure, size last |
 | No eyebrow labels, pill badges or "New ·" chips above headings | Put it in the heading or the first sentence |
-| No monospace outside code (an app sheet may name one for IDs) | The text face, `tabular-nums` for figures |
 | No 01 / 02 / 03 index numbering | Order by position, size or words; a real `<ol>` |
-| No gradients, glows or glass; no shadow on anything at rest | Flat colour, a tone step between surfaces |
-| No tiny tracked uppercase labels | Sentence case at a readable size |
-| No icon-topped feature cards, icons in tinted squares, rows of identical cards | The dealt blueprint |
-| No styled accent word in a headline; two typefaces at most | One face, one colour; the words carry it |
+| No icon-topped feature cards, icons in tinted squares, rows of identical cards | The direction's own composition |
+| No styled accent word in a headline | One colour; the words carry it |
+| No white cards on a grey ground holding every block | A ground from the subject's world; one tone step |
 | Running text in full ink at 16px on pages (14px in apps); nothing under 13px on pages, 11px in apps | Grey is for secondary notes |
 | Equal outer margins; no section huddled on one side of an empty half | Close the void with a picture, list or column |
-| No cream-and-terracotta, no violet or indigo, unless dealt | The dealt palette |
+| No cream-and-terracotta, no violet or indigo, unless dealt or the user asked | The direction's palette |
+
+The second table is expressive devices: not tells in themselves, only when used
+without a reason, everywhere. Off by default; a dealt landing direction or an app
+proposal's `devices` (with the reason) turns one on, for where the reason applies.
+
+| Off unless the direction names it | Default instead |
+| --- | --- |
+| Gradients, glows or glass | Flat colour, a tone step between surfaces |
+| A shadow on anything at rest | Space or a tone step; shadows on what floats |
+| Monospace outside code | The text face, `tabular-nums` for figures |
+| Tiny tracked uppercase labels | Sentence case at a readable size |
+| A third typeface | Two at most: display and text |
 
 **Existing document**: `vetd_status` ONCE first. It returns the frame ids/sizes,
 `sharedShell` (existing `_layout.tsx` + `components/` — reuse them) and
@@ -546,9 +561,9 @@ Resolve against `$SKILL_DIR`. Do not read them all up front.
 | --- | --- |
 | `references/interaction.md` | Wiring clicks, `_layout.tsx`, cross-screen flows |
 | `references/quality.md` | Reviewing a screenshot; before declaring any frame done |
-| `references/taste/directions.md` | A slide, poster or infographic with no pack or `DESIGN.md` (landing pages and apps are dealt) |
+| `references/taste/directions.md` | A slide, poster or infographic with no pack or `DESIGN.md` (landing pages are dealt, apps proposed) |
 | `references/taste/whitespace.md` | Weighing whether a line, divider or card wrapper earns its place; a capture looks boxed-in |
-| `references/taste/app-screens.md` | Product type is app screens or a dashboard — read it before the first screen; the dealt sheet ends with the parts (`app/*.md`) its screens use |
+| `references/taste/app-screens.md` | Product type is app screens or a dashboard — read it before the first screen; the app sheet ends with the parts (`app/*.md`) the screens use |
 | `references/taste/color.md` | Setting a palette by hand; chart and status colors |
 | `references/taste/typography.md` | Choosing faces by hand, the type scale, CJK font stacks |
 | `references/taste/copy.md` | Writing headlines, labels, empty and error states |

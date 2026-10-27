@@ -49,10 +49,11 @@ describe("vetta-ui-design skill references", () => {
 		expect(designer).toContain("replace the scaffold palette before the first frame");
 	});
 
-	it("deals landing pages and app screens instead of letting the model invent the look", () => {
+	it("deals landing pages and has app screens propose a checked direction instead of defaulting the look", () => {
 		const skill = readFileSync(join(SKILL_DIR, "SKILL.md"), "utf8");
 		const designer = readFileSync(join(__dirname, "../agent/agents/designer.md"), "utf8");
-		expect(skill).toMatch(/`vetd_create` deals three directions/);
+		expect(skill).toMatch(/Landing: `vetd_create` deals them/);
+		expect(skill).toContain('`action: "propose"`');
 		expect(skill).toContain('`action: "choose"`');
 		expect(skill).toContain('`action: "show"`');
 		expect(skill).toMatch(/\*\*Slides, posters and infographics\*\* are not dealt/);

@@ -12,10 +12,8 @@ import {
 } from "../src/direction/deal";
 import { adaptLibrary } from "../src/direction/library";
 import {
-	appInputFrom,
 	choose,
 	DirectionError,
-	historyEntry,
 	pageInputFrom,
 	parseDirectionRecord,
 	redraw,
@@ -31,7 +29,6 @@ const lib = adaptLibrary({
 	sections: read("sections"),
 	type: read("type"),
 	palettes: read("palettes"),
-	app: read("app"),
 });
 
 const dealer = (seed: number, history: DealHistoryEntry[] = []): Dealer => ({ lib, rnd: seededRandom(seed), history });
@@ -72,7 +69,7 @@ describe("页面发牌", () => {
 	});
 
 	it("deal → choose 得到完整方向；keep 的那几格不发", () => {
-		const { record, options } = startDeal(dealer(3), "page", saas(), 3, NOW);
+		const { record, options } = startDeal(dealer(3), saas(), 3, NOW);
 		expect(record.choice).toBeNull();
 		const chosen = choose(dealer(3), record, options[1].id, NOW);
 		expect(chosen.choice).toMatchObject({ directionId: options[1].id });
@@ -82,13 +79,13 @@ describe("页面发牌", () => {
 		expect(choice.sections.map((s) => s.role)).toEqual(saas().sections);
 
 		const kept = pageInputFrom({ sector: "saas", keep: ["palette", "type"] });
-		const keptDeal = startDeal(dealer(3), "page", kept, 3, NOW);
+		const keptDeal = startDeal(dealer(3), kept, 3, NOW);
 		const keptChoice = choose(dealer(3), keptDeal.record, keptDeal.options[0].id, NOW).choice;
 		expect(keptChoice).toMatchObject({ typeId: null, paletteId: null });
 	});
 
 	it("只能选发出来的候选", () => {
-		const { record } = startDeal(dealer(3), "page", saas(), 3, NOW);
+		const { record } = startDeal(dealer(3), saas(), 3, NOW);
 		const other = lib.directions.find((d) => !record.options.includes(d.id))!;
 		expect(() => choose(dealer(3), record, other.id, NOW)).toThrow(DirectionError);
 	});
@@ -106,7 +103,7 @@ describe("页面发牌", () => {
 
 describe("重发", () => {
 	const chosenPage = () => {
-		const { record, options } = startDeal(dealer(5), "page", saas(), 5, NOW);
+		const { record, options } = startDeal(dealer(5), saas(), 5, NOW);
 		return choose(dealer(5), record, options[0].id, NOW);
 	};
 
@@ -140,27 +137,9 @@ describe("重发", () => {
 	});
 });
 
-describe("App 发牌", () => {
-	it("按种类发风格、外壳与每屏版式，历史只记 id", () => {
-		const input = appInputFrom({ kind: "finance", brief: "invoice tool for freelancers" }, lib);
-		expect(input.screens).toEqual(lib.app.kinds.finance.screens);
-		const { record, options } = startDeal(dealer(2), "app", input, 2, NOW);
-		const chosen = choose(dealer(2), record, options[0].id, NOW, { emphasis: "information" });
-		expect(chosen.choice).toMatchObject({ styleId: options[0].id });
-		expect(historyEntry(chosen)).toMatchObject({ mode: "app", style: options[0].id });
-		const shell = redraw(dealer(4), chosen, "shell", "users need labels, not an icon rail", NOW);
-		expect((shell.record.choice as { styleId: string }).styleId).toBe(options[0].id);
-	});
-
-	it("拒绝库里没有的屏幕", () => {
-		expect(() => appInputFrom({ kind: "finance", screens: ["kanban"] }, lib)).toThrow(/Unknown screen/);
-		expect(() => appInputFrom({ kind: "bakery" }, lib)).toThrow(/kind/);
-	});
-});
-
 describe("direction.json", () => {
 	it("写出去再读回来不丢东西", () => {
-		const { record, options } = startDeal(dealer(3), "page", saas(), 3, NOW);
+		const { record, options } = startDeal(dealer(3), saas(), 3, NOW);
 		const chosen = choose(dealer(3), record, options[0].id, NOW);
 		expect(parseDirectionRecord(serializeDirectionRecord(chosen))).toEqual(chosen);
 	});

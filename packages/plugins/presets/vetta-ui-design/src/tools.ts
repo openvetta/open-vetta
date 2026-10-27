@@ -9,8 +9,9 @@ import {
 import { captureFrameOffscreen, offscreenRasterSupported } from "./canvas/offscreen-raster";
 import { screenshotCardDescriptor, SCREENSHOT_TOOL_NAME } from "./cards/screenshot-card";
 import { pruneSnapshots, snapshotPath } from "./cards/snapshots";
-import { APP_KINDS, ASSETS, PAGE_SECTORS } from "./direction/deal";
+import { ASSETS, PAGE_SECTORS } from "./direction/deal";
 import {
+	awaitProposalInDesign,
 	dealInputFor,
 	dealIntoDesign,
 	dealtNote,
@@ -34,7 +35,7 @@ import { composeNotePins } from "./notes/annotate";
 import { notesFilePath } from "./notes/notes-store";
 import { type DesignNote, type NotesFile, noteStatus, parseNotesFile, pendingNotes } from "./notes/types";
 import { CANVAS_TAB_ID } from "./tab-ids";
-import type { SourceIssue } from "./vetd/check-sources";
+import { type SourceIssue, THEME_PLACEHOLDER_RULE } from "./vetd/check-sources";
 import { blockingSyntaxIssues, SYNTAX_RULE } from "./vetd/check-syntax";
 import { readDesignDependencies } from "./vetd/design-package";
 import { findVetdFiles } from "./vetd/discover";
@@ -64,13 +65,24 @@ interface CreateInput {
 	frameSize?: { width: number; height: number };
 	brief?: string;
 	sector?: string;
-	kind?: string;
+	screens?: string[];
 	keep?: string[];
 	have?: string[];
 	intent?: unknown;
 }
 
 type ScreenshotInput = ScreenshotSelectionInput;
+
+/** vetd_create 结果开头那句「先做什么」：没有方向就不许开画。 */
+function firstStep(dealt: { ask: readonly unknown[] } | null, awaitingProposal: boolean): string {
+	if (awaitingProposal) {
+		return "FIRST propose three directions with vetd_direction action \"propose\" as `direction.propose` describes, ask the user to pick when the result carries `ask`, choose, and apply its sheet — no frame before that. ";
+	}
+	if (!dealt) return "";
+	return dealt.ask.length > 0
+		? "FIRST ask the user `direction.ask`, then choose with vetd_direction and apply its sheet — no frame before that. "
+		: "FIRST choose one of `direction.options` with vetd_direction and apply its sheet — no frame before that. ";
+}
 
 /**
  * 这份设计当前的复用面：公共外壳与已有组件。
@@ -142,7 +154,7 @@ export function registerDesignTools(ctx: PluginContext): void {
 		// 反向触发段（Do NOT / Only for）是误调防线的第一层：这个工具会在用户工作区
 		// 里建一整棵目录，模型在「写个页面」这种指令上最容易把它当成实现路径。
 		description:
-			"Create a new Vetta UI Design document (a `<name>.vetd/` directory holding design.json + sources) in the current workspace and open it on the design canvas. Requires the product type (or an explicit frame size) — that is what the design defaults to, so decide it from the user's request BEFORE calling. Each frames/<id>.tsx is one canvas frame AND one route — invoke the vetta-ui-design skill for the rules before writing any of them. For a landing page or app screens also pass `brief` and `sector` (landing) or `kind` (mobile / desktop): the result deals three art directions to choose from with vetd_direction.\nDo NOT use when the user is writing or modifying code in an existing codebase — implement the page directly in that repo's own framework instead.\nOnly for standalone visual exploration decoupled from any codebase, when the user asked for a design/mockup rather than working code.",
+			"Create a new Vetta UI Design document (a `<name>.vetd/` directory holding design.json + sources) in the current workspace and open it on the design canvas. Requires the product type (or an explicit frame size) — that is what the design defaults to, so decide it from the user's request BEFORE calling. Each frames/<id>.tsx is one canvas frame AND one route — invoke the vetta-ui-design skill for the rules before writing any of them. For a landing page or app screens also pass `brief` (and `sector` for a landing page): a landing page gets three art directions dealt to choose from with vetd_direction; app screens get the brief for proposing three directions of your own there.\nDo NOT use when the user is writing or modifying code in an existing codebase — implement the page directly in that repo's own framework instead.\nOnly for standalone visual exploration decoupled from any codebase, when the user asked for a design/mockup rather than working code.",
 		parameters: {
 			type: "object",
 			properties: {
@@ -168,11 +180,10 @@ export function registerDesignTools(ctx: PluginContext): void {
 				},
 				brief: { type: "string", description: "landing / mobile / desktop: one line about the subject, in English." },
 				sector: { type: "string", enum: [...PAGE_SECTORS], description: "landing: the closest sector." },
-				kind: {
-					type: "string",
-					enum: [...APP_KINDS],
-					description:
-						"mobile / desktop: the closest kind of product. Every kind is a work tool; a customer-facing app (ordering, media, retail) takes the nearest one for structure — see the skill.",
+				screens: {
+					type: "array",
+					items: { type: "string" },
+					description: "mobile / desktop: the screens to design, in your words.",
 				},
 				keep: {
 					type: "array",
@@ -212,7 +223,7 @@ export function registerDesignTools(ctx: PluginContext): void {
 				dealParams = { ...trigger.input, keep };
 				dealSession = await openDealSession(ctx);
 				try {
-					dealInputFor(dealSession, directionMode, dealParams);
+					dealInputFor(directionMode, dealParams);
 				} catch (error) {
 					if (!(error instanceof DirectionError)) throw error;
 					return {
@@ -237,16 +248,14 @@ export function registerDesignTools(ctx: PluginContext): void {
 			);
 			ctx.ui.setActivityTabVisible(CANVAS_TAB_ID, true, { cwd: session.cwd });
 			ctx.ui.openActivityTab(CANVAS_TAB_ID, { width: "max", cwd: session.cwd });
+			const stated = statedIntentFrom(trigger.input.intent);
 			const dealt =
-				directionMode && dealSession && dealParams
-					? await dealIntoDesign(
-							dealSession,
-							host.fs,
-							result.dirPath,
-							directionMode,
-							dealParams,
-							statedIntentFrom(trigger.input.intent),
-						)
+				directionMode === "page" && dealSession && dealParams
+					? await dealIntoDesign(dealSession, host.fs, result.dirPath, dealParams, stated)
+					: null;
+			const proposal =
+				directionMode === "app" && dealSession && dealParams
+					? await awaitProposalInDesign(dealSession, host.fs, result.dirPath, dealParams, stated)
 					: null;
 			return {
 				ok: true,
@@ -263,7 +272,8 @@ export function registerDesignTools(ctx: PluginContext): void {
 							},
 						}
 					: {}),
-				note: `${dealt ? (dealt.ask.length > 0 ? "FIRST ask the user `direction.ask`, then choose with vetd_direction and apply its sheet — no frame before that. " : "FIRST choose one of `direction.options` with vetd_direction and apply its sheet — no frame before that. ") : ""}Design created and opened on the canvas, with NO frames yet. Its default size is ${defaultFrameSize.width}x${defaultFrameSize.height} — still declare it per frame: every frames/<id>.tsx starts with \`export const frame = { width: ${defaultFrameSize.width}, height: ${defaultFrameSize.height}, title }\`, and a screen of a different product type declares its own. Never edit design.json. More than one screen? Write the shared chrome FIRST (components/, or frames/_layout.tsx), then every frame as a short skeleton so the whole set reaches the canvas immediately, and only then fill them in one at a time — see the vetta-ui-design skill.`,
+				...(proposal ? { direction: { mode: "app", ...proposal } } : {}),
+				note: `${firstStep(dealt, proposal !== null)}Design created and opened on the canvas, with NO frames yet. Its default size is ${defaultFrameSize.width}x${defaultFrameSize.height} — still declare it per frame: every frames/<id>.tsx starts with \`export const frame = { width: ${defaultFrameSize.width}, height: ${defaultFrameSize.height}, title }\`, and a screen of a different product type declares its own. Never edit design.json. More than one screen? Write the shared chrome FIRST (components/, or frames/_layout.tsx), then every frame as a short skeleton so the whole set reaches the canvas immediately, and only then fill them in one at a time — see the vetta-ui-design skill.`,
 			};
 		},
 	});
@@ -405,8 +415,11 @@ export function registerDesignTools(ctx: PluginContext): void {
 					return { ok: false, frame: frameId, retryable: true, error: `Frame failed to build during capture:\n${lateError}` };
 				}
 				const frameIssues = [
-					// 整份设计级的 issue（发了方向没选）报给每一帧：哪一帧都不该在它清掉前算完成。
-					...sourceIssues.filter((issue) => issue.file === `frames/${frameId}.tsx` || issue.file === DIRECTION_FILE),
+					// 整份设计级的 issue（发了方向没选、主题还是占位）报给每一帧：哪一帧都不该在它清掉前算完成。
+					...sourceIssues.filter(
+						(issue) =>
+							issue.file === `frames/${frameId}.tsx` || issue.file === DIRECTION_FILE || issue.rule === THEME_PLACEHOLDER_RULE,
+					),
 					...layoutIssues(probe, frameId),
 					...tellIssues(probe, frameId, tells),
 				];

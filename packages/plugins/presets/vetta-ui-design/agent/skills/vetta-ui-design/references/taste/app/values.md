@@ -1,16 +1,19 @@
 ## Type and colour
 
-- **One grotesk**; a second face only with one job (a mono for IDs or every
-  figure, a serif for one greeting). Title 18-32px, figures 16-40px. 4-6 sizes
-  (12/14/16/24 is a clean scale), three weights, tabular figures on every number
-  that is compared or updates. Sentence case; tracking 0.
-- **Light**: white cards on an off-white ground, or grey panels on white. Lines in
-  three steps: card edges ~#eaeaea, row rules ~#f2f2f2, control borders ~#d1d5db.
-  Text in two tiers at 4.5:1 or more (about #111 and #5f6368; #6b6b6b is the
-  lightest grey that holds). Status text green #247b50, not the lighter greens.
-- **Dark**: a true neutral ground (#000, #111), never navy or slate; surfaces a
-  lighter step with no border, or the ground with 1px lines; two text greys that
-  read apart (~#b4b4b4, #949494); status as a hue on a dark tint of itself.
-- A border or a shadow, never both. Radius is bimodal: tight 4-8px or soft
-  16-24px, chosen once, nested radii stepping down. Icons outline, 14-20px, grey,
-  one set; never in a saturated circle.
+- **Type**: the direction's display and text faces. 4-6 sizes, three weights at
+  most, tabular figures on every number that is compared or updates. Sentence
+  case; tracking 0 unless the face needs it.
+- **Contrast**: text 7:1 on its ground where the palette allows, never under
+  4.5:1; the secondary grey 4.5:1 or more (#6b6b6b is the lightest that holds on
+  white). Status text is the dark of its hue (green #247b50, not the lighter
+  greens), on a pale tint of itself when it needs a ground.
+- **Light grounds**: the ground and one tone step for panels; lines only where
+  they do work, at most three strengths (edges, rules, control borders). The
+  ground can come from the product's world — paper, a field of the brand colour,
+  a photograph — rather than default to white cards on grey.
+- **Dark grounds**: a higher surface is lighter; no border needed between them.
+  Two text greys that read apart; status as a hue on a dark tint of itself.
+  Navy or slate only when the direction chose it.
+- A border or a shadow, never both. Radius chosen once — tight 4-8px or soft
+  16-28px — with nested radii stepping down. Icons from one set at one stroke,
+  never in a saturated circle.

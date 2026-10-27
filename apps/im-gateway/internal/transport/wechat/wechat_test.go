@@ -254,6 +254,24 @@ func newBoundTransport(t *testing.T) (*Transport, *fakeILink, string) {
 	return tr, fake, statePath
 }
 
+// startAsync runs tr.Start in the background and, at test cleanup, stops it and
+// waits for the poll loop to return. The loop persists its cursor into the
+// test's TempDir; a loop still writing there while the directory is removed
+// fails the test with "TempDir RemoveAll cleanup: directory not empty".
+// Registered after newBoundTransport's TempDir, so it runs before the removal.
+func startAsync(t *testing.T, tr *Transport, ctx context.Context, h transport.MessageHandler) {
+	t.Helper()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = tr.Start(ctx, h)
+	}()
+	t.Cleanup(func() {
+		_ = tr.Stop()
+		<-done
+	})
+}
+
 // =============================================================================
 // tests
 // =============================================================================
@@ -341,7 +359,7 @@ func TestTransport_DropsNonTextAndEmptyFromUserID(t *testing.T) {
 	h := newCaptureHandler()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	go tr.Start(ctx, h) //nolint:errcheck
+	startAsync(t, tr, ctx, h)
 
 	h.wait(t, 1)
 	got := h.snapshot()
@@ -366,7 +384,7 @@ func TestTransport_VoiceWithSTTFallback(t *testing.T) {
 	h := newCaptureHandler()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	go tr.Start(ctx, h) //nolint:errcheck
+	startAsync(t, tr, ctx, h)
 
 	h.wait(t, 1)
 	if got := h.snapshot()[0].Text; got != "transcribed audio" {
@@ -394,7 +412,7 @@ func TestTransport_QuotedReplyFormatting(t *testing.T) {
 	h := newCaptureHandler()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	go tr.Start(ctx, h) //nolint:errcheck
+	startAsync(t, tr, ctx, h)
 
 	h.wait(t, 1)
 	got := h.snapshot()[0].Text
@@ -420,7 +438,7 @@ func TestTransport_SendMessageUsesContextTokenAndIncrementsQuota(t *testing.T) {
 	h := newCaptureHandler()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	go tr.Start(ctx, h) //nolint:errcheck
+	startAsync(t, tr, ctx, h)
 
 	h.wait(t, 1)
 
@@ -564,7 +582,7 @@ func TestTransport_CursorPersisted(t *testing.T) {
 	h := newCaptureHandler()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	go tr.Start(ctx, h) //nolint:errcheck
+	startAsync(t, tr, ctx, h)
 	h.wait(t, 1)
 
 	// Wait one more loop iter so the post-dispatch cursor save lands.
