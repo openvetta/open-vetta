@@ -33,6 +33,23 @@ internalising before you start:
   overwritten seconds later. If a frame is not showing up the way you expect,
   the answer is always in the tsx.
 
+## The loop at a glance
+
+Every turn that designs something runs this sequence; each step is detailed
+under **Workflow** below.
+
+1. **Start**: a new document is `vetd_create` with the product type; an existing
+   one starts with `vetd_status` once.
+2. **Look**: for a landing page or app, ask what `vetd_create` asks, then
+   `vetd_direction` `choose`. Apply the direction (fonts, `theme.css`, pictures)
+   before any frame.
+3. **Build**: shared shell and a short file per frame first, then real content in
+   coherent batches. Each frame's `frame` meta line comes first.
+4. **Verify**: one `vetd_screenshot` batch, Read the overview once, fix with
+   `edit`, recheck only the frames you changed.
+5. **Finish**: when you touched a `.vetd` design, the last action is one
+   `vetd_notes` call; then report.
+
 ## It is a project, not a picture
 
 The output is a running front-end app the user can click through in preview, built
