@@ -374,23 +374,34 @@ explicitly asks for.
 
 ### House rules
 
-They hold on every landing page and app screen, whatever the direction. Removing
-ornament leaves space: fill it with scale, the full content, or a field of flat
-colour — never another ornament, and never leave a screen thin.
+They hold on every landing page and app screen, whatever the direction. The first
+table is generated defaults — the things users read as "AI made this" — and holds
+always. Removing them leaves space: fill it with scale, the full content, or a
+field of flat colour — never another ornament, and never leave a screen thin.
 
 | Rule | Instead |
 | --- | --- |
 | Headlines two lines or fewer; one `h1` on the first screen that says what this is | Cut words, then widen the measure, size last |
 | No eyebrow labels, pill badges or "New ·" chips above headings | Put it in the heading or the first sentence |
-| No monospace outside code (an app sheet may name one for IDs) | The text face, `tabular-nums` for figures |
 | No 01 / 02 / 03 index numbering | Order by position, size or words; a real `<ol>` |
-| No gradients, glows or glass; no shadow on anything at rest | Flat colour, a tone step between surfaces |
-| No tiny tracked uppercase labels | Sentence case at a readable size |
-| No icon-topped feature cards, icons in tinted squares, rows of identical cards | The dealt blueprint |
-| No styled accent word in a headline; two typefaces at most | One face, one colour; the words carry it |
+| No icon-topped feature cards, icons in tinted squares, rows of identical cards | The direction's own composition |
+| No styled accent word in a headline | One colour; the words carry it |
+| No white cards on a grey ground holding every block | A ground from the subject's world; one tone step |
 | Running text in full ink at 16px on pages (14px in apps); nothing under 13px on pages, 11px in apps | Grey is for secondary notes |
 | Equal outer margins; no section huddled on one side of an empty half | Close the void with a picture, list or column |
-| No cream-and-terracotta, no violet or indigo, unless dealt | The dealt palette |
+| No cream-and-terracotta, no violet or indigo, unless dealt or the user asked | The direction's palette |
+
+The second table is expressive devices: not tells in themselves, only when used
+without a reason, everywhere. Off by default; a dealt landing direction or an app
+proposal's `devices` (with the reason) turns one on, for where the reason applies.
+
+| Off unless the direction names it | Default instead |
+| --- | --- |
+| Gradients, glows or glass | Flat colour, a tone step between surfaces |
+| A shadow on anything at rest | Space or a tone step; shadows on what floats |
+| Monospace outside code | The text face, `tabular-nums` for figures |
+| Tiny tracked uppercase labels | Sentence case at a readable size |
+| A third typeface | Two at most: display and text |
 
 **Existing document**: `vetd_status` ONCE first. It returns the frame ids/sizes,
 `sharedShell` (existing `_layout.tsx` + `components/` — reuse them) and

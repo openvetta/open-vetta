@@ -241,34 +241,45 @@ interface TellRule {
 const quote = (finding: RawTell) => (finding.text ? ` — "${finding.text}"` : "");
 
 /**
+ * 渐变、阴影这类表现手法默认不许，App 方向写明理由就放行（direction/proposal.ts 的
+ * devices）。报出来时告诉 agent 这条路：手法本身不是 AI 味，没理由地用才是。
+ */
+const deviceHint = (mode: Mode, device: string) =>
+	mode === "app"
+		? ` If this direction really needs it, propose the direction again with \`${device}\` in \`devices\` and the reason.`
+		: "";
+
+/**
  * 每条的报错写清「量到了什么」和「换成什么」。措辞对应 SKILL.md 的规则表和
  * references/taste/app-screens.md 的放宽项。
  */
 const TELL_RULES: Record<string, TellRule> = {
 	"tell-gradient": {
 		applies: () => true,
-		message: (f) =>
-			`Gradient fill (${f.detail}). Gradients are a generated-UI tell: use a flat colour or a tone step between surfaces; the one allowed gradient is a neutral scrim over a photograph. House rules in the skill.`,
+		message: (f, mode) =>
+			`Gradient fill (${f.detail}). A gradient nothing asked for reads as generated: use a flat colour or a tone step between surfaces; a neutral scrim over a photograph is always fine. House rules in the skill.${deviceHint(mode, "gradient")}`,
 	},
 	"tell-gradient-text": {
 		applies: () => true,
-		message: (f) => `Gradient-filled text${quote(f)}. Set text in one solid colour; the words carry the emphasis.`,
+		message: (f, mode) =>
+			`Gradient-filled text${quote(f)}. Set text in one solid colour; the words carry the emphasis.${deviceHint(mode, "gradient")}`,
 	},
 	"tell-shadow": {
 		// App 屏幕允许静止的卡片带很淡的阴影（模糊小、不透明度 8% 以下）。
 		applies: (f, mode) => mode === "page" || (f.value ?? 1) > 0.08,
 		message: (f, mode) =>
-			`Shadow on an element at rest (${f.detail})${quote(f)}. Separate surfaces with a tone step or space; shadows belong to what floats — a menu, a popover, a dialog.${mode === "app" ? " On app screens a resting card may carry at most a faint blur under 8% black." : ""}`,
+			`Shadow on an element at rest (${f.detail})${quote(f)}. Separate surfaces with a tone step or space; shadows belong to what floats — a menu, a popover, a dialog.${mode === "app" ? ` On app screens a resting card may carry at most a faint blur under 8% black.${deviceHint(mode, "shadow")}` : ""}`,
 	},
 	"tell-glass": {
 		applies: () => true,
-		message: (f) => `Backdrop blur (${f.detail}) — glass is a generated-UI tell. Use an opaque surface one tone step from the ground.`,
+		message: (f, mode) =>
+			`Backdrop blur (${f.detail}) — glass nothing asked for reads as generated. Use an opaque surface one tone step from the ground.${deviceHint(mode, "glass")}`,
 	},
 	"tell-micro-label": {
 		// App 屏幕允许整屏一个（比如切换器上的上下文标签）。
 		applies: (_f, mode, total) => mode === "page" || total > 1,
 		message: (f, mode) =>
-			`Tiny tracked uppercase label (${f.detail})${quote(f)}. Use sentence case at a readable size${mode === "page" ? ", or put the information in the heading itself — no eyebrows" : ", 12-14px grey above the value"}.`,
+			`Tiny tracked uppercase label (${f.detail})${quote(f)}. Use sentence case at a readable size${mode === "page" ? ", or put the information in the heading itself — no eyebrows" : ", 12-14px grey above the value"}.${deviceHint(mode, "tracked-caps")}`,
 	},
 	"tell-small-text": {
 		applies: (f, mode) => (f.value ?? 0) < (mode === "page" ? 13 : 11),
@@ -283,7 +294,8 @@ const TELL_RULES: Record<string, TellRule> = {
 	},
 	"tell-font-count": {
 		applies: () => true,
-		message: (f) => `${f.value} typefaces in use (${f.detail}). Two at most — the dealt display and text faces; often one is enough.`,
+		message: (f, mode) =>
+			`${f.value} typefaces in use (${f.detail}). Two at most — the direction's display and text faces; often one is enough.${deviceHint(mode, "third-face")}`,
 	},
 	"tell-headline-lines": {
 		applies: (_f, mode) => mode === "page",

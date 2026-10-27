@@ -77,6 +77,16 @@ describe("tellIssues", () => {
 		expect(tellIssues([tell("tell-shadow", { value: 0.3 })], "home", { mode: "app", allow: ["tell-shadow"] })).toEqual([]);
 	});
 
+	it("App 屏幕上报表现手法时指出正路：写进方向的 devices 并给理由；落地页不提", () => {
+		const [gradient] = tellIssues([tell("tell-gradient")], "home", app);
+		expect(gradient.message).toMatch(/`gradient` in `devices`/);
+		const [glass] = tellIssues([tell("tell-glass")], "home", app);
+		expect(glass.message).toMatch(/`glass` in `devices`/);
+		const [faces] = tellIssues([tell("tell-font-count", { value: 3 })], "home", app);
+		expect(faces.message).toMatch(/`third-face` in `devices`/);
+		expect(tellIssues([tell("tell-gradient")], "home", page)[0].message).not.toMatch(/devices/);
+	});
+
 	it("组件和公共外壳里的问题照报，指向组件文件；指向别的画框的丢掉", () => {
 		const issues = tellIssues(
 			[
