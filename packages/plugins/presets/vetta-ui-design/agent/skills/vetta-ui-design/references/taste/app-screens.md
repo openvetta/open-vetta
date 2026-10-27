@@ -14,6 +14,12 @@ parts. Without a sheet, read the parts you need from `app/`:
 
 ## What separates real screens from generated ones
 
+The study behind these numbers was of work tools. A customer-facing app —
+ordering, media, banking, travel — keeps the discipline (honest data, one
+question per screen, colour with a job) but not the restraint: its content
+(pictures, food, music, places, money) leads, and colour and type may carry it
+at area scale when the direction says so.
+
 1. **Colour goes on data, not chrome.** The median screen has about 3% coloured
    pixels; 12 of 23 have no filled primary button at all.
 2. **KPIs are type, not tiles.** No icon in a coloured circle, no sparkline.
