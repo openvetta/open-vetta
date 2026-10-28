@@ -48,6 +48,7 @@ import {
 	proposalHistory,
 	proposalLook,
 	proposalTells,
+	SHELLS,
 	TYPE_CLASSES,
 } from "./proposal";
 
@@ -126,12 +127,12 @@ export function directionIssues(record: DirectionRecord | null): SourceIssue[] {
  */
 const BRAND_OWNED_TELLS = ["tell-gradient", "tell-gradient-text", "tell-shadow", "tell-glass", "tell-font-count", "tell-mono"];
 
-export function allowedTells(record: Pick<DirectionRecord, "input" | "choice" | "proposals">): string[] {
+export function allowedTells(record: Pick<DirectionRecord, "input" | "choice" | "proposals"> & { intent?: DirectionRecord["intent"] }): string[] {
 	const allow = new Set<string>();
 	const { keep } = record.input;
 	if (keep.includes("palette") && keep.includes("type")) for (const rule of BRAND_OWNED_TELLS) allow.add(rule);
 	const proposal = chosenProposal(record);
-	if (proposal) for (const rule of proposalTells(proposal)) allow.add(rule);
+	if (proposal) for (const rule of proposalTells(proposal, record.intent?.stated.boldness)) allow.add(rule);
 	return [...allow];
 }
 
@@ -372,7 +373,7 @@ export function choose(
 		...record,
 		input,
 		choice,
-		allow: allowedTells({ input, choice, proposals: record.proposals }),
+		allow: allowedTells({ input, choice, proposals: record.proposals, intent: record.intent }),
 		at: now,
 		...(intent ? { intent } : {}),
 	};
@@ -552,6 +553,8 @@ function parseStoredProposals(value: unknown): AppProposal[] {
 			type,
 			layout: typeof item.layout === "string" ? item.layout : "",
 			radius: typeof item.radius === "number" ? item.radius : null,
+			shell: SHELLS.find((value) => value === item.shell) ?? null,
+			breaks: typeof item.breaks === "string" ? item.breaks : "",
 			devices: Array.isArray(item.devices)
 				? item.devices.filter(
 						(entry): entry is AppProposal["devices"][number] =>

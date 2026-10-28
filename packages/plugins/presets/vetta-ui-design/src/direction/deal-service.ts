@@ -14,8 +14,8 @@ import type { ProductType } from "../vetd/product-size";
 import { type AppInput, type DealHistoryEntry, type Dealer, type PageInput, seededRandom } from "./deal";
 import { writeDirectionRecord } from "./direction-file";
 import { loadTasteLibrary, type TasteLibrary } from "./library";
-import type { StatedIntent, ToneQuestion } from "./intent";
-import { ingredients, PROPOSE_NOTE } from "./proposal";
+import type { Boldness, StatedIntent, ToneQuestion } from "./intent";
+import { ingredients, proposeNote } from "./proposal";
 import {
 	appInputFrom,
 	type DealParams,
@@ -85,8 +85,8 @@ export interface ProposeBrief {
 	ingredients: ReturnType<typeof ingredients>;
 }
 
-export function proposeBrief(session: DealSession): ProposeBrief {
-	return { propose: PROPOSE_NOTE, ingredients: ingredients(session.lib, session.dealer.rnd) };
+export function proposeBrief(session: DealSession, boldness?: Boldness): ProposeBrief {
+	return { propose: proposeNote(boldness), ingredients: ingredients(session.lib, session.dealer.rnd) };
 }
 
 export async function dealIntoDesign(
@@ -110,7 +110,7 @@ export async function awaitProposalInDesign(
 	stated: StatedIntent,
 ): Promise<ProposeBrief> {
 	await writeDirectionRecord(fs, dirPath, startProposal(appInputFrom(params), session.seed, new Date().toISOString(), stated));
-	return proposeBrief(session);
+	return proposeBrief(session, stated.boldness);
 }
 
 const CHOOSE =

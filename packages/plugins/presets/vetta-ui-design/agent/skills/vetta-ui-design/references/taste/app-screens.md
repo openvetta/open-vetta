@@ -10,7 +10,7 @@ Numbers are from taste-skill v2's study of 23 real product screens (see
 every screen needs. The app sheet (`vetd_direction`) holds the direction you
 proposed — its idea, tokens, type and layout — and ends with the reference
 parts. Without a sheet, read the parts you need from `app/`:
-`shell`, `kpis`, `charts`, `tables`, `forms`, `values` (type and colour), `phone`.
+`shell`, `kpis`, `charts`, `tables`, `forms`, `values` (type and colour), `phone`, `navigation` (the phone bar).
 
 ## What separates real screens from generated ones
 
@@ -18,7 +18,9 @@ The study behind these numbers was of work tools. A customer-facing app —
 ordering, media, banking, travel — keeps the discipline (honest data, one
 question per screen, colour with a job) but not the restraint: its content
 (pictures, food, music, places, money) leads, and colour and type may carry it
-at area scale when the direction says so.
+at area scale. For those apps read `app-screens-content.md` beside this file; it
+replaces the numbers below that describe restraint (colour share, no shadow,
+KPI sizes, 2px chart lines) and keeps everything about honesty and alignment.
 
 1. **Colour goes on data, not chrome.** The median screen has about 3% coloured
    pixels; 12 of 23 have no filled primary button at all.

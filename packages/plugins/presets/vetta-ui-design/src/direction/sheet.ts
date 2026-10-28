@@ -12,6 +12,7 @@
 import type { AppInput, ImageryMode, PageChoice, PageInput } from "./deal";
 import { imageryMode } from "./deal";
 import { availableWeights, axisFromSettings, type FontAxis, fontImports, fontsourcePackage, registeredFamily } from "./fontsource";
+import { CREED_LINE } from "../creed";
 import { type Intent, intentLines } from "./intent";
 import type { TasteHero, TasteLibrary, TastePalette, TasteSection, TasteType } from "./library";
 import { type AppProposal, readableOn, type TypeClass } from "./proposal";
@@ -312,6 +313,8 @@ export function renderPageSheet(
 	p(`One screen is ${screenHeight}px tall, so 80svh = ${Math.round(screenHeight * 0.8)}px. Write those as pixels: a landing frame is several`);
 	p("screens tall, and vh/svh inside it measure the whole frame. Declare the frame's height as the page's real length.");
 	p();
+	p(CREED_LINE);
+	p();
 	userIntent(p, ctx.intent);
 	p("## 1. The idea");
 	p(dir.idea);
@@ -452,6 +455,7 @@ const DEVICE_TEXT: Record<string, string> = {
 	gradient: "a gradient",
 	shadow: "shadows on resting surfaces",
 	glass: "glass (backdrop blur)",
+	texture: "a textured hero object (light, grain, edge) — on that object only",
 	mono: "a monospace face outside code",
 	"third-face": "a third typeface",
 	"tracked-caps": "small tracked capitals",
@@ -477,6 +481,8 @@ export function renderAppSheet(
 	p();
 	p("This is your own direction, written down so the screens hold to it. Build every screen from it; when a screen");
 	p("tempts you back toward the obvious version below, that is the moment the design turns generic.");
+	p();
+	p(CREED_LINE);
 	p();
 	userIntent(p, ctx.intent);
 	p("## 1. The idea");
@@ -518,9 +524,20 @@ export function renderAppSheet(
 	p("`tabular-nums` on every figure that is compared or updates.");
 	p();
 	p("## 4. Devices");
+	const boldness = ctx.intent?.stated.boldness;
+	if (boldness === "expressive" || boldness === "bold") {
+		p(
+			`The user asked for a ${boldness} design: gradients, resting shadows and glass${boldness === "bold" ? ", a third typeface and tracked capitals" : ""} pass the screenshot check without a stated reason.`,
+		);
+		p("Spend them on one or two moves, in one hue family; the rest stays quiet. Purple-to-blue gradients, gradient text and blurred blobs are still out.");
+		if (proposal.breaks) p(`**The deliberate break (use it on the first screen):** ${proposal.breaks}`);
+		if (proposal.shell) p(`**Shell:** ${proposal.shell}.`);
+	}
 	if (proposal.devices.length === 0) {
-		p("No expressive devices: no gradient, glass, resting shadow, monospace outside code, third face or tracked capitals.");
-		p("The look comes from the idea, the colour, the type and the layout.");
+		if (boldness !== "expressive" && boldness !== "bold") {
+			p("No expressive devices: no gradient, glass, resting shadow, monospace outside code, third face or tracked capitals.");
+			p("The look comes from the idea, the colour, the type and the layout.");
+		}
 	} else {
 		p("This direction uses, for its stated reasons (the screenshot check lets them through):");
 		for (const { device, reason } of proposal.devices) p(`- ${DEVICE_TEXT[device] ?? device} — ${reason}`);

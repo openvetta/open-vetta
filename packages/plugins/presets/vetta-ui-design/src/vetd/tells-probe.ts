@@ -189,6 +189,8 @@ export const TELLS_PROBE_SCRIPT = `(() => {
 			if (el.querySelector("img, video, picture, canvas")) continue;
 			if (!el.querySelector('[class*="icon-["], svg')) continue;
 			if ((el.textContent || "").trim().length > 40) continue;
+			// 1.586:1 带文字的渐变面是一张卡（银行卡、礼品卡），是物件不是图片位。
+			if (Math.abs(r.width / r.height - 1.586) < 0.1 && (el.textContent || "").trim().length > 0) continue;
 			fakes.push(el);
 		}
 		const innermost = fakes.filter((a) => !fakes.some((b) => b !== a && a.contains(b)));

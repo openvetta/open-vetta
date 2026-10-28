@@ -209,6 +209,9 @@ export default defineConfig(({ command }) => ({
 			// import 就是整帧构建失败——用户拿到的是一块红色报错，不是设计稿。装上以后
 			// 两条路都通，写哪种都能出图。
 			"lucide-react": resolve(engineRoot, "node_modules/lucide-react"),
+			// iOS 状态栏预设：`import { StatusBar } from "@vetta/ios"`。组件随引擎走而不是写进每份
+			// 设计，这样 agent 改不坏它，升级也只改引擎这一份（见 ios/StatusBar.tsx 开头）。
+			"@vetta/ios": resolve(engineRoot, "src/ios/StatusBar.tsx"),
 		},
 		dedupe: ["react", "react-dom", "react-router"],
 	},

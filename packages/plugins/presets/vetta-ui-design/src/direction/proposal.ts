@@ -17,7 +17,7 @@
  */
 import type { DealHistoryEntry, KeepSlot } from "./deal";
 import { FONTSOURCE_FACES, fontsourceFace } from "./fontsource";
-import type { StatedIntent } from "./intent";
+import type { Boldness, StatedIntent } from "./intent";
 import type { TasteLibrary } from "./library";
 
 /** 标题字的类别：判断三个方向是否拉开的轴之一，取自上游字体库的分类再加等宽。 */
@@ -45,6 +45,7 @@ export const DEVICE_TELLS = {
 	gradient: ["tell-gradient", "tell-gradient-text"],
 	shadow: ["tell-shadow"],
 	glass: ["tell-glass"],
+	texture: ["tell-gradient", "tell-shadow"],
 	mono: ["tell-mono"],
 	"third-face": ["tell-font-count"],
 	"tracked-caps": ["tell-micro-label"],
@@ -66,6 +67,10 @@ export interface ProposalColours {
 	extra: Record<string, string>;
 }
 
+/** 首屏外壳的类型。大胆档位要求三案各不相同：只换配色字体、骨架还是同一个，用起来仍是一个样。 */
+export const SHELLS = ["sidebar", "topbar", "bottom-tabs", "full-bleed", "split", "rail"] as const;
+export type Shell = (typeof SHELLS)[number];
+
 export interface AppProposal {
 	id: string;
 	name: string;
@@ -82,6 +87,10 @@ export interface AppProposal {
 	layout: string;
 	radius: number | null;
 	devices: { device: Device; reason: string }[];
+	/** 导航与内容怎么搭。没声明为 null；大胆档位必填。 */
+	shell: Shell | null;
+	/** 这一案主动违反的一条默认规则及理由（出格预算）。没有为空串；大胆档位必填。 */
+	breaks: string;
 }
 
 export class ProposalError extends Error {}
@@ -267,10 +276,22 @@ function parseOne(raw: unknown, index: number, ctx: ProposalContext, problems: s
 		}
 	}
 
+	const shell = SHELLS.find((value) => value === raw.shell) ?? null;
+	if (raw.shell !== undefined && raw.shell !== null && !shell) problems.push(`${at}.shell is one of: ${SHELLS.join(", ")}.`);
+	const breaks = text(raw.breaks);
+	if (ctx.stated.boldness === "bold") {
+		if (!shell) problems.push(`${at}.shell is required for a bold design: ${SHELLS.join(", ")}.`);
+		if (breaks.length < 20) {
+			problems.push(
+				`${at}.breaks is required for a bold design: name the one default rule this option deliberately breaks (an oversized figure, a full-bleed colour field, a gradient surface, an off-axis crop…) and why it suits this product.`,
+			);
+		}
+	}
+
 	if (!ID.test(id) || !name || !theme) return null;
 	if (!ctx.keep.includes("palette") && !colours) return null;
 	if (!ctx.keep.includes("type") && !type) return null;
-	return { id, name, idea, departs, theme, colours, type, layout, radius, devices };
+	return { id, name, idea, departs, theme, colours, type, layout, radius, devices, shell, breaks };
 }
 
 interface Axes {
@@ -313,6 +334,12 @@ function divergenceProblems(proposals: readonly AppProposal[], ctx: ProposalCont
 					`"${proposals[i].id}" and "${proposals[j].id}" are the same direction twice (${describe(a)} vs ${describe(b)}): make them differ in at least ${required} of light/dark, accent colour family and display type class.`,
 				);
 			}
+		}
+	}
+	if (ctx.stated.boldness === "bold") {
+		const shells = proposals.map((proposal) => proposal.shell);
+		if (new Set(shells).size < shells.length) {
+			problems.push(`A bold design needs three different shells (got ${shells.join(", ")}): the options must differ in structure, not only in colour and type.`);
 		}
 	}
 	if (!ctx.keep.includes("palette") && all.filter((a) => a.hue === "blue").length > 1) {
@@ -384,9 +411,17 @@ export function proposalLook(proposal: AppProposal): string {
 	return parts.filter(Boolean).join(" · ");
 }
 
-/** 这个方向放行的机检规则：它写明理由要用的表现手法。 */
-export function proposalTells(proposal: AppProposal): string[] {
-	return [...new Set(proposal.devices.flatMap(({ device }) => [...DEVICE_TELLS[device]]))];
+/** 用户要有个性或大胆时，不必逐项写理由就放行的表现手法。 */
+const BOLDNESS_DEVICES: Record<Boldness, readonly Device[]> = {
+	restrained: [],
+	expressive: ["gradient", "shadow", "glass"],
+	bold: ["gradient", "shadow", "glass", "third-face", "tracked-caps"],
+};
+
+/** 这个方向放行的机检规则：它写明理由要用的表现手法，加上用户要的大胆度自带放行的。 */
+export function proposalTells(proposal: AppProposal, boldness: Boldness = "restrained"): string[] {
+	const devices = [...proposal.devices.map(({ device }) => device), ...BOLDNESS_DEVICES[boldness]];
+	return [...new Set(devices.flatMap((device) => [...DEVICE_TELLS[device]]))];
 }
 
 /** 历史里只记能比的几项。 */
@@ -420,11 +455,20 @@ export function ingredients(lib: TasteLibrary, rnd: () => number, count = 6): { 
 }
 
 /** vetd_create 与 vetd_direction 共用的提案说明：怎么想，交什么。 */
+const BOLDNESS_PROPOSE_NOTE: Record<Boldness, string> = {
+	restrained: "",
+	expressive:
+		"\nThe user wants a design with character: gradients, resting shadows and glass pass the screenshot check without a stated reason. Spend them on one or two moves, in one hue family, and keep the rest quiet.",
+	bold: "\nThe user wants a bold design. Every option declares `shell` (the three differ) and `breaks`: the one default rule it deliberately breaks, and why it suits this product. Gradients, resting shadows and glass pass the screenshot check; one big move on the first screen, everything else quiet.",
+};
+
+export const proposeNote = (boldness?: Boldness): string => PROPOSE_NOTE + (boldness ? BOLDNESS_PROPOSE_NOTE[boldness] : "");
+
 export const PROPOSE_NOTE = `App screens are not dealt from templates: you propose three directions with vetd_direction action "propose", and the tool checks them. How to think them up:
 1. Inventory the product: the data the screens hold, the jobs people do there, the one question the first screen answers, and the things only this product has (its objects, rituals, units, places, printed matter).
 2. Write \`obvious\`: the version you would make by habit for this brief — its colours, typeface and layout. That is the generated look; every option departs from it.
 3. Each option starts from something only this product has: "On these screens, <that thing> becomes <the device>." Put the nearest competitor in the first blank — if the sentence still works, the idea belongs to the category; find another.
-4. Make the three really different: light/dark, accent colour family and display type class — every pair differs in at least two. Not three tints of one layout.
+4. Make the three really different: light/dark, accent colour family and display type class — every pair differs in at least two. Not three tints of one layout. On a phone the navigation bar is part of each idea and takes a different form in each option.
 5. Expressive devices (gradient, shadow, glass, mono, a third face, tracked caps) are off by default; an option that needs one lists it in \`devices\` with the reason.
 The palettes and type pairings in \`ingredients\` are raw material from a researched library: pick, mix, adjust or ignore them. Fonts must be installable (the tool lists them if one is not).`;
 
@@ -463,8 +507,10 @@ export const PROPOSAL_SCHEMA = {
 				},
 				description: "Font families (installable ones) and the display face's class. Omit when the brand keeps the type.",
 			},
-			layout: { type: "string", description: "The first screen: what is largest, where it sits, how people move between screens." },
+			layout: { type: "string", description: "The first screen: what is largest, where it sits, how people move between screens. On a phone, name the navigation form too (floating dock, growing active tab, words only, centre action, the bar as content…), never the stock five-icon tab bar." },
 			radius: { type: "number", description: "The one corner radius in px." },
+			shell: { type: "string", enum: [...SHELLS], description: "How navigation and content are put together. Required for a bold design; the three options differ." },
+			breaks: { type: "string", description: "The one default rule this option deliberately breaks, and why. Required for a bold design." },
 			devices: {
 				type: "array",
 				items: {

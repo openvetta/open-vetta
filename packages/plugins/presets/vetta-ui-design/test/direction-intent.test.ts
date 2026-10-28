@@ -103,6 +103,8 @@ describe("工具必问的只有气质", () => {
 	it("入参只认这几个键，空串当没说", () => {
 		expect(statedIntentFrom({ mood: "  ", colour: "深色", extra: 1, goAhead: "yes" })).toEqual({ colour: "深色" });
 		expect(statedIntentFrom(null)).toEqual({});
+		expect(statedIntentFrom({ boldness: "bold" })).toEqual({ boldness: "bold" });
+		expect(statedIntentFrom({ boldness: "wild" })).toEqual({});
 	});
 });
 

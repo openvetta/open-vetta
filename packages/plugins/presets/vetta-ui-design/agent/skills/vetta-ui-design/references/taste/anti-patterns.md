@@ -89,9 +89,10 @@ mockups come from the canvas's mockup export, never from markup inside a frame.
 
 ## Mobile screens
 
-**Drawn device.** Notch, bezel, fake status bar with a hand-built battery. → The
-frame is the screen. A plain status bar row is acceptable when the screen needs
-one; the device is added by mockup export.
+**Drawn device.** Notch, island, bezel, home indicator, or a hand-written 9:41
+with signal, Wi-Fi and battery glyphs. → The frame is the screen. The status bar
+is the `StatusBar` preset from `@vetta/ios` and nothing else; the device is
+added by mockup export.
 
 **Floating centred card on a gradient.** A login or onboarding form as a card
 floating mid-screen. → Full-bleed screen layout, content anchored to the top,

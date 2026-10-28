@@ -116,4 +116,31 @@ describe("设计工具闸门", () => {
 		registerToolGate(ctx);
 		expect((await run(providers[0])).every((effect) => effect.enabled)).toBe(false);
 	});
+
+	it("设计语境里把八荣八耻注入系统提示，普通代码仓库里不注入（任何 agent 都生效）", async () => {
+		const providers: Provider[] = [];
+		const files = [ref("src/pages/home.tsx")];
+		const ctx = {
+			fs: { listFilesRecursive: async () => files },
+			agent: {
+				registerSystemPromptProvider: (provider: Provider) => {
+					providers.push(provider);
+					return { dispose: () => {} };
+				},
+			},
+		} as unknown as PluginContext;
+		registerToolGate(ctx);
+		const principles = providers.find((provider) => provider.id === "vetd-core-principles");
+		expect(principles).toBeDefined();
+		expect(await run(principles as Provider)).toEqual([]);
+		setDesignPresence("/proj", true);
+		const [operation] = (await run(principles as Provider)) as unknown as { type: string; block: { id: string; content: string } }[];
+		expect(operation.type).toBe("addBlock");
+		// 插件只能改自己名下的块。
+		expect(operation.block.id).toMatch(/^plugin\.vetta-ui-design\./);
+		expect(operation.block.content).toContain("Core principles: the eight prides and shames");
+		expect(operation.block.content).toMatch(/Only the user's words outrank them/);
+		expect(operation.block.content).not.toContain("You are the visual design specialist");
+	});
 });
+

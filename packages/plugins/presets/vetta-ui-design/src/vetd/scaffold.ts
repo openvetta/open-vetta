@@ -1,6 +1,7 @@
 import type { PluginFsApi } from "@vetta-org/plugin-sdk";
 import { designPackageJson, PACKAGE_FILE } from "./design-package";
 import { emptyManifest, type FrameSize, manifestPathOf, type VetdManifest } from "./manifest-types";
+import type { StatusBarSetting } from "./status-bar";
 
 // 注意：这段是写进用户项目里的产物文件，不是插件 UI 文案，所以不走 locales；
 // 但也不能是中文——英文宿主的用户同样会拿到这个文件。
@@ -50,6 +51,7 @@ export async function scaffoldDesign(
 	cwd: string,
 	rawName: string,
 	defaultFrameSize?: FrameSize | null,
+	statusBar?: StatusBarSetting | null,
 ): Promise<ScaffoldResult> {
 	const name = sanitizeDesignName(rawName);
 	let vetdPath = `${cwd}/${name}.vetd`;
@@ -66,6 +68,7 @@ export async function scaffoldDesign(
 	const manifest: VetdManifest = {
 		...emptyManifest(),
 		...(defaultFrameSize ? { defaultFrameSize } : {}),
+		...(statusBar ? { statusBar } : {}),
 	};
 	await fs.writeFile(manifestPathOf(vetdPath), `${JSON.stringify(manifest, null, "\t")}\n`);
 	return { vetdPath, dirPath: vetdPath };

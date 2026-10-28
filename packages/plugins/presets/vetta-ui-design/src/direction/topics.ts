@@ -11,13 +11,14 @@
 import charts from "../../agent/skills/vetta-ui-design/references/taste/app/charts.md?raw";
 import forms from "../../agent/skills/vetta-ui-design/references/taste/app/forms.md?raw";
 import kpis from "../../agent/skills/vetta-ui-design/references/taste/app/kpis.md?raw";
+import navigation from "../../agent/skills/vetta-ui-design/references/taste/app/navigation.md?raw";
 import phone from "../../agent/skills/vetta-ui-design/references/taste/app/phone.md?raw";
 import shell from "../../agent/skills/vetta-ui-design/references/taste/app/shell.md?raw";
 import tables from "../../agent/skills/vetta-ui-design/references/taste/app/tables.md?raw";
 import values from "../../agent/skills/vetta-ui-design/references/taste/app/values.md?raw";
 
 /** 送出顺序即阅读顺序：外壳 → 内容部件 → 数值 → 手机。 */
-export const APP_TOPICS = { shell, kpis, charts, tables, forms, values, phone } as const;
+export const APP_TOPICS = { shell, kpis, charts, tables, forms, values, phone, navigation } as const;
 export type AppTopic = keyof typeof APP_TOPICS;
 
 const TOPIC_ORDER = Object.keys(APP_TOPICS) as AppTopic[];
@@ -35,7 +36,7 @@ export interface SheetTopicOptions {
  * 对比度、字号台阶、圆角这些底线没有别处替它把关。
  */
 export function sheetTopics(options: SheetTopicOptions): AppTopic[] {
-	const wanted = new Set<AppTopic>([...CONTENT_TOPICS, "values", options.phone ? "phone" : "shell"]);
+	const wanted = new Set<AppTopic>([...CONTENT_TOPICS, "values", ...(options.phone ? ["phone", "navigation"] as const : (["shell"] as const))]);
 	return TOPIC_ORDER.filter((topic) => wanted.has(topic));
 }
 

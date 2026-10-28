@@ -279,6 +279,8 @@ export function NavBar() {
 
 ## Workflow
 
+The eight prides and shames (the tools repeat them) outrank every default below; only the user's words outrank them.
+
 **New document**: pick the product type → `vetd_create` with it → set the
 direction → start building. Do NOT offer the user a menu of styles: design
 systems are a thing the user opts into from the Design sidebar, not something you
@@ -303,9 +305,8 @@ reference pack for this project and following it is the default:
 - The user outranks the pack: if they ask for a different style, follow the
   user. Several packs side by side and no user pick: ask which one first.
 
-The pack stays the contract in later sessions too: adding screens to a design
-that grew out of one, re-read its `DESIGN.md` (and glance at the demo) before
-designing anything new.
+The pack stays the contract in later sessions: before adding screens, re-read
+its `DESIGN.md` (and glance at the demo).
 
 If `DESIGN.md` exists in the design document, the user has already applied a
 system — read it first and follow it, and do NOT rewrite it or `theme.css`.
@@ -330,7 +331,12 @@ by you — three directions of your own, which the tool checks.
    what their words left open and the answer would visibly change the design; a
    detailed prompt needs few or none, "just go ahead" needs none. If the prompt
    does not say what the product is or does, ask that first, before
-   `vetd_create`. Pass `brief`, `sector` (landing), `have` and `intent` — only
+   `vetd_create`. If the purpose is vague and the words give no sense of how
+   daring to be, add one question to that same round: restrained, expressive
+   or bold, each described by what it looks like, recommending restrained for
+   tools and expressive for consumer apps, pages and posters. Words like
+   "minimal" or "bold" already answer it. Pass `intent.boldness`; unasked,
+   infer it from the product. Pass `brief`, `sector` (landing), `have` and `intent` — only
    what the user actually said or answered. What they said is binding; never ask
    it again.
 3. **Get three directions.** Landing: `vetd_create` deals them. App:
@@ -391,11 +397,10 @@ field of flat colour — never another ornament, and never leave a screen thin.
 | Equal outer margins; no section huddled on one side of an empty half | Close the void with a picture, list or column |
 | No cream-and-terracotta, no violet or indigo, unless dealt or the user asked | The direction's palette |
 
-The second table is expressive devices: not tells in themselves, only when used
-without a reason, everywhere. Off by default; a dealt landing direction or an app
-proposal's `devices` (with the reason) turns one on, for where the reason applies.
+The second table is expressive devices: a starting point, not a ban. A dealt
+direction or a proposal's `devices` (with the reason) turns one on.
 
-| Off unless the direction names it | Default instead |
+| Name it in `devices` to use it | Start from |
 | --- | --- |
 | Gradients, glows or glass | Flat colour, a tone step between surfaces |
 | A shadow on anything at rest | Space or a tone step; shadows on what floats |
@@ -423,17 +428,14 @@ Then, for a multi-screen product, write in two passes:
    a targeted recheck after a fix. Each save still hot-reloads, so the user sees
    progress while one model/tool round verifies several screens.
 
-Single screens, posters and slides skip the skeleton pass — just write the file.
+Single screens, posters and slides skip the skeleton pass.
 
 **Going back**: every design keeps its own version history — one version per turn
-that changed it, saved automatically, titled with what the user asked for. So
-"undo that", "go back to before the nav bar moved", "restore the previous
+that changed it, saved automatically. So "undo that" or "restore the previous
 version" is `vetd_history` then `vetd_restore`, NOT you editing files until they
-resemble the old version from memory. Restoring is safe in both directions: it
-is saved as a new version too, so a wrong pick is one more `vetd_restore` away
-from being corrected — the response tells you where the pre-restore state went.
-The user can also do it themselves from the canvas's history panel, where the
-versions carry thumbnails.
+resemble the old version from memory. Restoring is saved as a new version too, so a wrong
+pick is one more `vetd_restore` away; the response says where the pre-restore
+state went. The user can also use the canvas's history panel.
 
 **Verify visually**: call `vetd_screenshot` with all frames you created or
 changed (`frames: [...]`, or `all: true` when the whole design is in scope), then
@@ -445,23 +447,19 @@ icon, or a surface whose theme token was never defined). A frame that does not
 parse is listed as a failed member without discarding the other captures — fix
 the reported line and recheck that frame only.
 
-Every successful frame also carries a `verification` observation. If
-`stalled: true`, two consecutive checks produced the same image and the same
-issues. Do not make a third blind edit: inspect whether the checker assumption
-fits the visible result, and report the stalled finding when it is a false
-positive. `vetd_status.issues: []` is source-only and is never visual proof;
-`renderVerification` tells you whether prior captures are current or stale.
+Every successful frame carries a `verification` observation. If `stalled: true`,
+two checks gave the same image and issues: make no third blind edit, inspect
+whether the checker fits the visible result, and report a false positive.
+`vetd_status.issues: []` is source-only, never visual proof; `renderVerification`
+says whether prior captures are current.
 
 Nothing will remind you: the checker only speaks through `vetd_screenshot` and
-`vetd_status`, and neither runs by itself. A frame you wrote but never included
-in a screenshot batch may be sitting on the canvas as a build error or at a size
-you never chose, and the user sees it while you do not. Batch verification
-keeps that safety without one model round and one image Read per frame.
+`vetd_status`. A frame never included in a screenshot batch may sit on the
+canvas as a build error or at a size you never chose, and only the user sees it.
 
-**Check the structure**: for a UI product with more than one screen, or with
-chrome that repeats across screens, answer these four before reporting back.
-They are the ones no checker can see; skip them for posters, slides and
-single-screen designs.
+**Check the structure**: for a UI product with several screens or repeated
+chrome, answer these four before reporting; no checker sees them. Skip them
+for posters, slides and single screens.
 
 1. **Chrome defined once?** Grep for the nav bar's markup — it must appear in
    exactly one file. Two frames both containing the sidebar means extract it.
@@ -490,8 +488,8 @@ were working. Notes also reach you through an explicit "handle my notes" prompt,
 a `pendingNotes` count in `vetd_status`, and a flag on the frame
 `vetd_screenshot` just shot.
 
-Users pin requests rather than interrupt a running turn, so a note can appear
-after your last screenshot and nothing will notify you of it. **Done** means:
+Users pin requests rather than interrupt a turn, so a note can appear after your
+last screenshot unannounced. **Done** means:
 every frame you touched is represented in the latest screenshot batch and its
 overview was Read, each current frame capture is free of the three screenshot
 defects and of the generated-UI tells in `references/quality.md` § 5, its
@@ -564,6 +562,8 @@ Resolve against `$SKILL_DIR`. Do not read them all up front.
 | `references/taste/directions.md` | A slide, poster or infographic with no pack or `DESIGN.md` (landing pages are dealt, apps proposed) |
 | `references/taste/whitespace.md` | Weighing whether a line, divider or card wrapper earns its place; a capture looks boxed-in |
 | `references/taste/app-screens.md` | Product type is app screens or a dashboard — read it before the first screen; the app sheet ends with the parts (`app/*.md`) the screens use |
+| `references/taste/app-screens-content.md` | The app is content-led or consumer (media, ordering, travel, games): read it beside `app-screens.md` |
+| `references/taste/texture.md` | A held object (card, ticket) or depth is wanted: light, grain, edge |
 | `references/taste/color.md` | Setting a palette by hand; chart and status colors |
 | `references/taste/typography.md` | Choosing faces by hand, the type scale, CJK font stacks |
 | `references/taste/copy.md` | Writing headlines, labels, empty and error states |

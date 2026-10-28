@@ -35,7 +35,7 @@ const SKILL_RULES: Record<string, (string | RegExp)[]> = {
 	"app directions depart from the obvious version": ["`obvious`", /nearest competitor/, /differ\s+in light\/dark, accent colour family and display type class/],
 	"learn preferences without pestering": ["without pestering", "`preferences`", "`direction.ask`", "`intent.mood`"],
 	"house rules table": ["### House rules", "eyebrow", "Monospace", "Gradients", "01 / 02 / 03", "13px", "terracotta"],
-	"expressive devices are off unless the direction names them": [/expressive devices/, "`devices`", "Off unless the direction names it"],
+	"expressive devices are a start, named in devices to use": [/expressive devices/, "`devices`", "Name it in `devices` to use it"],
 	"existing design starts from vetd_status": ["`vetd_status` ONCE", "`sharedShell`"],
 	"history goes through vetd_history / vetd_restore": ["`vetd_history`", "`vetd_restore`"],
 	"verify with one screenshot batch and read it": ["`vetd_screenshot`", "`frames: [...]`", "`all: true`", "`stalled: true`", "`renderVerification`"],
@@ -71,6 +71,8 @@ const DESIGNER_RULES: (string | RegExp)[] = [
 	"theme.css",
 	"_layout.tsx",
 	"production specialist",
+	"the eight prides and shames",
+	"references/taste/texture.md",
 ];
 
 const QUALITY_RULES: (string | RegExp)[] = [
@@ -95,6 +97,13 @@ describe("vetta-ui-design prompt rules survive edits", () => {
 			expect(missing(skill, needles)).toEqual([]);
 		});
 	}
+
+	it("designer.md keeps all eight prides and shames, each with its test", () => {
+		// read() 把空白压成一个空格，按行匹配要读原文。
+		const creed = readFileSync(join(AGENT_DIR, "agents/designer.md"), "utf8").split("## Core principles: the eight prides and shames")[1] ?? "";
+		const items = creed.match(/^\d\. Take pride in .+; be ashamed of .+\. \*.+\*$/gm) ?? [];
+		expect(items).toHaveLength(8);
+	});
 
 	it("designer.md keeps its routing and its non-negotiable reminders", () => {
 		expect(missing(read("agents/designer.md"), DESIGNER_RULES)).toEqual([]);

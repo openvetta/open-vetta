@@ -103,7 +103,8 @@ other issue. Look for the rest in the shot; the fixes are in
 - An eyebrow label on every section, or beside its heading.
 - Numbers presented as product proof that the user never supplied; Jane Doe,
   张三, Acme, Lorem ipsum.
-- A drawn browser bar, phone bezel or notch inside a frame.
+- A drawn browser bar, phone bezel, notch or hand-built status bar inside a frame
+  (the `StatusBar` preset is the only status bar).
 - The accent covering far more than a small share of the frame.
 
 Fix what you find and screenshot again. A frame is done when the image is

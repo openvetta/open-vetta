@@ -10,6 +10,10 @@
 import type { DealtOption, DirectionMode } from "./record";
 
 /** 用户原话里已经给出的基调，按用户自己的措辞存。 */
+/** 设计要多敢：稳重沿用默认规则；有个性放行渐变、阴影、玻璃；大胆再要求一处主动出格与不同的外壳。 */
+export const BOLDNESS_VALUES = ["restrained", "expressive", "bold"] as const;
+export type Boldness = (typeof BOLDNESS_VALUES)[number];
+
 export interface StatedIntent {
 	/** 气质、风格、参考产品或网站（「像 Apple TV」「极简」「复古胶片」）。 */
 	mood?: string;
@@ -19,6 +23,8 @@ export interface StatedIntent {
 	emphasis?: string;
 	/** 用户点名的现有品牌（「Emby」）。 */
 	brand?: string;
+	/** 用户要多敢：说了「稳重」「炫酷」「大胆」之类，或回答了大胆度那一题。没说就不填，按稳重处理。 */
+	boldness?: Boldness;
 	/** 用户说了「直接做」「你看着办」：一题都不问。 */
 	goAhead?: boolean;
 	/** agent 自己问过的题与用户的回答（用户的语言原样存）：之后加页面沿用，不再重问。 */
@@ -72,6 +78,8 @@ export function statedIntentFrom(value: unknown): StatedIntent {
 	if (colour) stated.colour = colour;
 	if (emphasis) stated.emphasis = emphasis;
 	if (brand) stated.brand = brand;
+	const boldness = BOLDNESS_VALUES.find((value) => value === raw.boldness);
+	if (boldness) stated.boldness = boldness;
 	if (raw.goAhead === true) stated.goAhead = true;
 	const preferences = preferencesFrom(raw.preferences);
 	if (preferences.length > 0) stated.preferences = preferences;
@@ -180,6 +188,13 @@ const BRAND_TEXT: Record<(typeof BRAND_COLOUR_VALUES)[number], string> = {
 	main: "as the main colour across the screens, still with neutral ground and text",
 };
 
+const BOLDNESS_TEXT: Record<Boldness, string> = {
+	restrained: "restrained — quiet and composed; the house rules hold as written.",
+	expressive:
+		"expressive — a design with character. Gradients, resting shadows and glass pass the screenshot check without a stated reason; use them where they make the product more itself, in one family of hues.",
+	bold: "bold — memorable at a glance. Everything in expressive, plus one deliberate break from a default (the direction states it), an oversized move on the first screen, and a shell that differs from the other options.",
+};
+
 /**
  * 方向表开头的「用户要的」：用户原话与回答都是硬条件，排在方向表一切内容之前。
  * 没有任何基调时返回空数组，方向表就不出这一节。
@@ -196,6 +211,7 @@ export function intentLines(intent: Intent | undefined): string[] {
 		const use = answers?.brandColour ? BRAND_TEXT[answers.brandColour as keyof typeof BRAND_TEXT] : null;
 		lines.push(`- Brand: ${stated.brand}${use ? `; its colour is used ${use}` : ""}.`);
 	}
+	if (stated.boldness) lines.push(`- Boldness: ${BOLDNESS_TEXT[stated.boldness]}`);
 	for (const { question, answer } of stated.preferences ?? []) {
 		lines.push(`- Asked "${question}" — the user answered "${answer}". Binding.`);
 	}
@@ -227,6 +243,12 @@ export const INTENT_SCHEMA = {
 		colour: { type: "string", description: "Colour the user named (dark, warm, a brand hex), in their words." },
 		emphasis: { type: "string", description: "What the user said should come first (posters, dense info…)." },
 		brand: { type: "string", description: "An existing brand the user named (e.g. Emby)." },
+		boldness: {
+			type: "string",
+			enum: [...BOLDNESS_VALUES],
+			description:
+				"How daring the design should be, from the user's words or their answer: restrained (quiet, professional), expressive (character, depth, colour), bold (memorable, striking). Leave out when the user said nothing about it.",
+		},
 		goAhead: { type: "boolean", description: "True when the user said to just go ahead without questions." },
 		preferences: PREFERENCES_SCHEMA,
 	},
