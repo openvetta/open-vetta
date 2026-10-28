@@ -279,6 +279,8 @@ export function NavBar() {
 
 ## Workflow
 
+The eight prides and shames (designer role; the tools repeat them) outrank every default below; only the user's words outrank them.
+
 **New document**: pick the product type → `vetd_create` with it → set the
 direction → start building. Do NOT offer the user a menu of styles: design
 systems are a thing the user opts into from the Design sidebar, not something you
@@ -429,8 +431,7 @@ Then, for a multi-screen product, write in two passes:
 Single screens, posters and slides skip the skeleton pass.
 
 **Going back**: every design keeps its own version history — one version per turn
-that changed it, saved automatically, titled with what the user asked for. So
-"undo that", "go back to before the nav bar moved", "restore the previous
+that changed it, saved automatically. So "undo that" or "restore the previous
 version" is `vetd_history` then `vetd_restore`, NOT you editing files until they
 resemble the old version from memory. Restoring is saved as a new version too, so a wrong
 pick is one more `vetd_restore` away; the response says where the pre-restore
@@ -456,10 +457,9 @@ Nothing will remind you: the checker only speaks through `vetd_screenshot` and
 `vetd_status`. A frame never included in a screenshot batch may sit on the
 canvas as a build error or at a size you never chose, and only the user sees it.
 
-**Check the structure**: for a UI product with more than one screen, or with
-chrome that repeats across screens, answer these four before reporting back.
-They are the ones no checker can see; skip them for posters, slides and
-single-screen designs.
+**Check the structure**: for a UI product with several screens or repeated
+chrome, answer these four before reporting; no checker sees them. Skip them
+for posters, slides and single screens.
 
 1. **Chrome defined once?** Grep for the nav bar's markup — it must appear in
    exactly one file. Two frames both containing the sidebar means extract it.

@@ -6,6 +6,7 @@ import {
 	getFrameError,
 	setPendingDesignPath,
 } from "./canvas/design-runtime";
+import { CREED_CHECK, CREED_LINE } from "./creed";
 import { captureFrameOffscreen, offscreenRasterSupported } from "./canvas/offscreen-raster";
 import { screenshotCardDescriptor, SCREENSHOT_TOOL_NAME } from "./cards/screenshot-card";
 import { pruneSnapshots, snapshotPath } from "./cards/snapshots";
@@ -283,7 +284,7 @@ export function registerDesignTools(ctx: PluginContext): void {
 						}
 					: {}),
 				...(proposal ? { direction: { mode: "app", ...proposal } } : {}),
-				note: `${firstStep(dealt, proposal !== null)}Design created and opened on the canvas, with NO frames yet. Its default size is ${defaultFrameSize.width}x${defaultFrameSize.height} — still declare it per frame: every frames/<id>.tsx starts with \`export const frame = { width: ${defaultFrameSize.width}, height: ${defaultFrameSize.height}, title }\`, and a screen of a different product type declares its own. Never edit design.json. More than one screen? Write the shared chrome FIRST (components/, or frames/_layout.tsx), then every frame as a short skeleton so the whole set reaches the canvas immediately, and only then fill them in one at a time — see the vetta-ui-design skill.${statusBar ? statusBarNote(statusBar) : ""}`,
+				note: `${firstStep(dealt, proposal !== null)}Design created and opened on the canvas, with NO frames yet. Its default size is ${defaultFrameSize.width}x${defaultFrameSize.height} — still declare it per frame: every frames/<id>.tsx starts with \`export const frame = { width: ${defaultFrameSize.width}, height: ${defaultFrameSize.height}, title }\`, and a screen of a different product type declares its own. Never edit design.json. ${CREED_LINE} More than one screen? Write the shared chrome FIRST (components/, or frames/_layout.tsx), then every frame as a short skeleton so the whole set reaches the canvas immediately, and only then fill them in one at a time — see the vetta-ui-design skill.${statusBar ? statusBarNote(statusBar) : ""}`,
 			};
 		},
 	});
@@ -477,7 +478,7 @@ export function registerDesignTools(ctx: PluginContext): void {
 					verification: result.verification,
 					note: result.verification.stalled
 						? "The image and measured issues are unchanged across two captures. Do not make a third blind edit; inspect the image/checker assumption and report the stalled result if it is a false positive."
-						: "Read this screenshot now. Check hierarchy, copy, icon meaning, contrast, spacing, clipping and frame fill; make only evidence-based edits, then recheck this frame if needed.",
+						: `Read this screenshot now. Check hierarchy, copy, icon meaning, contrast, spacing, clipping and frame fill; make only evidence-based edits, then recheck this frame if needed. ${CREED_CHECK}`,
 					cards: [screenshotCardDescriptor(vetdPath, dirPath, result.frame)],
 				};
 			}
@@ -517,7 +518,7 @@ export function registerDesignTools(ctx: PluginContext): void {
 					stalledFrames,
 				},
 				note: overviewPath
-					? `Read the overview path once and compare all captured frames together.${stalledFrames.length > 0 ? ` Stop blind edits on stalled frames: ${stalledFrames.join(", ")}.` : ""}`
+					? `Read the overview path once and compare all captured frames together. ${CREED_CHECK}${stalledFrames.length > 0 ? ` Stop blind edits on stalled frames: ${stalledFrames.join(", ")}.` : ""}`
 					: "The overview could not be composed in this host. Read the per-frame paths listed in `frames`.",
 				cards: successful.map((result) => screenshotCardDescriptor(vetdPath, dirPath, result.frame)),
 			};

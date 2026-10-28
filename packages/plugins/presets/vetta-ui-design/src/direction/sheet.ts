@@ -12,6 +12,7 @@
 import type { AppInput, ImageryMode, PageChoice, PageInput } from "./deal";
 import { imageryMode } from "./deal";
 import { availableWeights, axisFromSettings, type FontAxis, fontImports, fontsourcePackage, registeredFamily } from "./fontsource";
+import { CREED_LINE } from "../creed";
 import { type Intent, intentLines } from "./intent";
 import type { TasteHero, TasteLibrary, TastePalette, TasteSection, TasteType } from "./library";
 import { type AppProposal, readableOn, type TypeClass } from "./proposal";
@@ -312,6 +313,8 @@ export function renderPageSheet(
 	p(`One screen is ${screenHeight}px tall, so 80svh = ${Math.round(screenHeight * 0.8)}px. Write those as pixels: a landing frame is several`);
 	p("screens tall, and vh/svh inside it measure the whole frame. Declare the frame's height as the page's real length.");
 	p();
+	p(CREED_LINE);
+	p();
 	userIntent(p, ctx.intent);
 	p("## 1. The idea");
 	p(dir.idea);
@@ -478,6 +481,8 @@ export function renderAppSheet(
 	p();
 	p("This is your own direction, written down so the screens hold to it. Build every screen from it; when a screen");
 	p("tempts you back toward the obvious version below, that is the moment the design turns generic.");
+	p();
+	p(CREED_LINE);
 	p();
 	userIntent(p, ctx.intent);
 	p("## 1. The idea");

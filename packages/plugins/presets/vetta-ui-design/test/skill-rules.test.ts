@@ -71,7 +71,7 @@ const DESIGNER_RULES: (string | RegExp)[] = [
 	"theme.css",
 	"_layout.tsx",
 	"production specialist",
-	"The eight prides and shames",
+	"the eight prides and shames",
 	"references/taste/texture.md",
 ];
 
@@ -100,7 +100,7 @@ describe("vetta-ui-design prompt rules survive edits", () => {
 
 	it("designer.md keeps all eight prides and shames, each with its test", () => {
 		// read() 把空白压成一个空格，按行匹配要读原文。
-		const creed = readFileSync(join(AGENT_DIR, "agents/designer.md"), "utf8").split("## The eight prides and shames")[1] ?? "";
+		const creed = readFileSync(join(AGENT_DIR, "agents/designer.md"), "utf8").split("## Core principles: the eight prides and shames")[1] ?? "";
 		const items = creed.match(/^\d\. Take pride in .+; be ashamed of .+\. \*.+\*$/gm) ?? [];
 		expect(items).toHaveLength(8);
 	});
