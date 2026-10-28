@@ -45,6 +45,7 @@ export const DEVICE_TELLS = {
 	gradient: ["tell-gradient", "tell-gradient-text"],
 	shadow: ["tell-shadow"],
 	glass: ["tell-glass"],
+	texture: ["tell-gradient", "tell-shadow"],
 	mono: ["tell-mono"],
 	"third-face": ["tell-font-count"],
 	"tracked-caps": ["tell-micro-label"],

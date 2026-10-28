@@ -263,5 +263,12 @@ describe("大胆度", () => {
 			expect.arrayContaining(["tell-gradient", "tell-shadow", "tell-glass", "tell-font-count", "tell-micro-label"]),
 		);
 	});
-});
 
+	it("texture 手法放行渐变与阴影两条机检，且要写理由", () => {
+		const input = appInputFrom({ for: "app", brief: "bank card manager" });
+		const withTexture = option({ devices: [{ device: "texture", reason: "the bank card is the hero object" }] });
+		const proposed = propose(startProposal(input, 1, NOW, {}), [withTexture, night(), loud()], OBVIOUS, [], NOW, "");
+		expect(choose(dealer, proposed.record, "roast-ledger", NOW).allow).toEqual(["tell-gradient", "tell-shadow"]);
+		expect(problems([option({ devices: [{ device: "texture", reason: "" }] }), night(), loud()])).toMatch(/devices\.texture: give the reason/);
+	});
+});

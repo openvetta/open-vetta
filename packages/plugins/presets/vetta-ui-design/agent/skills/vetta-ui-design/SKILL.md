@@ -303,9 +303,8 @@ reference pack for this project and following it is the default:
 - The user outranks the pack: if they ask for a different style, follow the
   user. Several packs side by side and no user pick: ask which one first.
 
-The pack stays the contract in later sessions too: adding screens to a design
-that grew out of one, re-read its `DESIGN.md` (and glance at the demo) before
-designing anything new.
+The pack stays the contract in later sessions: before adding screens, re-read
+its `DESIGN.md` (and glance at the demo).
 
 If `DESIGN.md` exists in the design document, the user has already applied a
 system — read it first and follow it, and do NOT rewrite it or `theme.css`.
@@ -427,7 +426,7 @@ Then, for a multi-screen product, write in two passes:
    a targeted recheck after a fix. Each save still hot-reloads, so the user sees
    progress while one model/tool round verifies several screens.
 
-Single screens, posters and slides skip the skeleton pass — just write the file.
+Single screens, posters and slides skip the skeleton pass.
 
 **Going back**: every design keeps its own version history — one version per turn
 that changed it, saved automatically, titled with what the user asked for. So
@@ -564,6 +563,7 @@ Resolve against `$SKILL_DIR`. Do not read them all up front.
 | `references/taste/whitespace.md` | Weighing whether a line, divider or card wrapper earns its place; a capture looks boxed-in |
 | `references/taste/app-screens.md` | Product type is app screens or a dashboard — read it before the first screen; the app sheet ends with the parts (`app/*.md`) the screens use |
 | `references/taste/app-screens-content.md` | The app is content-led or consumer (media, ordering, travel, games): read it beside `app-screens.md` |
+| `references/taste/texture.md` | A held object (card, ticket) or depth is wanted: light, grain, edge |
 | `references/taste/color.md` | Setting a palette by hand; chart and status colors |
 | `references/taste/typography.md` | Choosing faces by hand, the type scale, CJK font stacks |
 | `references/taste/copy.md` | Writing headlines, labels, empty and error states |

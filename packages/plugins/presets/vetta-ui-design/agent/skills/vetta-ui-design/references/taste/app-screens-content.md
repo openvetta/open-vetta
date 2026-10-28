@@ -33,6 +33,13 @@ leads and the screen is allowed to be felt.
   no blurred blobs, no coloured glow shadows.
 - Every ornament names something, or goes.
 
+## A hero object carries the material
+
+If the product has something people hold — a card, ticket, record, coupon, bag —
+that object is the most carefully made thing on the screen and the only textured
+one: light, grain and an edge, from `texture.md`. A bank app whose card is a flat
+rounded rectangle has not been designed yet. Declare `texture` in `devices`.
+
 ## The run, in addition to `app-screens.md`
 
 1. **Name the one thing** a person would describe to a friend after using the

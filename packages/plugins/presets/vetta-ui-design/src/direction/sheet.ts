@@ -452,6 +452,7 @@ const DEVICE_TEXT: Record<string, string> = {
 	gradient: "a gradient",
 	shadow: "shadows on resting surfaces",
 	glass: "glass (backdrop blur)",
+	texture: "a textured hero object (light, grain, edge) — on that object only",
 	mono: "a monospace face outside code",
 	"third-face": "a third typeface",
 	"tracked-caps": "small tracked capitals",
