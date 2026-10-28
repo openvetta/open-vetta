@@ -518,9 +518,20 @@ export function renderAppSheet(
 	p("`tabular-nums` on every figure that is compared or updates.");
 	p();
 	p("## 4. Devices");
+	const boldness = ctx.intent?.stated.boldness;
+	if (boldness === "expressive" || boldness === "bold") {
+		p(
+			`The user asked for a ${boldness} design: gradients, resting shadows and glass${boldness === "bold" ? ", a third typeface and tracked capitals" : ""} pass the screenshot check without a stated reason.`,
+		);
+		p("Spend them on one or two moves, in one hue family; the rest stays quiet. Purple-to-blue gradients, gradient text and blurred blobs are still out.");
+		if (proposal.breaks) p(`**The deliberate break (use it on the first screen):** ${proposal.breaks}`);
+		if (proposal.shell) p(`**Shell:** ${proposal.shell}.`);
+	}
 	if (proposal.devices.length === 0) {
-		p("No expressive devices: no gradient, glass, resting shadow, monospace outside code, third face or tracked capitals.");
-		p("The look comes from the idea, the colour, the type and the layout.");
+		if (boldness !== "expressive" && boldness !== "bold") {
+			p("No expressive devices: no gradient, glass, resting shadow, monospace outside code, third face or tracked capitals.");
+			p("The look comes from the idea, the colour, the type and the layout.");
+		}
 	} else {
 		p("This direction uses, for its stated reasons (the screenshot check lets them through):");
 		for (const { device, reason } of proposal.devices) p(`- ${DEVICE_TEXT[device] ?? device} — ${reason}`);

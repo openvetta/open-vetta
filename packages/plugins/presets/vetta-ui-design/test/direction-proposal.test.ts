@@ -220,3 +220,48 @@ describe("提案进设计", () => {
 		expect(directionIssues(legacy)).toEqual([]);
 	});
 });
+
+describe("大胆度", () => {
+	const BREAKS = "The whole first screen turns the colour of the roast, a full-bleed field behind the bag.";
+	const bold = (shell: string, extra: Raw = {}) => ({ shell, breaks: BREAKS, ...extra });
+
+	it("稳重（没说）时 shell 与 breaks 都不要求", () => {
+		expect(problems([option(), night(), loud()])).toBe("");
+	});
+
+	it("大胆：每案都要 shell 和 breaks，缺了一次列全", () => {
+		const message = problems([option(), night(), loud()], ctx({ stated: { boldness: "bold" } }));
+		expect(message).toMatch(/options\[0\]\.shell is required/);
+		expect(message).toMatch(/options\[2\]\.breaks is required/);
+	});
+
+	it("大胆：三案外壳必须各不相同", () => {
+		const message = problems(
+			[option(bold("sidebar")), night(bold("sidebar")), loud(bold("rail"))],
+			ctx({ stated: { boldness: "bold" } }),
+		);
+		expect(message).toMatch(/three different shells/);
+		expect(
+			problems([option(bold("sidebar")), night(bold("bottom-tabs")), loud(bold("rail"))], ctx({ stated: { boldness: "bold" } })),
+		).toBe("");
+	});
+
+	it("shell 写了不认识的值就报错", () => {
+		expect(problems([option({ shell: "dock" }), night(), loud()])).toMatch(/options\[0\]\.shell is one of/);
+	});
+
+	it("选定后放行的机检规则随大胆度增加，稳重不变", () => {
+		const input = appInputFrom({ for: "app", brief: "coffee orders" });
+		const tellsFor = (boldness?: "restrained" | "expressive" | "bold") => {
+			const stated = boldness ? { boldness } : {};
+			const proposed = propose(startProposal(input, 1, NOW, stated), [option(bold("sidebar")), night(bold("rail")), loud(bold("split"))], OBVIOUS, [], NOW, "");
+			return choose(dealer, proposed.record, "roast-ledger", NOW).allow;
+		};
+		expect(tellsFor()).toEqual([]);
+		expect(tellsFor("expressive")).toEqual(["tell-gradient", "tell-gradient-text", "tell-shadow", "tell-glass"]);
+		expect(tellsFor("bold")).toEqual(
+			expect.arrayContaining(["tell-gradient", "tell-shadow", "tell-glass", "tell-font-count", "tell-micro-label"]),
+		);
+	});
+});
+

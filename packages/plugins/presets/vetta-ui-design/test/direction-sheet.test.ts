@@ -151,6 +151,26 @@ describe("App 方向表", () => {
 		expect(text).toMatch(/No expressive devices/);
 	});
 
+	it("大胆度写进设备一节：有个性放行手法，大胆再点出那一处出格和外壳", () => {
+		const input = appInputFrom({ brief: "coffee ordering app" });
+		const { record, proposal } = chosenApp(input, "roast-ledger");
+		const plain = renderAppSheet(input, proposal, "", desktop).text;
+		expect(plain).toContain("No expressive devices");
+		const lively = renderAppSheet(input, proposal, "", {
+			...desktop,
+			intent: { stated: { boldness: "expressive" }, questions: [], answers: null },
+		}).text;
+		expect(lively).toContain("pass the screenshot check without a stated reason");
+		expect(lively).not.toContain("No expressive devices");
+		const daring = renderAppSheet(input, { ...proposal, shell: "rail", breaks: "A full-bleed roast-colour field behind the bag." }, "", {
+			...desktop,
+			intent: { stated: { boldness: "bold" }, questions: [], answers: null },
+		}).text;
+		expect(daring).toContain("The deliberate break");
+		expect(daring).toContain("**Shell:** rail.");
+		expect(record.proposals).toBeDefined();
+	});
+
 	it("只有 400 一个字重的静态字体只 import 400", () => {
 		const { record } = chosenApp(input, "roast-ledger");
 		const proposal = { ...record.proposals![0], type: { display: "DM Serif Display", text: "Figtree", class: "serif-display" as const } };
