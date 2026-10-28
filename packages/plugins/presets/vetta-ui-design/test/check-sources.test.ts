@@ -343,3 +343,17 @@ describe("脚手架占位主题", () => {
 		expect(DEFAULT_THEME_CSS).not.toMatch(/#4f46e5|#0f172a|#f59e0b/i);
 	});
 });
+
+it("catches a hand-drawn status bar by its 9:41, unless the preset is imported", () => {
+	expect(rulesFor('<span className="font-semibold">9:41</span>')).toContain("hand-drawn-status-bar");
+	expect(rulesFor('const time = "9:41";')).toContain("hand-drawn-status-bar");
+	const withPreset = 'import { StatusBar } from "@vetta/ios";\n<span>9:41</span>';
+	expect(rulesFor(withPreset)).not.toContain("hand-drawn-status-bar");
+	// 别的时间不该命中
+	expect(rulesFor("<span>19:41</span>")).not.toContain("hand-drawn-status-bar");
+	expect(rulesFor("<span>10:30 AM</span>")).not.toContain("hand-drawn-status-bar");
+});
+
+it("treats @vetta/ios as something the engine ships", () => {
+	expect(rulesFor('import { StatusBar } from "@vetta/ios";')).not.toContain("uninstalled-import");
+});

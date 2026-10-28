@@ -372,6 +372,15 @@ function rulesFor(installedPackages: ReadonlySet<string>): Rule[] {
 			"Defines its own Icon component. Icons are Iconify classes: <span className=\"icon-[lucide--search] size-4\" />. Hand-rolled icon components drift between frames and usually render one fallback glyph everywhere.",
 	},
 	{
+		id: "hand-drawn-status-bar",
+		// 只认 Apple 约定的 9:41：手绘的假状态栏几乎都写它，而真实的时间文案（日程、
+		// 倒计时）不会恰好写成这个。文件里已经 import 了预设就不再报。
+		test: (line, file) =>
+			/(?:>|["'`])\s*0?9:41\s*(?:<|["'`])/.test(line) && !/from\s+["']@vetta\/ios["']/.test(file.content),
+		message:
+			"Draws its own iOS status bar (a hand-written 9:41). Use the preset instead: `import { StatusBar } from \"@vetta/ios\"` and render <StatusBar /> — it carries the real signal, Wi-Fi and battery glyphs, the Dynamic Island or notch, and the safe-area height. See references/taste/app/phone.md.",
+	},
+	{
 		id: "hardcoded-color",
 		test: (line) => HEX_IN_CLASSNAME.test(line),
 		message:
