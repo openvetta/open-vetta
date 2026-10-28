@@ -330,7 +330,12 @@ by you — three directions of your own, which the tool checks.
    what their words left open and the answer would visibly change the design; a
    detailed prompt needs few or none, "just go ahead" needs none. If the prompt
    does not say what the product is or does, ask that first, before
-   `vetd_create`. Pass `brief`, `sector` (landing), `have` and `intent` — only
+   `vetd_create`. If the purpose is vague and the words give no sense of how
+   daring to be, add one question to that same round: restrained, expressive
+   or bold, each described by what it looks like, recommending restrained for
+   tools and expressive for consumer apps, pages and posters. Words like
+   "minimal" or "bold" already answer it. Pass `intent.boldness`; unasked,
+   infer it from the product. Pass `brief`, `sector` (landing), `have` and `intent` — only
    what the user actually said or answered. What they said is binding; never ask
    it again.
 3. **Get three directions.** Landing: `vetd_create` deals them. App:
@@ -428,11 +433,9 @@ Single screens, posters and slides skip the skeleton pass — just write the fil
 that changed it, saved automatically, titled with what the user asked for. So
 "undo that", "go back to before the nav bar moved", "restore the previous
 version" is `vetd_history` then `vetd_restore`, NOT you editing files until they
-resemble the old version from memory. Restoring is safe in both directions: it
-is saved as a new version too, so a wrong pick is one more `vetd_restore` away
-from being corrected — the response tells you where the pre-restore state went.
-The user can also do it themselves from the canvas's history panel, where the
-versions carry thumbnails.
+resemble the old version from memory. Restoring is saved as a new version too, so a wrong
+pick is one more `vetd_restore` away; the response says where the pre-restore
+state went. The user can also use the canvas's history panel.
 
 **Verify visually**: call `vetd_screenshot` with all frames you created or
 changed (`frames: [...]`, or `all: true` when the whole design is in scope), then
@@ -444,18 +447,15 @@ icon, or a surface whose theme token was never defined). A frame that does not
 parse is listed as a failed member without discarding the other captures — fix
 the reported line and recheck that frame only.
 
-Every successful frame also carries a `verification` observation. If
-`stalled: true`, two consecutive checks produced the same image and the same
-issues. Do not make a third blind edit: inspect whether the checker assumption
-fits the visible result, and report the stalled finding when it is a false
-positive. `vetd_status.issues: []` is source-only and is never visual proof;
-`renderVerification` tells you whether prior captures are current or stale.
+Every successful frame carries a `verification` observation. If `stalled: true`,
+two checks gave the same image and issues: make no third blind edit, inspect
+whether the checker fits the visible result, and report a false positive.
+`vetd_status.issues: []` is source-only, never visual proof; `renderVerification`
+says whether prior captures are current.
 
 Nothing will remind you: the checker only speaks through `vetd_screenshot` and
-`vetd_status`, and neither runs by itself. A frame you wrote but never included
-in a screenshot batch may be sitting on the canvas as a build error or at a size
-you never chose, and the user sees it while you do not. Batch verification
-keeps that safety without one model round and one image Read per frame.
+`vetd_status`. A frame never included in a screenshot batch may sit on the
+canvas as a build error or at a size you never chose, and only the user sees it.
 
 **Check the structure**: for a UI product with more than one screen, or with
 chrome that repeats across screens, answer these four before reporting back.
@@ -489,8 +489,8 @@ were working. Notes also reach you through an explicit "handle my notes" prompt,
 a `pendingNotes` count in `vetd_status`, and a flag on the frame
 `vetd_screenshot` just shot.
 
-Users pin requests rather than interrupt a running turn, so a note can appear
-after your last screenshot and nothing will notify you of it. **Done** means:
+Users pin requests rather than interrupt a turn, so a note can appear after your
+last screenshot unannounced. **Done** means:
 every frame you touched is represented in the latest screenshot batch and its
 overview was Read, each current frame capture is free of the three screenshot
 defects and of the generated-UI tells in `references/quality.md` § 5, its
