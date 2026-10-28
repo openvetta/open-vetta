@@ -279,7 +279,7 @@ export function NavBar() {
 
 ## Workflow
 
-The eight prides and shames (designer role; the tools repeat them) outrank every default below; only the user's words outrank them.
+The eight prides and shames (the tools repeat them) outrank every default below; only the user's words outrank them.
 
 **New document**: pick the product type → `vetd_create` with it → set the
 direction → start building. Do NOT offer the user a menu of styles: design

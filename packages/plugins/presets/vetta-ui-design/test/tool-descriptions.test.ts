@@ -62,6 +62,14 @@ describe("重工具描述", () => {
 		expect(description).toMatch(/implement the page directly in that repo's own framework instead/);
 	});
 
+	it("vetd_create 的描述对任何 agent 都带着先读 skill 的要求和八荣八耻", () => {
+		// 大多数人用默认 agent，不会选「设计师」；工具描述每轮都在系统提示里，是它们唯一一定读到的地方。
+		const description = descriptions.get("vetd_create") ?? "";
+		expect(description).toMatch(/load it first/);
+		expect(description).toMatch(/Core principles/);
+		expect(description).toMatch(/only the user's words outrank them/);
+	});
+
 	it("vetd_notes 明确排除「与设计无关的收尾习惯」", () => {
 		// 真实故障：普通前端改页面时，agent 每轮结尾照旧补一发 vetd_notes。
 		// 工具表闸门（vetd/tool-gate）是硬防线，描述这条是软防线，两条都要在。
