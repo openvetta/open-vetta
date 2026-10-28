@@ -3,8 +3,7 @@
 A phone screen is not a desktop folded down; its composition comes from the
 direction. What holds on every phone screen:
 
-- The frame is the screen: no drawn bezel, notch or home indicator. Keep the top
-  ~50px for the status bar unless a picture deliberately runs under it, and the
+- The frame is the screen: no drawn bezel, notch or home indicator. Keep the
   bottom 34px free of controls.
 - 44px touch targets, 16-24px side margins, body 15-17px, nothing under 11px.
 - One primary action per screen, in thumb reach (the lower half) unless the
