@@ -22,7 +22,7 @@ describe("参考部件", () => {
 
 	it("按阅读顺序排：内容部件和数值总是带，桌面带外壳，手机带手机", () => {
 		expect(sheetTopics({ phone: false })).toEqual(["shell", "kpis", "charts", "tables", "forms", "values"]);
-		expect(sheetTopics({ phone: true })).toEqual(["kpis", "charts", "tables", "forms", "values", "phone"]);
+		expect(sheetTopics({ phone: true })).toEqual(["kpis", "charts", "tables", "forms", "values", "phone", "navigation"]);
 	});
 
 	it("话题正文送出时标题降一级", () => {

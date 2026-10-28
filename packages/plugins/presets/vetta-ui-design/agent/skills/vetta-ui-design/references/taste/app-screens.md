@@ -10,7 +10,7 @@ Numbers are from taste-skill v2's study of 23 real product screens (see
 every screen needs. The app sheet (`vetd_direction`) holds the direction you
 proposed — its idea, tokens, type and layout — and ends with the reference
 parts. Without a sheet, read the parts you need from `app/`:
-`shell`, `kpis`, `charts`, `tables`, `forms`, `values` (type and colour), `phone`.
+`shell`, `kpis`, `charts`, `tables`, `forms`, `values` (type and colour), `phone`, `navigation` (the phone bar).
 
 ## What separates real screens from generated ones
 

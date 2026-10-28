@@ -189,8 +189,10 @@ describe("App 方向表", () => {
 	it("手机宽度带手机部件，桌面带外壳", () => {
 		const [, phone] = sheetOf("night-counter", 390).text.split("\n## 7. Reference for these screens");
 		expect(phone).toContain("### The phone");
+		expect(phone).toContain("### Phone navigation");
 		expect(phone).not.toContain("### Shell");
 		const [, wide] = sheetOf("night-counter", 1440).text.split("\n## 7. Reference for these screens");
 		expect(wide).toContain("### Shell");
+		expect(wide).not.toContain("### Phone navigation");
 	});
 });

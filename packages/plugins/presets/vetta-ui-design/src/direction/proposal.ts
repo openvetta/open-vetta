@@ -468,7 +468,7 @@ export const PROPOSE_NOTE = `App screens are not dealt from templates: you propo
 1. Inventory the product: the data the screens hold, the jobs people do there, the one question the first screen answers, and the things only this product has (its objects, rituals, units, places, printed matter).
 2. Write \`obvious\`: the version you would make by habit for this brief — its colours, typeface and layout. That is the generated look; every option departs from it.
 3. Each option starts from something only this product has: "On these screens, <that thing> becomes <the device>." Put the nearest competitor in the first blank — if the sentence still works, the idea belongs to the category; find another.
-4. Make the three really different: light/dark, accent colour family and display type class — every pair differs in at least two. Not three tints of one layout.
+4. Make the three really different: light/dark, accent colour family and display type class — every pair differs in at least two. Not three tints of one layout. On a phone the navigation bar is part of each idea and takes a different form in each option.
 5. Expressive devices (gradient, shadow, glass, mono, a third face, tracked caps) are off by default; an option that needs one lists it in \`devices\` with the reason.
 The palettes and type pairings in \`ingredients\` are raw material from a researched library: pick, mix, adjust or ignore them. Fonts must be installable (the tool lists them if one is not).`;
 
@@ -507,7 +507,7 @@ export const PROPOSAL_SCHEMA = {
 				},
 				description: "Font families (installable ones) and the display face's class. Omit when the brand keeps the type.",
 			},
-			layout: { type: "string", description: "The first screen: what is largest, where it sits, how people move between screens." },
+			layout: { type: "string", description: "The first screen: what is largest, where it sits, how people move between screens. On a phone, name the navigation form too (floating dock, growing active tab, words only, centre action, the bar as content…), never the stock five-icon tab bar." },
 			radius: { type: "number", description: "The one corner radius in px." },
 			shell: { type: "string", enum: [...SHELLS], description: "How navigation and content are put together. Required for a bold design; the three options differ." },
 			breaks: { type: "string", description: "The one default rule this option deliberately breaks, and why. Required for a bold design." },
