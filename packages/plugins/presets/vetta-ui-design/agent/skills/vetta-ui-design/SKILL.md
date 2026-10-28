@@ -391,11 +391,10 @@ field of flat colour — never another ornament, and never leave a screen thin.
 | Equal outer margins; no section huddled on one side of an empty half | Close the void with a picture, list or column |
 | No cream-and-terracotta, no violet or indigo, unless dealt or the user asked | The direction's palette |
 
-The second table is expressive devices: not tells in themselves, only when used
-without a reason, everywhere. Off by default; a dealt landing direction or an app
-proposal's `devices` (with the reason) turns one on, for where the reason applies.
+The second table is expressive devices: a starting point, not a ban. A dealt
+direction or a proposal's `devices` (with the reason) turns one on.
 
-| Off unless the direction names it | Default instead |
+| Name it in `devices` to use it | Start from |
 | --- | --- |
 | Gradients, glows or glass | Flat colour, a tone step between surfaces |
 | A shadow on anything at rest | Space or a tone step; shadows on what floats |
@@ -564,6 +563,7 @@ Resolve against `$SKILL_DIR`. Do not read them all up front.
 | `references/taste/directions.md` | A slide, poster or infographic with no pack or `DESIGN.md` (landing pages are dealt, apps proposed) |
 | `references/taste/whitespace.md` | Weighing whether a line, divider or card wrapper earns its place; a capture looks boxed-in |
 | `references/taste/app-screens.md` | Product type is app screens or a dashboard — read it before the first screen; the app sheet ends with the parts (`app/*.md`) the screens use |
+| `references/taste/app-screens-content.md` | The app is content-led or consumer (media, ordering, travel, games): read it beside `app-screens.md` |
 | `references/taste/color.md` | Setting a palette by hand; chart and status colors |
 | `references/taste/typography.md` | Choosing faces by hand, the type scale, CJK font stacks |
 | `references/taste/copy.md` | Writing headlines, labels, empty and error states |
