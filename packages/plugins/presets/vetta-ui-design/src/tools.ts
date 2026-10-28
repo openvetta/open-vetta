@@ -54,6 +54,7 @@ import {
 	type ScreenshotSelectionInput,
 } from "./vetd/render-verification";
 import { scaffoldDesign } from "./vetd/scaffold";
+import { resolveStatusBar, STATUS_BAR_SETTINGS, statusBarNote } from "./vetd/status-bar";
 
 const SCOPE_USE = ["project", "conversation"] as const;
 /** 与画布位图队列同一档（canvas/frame-raster.ts）：模型看的图不该比画布上的糊。 */
@@ -63,6 +64,7 @@ interface CreateInput {
 	name?: string;
 	product?: string;
 	frameSize?: { width: number; height: number };
+	statusBar?: string;
 	brief?: string;
 	sector?: string;
 	screens?: string[];
@@ -178,6 +180,12 @@ export function registerDesignTools(ctx: PluginContext): void {
 					description:
 						"Explicit default size in PIXELS, for whatever `product` cannot express — the user named a size (`800x800`), or a physical format you convert yourself (A4 at 96dpi is 794x1123, at 300dpi 2480x3508). Wins over `product` when both are given.",
 				},
+				statusBar: {
+					type: "string",
+					enum: [...STATUS_BAR_SETTINGS],
+					description:
+						"mobile only: the iOS status bar every screen carries. Omit it unless the user said otherwise — the default is `island` (Dynamic Island). `notch` when they ask for a notch, `flat` when they want a status bar with no notch or island, `none` when they do not want a status bar at all. Stored with the design, so later screens keep it.",
+				},
 				brief: { type: "string", description: "landing / mobile / desktop: one line about the subject, in English." },
 				sector: { type: "string", enum: [...PAGE_SECTORS], description: "landing: the closest sector." },
 				screens: {
@@ -232,7 +240,8 @@ export function registerDesignTools(ctx: PluginContext): void {
 					};
 				}
 			}
-			const result = await scaffoldDesign(host.fs, session.cwd, trigger.input.name ?? "design", defaultFrameSize);
+			const statusBar = resolveStatusBar(trigger.input);
+			const result = await scaffoldDesign(host.fs, session.cwd, trigger.input.name ?? "design", defaultFrameSize, statusBar);
 			// Provider 在一个 Turn 内只执行一次：仅更新 presence 只能让下一 Turn 开闸。
 			// 工具 handler 的 effect 会在当前 Turn 后续模型调用上重放，因此创建成功后
 			// 还要显式覆盖本轮开头写入的 disable，避免 agent 只剩 vetd_create 可用。
@@ -262,6 +271,7 @@ export function registerDesignTools(ctx: PluginContext): void {
 				vetdPath: result.vetdPath,
 				sourcesDir: result.dirPath,
 				defaultFrameSize,
+				...(statusBar ? { statusBar } : {}),
 				...(dealt
 					? {
 							direction: {
@@ -273,7 +283,7 @@ export function registerDesignTools(ctx: PluginContext): void {
 						}
 					: {}),
 				...(proposal ? { direction: { mode: "app", ...proposal } } : {}),
-				note: `${firstStep(dealt, proposal !== null)}Design created and opened on the canvas, with NO frames yet. Its default size is ${defaultFrameSize.width}x${defaultFrameSize.height} — still declare it per frame: every frames/<id>.tsx starts with \`export const frame = { width: ${defaultFrameSize.width}, height: ${defaultFrameSize.height}, title }\`, and a screen of a different product type declares its own. Never edit design.json. More than one screen? Write the shared chrome FIRST (components/, or frames/_layout.tsx), then every frame as a short skeleton so the whole set reaches the canvas immediately, and only then fill them in one at a time — see the vetta-ui-design skill.`,
+				note: `${firstStep(dealt, proposal !== null)}Design created and opened on the canvas, with NO frames yet. Its default size is ${defaultFrameSize.width}x${defaultFrameSize.height} — still declare it per frame: every frames/<id>.tsx starts with \`export const frame = { width: ${defaultFrameSize.width}, height: ${defaultFrameSize.height}, title }\`, and a screen of a different product type declares its own. Never edit design.json. More than one screen? Write the shared chrome FIRST (components/, or frames/_layout.tsx), then every frame as a short skeleton so the whole set reaches the canvas immediately, and only then fill them in one at a time — see the vetta-ui-design skill.${statusBar ? statusBarNote(statusBar) : ""}`,
 			};
 		},
 	});
@@ -562,6 +572,8 @@ export function registerDesignTools(ctx: PluginContext): void {
 							...(controller.session.manifest.defaultFrameSize
 								? { defaultFrameSize: controller.session.manifest.defaultFrameSize }
 								: {}),
+							// 手机界面的状态栏设置：加新页面时照着它写，不要回到默认。
+							...(controller.session.manifest.statusBar ? { statusBar: controller.session.manifest.statusBar } : {}),
 							// 复用面先于画框列出：agent 是一屏一屏往下写的，看不见既有的
 							// 外壳与组件就会在每个 frame 里重抄一遍导航栏。
 							sharedShell: shell,

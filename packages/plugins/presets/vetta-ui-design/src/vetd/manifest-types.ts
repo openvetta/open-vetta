@@ -1,3 +1,5 @@
+import type { StatusBarSetting } from "./status-bar";
+
 /** A canvas frame's pixel size. */
 export interface FrameSize {
 	width: number;
@@ -51,6 +53,11 @@ export interface VetdManifest {
 	 * 老文档没有这个字段，所以是可选的——读不到就继续用全局兜底。
 	 */
 	defaultFrameSize?: FrameSize;
+	/**
+	 * 手机界面的状态栏：`island` / `notch` / `flat` 是 `@vetta/ios` 的变体，`none` 是用户
+	 * 明确不要。只在移动端设计里有，老文档没有——读不到就当默认的灵动岛（见 status-bar.ts）。
+	 */
+	statusBar?: StatusBarSetting;
 }
 
 export function emptyManifest(): VetdManifest {
