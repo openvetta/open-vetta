@@ -5,18 +5,17 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
  *
  * 基础类刻意不带 shrink-0：路由胶囊、路径、页面下拉要能收缩截断，按钮自己再加 shrink-0。
  *
- * 配色走 `--vetd-pill` / `--vetd-line` / `--vetd-ink`（由交互舞台的底色算出，见 stage.ts），
- * 取不到时回落宿主的 popover / border / foreground，也就是画布上那几颗按钮的颜色。
+ * 配色就是画布那几颗按钮的：宿主的 popover / border / foreground，不再按舞台底色另算。
  */
 export const CAPSULE_CLASS =
-	"flex h-8 items-center justify-center gap-1.5 rounded-full border border-[color:var(--vetd-line,var(--border))] bg-[var(--vetd-pill,var(--popover))] text-xs font-medium text-[color:var(--vetd-ink,var(--foreground))] transition-colors";
+	"flex h-8 items-center justify-center gap-1.5 rounded-full border border-border bg-popover text-xs font-medium text-foreground transition-colors";
 
 /**
  * 合进一个大胶囊里的按钮：没有自己的边框和底色，只在悬停时高亮。
  * 一组连续的动作（后退 / 前进 / 刷新 / 首页）要看起来是一个整体，不要一颗一颗地分开。
  */
 export const PLAIN_CLASS =
-	"flex h-7 items-center justify-center gap-1.5 rounded-full text-xs font-medium text-[color:var(--vetd-ink,var(--foreground))] transition-colors";
+	"flex h-7 items-center justify-center gap-1.5 rounded-full text-xs font-medium text-foreground transition-colors";
 
 /** 悬停高亮：取当前文字色的一小撮，亮暗底都适用。 */
 const PLAIN_HOVER = "hover:bg-[color-mix(in_srgb,currentColor_10%,transparent)]";

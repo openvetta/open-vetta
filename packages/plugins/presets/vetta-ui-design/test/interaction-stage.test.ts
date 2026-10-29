@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fitScale, isLightColor, parseCssColor, themeStageBackground, veilColor } from "../src/interaction/stage";
+import { fitScale } from "../src/interaction/stage";
 
 describe("fitScale", () => {
 	it("放得下就不缩放，也不放大", () => {
@@ -13,51 +13,6 @@ describe("fitScale", () => {
 
 	it("面板比边距还小时不出现 0 或负数", () => {
 		expect(fitScale({ width: 10, height: 10 }, { width: 400, height: 800 })).toBeGreaterThan(0);
-	});
-});
-
-describe("夹层颜色", () => {
-	it("亮底叠黑，暗底叠白", () => {
-		expect(veilColor(parseCssColor("#ffffff"))).toContain("0, 0, 0");
-		expect(veilColor(parseCssColor("#111827"))).toContain("255, 255, 255");
-	});
-
-	it("解析不出底色时当亮底", () => {
-		expect(veilColor(null)).toContain("0, 0, 0");
-	});
-
-	it("hex 简写与 rgb() 都认", () => {
-		expect(parseCssColor("#fff")).toEqual([255, 255, 255]);
-		expect(parseCssColor("rgb(10, 20, 30)")).toEqual([10, 20, 30]);
-		expect(isLightColor([250, 245, 235])).toBe(true);
-		expect(isLightColor([20, 20, 30])).toBe(false);
-	});
-});
-
-describe("themeStageBackground", () => {
-	it("取色卡里的背景 token", () => {
-		const css = "@theme {\n  --color-background: #faf7f2;\n  --color-primary: #f00;\n}";
-		expect(themeStageBackground(css)).toBe("#faf7f2");
-	});
-
-	it("没有背景 token 或没有色卡：交给宿主背景", () => {
-		expect(themeStageBackground("@theme {\n  --color-primary: #f00;\n}")).toBeNull();
-		expect(themeStageBackground(null)).toBeNull();
-	});
-});
-
-describe("chromeVars", () => {
-	it("顶部条配色跟底色走：亮底深字浅胶囊，暗底浅字，与宿主主题无关", async () => {
-		const { chromeVars } = await import("../src/interaction/stage");
-		const light = chromeVars(parseCssColor("#e5e7eb"));
-		expect(light["--vetd-ink"]).toBe("#111827");
-		expect(light["--vetd-pill"]).toBe("#ffffff");
-		expect(light["--vetd-line"]).toContain("0, 0, 0");
-		const dark = chromeVars(parseCssColor("#0b0b0c"));
-		expect(dark["--vetd-ink"]).toBe("#f8fafc");
-		expect(dark["--vetd-pill"]).toContain("255, 255, 255");
-		expect(dark["--vetd-line"]).toContain("255, 255, 255");
-		expect(Object.keys(light)).toEqual(Object.keys(dark));
 	});
 });
 

@@ -19,16 +19,7 @@ import {
 	shellOuterSize,
 } from "./device-shell";
 import { useNavBridge } from "./nav-bridge";
-import {
-	chromeVars,
-	fitScale,
-	toolbarLevel,
-	parseCssColor,
-	stageGlow,
-	themeStageBackground,
-	themeStagePrimary,
-	veilColor,
-} from "./stage";
+import { fitScale, stageGlow, themeStagePrimary, toolbarLevel } from "./stage";
 
 interface InteractionViewProps {
 	port: number;
@@ -64,42 +55,19 @@ function useStageSize(): [React.RefObject<HTMLDivElement | null>, { width: numbe
 	return [ref, size];
 }
 
-/** 色卡背景（没有则宿主背景）的明暗决定夹层是叠黑还是叠白。 */
-function useVeil(session: DesignSession, revision: number, stageRef: React.RefObject<HTMLDivElement | null>) {
-	const [themeBackground, setThemeBackground] = useState<string | null>(null);
-	const [themePrimary, setThemePrimary] = useState<string | null>(null);
-	const [veil, setVeil] = useState(() => veilColor(null));
-	const [chrome, setChrome] = useState(() => chromeVars(null));
-
+/** 底部渐变用的主色：优先设计色卡里的 primary，占位色卡或没写就是 null（落到宿主的）。 */
+function useThemePrimary(session: DesignSession, revision: number): string | null {
+	const [primary, setPrimary] = useState<string | null>(null);
 	useEffect(() => {
 		let cancelled = false;
 		void session.readThemeCss().then((css) => {
-			if (cancelled) return;
-			setThemeBackground(themeStageBackground(css));
-			setThemePrimary(themeStagePrimary(css));
+			if (!cancelled) setPrimary(themeStagePrimary(css));
 		});
 		return () => {
 			cancelled = true;
 		};
 	}, [session, revision]);
-
-	useLayoutEffect(() => {
-		const element = stageRef.current;
-		if (!element) return;
-		const update = (): void => {
-			const resolved = themeBackground ?? getComputedStyle(element).backgroundColor;
-			const base = parseCssColor(resolved);
-			setVeil(veilColor(base));
-			setChrome(chromeVars(base));
-		};
-		update();
-		// 宿主切换亮 / 暗主题时背景变量会变，夹层要跟着换。
-		const observer = new MutationObserver(update);
-		observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style", "data-theme", "data-mode"] });
-		return () => observer.disconnect();
-	}, [themeBackground, stageRef]);
-
-	return { themeBackground, themePrimary, veil, chrome };
+	return primary;
 }
 
 /**
@@ -117,8 +85,7 @@ export function InteractionView({ port, session, active, trailingSlot }: Interac
 	/** 设备预设：只在本次会话里生效，不写进设计稿（设计稿的真实尺寸才是依据）。 */
 	const [device, setDevice] = useState<DeviceChoice | null>(null);
 	const [stageRef, stage] = useStageSize();
-	const rootRef = useRef<HTMLDivElement | null>(null);
-	const { themeBackground, themePrimary, veil, chrome } = useVeil(session, revision, rootRef);
+	const themePrimary = useThemePrimary(session, revision);
 
 	const { frames } = session.manifest;
 	// 引擎侧的 frameIds 是排过序的，「字典序第一帧」的回落依赖它。
@@ -201,20 +168,13 @@ export function InteractionView({ port, session, active, trailingSlot }: Interac
 	);
 
 	return (
-		// 顶部条和舞台共用同一块底色（色卡背景 + 灰色夹层），所以底色放在根上。
+		// 底色和点阵与画布一模一样（vetd-canvas-bg），顶部条和舞台共用同一块。
 		<div
-			ref={rootRef}
-			className="absolute inset-0 flex flex-col bg-background"
-			style={{
-				visibility: active ? "visible" : "hidden",
-				...(themeBackground ? { backgroundColor: themeBackground } : {}),
-				...chrome,
-			}}
+			className="vetd-canvas-bg absolute inset-0 flex flex-col"
+			style={{ visibility: active ? "visible" : "hidden" }}
 			aria-hidden={!active}
 		>
-			{/* 灰色夹层：夹在底色与设备 / 画框之间，把两者分开。 */}
-			<div className="pointer-events-none absolute inset-0" style={{ backgroundColor: veil }} />
-			{/* 底部渐变：主色（优先设计色卡，宿主兜底）低透明度从下往上淡出到底色。 */}
+			{/* 底部渐变：主色（优先设计色卡，宿主兜底）低透明度从下往上淡出到画布底色。 */}
 			<div
 				className="pointer-events-none absolute inset-0"
 				style={{ backgroundImage: stageGlow(themePrimary ?? "var(--primary)") }}

@@ -125,11 +125,14 @@ describe("InteractionView", () => {
 		expect(index("interaction.home")).toBeLessThan(index("interaction.openExternal.short"));
 	});
 
-	it("舞台底色之上有两层不挡点击的覆盖层：灰色夹层和底部主色渐变", async () => {
+	it("底色和点阵与画布一致（vetd-canvas-bg），之上只有一层不挡点击的底部渐变", async () => {
 		await render(fakeSession({ frames: [frame("index", 1440, 900)] }).session);
-		const layers = host.querySelectorAll("[aria-hidden] > .pointer-events-none.absolute.inset-0");
+		const root = host.querySelector("[aria-hidden]") as HTMLElement;
+		expect(root.className).toContain("vetd-canvas-bg");
+		// 不再自己指定底色，也没有灰色夹层。
+		expect(root.style.backgroundColor).toBe("");
 		// 渐变的具体取值见 stage.ts 的 stageGlow 单测（happy-dom 解析不了 color-mix）。
-		expect(layers).toHaveLength(2);
+		expect(root.querySelectorAll(":scope > .pointer-events-none.absolute.inset-0")).toHaveLength(1);
 	});
 
 	it("头部不换行：不带 flex-wrap，宽度不够靠逐级收起而不是掉到第二行", async () => {

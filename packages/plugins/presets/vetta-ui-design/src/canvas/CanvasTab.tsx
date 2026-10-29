@@ -327,7 +327,7 @@ export function CanvasTab() {
 	const modeToggle = (
 		phase.kind === "ready" && session ? (
 			<div
-				className="flex h-8 shrink-0 items-center rounded-full border border-[color:var(--vetd-line,var(--border))] bg-[var(--vetd-pill,var(--popover))] p-0.5"
+				className="flex h-8 shrink-0 items-center rounded-full border border-border bg-popover p-0.5"
 				role="radiogroup"
 				aria-label={t("interaction.toggle.label")}
 			>
@@ -345,7 +345,7 @@ export function CanvasTab() {
 							className={`h-7 rounded-full px-3 text-xs font-medium transition-colors disabled:opacity-40 ${
 								selected
 									? "bg-primary text-primary-foreground"
-									: "text-[color:var(--vetd-ink-soft,var(--muted-foreground))] hover:text-[color:var(--vetd-ink,var(--foreground))]"
+									: "text-muted-foreground hover:text-foreground"
 							}`}
 						>
 							{t(`interaction.toggle.${entry}`)}
