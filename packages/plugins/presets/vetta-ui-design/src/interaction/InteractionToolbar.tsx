@@ -11,8 +11,10 @@ interface InteractionToolbarProps {
 	frames: readonly { id: string; title: string }[];
 	currentFrameId: string | null;
 	mode: InteractionMode;
-	/** 窄面板：收起路由相关的控件，只留设备类型和系统浏览器。 */
-	compact: boolean;
+	/** 设备 / 浏览器打开只留图标（面板偏窄）。 */
+	iconOnly: boolean;
+	/** 路由胶囊整组收起（面板很窄）。 */
+	hideRoute: boolean;
 	/** 手机机型：null 跟随设计稿。只在移动端显示下拉。 */
 	deviceId: string | null;
 	onPickDevice(id: string | null): void;
@@ -69,7 +71,8 @@ export function InteractionToolbar({
 	frames,
 	currentFrameId,
 	mode,
-	compact,
+	iconOnly,
+	hideRoute,
 	deviceId,
 	onPickDevice,
 	onBack,
@@ -85,7 +88,7 @@ export function InteractionToolbar({
 	const [deviceOpen, setDeviceOpen] = useState(false);
 	return (
 		<>
-			{compact ? null : (
+			{hideRoute ? null : (
 				// 路由这一组是同一个胶囊：里面只有图标（名字在悬停提示里），不各画边框，也没有分隔线。
 				<div className={`${CAPSULE_CLASS} min-w-0 shrink gap-0.5 px-1`}>
 					<CapsuleButton variant="plain" iconOnly label={t("interaction.back")} icon={icons.back} disabled={!canBack} onClick={onBack} />
@@ -113,14 +116,14 @@ export function InteractionToolbar({
 					</label>
 				</div>
 			)}
-			<div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+			<div className="ml-auto flex shrink-0 items-center justify-end gap-1.5">
 				{/* 设备类型和手机机型合成一个按钮，点开是浮层。 */}
 				<div ref={deviceRef} className="relative shrink-0">
 					<CapsuleButton
 						label={t("interaction.switchDevice")}
 						title={`${t("interaction.deviceMenu")}：${t(`interaction.mode.${mode}`)}`}
 						icon={modeIcons[mode]}
-						iconOnly={compact}
+						iconOnly={iconOnly}
 						aria-haspopup="menu"
 						aria-expanded={deviceOpen}
 						onClick={() => setDeviceOpen((open) => !open)}
@@ -140,7 +143,7 @@ export function InteractionToolbar({
 					label={t("interaction.openExternal.short")}
 					title={t("interaction.openExternal")}
 					icon={icons.external}
-					iconOnly={compact}
+					iconOnly={iconOnly}
 					onClick={onOpenExternal}
 				/>
 			</div>

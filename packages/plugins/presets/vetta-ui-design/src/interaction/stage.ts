@@ -6,13 +6,29 @@ import { PLACEHOLDER_THEME_MARK, themeBackgroundToken } from "../vetd/scaffold";
 export const VEIL_ALPHA = 0.07;
 
 /**
- * 面板窄于这个宽度（px）就收起路由相关的控件（前进后退刷新、首页、路径、页面列表）：
- * 它们加上开关和设备类型一行放不下，挤在一起比没有更难用。窄屏下靠页面里的链接点着走。
+ * 顶部条按面板宽度逐级收，保证始终一行、不换行：
+ * - 宽于 ICONS_BELOW：全部带文字；
+ * - 窄于 ICONS_BELOW：「切换设备」和「浏览器打开」收成图标；
+ * - 窄于 HIDE_ROUTE_BELOW：连路由胶囊（后退 / 前进 / 刷新 / 首页 / 路径 / 页面）也收起，
+ *   靠页面里的链接点着走。
+ *
+ * 阈值按「开关 + 路由胶囊 + 两个按钮」在各档下的实际占宽估出来，留了余量：宁可早收，
+ * 也不要让头部掉到第二行把舞台压矮。
  */
-export const NARROW_BELOW = 600;
+export const ICONS_BELOW = 780;
+export const HIDE_ROUTE_BELOW = 540;
 
-export function isNarrow(width: number): boolean {
-	return width > 0 && width < NARROW_BELOW;
+export interface ToolbarLevel {
+	/** 设备 / 浏览器打开只留图标。 */
+	iconOnly: boolean;
+	/** 路由胶囊整组收起。 */
+	hideRoute: boolean;
+}
+
+/** width 为 0 表示还没量到，按最宽处理，免得首帧闪一下收起再展开。 */
+export function toolbarLevel(width: number): ToolbarLevel {
+	if (width <= 0) return { iconOnly: false, hideRoute: false };
+	return { iconOnly: width < ICONS_BELOW, hideRoute: width < HIDE_ROUTE_BELOW };
 }
 
 /** 视口四周留给灰色夹层的边距（px）。 */

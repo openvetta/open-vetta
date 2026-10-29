@@ -13,7 +13,7 @@ import {
 	chromeVars,
 	edgeColor,
 	fitScale,
-	isNarrow,
+	toolbarLevel,
 	parseCssColor,
 	stageGlow,
 	themeStageBackground,
@@ -199,7 +199,7 @@ export function InteractionView({ port, session, active, trailingSlot }: Interac
 				className="pointer-events-none absolute inset-0"
 				style={{ backgroundImage: stageGlow(themePrimary ?? "var(--primary)") }}
 			/>
-			<div className="relative z-10 flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2">
+			<div className="relative z-10 flex shrink-0 items-center gap-2 px-3 py-2">
 				<InteractionToolbar
 					path={path}
 					canBack={nav?.canBack === true}
@@ -207,7 +207,7 @@ export function InteractionView({ port, session, active, trailingSlot }: Interac
 					frames={frames}
 					currentFrameId={currentFrameId}
 					mode={mode}
-					compact={isNarrow(stage.width)}
+					{...toolbarLevel(stage.width)}
 					deviceId={deviceId}
 					onPickDevice={setDeviceId}
 					onBack={() => go(-1)}

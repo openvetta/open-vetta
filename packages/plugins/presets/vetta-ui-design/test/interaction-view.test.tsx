@@ -133,4 +133,10 @@ describe("InteractionView", () => {
 		// 渐变的具体取值见 stage.ts 的 stageGlow 单测（happy-dom 解析不了 color-mix）。
 		expect(layers).toHaveLength(2);
 	});
+
+	it("头部不换行：不带 flex-wrap，宽度不够靠逐级收起而不是掉到第二行", async () => {
+		await render(fakeSession({ frames: [frame("index", 1440, 900)] }).session);
+		const header = host.querySelector("[aria-hidden] > .z-10") as HTMLElement;
+		expect(header.className).not.toContain("flex-wrap");
+	});
 });

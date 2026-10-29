@@ -14,7 +14,7 @@ afterEach(() => {
 	document.body.innerHTML = "";
 });
 
-function render(compact: boolean): HTMLElement {
+function render(level: { iconOnly: boolean; hideRoute: boolean }): HTMLElement {
 	const host = document.createElement("div");
 	document.body.appendChild(host);
 	act(() =>
@@ -26,7 +26,8 @@ function render(compact: boolean): HTMLElement {
 				frames={[{ id: "index", title: "Home" }]}
 				currentFrameId="index"
 				mode="mobile"
-				compact={compact}
+				iconOnly={level.iconOnly}
+				hideRoute={level.hideRoute}
 				deviceId={null}
 				onPickDevice={() => {}}
 				onBack={() => {}}
@@ -46,7 +47,7 @@ const has = (host: HTMLElement, label: string): boolean => host.querySelector(`[
 
 describe("InteractionToolbar", () => {
 	it("宽面板：路由操作、路径、页面列表和设备类型都在", () => {
-		const host = render(false);
+		const host = render({ iconOnly: false, hideRoute: false });
 		for (const label of ["interaction.back", "interaction.forward", "interaction.reload", "interaction.home", "interaction.pages"]) {
 			expect(has(host, label)).toBe(true);
 		}
@@ -78,7 +79,7 @@ describe("InteractionToolbar", () => {
 	});
 
 	it("窄面板：路由操作、路径、页面列表都收起，设备类型和系统浏览器留着", () => {
-		const host = render(true);
+		const host = render({ iconOnly: true, hideRoute: true });
 		for (const label of ["interaction.back", "interaction.forward", "interaction.reload", "interaction.home", "interaction.pages"]) {
 			expect(has(host, label)).toBe(false);
 		}
@@ -88,6 +89,19 @@ describe("InteractionToolbar", () => {
 		expect(host.textContent).not.toContain("interaction.openExternal.short");
 		expect(has(host, "interaction.switchDevice")).toBe(true);
 		expect(has(host, "interaction.openExternal.short")).toBe(true);
+	});
+
+	it("中间一档：路由胶囊还在，设备和浏览器打开只剩图标", () => {
+		const host = render({ iconOnly: true, hideRoute: false });
+		for (const label of ["interaction.back", "interaction.home", "interaction.pages"]) expect(has(host, label)).toBe(true);
+		expect(host.textContent).not.toContain("interaction.switchDevice");
+		expect(has(host, "interaction.switchDevice")).toBe(true);
+		expect(has(host, "interaction.openExternal.short")).toBe(true);
+	});
+
+	it("头部永远一行：右侧按钮组和路由胶囊都不换行", () => {
+		const host = render({ iconOnly: false, hideRoute: false });
+		expect(host.innerHTML).not.toContain("flex-wrap");
 	});
 
 	it("设备类型和机型合在一个按钮的浮层里：移动端才有机型一栏，选完收起", () => {
@@ -103,7 +117,8 @@ describe("InteractionToolbar", () => {
 					frames={[]}
 					currentFrameId={null}
 					mode="mobile"
-					compact
+					iconOnly
+					hideRoute
 					deviceId={null}
 					onPickDevice={(id) => picked.push(`device:${id}`)}
 					onBack={() => {}}

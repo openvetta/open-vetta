@@ -70,12 +70,19 @@ describe("chromeVars", () => {
 	});
 });
 
-describe("isNarrow", () => {
-	it("0 是还没量到，不算窄；小于阈值才算", async () => {
-		const { isNarrow, NARROW_BELOW } = await import("../src/interaction/stage");
-		expect(isNarrow(0)).toBe(false);
-		expect(isNarrow(NARROW_BELOW - 1)).toBe(true);
-		expect(isNarrow(NARROW_BELOW)).toBe(false);
+describe("toolbarLevel", () => {
+	it("还没量到宽度（0）按最宽处理，免得首帧闪一下", async () => {
+		const { toolbarLevel } = await import("../src/interaction/stage");
+		expect(toolbarLevel(0)).toEqual({ iconOnly: false, hideRoute: false });
+	});
+
+	it("逐级收：先把设备 / 浏览器打开收成图标，更窄才收起路由，且每一档都不换行", async () => {
+		const { toolbarLevel, ICONS_BELOW, HIDE_ROUTE_BELOW } = await import("../src/interaction/stage");
+		expect(HIDE_ROUTE_BELOW).toBeLessThan(ICONS_BELOW);
+		expect(toolbarLevel(ICONS_BELOW)).toEqual({ iconOnly: false, hideRoute: false });
+		expect(toolbarLevel(ICONS_BELOW - 1)).toEqual({ iconOnly: true, hideRoute: false });
+		expect(toolbarLevel(HIDE_ROUTE_BELOW)).toEqual({ iconOnly: true, hideRoute: false });
+		expect(toolbarLevel(HIDE_ROUTE_BELOW - 1)).toEqual({ iconOnly: true, hideRoute: true });
 	});
 });
 
