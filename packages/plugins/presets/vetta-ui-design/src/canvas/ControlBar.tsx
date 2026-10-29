@@ -8,6 +8,7 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react";
+import { BOTTOM_PANEL_TRANSITION } from "./BottomPanel";
 import { NotesVisibilitySwitch } from "./NotesVisibilitySwitch";
 import { DOCK_GAP, DOCK_ICON, dockMagnifyScale, dockTransition, usePrefersReducedMotion } from "./dock-magnify";
 
@@ -30,6 +31,8 @@ interface ControlBarProps {
 	/** 备注气泡在不在画布上；开关紧贴备注工具，两者合成一组。 */
 	notesVisible: boolean;
 	onToggleNotes(): void;
+	/** 底部面板伸起时工具栏被顶高的距离（px）；0 = 在原位。 */
+	lift?: number;
 	onToolChange(tool: CanvasTool): void;
 	onZoomDelta(direction: 1 | -1): void;
 	onZoomReset(): void;
@@ -113,6 +116,7 @@ export function ControlBar({
 	pendingNotes,
 	notesVisible,
 	onToggleNotes,
+	lift = 0,
 	onToolChange,
 	onZoomDelta,
 	onZoomReset,
@@ -254,7 +258,10 @@ export function ControlBar({
 	return (
 		// 底部居中；z-40 与顶部按钮组同层，压过沉浸式渐变遮罩。
 		// 外层不吃指针：放大溢出与浮标签留的空白区不能挡住画布手势。
-		<div className="pointer-events-none absolute bottom-3 left-1/2 z-40 -translate-x-1/2">
+		<div
+			className="pointer-events-none absolute bottom-3 left-1/2 z-40"
+			style={{ transform: `translate(-50%, ${-lift}px)`, transition: BOTTOM_PANEL_TRANSITION }}
+		>
 			{/* 放大只用 transform（origin-bottom），图标向上溢出 dock，chrome 本身不变高 */}
 			<div className="relative inline-flex flex-col items-center overflow-visible pt-9">
 				{peakLabel ? (

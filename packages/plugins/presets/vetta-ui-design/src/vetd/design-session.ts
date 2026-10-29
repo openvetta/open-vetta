@@ -13,7 +13,7 @@ import {
 } from "./manifest-types";
 import { blankFrameSource } from "./scaffold";
 
-const FRAME_GAP = 80;
+export const FRAME_GAP = 80;
 const RECONCILE_DEBOUNCE_MS = 150;
 const VIEWPORT_SAVE_DEBOUNCE_MS = 800;
 

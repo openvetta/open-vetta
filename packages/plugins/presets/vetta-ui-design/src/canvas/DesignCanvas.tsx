@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { usePluginShortcutScope, useTranslation } from "@vetta-org/plugin-sdk";
 import {
 	type CSSProperties,
@@ -18,7 +19,7 @@ import { captureMaterial } from "../materials/capture-material";
 import { loadImage } from "../mockup/load-image";
 import { exportMaterials, type MaterialFrame } from "../materials/export-materials";
 import { getPluginCtx, notify } from "../plugin-context";
-import type { DesignSession } from "../vetd/design-session";
+import { type DesignSession, FRAME_GAP } from "../vetd/design-session";
 import { classifySource, isGeneratedPath, normalizeRelative } from "../vetd/bundle-paths";
 import type { VetdFrameEntry, VetdManifest } from "../vetd/manifest-types";
 import {
@@ -52,6 +53,7 @@ import {
 	setFrameError,
 } from "./design-runtime";
 import { DesignSystemDialog } from "./DesignSystemDialog";
+import { BOTTOM_PANEL_LIFT, BottomPanel } from "./BottomPanel";
 import { CanvasCornerActions } from "./CanvasCornerActions";
 import type { MaterialAction, MaterialProgress } from "./ExportMenu";
 import { byCanvasOrder } from "./frame-order";
@@ -72,6 +74,8 @@ import { NOTES_PANEL_INSET, NotesDrawer } from "./NotesDrawer";
 import { type NoteDraft, NotesLayer } from "./NotesLayer";
 import { resolveAskMode, selectionAfterHmr } from "./selection-ask";
 import { type FrameMenuItem, frameMenuIcons } from "./FrameMenu";
+import { FrameSizeMenu, FrameSizePanel, sizeIcon } from "./FrameSizeUi";
+import { formatSize, placeNewFrame } from "./size-presets";
 import { NoteIntentIcon } from "./NoteSurface";
 import {
 	boundsOf,
@@ -1511,6 +1515,12 @@ export function DesignCanvas({
 			return current?.frameId === frameId ? null : current;
 		});
 	}, []);
+	const [sizeOpen, setSizeOpen] = useState(false);
+	// 菜单换了主人（取消选中 / 改选别的 frame）尺寸浮层就收起，免得它带着上一个 frame 的数据留在原地。
+	// biome-ignore lint/correctness/useExhaustiveDependencies: 只在 menuFrameId 变化时收起
+	useEffect(() => {
+		setSizeOpen(false);
+	}, [menuFrameId]);
 	const askMode = resolveAskMode(blockedReason);
 	const askInMenu = askActive && selection?.kind === "frames";
 	const expandAction = menuFrameId === null ? null : expandActionOf(menuFrameId);
@@ -1534,7 +1544,24 @@ export function DesignCanvas({
 				// 空闲：说清它要改的是哪个画框；忙：说清落下的是备注、不会打断它。
 				caption: askMode === "ask" ? t("canvas.frameMenu.askCaption", { name }) : t("canvas.ask.note.hint"),
 				active: askOpen,
-				onSelect: () => setAskOpen((open) => !open),
+				onSelect: () => {
+					setSizeOpen(false);
+					setAskOpen((open) => !open);
+				},
+			});
+		}
+		const sizeFrame = storedManifest.frames.find((entry) => entry.id === menuFrameId);
+		if (sizeFrame) {
+			items.push({
+				key: "size",
+				icon: sizeIcon,
+				label: formatSize(sizeFrame),
+				hint: t("canvas.frameMenu.sizeHint"),
+				active: sizeOpen,
+				onSelect: () => {
+					setAskOpen(false);
+					setSizeOpen((open) => !open);
+				},
 			});
 		}
 		if (expandAction !== null) {
@@ -1547,7 +1574,37 @@ export function DesignCanvas({
 			});
 		}
 		return items;
-	}, [menuFrameId, askInMenu, askMode, askOpen, storedManifest.frames, expandAction, toggleExpanded, t]);
+	}, [menuFrameId, askInMenu, askMode, askOpen, sizeOpen, storedManifest.frames, expandAction, toggleExpanded, t]);
+
+	/** 改选中 frame 的尺寸：左上角不动，展开态一并收起（展开高度对新尺寸已经没有意义）。 */
+	const applySize = useCallback(
+		(frameId: string, size: { width: number; height: number }): void => {
+			const frame = session.manifest.frames.find((entry) => entry.id === frameId);
+			if (!frame) return;
+			if (frame.expanded === true) session.setFrameExpanded(frameId, false);
+			session.updateFramePlacement(frameId, size);
+			// 位图是按旧尺寸截的，不重截就是被拉伸的糊图。
+			invalidateRaster(frameId);
+			setSizeOpen(false);
+		},
+		[session, invalidateRaster],
+	);
+
+	/** 底部面板选了预设：在当前视口中心（被压着就挪到最右边）新建，建完回到选择工具并选中它。 */
+	const createFromPreset = useCallback(
+		(size: { width: number; height: number }): void => {
+			const bounds = containerRef.current?.getBoundingClientRect();
+			if (!bounds) return;
+			// 底部面板盖住了视口下沿，可见区域的中心要往上让一让。
+			const center = toWorld(bounds.left + bounds.width / 2, bounds.top + (bounds.height - BOTTOM_PANEL_LIFT) / 2);
+			const at = placeNewFrame(size, center, session.manifest.frames, FRAME_GAP);
+			setTool("select");
+			void session
+				.createFrame(t("canvas.newFrame.defaultTitle"), size.width, size.height, at.x, at.y)
+				.then((id) => setSelection({ kind: "frames", ids: [id] }));
+		},
+		[containerRef, toWorld, session, t],
+	);
 
 	/**
 	 * 视口裁剪：看不见的 frame 连 DOM 都不建。
@@ -1673,6 +1730,15 @@ export function DesignCanvas({
 					onSubmitted={handleAskSubmitted}
 					frameMenuSlot={menuSlot !== null && menuSlot.frameId === menuFrameId ? menuSlot.element : null}
 				/>
+				{sizeOpen && menuFrameId !== null && menuSlot !== null && menuSlot.frameId === menuFrameId
+					? createPortal(
+							<FrameSizeMenu
+								current={storedManifest.frames.find((entry) => entry.id === menuFrameId) ?? { width: 0, height: 0 }}
+								onPick={(size) => applySize(menuFrameId, size)}
+							/>,
+							menuSlot.element,
+						)
+					: null}
 				{/* 整理工具条与 gap 手柄：多选且不在拖动/缩放中才出，免得跟正在进行的操作抢指针。 */}
 				{arrangeActive && arrangeBounds ? (
 					<>
@@ -1847,11 +1913,17 @@ export function DesignCanvas({
 				/>
 			) : null}
 
+			{/* 底部面板：选中 Frame 工具时从底部伸起，列出常见设备 / 纸张尺寸，点一下就在视口中心新建。 */}
+			<BottomPanel open={tool === "frame"} label={t("canvas.size.panelLabel")}>
+				<FrameSizePanel onCreate={createFromPreset} />
+			</BottomPanel>
+
 			<ControlBar
 				tool={tool}
 				zoom={zoomSource}
 				designSystemsActive={designDialogOpen}
 				pendingNotes={pendingNoteCount}
+				lift={tool === "frame" ? BOTTOM_PANEL_LIFT : 0}
 				notesVisible={notesVisible}
 				onToggleNotes={onToggleNotes}
 				onToolChange={setTool}
