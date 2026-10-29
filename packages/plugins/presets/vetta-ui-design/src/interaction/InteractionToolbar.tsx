@@ -24,7 +24,6 @@ interface InteractionToolbarProps {
 	onReload(): void;
 	onHome(): void;
 	onPickFrame(frameId: string): void;
-	onPickMode(mode: InteractionMode): void;
 	onOpenExternal(): void;
 }
 
@@ -81,7 +80,6 @@ export function InteractionToolbar({
 	onReload,
 	onHome,
 	onPickFrame,
-	onPickMode,
 	onOpenExternal,
 }: InteractionToolbarProps) {
 	const { t } = useTranslation();
@@ -134,7 +132,6 @@ export function InteractionToolbar({
 							mode={mode}
 							device={device}
 							boundaryRef={deviceRef}
-							onPickMode={onPickMode}
 							onPickDevice={onPickDevice}
 							onClose={() => setDeviceOpen(false)}
 						/>

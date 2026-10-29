@@ -1,7 +1,7 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
 import { type RefObject, useEffect, useState } from "react";
 import { categoryIcons, OrientationToggle } from "../canvas/FrameSizeUi";
-import { INTERACTION_MODES, type InteractionMode } from "../vetd/interaction-mode";
+import type { InteractionMode } from "../vetd/interaction-mode";
 import { formatSize, type Orientation, presetSize, SIZE_CATEGORIES } from "../vetd/size-presets";
 import { type DeviceChoice, defaultCategory, resolveChoice } from "./device-choice";
 
@@ -11,7 +11,6 @@ interface DevicePopoverProps {
 	device: DeviceChoice | null;
 	/** 触发按钮所在的容器：点它自己不算「点到外面」，否则会先关再开。 */
 	boundaryRef: RefObject<HTMLElement | null>;
-	onPickMode(mode: InteractionMode): void;
 	onPickDevice(choice: DeviceChoice | null): void;
 	onClose(): void;
 }
@@ -50,13 +49,14 @@ function Item({
 }
 
 /**
- * 设备类型 + 设备预设合在一个浮层里。
+ * 设备预设浮层。没有单独的「设备类型」：类型由选的预设所属的分类决定（见 device-choice.ts），
+ * 再留一个独立的类型选择就会和预设互相冲突。
  *
  * 预设与画布底部的尺寸面板同源（SIZE_CATEGORIES：Phone / Desktop / Watch / 纸张 / iPad），
  * 名称、像素、圆角、iPad 的横竖屏都一样，都能选。选了预设，交互视图的视口就是它的尺寸。
  * 配色完全走宿主主题（bg-card / text-foreground）：浮层是盖在舞台上的一层，不该再沿用舞台底色。
  */
-export function DevicePopover({ mode, device, boundaryRef, onPickMode, onPickDevice, onClose }: DevicePopoverProps) {
+export function DevicePopover({ mode, device, boundaryRef, onPickDevice, onClose }: DevicePopoverProps) {
 	const { t } = useTranslation();
 	const [active, setActive] = useState(() => defaultCategory(device, mode));
 	const [orientation, setOrientation] = useState<Orientation>(device?.orientation ?? "portrait");
@@ -87,21 +87,7 @@ export function DevicePopover({ mode, device, boundaryRef, onPickMode, onPickDev
 			aria-label={t("interaction.deviceMenu")}
 			className="absolute right-0 top-full z-50 mt-1.5 w-64 rounded-xl border border-border bg-card p-1.5 text-foreground shadow-lg"
 		>
-			<div className="px-2 pb-1 pt-0.5 text-[11px] text-muted-foreground">{t("interaction.deviceType")}</div>
-			{INTERACTION_MODES.map((entry) => (
-				<Item
-					key={entry}
-					selected={entry === mode}
-					onClick={() => {
-						onPickMode(entry);
-						onClose();
-					}}
-				>
-					{t(`interaction.mode.${entry}`)}
-				</Item>
-			))}
-			<div className="mx-1 my-1.5 h-px bg-border" />
-			<div className="flex items-center justify-between gap-2 px-2 pb-1">
+			<div className="flex items-center justify-between gap-2 px-2 pb-1 pt-0.5">
 				<span className="text-[11px] text-muted-foreground">{t("interaction.device")}</span>
 				{category.orientable ? <OrientationToggle value={orientation} onChange={setOrientation} /> : null}
 			</div>

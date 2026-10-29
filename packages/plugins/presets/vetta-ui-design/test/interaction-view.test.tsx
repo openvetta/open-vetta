@@ -83,27 +83,22 @@ describe("InteractionView", () => {
 		expect(host.querySelector("iframe")).toBeNull();
 	});
 
-	it("设备类别：存了用存的，老文档按首页尺寸推断", async () => {
+	it("设备类别：存了用存的，老文档按首页尺寸推断（按钮的图标和提示反映它）", async () => {
+		const title = (): string => (host.querySelector("[aria-label='interaction.switchDevice']") as HTMLElement).title;
 		await render(fakeSession({ frames: [frame("index", 390, 844)] }).session);
-		const checked = (): string | null | undefined => {
-			act(() => (host.querySelector("[aria-label='interaction.switchDevice']") as HTMLElement).click());
-			const value = host.querySelector("[role=menuitemradio][aria-checked=true]")?.textContent;
-			act(() => (host.querySelector("[aria-label='interaction.switchDevice']") as HTMLElement).click());
-			return value;
-		};
-		expect(checked()).toBe("interaction.mode.mobile");
+		expect(title()).toContain("interaction.mode.mobile");
 		await render(fakeSession({ frames: [frame("index", 390, 844)], interactionMode: "other" }).session);
-		expect(checked()).toBe("interaction.mode.other");
+		expect(title()).toContain("interaction.mode.other");
 	});
 
-	it("工具条改设备类别写回会话", async () => {
+	it("选一个纸张预设，设备类型随之写回会话（没有单独的类型选择）", async () => {
 		const { session, modes } = fakeSession({ frames: [frame("index", 1440, 900)] });
 		await render(session);
 		act(() => (host.querySelector("[aria-label='interaction.switchDevice']") as HTMLElement).click());
-		const other = [...host.querySelectorAll<HTMLElement>("[role=menuitemradio]")].find(
-			(item) => item.textContent === "interaction.mode.other",
-		);
-		act(() => other?.click());
+		expect(host.textContent).not.toContain("interaction.deviceType");
+		act(() => (host.querySelector("[aria-label='canvas.size.category.paper']") as HTMLElement).click());
+		const a4 = [...host.querySelectorAll<HTMLElement>("[role=menuitemradio]")].find((item) => item.textContent?.startsWith("A4"));
+		await act(async () => a4?.click());
 		expect(modes).toEqual(["other"]);
 	});
 

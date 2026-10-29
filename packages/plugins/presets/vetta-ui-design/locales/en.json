@@ -360,7 +360,6 @@
 	"interaction.reload": "Reload",
 	"interaction.home": "Home",
 	"interaction.pages": "Pages",
-	"interaction.deviceType": "Device type",
 	"interaction.mode.mobile": "Mobile",
 	"interaction.mode.desktop": "Desktop",
 	"interaction.mode.other": "Other",

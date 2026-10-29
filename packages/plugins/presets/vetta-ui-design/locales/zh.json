@@ -360,7 +360,6 @@
 	"interaction.reload": "刷新",
 	"interaction.home": "首页",
 	"interaction.pages": "页面",
-	"interaction.deviceType": "设备类型",
 	"interaction.mode.mobile": "移动端",
 	"interaction.mode.desktop": "桌面端",
 	"interaction.mode.other": "其他",

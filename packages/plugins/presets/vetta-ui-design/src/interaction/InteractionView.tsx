@@ -226,7 +226,6 @@ export function InteractionView({ port, session, active, trailingSlot }: Interac
 					onReload={reload}
 					onHome={() => navigateTo("/")}
 					onPickFrame={(frameId) => navigateTo(pathOfFrame(frameId))}
-					onPickMode={(next) => session.setInteractionMode(next)}
 					onOpenExternal={openExternal}
 				/>
 				<div className="flex shrink-0 items-center">{trailingSlot}</div>

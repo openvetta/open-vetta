@@ -126,7 +126,6 @@ describe("InteractionToolbar", () => {
 					onReload={() => {}}
 					onHome={() => {}}
 					onPickFrame={() => {}}
-					onPickMode={(mode) => picked.push(`mode:${mode}`)}
 					onOpenExternal={() => {}}
 				/>,
 			),
@@ -144,11 +143,12 @@ describe("InteractionToolbar", () => {
 		]);
 		// 默认翻到 Phone：预设名和像素与画布面板一致。
 		expect(items().map((item) => item.textContent)).toEqual(
-			expect.arrayContaining(["interaction.mode.mobile", "interaction.device.follow", "iPhone 17 Pro402 × 874"]),
+			expect.arrayContaining(["interaction.device.follow", "iPhone 17 Pro402 × 874"]),
 		);
-		// 选中的是当前类型 / 跟随设计稿。
+		// 没有单独的设备类型一栏（类型由预设所属分类决定）；当前选的是「跟随设计稿」。
+		expect(items().some((item) => item.textContent?.startsWith("interaction.mode."))).toBe(false);
+		expect(host.textContent).not.toContain("interaction.deviceType");
 		expect(items().filter((item) => item.getAttribute("aria-checked") === "true").map((item) => item.textContent)).toEqual([
-			"interaction.mode.mobile",
 			"interaction.device.follow",
 		]);
 		// 切到 Desktop 分类，能选 MacBook。
@@ -182,7 +182,6 @@ describe("InteractionToolbar", () => {
 					onReload={() => {}}
 					onHome={() => {}}
 					onPickFrame={() => {}}
-					onPickMode={() => {}}
 					onOpenExternal={() => {}}
 				/>,
 			),
