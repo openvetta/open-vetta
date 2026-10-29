@@ -5,7 +5,7 @@
  * 不派发真正的 TouchEvent：设计稿是原型，很少依赖触摸事件，合成它反而容易和 click 打架。
  * 由宿主通过 bridge 的 `interaction-config` 消息开关。
  */
-import { DragTracker, inertiaStep, LONG_PRESS_MS, type Axis } from "./touch-gesture";
+import { type Axis, DragTracker, inertiaStep, LONG_PRESS_MS, snapNudge } from "./touch-gesture";
 
 const STYLE_ID = "vetd-touch-style";
 const DOT_ID = "vetd-touch-dot";
@@ -77,6 +77,26 @@ function install(): () => void {
 	/** 这次按下已经被拖动或长按消费，随后的 click 要吞掉。 */
 	let swallowClick = false;
 	let inertiaFrame = 0;
+	/**
+	 * 拖动期间被临时关掉吸附的容器。scroll-snap-type 开着时，每次只加几像素的 scrollTop /
+	 * scrollLeft 会被立刻吸回原位，直到过半页才翻——横向分页（手表的页面）整个拖不动。
+	 * 所以拖动时关掉，松手时恢复，让浏览器吸到最近的一页。
+	 */
+	let snapSuspended: { element: HTMLElement; previous: string } | null = null;
+
+	const suspendSnap = (element: HTMLElement): void => {
+		if (snapSuspended) return;
+		const current = element.style.scrollSnapType || getComputedStyle(element).scrollSnapType;
+		if (!current || current === "none") return;
+		snapSuspended = { element, previous: element.style.scrollSnapType };
+		element.style.scrollSnapType = "none";
+	};
+
+	const restoreSnap = (): void => {
+		if (!snapSuspended) return;
+		snapSuspended.element.style.scrollSnapType = snapSuspended.previous;
+		snapSuspended = null;
+	};
 
 	const place = (x: number, y: number): void => {
 		dot.style.translate = `${x - DOT_SIZE / 2}px ${y - DOT_SIZE / 2}px`;
@@ -98,6 +118,7 @@ function install(): () => void {
 		// 拖动期间不选字。
 		window.getSelection()?.removeAllRanges();
 		scroller ??= findScroller(downTarget, axis);
+		suspendSnap(scroller);
 		// 逐帧增量：手指往上拖，内容往上走，scrollTop 增加。
 		const delta = axis === "x" ? lastX - event.clientX : lastY - event.clientY;
 		scrollBy(scroller, axis, delta);
@@ -139,6 +160,13 @@ function install(): () => void {
 		if (!axis || !target) return;
 		// 手指拖动方向与滚动方向相反。
 		let v = -velocity;
+		// 吸附容器：不做惯性，快甩多推半页，再恢复吸附交给浏览器吸到最近一页。
+		if (snapSuspended) {
+			const size = axis === "x" ? target.clientWidth : target.clientHeight;
+			scrollBy(target, axis, snapNudge(v, size));
+			restoreSnap();
+			return;
+		}
 		let previous = performance.now();
 		const tick = (now: number): void => {
 			const step = inertiaStep(v, now - previous);
@@ -179,6 +207,7 @@ function install(): () => void {
 	document.addEventListener("dragstart", onDragStart, true);
 
 	return () => {
+		restoreSnap();
 		stopInertia();
 		window.clearTimeout(longPressTimer);
 		document.removeEventListener("mousemove", onMouseMove, true);

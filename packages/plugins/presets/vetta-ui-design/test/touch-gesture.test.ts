@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { DRAG_THRESHOLD, DragTracker, INERTIA_MIN_VELOCITY, inertiaStep } from "../engine/src/touch-gesture";
+import {
+	DRAG_THRESHOLD,
+	DragTracker,
+	FLICK_VELOCITY,
+	INERTIA_MIN_VELOCITY,
+	inertiaStep,
+	snapNudge,
+} from "../engine/src/touch-gesture";
 
 describe("DragTracker", () => {
 	it("没超过阈值仍是点击，没有主轴", () => {
@@ -42,5 +49,14 @@ describe("inertiaStep", () => {
 		const normal = inertiaStep(1, 16.67);
 		const dropped = inertiaStep(1, 50);
 		expect(dropped?.velocity).toBeLessThan(normal?.velocity ?? 0);
+	});
+});
+
+describe("snapNudge（吸附容器松手时多推半页）", () => {
+	it("慢拖不推，快甩沿滚动方向推半页", () => {
+		expect(snapNudge(FLICK_VELOCITY / 2, 208)).toBe(0);
+		expect(snapNudge(-FLICK_VELOCITY / 2, 208)).toBe(0);
+		expect(snapNudge(FLICK_VELOCITY * 2, 208)).toBe(104);
+		expect(snapNudge(-FLICK_VELOCITY * 2, 208)).toBe(-104);
 	});
 });

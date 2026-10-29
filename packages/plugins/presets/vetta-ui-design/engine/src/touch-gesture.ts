@@ -73,3 +73,15 @@ export function inertiaStep(velocity: number, elapsedMs: number): { distance: nu
 	const frames = elapsedMs / (1000 / 60);
 	return { distance: velocity * elapsedMs, velocity: velocity * INERTIA_DECAY ** frames };
 }
+
+/** 甩动速度（px/ms）超过这个值，松手时把吸附容器多推半页，让轻轻一甩也能翻页。 */
+export const FLICK_VELOCITY = 0.25;
+
+/**
+ * 吸附容器（scroll-snap）松手时额外推多少：慢拖不推，由浏览器吸到最近一页；快甩沿
+ * 滚动方向推半页，这样不必拖过半页也能翻。scrollVelocity 的符号是滚动方向。
+ */
+export function snapNudge(scrollVelocity: number, containerSize: number): number {
+	if (Math.abs(scrollVelocity) < FLICK_VELOCITY) return 0;
+	return Math.sign(scrollVelocity) * (containerSize / 2);
+}
