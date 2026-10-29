@@ -1,15 +1,11 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
 import type { ReactNode } from "react";
 import { DownloadMaterialsMenu, type MaterialAction, type MaterialProgress } from "./DownloadMaterialsMenu";
-import { NotesVisibilitySwitch } from "./NotesVisibilitySwitch";
 
 interface CanvasCornerActionsProps {
 	/** 查看模式的横幅压在画布顶部，按钮组要给它让位。 */
 	offsetTop: number;
 	historyOpen: boolean;
-	/** 备注气泡在不在画布上（开关在这组的最左端）。 */
-	notesVisible: boolean;
-	onToggleNotes(): void;
 	onRefresh(): void;
 	onExport(): void;
 	/** 「下载素材」下拉：每帧完整内容的原图 / PDF，直接落文件（与渲染图工作台分开）。 */
@@ -89,16 +85,14 @@ function Action({
 }
 
 /**
- * 画布右上角的动作按钮组：备注显隐 | 刷新 / 版本历史 / 导出渲染图 / 下载素材 | 运行。
+ * 画布右上角的动作按钮组：刷新 / 版本历史 / 导出渲染图 / 下载素材 | 运行。
  *
- * 不放进 ControlBar：那一排是「用什么工具画」（选择、拖手、画框、备注、缩放），
+ * 不放进 ControlBar：那一排是「用什么工具画」（选择、拖手、画框、备注、缩放；备注显隐开关也在那里），
  * 这些不是画布工具，混进去还会让本来就长的 dock 再长一截。
  */
 export function CanvasCornerActions({
 	offsetTop,
 	historyOpen,
-	notesVisible,
-	onToggleNotes,
 	onRefresh,
 	onExport,
 	materials,
@@ -116,9 +110,6 @@ export function CanvasCornerActions({
 			onPointerMove={(event) => event.stopPropagation()}
 			onPointerUp={(event) => event.stopPropagation()}
 		>
-			{/* 备注显隐：隐藏只有这一个入口（自动规则一律只往显示推）。 */}
-			<NotesVisibilitySwitch visible={notesVisible} onToggle={onToggleNotes} />
-			<Divider />
 			<Action label={t("canvas.refresh")} active={false} onClick={onRefresh}>
 				{icons.refresh}
 			</Action>

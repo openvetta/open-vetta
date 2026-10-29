@@ -8,6 +8,7 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react";
+import { NotesVisibilitySwitch } from "./NotesVisibilitySwitch";
 import { DOCK_GAP, DOCK_ICON, dockMagnifyScale, dockTransition, usePrefersReducedMotion } from "./dock-magnify";
 
 export type CanvasTool = "select" | "hand" | "frame" | "note";
@@ -26,6 +27,9 @@ interface ControlBarProps {
 	designSystemsActive: boolean;
 	/** 待处理备注数，挂在备注工具按钮的右上角；0 不显示。 */
 	pendingNotes: number;
+	/** 备注气泡在不在画布上；开关紧贴备注工具，两者合成一组。 */
+	notesVisible: boolean;
+	onToggleNotes(): void;
 	onToolChange(tool: CanvasTool): void;
 	onZoomDelta(direction: 1 | -1): void;
 	onZoomReset(): void;
@@ -34,6 +38,7 @@ interface ControlBarProps {
 
 type DockSlot =
 	| { type: "divider"; key: string }
+	| { type: "notes-switch"; key: string }
 	| {
 			type: "item";
 			key: string;
@@ -106,6 +111,8 @@ export function ControlBar({
 	zoom: zoomSource,
 	designSystemsActive,
 	pendingNotes,
+	notesVisible,
+	onToggleNotes,
 	onToolChange,
 	onZoomDelta,
 	onZoomReset,
@@ -156,6 +163,7 @@ export function ControlBar({
 				onClick: () => onToolChange(tool === "note" ? "select" : "note"),
 				content: icons.note,
 			},
+			{ type: "notes-switch", key: "notes-switch" },
 			{
 				type: "item",
 				key: "design-systems",
@@ -223,7 +231,7 @@ export function ControlBar({
 		));
 		const x = event.clientX - dock.getBoundingClientRect().left;
 		setScales(
-			centers.map((center, index) => (slots[index]?.type === "divider" ? 1 : dockMagnifyScale(Math.abs(x - center)))),
+			centers.map((center, index) => (slots[index]?.type !== "item" ? 1 : dockMagnifyScale(Math.abs(x - center)))),
 		);
 	};
 
@@ -231,7 +239,7 @@ export function ControlBar({
 		let best = -1;
 		let bestScale = 1.04;
 		scales.forEach((scale, index) => {
-			if (slots[index]?.type === "divider") return;
+			if (slots[index]?.type !== "item") return;
 			if (scale > bestScale) {
 				bestScale = scale;
 				best = index;
@@ -262,7 +270,7 @@ export function ControlBar({
 				{/* biome-ignore lint/a11y/noStaticElementInteractions: swallow canvas gestures under the bar */}
 				<div
 					ref={dockRef}
-					className="pointer-events-auto relative inline-flex items-end overflow-visible rounded-2xl border border-border/80 bg-popover px-2 py-1.5 shadow-md"
+					className="pointer-events-auto relative inline-flex items-end overflow-visible rounded-full border border-border/80 bg-popover px-1.5 py-1 shadow-md"
 					style={{ gap: DOCK_GAP }}
 					// 托手/空格态下画布根节点会在 pointerdown 时 setPointerCapture 接管平移，
 					// 指针捕获会把 click 改派给画布根，工具栏按钮就永远点不动了（切不回选择工具）。
@@ -289,6 +297,19 @@ export function ControlBar({
 							);
 						}
 
+						if (slot.type === "notes-switch") {
+							return (
+								<NotesVisibilitySwitch
+									key={slot.key}
+									ref={(element) => {
+										slotRefs.current[index] = element;
+									}}
+									visible={notesVisible}
+									onToggle={onToggleNotes}
+								/>
+							);
+						}
+
 						const scale = scales[index] ?? 1;
 						return (
 							<button
@@ -301,9 +322,9 @@ export function ControlBar({
 								aria-label={slot.label}
 								aria-pressed={slot.active}
 								onClick={slot.onClick}
-								className={`relative z-[1] flex shrink-0 origin-bottom items-center justify-center rounded-[22%] border border-transparent outline-none will-change-transform focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 ${
+								className={`relative z-[1] flex shrink-0 origin-bottom items-center justify-center rounded-full border border-transparent outline-none will-change-transform focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 ${
 									slot.active
-										? "bg-primary/12 text-primary"
+										? "bg-primary text-primary-foreground"
 										: "bg-muted/55 text-foreground hover:bg-muted"
 								} ${slot.wide ? "px-2.5" : ""} ${scale > 1.02 ? "z-[2]" : ""}`}
 								style={{

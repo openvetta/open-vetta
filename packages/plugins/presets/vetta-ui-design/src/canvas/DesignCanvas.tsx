@@ -1794,8 +1794,6 @@ export function DesignCanvas({
 			<CanvasCornerActions
 				offsetTop={peek ? PEEK_BANNER_HEIGHT : 0}
 				historyOpen={historyOpen}
-				notesVisible={notesVisible}
-				onToggleNotes={onToggleNotes}
 				onRun={onRun}
 				runDisabled={runDisabled}
 				// 手动刷新：热更新链路（文件监听 / HMR）万一没生效时的兜底出路，
@@ -1866,6 +1864,8 @@ export function DesignCanvas({
 				zoom={zoomSource}
 				designSystemsActive={designDialogOpen}
 				pendingNotes={pendingNoteCount}
+				notesVisible={notesVisible}
+				onToggleNotes={onToggleNotes}
 				onToolChange={setTool}
 				onZoomDelta={view.zoomBy}
 				onZoomReset={() => {
