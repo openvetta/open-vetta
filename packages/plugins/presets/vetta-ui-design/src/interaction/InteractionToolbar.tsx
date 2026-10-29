@@ -1,7 +1,7 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
-import type { JSX } from "react";
-import { INTERACTION_MODES, type InteractionMode } from "../vetd/interaction-mode";
-import { PHONE_PRESETS } from "./phone-shell";
+import { type JSX, useRef, useState } from "react";
+import type { InteractionMode } from "../vetd/interaction-mode";
+import { DevicePopover } from "./DevicePopover";
 
 interface InteractionToolbarProps {
 	path: string;
@@ -107,6 +107,8 @@ export function InteractionToolbar({
 	onOpenExternal,
 }: InteractionToolbarProps) {
 	const { t } = useTranslation();
+	const deviceRef = useRef<HTMLDivElement | null>(null);
+	const [deviceOpen, setDeviceOpen] = useState(false);
 	return (
 		<>
 		{compact ? null : (
@@ -146,42 +148,31 @@ export function InteractionToolbar({
 			</div>
 		)}
 		<div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1">
-			{mode === "mobile" ? (
-				<select
-					value={deviceId ?? ""}
-					onChange={(event) => onPickDevice(event.target.value || null)}
-					title={t("interaction.device")}
-					aria-label={t("interaction.device")}
-					className="min-w-14 max-w-32 truncate rounded-lg border-none bg-[var(--vetd-chip,var(--muted))] px-1.5 py-1 text-xs text-[color:var(--vetd-ink,var(--foreground))] outline-none focus:outline-none"
+			{/* 设备类型和手机机型合成一个按钮，点开是浮层。 */}
+			<div ref={deviceRef} className="relative shrink-0">
+				<button
+					type="button"
+					aria-haspopup="menu"
+					aria-expanded={deviceOpen}
+					aria-label={t("interaction.deviceMenu")}
+					title={`${t("interaction.deviceMenu")}：${t(`interaction.mode.${mode}`)}`}
+					onClick={() => setDeviceOpen((open) => !open)}
+					className="flex size-7 items-center justify-center rounded-lg bg-[var(--vetd-chip,var(--muted))] text-[color:var(--vetd-ink,var(--foreground))] transition-opacity hover:opacity-80"
 				>
-					<option value="">{t("interaction.device.follow")}</option>
-					{PHONE_PRESETS.map((preset) => (
-						<option key={preset.id} value={preset.id}>
-							{preset.name}
-						</option>
-					))}
-				</select>
-			) : null}
-			{/* 一个图标 + 盖在上面的透明原生 <select>：点图标弹出的就是系统原生下拉菜单。 */}
-			<div
-				className="relative flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--vetd-chip,var(--muted))] text-[color:var(--vetd-ink,var(--foreground))]"
-				title={`${t("interaction.deviceType")}：${t(`interaction.mode.${mode}`)}`}
-			>
-				<svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-					{modeIcons[mode]}
-				</svg>
-				<select
-					value={mode}
-					onChange={(event) => onPickMode(event.target.value as InteractionMode)}
-					aria-label={t("interaction.deviceType")}
-					className="absolute inset-0 size-full cursor-pointer appearance-none rounded-lg border-none opacity-0 outline-none"
-				>
-					{INTERACTION_MODES.map((entry) => (
-						<option key={entry} value={entry}>
-							{t(`interaction.mode.${entry}`)}
-						</option>
-					))}
-				</select>
+					<svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+						{modeIcons[mode]}
+					</svg>
+				</button>
+				{deviceOpen ? (
+					<DevicePopover
+						mode={mode}
+						deviceId={deviceId}
+						boundaryRef={deviceRef}
+						onPickMode={onPickMode}
+						onPickDevice={onPickDevice}
+						onClose={() => setDeviceOpen(false)}
+					/>
+				) : null}
 			</div>
 			<IconButton label={t("interaction.openExternal")} onClick={onOpenExternal}>
 				{icons.external}

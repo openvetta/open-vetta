@@ -123,12 +123,16 @@ export function chromeVars(base: Rgb | null): Record<string, string> {
 				"--vetd-ink-soft": "rgba(17, 24, 39, 0.58)",
 				"--vetd-chip": "rgba(0, 0, 0, 0.07)",
 				"--vetd-chip-active": "#ffffff",
+				"--vetd-popover": "#ffffff",
+				"--vetd-border": "rgba(0, 0, 0, 0.12)",
 			}
 		: {
 				"--vetd-ink": "#f8fafc",
 				"--vetd-ink-soft": "rgba(248, 250, 252, 0.62)",
 				"--vetd-chip": "rgba(255, 255, 255, 0.1)",
 				"--vetd-chip-active": "rgba(255, 255, 255, 0.22)",
+				"--vetd-popover": "#27272a",
+				"--vetd-border": "rgba(255, 255, 255, 0.16)",
 			};
 }
 

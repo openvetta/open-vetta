@@ -82,21 +82,25 @@ describe("InteractionView", () => {
 
 	it("设备类别：存了用存的，老文档按首页尺寸推断", async () => {
 		await render(fakeSession({ frames: [frame("index", 390, 844)] }).session);
-		const checked = () => (host.querySelector("select[aria-label='interaction.deviceType']") as HTMLSelectElement).value;
-		expect(checked()).toBe("mobile");
+		const checked = (): string | null | undefined => {
+			act(() => (host.querySelector("[aria-label='interaction.deviceMenu']") as HTMLElement).click());
+			const value = host.querySelector("[role=menuitemradio][aria-checked=true]")?.textContent;
+			act(() => (host.querySelector("[aria-label='interaction.deviceMenu']") as HTMLElement).click());
+			return value;
+		};
+		expect(checked()).toBe("interaction.mode.mobile");
 		await render(fakeSession({ frames: [frame("index", 390, 844)], interactionMode: "other" }).session);
-		expect(checked()).toBe("other");
+		expect(checked()).toBe("interaction.mode.other");
 	});
 
 	it("工具条改设备类别写回会话", async () => {
 		const { session, modes } = fakeSession({ frames: [frame("index", 1440, 900)] });
 		await render(session);
-		const select = host.querySelector("select[aria-label='interaction.deviceType']") as HTMLSelectElement;
-		await act(async () => {
-			const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
-			setter?.call(select, "other");
-			select.dispatchEvent(new Event("change", { bubbles: true }));
-		});
+		act(() => (host.querySelector("[aria-label='interaction.deviceMenu']") as HTMLElement).click());
+		const other = [...host.querySelectorAll<HTMLElement>("[role=menuitemradio]")].find(
+			(item) => item.textContent === "interaction.mode.other",
+		);
+		act(() => other?.click());
 		expect(modes).toEqual(["other"]);
 	});
 
@@ -118,7 +122,7 @@ describe("InteractionView", () => {
 		);
 		const index = (label: string): number => order.findIndex((entry) => entry.includes(label));
 		expect(host.textContent).toContain("toggle");
-		expect(index("interaction.back")).toBeLessThan(index("interaction.deviceType"));
+		expect(index("interaction.back")).toBeLessThan(index("interaction.deviceMenu"));
 		expect(index("interaction.home")).toBeLessThan(index("interaction.openExternal"));
 	});
 });
