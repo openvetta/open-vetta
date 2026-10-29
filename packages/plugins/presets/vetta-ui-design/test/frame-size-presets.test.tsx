@@ -46,6 +46,22 @@ it("covers the five requested categories with unique, positive presets", () => {
 	expect(paper?.presets.map((preset) => preset.name)).toEqual(["A4", "A5", "A6"]);
 });
 
+it("carries device screen corner radii; desktop and paper stay square", () => {
+	const radiusOf = (id: string): number | undefined =>
+		SIZE_CATEGORIES.flatMap((category) => category.presets).find((preset) => preset.id === id)?.radius;
+	expect(radiusOf("iphone-17")).toBe(62);
+	expect(radiusOf("iphone-16-plus")).toBe(55);
+	expect(radiusOf("iphone-se")).toBeUndefined();
+	expect(radiusOf("ipad-pro-13")).toBe(18);
+	expect(radiusOf("watch-46")).toBeGreaterThan(0);
+	expect(radiusOf("a4")).toBeUndefined();
+	expect(radiusOf("macbook-pro-14")).toBeUndefined();
+	// 圆角不能超过短边的一半，否则预设本身就是错的。
+	for (const preset of SIZE_CATEGORIES.flatMap((category) => category.presets)) {
+		expect(preset.radius ?? 0).toBeLessThanOrEqual(Math.min(preset.width, preset.height) / 2);
+	}
+});
+
 it("swaps width and height only for orientable categories in landscape", () => {
 	const ipad = SIZE_CATEGORIES.find((category) => category.id === "ipad");
 	const phone = SIZE_CATEGORIES.find((category) => category.id === "phone");
@@ -67,8 +83,10 @@ it("places a new frame at the viewport center unless a frame is in the way", () 
 });
 
 it("size menu lists presets with pixel sizes and applies the picked one", () => {
-	const picked: Array<{ width: number; height: number }> = [];
-	const view = mount(<FrameSizeMenu current={{ width: 393, height: 852 }} onPick={(size) => picked.push(size)} />);
+	const picked: Array<{ width: number; height: number; radius: number }> = [];
+	const view = mount(
+		<FrameSizeMenu current={{ width: 393, height: 852 }} onPick={(size, radius) => picked.push({ ...size, radius })} />,
+	);
 	// 当前尺寸是 iPhone 17，所以默认展开 Phone，右侧每行都标着像素。
 	const rows = [...view.host.querySelectorAll<HTMLButtonElement>("[role='menu'] [role='menu'] [role='menuitem']")];
 	expect(rows[0]?.textContent).toContain("iPhone 17 Pro Max");
@@ -85,13 +103,15 @@ it("size menu lists presets with pixel sizes and applies the picked one", () => 
 	act(() => categories[2]?.click());
 	const watchRows = [...view.host.querySelectorAll<HTMLButtonElement>("[role='menu'] [role='menu'] [role='menuitem']")];
 	act(() => watchRows[1]?.click());
-	expect(picked).toEqual([{ width: 208, height: 248 }]);
+	expect(picked).toEqual([{ width: 208, height: 248, radius: 42 }]);
 	view.cleanup();
 });
 
 it("size menu offers portrait / landscape for iPad", () => {
-	const picked: Array<{ width: number; height: number }> = [];
-	const view = mount(<FrameSizeMenu current={{ width: 1, height: 1 }} onPick={(size) => picked.push(size)} />);
+	const picked: Array<{ width: number; height: number; radius: number }> = [];
+	const view = mount(
+		<FrameSizeMenu current={{ width: 1, height: 1 }} onPick={(size, radius) => picked.push({ ...size, radius })} />,
+	);
 	const ipad = [...view.host.querySelectorAll<HTMLButtonElement>("[aria-haspopup='menu']")][4];
 	act(() => ipad?.click());
 	const landscape = [...view.host.querySelectorAll<HTMLButtonElement>("button[aria-pressed]")].find((button) =>
@@ -101,13 +121,13 @@ it("size menu offers portrait / landscape for iPad", () => {
 	const first = view.host.querySelector<HTMLButtonElement>("[role='menu'] [role='menu'] [role='menuitem']");
 	expect(first?.textContent).toContain("1376 × 1032");
 	act(() => first?.click());
-	expect(picked).toEqual([{ width: 1376, height: 1032 }]);
+	expect(picked).toEqual([{ width: 1376, height: 1032, radius: 18 }]);
 	view.cleanup();
 });
 
 it("bottom panel tabs switch category and a card click creates that size", () => {
-	const created: Array<{ width: number; height: number }> = [];
-	const view = mount(<FrameSizePanel onCreate={(size) => created.push(size)} />);
+	const created: Array<{ width: number; height: number; radius: number }> = [];
+	const view = mount(<FrameSizePanel onCreate={(size, radius) => created.push({ ...size, radius })} />);
 	const tabs = [...view.host.querySelectorAll<HTMLButtonElement>("[role='tab']")];
 	expect(tabs).toHaveLength(5);
 	expect(tabs[0]?.getAttribute("aria-selected")).toBe("true");
@@ -121,7 +141,8 @@ it("bottom panel tabs switch category and a card click creates that size", () =>
 	]);
 	expect(cards[0]?.textContent).toContain("794 × 1123");
 	act(() => cards[0]?.click());
-	expect(created).toEqual([{ width: 794, height: 1123 }]);
+	// 纸张是直角。
+	expect(created).toEqual([{ width: 794, height: 1123, radius: 0 }]);
 	view.cleanup();
 });
 

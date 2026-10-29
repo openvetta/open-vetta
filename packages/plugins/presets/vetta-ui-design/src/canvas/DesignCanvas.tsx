@@ -1190,6 +1190,14 @@ export function DesignCanvas({
 		invalidateRaster(resize.frameId);
 	}, [session, invalidateRaster]);
 
+	/** 圆角手柄松手：只落 manifest（圆角是画布显示，不改 tsx）。 */
+	const commitRadius = useCallback(
+		(frameId: string, radius: number): void => {
+			session.updateFramePlacement(frameId, { radius });
+		},
+		[session],
+	);
+
 	/** FrameView 拖动/缩放要把指针位移换算成世界位移，但 zoom 不作为 prop 下发。 */
 	const getZoom = useCallback((): number => viewportRef.current.zoom, []);
 	const closeNoteDraft = useCallback((): void => setNoteDraft(null), []);
@@ -1578,11 +1586,12 @@ export function DesignCanvas({
 
 	/** 改选中 frame 的尺寸：左上角不动，展开态一并收起（展开高度对新尺寸已经没有意义）。 */
 	const applySize = useCallback(
-		(frameId: string, size: { width: number; height: number }): void => {
+		(frameId: string, size: { width: number; height: number }, radius: number): void => {
 			const frame = session.manifest.frames.find((entry) => entry.id === frameId);
 			if (!frame) return;
 			if (frame.expanded === true) session.setFrameExpanded(frameId, false);
-			session.updateFramePlacement(frameId, size);
+			// 预设带着设备的屏幕圆角（桌面、纸张是 0）：套用预设就是「把它变成那台设备」。
+			session.updateFramePlacement(frameId, { ...size, radius });
 			// 位图是按旧尺寸截的，不重截就是被拉伸的糊图。
 			invalidateRaster(frameId);
 			setSizeOpen(false);
@@ -1592,7 +1601,7 @@ export function DesignCanvas({
 
 	/** 底部面板选了预设：在当前视口中心（被压着就挪到最右边）新建，建完回到选择工具并选中它。 */
 	const createFromPreset = useCallback(
-		(size: { width: number; height: number }): void => {
+		(size: { width: number; height: number }, radius: number): void => {
 			const bounds = containerRef.current?.getBoundingClientRect();
 			if (!bounds) return;
 			// 底部面板盖住了视口下沿，可见区域的中心要往上让一让。
@@ -1601,7 +1610,10 @@ export function DesignCanvas({
 			setTool("select");
 			void session
 				.createFrame(t("canvas.newFrame.defaultTitle"), size.width, size.height, at.x, at.y)
-				.then((id) => setSelection({ kind: "frames", ids: [id] }));
+				.then((id) => {
+					session.updateFramePlacement(id, { radius });
+					setSelection({ kind: "frames", ids: [id] });
+				});
 		},
 		[containerRef, toWorld, session, t],
 	);
@@ -1697,6 +1709,7 @@ export function DesignCanvas({
 						onDragStart={beginDrag}
 						onDragDelta={handleDragDelta}
 						onDragEnd={commitDrag}
+						onRadiusCommit={commitRadius}
 					/>
 				))}
 				{marquee ? (
@@ -1734,7 +1747,7 @@ export function DesignCanvas({
 					? createPortal(
 							<FrameSizeMenu
 								current={storedManifest.frames.find((entry) => entry.id === menuFrameId) ?? { width: 0, height: 0 }}
-								onPick={(size) => applySize(menuFrameId, size)}
+								onPick={(size, radius) => applySize(menuFrameId, size, radius)}
 							/>,
 							menuSlot.element,
 						)

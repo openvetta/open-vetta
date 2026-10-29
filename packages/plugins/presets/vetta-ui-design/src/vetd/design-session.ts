@@ -57,6 +57,7 @@ function recoverFrameEntry(value: unknown): RecoveredFrameEntry | null {
 			// An invalid snapshot must differ from every resolved frame declaration so reconcile repairs it.
 			meta: hasMeta ? rawMeta : { width: -1, height: -1, title: "" },
 			...(value.expanded === true ? { expanded: true as const } : {}),
+			...(finiteNumber(value.radius) && value.radius >= 0 ? { radius: value.radius } : {}),
 		},
 		repaired: !hasMeta || title !== value.title,
 	};
@@ -277,7 +278,7 @@ export class DesignSession {
 	}
 
 	/** User drag/resize on the canvas — manifest-only, never written back to tsx. */
-	updateFramePlacement(id: string, patch: Partial<Pick<VetdFrameEntry, "x" | "y" | "width" | "height">>): void {
+	updateFramePlacement(id: string, patch: Partial<Pick<VetdFrameEntry, "x" | "y" | "width" | "height" | "radius">>): void {
 		let changed = false;
 		this.manifest = {
 			...this.manifest,

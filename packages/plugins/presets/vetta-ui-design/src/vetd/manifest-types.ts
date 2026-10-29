@@ -33,6 +33,20 @@ export interface VetdFrameEntry {
 	 * 仍是标准设计尺寸，收缩就是去掉它，不必另记原值。
 	 */
 	expanded?: true;
+	/**
+	 * 画布上四角统一的圆角（px，设计稿坐标）。只是画布显示：frame 的 tsx 仍是直角画布，
+	 * 圆角由画布裁出来。没有这个字段 = 默认圆角 {@link DEFAULT_FRAME_RADIUS}；0 = 直角。
+	 */
+	radius?: number;
+}
+
+/** 老文档和新建的画框没有 radius 时用的圆角。 */
+export const DEFAULT_FRAME_RADIUS = 12;
+
+/** 取 frame 的圆角，并钳到短边的一半以内（再大就不是圆角而是胶囊了）。 */
+export function frameRadius(frame: Pick<VetdFrameEntry, "radius" | "width" | "height">): number {
+	const raw = frame.radius ?? DEFAULT_FRAME_RADIUS;
+	return Math.max(0, Math.min(raw, Math.min(frame.width, frame.height) / 2));
 }
 
 export interface VetdCanvasViewport {

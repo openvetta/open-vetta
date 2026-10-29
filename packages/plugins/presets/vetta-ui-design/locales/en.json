@@ -97,6 +97,8 @@
 	"canvas.size.category.watch": "Watch",
 	"canvas.size.category.paper": "Paper",
 	"canvas.size.category.ipad": "iPad",
+	"canvas.radius.label": "Radius {{value}}",
+	"canvas.radius.hint": "Drag to adjust corner radius",
 	"canvas.newFrame.defaultTitle": "New frame",
 	"canvas.frame.menu.rename": "Rename",
 	"canvas.frame.menu.copyImage": "Copy as image",

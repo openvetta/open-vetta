@@ -1,12 +1,13 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
 import { memo, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef, useState } from "react";
 import { frameUrl } from "../vetd/frame-url";
-import type { VetdFrameEntry } from "../vetd/manifest-types";
+import { frameRadius, type VetdFrameEntry } from "../vetd/manifest-types";
 import type { BridgeHub } from "./bridge-client";
 import type { FrameActivity } from "./design-runtime";
 import { FrameActivityOverlay } from "./FrameActivityOverlay";
 import { FrameLoadingOverlay } from "./FrameLoadingOverlay";
 import { FrameMenu, type FrameMenuItem } from "./FrameMenu";
+import { FrameRadiusHandles } from "./FrameRadiusHandles";
 import { FrameTitleInput } from "./FrameTitleInput";
 
 type ResizeEdge = "nw" | "ne" | "sw" | "se" | "e" | "s";
@@ -89,6 +90,8 @@ interface FrameViewProps {
 	onDragStart(frameId: string, edge: FrameDragEdge, additive: boolean): void;
 	onDragDelta(dx: number, dy: number, bypassSnap: boolean): void;
 	onDragEnd(): void;
+	/** 圆角手柄松手：画布落盘。拖拽中的实时值只在本组件里，不上报。 */
+	onRadiusCommit(frameId: string, radius: number): void;
 }
 
 interface DragState {
@@ -140,6 +143,7 @@ export const FrameView = memo(function FrameView({
 	onDragStart,
 	onDragDelta,
 	onDragEnd,
+	onRadiusCommit,
 }: FrameViewProps) {
 	const { t } = useTranslation();
 	const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -239,6 +243,11 @@ export const FrameView = memo(function FrameView({
 		width: frame.width,
 		height: frame.height,
 	};
+
+	// 圆角手柄拖拽中的实时值；松手后清掉，回到 manifest 里落盘的值。
+	const [radiusDraft, setRadiusDraft] = useState<number | null>(null);
+	const maxRadius = Math.min(rect.width, rect.height) / 2;
+	const radius = Math.min(radiusDraft ?? frameRadius(frame), maxRadius);
 
 	const beginDrag = (event: ReactPointerEvent, edge: DragState["edge"]): void => {
 		// 只认左键：右键要留给上下文菜单，捕获指针会把后续事件都劫走。
@@ -413,16 +422,17 @@ export const FrameView = memo(function FrameView({
 				) : null}
 			</div>
 
-			{/* 四角 12px 圆角，不铺底色：
+			{/* 四角圆角（默认 12px，可在选中时拖四角的圆点调，见 FrameRadiusHandles），不铺底色：
 			    - 底色（原来是白）在缩放到非整数像素时，会在抗锯齿的那一行里透出来，
 			      深色稿子上就是一圈亮边（c79223c8d）。空白期由启动占位/位图盖住，不需要这层底。
 			    - 圆角会让 overflow 裁剪走带遮罩的合成路径，那次也一并去掉过（当时是 2px）。
 			      这次是产品上要的（直角太生硬）；若又见到四边发糊，先查这一层的圆角。
 			    选中的 ring 是 box-shadow，会跟着圆角走。 */}
 			<div
-				className={`relative h-full w-full overflow-hidden rounded-[12px] ring-offset-0 ${
+				className={`relative h-full w-full overflow-hidden ring-offset-0 ${
 					selected ? "ring-2 ring-[var(--vetd-selected)]" : ""
 				}`}
+				style={{ borderRadius: radius }}
 			>
 				{/* 位图态下 iframe 根本不挂：留着 display:none 的 iframe 等于把整个
 				    React 应用连同大图留在内存里，合成器照样吃不消。 */}
@@ -521,6 +531,17 @@ export const FrameView = memo(function FrameView({
 			{/* Frame Menu：左侧外部、与顶边对齐，只对单独选中的 frame 出现。 */}
 			{selected && resizable && menuItems && menuItems.length > 0 ? (
 				<FrameMenu items={menuItems} onSlot={menuSlot} />
+			) : null}
+
+			{/* 圆角手柄：和缩放手柄一样只对单独选中的 frame 出现，落在角的内侧。 */}
+			{selected && resizable && interactive ? (
+				<FrameRadiusHandles
+					radius={radius}
+					max={maxRadius}
+					getZoom={getZoom}
+					onDraft={setRadiusDraft}
+					onCommit={(value) => onRadiusCommit(frame.id, value)}
+				/>
 			) : null}
 
 			{/* 手柄在元素选择开着时也要留：画面区已经归 iframe 了，缩放只剩这一条路。 */}

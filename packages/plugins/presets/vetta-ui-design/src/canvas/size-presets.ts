@@ -13,6 +13,15 @@ export interface SizePreset {
 	name: string;
 	width: number;
 	height: number;
+	/**
+	 * 设备屏幕的圆角（CSS 像素）。缺省 = 直角（桌面、纸张）。横竖屏圆角不变。
+	 *
+	 * 来源：iPhone / iPad 取自社区实测的 `_displayCornerRadius`（kylebshr/ScreenCorners，
+	 * Apple 没公布这些数）；iPhone SE 的屏幕是直角；iPad mini 没有实测值，沿用同系列的 18；
+	 * MacBook 只有上边两角是圆的，统一圆角表达不了，按直角处理；Apple Watch 没有可靠的公开
+	 * 数据，是按屏幕宽度的约 20% 估的，**不是官方值**。
+	 */
+	radius?: number;
 }
 
 export interface SizeCategory {
@@ -28,13 +37,13 @@ export const SIZE_CATEGORIES: readonly SizeCategory[] = [
 	{
 		id: "phone",
 		presets: [
-			{ id: "iphone-17-pro-max", name: "iPhone 17 Pro Max", width: 440, height: 956 },
-			{ id: "iphone-17-pro", name: "iPhone 17 Pro", width: 402, height: 874 },
-			{ id: "iphone-17", name: "iPhone 17", width: 393, height: 852 },
-			{ id: "iphone-air", name: "iPhone Air", width: 420, height: 912 },
-			{ id: "iphone-16-plus", name: "iPhone 16 Plus", width: 430, height: 932 },
-			{ id: "iphone-14", name: "iPhone 14", width: 390, height: 844 },
-			{ id: "iphone-13-mini", name: "iPhone 13 mini", width: 375, height: 812 },
+			{ id: "iphone-17-pro-max", name: "iPhone 17 Pro Max", width: 440, height: 956, radius: 62 },
+			{ id: "iphone-17-pro", name: "iPhone 17 Pro", width: 402, height: 874, radius: 62 },
+			{ id: "iphone-17", name: "iPhone 17", width: 393, height: 852, radius: 62 },
+			{ id: "iphone-air", name: "iPhone Air", width: 420, height: 912, radius: 62 },
+			{ id: "iphone-16-plus", name: "iPhone 16 Plus", width: 430, height: 932, radius: 55 },
+			{ id: "iphone-14", name: "iPhone 14", width: 390, height: 844, radius: 47 },
+			{ id: "iphone-13-mini", name: "iPhone 13 mini", width: 375, height: 812, radius: 44 },
 			{ id: "iphone-se", name: "iPhone SE", width: 375, height: 667 },
 		],
 	},
@@ -54,8 +63,8 @@ export const SIZE_CATEGORIES: readonly SizeCategory[] = [
 	{
 		id: "watch",
 		presets: [
-			{ id: "watch-42", name: "Apple Watch 42mm", width: 187, height: 223 },
-			{ id: "watch-46", name: "Apple Watch 46mm", width: 208, height: 248 },
+			{ id: "watch-42", name: "Apple Watch 42mm", width: 187, height: 223, radius: 38 },
+			{ id: "watch-46", name: "Apple Watch 46mm", width: 208, height: 248, radius: 42 },
 		],
 	},
 	{
@@ -70,11 +79,11 @@ export const SIZE_CATEGORIES: readonly SizeCategory[] = [
 		id: "ipad",
 		orientable: true,
 		presets: [
-			{ id: "ipad-pro-13", name: 'iPad Pro 13"', width: 1032, height: 1376 },
-			{ id: "ipad-pro-11", name: 'iPad Pro 11"', width: 834, height: 1210 },
-			{ id: "ipad-air-13", name: 'iPad Air 13"', width: 1024, height: 1366 },
-			{ id: "ipad-air-11", name: 'iPad Air 11"', width: 820, height: 1180 },
-			{ id: "ipad-mini", name: "iPad mini", width: 744, height: 1133 },
+			{ id: "ipad-pro-13", name: 'iPad Pro 13"', width: 1032, height: 1376, radius: 18 },
+			{ id: "ipad-pro-11", name: 'iPad Pro 11"', width: 834, height: 1210, radius: 18 },
+			{ id: "ipad-air-13", name: 'iPad Air 13"', width: 1024, height: 1366, radius: 18 },
+			{ id: "ipad-air-11", name: 'iPad Air 11"', width: 820, height: 1180, radius: 18 },
+			{ id: "ipad-mini", name: "iPad mini", width: 744, height: 1133, radius: 18 },
 		],
 	},
 ];

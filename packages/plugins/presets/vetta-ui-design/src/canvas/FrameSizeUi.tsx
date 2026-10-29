@@ -103,7 +103,7 @@ function OrientationToggle({ value, onChange }: { value: Orientation; onChange(v
  * Frame Menu 里的「尺寸」浮层：左边是分类，鼠标移到哪个分类，右边（实际是左边，菜单贴着 frame
  * 左侧，往画布外展开）就列出它的预设，每一行右侧标着像素。选一个就改选中 frame 的尺寸。
  */
-export function FrameSizeMenu({ current, onPick }: { current: Size; onPick(size: Size): void }) {
+export function FrameSizeMenu({ current, onPick }: { current: Size; onPick(size: Size, radius: number): void }) {
 	const { t } = useTranslation();
 	const [active, setActive] = useState<SizeCategoryId>(() => categoryOf(current) ?? "phone");
 	const [orientation, setOrientation] = useState<Orientation>(() =>
@@ -157,7 +157,7 @@ export function FrameSizeMenu({ current, onPick }: { current: Size; onPick(size:
 									key={preset.id}
 									type="button"
 									role="menuitem"
-									onClick={() => onPick(size)}
+									onClick={() => onPick(size, preset.radius ?? 0)}
 									className={`flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent ${
 										selected ? "bg-primary/10 text-primary" : "text-foreground"
 									}`}
@@ -176,29 +176,28 @@ export function FrameSizeMenu({ current, onPick }: { current: Size; onPick(size:
 
 const PREVIEW_BOX = 64;
 
-function PresetPreview({ size, rounded }: { size: Size; rounded: string }) {
+function PresetPreview({ size, radius }: { size: Size; radius: number }) {
 	const scale = Math.min((PREVIEW_BOX - 8) / size.width, (PREVIEW_BOX - 8) / size.height);
 	return (
 		<div className="flex items-center justify-center" style={{ width: PREVIEW_BOX, height: PREVIEW_BOX }}>
 			<div
-				className={`border-2 border-muted-foreground/45 bg-background ${rounded}`}
-				style={{ width: Math.max(8, Math.round(size.width * scale)), height: Math.max(8, Math.round(size.height * scale)) }}
+				className="border-2 border-muted-foreground/45 bg-background"
+				style={{
+					width: Math.max(8, Math.round(size.width * scale)),
+					height: Math.max(8, Math.round(size.height * scale)),
+					// 外形带上设备的真实圆角（按同一比例缩小），一眼分得出 iPhone 和 iPad。
+					borderRadius: Math.round(radius * scale),
+				}}
 			/>
 		</div>
 	);
-}
-
-function roundedOf(category: SizeCategory): string {
-	if (category.id === "watch") return "rounded-lg";
-	if (category.id === "paper" || category.id === "desktop") return "rounded-[3px]";
-	return "rounded-md";
 }
 
 /**
  * Frame 工具的底部面板内容：顶部一排分类 tab（图标 + 文字），下面横向排着该分类的预设，
  * 每张卡片是按比例缩小的外形 + 名称 + 像素；点一下就在画布中创建。
  */
-export function FrameSizePanel({ onCreate }: { onCreate(size: Size, preset: SizePreset): void }) {
+export function FrameSizePanel({ onCreate }: { onCreate(size: Size, radius: number, preset: SizePreset): void }) {
 	const { t } = useTranslation();
 	const [active, setActive] = useState<SizeCategoryId>("phone");
 	const [orientation, setOrientation] = useState<Orientation>("portrait");
@@ -238,11 +237,11 @@ export function FrameSizePanel({ onCreate }: { onCreate(size: Size, preset: Size
 						<button
 							key={`${preset.id}-${orientation}`}
 							type="button"
-							onClick={() => onCreate(size, preset)}
+							onClick={() => onCreate(size, preset.radius ?? 0, preset)}
 							title={`${preset.name} · ${formatSize(size)}`}
 							className="group flex w-32 shrink-0 flex-col items-center justify-between gap-1 rounded-xl border border-transparent bg-secondary/60 px-2 py-2 transition-colors hover:border-primary/40 hover:bg-accent"
 						>
-							<PresetPreview size={size} rounded={roundedOf(category)} />
+							<PresetPreview size={size} radius={preset.radius ?? 0} />
 							<span className="flex w-full min-w-0 flex-col items-center leading-tight">
 								<span className="w-full truncate text-center text-xs font-medium text-foreground">{preset.name}</span>
 								<span className="text-[11px] tabular-nums text-muted-foreground">{formatSize(size)}</span>

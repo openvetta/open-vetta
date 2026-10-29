@@ -97,6 +97,8 @@
 	"canvas.size.category.watch": "Watch",
 	"canvas.size.category.paper": "纸张",
 	"canvas.size.category.ipad": "iPad",
+	"canvas.radius.label": "圆角 {{value}}",
+	"canvas.radius.hint": "拖动调整圆角",
 	"canvas.newFrame.defaultTitle": "新画框",
 	"canvas.frame.menu.rename": "重命名",
 	"canvas.frame.menu.copyImage": "复制为图片",
