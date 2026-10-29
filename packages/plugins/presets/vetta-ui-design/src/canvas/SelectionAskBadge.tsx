@@ -11,10 +11,14 @@
  *
  * 徽标上的两种文案因此只是预期管理：空闲时说「让 Vetta 去做」（落下就会被派出去），
  * 忙时说「留个备注」（要等它这一轮收尾自检时才来取）。
+ *
+ * 选中整个 frame 时没有这枚徽标：入口是 Frame Menu 的第一个按钮（画布负责放），
+ * popover 经 portal 挂到菜单的按钮下方。这里只在选中 frame 里的元素时画徽标。
  */
 
 import { useTranslation } from "@vetta-org/plugin-sdk";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { NotesStore } from "../notes/notes-store";
 import type { VetdFrameEntry } from "../vetd/manifest-types";
 import type { CanvasSelection } from "./DesignCanvas";
@@ -50,6 +54,8 @@ interface SelectionAskBadgeProps {
 	onOpenChange(open: boolean): void;
 	/** 提交完成（备注已落盘）。画布据此收起选中。 */
 	onSubmitted(): void;
+	/** 选中 frame 时 Frame Menu 按钮下方的挂载点；popover 挂进去。 */
+	frameMenuSlot: HTMLElement | null;
 }
 
 function SelectionAskBadgeView({
@@ -61,6 +67,7 @@ function SelectionAskBadgeView({
 	open,
 	onOpenChange,
 	onSubmitted,
+	frameMenuSlot,
 }: SelectionAskBadgeProps) {
 	const { t } = useTranslation();
 	const target = useMemo(() => askTarget(selection, frames), [selection, frames]);
@@ -108,6 +115,7 @@ function SelectionAskBadgeView({
 	};
 
 	if (!target) return null;
+	const inMenu = target.kind === "frame";
 	const point = askBadgePoint(target);
 	const popover = askPopoverPoint(target);
 	// 徽标未打开时跟着实时闸口走（agent 一开跑就变成备注入口）；打开后由冻结的文案接管。
@@ -121,9 +129,27 @@ function SelectionAskBadgeView({
 			? `scale(${INVERSE_SCALE}) translate(-100%, calc(-100% - 4px))`
 			: `scale(${INVERSE_SCALE}) translate(calc(-100% - 4px), 4px)`;
 
+	const panelBody = (
+		<>
+			<NotePanelHeader intent={mode} label={describe(target)} />
+			{/* agent 不空闲时说明一声，否则用户只会觉得按钮无端变了样。 */}
+			{mode === "note" && frozenReason ? (
+				<NotePanelHint text={`${frozenReason} · ${t("canvas.ask.note.hint")}`} />
+			) : null}
+			<div className="p-1.5">
+				<NoteComposer
+					placeholder={t(mode === "ask" ? "canvas.ask.placeholder" : "canvas.ask.note.placeholder")}
+					submitLabel={t(mode === "ask" ? "canvas.ask.submit" : "canvas.ask.note.submit")}
+					onCancel={() => onOpenChange(false)}
+					onSubmit={submit}
+				/>
+			</div>
+		</>
+	);
+
 	return (
 		<>
-			{visible ? (
+			{visible && !inMenu ? (
 				<button
 					type="button"
 					className="pointer-events-auto absolute z-30 flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-full bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground shadow-lg ring-1 ring-black/10 transition-opacity hover:opacity-90"
@@ -138,23 +164,12 @@ function SelectionAskBadgeView({
 				</button>
 			) : null}
 
-			{open ? (
+			{open && !inMenu ? (
 				<NotePanel x={popover.x} y={popover.y}>
-					<NotePanelHeader intent={mode} label={describe(target)} />
-					{/* agent 不空闲时说明一声，否则用户只会觉得按钮无端变了样。 */}
-					{mode === "note" && frozenReason ? (
-						<NotePanelHint text={`${frozenReason} · ${t("canvas.ask.note.hint")}`} />
-					) : null}
-					<div className="p-1.5">
-						<NoteComposer
-							placeholder={t(mode === "ask" ? "canvas.ask.placeholder" : "canvas.ask.note.placeholder")}
-							submitLabel={t(mode === "ask" ? "canvas.ask.submit" : "canvas.ask.note.submit")}
-							onCancel={() => onOpenChange(false)}
-							onSubmit={submit}
-						/>
-					</div>
+					{panelBody}
 				</NotePanel>
 			) : null}
+			{open && inMenu && frameMenuSlot ? createPortal(<NotePanel inline>{panelBody}</NotePanel>, frameMenuSlot) : null}
 		</>
 	);
 }

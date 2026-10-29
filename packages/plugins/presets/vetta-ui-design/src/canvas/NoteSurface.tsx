@@ -21,12 +21,23 @@ export function stopAll(event: ReactPointerEvent): void {
 }
 
 /** 世界坐标定位、反向缩放的浮层外壳。 */
-export function NotePanel({ x, y, children }: { x: number; y: number; children: ReactNode }) {
+/**
+ * 浮层外壳。默认按世界坐标绝对定位、自己反向缩放；`inline` 时交给所在容器排版
+ * （挂在 Frame Menu 里那种：容器已经反向缩放过了）。
+ */
+export function NotePanel(
+	props: ({ x: number; y: number; inline?: false } | { inline: true }) & { children: ReactNode },
+) {
+	const { children } = props;
 	return (
 		// biome-ignore lint/a11y/noStaticElementInteractions: swallow canvas gestures under the panel
 		<div
-			className="vetd-note-enter vetd-note-surface pointer-events-auto absolute z-40"
-			style={{ left: x, top: y, transform: `scale(${INVERSE_SCALE})`, transformOrigin: "left top" }}
+			className={`vetd-note-enter vetd-note-surface pointer-events-auto ${props.inline ? "relative" : "absolute z-40"}`}
+			style={
+				props.inline
+					? undefined
+					: { left: props.x, top: props.y, transform: `scale(${INVERSE_SCALE})`, transformOrigin: "left top" }
+			}
 			onPointerDown={stopAll}
 			onPointerMove={stopAll}
 			onPointerUp={stopAll}

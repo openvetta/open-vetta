@@ -69,7 +69,9 @@ import { enterPeek, exitPeek, type PeekState } from "../history/peek";
 import { restoreDesign } from "../history/restore";
 import { NOTES_PANEL_INSET, NotesDrawer } from "./NotesDrawer";
 import { type NoteDraft, NotesLayer } from "./NotesLayer";
-import { selectionAfterHmr } from "./selection-ask";
+import { resolveAskMode, selectionAfterHmr } from "./selection-ask";
+import { type FrameMenuItem, frameMenuIcons } from "./FrameMenu";
+import { NoteIntentIcon } from "./NoteSurface";
 import {
 	boundsOf,
 	describeSnap,
@@ -1504,6 +1506,54 @@ export function DesignCanvas({
 		if (!askActive) setAskOpen(false);
 	}, [askActive]);
 
+	/** Frame Menu 挂在哪个 frame 上：单独选中的那一个（选中的是它里面的元素也算）。 */
+	const menuFrameId = selectedIds.length === 1 ? selectedIds[0] : null;
+	/** Frame Menu 按钮下方的挂载点，追问 popover 经 portal 挂进去。 */
+	const [menuSlot, setMenuSlot] = useState<{ frameId: string; element: HTMLElement } | null>(null);
+	const handleMenuSlot = useCallback((frameId: string, element: HTMLElement | null): void => {
+		setMenuSlot((current) => {
+			if (element) return current?.element === element ? current : { frameId, element };
+			return current?.frameId === frameId ? null : current;
+		});
+	}, []);
+	const askMode = resolveAskMode(blockedReason);
+	const askInMenu = askActive && selection?.kind === "frames";
+	const expandAction = menuFrameId === null ? null : expandActionOf(menuFrameId);
+	/**
+	 * Frame Menu 的按钮，自上而下：让 Vetta 去做、展开/收起画布高度。
+	 *
+	 * 「让 Vetta 去做」只在选中整个 frame 时放这里；选中的是 frame 里的元素时，徽标仍
+	 * 钉在那个元素的选框上——追问的对象是它，不是整个 frame。
+	 */
+	const frameMenuItems = useMemo((): FrameMenuItem[] | null => {
+		if (menuFrameId === null) return null;
+		const items: FrameMenuItem[] = [];
+		if (askInMenu) {
+			const frame = storedManifest.frames.find((entry) => entry.id === menuFrameId);
+			const name = frame?.title || menuFrameId;
+			items.push({
+				key: "ask",
+				variant: "hero",
+				icon: <NoteIntentIcon intent={askMode} />,
+				label: t(askMode === "ask" ? "canvas.ask.badge" : "canvas.ask.badge.note"),
+				// 空闲：说清它要改的是哪个画框；忙：说清落下的是备注、不会打断它。
+				caption: askMode === "ask" ? t("canvas.frameMenu.askCaption", { name }) : t("canvas.ask.note.hint"),
+				active: askOpen,
+				onSelect: () => setAskOpen((open) => !open),
+			});
+		}
+		if (expandAction !== null) {
+			items.push({
+				key: "expand",
+				icon: frameMenuIcons[expandAction],
+				label: t(expandAction === "expand" ? "canvas.frameMenu.expand" : "canvas.frameMenu.collapse"),
+				hint: t(expandAction === "expand" ? "canvas.frameMenu.expandHint" : "canvas.frameMenu.collapseHint"),
+				onSelect: () => toggleExpanded(menuFrameId),
+			});
+		}
+		return items;
+	}, [menuFrameId, askInMenu, askMode, askOpen, storedManifest.frames, expandAction, toggleExpanded, t]);
+
 	/**
 	 * 视口裁剪：看不见的 frame 连 DOM 都不建。
 	 *
@@ -1572,10 +1622,8 @@ export function DesignCanvas({
 						entered={inspectFrameId === frame.id}
 						interactive={tool === "select" && !panActive}
 						resizable={selectedIds.length === 1}
-						expandAction={
-							selectedIds.length === 1 && selectedIds[0] === frame.id ? expandActionOf(frame.id) : null
-						}
-						onToggleExpanded={toggleExpanded}
+						menuItems={frame.id === menuFrameId ? frameMenuItems : null}
+						onMenuSlot={handleMenuSlot}
 						mounted={isMounted(frame.id)}
 						live={isLive(frame.id)}
 						parked={isParked(frame.id)}
@@ -1627,6 +1675,7 @@ export function DesignCanvas({
 					open={askOpen}
 					onOpenChange={setAskOpen}
 					onSubmitted={handleAskSubmitted}
+					frameMenuSlot={menuSlot !== null && menuSlot.frameId === menuFrameId ? menuSlot.element : null}
 				/>
 				{/* 整理工具条与 gap 手柄：多选且不在拖动/缩放中才出，免得跟正在进行的操作抢指针。 */}
 				{arrangeActive && arrangeBounds ? (

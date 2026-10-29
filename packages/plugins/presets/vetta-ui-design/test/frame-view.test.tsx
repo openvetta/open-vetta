@@ -14,6 +14,7 @@ vi.mock("@vetta-org/plugin-sdk", () => ({
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { BridgeHub } from "../src/canvas/bridge-client";
+import type { FrameMenuItem } from "../src/canvas/FrameMenu";
 import { FrameView } from "../src/canvas/FrameView";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -26,8 +27,7 @@ function renderFrame(
 	raster: string | null = null,
 	extra: {
 		expanded?: boolean;
-		expandAction?: "expand" | "collapse" | null;
-		onToggleExpanded?: (frameId: string) => void;
+		menuItems?: FrameMenuItem[] | null;
 	} = {},
 ): { host: HTMLElement; label: HTMLElement; cleanup: () => void } {
 	const host = document.createElement("div");
@@ -53,9 +53,9 @@ function renderFrame(
 				selected={selected}
 				entered={false}
 				interactive
-				resizable={extra.expandAction !== undefined}
-				expandAction={extra.expandAction ?? null}
-				onToggleExpanded={extra.onToggleExpanded ?? (() => {})}
+				resizable={extra.menuItems !== undefined}
+				menuItems={extra.menuItems ?? null}
+				onMenuSlot={() => {}}
 				mounted={false}
 				live={false}
 				parked={false}
@@ -137,38 +137,58 @@ it("covers a frame that has nothing painted yet with the loading overlay", () =>
 	painted.cleanup();
 });
 
-it("puts the Frame Menu left of a lone-selected frame and reports clicks", () => {
-	const toggled: string[] = [];
+function item(key: string, onSelect: () => void = () => {}): FrameMenuItem {
+	return { key, icon: <svg data-icon={key} />, label: `label:${key}`, onSelect };
+}
+
+it("puts the Frame Menu left of a lone-selected frame, in the given order, and reports clicks", () => {
+	const clicked: string[] = [];
 	const { host, cleanup } = renderFrame(false, true, null, {
-		expandAction: "expand",
-		onToggleExpanded: (frameId) => toggled.push(frameId),
+		menuItems: ["ask", "expand", "copy-image"].map((key) => item(key, () => clicked.push(key))),
 	});
 	const menu = host.querySelector<HTMLElement>("[data-vetd-frame-menu]");
 	// 贴在 frame 左侧外部、与顶边对齐。
 	expect(menu?.style.right).toBe("100%");
 	expect(menu?.className).toContain("top-0");
-	const button = menu?.querySelector<HTMLButtonElement>("button");
+	const buttons = [...(menu?.querySelectorAll<HTMLButtonElement>("button") ?? [])];
+	expect(buttons.map((button) => button.textContent)).toEqual(["label:ask", "label:expand", "label:copy-image"]);
 	// 胶囊按钮、主题色、图标 + 文字。
-	expect(button?.className).toContain("rounded-full");
-	expect(button?.className).toContain("bg-primary");
-	expect(button?.querySelector("svg")).not.toBeNull();
-	expect(button?.textContent).toBe("canvas.frameMenu.expand");
-	act(() => button?.click());
-	expect(toggled).toEqual(["home"]);
+	expect(buttons[0]?.className).toContain("rounded-full");
+	expect(buttons[0]?.className).toContain("bg-primary");
+	expect(buttons[0]?.querySelector("svg")).not.toBeNull();
+	act(() => buttons[1]?.click());
+	expect(clicked).toEqual(["expand"]);
+	// 按钮下方留着浮层挂载点（追问输入框挂这里）。
+	expect(menu?.lastElementChild?.hasAttribute("data-vetd-frame-menu-slot")).toBe(true);
 	cleanup();
 });
 
-it("offers collapse on an expanded frame and keeps only the horizontal resize handle", () => {
-	const { host, cleanup } = renderFrame(false, true, null, { expanded: true, expandAction: "collapse" });
-	expect(host.querySelector("[data-vetd-frame-menu] button")?.textContent).toBe("canvas.frameMenu.collapse");
+it("keeps only the horizontal resize handle on an expanded frame", () => {
+	const { host, cleanup } = renderFrame(false, true, null, { expanded: true, menuItems: [item("expand")] });
 	const handles = host.querySelectorAll('[class*="resize"]');
 	expect(handles).toHaveLength(1);
 	expect(handles[0]?.className).toContain("cursor-ew-resize");
 	cleanup();
 });
 
-it("shows no Frame Menu when there is nothing to expand", () => {
-	const { host, cleanup } = renderFrame(false, true, null, { expandAction: null });
+it("shows no Frame Menu without items", () => {
+	const { host, cleanup } = renderFrame(false, true, null, { menuItems: [] });
 	expect(host.querySelector("[data-vetd-frame-menu]")).toBeNull();
+	cleanup();
+});
+
+it("renders the core action as a two-line hero capsule with its caption", () => {
+	const { host, cleanup } = renderFrame(false, true, null, {
+		menuItems: [
+			{ ...item("ask"), variant: "hero", caption: "改「Home dynamics」", active: true },
+			item("expand"),
+		],
+	});
+	const [hero, plain] = [...host.querySelectorAll<HTMLButtonElement>("[data-vetd-frame-menu] button")];
+	expect(hero?.textContent).toBe("label:ask改「Home dynamics」");
+	expect(hero?.getAttribute("aria-expanded")).toBe("true");
+	expect(hero?.className).toContain("ring-primary/30");
+	// 其余按钮仍是普通的单行胶囊。
+	expect(plain?.className).toContain("h-7");
 	cleanup();
 });

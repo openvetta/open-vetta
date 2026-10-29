@@ -1,11 +1,12 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
-import { memo, type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
+import { memo, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef, useState } from "react";
 import { frameUrl } from "../vetd/frame-url";
 import type { VetdFrameEntry } from "../vetd/manifest-types";
 import type { BridgeHub } from "./bridge-client";
 import type { FrameActivity } from "./design-runtime";
 import { FrameActivityOverlay } from "./FrameActivityOverlay";
 import { FrameLoadingOverlay } from "./FrameLoadingOverlay";
+import { FrameMenu, type FrameMenuItem } from "./FrameMenu";
 import { FrameTitleInput } from "./FrameTitleInput";
 
 type ResizeEdge = "nw" | "ne" | "sw" | "se" | "e" | "s";
@@ -38,11 +39,12 @@ interface FrameViewProps {
 	/** Resize handles show only for a lone selection — a group resize has no obvious meaning. */
 	resizable: boolean;
 	/**
-	 * Frame Menu 上的展开/收缩按钮（见 frame-extent）。null 表示不出现：没单独选中、
-	 * 或标准尺寸已经装得下完整内容。
+	 * Frame Menu 的按钮（见 FrameMenu），由画布决定有哪些。null 或空表示不出现——
+	 * 只有单独选中的那个 frame 拿得到，其余 frame 恒为 null，memo 不受影响。
 	 */
-	expandAction: "expand" | "collapse" | null;
-	onToggleExpanded(frameId: string): void;
+	menuItems: readonly FrameMenuItem[] | null;
+	/** Frame Menu 按钮下方的浮层挂载点（追问输入框经 portal 挂进来）。 */
+	onMenuSlot(frameId: string, element: HTMLElement | null): void;
 	/** false 时连 iframe 都还没挂（启动期的挂载节流），见 frame-raster.ts。 */
 	mounted: boolean;
 	/** false 时 iframe 收成 display:none，改用 `raster` 位图显示。 */
@@ -116,8 +118,8 @@ export const FrameView = memo(function FrameView({
 	entered,
 	interactive,
 	resizable,
-	expandAction,
-	onToggleExpanded,
+	menuItems,
+	onMenuSlot,
 	mounted,
 	live,
 	parked,
@@ -308,6 +310,9 @@ export const FrameView = memo(function FrameView({
 	 * 它——所以缩放画布不会让这个组件重渲染，浏览器自己重算 transform。
 	 */
 	const labelScale = "var(--vetd-lscale, 1)";
+	// ref 回调必须稳定：每次渲染换一个函数，React 就会先拿 null 再拿元素各调一遍，
+	// 画布那边的挂载点状态跟着来回翻。
+	const menuSlot = useCallback((element: HTMLElement | null) => onMenuSlot(frame.id, element), [onMenuSlot, frame.id]);
 	const allHandles: { edge: ResizeEdge; className: string }[] = [
 		{ edge: "nw", className: "-left-1 -top-1 cursor-nwse-resize" },
 		{ edge: "ne", className: "-right-1 -top-1 cursor-nesw-resize" },
@@ -511,47 +516,9 @@ export const FrameView = memo(function FrameView({
 				</div>
 			) : null}
 
-			{/* Frame Menu：左侧外部、与 frame 顶边对齐的一列胶囊按钮（主题色，图标 + 文字），
-			    只对单独选中的 frame 出现。和标题栏一样反向缩放；按钮宽度随文字变，靠右对齐
-			    贴着 frame。以后的 frame 级操作往这一列里加。 */}
-			{selected && resizable && expandAction !== null ? (
-				<div
-					className="absolute top-0 flex flex-col items-end gap-1.5"
-					data-vetd-frame-menu=""
-					style={{
-						right: "100%",
-						transform: `scale(${labelScale})`,
-						transformOrigin: "right top",
-						marginRight: `calc(8px * ${labelScale})`,
-					}}
-				>
-					<button
-						type="button"
-						className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
-						title={t(expandAction === "expand" ? "canvas.frameMenu.expandHint" : "canvas.frameMenu.collapseHint")}
-						// 按下不能冒泡到画布：那边会当成点了空白处，清掉选中、起一个框选。
-						onPointerDown={(event) => event.stopPropagation()}
-						onClick={() => onToggleExpanded(frame.id)}
-					>
-						<svg
-							viewBox="0 0 24 24"
-							className="size-3.5"
-							fill="none"
-							stroke="currentColor"
-							strokeWidth="2"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							aria-hidden
-						>
-							{expandAction === "expand" ? (
-								<path d="m7 15 5 5 5-5M7 9l5-5 5 5" />
-							) : (
-								<path d="m7 20 5-5 5 5M7 4l5 5 5-5" />
-							)}
-						</svg>
-						{t(expandAction === "expand" ? "canvas.frameMenu.expand" : "canvas.frameMenu.collapse")}
-					</button>
-				</div>
+			{/* Frame Menu：左侧外部、与顶边对齐，只对单独选中的 frame 出现。 */}
+			{selected && resizable && menuItems && menuItems.length > 0 ? (
+				<FrameMenu items={menuItems} onSlot={menuSlot} />
 			) : null}
 
 			{/* 手柄在元素选择开着时也要留：画面区已经归 iframe 了，缩放只剩这一条路。 */}
