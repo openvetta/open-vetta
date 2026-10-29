@@ -23,7 +23,10 @@
 	--color-primary-foreground: var(--primary-foreground);
 }
 
-/* 无限画布：底色取宿主背景色，纹理是一层低不透明度的网格。
+/* 无限画布：纹理是一层低不透明度的网格。
+   底色不能取宿主背景色（--background）：画布外面就是它，两者一样就分不出画布的边界，
+   白底的设计稿在浅色主题里也没有衬托。取 --secondary，明暗两套都比背景深/亮约 20 级，
+   又不会抢设计稿的颜色。要换底色只改 --vetd-canvas 这一处。
    light-dark() 只是宿主变量缺失时的兜底——宿主在 [data-mode] 上写了 color-scheme，
    该属性可继承，能穿过插件的 @scope 边界（祖先选择器和 dark: 变体都穿不过来）。 */
 .vetd-canvas-bg {
@@ -31,7 +34,8 @@
 	   撞车，而「哪个 frame 被选中」必须在任何主题、任何设计稿上都一眼可辨。 */
 	--vetd-selected: #0d99ff;
 	--vetd-grid-line: color-mix(in oklab, var(--foreground, #000) 3%, transparent);
-	background-color: var(--background, light-dark(#f5f5f5, #1e1e1e));
+	--vetd-canvas: var(--secondary, light-dark(#ebebeb, #262628));
+	background-color: var(--vetd-canvas);
 	background-image:
 		linear-gradient(to right, var(--vetd-grid-line) 1px, transparent 1px),
 		linear-gradient(to bottom, var(--vetd-grid-line) 1px, transparent 1px);
