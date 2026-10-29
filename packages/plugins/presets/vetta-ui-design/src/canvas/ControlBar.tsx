@@ -31,6 +31,15 @@ interface ControlBarProps {
 	/** 备注气泡在不在画布上；开关紧贴备注工具，两者合成一组。 */
 	notesVisible: boolean;
 	onToggleNotes(): void;
+	/** 撤销 / 重做：不传则不显示这一组。label 是栈顶那一步的名字（「调整尺寸」），用来写进提示。 */
+	history?: {
+		canUndo: boolean;
+		canRedo: boolean;
+		undoLabel: string | null;
+		redoLabel: string | null;
+		onUndo(): void;
+		onRedo(): void;
+	};
 	/** 底部面板伸起时工具栏被顶高的距离（px）；0 = 在原位。 */
 	lift?: number;
 	onToolChange(tool: CanvasTool): void;
@@ -51,6 +60,8 @@ type DockSlot =
 			wide?: boolean;
 			/** 右上角角标数字（备注待处理数）。absolute 定位，不影响 dock 宽度与中心点缓存。 */
 			badge?: number;
+			/** 不可用：灰显且点不动（撤销栈为空）。 */
+			disabled?: boolean;
 			onClick(): void;
 			content: ReactNode;
 	  };
@@ -92,6 +103,18 @@ const icons = {
 			<circle cx="9" cy="17" r="0.5" fill="currentColor" />
 		</svg>
 	),
+	undo: (
+		<svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+			<path d="M9 14L4 9l5-5" strokeLinecap="round" strokeLinejoin="round" />
+			<path d="M4 9h10.5a5.5 5.5 0 010 11H11" strokeLinecap="round" strokeLinejoin="round" />
+		</svg>
+	),
+	redo: (
+		<svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+			<path d="M15 14l5-5-5-5" strokeLinecap="round" strokeLinejoin="round" />
+			<path d="M20 9H9.5a5.5 5.5 0 000 11H13" strokeLinecap="round" strokeLinejoin="round" />
+		</svg>
+	),
 	minus: (
 		<svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
 			<path d="M5 12h14" strokeLinecap="round" />
@@ -117,6 +140,7 @@ export function ControlBar({
 	notesVisible,
 	onToggleNotes,
 	lift = 0,
+	history,
 	onToolChange,
 	onZoomDelta,
 	onZoomReset,
@@ -133,6 +157,29 @@ export function ControlBar({
 
 	const slots = useMemo<DockSlot[]>(() => {
 		const items: DockSlot[] = [
+			...(history
+				? ([
+						{
+							type: "item",
+							key: "undo",
+							label: history.undoLabel ? t("undo.tip.undo", { action: history.undoLabel }) : t("controlbar.undo"),
+							active: false,
+							disabled: !history.canUndo,
+							onClick: history.onUndo,
+							content: icons.undo,
+						},
+						{
+							type: "item",
+							key: "redo",
+							label: history.redoLabel ? t("undo.tip.redo", { action: history.redoLabel }) : t("controlbar.redo"),
+							active: false,
+							disabled: !history.canRedo,
+							onClick: history.onRedo,
+							content: icons.redo,
+						},
+						{ type: "divider", key: "divider-history" },
+					] satisfies DockSlot[])
+				: []),
 			{
 				type: "item",
 				key: "select",
@@ -205,6 +252,7 @@ export function ControlBar({
 		];
 		return items;
 	}, [
+		history,
 		designSystemsActive,
 		pendingNotes,
 		onDesignSystems,
@@ -333,12 +381,13 @@ export function ControlBar({
 								title={slot.label}
 								aria-label={slot.label}
 								aria-pressed={slot.active}
+								disabled={slot.disabled}
 								onClick={slot.onClick}
 								className={`relative z-[1] flex shrink-0 origin-bottom items-center justify-center rounded-full border border-transparent outline-none will-change-transform focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 ${
 									slot.active
 										? "bg-primary text-primary-foreground"
 										: "bg-secondary text-foreground hover:bg-accent"
-								} ${slot.wide ? "px-2.5" : ""} ${slot.key === "note" ? "rounded-r-none" : ""} ${scale > 1.02 ? "z-[2]" : ""}`}
+								} ${slot.disabled ? "pointer-events-none opacity-40" : ""} ${slot.wide ? "px-2.5" : ""} ${slot.key === "note" ? "rounded-r-none" : ""} ${scale > 1.02 ? "z-[2]" : ""}`}
 								style={{
 									width: slot.wide ? undefined : DOCK_ICON,
 									minWidth: slot.wide ? DOCK_ICON + 12 : undefined,

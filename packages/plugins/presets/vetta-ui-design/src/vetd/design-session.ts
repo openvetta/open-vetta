@@ -12,6 +12,15 @@ import {
 	type VetdManifest,
 } from "./manifest-types";
 import { blankFrameBackground, blankFrameSource } from "./scaffold";
+import {
+	type FrameFields,
+	entryKind,
+	fieldsOf,
+	sameFields,
+	type UndoEntry,
+	UndoHistory,
+	type UndoKind,
+} from "./undo-history";
 
 export const FRAME_GAP = 80;
 const RECONCILE_DEBOUNCE_MS = 150;
@@ -63,7 +72,13 @@ function recoverFrameEntry(value: unknown): RecoveredFrameEntry | null {
 	};
 }
 
-export type DesignChange = "frames" | "theme";
+export type DesignChange = "frames" | "theme" | "history";
+
+/** 撤销 / 重做的结果：done 带上受影响且仍存在的 frame（画布据此选中）；conflict = 这一步已被改动过，无法执行。 */
+export type UndoOutcome =
+	| { status: "empty" }
+	| { status: "done"; kind: UndoKind; ids: string[] }
+	| { status: "conflict"; kind: UndoKind };
 
 /**
  * One open design bundle (`x.vetd/`). Owns the manifest (single writer): the
@@ -91,6 +106,11 @@ export class DesignSession {
 	private disposed = false;
 	private writing = Promise.resolve();
 	private manifestNeedsRepair = false;
+	/** 用户操作的撤销 / 重做栈（只在内存里，关掉设计就清空；跨重启由版本历史兜底）。 */
+	readonly undoHistory = new UndoHistory();
+	/** 进行中的事务：把同一次用户操作里的多步写入合成一条记录。 */
+	private txn: { kind: UndoKind; before: Map<string, FrameFields> } | null = null;
+	private undoQueue: Promise<unknown> = Promise.resolve();
 
 	constructor(ctx: PluginContext, vetdPath: string) {
 		this.ctx = ctx;
@@ -140,6 +160,9 @@ export class DesignSession {
 	 */
 	async reload(): Promise<void> {
 		if (this.disposed) return;
+		// 整份内容被换掉（版本恢复、进出历史预览）：栈里的前后状态全部作废。
+		this.undoHistory.clear();
+		this.emit("history");
 		await this.loadManifest();
 		await this.reconcile();
 		this.emit("frames");
@@ -277,20 +300,84 @@ export class DesignSession {
 		return { x: right + FRAME_GAP, y: top };
 	}
 
+	/**
+	 * 记录一次 manifest 级别的用户操作：改动前先抓住受影响 frame 的字段，改完比较，有变化就入栈。
+	 * 在 {@link transact} 里调用时只抓字段，由外层事务统一入栈（一次用户动作 = 一条记录）。
+	 */
+	private tracked(kind: UndoKind, ids: Iterable<string>, mutate: () => void): void {
+		const owner = this.txn === null;
+		const txn = this.txn ?? { kind, before: new Map<string, FrameFields>() };
+		for (const id of ids) {
+			if (txn.before.has(id)) continue;
+			const frame = this.manifest.frames.find((entry) => entry.id === id);
+			if (frame) txn.before.set(id, fieldsOf(frame));
+		}
+		if (!owner) {
+			mutate();
+			return;
+		}
+		this.txn = txn;
+		try {
+			mutate();
+		} finally {
+			this.txn = null;
+		}
+		this.recordPatch(txn);
+	}
+
+	/** 把里面的多步写入（比如「收起展开 + 改尺寸 + 改圆角」）合成撤销栈里的一条。 */
+	transact(kind: UndoKind, fn: () => void): void {
+		if (this.txn !== null) {
+			fn();
+			return;
+		}
+		const txn = { kind, before: new Map<string, FrameFields>() };
+		this.txn = txn;
+		try {
+			fn();
+		} finally {
+			this.txn = null;
+		}
+		this.recordPatch(txn);
+	}
+
+	private recordPatch(txn: { kind: UndoKind; before: Map<string, FrameFields> }): void {
+		const changes: { id: string; before: FrameFields; after: FrameFields }[] = [];
+		for (const [id, before] of txn.before) {
+			const frame = this.manifest.frames.find((entry) => entry.id === id);
+			if (!frame) continue;
+			const after = fieldsOf(frame);
+			if (!sameFields(before, after)) changes.push({ id, before, after });
+		}
+		if (changes.length === 0) return;
+		this.recordEntry({ type: "patch", kind: txn.kind, changes });
+	}
+
+	private recordEntry(entry: UndoEntry): void {
+		this.undoHistory.record(entry);
+		this.emit("history");
+	}
+
 	/** User drag/resize on the canvas — manifest-only, never written back to tsx. */
-	updateFramePlacement(id: string, patch: Partial<Pick<VetdFrameEntry, "x" | "y" | "width" | "height" | "radius">>): void {
-		let changed = false;
-		this.manifest = {
-			...this.manifest,
-			frames: this.manifest.frames.map((frame) => {
-				if (frame.id !== id) return frame;
-				changed = true;
-				return { ...frame, ...patch };
-			}),
-		};
-		if (!changed) return;
-		this.emit("frames");
-		void this.persist();
+	updateFramePlacement(
+		id: string,
+		patch: Partial<Pick<VetdFrameEntry, "x" | "y" | "width" | "height" | "radius">>,
+		kind: UndoKind = "resize",
+	): void {
+		this.tracked(kind, [id], () => {
+			let changed = false;
+			this.manifest = {
+				...this.manifest,
+				frames: this.manifest.frames.map((frame) => {
+					if (frame.id !== id) return frame;
+					changed = true;
+					return { ...frame, ...patch };
+				}),
+			};
+			if (!changed) return;
+			this.emit("frames");
+			void this.persist();
+		});
 	}
 
 	/**
@@ -301,39 +388,44 @@ export class DesignSession {
 	 */
 	updateFramePlacements(
 		patches: ReadonlyMap<string, Partial<Pick<VetdFrameEntry, "x" | "y" | "width" | "height">>>,
+		kind: UndoKind = "move",
 	): void {
 		if (patches.size === 0) return;
-		let changed = false;
-		this.manifest = {
-			...this.manifest,
-			frames: this.manifest.frames.map((frame) => {
-				const patch = patches.get(frame.id);
-				if (!patch) return frame;
-				changed = true;
-				return { ...frame, ...patch };
-			}),
-		};
-		if (!changed) return;
-		this.emit("frames");
-		void this.persist();
+		this.tracked(kind, patches.keys(), () => {
+			let changed = false;
+			this.manifest = {
+				...this.manifest,
+				frames: this.manifest.frames.map((frame) => {
+					const patch = patches.get(frame.id);
+					if (!patch) return frame;
+					changed = true;
+					return { ...frame, ...patch };
+				}),
+			};
+			if (!changed) return;
+			this.emit("frames");
+			void this.persist();
+		});
 	}
 
 	/** 画布上展开/收缩 frame：只动显示状态，标准尺寸不变。 */
 	setFrameExpanded(id: string, expanded: boolean): void {
-		let changed = false;
-		this.manifest = {
-			...this.manifest,
-			frames: this.manifest.frames.map((frame) => {
-				if (frame.id !== id || (frame.expanded === true) === expanded) return frame;
-				changed = true;
-				if (expanded) return { ...frame, expanded: true };
-				const { expanded: _expanded, ...rest } = frame;
-				return rest;
-			}),
-		};
-		if (!changed) return;
-		this.emit("frames");
-		void this.persist();
+		this.tracked("expand", [id], () => {
+			let changed = false;
+			this.manifest = {
+				...this.manifest,
+				frames: this.manifest.frames.map((frame) => {
+					if (frame.id !== id || (frame.expanded === true) === expanded) return frame;
+					changed = true;
+					if (expanded) return { ...frame, expanded: true };
+					const { expanded: _expanded, ...rest } = frame;
+					return rest;
+				}),
+			};
+			if (!changed) return;
+			this.emit("frames");
+			void this.persist();
+		});
 	}
 
 	saveViewport(viewport: VetdCanvasViewport): void {
@@ -345,8 +437,18 @@ export class DesignSession {
 		}, VIEWPORT_SAVE_DEBOUNCE_MS);
 	}
 
-	/** Canvas "Frame" tool: scaffold a blank frame tsx at an explicit canvas spot. */
-	async createFrame(title: string, width: number, height: number, x: number, y: number): Promise<string> {
+	/**
+	 * Canvas "Frame" tool: scaffold a blank frame tsx at an explicit canvas spot.
+	 * `radius` 随新建一并落进 manifest（预设尺寸带设备圆角），这样新建仍是撤销栈里的一条。
+	 */
+	async createFrame(
+		title: string,
+		width: number,
+		height: number,
+		x: number,
+		y: number,
+		radius?: number,
+	): Promise<string> {
 		const existing = new Set(this.manifest.frames.map((frame) => frame.id));
 		let index = this.manifest.frames.length + 1;
 		let id = `frame-${index}`;
@@ -356,12 +458,40 @@ export class DesignSession {
 		}
 		this.pendingPlacements.set(id, { x, y });
 		const background = blankFrameBackground(await this.readThemeCss());
-		await this.ctx.fs.writeFile(
-			`${this.dirPath}/frames/${id}.tsx`,
-			blankFrameSource(title, width, height, background),
-		);
+		const source = blankFrameSource(title, width, height, background);
+		await this.ctx.fs.writeFile(`${this.dirPath}/frames/${id}.tsx`, source);
 		await this.reconcile();
+		const created = this.manifest.frames.find((frame) => frame.id === id);
+		if (created) {
+			if (radius !== undefined) {
+				this.applyFields(id, { ...fieldsOf(created), radius });
+				this.emit("frames");
+				void this.persist();
+			}
+			const fresh = this.manifest.frames.find((frame) => frame.id === id);
+			if (fresh) this.recordEntry({ type: "create", id, source, fields: fieldsOf(fresh) });
+		}
 		return id;
+	}
+
+	/** 把 frame 的用户可调字段整体写成给定值（缺省的 radius / expanded 即去掉）。不入栈、不发事件。 */
+	private applyFields(id: string, fields: FrameFields): void {
+		this.manifest = {
+			...this.manifest,
+			frames: this.manifest.frames.map((frame) => {
+				if (frame.id !== id) return frame;
+				const { radius: _radius, expanded: _expanded, ...rest } = frame;
+				return {
+					...rest,
+					x: fields.x,
+					y: fields.y,
+					width: fields.width,
+					height: fields.height,
+					...(fields.radius !== undefined ? { radius: fields.radius } : {}),
+					...(fields.expanded === true ? { expanded: true as const } : {}),
+				};
+			}),
+		};
 	}
 
 	/**
@@ -369,6 +499,10 @@ export class DesignSession {
 	 * 乐观更新——文件监听到 reconcile 有防抖，等它回来标题会先跳回旧值再变。
 	 */
 	async renameFrame(id: string, rawTitle: string): Promise<void> {
+		await this.renameFrameInner(id, rawTitle, true);
+	}
+
+	private async renameFrameInner(id: string, rawTitle: string, record: boolean): Promise<void> {
 		const frame = this.manifest.frames.find((entry) => entry.id === id);
 		if (!frame) return;
 		const title = sanitizeFrameTitle(rawTitle);
@@ -386,6 +520,7 @@ export class DesignSession {
 		this.emit("frames");
 		await this.ctx.fs.writeFile(path, next);
 		await this.persist();
+		if (record) this.recordEntry({ type: "rename", id, before: frame.title, after: title });
 	}
 
 	/**
@@ -395,8 +530,115 @@ export class DesignSession {
 	async deleteFrame(id: string): Promise<void> {
 		const frame = this.manifest.frames.find((entry) => entry.id === id);
 		if (!frame) return;
+		const fields = fieldsOf(frame);
+		// 删除前先把源码存下来：撤销要靠它把文件写回去（宿主的删除没有回收站）。
+		let source: string | null = null;
+		try {
+			source = (await this.ctx.fs.readFile(`${this.dirPath}/${frame.file}`)).content;
+		} catch {
+			source = null;
+		}
 		await this.ctx.fs.delete(`${this.dirPath}/${frame.file}`);
 		await this.reconcile();
+		if (source !== null) this.recordEntry({ type: "delete", id, source, fields });
+	}
+
+	/** 撤销用户的上一步操作。串行执行：连按快捷键时，上一步（可能要写文件）没落定不会开始下一步。 */
+	undo(): Promise<UndoOutcome> {
+		return this.enqueueUndo("undo");
+	}
+
+	redo(): Promise<UndoOutcome> {
+		return this.enqueueUndo("redo");
+	}
+
+	private enqueueUndo(direction: "undo" | "redo"): Promise<UndoOutcome> {
+		const run = this.undoQueue.then(() => this.stepHistory(direction));
+		this.undoQueue = run.catch(() => undefined);
+		return run;
+	}
+
+	private async stepHistory(direction: "undo" | "redo"): Promise<UndoOutcome> {
+		const history = this.undoHistory;
+		const entry = direction === "undo" ? history.undoTop : history.redoTop;
+		if (!entry) return { status: "empty" };
+		const kind = entryKind(entry);
+		const ids = await this.applyEntry(entry, direction);
+		if (ids === null) {
+			// 这一步之后 frame 被别处改动过（多半是 agent）：放弃它，不静默覆盖。
+			if (direction === "undo") history.dropUndoTop();
+			else history.dropRedoTop();
+			this.emit("history");
+			return { status: "conflict", kind };
+		}
+		if (direction === "undo") history.markUndone();
+		else history.markRedone();
+		this.emit("history");
+		return { status: "done", kind, ids: ids.filter((id) => this.manifest.frames.some((frame) => frame.id === id)) };
+	}
+
+	/** 执行一条记录；返回受影响的 frame id，前置条件不成立（已被改动）返回 null。 */
+	private async applyEntry(entry: UndoEntry, direction: "undo" | "redo"): Promise<string[] | null> {
+		const undoing = direction === "undo";
+		switch (entry.type) {
+			case "patch": {
+				const expect = undoing ? "after" : "before";
+				const target = undoing ? "before" : "after";
+				for (const change of entry.changes) {
+					const frame = this.manifest.frames.find((candidate) => candidate.id === change.id);
+					if (!frame || !sameFields(fieldsOf(frame), change[expect])) return null;
+				}
+				for (const change of entry.changes) this.applyFields(change.id, change[target]);
+				this.emit("frames");
+				void this.persist();
+				return entry.changes.map((change) => change.id);
+			}
+			case "create":
+				return undoing ? this.removeFrameFile(entry.id, entry.source) : this.restoreFrameFile(entry);
+			case "delete":
+				return undoing ? this.restoreFrameFile(entry) : this.removeFrameFile(entry.id, entry.source);
+			case "rename": {
+				const frame = this.manifest.frames.find((candidate) => candidate.id === entry.id);
+				if (!frame || frame.title !== (undoing ? entry.after : entry.before)) return null;
+				try {
+					await this.renameFrameInner(entry.id, undoing ? entry.before : entry.after, false);
+				} catch {
+					return null;
+				}
+				return [entry.id];
+			}
+		}
+	}
+
+	/** 删掉 frame 的源码；文件内容已不是记录里的那份（被 agent 画过）就不动它。 */
+	private async removeFrameFile(id: string, source: string): Promise<string[] | null> {
+		const frame = this.manifest.frames.find((candidate) => candidate.id === id);
+		if (!frame) return null;
+		const path = `${this.dirPath}/${frame.file}`;
+		try {
+			if ((await this.ctx.fs.readFile(path)).content !== source) return null;
+		} catch {
+			return null;
+		}
+		await this.ctx.fs.delete(path);
+		await this.reconcile();
+		return [id];
+	}
+
+	/** 把源码按原 id、原位置写回去，再补上用户调过的尺寸 / 圆角 / 展开态。id 已被占用就不动。 */
+	private async restoreFrameFile(entry: { id: string; source: string; fields: FrameFields }): Promise<string[] | null> {
+		const path = `${this.dirPath}/frames/${entry.id}.tsx`;
+		if (this.manifest.frames.some((frame) => frame.id === entry.id) || (await this.ctx.fs.stat(path)) !== null) {
+			return null;
+		}
+		this.pendingPlacements.set(entry.id, { x: entry.fields.x, y: entry.fields.y });
+		await this.ctx.fs.writeFile(path, entry.source);
+		await this.reconcile();
+		if (!this.manifest.frames.some((frame) => frame.id === entry.id)) return null;
+		this.applyFields(entry.id, entry.fields);
+		this.emit("frames");
+		void this.persist();
+		return [entry.id];
 	}
 
 	async readThemeCss(): Promise<string> {

@@ -19,6 +19,7 @@ import { loadImage } from "../mockup/load-image";
 import { exportMaterials, type MaterialFrame } from "../materials/export-materials";
 import { getPluginCtx, notify } from "../plugin-context";
 import { type DesignSession, FRAME_GAP } from "../vetd/design-session";
+import { entryKind, type UndoKind } from "../vetd/undo-history";
 import { classifySource, isGeneratedPath, normalizeRelative } from "../vetd/bundle-paths";
 import type { VetdFrameEntry, VetdManifest } from "../vetd/manifest-types";
 import {
@@ -279,6 +280,23 @@ function applyResizeSnap(
 const COVER_REFRESH_DEBOUNCE_MS = 1500;
 /** 查看模式横幅的高度，右上角的历史按钮与面板据此让位。 */
 const PEEK_BANNER_HEIGHT = 40;
+
+function readUndoState(session: DesignSession): {
+	canUndo: boolean;
+	canRedo: boolean;
+	undoKind: UndoKind | null;
+	redoKind: UndoKind | null;
+} {
+	const { undoHistory } = session;
+	const undoTop = undoHistory.undoTop;
+	const redoTop = undoHistory.redoTop;
+	return {
+		canUndo: undoHistory.canUndo,
+		canRedo: undoHistory.canRedo,
+		undoKind: undoTop ? entryKind(undoTop) : null,
+		redoKind: redoTop ? entryKind(redoTop) : null,
+	};
+}
 
 export function DesignCanvas({
 	session,
@@ -602,16 +620,18 @@ export function DesignCanvas({
 	);
 	manifestRef.current = manifest;
 
-	// 显示高度变了（展开、收缩、展开着的内容长高变矮）：旧位图是按旧尺寸截的，
+	// 显示尺寸变了（展开、收缩、改尺寸、撤销 / 重做）：旧位图是按旧尺寸截的，
 	// 放进新尺寸里就是被 object-cover 拉伸裁剪的图——重新排队截一张。
-	const shownHeightsRef = useRef(new Map<string, number>());
+	// 宽和高都要看：撤销 / 重做改的是 manifest，没有调用处替它手动失效。
+	const shownHeightsRef = useRef(new Map<string, string>());
 	useEffect(() => {
 		const previous = shownHeightsRef.current;
-		const next = new Map<string, number>();
+		const next = new Map<string, string>();
 		for (const frame of manifest.frames) {
-			next.set(frame.id, frame.height);
+			const size = `${frame.width}x${frame.height}`;
+			next.set(frame.id, size);
 			const before = previous.get(frame.id);
-			if (before !== undefined && before !== frame.height) invalidateRaster(frame.id);
+			if (before !== undefined && before !== size) invalidateRaster(frame.id);
 		}
 		shownHeightsRef.current = next;
 	}, [manifest.frames, invalidateRaster]);
@@ -709,6 +729,45 @@ export function DesignCanvas({
 		id: "note-tool",
 		kind: "surface",
 		bindings: [{ key: "c", when: "not-editable", run: () => setTool("note") }],
+	});
+
+	// 撤销 / 重做：栈在会话里（session.undoHistory），这里只订阅「能不能撤、撤的是什么」来驱动按钮。
+	const [undoState, setUndoState] = useState(() => readUndoState(session));
+	useEffect(() => {
+		const sync = (): void => setUndoState(readUndoState(session));
+		sync();
+		const handle = session.on((change) => {
+			if (change === "history") sync();
+		});
+		return () => handle.dispose();
+	}, [session]);
+
+	const runHistory = useCallback(
+		async (direction: "undo" | "redo"): Promise<void> => {
+			try {
+				const outcome = direction === "undo" ? await session.undo() : await session.redo();
+				if (outcome.status === "conflict") {
+					notify({ variant: "warning", message: t(`undo.conflict.${direction}`), durationMs: 5000 });
+				} else if (outcome.status === "done" && outcome.ids.length > 0) {
+					// 选中受影响的 frame：用户一眼看到「刚才那一步」落在了哪。
+					setSelection({ kind: "frames", ids: outcome.ids });
+				}
+			} catch (error) {
+				notify({ message: t(`undo.failed.${direction}`), error });
+			}
+		},
+		[session, t],
+	);
+	// 只读场景（历史预览、运行预览）里画布不能改，撤销也不该动。
+	usePluginShortcutScope(registerShortcutScope, {
+		id: "undo-redo",
+		kind: "surface",
+		enabled: () => peek === null && !previewing,
+		bindings: [
+			{ key: "mod+z", when: "not-editable", run: () => void runHistory("undo") },
+			{ key: "mod+shift+z", when: "not-editable", run: () => void runHistory("redo") },
+			{ key: "mod+y", when: "not-editable", run: () => void runHistory("redo") },
+		],
 	});
 
 	// 切离备注工具就收掉没提交的草稿；换设计时 thread 弹层也一并收掉。
@@ -1192,7 +1251,7 @@ export function DesignCanvas({
 	/** 圆角手柄松手：只落 manifest（圆角是画布显示，不改 tsx）。 */
 	const commitRadius = useCallback(
 		(frameId: string, radius: number): void => {
-			session.updateFramePlacement(frameId, { radius });
+			session.updateFramePlacement(frameId, { radius }, "radius");
 		},
 		[session],
 	);
@@ -1285,7 +1344,7 @@ export function DesignCanvas({
 			if (!arrangeBounds || arrangeItems.length < 2) return;
 			const spec: GridSpec = { ...grid, columns: Math.max(1, columns) };
 			const placements = layoutGrid(arrangeItems, spec, arrangeBounds);
-			session.updateFramePlacements(placements);
+			session.updateFramePlacements(placements, "arrange");
 		},
 		[arrangeBounds, arrangeItems, grid, session],
 	);
@@ -1339,7 +1398,7 @@ export function DesignCanvas({
 			setActiveGap(null);
 			const placements = layoutOverrideRef.current;
 			setLayoutOverride(null);
-			if (placements) session.updateFramePlacements(placements);
+			if (placements) session.updateFramePlacements(placements, "arrange");
 		};
 		window.addEventListener("pointermove", onMove);
 		window.addEventListener("pointerup", onUp);
@@ -1598,9 +1657,12 @@ export function DesignCanvas({
 		(frameId: string, size: { width: number; height: number }, radius: number): void => {
 			const frame = session.manifest.frames.find((entry) => entry.id === frameId);
 			if (!frame) return;
-			if (frame.expanded === true) session.setFrameExpanded(frameId, false);
-			// 预设带着设备的屏幕圆角（桌面、纸张是 0）：套用预设就是「把它变成那台设备」。
-			session.updateFramePlacement(frameId, { ...size, radius });
+			// 收起展开 + 改尺寸 + 套圆角是一次用户动作，撤销栈里只留一条。
+			session.transact("size", () => {
+				if (frame.expanded === true) session.setFrameExpanded(frameId, false);
+				// 预设带着设备的屏幕圆角（桌面、纸张是 0）：套用预设就是「把它变成那台设备」。
+				session.updateFramePlacement(frameId, { ...size, radius }, "size");
+			});
 			// 位图是按旧尺寸截的，不重截就是被拉伸的糊图。
 			invalidateRaster(frameId);
 			// 改完回到选择工具，面板收起，Frame 仍选中。
@@ -1619,11 +1681,8 @@ export function DesignCanvas({
 			const at = placeNewFrame(size, center, session.manifest.frames, FRAME_GAP);
 			setTool("select");
 			void session
-				.createFrame(t("canvas.newFrame.defaultTitle"), size.width, size.height, at.x, at.y)
-				.then((id) => {
-					session.updateFramePlacement(id, { radius });
-					setSelection({ kind: "frames", ids: [id] });
-				});
+				.createFrame(t("canvas.newFrame.defaultTitle"), size.width, size.height, at.x, at.y, radius)
+				.then((id) => setSelection({ kind: "frames", ids: [id] }));
 		},
 		[containerRef, toWorld, session, t],
 	);
@@ -1944,6 +2003,14 @@ export function DesignCanvas({
 				designSystemsActive={designDialogOpen}
 				pendingNotes={pendingNoteCount}
 				lift={tool === "frame" ? BOTTOM_PANEL_LIFT : 0}
+				history={{
+					canUndo: undoState.canUndo && peek === null && !previewing,
+					canRedo: undoState.canRedo && peek === null && !previewing,
+					undoLabel: undoState.undoKind ? t(`undo.action.${undoState.undoKind}`) : null,
+					redoLabel: undoState.redoKind ? t(`undo.action.${undoState.redoKind}`) : null,
+					onUndo: () => void runHistory("undo"),
+					onRedo: () => void runHistory("redo"),
+				}}
 				notesVisible={notesVisible}
 				onToggleNotes={onToggleNotes}
 				onToolChange={setTool}
