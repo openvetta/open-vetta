@@ -75,7 +75,7 @@ import { type NoteDraft, NotesLayer } from "./NotesLayer";
 import { resolveAskMode, selectionAfterHmr } from "./selection-ask";
 import { type FrameMenuItem, frameMenuIcons } from "./FrameMenu";
 import { FrameSizePanel, sizeIcon } from "./FrameSizeUi";
-import { formatSize, placeNewFrame } from "./size-presets";
+import { formatSize, placeNewFrame } from "../vetd/size-presets";
 import { NoteIntentIcon } from "./NoteSurface";
 import {
 	boundsOf,

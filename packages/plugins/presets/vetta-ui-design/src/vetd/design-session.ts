@@ -6,6 +6,7 @@ import { FALLBACK_FRAME_SIZE, resolveFrameSizes } from "./frame-size";
 import {
 	designNameOf,
 	emptyManifest,
+	type FrameMeta,
 	manifestPathOf,
 	type VetdCanvasViewport,
 	type VetdFrameEntry,
@@ -49,11 +50,17 @@ function recoverFrameEntry(value: unknown): RecoveredFrameEntry | null {
 
 	const title = typeof value.title === "string" ? value.title : value.id;
 	const rawMeta = value.meta;
-	const hasMeta =
-		isRecord(rawMeta) &&
-		finiteNumber(rawMeta.width) &&
-		finiteNumber(rawMeta.height) &&
-		typeof rawMeta.title === "string";
+	// 逐字段取出来而不是把 rawMeta 原样收下：外部写的 manifest 里什么都可能有。
+	const meta: FrameMeta | null =
+		isRecord(rawMeta) && finiteNumber(rawMeta.width) && finiteNumber(rawMeta.height) && typeof rawMeta.title === "string"
+			? {
+					width: rawMeta.width,
+					height: rawMeta.height,
+					title: rawMeta.title,
+					...(finiteNumber(rawMeta.radius) && rawMeta.radius >= 0 ? { radius: rawMeta.radius } : {}),
+				}
+			: null;
+	const hasMeta = meta !== null;
 	return {
 		frame: {
 			id: value.id,
@@ -64,7 +71,7 @@ function recoverFrameEntry(value: unknown): RecoveredFrameEntry | null {
 			height: value.height,
 			title,
 			// An invalid snapshot must differ from every resolved frame declaration so reconcile repairs it.
-			meta: hasMeta ? rawMeta : { width: -1, height: -1, title: "" },
+			meta: meta ?? { width: -1, height: -1, title: "" },
 			...(value.expanded === true ? { expanded: true as const } : {}),
 			...(finiteNumber(value.radius) && value.radius >= 0 ? { radius: value.radius } : {}),
 		},
@@ -257,7 +264,12 @@ export class DesignSession {
 		for (const { file, id, parsed } of parsedFiles) {
 			const existing = known.get(id);
 			const size = sizes.get(id) ?? FALLBACK_FRAME_SIZE;
-			const meta = { width: size.width, height: size.height, title: parsed.title };
+			const meta: FrameMeta = {
+				width: size.width,
+				height: size.height,
+				title: parsed.title,
+				...(parsed.radius !== null ? { radius: parsed.radius } : {}),
+			};
 			if (!existing) {
 				const placement = this.pendingPlacements.get(id) ?? this.autoPlacement(nextFrames);
 				this.pendingPlacements.delete(id);
@@ -270,6 +282,7 @@ export class DesignSession {
 					height: meta.height,
 					title: meta.title,
 					meta,
+					...(meta.radius !== undefined ? { radius: meta.radius } : {}),
 				});
 				dirty = true;
 				continue;
@@ -277,7 +290,16 @@ export class DesignSession {
 			known.delete(id);
 			if (!sameMeta(meta, existing.meta)) {
 				// Agent changed the declaration → manifest follows (last writer wins).
-				nextFrames.push({ ...existing, width: meta.width, height: meta.height, title: meta.title, meta });
+				nextFrames.push({
+					...existing,
+					width: meta.width,
+					height: meta.height,
+					title: meta.title,
+					meta,
+					// 圆角只在 agent 改了「圆角这一项声明」时才跟：只改了尺寸 / 标题不能把用户调过的
+					// 圆角冲掉；声明被删掉（没意见）同样保留现有圆角。
+					...(meta.radius !== undefined && meta.radius !== existing.meta.radius ? { radius: meta.radius } : {}),
+				});
 				dirty = true;
 			} else {
 				nextFrames.push(existing);
@@ -458,7 +480,8 @@ export class DesignSession {
 		}
 		this.pendingPlacements.set(id, { x, y });
 		const background = blankFrameBackground(await this.readThemeCss());
-		const source = blankFrameSource(title, width, height, background);
+		// 带圆角的预设把声明也写进 tsx：agent 读源码就知道这是一台有圆角的设备。
+		const source = blankFrameSource(title, width, height, background, radius);
 		await this.ctx.fs.writeFile(`${this.dirPath}/frames/${id}.tsx`, source);
 		await this.reconcile();
 		const created = this.manifest.frames.find((frame) => frame.id === id);

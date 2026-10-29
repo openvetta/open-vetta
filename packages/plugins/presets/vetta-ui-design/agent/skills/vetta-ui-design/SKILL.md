@@ -73,18 +73,20 @@ not apply to them.
 
 ```tsx
 export const frame = { width: 390, height: 844, title: "Login" };
+// optional, devices: radius: 62 (screen corner px, from vetd_sizes)
 ```
 
-Every frame declares its own. Omit it and the frame is rendered at a size
-inferred from the rest of the design — it still reaches the canvas, but nothing
-about that size is yours, and `issues` will keep asking until you declare one.
-Sizes come from the product type below; when the design already has frames,
-`vetd_status` lists their sizes and the design's `defaultFrameSize` — match them
-unless the new screen is a different product type.
+Every frame declares its own; omit it and the size is inferred from the rest of
+the design (and `issues` keeps asking). Sizes come from the product type below;
+when the design already has frames, `vetd_status` lists their sizes and the
+design's `defaultFrameSize` — match them unless the new screen is a different
+product type.
 
-It gets its own section because it is the only convention here that needs
-judgment from you. Everything else is either caught automatically or visible in
-the render.
+A named device or paper size ("iPhone 17", "A4") comes from `vetd_sizes`, never
+from memory; it also returns the screen `radius` to declare in the meta.
+
+It is the one convention here that needs your judgment; everything else is
+caught automatically or visible in the render.
 
 ### Caught for you — copy the templates and these never come up
 
@@ -177,12 +179,12 @@ rule below.
 
 ## Pick the product type
 
-This is the first decision, not an afterthought: `vetd_create` requires it
+The first decision: `vetd_create` requires it
 (`product`, or `frameSize` in pixels for anything the enum cannot express), and
 it becomes the design's default size. Read it off the user's own words, in
 whatever language they wrote them — a phone app is `mobile`, an admin console or
-dashboard is `desktop`. An explicit user instruction always wins. Do not default to a phone frame; a dashboard at 390 wide is the
-most common failure.
+dashboard is `desktop`. An explicit user instruction always wins. Do not default to a phone frame; a
+dashboard at 390 wide is the most common failure.
 
 | Product | `product` | Default size | What matters |
 | --- | --- | --- | --- |
@@ -191,9 +193,9 @@ most common failure.
 | Landing page | `landing` | 1440x2400 | hero → proof → CTA rhythm |
 | Slide | `slide` | 1920x1080 | One idea; large type; generous margins |
 | Poster / social | `poster` | 1080x1440 | One focal point; strong size contrast |
-| Square social post | — | `frameSize` 1080x1080 | One focal point; strong size contrast |
+| Square social post | — | `frameSize` 1080x1080 | As poster |
 | Infographic / chart | — | `frameSize`, free | Honest data, labeled axes, legible legend |
-| Print (A4 portrait) | — | `frameSize` 794x1123 @96dpi, 2480x3508 @300dpi | Convert mm→px yourself; 300dpi only when the user asks for print |
+| Print (A4 portrait) | — | `frameSize` 794x1123 @96dpi, 2480x3508 @300dpi | 300dpi only when the user asks for print |
 
 The design default only covers frames that forgot to declare a size. A document
 can mix product types — a poster next to three phone screens — as long as each

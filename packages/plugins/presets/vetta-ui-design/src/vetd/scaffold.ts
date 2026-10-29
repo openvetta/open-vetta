@@ -99,8 +99,15 @@ export function blankFrameBackground(themeCss: string | null): string {
 	return token ? `bg-${token}` : "bg-white";
 }
 
-export function blankFrameSource(title: string, width: number, height: number, background = "bg-white"): string {
-	return `export const frame = { width: ${width}, height: ${height}, title: "${title}" };
+export function blankFrameSource(
+	title: string,
+	width: number,
+	height: number,
+	background = "bg-white",
+	radius?: number,
+): string {
+	const radiusDecl = radius === undefined ? "" : `, radius: ${radius}`;
+	return `export const frame = { width: ${width}, height: ${height}, title: "${title}"${radiusDecl} };
 
 export default function Frame() {
 	return <div className="h-full ${background}" />;

@@ -43,7 +43,9 @@ import { findVetdFiles } from "./vetd/discover";
 import { inspectIssues } from "./vetd/inspect";
 import { layoutIssues } from "./vetd/layout-probe";
 import { tellIssues } from "./vetd/tells-probe";
+import { frameRadius } from "./vetd/manifest-types";
 import { PRODUCT_SIZE_SUMMARY, PRODUCT_TYPES, resolveDefaultFrameSize } from "./vetd/product-size";
+import { SIZE_CATEGORIES, type SizeCategoryId, searchSizePresets } from "./vetd/size-presets";
 import { DESIGN_ONLY_TOOLS } from "./vetd/tool-gate";
 import {
 	composeVerificationSheet,
@@ -179,7 +181,7 @@ export function registerDesignTools(ctx: PluginContext): void {
 					required: ["width", "height"],
 					additionalProperties: false,
 					description:
-						"Explicit default size in PIXELS, for whatever `product` cannot express — the user named a size (`800x800`), or a physical format you convert yourself (A4 at 96dpi is 794x1123, at 300dpi 2480x3508). Wins over `product` when both are given.",
+						"Explicit default size in PIXELS, for whatever `product` cannot express — the user named a size (`800x800`), or a physical format you convert yourself (A4 at 96dpi is 794x1123, at 300dpi 2480x3508). For a NAMED device (iPhone 17, iPad Pro 13, Apple Watch 46mm) call `vetd_sizes` and pass its width/height here. Wins over `product` when both are given.",
 				},
 				statusBar: {
 					type: "string",
@@ -594,6 +596,8 @@ export function registerDesignTools(ctx: PluginContext): void {
 									title: frame.title,
 									width: frame.width,
 									height: frame.height,
+									// 画布上实际生效的屏幕圆角（用户可能在画布上手动调过，以这个为准）。
+									radius: frameRadius(frame),
 									...(buildError ? { buildError } : {}),
 								};
 							}),
@@ -603,6 +607,49 @@ export function registerDesignTools(ctx: PluginContext): void {
 				...(controller && renderVerification
 					? { note: statusNote(shell, issues, controller.session.manifest.frames.length, renderVerification) }
 					: {}),
+			};
+		},
+	});
+
+	interface SizesInput {
+		query?: string;
+		category?: SizeCategoryId;
+	}
+
+	// 不进 DESIGN_ONLY_TOOLS：「新建一个 iPhone 17 的设计」发生在设计存在之前，和 vetd_create 一样
+	// 任何会话都得看得见。它只读一张表，没有误调的代价。
+	ctx.agent.registerTool<SizesInput>({
+		id: "vetd-sizes",
+		name: "vetd_sizes",
+		label: "%tool.vetd_sizes%",
+		description:
+			"Look up the canvas's preset device / paper sizes: width x height in CSS px and the device's screen corner radius (iPhone, iPad, Apple Watch, MacBook / desktop, A4-A6). This is the SAME table the user's size panel on the canvas uses, so a frame you size from it matches what the user would get by clicking the preset. Call it whenever the user names a device or paper size (\"iPhone 17\", \"iPad Pro 13 landscape\", \"Apple Watch 46mm\", \"A4\") instead of recalling pixels from memory — recent devices are exactly where memory is wrong. Then declare the result in the frame meta: `export const frame = { width, height, title, radius }`, and pass the same size to `vetd_create` `frameSize` when creating the design. Do NOT use for sizes the user gave in pixels, or for product types (`product` on vetd_create covers those).",
+		parameters: {
+			type: "object",
+			properties: {
+				query: {
+					type: "string",
+					description: "Keywords, e.g. `iphone 17`, `ipad pro 13`, `watch 46`, `macbook pro 14`, `a4`. Every word must match. Omit to list the category (or everything).",
+				},
+				category: {
+					type: "string",
+					enum: SIZE_CATEGORIES.map((category) => category.id),
+					description: "Narrow to one category: phone, desktop, watch, paper, ipad.",
+				},
+			},
+			additionalProperties: false,
+		},
+		scope_use: SCOPE_USE,
+		handler: async ({ trigger }) => {
+			const matches = searchSizePresets(trigger.input.query, trigger.input.category);
+			return {
+				ok: true,
+				count: matches.length,
+				sizes: matches,
+				note:
+					matches.length === 0
+						? "No preset matches. If the user gave pixels, use those; otherwise pick the closest device and say so."
+						: "`radius` is the screen corner radius in px (0 = square corners); declare it as `radius` in the frame meta so the canvas rounds the frame like the device. `landscape` (iPad) is the same device turned sideways — swap width/height, the radius stays. Entries with `radiusEstimated` have an approximate radius, not a measured one: tell the user if it matters.",
 			};
 		},
 	});

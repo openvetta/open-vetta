@@ -5,6 +5,7 @@
 	"fileExplorer.openCanvas": "Open in design canvas",
 	"tool.vetd_create": "New design",
 	"tool.vetd_screenshot": "Design screenshot",
+	"tool.vetd_sizes": "Preset sizes",
 	"tool.vetd_status": "Design status",
 	"tool.vetd_install": "Install design dependencies",
 	"controlbar.designSystems": "Design systems",

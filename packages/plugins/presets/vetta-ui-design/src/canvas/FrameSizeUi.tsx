@@ -8,7 +8,7 @@ import {
 	type SizeCategory,
 	type SizeCategoryId,
 	type SizePreset,
-} from "./size-presets";
+} from "../vetd/size-presets";
 
 type Size = { width: number; height: number };
 

@@ -11,6 +11,11 @@ export interface FrameMeta {
 	width: number;
 	height: number;
 	title: string;
+	/**
+	 * 屏幕圆角（px）。可选声明：agent 建设备画框时写进 `frame = {…, radius: 62}`，
+	 * 没写就是「没意见」，不会动用户在画布上调的圆角（见 reconcile）。
+	 */
+	radius?: number;
 }
 
 /**

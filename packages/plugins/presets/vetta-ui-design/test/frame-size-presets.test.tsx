@@ -12,7 +12,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { BottomPanel } from "../src/canvas/BottomPanel";
 import { FrameSizePanel } from "../src/canvas/FrameSizeUi";
-import { formatSize, placeNewFrame, presetSize, SIZE_CATEGORIES } from "../src/canvas/size-presets";
+import { formatSize, placeNewFrame, presetSize, SIZE_CATEGORIES } from "../src/vetd/size-presets";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

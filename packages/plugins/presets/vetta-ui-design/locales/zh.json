@@ -5,6 +5,7 @@
 	"fileExplorer.openCanvas": "在设计画布中打开",
 	"tool.vetd_create": "新建设计",
 	"tool.vetd_screenshot": "设计截图",
+	"tool.vetd_sizes": "设备尺寸预设",
 	"tool.vetd_status": "设计状态",
 	"tool.vetd_install": "安装设计依赖",
 	"controlbar.designSystems": "设计体系",
