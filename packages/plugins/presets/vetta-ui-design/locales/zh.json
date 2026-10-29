@@ -125,7 +125,7 @@
 	"canvas.frame.copyImage.failed": "复制图片失败",
 	"canvas.frame.rename.failed": "重命名失败",
 	"canvas.frame.delete.title": "删除这个画框？",
-	"canvas.frame.delete.desc": "「{{name}}」及其源码 {{file}} 会一并删除。删除后可用撤销（⌘Z / Ctrl+Z）找回。",
+	"canvas.frame.delete.desc": "「{{name}}」及其源码 {{file}} 会一并删除。",
 	"canvas.frame.delete.confirm": "删除",
 	"canvas.frame.delete.cancel": "取消",
 	"canvas.frame.delete.failed": "删除画框失败",

@@ -125,7 +125,7 @@
 	"canvas.frame.copyImage.failed": "Failed to copy image",
 	"canvas.frame.rename.failed": "Rename failed",
 	"canvas.frame.delete.title": "Delete this frame?",
-	"canvas.frame.delete.desc": "\"{{name}}\" and its source {{file}} will be deleted. You can bring it back with Undo (⌘Z / Ctrl+Z).",
+	"canvas.frame.delete.desc": "\"{{name}}\" and its source {{file}} will be deleted.",
 	"canvas.frame.delete.confirm": "Delete",
 	"canvas.frame.delete.cancel": "Cancel",
 	"canvas.frame.delete.failed": "Failed to delete frame",
