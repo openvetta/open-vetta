@@ -29,9 +29,9 @@ const icons = {
 	home: <path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6h-6v6H5a1 1 0 01-1-1v-8z" strokeLinecap="round" strokeLinejoin="round" />,
 	external: (
 		<>
-			<path d="M14 4h6v6" strokeLinecap="round" strokeLinejoin="round" />
-			<path d="M20 4l-9 9" strokeLinecap="round" />
-			<path d="M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" strokeLinecap="round" strokeLinejoin="round" />
+				<path d="M14 4h6v6" strokeLinecap="round" strokeLinejoin="round" />
+				<path d="M20 4l-9 9" strokeLinecap="round" />
+				<path d="M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" strokeLinecap="round" strokeLinejoin="round" />
 		</>
 	),
 };
@@ -83,7 +83,8 @@ export function InteractionToolbar({
 }: InteractionToolbarProps) {
 	const { t } = useTranslation();
 	return (
-		<div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
+		<>
+		<div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
 			<IconButton label={t("interaction.back")} disabled={!canBack} onClick={onBack}>
 				{icons.back}
 			</IconButton>
@@ -116,6 +117,8 @@ export function InteractionToolbar({
 					</option>
 				))}
 			</select>
+		</div>
+		<div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
 			{mode === "mobile" ? (
 				<select
 					value={deviceId ?? ""}
@@ -153,5 +156,6 @@ export function InteractionToolbar({
 				{icons.external}
 			</IconButton>
 		</div>
+		</>
 	);
 }

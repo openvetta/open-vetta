@@ -323,6 +323,37 @@ export function CanvasTab() {
 		);
 	}
 
+	/** 设计 / 交互开关：交互视图里只保留它（设计稿切换不需要），所以单独成块。 */
+	const modeToggle = (
+		phase.kind === "ready" && session ? (
+			<div
+				className="flex h-7 shrink-0 items-center rounded-lg bg-muted p-0.5"
+				role="radiogroup"
+				aria-label={t("interaction.toggle.label")}
+			>
+				{(["design", "interaction"] as const).map((entry) => {
+					const selected = (entry === "interaction") === interacting;
+					return (
+						// biome-ignore lint/a11y/useSemanticElements: segmented control, not a form field
+						<button
+							key={entry}
+							type="button"
+							role="radio"
+							aria-checked={selected}
+							disabled={entry === "interaction" && session.manifest.frames.length === 0}
+							onClick={() => (entry === "interaction" ? enterInteraction() : setInteracting(false))}
+							className={`h-6 rounded-md px-2.5 text-xs font-medium transition-colors disabled:opacity-40 ${
+								selected ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+							}`}
+						>
+							{t(`interaction.toggle.${entry}`)}
+						</button>
+					);
+				})}
+			</div>
+		) : null
+	);
+
 	/**
 	 * 画布左上角的标题区：设计切换（就是这张画布的标题，所以不套卡片底）。
 	 * 定位交给画布（它要给查看模式的横幅让位），这里只管内容。
@@ -342,33 +373,7 @@ export function CanvasTab() {
 					</option>
 				))}
 			</select>
-			{phase.kind === "ready" && session ? (
-				<div
-					className="flex h-7 shrink-0 items-center rounded-lg bg-muted p-0.5"
-					role="radiogroup"
-					aria-label={t("interaction.toggle.label")}
-				>
-					{(["design", "interaction"] as const).map((entry) => {
-						const selected = (entry === "interaction") === interacting;
-						return (
-							// biome-ignore lint/a11y/useSemanticElements: segmented control, not a form field
-							<button
-								key={entry}
-								type="button"
-								role="radio"
-								aria-checked={selected}
-								disabled={entry === "interaction" && session.manifest.frames.length === 0}
-								onClick={() => (entry === "interaction" ? enterInteraction() : setInteracting(false))}
-								className={`h-6 rounded-md px-2.5 text-xs font-medium transition-colors disabled:opacity-40 ${
-									selected ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-								}`}
-							>
-								{t(`interaction.toggle.${entry}`)}
-							</button>
-						);
-					})}
-				</div>
-			) : null}
+			{modeToggle}
 			{SHOW_EXPORT_SHARE ? (
 				<button
 					type="button"
@@ -443,7 +448,7 @@ export function CanvasTab() {
 							/>
 						</div>
 						{interactionMounted ? (
-							<InteractionView port={phase.port} session={session} active={interacting} titleSlot={titleSlot} />
+							<InteractionView port={phase.port} session={session} active={interacting} leadingSlot={modeToggle} />
 						) : null}
 					</>
 				) : null}

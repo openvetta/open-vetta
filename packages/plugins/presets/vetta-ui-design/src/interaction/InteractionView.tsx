@@ -16,8 +16,8 @@ interface InteractionViewProps {
 	session: DesignSession;
 	/** 当前是否在交互模式。不在时整块隐藏但保持挂载，iframe 的路径和滚动位置都留着。 */
 	active: boolean;
-	/** 左上角标题区（设计切换 + 设计 / 交互 toggle），与画布同一份。 */
-	titleSlot: ReactNode;
+	/** 左上角只放「设计 / 交互」开关；设计稿切换在交互里不需要。 */
+	leadingSlot: ReactNode;
 }
 
 /** 非手机的裸画面外边框粗细（px，设计稿坐标）。 */
@@ -90,7 +90,7 @@ function useVeil(session: DesignSession, revision: number, stageRef: React.RefOb
  * 由 frame 源码里的 `<Link to>` 完成，走引擎的真实路由。视口始终是首页画框的设计尺寸，
  * 放不下就整体等比缩小，页面布局不会因面板窄而变形。
  */
-export function InteractionView({ port, session, active, titleSlot }: InteractionViewProps) {
+export function InteractionView({ port, session, active, leadingSlot }: InteractionViewProps) {
 	const { t } = useTranslation();
 	const revision = useSessionRevision(session);
 	const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -98,7 +98,8 @@ export function InteractionView({ port, session, active, titleSlot }: Interactio
 	/** 手机机型：只在本次会话里生效，不写进设计稿（设计稿的真实尺寸才是依据）。 */
 	const [deviceId, setDeviceId] = useState<string | null>(null);
 	const [stageRef, stage] = useStageSize();
-	const { themeBackground, veil, edge } = useVeil(session, revision, stageRef);
+	const rootRef = useRef<HTMLDivElement | null>(null);
+	const { themeBackground, veil, edge } = useVeil(session, revision, rootRef);
 
 	const { frames } = session.manifest;
 	// 引擎侧的 frameIds 是排过序的，「字典序第一帧」的回落依赖它。
@@ -165,14 +166,18 @@ export function InteractionView({ port, session, active, titleSlot }: Interactio
 	);
 
 	return (
+		// 顶部条和舞台共用同一块底色（色卡背景 + 灰色夹层），所以底色放在根上。
 		<div
-			className="absolute inset-0 flex flex-col"
-			style={{ visibility: active ? "visible" : "hidden" }}
+			ref={rootRef}
+			className="absolute inset-0 flex flex-col bg-background"
+			style={{ visibility: active ? "visible" : "hidden", ...(themeBackground ? { backgroundColor: themeBackground } : {}) }}
 			aria-hidden={!active}
 		>
-			<div className="relative z-10 flex shrink-0 items-center gap-2 border-b border-border bg-background px-3 py-2">
-				<div className="flex min-w-0 items-center gap-1">{titleSlot}</div>
-				<div className="ml-auto min-w-0">
+			{/* 灰色夹层：夹在底色与设备 / 画框之间，把两者分开。 */}
+			<div className="pointer-events-none absolute inset-0" style={{ backgroundColor: veil }} />
+			<div className="relative z-10 flex shrink-0 items-center gap-2 px-3 py-2">
+				<div className="flex shrink-0 items-center gap-1">{leadingSlot}</div>
+				<div className="flex min-w-0 flex-1 items-center justify-between gap-2">
 					<InteractionToolbar
 						path={path}
 						canBack={nav?.canBack === true}
@@ -192,13 +197,7 @@ export function InteractionView({ port, session, active, titleSlot }: Interactio
 					/>
 				</div>
 			</div>
-			<div
-				ref={stageRef}
-				className="relative min-h-0 flex-1 overflow-hidden bg-background"
-				style={themeBackground ? { backgroundColor: themeBackground } : undefined}
-			>
-				{/* 灰色夹层：夹在底色与设备 / 画框之间，把两者分开。 */}
-				<div className="absolute inset-0" style={{ backgroundColor: veil }} />
+			<div ref={stageRef} className="relative min-h-0 flex-1 overflow-hidden">
 				{src ? (
 					<div
 						className="absolute"
