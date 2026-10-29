@@ -9,7 +9,17 @@ import { InteractionToolbar } from "./InteractionToolbar";
 import { PhoneShell } from "./PhoneShell";
 import { resolvePhoneDevice, shellOuterSize } from "./phone-shell";
 import { useNavBridge } from "./nav-bridge";
-import { chromeVars, edgeColor, fitScale, isNarrow, parseCssColor, themeStageBackground, veilColor } from "./stage";
+import {
+	chromeVars,
+	edgeColor,
+	fitScale,
+	isNarrow,
+	parseCssColor,
+	stageGlow,
+	themeStageBackground,
+	themeStagePrimary,
+	veilColor,
+} from "./stage";
 
 interface InteractionViewProps {
 	port: number;
@@ -51,6 +61,7 @@ function useStageSize(): [React.RefObject<HTMLDivElement | null>, { width: numbe
 /** 色卡背景（没有则宿主背景）的明暗决定夹层是叠黑还是叠白。 */
 function useVeil(session: DesignSession, revision: number, stageRef: React.RefObject<HTMLDivElement | null>) {
 	const [themeBackground, setThemeBackground] = useState<string | null>(null);
+	const [themePrimary, setThemePrimary] = useState<string | null>(null);
 	const [veil, setVeil] = useState(() => veilColor(null));
 	const [edge, setEdge] = useState(() => edgeColor(null));
 	const [chrome, setChrome] = useState(() => chromeVars(null));
@@ -58,7 +69,9 @@ function useVeil(session: DesignSession, revision: number, stageRef: React.RefOb
 	useEffect(() => {
 		let cancelled = false;
 		void session.readThemeCss().then((css) => {
-			if (!cancelled) setThemeBackground(themeStageBackground(css));
+			if (cancelled) return;
+			setThemeBackground(themeStageBackground(css));
+			setThemePrimary(themeStagePrimary(css));
 		});
 		return () => {
 			cancelled = true;
@@ -82,7 +95,7 @@ function useVeil(session: DesignSession, revision: number, stageRef: React.RefOb
 		return () => observer.disconnect();
 	}, [themeBackground, stageRef]);
 
-	return { themeBackground, veil, edge, chrome };
+	return { themeBackground, themePrimary, veil, edge, chrome };
 }
 
 /**
@@ -101,7 +114,7 @@ export function InteractionView({ port, session, active, trailingSlot }: Interac
 	const [deviceId, setDeviceId] = useState<string | null>(null);
 	const [stageRef, stage] = useStageSize();
 	const rootRef = useRef<HTMLDivElement | null>(null);
-	const { themeBackground, veil, edge, chrome } = useVeil(session, revision, rootRef);
+	const { themeBackground, themePrimary, veil, edge, chrome } = useVeil(session, revision, rootRef);
 
 	const { frames } = session.manifest;
 	// 引擎侧的 frameIds 是排过序的，「字典序第一帧」的回落依赖它。
@@ -181,6 +194,11 @@ export function InteractionView({ port, session, active, trailingSlot }: Interac
 		>
 			{/* 灰色夹层：夹在底色与设备 / 画框之间，把两者分开。 */}
 			<div className="pointer-events-none absolute inset-0" style={{ backgroundColor: veil }} />
+			{/* 底部渐变：主色（优先设计色卡，宿主兜底）低透明度从下往上淡出到底色。 */}
+			<div
+				className="pointer-events-none absolute inset-0"
+				style={{ backgroundImage: stageGlow(themePrimary ?? "var(--primary)") }}
+			/>
 			<div className="relative z-10 flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2">
 				<InteractionToolbar
 					path={path}

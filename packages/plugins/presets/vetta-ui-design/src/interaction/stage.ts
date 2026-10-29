@@ -1,6 +1,6 @@
 import { parseThemeTokens } from "../canvas/theme-tokens";
 import type { FrameSize } from "../vetd/manifest-types";
-import { themeBackgroundToken } from "../vetd/scaffold";
+import { PLACEHOLDER_THEME_MARK, themeBackgroundToken } from "../vetd/scaffold";
 
 /** 夹层的不透明度：足以把设备 / 画框和底色分开，又不盖掉底色自己的色相。 */
 export const VEIL_ALPHA = 0.07;
@@ -140,4 +140,27 @@ export function themeStageBackground(themeCss: string | null): string | null {
 	const token = themeBackgroundToken(themeCss);
 	if (!token || !themeCss) return null;
 	return parseThemeTokens(themeCss).find((entry) => entry.name === token)?.value ?? null;
+}
+
+/** 底部渐变起点的不透明度（%）：只是给底色一点气色，不能抢设计稿。 */
+export const GLOW_ALPHA = 32;
+
+/** 渐变从底部往上淡出到哪一档高度（%）。 */
+export const GLOW_REACH = 75;
+
+/**
+ * 底部渐变用的主色：优先设计色卡里的 `--color-primary`，占位色卡或没写时为 null，
+ * 由调用方落到宿主的 primary。
+ */
+export function themeStagePrimary(themeCss: string | null): string | null {
+	if (!themeCss || themeCss.includes(PLACEHOLDER_THEME_MARK)) return null;
+	return parseThemeTokens(themeCss).find((entry) => entry.name === "primary")?.value ?? null;
+}
+
+/**
+ * 舞台底部的渐变：主色（低透明度）从下往上淡出到透明，透出下面的底色。
+ * 主色不是合法 CSS 颜色时整个声明会被浏览器丢掉，等于没有渐变，不会出错。
+ */
+export function stageGlow(primary: string): string {
+	return `linear-gradient(to top, color-mix(in srgb, ${primary} ${GLOW_ALPHA}%, transparent), transparent ${GLOW_REACH}%)`;
 }

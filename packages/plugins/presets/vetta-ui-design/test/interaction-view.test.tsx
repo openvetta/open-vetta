@@ -115,7 +115,7 @@ describe("InteractionView", () => {
 	it("顶部条：左边是导航，设备类别在右边，开关在最右端，且顶部条没有自己的底色", async () => {
 		const { session } = fakeSession({ frames: [frame("index", 1440, 900)] });
 		await render(session);
-		const header = host.querySelector("[aria-hidden]")?.firstElementChild?.nextElementSibling as HTMLElement;
+		const header = host.querySelector("[aria-hidden] > .z-10") as HTMLElement;
 		expect(header.className).not.toMatch(/\bbg-/);
 		const order = [...header.querySelectorAll<HTMLElement>("button, select")].map(
 			(element) => element.getAttribute("aria-label") ?? element.textContent ?? "",
@@ -125,5 +125,12 @@ describe("InteractionView", () => {
 		expect(header.lastElementChild?.textContent).toBe("toggle");
 		expect(index("interaction.back")).toBeLessThan(index("interaction.switchDevice"));
 		expect(index("interaction.home")).toBeLessThan(index("interaction.openExternal.short"));
+	});
+
+	it("舞台底色之上有两层不挡点击的覆盖层：灰色夹层和底部主色渐变", async () => {
+		await render(fakeSession({ frames: [frame("index", 1440, 900)] }).session);
+		const layers = host.querySelectorAll("[aria-hidden] > .pointer-events-none.absolute.inset-0");
+		// 渐变的具体取值见 stage.ts 的 stageGlow 单测（happy-dom 解析不了 color-mix）。
+		expect(layers).toHaveLength(2);
 	});
 });
