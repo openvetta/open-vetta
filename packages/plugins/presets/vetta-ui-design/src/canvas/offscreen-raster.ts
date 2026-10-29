@@ -9,8 +9,11 @@
  * 旧宿主没有这个能力（ctx.capture 为 undefined），调用方据 supported() 回落到
  * html-to-image 老路。
  */
+import type { PluginOffscreenCaptureOptions, PluginOffscreenCaptureResult } from "@vetta-org/plugin-sdk";
 import { HOME_FRAME_ID } from "../../engine/src/routes";
 import { STORAGE_SEED_PARAM, type StorageEntries } from "../../engine/src/storage-sync";
+import { planTiles } from "../materials/tile-plan";
+import { loadImage } from "../mockup/load-image";
 import { getPluginCtx } from "../plugin-context";
 import { LAYOUT_PROBE_SCRIPT } from "../vetd/layout-probe";
 import { TELLS_PROBE_SCRIPT } from "../vetd/tells-probe";
@@ -30,6 +33,21 @@ const DELIVERY_PROBE_SCRIPT = `[...(${LAYOUT_PROBE_SCRIPT}), ...(${TELLS_PROBE_S
  * 导出时会撞上「Too many capture sessions」。
  */
 export const OFFSCREEN_RASTER_SLOTS = 3;
+
+/**
+ * 宿主离屏窗口的单边上限（offscreen-capture-service 的 MAX_VIEWPORT_PX）。
+ * 超过会被宿主静默夹到这个数，位图就少一截，所以这边必须自己知道这条线在哪。
+ *
+ * 宿主那边不能往上放：离屏合成的纹理按物理像素算，2 倍屏下 4096 已是 8192，
+ * 再高就会撞上 GPU 的最大纹理边长（常见 16384），GPU 进程直接退出重启。
+ */
+export const OFFSCREEN_MAX_VIEWPORT_PX = 4_096;
+
+/**
+ * 分块拼接画布的物理像素上限。Chromium 的 canvas 单边最大 32767、总面积也有上限，
+ * 再高的 frame 按比例缩小，宁可略糊也不要出不了图。
+ */
+const MAX_STITCH_EDGE_PX = 16_384;
 
 export interface OffscreenRasterRequest {
 	port: number;
@@ -52,6 +70,12 @@ export interface OffscreenRasterResult {
 	dataUrl: string;
 	/** `probeLayout` 时探针的原始结果，交给 layoutIssues 解释；宿主不支持时为 undefined。 */
 	probe: unknown;
+}
+
+/** 宿主边界：测试用假的截图函数与解码器代替离屏窗口。 */
+export interface OffscreenRasterDeps {
+	capture(options: PluginOffscreenCaptureOptions): Promise<PluginOffscreenCaptureResult>;
+	loadImage(dataUrl: string): Promise<HTMLImageElement>;
 }
 
 export function offscreenRasterSupported(): boolean {
@@ -187,27 +211,152 @@ export function isOffscreenServerUnavailable(error: unknown): boolean {
 	return message.includes("ERR_CONNECTION_REFUSED") || message.includes("ECONNREFUSED");
 }
 
-export async function captureFrameOffscreen(request: OffscreenRasterRequest): Promise<OffscreenRasterResult> {
+function hostDeps(): OffscreenRasterDeps {
 	const capture = getPluginCtx().capture;
 	if (!capture) throw new Error("offscreen capture unavailable");
-	const result = await capture.offscreen({
-		// 恒定加载根路径，切帧走 show-frame 消息（bridge 的既有协议）：url 不变
-		// 才能命中宿主的窗口复用，免掉每帧一次整页加载。只有存储快照变了地址才变。
-		url: offscreenEngineUrl(request.port),
-		width: request.width,
-		height: request.height,
-		sessionKey: sessionKeyOf(request.port, request.slot ?? null),
-		prepareScript: framePrepareScript(request.frameId),
-		// __vetdPainted 由引擎在「chunk 到齐 + 字体就绪 + 绘制过一帧」后写入
-		// （见 engine/src/main.tsx 的 FramePainted）；图片解码另等 complete。
-		readyExpression: FRAME_READY_EXPRESSION,
-		settleMs: 300,
-		...(request.probeLayout === true ? { probeScript: DELIVERY_PROBE_SCRIPT } : {}),
-		timeoutMs: 20_000,
-		format: "jpeg",
-		quality: request.quality,
-	});
-	return { dataUrl: result.dataUrl, probe: result.probe };
+	return { capture: (options) => capture.offscreen(options), loadImage };
+}
+
+/** 超高 frame 分块时撑高文档用的样式节点。 */
+const TALL_STYLE_ID = "vetd-raster-tall";
+
+/**
+ * 超高 frame 每一块的准备脚本：照常切帧（{@link framePrepareScript}），等画完后把
+ * 文档撑到 frame 高度、滚到这一块的位置。就绪信号是 `__vetdScrollAt`。
+ *
+ * 撑高是因为活体 iframe 的视口就是 frame 高度：内容比 frame 短时，下面那段露出的是
+ * 页面背景。离屏视口只有上限那么高，不撑的话文档滚不到 frame 底部，最后一块会和
+ * 上一块错位。
+ */
+export function tallFramePrepareScript(frameId: string, frameHeight: number, scrollTop: number): string {
+	const top = Math.max(0, Math.round(scrollTop));
+	return `(() => {
+	var TOP = ${top};
+	window.__vetdScrollAt = null;
+	${framePrepareScript(frameId)};
+	var timer = setInterval(function () {
+		if (!${FRAME_PAINTED_EXPRESSION}) return;
+		clearInterval(timer);
+		var style = document.getElementById("${TALL_STYLE_ID}");
+		if (!style) {
+			style = document.createElement("style");
+			style.id = "${TALL_STYLE_ID}";
+			document.head.appendChild(style);
+		}
+		style.textContent = "html{min-height:${Math.round(frameHeight)}px !important;scrollbar-width:none !important}";
+		window.scrollTo({ top: TOP, behavior: "instant" });
+		requestAnimationFrame(function () { window.__vetdScrollAt = TOP; });
+	}, 50);
+})()`;
+}
+
+/** 与 {@link tallFramePrepareScript} 配对的就绪表达式。 */
+function tallFrameReadyExpression(scrollTop: number): string {
+	return `${FRAME_READY_EXPRESSION} && window.__vetdScrollAt === ${Math.max(0, Math.round(scrollTop))}`;
+}
+
+/** 最后一块出图后撤掉撑高、滚动归零：同一槽位的下一帧不该接手一个滚到底的页面。 */
+const TALL_FRAME_RESET_SCRIPT = `(() => {
+	var style = document.getElementById("${TALL_STYLE_ID}");
+	if (style) style.remove();
+	window.scrollTo({ top: 0, behavior: "instant" });
+	window.__vetdScrollAt = null;
+	return true;
+})()`;
+
+export async function captureFrameOffscreen(
+	request: OffscreenRasterRequest,
+	deps: OffscreenRasterDeps = hostDeps(),
+): Promise<OffscreenRasterResult> {
+	const viewportHeight = Math.min(request.height, OFFSCREEN_MAX_VIEWPORT_PX);
+	const shoot = (extra: Partial<PluginOffscreenCaptureOptions>): Promise<PluginOffscreenCaptureResult> =>
+		deps.capture({
+			// 恒定加载根路径，切帧走 show-frame 消息（bridge 的既有协议）：url 不变
+			// 才能命中宿主的窗口复用，免掉每帧一次整页加载。只有存储快照变了地址才变。
+			url: offscreenEngineUrl(request.port),
+			width: request.width,
+			height: viewportHeight,
+			sessionKey: sessionKeyOf(request.port, request.slot ?? null),
+			prepareScript: framePrepareScript(request.frameId),
+			// __vetdPainted 由引擎在「chunk 到齐 + 字体就绪 + 绘制过一帧」后写入
+			// （见 engine/src/main.tsx 的 FramePainted）；图片解码另等 complete。
+			readyExpression: FRAME_READY_EXPRESSION,
+			settleMs: 300,
+			timeoutMs: 20_000,
+			format: "jpeg",
+			quality: request.quality,
+			...extra,
+		});
+	const probe = request.probeLayout === true ? { probeScript: DELIVERY_PROBE_SCRIPT } : {};
+	if (request.height <= OFFSCREEN_MAX_VIEWPORT_PX) {
+		const result = await shoot(probe);
+		return { dataUrl: result.dataUrl, probe: result.probe };
+	}
+	return stitchTallFrame(request, viewportHeight, shoot, deps, probe);
+}
+
+/**
+ * 比宿主上限还高的 frame（长落地页）：视口钉在上限，按文档滚动逐块截，再拼成一张
+ * 正好是 frame 尺寸的图。
+ *
+ * 直接把高度交给宿主的话会被静默夹到上限，图比 frame 矮；画布上的位图是 object-cover
+ * 铺满 frame 的，矮图会被等比放大、左右裁掉。
+ *
+ * 与活体的差异：离屏视口比 frame 矮，按视口高度（vh、min-h-screen）布局的元素会更短，
+ * fixed 元素每块各出现一次。长落地页里这两样都少见，比整张图走样好得多。
+ */
+async function stitchTallFrame(
+	request: OffscreenRasterRequest,
+	viewportHeight: number,
+	shoot: (extra: Partial<PluginOffscreenCaptureOptions>) => Promise<PluginOffscreenCaptureResult>,
+	deps: OffscreenRasterDeps,
+	probe: { probeScript?: string },
+): Promise<OffscreenRasterResult> {
+	const plan = planTiles({ viewportHeight, top: 0, bottom: viewportHeight, hidden: request.height - viewportHeight });
+	let canvas: HTMLCanvasElement | null = null;
+	let g: CanvasRenderingContext2D | null = null;
+	let scale = 1;
+	let draw = 1;
+	let probed: unknown;
+	for (const [index, tile] of plan.tiles.entries()) {
+		const first = index === 0;
+		const last = index === plan.tiles.length - 1;
+		const shot = await shoot({
+			prepareScript: tallFramePrepareScript(request.frameId, request.height, tile.scrollTop),
+			readyExpression: tallFrameReadyExpression(tile.scrollTop),
+			// 布局探针只跑第一块：它出图后才求值，那时页面还停在顶端。
+			...(first ? probe : {}),
+			...(last ? { probeScript: TALL_FRAME_RESET_SCRIPT } : {}),
+		});
+		if (first) probed = shot.probe;
+		const image = await deps.loadImage(shot.dataUrl);
+		if (canvas === null || g === null) {
+			scale = shot.scaleFactor > 0 ? shot.scaleFactor : 1;
+			const fit = Math.min(1, MAX_STITCH_EDGE_PX / (plan.height * scale), MAX_STITCH_EDGE_PX / (request.width * scale));
+			draw = scale * fit;
+			canvas = document.createElement("canvas");
+			canvas.width = Math.max(1, Math.round(request.width * draw));
+			canvas.height = Math.max(1, Math.round(plan.height * draw));
+			g = canvas.getContext("2d");
+			if (!g) throw new Error("2D canvas context unavailable");
+			g.fillStyle = "#ffffff";
+			g.fillRect(0, 0, canvas.width, canvas.height);
+		}
+		const rows = tile.srcBottom - tile.srcTop;
+		g.drawImage(
+			image,
+			0,
+			tile.srcTop * scale,
+			request.width * scale,
+			rows * scale,
+			0,
+			tile.destTop * draw,
+			request.width * draw,
+			rows * draw,
+		);
+	}
+	if (canvas === null) throw new Error("tall frame produced no tiles");
+	return { dataUrl: canvas.toDataURL("image/jpeg", request.quality), probe: probed };
 }
 
 /**

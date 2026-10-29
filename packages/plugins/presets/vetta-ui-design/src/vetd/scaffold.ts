@@ -1,5 +1,6 @@
 import type { PluginFsApi } from "@vetta-org/plugin-sdk";
 import { designPackageJson, PACKAGE_FILE } from "./design-package";
+import type { InteractionMode } from "./interaction-mode";
 import { emptyManifest, type FrameSize, manifestPathOf, type VetdManifest } from "./manifest-types";
 import type { StatusBarSetting } from "./status-bar";
 
@@ -52,6 +53,7 @@ export async function scaffoldDesign(
 	rawName: string,
 	defaultFrameSize?: FrameSize | null,
 	statusBar?: StatusBarSetting | null,
+	interactionMode?: InteractionMode | null,
 ): Promise<ScaffoldResult> {
 	const name = sanitizeDesignName(rawName);
 	let vetdPath = `${cwd}/${name}.vetd`;
@@ -69,6 +71,7 @@ export async function scaffoldDesign(
 		...emptyManifest(),
 		...(defaultFrameSize ? { defaultFrameSize } : {}),
 		...(statusBar ? { statusBar } : {}),
+		...(interactionMode ? { interactionMode } : {}),
 	};
 	await fs.writeFile(manifestPathOf(vetdPath), `${JSON.stringify(manifest, null, "\t")}\n`);
 	return { vetdPath, dirPath: vetdPath };
@@ -85,11 +88,37 @@ export function sanitizeDesignName(raw: string): string {
 }
 
 /** Frame source template used by the canvas "Frame" tool (drag-to-create). */
-export function blankFrameSource(title: string, width: number, height: number): string {
-	return `export const frame = { width: ${width}, height: ${height}, title: "${title}" };
+/** 新画框的底色按这个顺序在 theme.css 里找：靠前的更像「页面背景」。 */
+const BACKGROUND_TOKEN_CANDIDATES = ["background", "bg", "surface", "base", "canvas"];
+
+/**
+ * 新画框用的底色 class：用当前色卡的背景色，色卡里没有（或还是脚手架的占位灰）就纯白。
+ * 占位灰不是用户的配色，拿它当底色只会让每个新画框都灰着出生。
+ */
+export function blankFrameBackground(themeCss: string | null): string {
+	const token = themeBackgroundToken(themeCss);
+	return token ? `bg-${token}` : "bg-white";
+}
+
+/** 色卡里「页面背景」那个 token 的名字；占位色卡或没有候选时为 null。 */
+export function themeBackgroundToken(themeCss: string | null): string | null {
+	if (!themeCss || themeCss.includes(PLACEHOLDER_THEME_MARK)) return null;
+	const declared = new Set([...themeCss.matchAll(/--color-([a-z][a-z0-9-]*)\s*:/g)].map((match) => match[1]));
+	return BACKGROUND_TOKEN_CANDIDATES.find((name) => declared.has(name)) ?? null;
+}
+
+export function blankFrameSource(
+	title: string,
+	width: number,
+	height: number,
+	background = "bg-white",
+	radius?: number,
+): string {
+	const radiusDecl = radius === undefined ? "" : `, radius: ${radius}`;
+	return `export const frame = { width: ${width}, height: ${height}, title: "${title}"${radiusDecl} };
 
 export default function Frame() {
-	return <div className="h-full bg-surface" />;
+	return <div className="h-full ${background}" />;
 }
 `;
 }

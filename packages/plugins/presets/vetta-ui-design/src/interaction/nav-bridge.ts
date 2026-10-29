@@ -1,13 +1,13 @@
 /**
- * 预览 dialog 与它那个 iframe 的通信。
+ * 交互视图与它那个 iframe 的通信。
  *
  * 刻意不走画布的 {@link BridgeHub}：那边按 frameId 路由消息、还挂着截图队列与
  * 元素选择，预览这一份注册进去只会跟画布上同 id 的那帧撞车（截图请求发错窗口、
- * rendered 信号被当成画布的交接点）。预览要的东西也少得多——导航，仅此而已。
+ * rendered 信号被当成画布的交接点）。交互要的东西也少得多——导航，仅此而已。
  */
 import { type RefObject, useCallback, useEffect, useState } from "react";
 
-export interface PreviewNavState {
+export interface NavState {
 	/** 当前地址，如 `/login`。 */
 	path: string;
 	/** 该地址对应的 frame id；地址不认识时为 null。 */
@@ -16,25 +16,37 @@ export interface PreviewNavState {
 	canForward: boolean;
 }
 
-export interface PreviewBridge {
+export interface NavBridge {
 	/** 首条 navigated 到达前为 null（iframe 还在加载）。 */
-	nav: PreviewNavState | null;
+	nav: NavState | null;
 	navigateTo(path: string): void;
 	/** 前进/后退：-1 / 1。 */
 	go(delta: number): void;
 	/** 整页重载——帧内 state 一起清掉，客户端路由做不到这件事。 */
 	reload(): void;
+	/** 设计里是不是自己写了状态栏组件（灵动岛画在图里，外壳要让出自己的灵动岛）。 */
+	customStatusBar: boolean;
+	/** 告诉页面它外层被裁成了多大的圆角。 */
+	setRadius(radius: number): void;
+	/** 告诉页面外壳配置：手机要触摸手势，外壳自带灵动岛 / 刘海所以藏掉设计稿状态栏的挖孔。 */
+	configure(config: { touch: boolean; hideCutout: boolean }): void;
 }
 
-export function usePreviewBridge(iframeRef: RefObject<HTMLIFrameElement | null>): PreviewBridge {
-	const [nav, setNav] = useState<PreviewNavState | null>(null);
+export function useNavBridge(iframeRef: RefObject<HTMLIFrameElement | null>): NavBridge {
+	const [nav, setNav] = useState<NavState | null>(null);
+	const [customStatusBar, setCustomStatusBar] = useState(false);
 
 	useEffect(() => {
 		const onMessage = (event: MessageEvent): void => {
 			// 画布上的每个 frame 也在往同一个 window 发消息，来源过滤是必须的。
 			if (event.source !== iframeRef.current?.contentWindow) return;
 			const data = event.data as Record<string, unknown> | null;
-			if (!data || data.vetd !== true || data.type !== "navigated") return;
+			if (!data || data.vetd !== true) return;
+			if (data.type === "status-bar-kind") {
+				setCustomStatusBar(data.custom === true);
+				return;
+			}
+			if (data.type !== "navigated") return;
 			setNav({
 				path: typeof data.path === "string" ? data.path : "/",
 				frameId: typeof data.frameId === "string" ? data.frameId : null,
@@ -57,5 +69,12 @@ export function usePreviewBridge(iframeRef: RefObject<HTMLIFrameElement | null>)
 	const go = useCallback((delta: number): void => post({ type: "navigate", delta }), [post]);
 	const reload = useCallback((): void => post({ type: "reload" }), [post]);
 
-	return { nav, navigateTo, go, reload };
+	const configure = useCallback(
+		(config: { touch: boolean; hideCutout: boolean }): void => post({ type: "interaction-config", ...config }),
+		[post],
+	);
+
+	const setRadius = useCallback((radius: number): void => post({ type: "frame-radius", radius }), [post]);
+
+	return { nav, navigateTo, go, reload, configure, setRadius, customStatusBar };
 }

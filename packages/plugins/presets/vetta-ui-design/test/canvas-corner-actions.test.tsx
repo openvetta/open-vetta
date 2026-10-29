@@ -1,6 +1,6 @@
 /**
- * 画布右上角按钮组的构成与顺序：备注显隐在最左、运行在最右，中间是
- * 刷新 / 版本历史 / 导出渲染图 / 下载素材。顺序是产品要求，不是实现细节，
+ * 画布右上角按钮组的构成与顺序：运行在最右，中间是
+ * 版本历史 / 导出。顺序是产品要求，不是实现细节，
  * 所以按 DOM 顺序断言。
  */
 import { expect, it, vi } from "vitest";
@@ -21,7 +21,7 @@ interface Rendered {
 	cleanup(): void;
 }
 
-function render(options: { notesVisible?: boolean; runDisabled?: boolean } = {}): Rendered {
+function render(): Rendered {
 	const host = document.createElement("div");
 	document.body.appendChild(host);
 	const root = createRoot(host);
@@ -31,14 +31,9 @@ function render(options: { notesVisible?: boolean; runDisabled?: boolean } = {})
 			<CanvasCornerActions
 				offsetTop={0}
 				historyOpen={false}
-				notesVisible={options.notesVisible ?? true}
-				onToggleNotes={() => calls.push("notes")}
-				onRefresh={() => calls.push("refresh")}
 				onExport={() => calls.push("export")}
 				materials={{ selectedCount: 0, totalCount: 1, progress: null, onPick: (action) => calls.push(action) }}
 				onToggleHistory={() => calls.push("history")}
-				onRun={() => calls.push("run")}
-				runDisabled={options.runDisabled ?? false}
 			/>,
 		);
 	});
@@ -52,34 +47,36 @@ function render(options: { notesVisible?: boolean; runDisabled?: boolean } = {})
 	};
 }
 
-it("orders the group as notes | refresh history export download | run", () => {
-	const { buttons, calls, cleanup } = render();
+it("orders the group as history export, with no run or refresh button", () => {
+	const { buttons, cleanup } = render();
 	expect(buttons.map((button) => button.getAttribute("aria-label") ?? button.getAttribute("title"))).toEqual([
-		"notes.visibility.hide",
-		"canvas.refresh",
 		"controlbar.history",
-		"controlbar.exportMockup.label",
-		"canvas.download.label",
-		"canvas.run",
+		"canvas.export.label",
 	]);
-	// 备注开关是真开关，状态要能被读出来（不只是底色深浅）。
-	expect(buttons[0]?.getAttribute("role")).toBe("switch");
-	expect(buttons[0]?.getAttribute("aria-checked")).toBe("true");
-	// 打开面板的两个动作带文字：纯 icon 认不出「版本历史」和「导出渲染图」的区别。
-	expect(buttons[2]?.textContent).toContain("controlbar.history");
-	expect(buttons[3]?.textContent).toContain("controlbar.exportMockup.label");
-
-	act(() => buttons[0]?.click());
-	act(() => buttons[5]?.click());
-	expect(calls).toEqual(["notes", "run"]);
+	// 两个按钮各自是独立的全圆角胶囊，不再合在一条 bar 里。
+	for (const button of buttons) expect(button.className).toMatch(/rounded-full/);
+	expect(buttons[0]?.textContent).toContain("controlbar.history");
+	expect(buttons[1]?.textContent).toContain("canvas.export.label");
 	cleanup();
 });
 
-it("disables run when the design has no frames", () => {
-	const { buttons, calls, cleanup } = render({ runDisabled: true });
-	const run = buttons[5];
-	expect(run?.disabled).toBe(true);
-	act(() => run?.click());
-	expect(calls).toEqual([]);
-	cleanup();
+it("puts the trailing slot (design / interaction toggle) at the far right of the group", () => {
+	const host = document.createElement("div");
+	document.body.appendChild(host);
+	const root = createRoot(host);
+	act(() => {
+		root.render(
+			<CanvasCornerActions
+				offsetTop={0}
+				historyOpen={false}
+				onExport={() => {}}
+				materials={{ selectedCount: 0, totalCount: 1, progress: null, onPick: () => {} }}
+				onToggleHistory={() => {}}
+				trailing={<span data-testid="toggle">t</span>}
+			/>,
+		);
+	});
+	expect(host.firstElementChild?.lastElementChild?.getAttribute("data-testid")).toBe("toggle");
+	act(() => root.unmount());
+	host.remove();
 });

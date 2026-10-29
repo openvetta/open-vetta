@@ -200,6 +200,7 @@ export function StatusBar({ variant = "island", tone, time = "9:41", battery = 1
 			<div style={{ position: "relative" }}>
 				{variant === "island" ? (
 					<div
+						data-vetd-cutout=""
 						style={{
 							position: "absolute",
 							left: 0,
@@ -212,6 +213,7 @@ export function StatusBar({ variant = "island", tone, time = "9:41", battery = 1
 					/>
 				) : variant === "notch" ? (
 					<svg
+						data-vetd-cutout=""
 						width={m.cutoutW}
 						height={33.67}
 						viewBox="0 0 171.33 33.67"

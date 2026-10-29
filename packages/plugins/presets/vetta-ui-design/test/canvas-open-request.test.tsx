@@ -69,8 +69,7 @@ vi.mock("../src/canvas/bridge-client", () => ({ BridgeHub: class {} }));
 vi.mock("../src/canvas/DesignCanvas", () => ({
 	DesignCanvas: ({ titleSlot }: { titleSlot: ReactNode }) => <div data-testid="design-canvas">{titleSlot}</div>,
 }));
-vi.mock("../src/canvas/ThemePalette", () => ({ ThemePalette: () => null }));
-vi.mock("../src/preview-mode/PreviewDialog", () => ({ PreviewDialog: () => null }));
+vi.mock("../src/interaction/InteractionView", () => ({ InteractionView: () => null }));
 
 import { CanvasTab } from "../src/canvas/CanvasTab";
 import { setPendingDesignPath } from "../src/canvas/design-runtime";

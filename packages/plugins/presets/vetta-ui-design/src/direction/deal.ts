@@ -144,6 +144,8 @@ export interface AppInput {
 	screens: string[];
 	keep: KeepSlot[];
 	avoid: string[];
+	/** 创建时的品类（`vetd_create` 的 `product`）；手表要换一份提案说明。老记录没有。 */
+	product?: string;
 }
 
 export interface PageChoice {

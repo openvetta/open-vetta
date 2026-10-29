@@ -43,7 +43,9 @@ import { findVetdFiles } from "./vetd/discover";
 import { inspectIssues } from "./vetd/inspect";
 import { layoutIssues } from "./vetd/layout-probe";
 import { tellIssues } from "./vetd/tells-probe";
+import { frameRadius } from "./vetd/manifest-types";
 import { PRODUCT_SIZE_SUMMARY, PRODUCT_TYPES, resolveDefaultFrameSize } from "./vetd/product-size";
+import { SIZE_CATEGORIES, type SizeCategoryId, searchSizePresets } from "./vetd/size-presets";
 import { DESIGN_ONLY_TOOLS } from "./vetd/tool-gate";
 import {
 	composeVerificationSheet,
@@ -54,6 +56,7 @@ import {
 	type RenderVerificationSummary,
 	type ScreenshotSelectionInput,
 } from "./vetd/render-verification";
+import { INTERACTION_MODES, resolveInteractionMode } from "./vetd/interaction-mode";
 import { scaffoldDesign } from "./vetd/scaffold";
 import { resolveStatusBar, STATUS_BAR_SETTINGS, statusBarNote } from "./vetd/status-bar";
 
@@ -66,6 +69,7 @@ interface CreateInput {
 	product?: string;
 	frameSize?: { width: number; height: number };
 	statusBar?: string;
+	interaction?: string;
 	brief?: string;
 	sector?: string;
 	screens?: string[];
@@ -168,7 +172,7 @@ export function registerDesignTools(ctx: PluginContext): void {
 				product: {
 					type: "string",
 					enum: PRODUCT_TYPES,
-					description: `What is being designed — sets this design's default frame size (${PRODUCT_SIZE_SUMMARY}). Take it from the user's request in whatever language they wrote it: a phone app is \`mobile\`, an admin console or dashboard is \`desktop\`. Anything else (infographic, A4 print, a square social post) goes through \`frameSize\` instead.`,
+					description: `What is being designed — sets this design's default frame size (${PRODUCT_SIZE_SUMMARY}). Take it from the user's request in whatever language they wrote it: a phone app is \`mobile\`, an Apple Watch app is \`watch\`, an admin console or dashboard is \`desktop\`. Anything else (infographic, A4 print, a square social post) goes through \`frameSize\` instead.`,
 				},
 				frameSize: {
 					type: "object",
@@ -179,13 +183,19 @@ export function registerDesignTools(ctx: PluginContext): void {
 					required: ["width", "height"],
 					additionalProperties: false,
 					description:
-						"Explicit default size in PIXELS, for whatever `product` cannot express — the user named a size (`800x800`), or a physical format you convert yourself (A4 at 96dpi is 794x1123, at 300dpi 2480x3508). Wins over `product` when both are given.",
+						"Explicit default size in PIXELS, for whatever `product` cannot express — the user named a size (`800x800`), or a physical format you convert yourself (A4 at 96dpi is 794x1123, at 300dpi 2480x3508). For a NAMED device (iPhone 17, iPad Pro 13, Apple Watch 46mm) call `vetd_sizes` and pass its width/height here. Wins over `product` when both are given.",
 				},
 				statusBar: {
 					type: "string",
 					enum: [...STATUS_BAR_SETTINGS],
 					description:
 						"mobile only: the iOS status bar every screen carries. Omit it unless the user said otherwise — the default is `island` (Dynamic Island). `notch` when they ask for a notch, `flat` when they want a status bar with no notch or island, `none` when they do not want a status bar at all. Stored with the design, so later screens keep it.",
+				},
+				interaction: {
+					type: "string",
+					enum: [...INTERACTION_MODES],
+					description:
+						"Which kind of device the user will try this design on in interaction mode: `mobile` gets a phone body and touch gestures, `desktop` and `other` show the bare screen. Omit it — it follows `product` (mobile → mobile, desktop / landing → desktop, slide / poster → other) or, with a custom `frameSize`, the size. Pass it only when those would guess wrong (e.g. the user wants a mini-program at a custom size). Stored with the design; the user can change it afterwards, you cannot.",
 				},
 				brief: { type: "string", description: "landing / mobile / desktop: one line about the subject, in English." },
 				sector: { type: "string", enum: [...PAGE_SECTORS], description: "landing: the closest sector." },
@@ -242,7 +252,19 @@ export function registerDesignTools(ctx: PluginContext): void {
 				}
 			}
 			const statusBar = resolveStatusBar(trigger.input);
-			const result = await scaffoldDesign(host.fs, session.cwd, trigger.input.name ?? "design", defaultFrameSize, statusBar);
+			const interactionMode = resolveInteractionMode({
+				interaction: trigger.input.interaction,
+				product: trigger.input.product,
+				size: defaultFrameSize,
+			});
+			const result = await scaffoldDesign(
+				host.fs,
+				session.cwd,
+				trigger.input.name ?? "design",
+				defaultFrameSize,
+				statusBar,
+				interactionMode,
+			);
 			// Provider 在一个 Turn 内只执行一次：仅更新 presence 只能让下一 Turn 开闸。
 			// 工具 handler 的 effect 会在当前 Turn 后续模型调用上重放，因此创建成功后
 			// 还要显式覆盖本轮开头写入的 disable，避免 agent 只剩 vetd_create 可用。
@@ -272,6 +294,7 @@ export function registerDesignTools(ctx: PluginContext): void {
 				vetdPath: result.vetdPath,
 				sourcesDir: result.dirPath,
 				defaultFrameSize,
+				interactionMode,
 				...(statusBar ? { statusBar } : {}),
 				...(dealt
 					? {
@@ -575,6 +598,9 @@ export function registerDesignTools(ctx: PluginContext): void {
 								: {}),
 							// 手机界面的状态栏设置：加新页面时照着它写，不要回到默认。
 							...(controller.session.manifest.statusBar ? { statusBar: controller.session.manifest.statusBar } : {}),
+							...(controller.session.manifest.interactionMode
+								? { interactionMode: controller.session.manifest.interactionMode }
+								: {}),
 							// 复用面先于画框列出：agent 是一屏一屏往下写的，看不见既有的
 							// 外壳与组件就会在每个 frame 里重抄一遍导航栏。
 							sharedShell: shell,
@@ -594,6 +620,8 @@ export function registerDesignTools(ctx: PluginContext): void {
 									title: frame.title,
 									width: frame.width,
 									height: frame.height,
+									// 画布上实际生效的屏幕圆角（用户可能在画布上手动调过，以这个为准）。
+									radius: frameRadius(frame),
 									...(buildError ? { buildError } : {}),
 								};
 							}),
@@ -603,6 +631,49 @@ export function registerDesignTools(ctx: PluginContext): void {
 				...(controller && renderVerification
 					? { note: statusNote(shell, issues, controller.session.manifest.frames.length, renderVerification) }
 					: {}),
+			};
+		},
+	});
+
+	interface SizesInput {
+		query?: string;
+		category?: SizeCategoryId;
+	}
+
+	// 不进 DESIGN_ONLY_TOOLS：「新建一个 iPhone 17 的设计」发生在设计存在之前，和 vetd_create 一样
+	// 任何会话都得看得见。它只读一张表，没有误调的代价。
+	ctx.agent.registerTool<SizesInput>({
+		id: "vetd-sizes",
+		name: "vetd_sizes",
+		label: "%tool.vetd_sizes%",
+		description:
+			"Look up the canvas's preset device / paper sizes: width x height in CSS px and the device's screen corner radius (iPhone, iPad, Apple Watch, MacBook / desktop, A4-A6). This is the SAME table the user's size panel on the canvas uses, so a frame you size from it matches what the user would get by clicking the preset. Call it whenever the user names a device or paper size (\"iPhone 17\", \"iPad Pro 13 landscape\", \"Apple Watch 46mm\", \"A4\") instead of recalling pixels from memory — recent devices are exactly where memory is wrong. Then declare the result in the frame meta: `export const frame = { width, height, title, radius }`, and pass the same size to `vetd_create` `frameSize` when creating the design. Do NOT use for sizes the user gave in pixels, or for product types (`product` on vetd_create covers those).",
+		parameters: {
+			type: "object",
+			properties: {
+				query: {
+					type: "string",
+					description: "Keywords, e.g. `iphone 17`, `ipad pro 13`, `watch 46`, `macbook pro 14`, `a4`. Every word must match. Omit to list the category (or everything).",
+				},
+				category: {
+					type: "string",
+					enum: SIZE_CATEGORIES.map((category) => category.id),
+					description: "Narrow to one category: phone, desktop, watch, paper, ipad.",
+				},
+			},
+			additionalProperties: false,
+		},
+		scope_use: SCOPE_USE,
+		handler: async ({ trigger }) => {
+			const matches = searchSizePresets(trigger.input.query, trigger.input.category);
+			return {
+				ok: true,
+				count: matches.length,
+				sizes: matches,
+				note:
+					matches.length === 0
+						? "No preset matches. If the user gave pixels, use those; otherwise pick the closest device and say so."
+						: "`radius` is the screen corner radius in px (0 = square corners); declare it as `radius` in the frame meta so the canvas rounds the frame like the device. `landscape` (iPad) is the same device turned sideways — swap width/height, the radius stays. Entries with `radiusEstimated` have an approximate radius, not a measured one: tell the user if it matters.",
 			};
 		},
 	});

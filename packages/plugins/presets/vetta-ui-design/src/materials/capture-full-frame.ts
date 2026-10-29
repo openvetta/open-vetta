@@ -13,15 +13,11 @@
  */
 import type { PluginOffscreenCaptureOptions, PluginOffscreenCaptureResult } from "@vetta-org/plugin-sdk";
 import { canvasToJpegDataUrl } from "../mockup/render";
-import { FRAME_READY_EXPRESSION, framePrepareScript } from "../canvas/offscreen-raster";
+import { FRAME_READY_EXPRESSION, framePrepareScript, OFFSCREEN_MAX_VIEWPORT_PX } from "../canvas/offscreen-raster";
 import { SCROLL_PROBE_SCRIPT, SCROLL_RESET_SCRIPT, parseScrollProbe, scrollPrepareScript, scrollReadyExpression } from "./scroll-probe";
 import { planTiles } from "./tile-plan";
 
-/**
- * 宿主离屏窗口的单边上限（offscreen-capture-service 的 MAX_VIEWPORT_PX）。
- * 超过会被宿主静默夹到这个数，位图就少一截，所以这边必须自己知道这条线在哪。
- */
-export const OFFSCREEN_MAX_VIEWPORT_PX = 4_096;
+export { OFFSCREEN_MAX_VIEWPORT_PX };
 /** 视口拉高的迭代上限：每轮都是一次真实渲染，三轮还没收敛的（固定高度的内嵌列表）交给分块。 */
 const MAX_GROW_PASSES = 3;
 /**
@@ -136,13 +132,22 @@ async function fromDataUrl(deps: FullFrameDeps, dataUrl: string, cssWidth: numbe
 	return { dataUrl, cssWidth, cssHeight, pixelWidth: image.naturalWidth, pixelHeight: image.naturalHeight };
 }
 
-export async function captureFullFrame(deps: FullFrameDeps, request: FullFrameRequest): Promise<FullFrameImage> {
+interface Grown {
+	/** 停下时那一张（视口已拉到内容放得下，或拉到上限）。 */
+	shot: PluginOffscreenCaptureResult;
+	viewportHeight: number;
+	/** 视口拉不动之后还藏着的滚动空间；null 表示这一张就是全部。 */
+	rest: { hidden: number; top: number; bottom: number } | null;
+}
+
+/** 从 frame 尺寸起步，把视口拉高到内容刚好放得下（或拉到宿主上限）。 */
+async function growToContent(deps: FullFrameDeps, request: FullFrameRequest): Promise<Grown> {
 	let viewportHeight = Math.min(Math.max(1, Math.round(request.height)), OFFSCREEN_MAX_VIEWPORT_PX);
 	for (let pass = 0; ; pass += 1) {
 		const shot = await shoot(deps, request, viewportHeight, { probeScript: SCROLL_PROBE_SCRIPT });
 		const probe = parseScrollProbe(shot.probe);
 		// 探针没跑成（页面把 querySelectorAll 都搞挂了？）：视口这一屏就是能给的全部。
-		if (!probe || probe.hidden === 0) return fromDataUrl(deps, shot.dataUrl, request.width, viewportHeight);
+		if (!probe || probe.hidden === 0) return { shot, viewportHeight, rest: null };
 
 		const wanted = viewportHeight + probe.hidden;
 		const canGrow = viewportHeight < OFFSCREEN_MAX_VIEWPORT_PX && pass < MAX_GROW_PASSES;
@@ -151,8 +156,23 @@ export async function captureFullFrame(deps: FullFrameDeps, request: FullFrameRe
 			continue;
 		}
 		// 拉不动了：视口停在这里，剩下的按滚动分块拼。
-		return stitchTiles(deps, request, shot, probe.hidden, probe.top, probe.bottom, viewportHeight);
+		return { shot, viewportHeight, rest: { hidden: probe.hidden, top: probe.top, bottom: probe.bottom } };
 	}
+}
+
+export async function captureFullFrame(deps: FullFrameDeps, request: FullFrameRequest): Promise<FullFrameImage> {
+	const { shot, viewportHeight, rest } = await growToContent(deps, request);
+	if (rest === null) return fromDataUrl(deps, shot.dataUrl, request.width, viewportHeight);
+	return stitchTiles(deps, request, shot, rest.hidden, rest.top, rest.bottom, viewportHeight);
+}
+
+/**
+ * 完整内容有多高（CSS px）：画布「展开 frame」用。与 {@link captureFullFrame} 同一套
+ * 拉高规则，所以展开后的高度就是下载素材拼出来的那张图的高度；只量不拼。
+ */
+export async function measureFullFrameHeight(deps: FullFrameDeps, request: FullFrameRequest): Promise<number> {
+	const { viewportHeight, rest } = await growToContent(deps, request);
+	return rest === null ? viewportHeight : planTiles({ viewportHeight, ...rest }).height;
 }
 
 async function stitchTiles(

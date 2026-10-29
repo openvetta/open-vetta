@@ -8,6 +8,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
 	captureFullFrame,
 	type FullFrameDeps,
+	measureFullFrameHeight,
 	OFFSCREEN_MAX_VIEWPORT_PX,
 } from "../src/materials/capture-full-frame";
 
@@ -208,4 +209,15 @@ it("falls back to the viewport shot when the probe did not run", async () => {
 	const image = await captureFullFrame(broken, request);
 	expect(shots).toHaveLength(1);
 	expect(image.cssHeight).toBe(900);
+});
+
+it("measures the full content height with the same growth rules, without stitching", async () => {
+	expect(await measureFullFrameHeight(depsFor({ document: 900 }), request)).toBe(900);
+	expect(await measureFullFrameHeight(depsFor({ document: 3200 }), request)).toBe(3200);
+	expect(await measureFullFrameHeight(depsFor({ app: { header: 60, footer: 84, content: 1500 } }), { ...request, width: 390, height: 844 })).toBe(1644);
+	shots = [];
+	// 超过宿主上限：量到上限为止再加上剩下的滚动空间，不为它去截分块。
+	expect(await measureFullFrameHeight(depsFor({ document: 7000 }), request)).toBe(7000);
+	expect(shots.map((shot) => shot.height)).toEqual([900, OFFSCREEN_MAX_VIEWPORT_PX]);
+	expect(drawn).toHaveLength(0);
 });

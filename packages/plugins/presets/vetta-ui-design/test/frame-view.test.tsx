@@ -14,16 +14,22 @@ vi.mock("@vetta-org/plugin-sdk", () => ({
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { BridgeHub } from "../src/canvas/bridge-client";
+import type { FrameMenuItem } from "../src/canvas/FrameMenu";
 import { FrameView } from "../src/canvas/FrameView";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const bridge = { register: () => {} } as unknown as BridgeHub;
+const radii: number[] = [];
+const bridge = { register: () => {}, setRadius: (_id: string, radius: number) => radii.push(radius) } as unknown as BridgeHub;
 
 function renderFrame(
 	renaming: boolean,
 	selected = false,
 	raster: string | null = null,
+	extra: {
+		expanded?: boolean;
+		menuItems?: FrameMenuItem[] | null;
+	} = {},
 ): { host: HTMLElement; label: HTMLElement; cleanup: () => void } {
 	const host = document.createElement("div");
 	document.body.appendChild(host);
@@ -31,14 +37,26 @@ function renderFrame(
 	act(() => {
 		root.render(
 			<FrameView
-				frame={{ id: "home", title: "Home dynamics", x: 0, y: 0, width: 390, height: 1046 }}
+				frame={{
+					id: "home",
+					file: "frames/home.tsx",
+					title: "Home dynamics",
+					x: 0,
+					y: 0,
+					width: 390,
+					height: 1046,
+					meta: { width: 390, height: 844, title: "Home dynamics" },
+					...(extra.expanded ? { expanded: true as const } : {}),
+				}}
 				port={1234}
 				getZoom={() => 1}
 				bridge={bridge}
 				selected={selected}
 				entered={false}
 				interactive
-				resizable={false}
+				resizable={extra.menuItems !== undefined}
+				menuItems={extra.menuItems ?? null}
+				onMenuSlot={() => {}}
 				mounted={false}
 				live={false}
 				parked={false}
@@ -59,6 +77,7 @@ function renderFrame(
 				onDragStart={() => {}}
 				onDragDelta={() => {}}
 				onDragEnd={() => {}}
+				onRadiusCommit={() => {}}
 			/>,
 		);
 	});
@@ -118,4 +137,78 @@ it("covers a frame that has nothing painted yet with the loading overlay", () =>
 	const painted = renderFrame(false, false, "data:image/png;base64,AAAA");
 	expect(painted.host.querySelector(".vetd-loading-dots")).toBeNull();
 	painted.cleanup();
+});
+
+function item(key: string, onSelect: () => void = () => {}): FrameMenuItem {
+	return { key, icon: <svg data-icon={key} />, label: `label:${key}`, onSelect };
+}
+
+it("puts the Frame Menu left of a lone-selected frame, in the given order, and reports clicks", () => {
+	const clicked: string[] = [];
+	const { host, cleanup } = renderFrame(false, true, null, {
+		menuItems: ["ask", "expand", "copy-image"].map((key) => item(key, () => clicked.push(key))),
+	});
+	const menu = host.querySelector<HTMLElement>("[data-vetd-frame-menu]");
+	// 贴在 frame 左侧外部、与顶边对齐。
+	expect(menu?.style.right).toBe("100%");
+	expect(menu?.className).toContain("top-0");
+	const buttons = [...(menu?.querySelectorAll<HTMLButtonElement>("button") ?? [])];
+	expect(buttons.map((button) => button.textContent)).toEqual(["label:ask", "label:expand", "label:copy-image"]);
+	// 胶囊按钮、主题色、图标 + 文字。
+	expect(buttons[0]?.className).toContain("rounded-full");
+	expect(buttons[0]?.className).toContain("bg-primary");
+	expect(buttons[0]?.querySelector("svg")).not.toBeNull();
+	act(() => buttons[1]?.click());
+	expect(clicked).toEqual(["expand"]);
+	// 按钮下方留着浮层挂载点（追问输入框挂这里）。
+	expect(menu?.lastElementChild?.hasAttribute("data-vetd-frame-menu-slot")).toBe(true);
+	cleanup();
+});
+
+it("keeps only the horizontal resize handle on an expanded frame", () => {
+	const { host, cleanup } = renderFrame(false, true, null, { expanded: true, menuItems: [item("expand")] });
+	const handles = host.querySelectorAll('[class*="resize"]');
+	expect(handles).toHaveLength(1);
+	expect(handles[0]?.className).toContain("cursor-ew-resize");
+	cleanup();
+});
+
+it("shows no Frame Menu without items", () => {
+	const { host, cleanup } = renderFrame(false, true, null, { menuItems: [] });
+	expect(host.querySelector("[data-vetd-frame-menu]")).toBeNull();
+	cleanup();
+});
+
+it("renders the core action as a two-line hero capsule with its caption", () => {
+	const { host, cleanup } = renderFrame(false, true, null, {
+		menuItems: [
+			{ ...item("ask"), variant: "hero", caption: "改「Home dynamics」", active: true },
+			item("expand"),
+		],
+	});
+	const [hero, plain] = [...host.querySelectorAll<HTMLButtonElement>("[data-vetd-frame-menu] button")];
+	expect(hero?.textContent).toBe("label:ask改「Home dynamics」");
+	expect(hero?.getAttribute("aria-expanded")).toBe("true");
+	expect(hero?.className).toContain("ring-primary/30");
+	// 其余按钮仍是普通的单行胶囊。
+	expect(plain?.className).toContain("h-7");
+	cleanup();
+});
+
+it("rounds the frame's four corners by 12px by default without painting a background", () => {
+	const { host, cleanup } = renderFrame(false, true);
+	const surface = host.querySelector<HTMLElement>("[data-vetd-frame] > div.relative");
+	// 圆角走 inline style（可在画布上调），没设过就是 12px。
+	expect(surface?.style.borderRadius).toBe("12px");
+	// 底色会在缩放到非整数像素时透出一圈亮边，不能带回来。
+	expect(surface?.className).not.toMatch(/\bbg-/);
+	cleanup();
+});
+
+it("tells the page how round its frame is, so the engine can drop backdrop-filter at the corners", () => {
+	radii.length = 0;
+	const { cleanup } = renderFrame(false, true);
+	// 没设过圆角就是画布默认的 12px；设备级圆角走同一条通道，由引擎按阈值判断。
+	expect(radii).toEqual([12]);
+	cleanup();
 });

@@ -13,11 +13,13 @@ import {
 import { useNotesAutoDispatch, useNotesHandoff } from "../notes/handoff";
 import type { NotesStore } from "../notes/notes-store";
 import { noteWorldPosition, pendingNotes } from "../notes/types";
-import type { FullFrameImage, MaterialFormat } from "../materials/capture-full-frame";
+import { type FullFrameImage, type MaterialFormat, measureFullFrameHeight } from "../materials/capture-full-frame";
 import { captureMaterial } from "../materials/capture-material";
+import { loadImage } from "../mockup/load-image";
 import { exportMaterials, type MaterialFrame } from "../materials/export-materials";
 import { getPluginCtx, notify } from "../plugin-context";
-import type { DesignSession } from "../vetd/design-session";
+import { type DesignSession, FRAME_GAP } from "../vetd/design-session";
+import { entryKind, type UndoKind } from "../vetd/undo-history";
 import { classifySource, isGeneratedPath, normalizeRelative } from "../vetd/bundle-paths";
 import type { VetdFrameEntry, VetdManifest } from "../vetd/manifest-types";
 import {
@@ -38,6 +40,7 @@ import {
 	type SelectedElementPayload,
 } from "./bridge-client";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { CanvasDotGlow } from "./CanvasDotGlow";
 import { ControlBar, type CanvasTool } from "./ControlBar";
 import {
 	clearFrameErrors,
@@ -50,14 +53,16 @@ import {
 	setFrameError,
 } from "./design-runtime";
 import { DesignSystemDialog } from "./DesignSystemDialog";
+import { BOTTOM_PANEL_LIFT, BottomPanel } from "./BottomPanel";
 import { CanvasCornerActions } from "./CanvasCornerActions";
-import type { MaterialAction, MaterialProgress } from "./DownloadMaterialsMenu";
+import type { MaterialAction, MaterialProgress } from "./ExportMenu";
 import { byCanvasOrder } from "./frame-order";
 import { type FrameMenuAnchor, FrameContextMenu } from "./FrameContextMenu";
 import { refreshCover } from "./cover-compose";
 import { useFrameRasters } from "./frame-raster";
 import { useBridgeEvents } from "./use-bridge-events";
-import { setOffscreenStorageSeed } from "./offscreen-raster";
+import { displayFrames, isExpandable, useFrameExtents } from "./frame-extent";
+import { offscreenRasterSupported, setOffscreenStorageSeed } from "./offscreen-raster";
 import { type FrameDragEdge, FrameView } from "./FrameView";
 import { GapHandles } from "./GapHandles";
 import { HistoryDrawer } from "../history/HistoryDrawer";
@@ -67,7 +72,12 @@ import { enterPeek, exitPeek, type PeekState } from "../history/peek";
 import { restoreDesign } from "../history/restore";
 import { NOTES_PANEL_INSET, NotesDrawer } from "./NotesDrawer";
 import { type NoteDraft, NotesLayer } from "./NotesLayer";
-import { selectionAfterHmr } from "./selection-ask";
+import { resolveAskMode, selectionAfterHmr } from "./selection-ask";
+import { type FrameMenuItem, frameMenuIcons } from "./FrameMenu";
+import { CORNER_RESERVE, densityOf, useWidthLevel } from "./responsive";
+import { FrameSizePanel, sizeIcon } from "./FrameSizeUi";
+import { formatSize, placeNewFrame } from "../vetd/size-presets";
+import { NoteIntentIcon } from "./NoteSurface";
 import {
 	boundsOf,
 	describeSnap,
@@ -107,20 +117,10 @@ interface DesignCanvasProps {
 	 */
 	captureRef: RefObject<FrameCapture | null>;
 	/**
-	 * 右上角的刷新按钮除了重载画布，还要让宿主重扫一遍设计列表——那是「与磁盘
-	 * 重新对齐」的唯一入口，面板开着时新出现的设计也该在这里被收进来。
+	 * 交互模式开着。画布还挂着但被盖住了：整体降为位图，没必要继续养 N 份活体
+	 * React 应用与 HMR 连接，也不响应选择、撤销这些画布编辑。
 	 */
-	onRescanDesigns(): void;
-	/**
-	 * 出口：预览按钮问「该预览哪一帧」。单独选中一个就是它，否则交给调用方回落
-	 * （画布顺序里的第一帧）。
-	 */
-	previewTargetRef: RefObject<(() => string | null) | null>;
-	/**
-	 * 预览窗口开着。背后的画布整体降为位图——反正被盖住了，没必要继续养 N 份
-	 * 活体 React 应用与 HMR 连接。
-	 */
-	previewing: boolean;
+	suspended: boolean;
 	/**
 	 * 出口：vetd_notes 的锚点保鲜。拉活体后按 domPath/坐标逐条查元素，
 	 * 与 captureRef 同型（runLive 只存在于本组件）。
@@ -134,14 +134,13 @@ interface DesignCanvasProps {
 	showNotes(): void;
 	/** 右上角按钮组最左端的备注显隐开关。 */
 	onToggleNotes(): void;
-	/** 右上角按钮组最右端的「运行」：进预览模式。 */
-	onRun(): void;
-	runDisabled: boolean;
 	/**
 	 * 左上角标题区（设计切换 + 色卡）。内容归 CanvasTab（设计列表、色卡开合都是
 	 * 它的状态），定位与「给查看模式横幅让位」归画布——右上角按钮组同理。
 	 */
 	titleSlot: ReactNode;
+	/** 右上角最右端的「设计 / 交互」开关（挂在角落按钮组的末尾）。 */
+	modeToggle?: ReactNode;
 }
 
 interface Rect {
@@ -276,6 +275,24 @@ function applyResizeSnap(
 const COVER_REFRESH_DEBOUNCE_MS = 1500;
 /** 查看模式横幅的高度，右上角的历史按钮与面板据此让位。 */
 const PEEK_BANNER_HEIGHT = 40;
+const DEFAULT_DENSITY = densityOf(1280);
+
+function readUndoState(session: DesignSession): {
+	canUndo: boolean;
+	canRedo: boolean;
+	undoKind: UndoKind | null;
+	redoKind: UndoKind | null;
+} {
+	const { undoHistory } = session;
+	const undoTop = undoHistory.undoTop;
+	const redoTop = undoHistory.redoTop;
+	return {
+		canUndo: undoHistory.canUndo,
+		canRedo: undoHistory.canRedo,
+		undoKind: undoTop ? entryKind(undoTop) : null,
+		redoKind: redoTop ? entryKind(redoTop) : null,
+	};
+}
 
 export function DesignCanvas({
 	session,
@@ -285,23 +302,24 @@ export function DesignCanvas({
 	bridge,
 	onEngineUnavailable,
 	captureRef,
-	onRescanDesigns,
-	previewTargetRef,
-	previewing,
+	suspended,
 	resolveNoteElementsRef,
 	notesVisible,
 	showNotes,
 	onToggleNotes,
-	onRun,
-	runDisabled,
 	titleSlot,
+	modeToggle,
 }: DesignCanvasProps) {
 	const { t } = useTranslation();
-	const [manifest, setManifest] = useState<VetdManifest>(session.manifest);
+	/**
+	 * manifest 原样（frame 是标准设计尺寸）。画布上的几何一律用下面派生的 `manifest`
+	 * ——展开的 frame 在那里换成了完整内容高度（见 frame-extent）；只有写回尺寸、
+	 * 判断展开状态时才看这一份。
+	 */
+	const [storedManifest, setManifest] = useState<VetdManifest>(session.manifest);
 	// 下面那些交给 FrameView 的回调必须引用稳定（memo 的前提），所以它们读 ref 而不是
-	// 闭包捕获随渲染变化的 state。
-	const manifestRef = useRef(manifest);
-	manifestRef.current = manifest;
+	// 闭包捕获随渲染变化的 state。赋值在派生出显示用的 manifest 之后。
+	const manifestRef = useRef(storedManifest);
 	const [tool, setTool] = useState<CanvasTool>("select");
 	const toolRef = useRef(tool);
 	toolRef.current = tool;
@@ -453,6 +471,8 @@ export function DesignCanvas({
 		onPaint: syncCullRect,
 	});
 	const { viewport, viewportRef, containerRef, worldRef, sizeRef, toWorld } = view;
+	// 画布容器的宽度档位：底部工具栏、右上角按钮组、左上角标题据此收紧，免得窄时互相挤出视口。
+	const density = useWidthLevel(containerRef, densityOf, DEFAULT_DENSITY);
 
 	// 缩放、平移落定：都要按新的可见范围核对一次裁剪范围（尺寸变化由 onPaint 覆盖）。
 	useEffect(() => {
@@ -502,15 +522,13 @@ export function DesignCanvas({
 	 *
 	 * 托手工具/按住空格时不开：那时整块画布都在平移，指针不该被 iframe 吃掉。
 	 */
-	const inspectFrameId = tool === "select" && !panActive && !previewing ? activeFrameId : null;
-
-	previewTargetRef.current = () => activeFrameId;
+	const inspectFrameId = tool === "select" && !panActive && !suspended ? activeFrameId : null;
 
 	/**
-	 * 位图化时「必须保持活体」的那一帧。预览开着时一帧都不留：画布整个被盖住，
-	 * 唯一在看的渲染树是预览窗口里那一份。
+	 * 位图化时「必须保持活体」的那一帧。交互模式下一帧都不留：画布整个被盖住，
+	 * 唯一在看的渲染树是交互视图里那一份。
 	 */
-	const liveFrameId = previewing ? null : activeFrameId;
+	const liveFrameId = suspended ? null : activeFrameId;
 
 	/**
 	 * 空闲 frame 用位图代替活体 iframe，画布上就不再有 N 套渲染树同时合成。
@@ -522,14 +540,16 @@ export function DesignCanvas({
 	 * 用 cullRect 而不是精确视口：它本来就带一屏预留，且只在余量不足半屏时才重算，
 	 * 平移途中不会把队列反复打乱。
 	 */
+	// 用标准尺寸排：显示尺寸要等量完内容高度才有，而量高度又以位图为版本。展开的
+	// frame 只是在优先级上按它的标准范围算，不影响谁会被截。
 	const orderedFrameIds = useMemo(() => {
-		const sorted = [...manifest.frames].sort(byCanvasOrder);
+		const sorted = [...storedManifest.frames].sort(byCanvasOrder);
 		if (!cullRect) return sorted.map((frame) => frame.id);
 		const visible: string[] = [];
 		const rest: string[] = [];
 		for (const frame of sorted) (intersects(cullRect, frame) ? visible : rest).push(frame.id);
 		return [...visible, ...rest];
-	}, [manifest.frames, cullRect]);
+	}, [storedManifest.frames, cullRect]);
 	const {
 		rasterOf,
 		isMounted,
@@ -552,8 +572,9 @@ export function DesignCanvas({
 		offscreen: {
 			port,
 			onUnavailable: onEngineUnavailable,
+			// 显示尺寸：展开的 frame 按完整内容高度截（超过宿主上限时分块拼接）。
 			sizeOf: (frameId) => {
-				const frame = manifest.frames.find((candidate) => candidate.id === frameId);
+				const frame = manifestRef.current.frames.find((candidate) => candidate.id === frameId);
 				return frame ? { width: frame.width, height: frame.height } : null;
 			},
 		},
@@ -561,6 +582,69 @@ export function DesignCanvas({
 	/** 渲染图工作台读画布位图用，见 openExport。 */
 	const rasterOfRef = useRef(rasterOf);
 	rasterOfRef.current = rasterOf;
+
+	/** 要知道内容高度的 frame：单独选中的那个（决定显不显示展开按钮），以及展开着的。 */
+	const extentWanted = useMemo(() => {
+		const ids = storedManifest.frames.filter((frame) => frame.expanded === true).map((frame) => frame.id);
+		return activeFrameId !== null && !ids.includes(activeFrameId) ? [activeFrameId, ...ids] : ids;
+	}, [storedManifest.frames, activeFrameId]);
+	const measureExtent = useMemo(() => {
+		if (!offscreenRasterSupported()) return null;
+		return (frame: VetdFrameEntry): Promise<number> => {
+			// 构建失败的帧永远等不到「画完了」，量只会白等到超时。
+			const buildError = getFrameError(frame.id);
+			if (buildError) return Promise.reject(new Error(buildError));
+			const capture = getPluginCtx().capture;
+			if (!capture) return Promise.reject(new Error("offscreen capture unavailable"));
+			return measureFullFrameHeight(
+				{ capture: (options) => capture.offscreen(options), loadImage },
+				{ port, frameId: frame.id, width: frame.width, height: frame.height, format: "jpeg", quality: 0.3 },
+			);
+		};
+	}, [port]);
+	const fullHeightOf = useFrameExtents({
+		frames: storedManifest.frames,
+		wanted: extentWanted,
+		versionOf: rasterOf,
+		measure: measureExtent,
+	});
+	const manifest = useMemo(
+		() => ({ ...storedManifest, frames: displayFrames(storedManifest.frames, fullHeightOf) }),
+		[storedManifest, fullHeightOf],
+	);
+	manifestRef.current = manifest;
+
+	// 显示尺寸变了（展开、收缩、改尺寸、撤销 / 重做）：旧位图是按旧尺寸截的，
+	// 放进新尺寸里就是被 object-cover 拉伸裁剪的图——重新排队截一张。
+	// 宽和高都要看：撤销 / 重做改的是 manifest，没有调用处替它手动失效。
+	const shownHeightsRef = useRef(new Map<string, string>());
+	useEffect(() => {
+		const previous = shownHeightsRef.current;
+		const next = new Map<string, string>();
+		for (const frame of manifest.frames) {
+			const size = `${frame.width}x${frame.height}`;
+			next.set(frame.id, size);
+			const before = previous.get(frame.id);
+			if (before !== undefined && before !== size) invalidateRaster(frame.id);
+		}
+		shownHeightsRef.current = next;
+	}, [manifest.frames, invalidateRaster]);
+
+	/** 单独选中的 frame 上该出现哪个按钮：展开着的给收缩，装不下的给展开。 */
+	const expandActionOf = (frameId: string): "expand" | "collapse" | null => {
+		const stored = storedManifest.frames.find((frame) => frame.id === frameId);
+		if (!stored) return null;
+		if (stored.expanded === true) return "collapse";
+		return isExpandable(stored, fullHeightOf(frameId)) ? "expand" : null;
+	};
+
+	const toggleExpanded = useCallback(
+		(frameId: string): void => {
+			const frame = session.manifest.frames.find((entry) => entry.id === frameId);
+			if (frame) session.setFrameExpanded(frameId, frame.expanded !== true);
+		},
+		[session],
+	);
 
 
 	/**
@@ -639,6 +723,45 @@ export function DesignCanvas({
 		id: "note-tool",
 		kind: "surface",
 		bindings: [{ key: "c", when: "not-editable", run: () => setTool("note") }],
+	});
+
+	// 撤销 / 重做：栈在会话里（session.undoHistory），这里只订阅「能不能撤、撤的是什么」来驱动按钮。
+	const [undoState, setUndoState] = useState(() => readUndoState(session));
+	useEffect(() => {
+		const sync = (): void => setUndoState(readUndoState(session));
+		sync();
+		const handle = session.on((change) => {
+			if (change === "history") sync();
+		});
+		return () => handle.dispose();
+	}, [session]);
+
+	const runHistory = useCallback(
+		async (direction: "undo" | "redo"): Promise<void> => {
+			try {
+				const outcome = direction === "undo" ? await session.undo() : await session.redo();
+				if (outcome.status === "conflict") {
+					notify({ variant: "warning", message: t(`undo.conflict.${direction}`), durationMs: 5000 });
+				} else if (outcome.status === "done" && outcome.ids.length > 0) {
+					// 选中受影响的 frame：用户一眼看到「刚才那一步」落在了哪。
+					setSelection({ kind: "frames", ids: outcome.ids });
+				}
+			} catch (error) {
+				notify({ message: t(`undo.failed.${direction}`), error });
+			}
+		},
+		[session, t],
+	);
+	// 只读场景（历史预览、运行预览）里画布不能改，撤销也不该动。
+	usePluginShortcutScope(registerShortcutScope, {
+		id: "undo-redo",
+		kind: "surface",
+		enabled: () => peek === null && !suspended,
+		bindings: [
+			{ key: "mod+z", when: "not-editable", run: () => void runHistory("undo") },
+			{ key: "mod+shift+z", when: "not-editable", run: () => void runHistory("redo") },
+			{ key: "mod+y", when: "not-editable", run: () => void runHistory("redo") },
+		],
 	});
 
 	// 切离备注工具就收掉没提交的草稿；换设计时 thread 弹层也一并收掉。
@@ -1108,11 +1231,24 @@ export function DesignCanvas({
 			return;
 		}
 		if (!resize) return;
-		void session.updateFramePlacement(resize.frameId, resize.rect);
+		// 展开着的 frame 显示的是内容高度，不是它的标准高度：只写回横向，标准高度不动。
+		const stored = session.manifest.frames.find((frame) => frame.id === resize.frameId);
+		void session.updateFramePlacement(
+			resize.frameId,
+			stored?.expanded === true ? { x: resize.rect.x, width: resize.rect.width } : resize.rect,
+		);
 		// 位图是按旧尺寸截的，改完尺寸再显示就是被 object-cover 拉伸裁剪
 		// 的糊图——重新排队截一张。
 		invalidateRaster(resize.frameId);
 	}, [session, invalidateRaster]);
+
+	/** 圆角手柄松手：只落 manifest（圆角是画布显示，不改 tsx）。 */
+	const commitRadius = useCallback(
+		(frameId: string, radius: number): void => {
+			session.updateFramePlacement(frameId, { radius }, "radius");
+		},
+		[session],
+	);
 
 	/** FrameView 拖动/缩放要把指针位移换算成世界位移，但 zoom 不作为 prop 下发。 */
 	const getZoom = useCallback((): number => viewportRef.current.zoom, []);
@@ -1202,7 +1338,7 @@ export function DesignCanvas({
 			if (!arrangeBounds || arrangeItems.length < 2) return;
 			const spec: GridSpec = { ...grid, columns: Math.max(1, columns) };
 			const placements = layoutGrid(arrangeItems, spec, arrangeBounds);
-			session.updateFramePlacements(placements);
+			session.updateFramePlacements(placements, "arrange");
 		},
 		[arrangeBounds, arrangeItems, grid, session],
 	);
@@ -1256,7 +1392,7 @@ export function DesignCanvas({
 			setActiveGap(null);
 			const placements = layoutOverrideRef.current;
 			setLayoutOverride(null);
-			if (placements) session.updateFramePlacements(placements);
+			if (placements) session.updateFramePlacements(placements, "arrange");
 		};
 		window.addEventListener("pointermove", onMove);
 		window.addEventListener("pointerup", onUp);
@@ -1420,7 +1556,7 @@ export function DesignCanvas({
 		selectedIds.length === 1 &&
 		tool === "select" &&
 		!panActive &&
-		!previewing &&
+		!suspended &&
 		moveDelta === null &&
 		resizeRect === null;
 
@@ -1428,6 +1564,122 @@ export function DesignCanvas({
 	useEffect(() => {
 		if (!askActive) setAskOpen(false);
 	}, [askActive]);
+
+	/** Frame Menu 挂在哪个 frame 上：单独选中的那一个（选中的是它里面的元素也算）。 */
+	const menuFrameId = selectedIds.length === 1 ? selectedIds[0] : null;
+	/** Frame Menu 按钮下方的挂载点，追问 popover 经 portal 挂进去。 */
+	const [menuSlot, setMenuSlot] = useState<{ frameId: string; element: HTMLElement } | null>(null);
+	const handleMenuSlot = useCallback((frameId: string, element: HTMLElement | null): void => {
+		setMenuSlot((current) => {
+			if (element) return current?.element === element ? current : { frameId, element };
+			return current?.frameId === frameId ? null : current;
+		});
+	}, []);
+	/**
+	 * 「改尺寸」模式：Frame Menu 的尺寸胶囊把 Frame 工具切出来、底部面板弹起，这里记着改的是哪个
+	 * frame。面板里选预设就改它而不是新建——新建和修改走同一块面板。离开 Frame 工具即退出。
+	 */
+	const [sizeTargetId, setSizeTargetId] = useState<string | null>(null);
+	useEffect(() => {
+		if (tool !== "frame") setSizeTargetId(null);
+	}, [tool]);
+	const askMode = resolveAskMode(blockedReason);
+	const askInMenu = askActive && selection?.kind === "frames";
+	const expandAction = menuFrameId === null ? null : expandActionOf(menuFrameId);
+	/**
+	 * Frame Menu 的按钮，自上而下：让 Vetta 去做、展开/收起画布高度。
+	 *
+	 * 「让 Vetta 去做」只在选中整个 frame 时放这里；选中的是 frame 里的元素时，徽标仍
+	 * 钉在那个元素的选框上——追问的对象是它，不是整个 frame。
+	 */
+	const frameMenuItems = useMemo((): FrameMenuItem[] | null => {
+		if (menuFrameId === null) return null;
+		const items: FrameMenuItem[] = [];
+		if (askInMenu) {
+			const frame = storedManifest.frames.find((entry) => entry.id === menuFrameId);
+			const name = frame?.title || menuFrameId;
+			items.push({
+				key: "ask",
+				variant: "hero",
+				icon: <NoteIntentIcon intent={askMode} />,
+				label: t(askMode === "ask" ? "canvas.ask.badge" : "canvas.ask.badge.note"),
+				// 空闲：说清它要改的是哪个画框；忙：说清落下的是备注、不会打断它。
+				caption: askMode === "ask" ? t("canvas.frameMenu.askCaption", { name }) : t("canvas.ask.note.hint"),
+				active: askOpen,
+				onSelect: () => setAskOpen((open) => !open),
+			});
+		}
+		const sizeFrame = storedManifest.frames.find((entry) => entry.id === menuFrameId);
+		if (sizeFrame) {
+			items.push({
+				key: "size",
+				icon: sizeIcon,
+				label: formatSize(sizeFrame),
+				hint: t("canvas.frameMenu.sizeHint"),
+				active: tool === "frame" && sizeTargetId === menuFrameId,
+				onSelect: () => {
+					setAskOpen(false);
+					if (tool === "frame" && sizeTargetId === menuFrameId) {
+						setTool("select");
+						return;
+					}
+					setSizeTargetId(menuFrameId);
+					setTool("frame");
+				},
+			});
+		}
+		if (expandAction !== null) {
+			items.push({
+				key: "expand",
+				icon: frameMenuIcons[expandAction],
+				label: t(expandAction === "expand" ? "canvas.frameMenu.expand" : "canvas.frameMenu.collapse"),
+				hint: t(expandAction === "expand" ? "canvas.frameMenu.expandHint" : "canvas.frameMenu.collapseHint"),
+				onSelect: () => toggleExpanded(menuFrameId),
+			});
+		}
+		return items;
+	}, [menuFrameId, askInMenu, askMode, askOpen, tool, sizeTargetId, storedManifest.frames, expandAction, toggleExpanded, t]);
+
+	const sizeTargetFrame =
+		sizeTargetId === null ? null : (storedManifest.frames.find((entry) => entry.id === sizeTargetId) ?? null);
+	const sizeTarget = sizeTargetFrame
+		? { name: sizeTargetFrame.title || sizeTargetFrame.id, size: { width: sizeTargetFrame.width, height: sizeTargetFrame.height } }
+		: null;
+
+	/** 改选中 frame 的尺寸：左上角不动，展开态一并收起（展开高度对新尺寸已经没有意义）。 */
+	const applySize = useCallback(
+		(frameId: string, size: { width: number; height: number }, radius: number): void => {
+			const frame = session.manifest.frames.find((entry) => entry.id === frameId);
+			if (!frame) return;
+			// 收起展开 + 改尺寸 + 套圆角是一次用户动作，撤销栈里只留一条。
+			session.transact("size", () => {
+				if (frame.expanded === true) session.setFrameExpanded(frameId, false);
+				// 预设带着设备的屏幕圆角（桌面、纸张是 0）：套用预设就是「把它变成那台设备」。
+				session.updateFramePlacement(frameId, { ...size, radius }, "size");
+			});
+			// 位图是按旧尺寸截的，不重截就是被拉伸的糊图。
+			invalidateRaster(frameId);
+			// 改完回到选择工具，面板收起，Frame 仍选中。
+			setTool("select");
+		},
+		[session, invalidateRaster],
+	);
+
+	/** 底部面板选了预设：在当前视口中心（被压着就挪到最右边）新建，建完回到选择工具并选中它。 */
+	const createFromPreset = useCallback(
+		(size: { width: number; height: number }, radius: number): void => {
+			const bounds = containerRef.current?.getBoundingClientRect();
+			if (!bounds) return;
+			// 底部面板盖住了视口下沿，可见区域的中心要往上让一让。
+			const center = toWorld(bounds.left + bounds.width / 2, bounds.top + (bounds.height - BOTTOM_PANEL_LIFT) / 2);
+			const at = placeNewFrame(size, center, session.manifest.frames, FRAME_GAP);
+			setTool("select");
+			void session
+				.createFrame(t("canvas.newFrame.defaultTitle"), size.width, size.height, at.x, at.y, radius)
+				.then((id) => setSelection({ kind: "frames", ids: [id] }));
+		},
+		[containerRef, toWorld, session, t],
+	);
 
 	/**
 	 * 视口裁剪：看不见的 frame 连 DOM 都不建。
@@ -1485,6 +1737,7 @@ export function DesignCanvas({
 			onPointerMove={onBackgroundPointerMove}
 			onPointerUp={onBackgroundPointerUp}
 		>
+			<CanvasDotGlow />
 			<div ref={worldRef} className="absolute left-0 top-0" style={worldStyle}>
 				{renderedFrames.map((frame) => (
 					<FrameView
@@ -1497,6 +1750,8 @@ export function DesignCanvas({
 						entered={inspectFrameId === frame.id}
 						interactive={tool === "select" && !panActive}
 						resizable={selectedIds.length === 1}
+						menuItems={frame.id === menuFrameId ? frameMenuItems : null}
+						onMenuSlot={handleMenuSlot}
 						mounted={isMounted(frame.id)}
 						live={isLive(frame.id)}
 						parked={isParked(frame.id)}
@@ -1517,6 +1772,7 @@ export function DesignCanvas({
 						onDragStart={beginDrag}
 						onDragDelta={handleDragDelta}
 						onDragEnd={commitDrag}
+						onRadiusCommit={commitRadius}
 					/>
 				))}
 				{marquee ? (
@@ -1529,7 +1785,7 @@ export function DesignCanvas({
 				<NotesLayer
 					store={notes}
 					frames={manifest.frames}
-					interactive={(tool === "select" || tool === "note") && !panActive && !previewing}
+					interactive={(tool === "select" || tool === "note") && !panActive && !suspended}
 					visible={notesVisible}
 					draft={noteDraft}
 					blockedReason={blockedReason}
@@ -1548,6 +1804,7 @@ export function DesignCanvas({
 					open={askOpen}
 					onOpenChange={setAskOpen}
 					onSubmitted={handleAskSubmitted}
+					frameMenuSlot={menuSlot !== null && menuSlot.frameId === menuFrameId ? menuSlot.element : null}
 				/>
 				{/* 整理工具条与 gap 手柄：多选且不在拖动/缩放中才出，免得跟正在进行的操作抢指针。 */}
 				{arrangeActive && arrangeBounds ? (
@@ -1652,8 +1909,12 @@ export function DesignCanvas({
 			    指针事件必须截断，否则画布根会捕获指针，里面点不动。 */}
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: pointer-capture shield for canvas chrome */}
 			<div
-				style={{ top: 12 + (peek ? PEEK_BANNER_HEIGHT : 0) }}
-				className="pointer-events-auto absolute left-3 z-40 flex items-center gap-1"
+				style={{
+					top: 12 + (peek ? PEEK_BANNER_HEIGHT : 0),
+					// 给右上角按钮组留出位置（它在窄档会收成图标），标题在剩下的空间里截断，不与它打架。
+					maxWidth: `calc(100% - ${CORNER_RESERVE[density.corner] + 36}px)`,
+				}}
+				className="pointer-events-auto absolute left-3 z-40 flex min-w-0 items-center gap-1"
 				onPointerDown={(event) => event.stopPropagation()}
 				onPointerMove={(event) => event.stopPropagation()}
 				onPointerUp={(event) => event.stopPropagation()}
@@ -1664,16 +1925,7 @@ export function DesignCanvas({
 			<CanvasCornerActions
 				offsetTop={peek ? PEEK_BANNER_HEIGHT : 0}
 				historyOpen={historyOpen}
-				notesVisible={notesVisible}
-				onToggleNotes={onToggleNotes}
-				onRun={onRun}
-				runDisabled={runDisabled}
-				// 手动刷新：热更新链路（文件监听 / HMR）万一没生效时的兜底出路，
-				// 强制所有 frame 重新加载最新代码并重截位图，同时重扫设计列表。
-				onRefresh={() => {
-					reloadAll();
-					onRescanDesigns();
-				}}
+				density={density.corner}
 				onExport={openExport}
 				materials={{
 					selectedCount: orderedSelection.length,
@@ -1681,6 +1933,7 @@ export function DesignCanvas({
 					progress: materialProgress,
 					onPick: runMaterialExport,
 				}}
+				trailing={modeToggle}
 				onToggleHistory={() => setHistoryOpen((open) => !open)}
 			/>
 
@@ -1731,11 +1984,34 @@ export function DesignCanvas({
 				/>
 			) : null}
 
+			{/* 底部面板：选中 Frame 工具时从底部伸起，列出常见设备 / 纸张尺寸。
+			    新建模式点一下在视口中心新建；改尺寸模式（从 Frame Menu 进来）点一下改选中的那个 frame。 */}
+			<BottomPanel open={tool === "frame"} label={t("canvas.size.panelLabel")}>
+				<FrameSizePanel
+					target={sizeTarget}
+					onPick={(size, radius) =>
+						sizeTargetId !== null ? applySize(sizeTargetId, size, radius) : createFromPreset(size, radius)
+					}
+				/>
+			</BottomPanel>
+
 			<ControlBar
 				tool={tool}
 				zoom={zoomSource}
 				designSystemsActive={designDialogOpen}
 				pendingNotes={pendingNoteCount}
+				lift={tool === "frame" ? BOTTOM_PANEL_LIFT : 0}
+				density={density.dock}
+				history={{
+					canUndo: undoState.canUndo && peek === null && !suspended,
+					canRedo: undoState.canRedo && peek === null && !suspended,
+					undoLabel: undoState.undoKind ? t(`undo.action.${undoState.undoKind}`) : null,
+					redoLabel: undoState.redoKind ? t(`undo.action.${undoState.redoKind}`) : null,
+					onUndo: () => void runHistory("undo"),
+					onRedo: () => void runHistory("redo"),
+				}}
+				notesVisible={notesVisible}
+				onToggleNotes={onToggleNotes}
 				onToolChange={setTool}
 				onZoomDelta={view.zoomBy}
 				onZoomReset={() => {

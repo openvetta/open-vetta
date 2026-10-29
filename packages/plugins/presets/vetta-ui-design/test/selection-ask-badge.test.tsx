@@ -75,12 +75,17 @@ afterEach(() => {
 	document.body.innerHTML = "";
 });
 
-function render({ blockedReason = null, open = true }: { blockedReason?: string | null; open?: boolean } = {}): void {
+function render({
+	blockedReason = null,
+	open = true,
+	target = selection,
+	slot = null,
+}: { blockedReason?: string | null; open?: boolean; target?: CanvasSelection; slot?: HTMLElement | null } = {}): void {
 	act(() => {
 		root.render(
 			<SelectionAskBadge
 				notes={store}
-				selection={selection}
+				selection={target}
 				frames={frames}
 				visible
 				blockedReason={blockedReason}
@@ -89,6 +94,7 @@ function render({ blockedReason = null, open = true }: { blockedReason?: string 
 				onSubmitted={() => {
 					submitted += 1;
 				}}
+				frameMenuSlot={slot}
 			/>,
 		);
 	});
@@ -153,4 +159,22 @@ it("按钮文案在打开那一刻定下，agent 中途收工也不改口", () =
 	// agent 收工了，但 popover 已经开着，用户正照着「添加备注」在写。
 	render({ blockedReason: null });
 	expect(host.textContent).toContain("canvas.ask.note.submit");
+});
+
+it("选中整个 frame 时不画徽标，popover 挂进 Frame Menu 的挂载点", () => {
+	const slot = document.createElement("div");
+	document.body.appendChild(slot);
+	render({ target: { kind: "frames", ids: ["login"] }, slot });
+	// 入口在 Frame Menu 里（画布负责放），这里不再在 frame 右上角另画一枚。
+	expect(host.querySelector("button")).toBeNull();
+	expect(host.querySelector("textarea")).toBeNull();
+	expect(slot.querySelector("textarea")).not.toBeNull();
+	expect(slot.textContent).toContain("登录页");
+});
+
+it("选中 frame 里的元素时徽标照旧钉在元素选框上", () => {
+	const slot = document.createElement("div");
+	render({ open: false, slot });
+	expect(host.querySelector("button")?.textContent).toBe("canvas.ask.badge");
+	expect(slot.childElementCount).toBe(0);
 });

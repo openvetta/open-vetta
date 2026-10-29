@@ -5,6 +5,8 @@ export interface ParsedFrameMeta {
 	width: number | null;
 	height: number | null;
 	title: string;
+	/** 没声明圆角就是 null（不是 0：0 是「明确要直角」）。 */
+	radius: number | null;
 }
 
 /**
@@ -21,15 +23,17 @@ export function parseFrameMeta(source: string, fallbackTitle: string): ParsedFra
 	const width = body.match(/width\s*:\s*(\d+)/);
 	const height = body.match(/height\s*:\s*(\d+)/);
 	const title = body.match(/title\s*:\s*["'`]([^"'`]*)["'`]/);
+	const radius = body.match(/\bradius\s*:\s*(\d+(?:\.\d+)?)/);
 	return {
 		width: width ? Number(width[1]) : null,
 		height: height ? Number(height[1]) : null,
 		title: title?.[1] ?? fallbackTitle,
+		radius: radius ? Number(radius[1]) : null,
 	};
 }
 
 export function sameMeta(a: FrameMeta, b: FrameMeta): boolean {
-	return a.width === b.width && a.height === b.height && a.title === b.title;
+	return a.width === b.width && a.height === b.height && a.title === b.title && a.radius === b.radius;
 }
 
 /** 标题在 tsx 里是一行字符串字面量：换行会截断声明，花括号会让上面的 `[^}]*` 提前收口。 */

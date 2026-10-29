@@ -1,11 +1,13 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
-import { memo, type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
+import { memo, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef, useState } from "react";
 import { frameUrl } from "../vetd/frame-url";
-import type { VetdFrameEntry } from "../vetd/manifest-types";
+import { frameRadius, type VetdFrameEntry } from "../vetd/manifest-types";
 import type { BridgeHub } from "./bridge-client";
 import type { FrameActivity } from "./design-runtime";
 import { FrameActivityOverlay } from "./FrameActivityOverlay";
 import { FrameLoadingOverlay } from "./FrameLoadingOverlay";
+import { FrameMenu, type FrameMenuItem } from "./FrameMenu";
+import { FrameRadiusHandles } from "./FrameRadiusHandles";
 import { FrameTitleInput } from "./FrameTitleInput";
 
 type ResizeEdge = "nw" | "ne" | "sw" | "se" | "e" | "s";
@@ -37,6 +39,13 @@ interface FrameViewProps {
 	interactive: boolean;
 	/** Resize handles show only for a lone selection — a group resize has no obvious meaning. */
 	resizable: boolean;
+	/**
+	 * Frame Menu 的按钮（见 FrameMenu），由画布决定有哪些。null 或空表示不出现——
+	 * 只有单独选中的那个 frame 拿得到，其余 frame 恒为 null，memo 不受影响。
+	 */
+	menuItems: readonly FrameMenuItem[] | null;
+	/** Frame Menu 按钮下方的浮层挂载点（追问输入框经 portal 挂进来）。 */
+	onMenuSlot(frameId: string, element: HTMLElement | null): void;
 	/** false 时连 iframe 都还没挂（启动期的挂载节流），见 frame-raster.ts。 */
 	mounted: boolean;
 	/** false 时 iframe 收成 display:none，改用 `raster` 位图显示。 */
@@ -81,6 +90,8 @@ interface FrameViewProps {
 	onDragStart(frameId: string, edge: FrameDragEdge, additive: boolean): void;
 	onDragDelta(dx: number, dy: number, bypassSnap: boolean): void;
 	onDragEnd(): void;
+	/** 圆角手柄松手：画布落盘。拖拽中的实时值只在本组件里，不上报。 */
+	onRadiusCommit(frameId: string, radius: number): void;
 }
 
 interface DragState {
@@ -110,6 +121,8 @@ export const FrameView = memo(function FrameView({
 	entered,
 	interactive,
 	resizable,
+	menuItems,
+	onMenuSlot,
 	mounted,
 	live,
 	parked,
@@ -130,6 +143,7 @@ export const FrameView = memo(function FrameView({
 	onDragStart,
 	onDragDelta,
 	onDragEnd,
+	onRadiusCommit,
 }: FrameViewProps) {
 	const { t } = useTranslation();
 	const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -230,6 +244,16 @@ export const FrameView = memo(function FrameView({
 		height: frame.height,
 	};
 
+	// 圆角手柄拖拽中的实时值；松手后清掉，回到 manifest 里落盘的值。
+	const [radiusDraft, setRadiusDraft] = useState<number | null>(null);
+	const maxRadius = Math.min(rect.width, rect.height) / 2;
+	const radius = Math.min(radiusDraft ?? frameRadius(frame), maxRadius);
+
+	// 圆角大时页面里的 backdrop-filter 会漏出圆角，要让页面知道（引擎据此关掉它）。
+	useEffect(() => {
+		bridge.setRadius(frame.id, radius);
+	}, [bridge, frame.id, radius, mounted]);
+
 	const beginDrag = (event: ReactPointerEvent, edge: DragState["edge"]): void => {
 		// 只认左键：右键要留给上下文菜单，捕获指针会把后续事件都劫走。
 		if (event.button !== 0) return;
@@ -300,7 +324,10 @@ export const FrameView = memo(function FrameView({
 	 * 它——所以缩放画布不会让这个组件重渲染，浏览器自己重算 transform。
 	 */
 	const labelScale = "var(--vetd-lscale, 1)";
-	const handles: { edge: ResizeEdge; className: string }[] = [
+	// ref 回调必须稳定：每次渲染换一个函数，React 就会先拿 null 再拿元素各调一遍，
+	// 画布那边的挂载点状态跟着来回翻。
+	const menuSlot = useCallback((element: HTMLElement | null) => onMenuSlot(frame.id, element), [onMenuSlot, frame.id]);
+	const allHandles: { edge: ResizeEdge; className: string }[] = [
 		{ edge: "nw", className: "-left-1 -top-1 cursor-nwse-resize" },
 		{ edge: "ne", className: "-right-1 -top-1 cursor-nesw-resize" },
 		{ edge: "sw", className: "-bottom-1 -left-1 cursor-nesw-resize" },
@@ -308,6 +335,8 @@ export const FrameView = memo(function FrameView({
 		{ edge: "e", className: "-right-1 top-1/2 -translate-y-1/2 cursor-ew-resize" },
 		{ edge: "s", className: "-bottom-1 left-1/2 -translate-x-1/2 cursor-ns-resize" },
 	];
+	// 展开着的 frame 显示的是内容高度：只留横向手柄，要改标准高度先收缩。
+	const handles = frame.expanded === true ? allHandles.filter(({ edge }) => edge === "e") : allHandles;
 
 	return (
 		// biome-ignore lint/a11y/noStaticElementInteractions: canvas manipulation surface
@@ -398,14 +427,17 @@ export const FrameView = memo(function FrameView({
 				) : null}
 			</div>
 
-			{/* 直角 + 不铺底色，这两条都是为了边缘干净：
-			    - 圆角会让 overflow 裁剪走带遮罩的合成路径，四边都糊出一圈半透明像素；
+			{/* 四角圆角（默认 12px，可在选中时拖四角的圆点调，见 FrameRadiusHandles），不铺底色：
 			    - 底色（原来是白）在缩放到非整数像素时，会在抗锯齿的那一行里透出来，
-			      深色稿子上就是一圈亮边。空白期由启动占位/位图盖住，不需要这层底。 */}
+			      深色稿子上就是一圈亮边（c79223c8d）。空白期由启动占位/位图盖住，不需要这层底。
+			    - 圆角会让 overflow 裁剪走带遮罩的合成路径，那次也一并去掉过（当时是 2px）。
+			      这次是产品上要的（直角太生硬）；若又见到四边发糊，先查这一层的圆角。
+			    选中的 ring 是 box-shadow，会跟着圆角走。 */}
 			<div
 				className={`relative h-full w-full overflow-hidden ring-offset-0 ${
 					selected ? "ring-2 ring-[var(--vetd-selected)]" : ""
 				}`}
+				style={{ borderRadius: radius }}
 			>
 				{/* 位图态下 iframe 根本不挂：留着 display:none 的 iframe 等于把整个
 				    React 应用连同大图留在内存里，合成器照样吃不消。 */}
@@ -499,6 +531,22 @@ export const FrameView = memo(function FrameView({
 				>
 					{Math.round(rect.width)}×{Math.round(rect.height)}
 				</div>
+			) : null}
+
+			{/* Frame Menu：左侧外部、与顶边对齐，只对单独选中的 frame 出现。 */}
+			{selected && resizable && menuItems && menuItems.length > 0 ? (
+				<FrameMenu items={menuItems} onSlot={menuSlot} />
+			) : null}
+
+			{/* 圆角手柄：和缩放手柄一样只对单独选中的 frame 出现，落在角的内侧。 */}
+			{selected && resizable && interactive ? (
+				<FrameRadiusHandles
+					radius={radius}
+					max={maxRadius}
+					getZoom={getZoom}
+					onDraft={setRadiusDraft}
+					onCommit={(value) => onRadiusCommit(frame.id, value)}
+				/>
 			) : null}
 
 			{/* 手柄在元素选择开着时也要留：画面区已经归 iframe 了，缩放只剩这一条路。 */}

@@ -7,13 +7,16 @@
  *
  * Message contract (both directions carry `{ vetd: true }`):
  *   parent → iframe: set-mode | show-frame | navigate | reload | clear-selection | capture
- *                    | resolve-element
+ *                    | resolve-element | interaction-config | frame-radius
  *   iframe → parent: ready | rendered | selected | exit-inspect | captured | hmr-updated
  *                    | frame-error | context-menu | navigated | wheel | space | element-resolved
- *                    | storage
+ *                    | storage | status-bar-kind
  */
 import { toJpeg, toPng } from "html-to-image";
 import { pathOfFrame } from "./routes";
+import { isRoundFrame } from "./round-frame";
+import { watchCustomStatusBar } from "./status-bar-probe";
+import { setTouchMode } from "./touch";
 import { watchLocalStorage } from "./storage-sync";
 
 type InspectMode = "off" | "inspect";
@@ -380,6 +383,7 @@ function safePixelRatio(requested: number): number {
 }
 
 export function installBridge(host: BridgeHost): void {
+	let stopStatusBarWatch: (() => void) | null = null;
 	let mode: InspectMode = "off";
 	let selected: Element | null = null;
 
@@ -541,6 +545,22 @@ export function installBridge(host: BridgeHost): void {
 			// 导出快照走 srcdoc（没有 URL 可以拼），选帧只能靠这条消息。
 			case "show-frame":
 				if (typeof data.id === "string") go(pathOfFrame(data.id));
+				return;
+			// 交互模式的外壳配置：手机要触摸手势；外壳自带灵动岛 / 刘海，所以把设计稿状态栏里
+			// 的挖孔藏掉（时间、电量保留）。设计手写的状态栏拆不开，探测到就回报宿主，
+			// 由宿主把外壳自己的灵动岛去掉。
+			case "interaction-config":
+				setTouchMode(data.touch === true);
+				if (data.hideCutout === true) document.documentElement.setAttribute("data-vetd-hide-cutout", "");
+				else document.documentElement.removeAttribute("data-vetd-hide-cutout");
+				stopStatusBarWatch?.();
+				stopStatusBarWatch =
+					data.hideCutout === true ? watchCustomStatusBar((custom) => post({ type: "status-bar-kind", custom })) : null;
+				return;
+			// 画框的圆角（外层裁出来的）：圆角大时页面里的 backdrop-filter 会漏出圆角，见 round-frame.ts。
+			case "frame-radius":
+				if (isRoundFrame(data.radius)) document.documentElement.setAttribute("data-vetd-round", "");
+				else document.documentElement.removeAttribute("data-vetd-round");
 				return;
 			case "navigate":
 				if (typeof data.to === "string") go(data.to);

@@ -10,12 +10,17 @@
  * 换算成 px 后走 `frameSize`。
  */
 import type { FrameSize } from "./manifest-types";
+import { presetPixels } from "./size-presets";
 
 export const PRODUCT_SIZES = {
-	mobile: { width: 390, height: 844 },
-	desktop: { width: 1440, height: 900 },
+	// 凡是对应得上设备预设的，数值直接引用预设（size-presets.ts），不再抄一份：
+	// 画布面板、vetd_sizes 和这里永远是同一个数。
+	mobile: presetPixels("iphone-14"),
+	desktop: presetPixels("desktop-hd"),
+	// Apple Watch 46mm：手表没有「默认机型」，取画布预设里的 46mm（42mm 走 vetd_sizes）。
+	watch: presetPixels("watch-46"),
 	landing: { width: 1440, height: 2400 },
-	slide: { width: 1920, height: 1080 },
+	slide: presetPixels("desktop-1080p"),
 	poster: { width: 1080, height: 1440 },
 } as const satisfies Record<string, FrameSize>;
 

@@ -1,3 +1,4 @@
+import type { InteractionMode } from "./interaction-mode";
 import type { StatusBarSetting } from "./status-bar";
 
 /** A canvas frame's pixel size. */
@@ -11,6 +12,11 @@ export interface FrameMeta {
 	width: number;
 	height: number;
 	title: string;
+	/**
+	 * 屏幕圆角（px）。可选声明：agent 建设备画框时写进 `frame = {…, radius: 62}`，
+	 * 没写就是「没意见」，不会动用户在画布上调的圆角（见 reconcile）。
+	 */
+	radius?: number;
 }
 
 /**
@@ -28,6 +34,25 @@ export interface VetdFrameEntry {
 	height: number;
 	title: string;
 	meta: FrameMeta;
+	/**
+	 * 画布上展开显示完整内容（见 canvas/frame-extent）。只是显示状态：width/height
+	 * 仍是标准设计尺寸，收缩就是去掉它，不必另记原值。
+	 */
+	expanded?: true;
+	/**
+	 * 画布上四角统一的圆角（px，设计稿坐标）。只是画布显示：frame 的 tsx 仍是直角画布，
+	 * 圆角由画布裁出来。没有这个字段 = 默认圆角 {@link DEFAULT_FRAME_RADIUS}；0 = 直角。
+	 */
+	radius?: number;
+}
+
+/** 老文档和新建的画框没有 radius 时用的圆角。 */
+export const DEFAULT_FRAME_RADIUS = 12;
+
+/** 取 frame 的圆角，并钳到短边的一半以内（再大就不是圆角而是胶囊了）。 */
+export function frameRadius(frame: Pick<VetdFrameEntry, "radius" | "width" | "height">): number {
+	const raw = frame.radius ?? DEFAULT_FRAME_RADIUS;
+	return Math.max(0, Math.min(raw, Math.min(frame.width, frame.height) / 2));
 }
 
 export interface VetdCanvasViewport {
@@ -58,6 +83,11 @@ export interface VetdManifest {
 	 * 明确不要。只在移动端设计里有，老文档没有——读不到就当默认的灵动岛（见 status-bar.ts）。
 	 */
 	statusBar?: StatusBarSetting;
+	/**
+	 * 交互模式按哪类设备呈现：手机带机身外壳和触摸手势，桌面和其他是裸画面（见 interaction-mode.ts）。
+	 * 老文档没有这个字段，运行时按首页画框尺寸推断，不回写；用户在交互模式工具条里改了才写入。
+	 */
+	interactionMode?: InteractionMode;
 }
 
 export function emptyManifest(): VetdManifest {

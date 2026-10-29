@@ -3,6 +3,8 @@
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
+/* 交互模式的手机外壳（MIT，见 devices.css/LICENSE）。 */
+@import "devices.css/dist/devices.min.css";
 
 /* 插件 CSS 被构建包进以插件根为界的 @scope，宿主 <html data-mode="dark"> 在作用域之外，
    任何祖先选择器（含 Tailwind dark: 变体）都匹配不到。明暗只能靠继承下来的宿主 CSS 变量，
@@ -23,19 +25,55 @@
 	--color-primary-foreground: var(--primary-foreground);
 }
 
-/* 无限画布：底色取宿主背景色，纹理是一层低不透明度的网格。
+/* 无限画布：纹理是一层很淡的点阵（每 10px 一个点，不随画布缩放）。
+   底色不能取宿主背景色（--background）：画布外面就是它，两者一样就分不出画布的边界，
+   白底的设计稿在浅色主题里也没有衬托。取 --secondary，明暗两套都比背景深/亮约 20 级，
+   又不会抢设计稿的颜色。要换底色只改 --vetd-canvas 这一处。
    light-dark() 只是宿主变量缺失时的兜底——宿主在 [data-mode] 上写了 color-scheme，
    该属性可继承，能穿过插件的 @scope 边界（祖先选择器和 dark: 变体都穿不过来）。 */
 .vetd-canvas-bg {
 	/* 选中态固定用 Figma 蓝，刻意不跟随宿主主题色：主题色可能与设计稿本身的配色
 	   撞车，而「哪个 frame 被选中」必须在任何主题、任何设计稿上都一眼可辨。 */
 	--vetd-selected: #0d99ff;
-	--vetd-grid-line: color-mix(in oklab, var(--foreground, #000) 3%, transparent);
-	background-color: var(--background, light-dark(#f5f5f5, #1e1e1e));
-	background-image:
-		linear-gradient(to right, var(--vetd-grid-line) 1px, transparent 1px),
-		linear-gradient(to bottom, var(--vetd-grid-line) 1px, transparent 1px);
-	background-size: 14px 14px;
+	--vetd-dot-pitch: 10px;
+	--vetd-grid-dot: color-mix(in oklab, var(--foreground, #000) 9%, transparent);
+	--vetd-canvas: var(--secondary, light-dark(#ebebeb, #262628));
+	background-color: var(--vetd-canvas);
+	background-image: radial-gradient(circle at center, var(--vetd-grid-dot) 0.6px, transparent 1px);
+	background-size: var(--vetd-dot-pitch) var(--vetd-dot-pitch);
+}
+
+/* 指针附近的光晕（CanvasDotGlow）：同一张点阵再叠一层更亮的，用以指针为圆心的径向
+   渐变做遮罩。位置只靠两个 CSS 变量，没有 JS 动画；淡入淡出是 opacity 过渡。
+   点距、点的形状与底层完全一致，所以亮起来的就是底下那些点本身。 */
+.vetd-dot-glow {
+	--vetd-glow-x: 0px;
+	--vetd-glow-y: 0px;
+	--vetd-glow-on: 0;
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background-image: radial-gradient(
+		circle at center,
+		color-mix(in oklab, var(--foreground, #000) 60%, transparent) 0.6px,
+		transparent 1px
+	);
+	background-size: var(--vetd-dot-pitch) var(--vetd-dot-pitch);
+	-webkit-mask-image: radial-gradient(circle 150px at var(--vetd-glow-x) var(--vetd-glow-y), #000, transparent);
+	mask-image: radial-gradient(circle 150px at var(--vetd-glow-x) var(--vetd-glow-y), #000, transparent);
+	opacity: var(--vetd-glow-on);
+	transition: opacity 200ms ease-out;
+}
+
+/* 缩放/平移期间收起：每帧都在重绘，少一层少一份开销。 */
+.vetd-interacting .vetd-dot-glow {
+	opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.vetd-dot-glow {
+		transition: none;
+	}
 }
 
 /* 框选选框的填充（描边直接用工具类取 --vetd-selected） */
@@ -775,4 +813,21 @@
 	background-clip: text;
 	-webkit-background-clip: text;
 	color: transparent;
+}
+
+/* 设计自带状态栏（含灵动岛 / 刘海）时，外壳不再画自己的那一块。选择器比 devices.css 多一级才压得住它。 */
+.device.vetd-no-island .device-header,
+.device.vetd-no-island .device-sensors {
+	display: none;
+}
+
+/* 外壳的装饰元素（天线条、灵动岛、按键）不接收指针：devices.css 的天线条是横跨屏幕的 7px 窄带，
+   会把落在那个位置的点击和拖动挡在设计页之外。 */
+.device .device-stripe,
+.device .device-header,
+.device .device-sensors,
+.device .device-btns,
+.device .device-power,
+.device .device-home {
+	pointer-events: none;
 }

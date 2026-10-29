@@ -29,3 +29,15 @@ body {
 	height: 0;
 	display: none;
 }
+
+/* 交互模式的手机外壳自带灵动岛 / 刘海：只藏设计稿状态栏里的挖孔，时间、信号、电量照常显示。
+   visibility 而不是卸载，挖孔本来占的位置不变。 */
+html[data-vetd-hide-cutout] [data-vetd-cutout] {
+	visibility: hidden;
+}
+
+/* 圆角画框里关掉 backdrop-filter：它的模糊输出不受外层圆角裁剪，会在四角漏出方形的色块。 */
+html[data-vetd-round] * {
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+}
