@@ -26,6 +26,8 @@ export interface NavBridge {
 	reload(): void;
 	/** 设计里是不是自己写了状态栏组件（灵动岛画在图里，外壳要让出自己的灵动岛）。 */
 	customStatusBar: boolean;
+	/** 告诉页面它外层被裁成了多大的圆角。 */
+	setRadius(radius: number): void;
 	/** 告诉页面外壳配置：手机要触摸手势，外壳自带灵动岛 / 刘海所以藏掉设计稿状态栏的挖孔。 */
 	configure(config: { touch: boolean; hideCutout: boolean }): void;
 }
@@ -72,5 +74,7 @@ export function useNavBridge(iframeRef: RefObject<HTMLIFrameElement | null>): Na
 		[post],
 	);
 
-	return { nav, navigateTo, go, reload, configure, customStatusBar };
+	const setRadius = useCallback((radius: number): void => post({ type: "frame-radius", radius }), [post]);
+
+	return { nav, navigateTo, go, reload, configure, setRadius, customStatusBar };
 }

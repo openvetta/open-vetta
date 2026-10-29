@@ -91,7 +91,7 @@ export function InteractionView({ port, session, active, titleSlot }: Interactio
 	const { t } = useTranslation();
 	const revision = useSessionRevision(session);
 	const iframeRef = useRef<HTMLIFrameElement | null>(null);
-	const { nav, navigateTo, go, reload, configure, customStatusBar } = useNavBridge(iframeRef);
+	const { nav, navigateTo, go, reload, configure, setRadius, customStatusBar } = useNavBridge(iframeRef);
 	/** 手机机型：只在本次会话里生效，不写进设计稿（设计稿的真实尺寸才是依据）。 */
 	const [deviceId, setDeviceId] = useState<string | null>(null);
 	const [stageRef, stage] = useStageSize();
@@ -133,7 +133,8 @@ export function InteractionView({ port, session, active, titleSlot }: Interactio
 	// biome-ignore lint/correctness/useExhaustiveDependencies: pathKey 只是重发的触发器
 	useEffect(() => {
 		configure({ touch: mobile, hideCutout: mobile });
-	}, [configure, mobile, pathKey]);
+		setRadius(radius);
+	}, [configure, setRadius, mobile, radius, pathKey]);
 
 	const currentFrameId = nav ? nav.frameId : homeId;
 	const path = nav?.path ?? "/";
@@ -153,7 +154,10 @@ export function InteractionView({ port, session, active, titleSlot }: Interactio
 			src={src ?? undefined}
 			className="block border-0"
 			style={{ width: viewport.width, height: viewport.height }}
-			onLoad={() => configure({ touch: mobile, hideCutout: mobile })}
+			onLoad={() => {
+				configure({ touch: mobile, hideCutout: mobile });
+				setRadius(radius);
+			}}
 		/>
 	);
 

@@ -249,6 +249,11 @@ export const FrameView = memo(function FrameView({
 	const maxRadius = Math.min(rect.width, rect.height) / 2;
 	const radius = Math.min(radiusDraft ?? frameRadius(frame), maxRadius);
 
+	// 圆角大时页面里的 backdrop-filter 会漏出圆角，要让页面知道（引擎据此关掉它）。
+	useEffect(() => {
+		bridge.setRadius(frame.id, radius);
+	}, [bridge, frame.id, radius, mounted]);
+
 	const beginDrag = (event: ReactPointerEvent, edge: DragState["edge"]): void => {
 		// 只认左键：右键要留给上下文菜单，捕获指针会把后续事件都劫走。
 		if (event.button !== 0) return;

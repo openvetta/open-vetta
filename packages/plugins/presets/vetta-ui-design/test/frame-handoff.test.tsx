@@ -18,7 +18,8 @@ import { FrameView } from "../src/canvas/FrameView";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const bridge = { register: () => {} } as unknown as BridgeHub;
+const radii: number[] = [];
+const bridge = { register: () => {}, setRadius: (_id: string, radius: number) => radii.push(radius) } as unknown as BridgeHub;
 
 /** 手动驱动的 rAF：交接押的那两帧要能一帧一帧地检查。 */
 let rafQueue: Array<() => void> = [];

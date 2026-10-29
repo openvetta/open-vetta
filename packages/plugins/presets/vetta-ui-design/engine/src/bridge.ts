@@ -7,13 +7,14 @@
  *
  * Message contract (both directions carry `{ vetd: true }`):
  *   parent → iframe: set-mode | show-frame | navigate | reload | clear-selection | capture
- *                    | resolve-element | interaction-config
+ *                    | resolve-element | interaction-config | frame-radius
  *   iframe → parent: ready | rendered | selected | exit-inspect | captured | hmr-updated
  *                    | frame-error | context-menu | navigated | wheel | space | element-resolved
  *                    | storage | status-bar-kind
  */
 import { toJpeg, toPng } from "html-to-image";
 import { pathOfFrame } from "./routes";
+import { isRoundFrame } from "./round-frame";
 import { watchCustomStatusBar } from "./status-bar-probe";
 import { setTouchMode } from "./touch";
 import { watchLocalStorage } from "./storage-sync";
@@ -555,6 +556,11 @@ export function installBridge(host: BridgeHost): void {
 				stopStatusBarWatch?.();
 				stopStatusBarWatch =
 					data.hideCutout === true ? watchCustomStatusBar((custom) => post({ type: "status-bar-kind", custom })) : null;
+				return;
+			// 画框的圆角（外层裁出来的）：圆角大时页面里的 backdrop-filter 会漏出圆角，见 round-frame.ts。
+			case "frame-radius":
+				if (isRoundFrame(data.radius)) document.documentElement.setAttribute("data-vetd-round", "");
+				else document.documentElement.removeAttribute("data-vetd-round");
 				return;
 			case "navigate":
 				if (typeof data.to === "string") go(data.to);

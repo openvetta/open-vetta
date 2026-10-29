@@ -19,7 +19,8 @@ import { FrameView } from "../src/canvas/FrameView";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const bridge = { register: () => {} } as unknown as BridgeHub;
+const radii: number[] = [];
+const bridge = { register: () => {}, setRadius: (_id: string, radius: number) => radii.push(radius) } as unknown as BridgeHub;
 
 function renderFrame(
 	renaming: boolean,
@@ -201,5 +202,13 @@ it("rounds the frame's four corners by 12px by default without painting a backgr
 	expect(surface?.style.borderRadius).toBe("12px");
 	// 底色会在缩放到非整数像素时透出一圈亮边，不能带回来。
 	expect(surface?.className).not.toMatch(/\bbg-/);
+	cleanup();
+});
+
+it("tells the page how round its frame is, so the engine can drop backdrop-filter at the corners", () => {
+	radii.length = 0;
+	const { cleanup } = renderFrame(false, true);
+	// 没设过圆角就是画布默认的 12px；设备级圆角走同一条通道，由引擎按阈值判断。
+	expect(radii).toEqual([12]);
 	cleanup();
 });
