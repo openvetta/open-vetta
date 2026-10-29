@@ -13,15 +13,11 @@
  */
 import type { PluginOffscreenCaptureOptions, PluginOffscreenCaptureResult } from "@vetta-org/plugin-sdk";
 import { canvasToJpegDataUrl } from "../mockup/render";
-import { FRAME_READY_EXPRESSION, framePrepareScript } from "../canvas/offscreen-raster";
+import { FRAME_READY_EXPRESSION, framePrepareScript, OFFSCREEN_MAX_VIEWPORT_PX } from "../canvas/offscreen-raster";
 import { SCROLL_PROBE_SCRIPT, SCROLL_RESET_SCRIPT, parseScrollProbe, scrollPrepareScript, scrollReadyExpression } from "./scroll-probe";
 import { planTiles } from "./tile-plan";
 
-/**
- * 宿主离屏窗口的单边上限（offscreen-capture-service 的 MAX_VIEWPORT_PX）。
- * 超过会被宿主静默夹到这个数，位图就少一截，所以这边必须自己知道这条线在哪。
- */
-export const OFFSCREEN_MAX_VIEWPORT_PX = 4_096;
+export { OFFSCREEN_MAX_VIEWPORT_PX };
 /** 视口拉高的迭代上限：每轮都是一次真实渲染，三轮还没收敛的（固定高度的内嵌列表）交给分块。 */
 const MAX_GROW_PASSES = 3;
 /**
