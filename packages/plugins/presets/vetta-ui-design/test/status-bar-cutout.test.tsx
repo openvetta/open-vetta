@@ -44,8 +44,8 @@ describe("设计手写的状态栏探测", () => {
 describe("PhoneShell", () => {
 	it("设计自带灵动岛时外壳让出自己的（Home 键款不受影响）", () => {
 		const view = { width: 393, height: 852 };
-		expect(render(<PhoneShell kind="island" viewport={view} radius={62} hideIsland>x</PhoneShell>).querySelector(".vetd-no-island")).not.toBeNull();
-		expect(render(<PhoneShell kind="island" viewport={view} radius={62}>x</PhoneShell>).querySelector(".vetd-no-island")).toBeNull();
-		expect(render(<PhoneShell kind="home" viewport={view} radius={0} hideIsland>x</PhoneShell>).querySelector(".vetd-no-island")).toBeNull();
+		expect(render(<PhoneShell kind="island" viewport={view} hideIsland>x</PhoneShell>).querySelector(".vetd-no-island")).not.toBeNull();
+		expect(render(<PhoneShell kind="island" viewport={view}>x</PhoneShell>).querySelector(".vetd-no-island")).toBeNull();
+		expect(render(<PhoneShell kind="home" viewport={view} hideIsland>x</PhoneShell>).querySelector(".vetd-no-island")).toBeNull();
 	});
 });

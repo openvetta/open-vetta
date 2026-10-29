@@ -208,7 +208,7 @@ export function InteractionView({ port, session, active, titleSlot }: Interactio
 					>
 						{mobile ? (
 							<div style={{ width: outer.width, height: outer.height, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
-								<PhoneShell kind={shellKind} viewport={viewport} radius={radius} hideIsland={customStatusBar}>
+								<PhoneShell kind={shellKind} viewport={viewport} hideIsland={customStatusBar}>
 									{frameElement}
 								</PhoneShell>
 							</div>

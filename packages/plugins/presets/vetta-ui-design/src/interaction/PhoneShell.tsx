@@ -5,8 +5,6 @@ import { PHONE_SHELLS, type PhoneShellKind, shellOuterSize } from "./phone-shell
 interface PhoneShellProps {
 	kind: PhoneShellKind;
 	viewport: FrameSize;
-	/** 屏幕圆角（px，设计稿坐标）；机身圆角 = 它 + 机身厚度。 */
-	radius: number;
 	/**
 	 * 设计自己的状态栏已经画了灵动岛 / 刘海（拆不开的图），外壳就不再画自己的，免得叠成两个。
 	 * Home 键款没有这块，忽略。
@@ -17,9 +15,10 @@ interface PhoneShellProps {
 
 /**
  * devices.css 的机身。库里的尺寸是写死的，这里用内联样式按我们的视口重新给定外框和屏幕尺寸，
- * 灵动岛、按键、天线条这些子元素是相对边缘定位的，不受影响。
+ * 灵动岛、按键、天线条这些子元素是相对边缘定位的，不受影响。机身和屏幕的圆角不覆盖，
+ * 用库里的值——外壳定了圆角，就不再叠画框的圆角。
  */
-export function PhoneShell({ kind, viewport, radius, hideIsland = false, children }: PhoneShellProps) {
+export function PhoneShell({ kind, viewport, hideIsland = false, children }: PhoneShellProps) {
 	const spec = PHONE_SHELLS[kind];
 	const outer = shellOuterSize(kind, viewport);
 	const outerStyle = { width: outer.width, height: outer.height };
@@ -30,7 +29,6 @@ export function PhoneShell({ kind, viewport, radius, hideIsland = false, childre
 				style={{
 					...outerStyle,
 					padding: `${spec.padding.y}px ${spec.padding.x}px`,
-					borderRadius: kind === "home" ? undefined : radius + spec.padding.x,
 				}}
 			>
 				<div
@@ -40,7 +38,6 @@ export function PhoneShell({ kind, viewport, radius, hideIsland = false, childre
 						height: viewport.height,
 						border: 0,
 						overflow: "hidden",
-						borderRadius: kind === "home" ? undefined : radius,
 					}}
 				>
 					{children}

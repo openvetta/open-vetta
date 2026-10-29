@@ -13,13 +13,15 @@ export interface PhoneShellSpec {
 	className: string;
 	/** 屏幕四周的机身厚度（px）：x 左右，y 上下。 */
 	padding: { x: number; y: number };
+	/** 外壳自己定下的屏幕圆角（px，devices.css 里的值）。外壳的圆角说了算，不套画框的圆角。 */
+	screenRadius: number;
 }
 
 export const PHONE_SHELLS: Record<PhoneShellKind, PhoneShellSpec> = {
-	island: { className: "device-iphone-14-pro device-black", padding: { x: 19, y: 19 } },
-	notch: { className: "device-iphone-14", padding: { x: 19, y: 19 } },
+	island: { className: "device-iphone-14-pro device-black", padding: { x: 19, y: 19 }, screenRadius: 49 },
+	notch: { className: "device-iphone-14", padding: { x: 19, y: 19 }, screenRadius: 49 },
 	// Home 键款上下额头更宽，屏幕本身也是直角。
-	home: { className: "device-iphone-8 device-spacegray", padding: { x: 22, y: 102 } },
+	home: { className: "device-iphone-8 device-spacegray", padding: { x: 22, y: 102 }, screenRadius: 4 },
 };
 
 /** 刘海款预设的 id；其余带圆角的当灵动岛款，没有圆角的当 Home 键款。 */
@@ -48,7 +50,7 @@ export const DEFAULT_PHONE_PRESET_ID = "iphone-17-pro";
 
 export interface PhoneDevice {
 	viewport: FrameSize;
-	/** 屏幕圆角（px）。 */
+	/** 屏幕圆角（px）：外壳自己的，不是画框或预设的。 */
 	radius: number;
 	kind: PhoneShellKind;
 }
@@ -56,10 +58,17 @@ export interface PhoneDevice {
 /**
  * 移动端交互时实际用哪台设备。
  *
+ * 圆角一律用外壳自己的，不套画框或预设的：外壳已经确定了屏幕和机身的圆角，再叠一层
+ * 画框圆角只会和它对不上。
+ *
  * 用户在工具条里选了机型就用它。「跟随设计稿」时：尺寸正好是某个手机预设，就是那台
- * （视口不变，圆角取稿子自己声明的，没声明取预设的——老稿子没有圆角字段，落到画布默认的
- * 12px 套在大圆角机身里很难看）；对不上任何预设说明稿子没有设备信息，用 iPhone 17 Pro。
+ * （视口不变）；对不上任何预设说明稿子没有设备信息，用 iPhone 17 Pro。
  */
+function deviceOf(preset: SizePreset, viewport: FrameSize): PhoneDevice {
+	const kind = shellKindOfPreset(preset);
+	return { viewport, radius: PHONE_SHELLS[kind].screenRadius, kind };
+}
+
 export function resolvePhoneDevice(input: {
 	selectedId: string | null;
 	home: (FrameSize & { radius?: number }) | null;
@@ -67,16 +76,12 @@ export function resolvePhoneDevice(input: {
 	const byId = (id: string | null): SizePreset | undefined => PHONE_PRESETS.find((preset) => preset.id === id);
 	const selected = byId(input.selectedId);
 	if (selected) {
-		return { viewport: { width: selected.width, height: selected.height }, radius: selected.radius ?? 0, kind: shellKindOfPreset(selected) };
+		return deviceOf(selected, { width: selected.width, height: selected.height });
 	}
 	const matched = input.home ? matchPhonePreset(input.home) : null;
 	if (matched && input.home) {
-		return {
-			viewport: { width: matched.width, height: matched.height },
-			radius: input.home.radius ?? matched.radius ?? 0,
-			kind: shellKindOfPreset(matched),
-		};
+		return deviceOf(matched, { width: matched.width, height: matched.height });
 	}
 	const fallback = byId(DEFAULT_PHONE_PRESET_ID) ?? PHONE_PRESETS[0];
-	return { viewport: { width: fallback.width, height: fallback.height }, radius: fallback.radius ?? 0, kind: shellKindOfPreset(fallback) };
+	return deviceOf(fallback, { width: fallback.width, height: fallback.height });
 }
