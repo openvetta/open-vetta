@@ -132,13 +132,22 @@ async function fromDataUrl(deps: FullFrameDeps, dataUrl: string, cssWidth: numbe
 	return { dataUrl, cssWidth, cssHeight, pixelWidth: image.naturalWidth, pixelHeight: image.naturalHeight };
 }
 
-export async function captureFullFrame(deps: FullFrameDeps, request: FullFrameRequest): Promise<FullFrameImage> {
+interface Grown {
+	/** 停下时那一张（视口已拉到内容放得下，或拉到上限）。 */
+	shot: PluginOffscreenCaptureResult;
+	viewportHeight: number;
+	/** 视口拉不动之后还藏着的滚动空间；null 表示这一张就是全部。 */
+	rest: { hidden: number; top: number; bottom: number } | null;
+}
+
+/** 从 frame 尺寸起步，把视口拉高到内容刚好放得下（或拉到宿主上限）。 */
+async function growToContent(deps: FullFrameDeps, request: FullFrameRequest): Promise<Grown> {
 	let viewportHeight = Math.min(Math.max(1, Math.round(request.height)), OFFSCREEN_MAX_VIEWPORT_PX);
 	for (let pass = 0; ; pass += 1) {
 		const shot = await shoot(deps, request, viewportHeight, { probeScript: SCROLL_PROBE_SCRIPT });
 		const probe = parseScrollProbe(shot.probe);
 		// 探针没跑成（页面把 querySelectorAll 都搞挂了？）：视口这一屏就是能给的全部。
-		if (!probe || probe.hidden === 0) return fromDataUrl(deps, shot.dataUrl, request.width, viewportHeight);
+		if (!probe || probe.hidden === 0) return { shot, viewportHeight, rest: null };
 
 		const wanted = viewportHeight + probe.hidden;
 		const canGrow = viewportHeight < OFFSCREEN_MAX_VIEWPORT_PX && pass < MAX_GROW_PASSES;
@@ -147,8 +156,14 @@ export async function captureFullFrame(deps: FullFrameDeps, request: FullFrameRe
 			continue;
 		}
 		// 拉不动了：视口停在这里，剩下的按滚动分块拼。
-		return stitchTiles(deps, request, shot, probe.hidden, probe.top, probe.bottom, viewportHeight);
+		return { shot, viewportHeight, rest: { hidden: probe.hidden, top: probe.top, bottom: probe.bottom } };
 	}
+}
+
+export async function captureFullFrame(deps: FullFrameDeps, request: FullFrameRequest): Promise<FullFrameImage> {
+	const { shot, viewportHeight, rest } = await growToContent(deps, request);
+	if (rest === null) return fromDataUrl(deps, shot.dataUrl, request.width, viewportHeight);
+	return stitchTiles(deps, request, shot, rest.hidden, rest.top, rest.bottom, viewportHeight);
 }
 
 async function stitchTiles(
