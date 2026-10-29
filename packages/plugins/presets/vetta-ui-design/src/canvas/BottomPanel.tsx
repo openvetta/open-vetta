@@ -21,6 +21,8 @@ interface BottomPanelProps {
  * 一块通栏圆角面板（四周留外边距），底部工具栏同时被它顶高（见 ControlBar 的 lift）。
  * 以后各工具的扩展面板都挂在这里，这个壳只管位置、动效和不吃画布手势。
  *
+ * 不裁剪溢出：面板里的下拉菜单要朝上伸出面板之外（卡片行自己有横向滚动）。
+ *
  * 收起时内容仍然挂着（为了让收起动画有东西可看），靠 inert 让它不可聚焦、不可点。
  */
 export function BottomPanel({ open, label, children }: BottomPanelProps) {
@@ -30,7 +32,7 @@ export function BottomPanel({ open, label, children }: BottomPanelProps) {
 			aria-hidden={!open}
 			inert={!open}
 			data-vetd-bottom-panel=""
-			className="pointer-events-auto absolute right-3 bottom-3 left-3 z-30 overflow-hidden rounded-2xl border border-border/80 bg-popover shadow-lg"
+			className="pointer-events-auto absolute right-3 bottom-3 left-3 z-30 rounded-2xl border border-border/80 bg-popover shadow-lg"
 			style={{
 				height: BOTTOM_PANEL_HEIGHT,
 				transform: open ? "translateY(0)" : `translateY(calc(100% + 24px))`,

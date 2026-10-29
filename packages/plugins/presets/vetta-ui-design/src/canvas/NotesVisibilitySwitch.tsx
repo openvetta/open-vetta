@@ -9,6 +9,8 @@ interface NotesVisibilitySwitchProps {
 	/** 跟随备注工具的放大倍数，保证两半一起动。 */
 	scale: number;
 	transition: string;
+	/** 高度，对齐旁边工具按钮（紧凑档按钮更小）。 */
+	size?: number;
 	style?: CSSProperties;
 }
 
@@ -18,7 +20,7 @@ interface NotesVisibilitySwitchProps {
  * 隐藏只有这一个入口（自动规则一律只往显示推）。
  */
 export const NotesVisibilitySwitch = forwardRef<HTMLButtonElement, NotesVisibilitySwitchProps>(
-	function NotesVisibilitySwitch({ visible, onToggle, joinedActive, scale, transition, style }, ref) {
+	function NotesVisibilitySwitch({ visible, onToggle, joinedActive, scale, transition, size = 34, style }, ref) {
 		const { t } = useTranslation();
 		const label = t(visible ? "notes.visibility.hide" : "notes.visibility.show");
 		return (
@@ -30,10 +32,10 @@ export const NotesVisibilitySwitch = forwardRef<HTMLButtonElement, NotesVisibili
 				title={label}
 				aria-label={label}
 				onClick={onToggle}
-				className={`relative flex h-[34px] shrink-0 origin-bottom items-center rounded-l-none rounded-r-full pr-2.5 pl-1 outline-none will-change-transform focus-visible:ring-2 focus-visible:ring-ring/40 ${
+				className={`relative flex shrink-0 origin-bottom items-center rounded-l-none rounded-r-full pr-2.5 pl-1 outline-none will-change-transform focus-visible:ring-2 focus-visible:ring-ring/40 ${
 					joinedActive ? "bg-primary text-primary-foreground" : "bg-secondary text-primary hover:bg-accent"
 				}`}
-				style={{ ...style, transform: `scale(${scale})`, transition }}
+				style={{ ...style, height: size, transform: `scale(${scale})`, transition }}
 			>
 				<span
 					className="relative block h-[14px] w-6 rounded-full transition-colors"

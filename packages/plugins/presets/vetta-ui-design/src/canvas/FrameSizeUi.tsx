@@ -1,5 +1,6 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { PANEL_NARROW_BELOW, useWidthLevel } from "./responsive";
 import {
 	formatSize,
 	type Orientation,
@@ -118,6 +119,83 @@ function PresetPreview({ size, radius }: { size: Size; radius: number }) {
 	);
 }
 
+const chevronDown = (
+	<svg viewBox="0 0 24 24" className="size-3" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+		<path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+	</svg>
+);
+
+/**
+ * 窄面板里代替 tab 条的分类下拉。菜单朝上展开（面板贴着画布底边，朝下没有空间），
+ * 点外面 / Esc 收起；选中项高亮，和 tab 条是同一套视觉。
+ */
+export function CategoryDropdown({ active, onChange }: { active: SizeCategoryId; onChange(id: SizeCategoryId): void }) {
+	const { t } = useTranslation();
+	const [open, setOpen] = useState(false);
+	const rootRef = useRef<HTMLDivElement | null>(null);
+
+	useEffect(() => {
+		if (!open) return;
+		// 捕获阶段：画布根在 pointerdown 时会 setPointerCapture，冒泡阶段已经被改派走了。
+		const onPointerDown = (event: PointerEvent): void => {
+			if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+		};
+		const onKeyDown = (event: KeyboardEvent): void => {
+			if (event.key !== "Escape") return;
+			event.stopPropagation();
+			setOpen(false);
+		};
+		window.addEventListener("pointerdown", onPointerDown, true);
+		window.addEventListener("keydown", onKeyDown, true);
+		return () => {
+			window.removeEventListener("pointerdown", onPointerDown, true);
+			window.removeEventListener("keydown", onKeyDown, true);
+		};
+	}, [open]);
+
+	return (
+		<div ref={rootRef} className="relative">
+			<button
+				type="button"
+				aria-haspopup="listbox"
+				aria-expanded={open}
+				onClick={() => setOpen((current) => !current)}
+				className="flex h-8 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-medium text-primary-foreground"
+			>
+				{categoryIcons[active]}
+				{t(`canvas.size.category.${active}`)}
+				{chevronDown}
+			</button>
+			{open ? (
+				<div
+					role="listbox"
+					aria-label={t("canvas.size.panelLabel")}
+					className="absolute bottom-full left-0 z-50 mb-2 w-44 rounded-xl border border-border bg-card p-1 shadow-xl"
+				>
+					{SIZE_CATEGORIES.map((entry) => (
+						<button
+							key={entry.id}
+							type="button"
+							role="option"
+							aria-selected={active === entry.id}
+							onClick={() => {
+								onChange(entry.id);
+								setOpen(false);
+							}}
+							className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent ${
+								active === entry.id ? "bg-primary/10 text-primary" : "text-foreground"
+							}`}
+						>
+							{categoryIcons[entry.id]}
+							{t(`canvas.size.category.${entry.id}`)}
+						</button>
+					))}
+				</div>
+			) : null}
+		</div>
+	);
+}
+
 /**
  * Frame 工具的底部面板内容：顶部一排分类 tab（图标 + 文字），下面横向排着该分类的预设，
  * 每张卡片是按比例缩小的外形 + 名称 + 像素；点一下就在画布中创建。
@@ -134,6 +212,9 @@ export function FrameSizePanel({
 	const [active, setActive] = useState<SizeCategoryId>("phone");
 	const [orientation, setOrientation] = useState<Orientation>("portrait");
 	const category = SIZE_CATEGORIES.find((entry) => entry.id === active) ?? SIZE_CATEGORIES[0];
+	// 面板窄了 tab 条会被挤扁：分类收成下拉，提示语让位。
+	const rootRef = useRef<HTMLDivElement | null>(null);
+	const narrow = useWidthLevel(rootRef, (width) => width < PANEL_NARROW_BELOW, false);
 
 	// 进入改尺寸模式时，直接翻到它现在所属的分类（iPad 横着的就切到横屏）；匹配不上就留在原处。
 	const targetWidth = target?.size.width;
@@ -148,31 +229,37 @@ export function FrameSizePanel({
 	}, [target === null, targetWidth, targetHeight]);
 
 	return (
-		<div className="flex h-full flex-col">
+		<div ref={rootRef} className="flex h-full flex-col">
 			<div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/70 px-3 pt-2.5 pb-2">
-				<div role="tablist" className="flex items-center gap-1">
-					{SIZE_CATEGORIES.map((entry) => (
-						<button
-							key={entry.id}
-							type="button"
-							role="tab"
-							aria-selected={active === entry.id}
-							onClick={() => setActive(entry.id)}
-							className={`flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors ${
-								active === entry.id
-									? "bg-primary text-primary-foreground"
-									: "text-muted-foreground hover:bg-accent hover:text-foreground"
-							}`}
-						>
-							{categoryIcons[entry.id]}
-							{t(`canvas.size.category.${entry.id}`)}
-						</button>
-					))}
-				</div>
+				{narrow ? (
+					<CategoryDropdown active={active} onChange={setActive} />
+				) : (
+					<div role="tablist" className="flex items-center gap-1">
+						{SIZE_CATEGORIES.map((entry) => (
+							<button
+								key={entry.id}
+								type="button"
+								role="tab"
+								aria-selected={active === entry.id}
+								onClick={() => setActive(entry.id)}
+								className={`flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors ${
+									active === entry.id
+										? "bg-primary text-primary-foreground"
+										: "text-muted-foreground hover:bg-accent hover:text-foreground"
+								}`}
+							>
+								{categoryIcons[entry.id]}
+								{t(`canvas.size.category.${entry.id}`)}
+							</button>
+						))}
+					</div>
+				)}
 				<div className="flex min-w-0 items-center gap-3">
-					<span className="hidden truncate text-[11px] text-muted-foreground sm:inline">
-						{target ? t("canvas.size.panelHintResize", { name: target.name }) : t("canvas.size.panelHint")}
-					</span>
+					{narrow ? null : (
+						<span className="truncate text-[11px] text-muted-foreground">
+							{target ? t("canvas.size.panelHintResize", { name: target.name }) : t("canvas.size.panelHint")}
+						</span>
+					)}
 					{category.orientable ? <OrientationToggle value={orientation} onChange={setOrientation} /> : null}
 				</div>
 			</div>

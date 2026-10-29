@@ -74,6 +74,7 @@ import { NOTES_PANEL_INSET, NotesDrawer } from "./NotesDrawer";
 import { type NoteDraft, NotesLayer } from "./NotesLayer";
 import { resolveAskMode, selectionAfterHmr } from "./selection-ask";
 import { type FrameMenuItem, frameMenuIcons } from "./FrameMenu";
+import { CORNER_RESERVE, densityOf, useWidthLevel } from "./responsive";
 import { FrameSizePanel, sizeIcon } from "./FrameSizeUi";
 import { formatSize, placeNewFrame } from "../vetd/size-presets";
 import { NoteIntentIcon } from "./NoteSurface";
@@ -280,6 +281,7 @@ function applyResizeSnap(
 const COVER_REFRESH_DEBOUNCE_MS = 1500;
 /** 查看模式横幅的高度，右上角的历史按钮与面板据此让位。 */
 const PEEK_BANNER_HEIGHT = 40;
+const DEFAULT_DENSITY = densityOf(1280);
 
 function readUndoState(session: DesignSession): {
 	canUndo: boolean;
@@ -477,6 +479,8 @@ export function DesignCanvas({
 		onPaint: syncCullRect,
 	});
 	const { viewport, viewportRef, containerRef, worldRef, sizeRef, toWorld } = view;
+	// 画布容器的宽度档位：底部工具栏、右上角按钮组、左上角标题据此收紧，免得窄时互相挤出视口。
+	const density = useWidthLevel(containerRef, densityOf, DEFAULT_DENSITY);
 
 	// 缩放、平移落定：都要按新的可见范围核对一次裁剪范围（尺寸变化由 onPaint 覆盖）。
 	useEffect(() => {
@@ -1915,8 +1919,12 @@ export function DesignCanvas({
 			    指针事件必须截断，否则画布根会捕获指针，里面点不动。 */}
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: pointer-capture shield for canvas chrome */}
 			<div
-				style={{ top: 12 + (peek ? PEEK_BANNER_HEIGHT : 0) }}
-				className="pointer-events-auto absolute left-3 z-40 flex items-center gap-1"
+				style={{
+					top: 12 + (peek ? PEEK_BANNER_HEIGHT : 0),
+					// 给右上角按钮组留出位置（它在窄档会收成图标），标题在剩下的空间里截断，不与它打架。
+					maxWidth: `calc(100% - ${CORNER_RESERVE[density.corner] + 36}px)`,
+				}}
+				className="pointer-events-auto absolute left-3 z-40 flex min-w-0 items-center gap-1"
 				onPointerDown={(event) => event.stopPropagation()}
 				onPointerMove={(event) => event.stopPropagation()}
 				onPointerUp={(event) => event.stopPropagation()}
@@ -1929,6 +1937,7 @@ export function DesignCanvas({
 				historyOpen={historyOpen}
 				onRun={onRun}
 				runDisabled={runDisabled}
+				density={density.corner}
 				onExport={openExport}
 				materials={{
 					selectedCount: orderedSelection.length,
@@ -2003,6 +2012,7 @@ export function DesignCanvas({
 				designSystemsActive={designDialogOpen}
 				pendingNotes={pendingNoteCount}
 				lift={tool === "frame" ? BOTTOM_PANEL_LIFT : 0}
+				density={density.dock}
 				history={{
 					canUndo: undoState.canUndo && peek === null && !previewing,
 					canRedo: undoState.canRedo && peek === null && !previewing,

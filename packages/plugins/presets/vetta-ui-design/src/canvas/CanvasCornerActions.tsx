@@ -1,5 +1,6 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
 import type { ReactNode } from "react";
+import type { CornerDensity } from "./responsive";
 import { ExportMenu, type MaterialAction, type MaterialProgress } from "./ExportMenu";
 
 interface CanvasCornerActionsProps {
@@ -18,6 +19,8 @@ interface CanvasCornerActionsProps {
 	/** 运行（进预览模式）：这组最右端，也是整组唯一的主色按钮。 */
 	onRun(): void;
 	runDisabled: boolean;
+	/** 画布变窄时的档位（见 responsive.ts）；缺省 full。 */
+	density?: CornerDensity;
 }
 
 const icons = {
@@ -81,6 +84,7 @@ export function CanvasCornerActions({
 	onToggleHistory,
 	onRun,
 	runDisabled,
+	density = "full",
 }: CanvasCornerActionsProps) {
 	const { t } = useTranslation();
 	return (
@@ -92,7 +96,7 @@ export function CanvasCornerActions({
 			onPointerMove={(event) => event.stopPropagation()}
 			onPointerUp={(event) => event.stopPropagation()}
 		>
-			<Action label={t("controlbar.history")} showLabel active={historyOpen} onClick={onToggleHistory}>
+			<Action label={t("controlbar.history")} showLabel={density === "full"} active={historyOpen} onClick={onToggleHistory}>
 				{icons.history}
 			</Action>
 			<ExportMenu
@@ -101,6 +105,7 @@ export function CanvasCornerActions({
 				progress={materials.progress}
 				onPick={materials.onPick}
 				onMakeMockup={onExport}
+				iconOnly={density !== "full"}
 			/>
 			{/* 运行带文字：它是这组里唯一一个「进入另一种模式」的动作，纯 icon 认不出来。 */}
 			<button
@@ -108,10 +113,13 @@ export function CanvasCornerActions({
 				disabled={runDisabled}
 				onClick={onRun}
 				title={t("canvas.run")}
-				className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+				aria-label={t("canvas.run")}
+				className={`flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 ${
+					density === "minimal" ? "w-8" : "px-3.5"
+				}`}
 			>
 				{icons.run}
-				{t("canvas.run")}
+				{density === "minimal" ? null : t("canvas.run")}
 			</button>
 		</div>
 	);

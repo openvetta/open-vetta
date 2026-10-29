@@ -9,6 +9,7 @@ import {
 	useSyncExternalStore,
 } from "react";
 import { BOTTOM_PANEL_TRANSITION } from "./BottomPanel";
+import type { DockDensity } from "./responsive";
 import { NotesVisibilitySwitch } from "./NotesVisibilitySwitch";
 import { DOCK_GAP, DOCK_ICON, dockMagnifyScale, dockTransition, usePrefersReducedMotion } from "./dock-magnify";
 
@@ -40,6 +41,8 @@ interface ControlBarProps {
 		onUndo(): void;
 		onRedo(): void;
 	};
+	/** 画布变窄时的档位（见 responsive.ts）；缺省 full。 */
+	density?: DockDensity;
 	/** 底部面板伸起时工具栏被顶高的距离（px）；0 = 在原位。 */
 	lift?: number;
 	onToolChange(tool: CanvasTool): void;
@@ -140,6 +143,7 @@ export function ControlBar({
 	notesVisible,
 	onToggleNotes,
 	lift = 0,
+	density = "full",
 	history,
 	onToolChange,
 	onZoomDelta,
@@ -154,6 +158,10 @@ export function ControlBar({
 	const centersRef = useRef<number[] | null>(null);
 	const [scales, setScales] = useState<number[]>([]);
 	const reducedMotion = usePrefersReducedMotion();
+	// 窄档：按钮略小、间距收紧，并关掉放大（放大要靠空余宽度往两边顶）。
+	const compact = density !== "full";
+	const iconSize = compact ? 30 : DOCK_ICON;
+	const gap = compact ? 3 : DOCK_GAP;
 
 	const slots = useMemo<DockSlot[]>(() => {
 		const items: DockSlot[] = [
@@ -250,8 +258,10 @@ export function ControlBar({
 				content: icons.plus,
 			},
 		];
-		return items;
+		// 窄档收掉缩放加减：捏合 / 滚轮 / 快捷键都能缩放，百分比按钮还能一键回 100%。
+		return compact ? items.filter((slot) => slot.key !== "zoom-out" && slot.key !== "zoom-in") : items;
 	}, [
+		compact,
 		history,
 		designSystemsActive,
 		pendingNotes,
@@ -275,7 +285,7 @@ export function ControlBar({
 	};
 
 	const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-		if (reducedMotion) return;
+		if (reducedMotion || compact) return;
 		const dock = dockRef.current;
 		if (!dock) return;
 		const centers = (centersRef.current ??= slotRefs.current.map((element) =>
@@ -308,10 +318,15 @@ export function ControlBar({
 		// 外层不吃指针：放大溢出与浮标签留的空白区不能挡住画布手势。
 		<div
 			className="pointer-events-none absolute bottom-3 left-1/2 z-40"
-			style={{ transform: `translate(-50%, ${-lift}px)`, transition: BOTTOM_PANEL_TRANSITION }}
+			// maxWidth：再窄也不超出视口两侧各 12px 的边距。
+			style={{
+				transform: `translate(-50%, ${-lift}px)`,
+				transition: BOTTOM_PANEL_TRANSITION,
+				maxWidth: "calc(100% - 24px)",
+			}}
 		>
 			{/* 放大只用 transform（origin-bottom），图标向上溢出 dock，chrome 本身不变高 */}
-			<div className="relative inline-flex flex-col items-center overflow-visible pt-9">
+			<div className={`relative inline-flex max-w-full flex-col items-center pt-9 ${density === "tight" ? "" : "overflow-visible"}`}>
 				{peakLabel ? (
 					<div
 						className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-md border border-border/70 bg-popover/95 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-popover-foreground shadow-sm"
@@ -325,8 +340,11 @@ export function ControlBar({
 				{/* biome-ignore lint/a11y/noStaticElementInteractions: swallow canvas gestures under the bar */}
 				<div
 					ref={dockRef}
-					className="pointer-events-auto relative inline-flex items-end overflow-visible rounded-full border border-border/80 bg-popover px-1.5 py-1 shadow-md"
-					style={{ gap: DOCK_GAP }}
+					className={`pointer-events-auto relative inline-flex max-w-full items-end rounded-full border border-border/80 bg-popover px-1.5 py-1 shadow-md ${
+						// 最窄档放不下就横向滚动，不再超出视口；此时已关闭放大，不需要溢出。
+						density === "tight" ? "overflow-x-auto [scrollbar-width:none]" : "overflow-visible"
+					}`}
+					style={{ gap }}
 					// 托手/空格态下画布根节点会在 pointerdown 时 setPointerCapture 接管平移，
 					// 指针捕获会把 click 改派给画布根，工具栏按钮就永远点不动了（切不回选择工具）。
 					onPointerDown={(event) => event.stopPropagation()}
@@ -346,7 +364,7 @@ export function ControlBar({
 										slotRefs.current[index] = element;
 									}}
 									className="w-px shrink-0 self-center bg-border"
-									style={{ height: DOCK_ICON * 0.55 }}
+									style={{ height: iconSize * 0.55 }}
 									aria-hidden
 								/>
 							);
@@ -365,7 +383,8 @@ export function ControlBar({
 									joinedActive={tool === "note"}
 									scale={scales[index - 1] ?? 1}
 									transition={dockTransition(reducedMotion)}
-									style={{ marginLeft: -DOCK_GAP }}
+									size={iconSize}
+									style={{ marginLeft: -gap }}
 								/>
 							);
 						}
@@ -389,9 +408,9 @@ export function ControlBar({
 										: "bg-secondary text-foreground hover:bg-accent"
 								} ${slot.disabled ? "pointer-events-none opacity-40" : ""} ${slot.wide ? "px-2.5" : ""} ${slot.key === "note" ? "rounded-r-none" : ""} ${scale > 1.02 ? "z-[2]" : ""}`}
 								style={{
-									width: slot.wide ? undefined : DOCK_ICON,
-									minWidth: slot.wide ? DOCK_ICON + 12 : undefined,
-									height: DOCK_ICON,
+									width: slot.wide ? undefined : iconSize,
+									minWidth: slot.wide ? iconSize + 12 : undefined,
+									height: iconSize,
 									transform: `scale(${scale})`,
 									transition: dockTransition(reducedMotion),
 								}}

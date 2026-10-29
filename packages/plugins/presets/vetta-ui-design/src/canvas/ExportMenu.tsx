@@ -17,6 +17,8 @@ interface ExportMenuProps {
 	onPick(action: MaterialAction): void;
 	/** 「制作渲染图」：进渲染图工作台排版。 */
 	onMakeMockup(): void;
+	/** 窄档：按钮只留图标（导出进行中仍显示进度文字）。 */
+	iconOnly?: boolean;
 }
 
 const icons = {
@@ -71,7 +73,7 @@ interface Item {
  * 直接落文件。二级的四个选项按「图片 / PDF」分两组，各组里先选中后全部。没选中时选中项禁用而不是隐藏——
  * 让人知道这个能力存在、要先去选。
  */
-export function ExportMenu({ selectedCount, totalCount, progress, onPick, onMakeMockup }: ExportMenuProps) {
+export function ExportMenu({ selectedCount, totalCount, progress, onPick, onMakeMockup, iconOnly = false }: ExportMenuProps) {
 	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 	/** 「导出 Frame」二级菜单：hover 展开，点击 / 键盘聚焦也能展开。 */
@@ -127,19 +129,26 @@ export function ExportMenu({ selectedCount, totalCount, progress, onPick, onMake
 			<button
 				type="button"
 				title={t("canvas.export.label")}
+				aria-label={t("canvas.export.label")}
 				aria-haspopup="menu"
 				aria-expanded={open}
 				aria-controls={open ? menuId : undefined}
 				aria-busy={busy}
 				disabled={busy}
 				onClick={() => setOpen((current) => !current)}
-				className={`flex h-8 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-medium transition-colors disabled:opacity-60 ${
+				className={`flex h-8 items-center justify-center gap-1.5 rounded-full border border-border text-xs font-medium transition-colors disabled:opacity-60 ${
+					iconOnly && !busy ? "w-8" : "px-3"
+				} ${
 					open ? "bg-primary/10 text-primary" : "bg-popover text-foreground hover:bg-accent"
 				}`}
 			>
 				{icons.download}
-				<span className="whitespace-nowrap tabular-nums">{label}</span>
-				{icons.chevron}
+				{iconOnly && !busy ? null : (
+					<>
+						<span className="whitespace-nowrap tabular-nums">{label}</span>
+						{icons.chevron}
+					</>
+				)}
 			</button>
 			{open ? (
 				<div
