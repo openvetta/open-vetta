@@ -54,7 +54,7 @@ function IconButton({
 			aria-label={label}
 			disabled={disabled}
 			onClick={onClick}
-			className="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent disabled:opacity-40 disabled:hover:bg-transparent"
+			className="flex size-7 shrink-0 items-center justify-center rounded-lg text-[color:var(--vetd-ink-soft,var(--muted-foreground))] hover:bg-[var(--vetd-chip,var(--accent))] disabled:opacity-40 disabled:hover:bg-transparent"
 		>
 			<svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
 				{children}
@@ -98,7 +98,7 @@ export function InteractionToolbar({
 				{icons.home}
 			</IconButton>
 			<span
-				className="max-w-32 truncate rounded-lg bg-muted px-2 py-1 text-xs text-muted-foreground"
+				className="max-w-32 truncate rounded-lg bg-[var(--vetd-chip,var(--muted))] px-2 py-1 text-xs text-[color:var(--vetd-ink-soft,var(--muted-foreground))]"
 				title={path}
 			>
 				{path}
@@ -108,7 +108,7 @@ export function InteractionToolbar({
 				onChange={(event) => event.target.value && onPickFrame(event.target.value)}
 				title={t("interaction.pages")}
 				aria-label={t("interaction.pages")}
-				className="min-w-14 max-w-32 truncate rounded-lg border-none bg-muted px-1.5 py-1 text-xs text-foreground outline-none focus:outline-none"
+				className="min-w-14 max-w-32 truncate rounded-lg border-none bg-[var(--vetd-chip,var(--muted))] px-1.5 py-1 text-xs text-[color:var(--vetd-ink,var(--foreground))] outline-none focus:outline-none"
 			>
 				{currentFrameId === null ? <option value="">{t("interaction.pages")}</option> : null}
 				{frames.map((frame) => (
@@ -125,7 +125,7 @@ export function InteractionToolbar({
 					onChange={(event) => onPickDevice(event.target.value || null)}
 					title={t("interaction.device")}
 					aria-label={t("interaction.device")}
-					className="min-w-14 max-w-32 truncate rounded-lg border-none bg-muted px-1.5 py-1 text-xs text-foreground outline-none focus:outline-none"
+					className="min-w-14 max-w-32 truncate rounded-lg border-none bg-[var(--vetd-chip,var(--muted))] px-1.5 py-1 text-xs text-[color:var(--vetd-ink,var(--foreground))] outline-none focus:outline-none"
 				>
 					<option value="">{t("interaction.device.follow")}</option>
 					{PHONE_PRESETS.map((preset) => (
@@ -135,7 +135,7 @@ export function InteractionToolbar({
 					))}
 				</select>
 			) : null}
-			<div className="flex shrink-0 items-center rounded-lg bg-muted p-0.5" role="radiogroup" aria-label={t("interaction.deviceType")}>
+			<div className="flex shrink-0 items-center rounded-lg bg-[var(--vetd-chip,var(--muted))] p-0.5" role="radiogroup" aria-label={t("interaction.deviceType")}>
 				{INTERACTION_MODES.map((entry) => (
 					// biome-ignore lint/a11y/useSemanticElements: segmented control, not a form field
 					<button
@@ -145,7 +145,9 @@ export function InteractionToolbar({
 						aria-checked={entry === mode}
 						onClick={() => onPickMode(entry)}
 						className={`rounded-md px-2 py-0.5 text-xs transition-colors ${
-							entry === mode ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+							entry === mode
+								? "bg-[var(--vetd-chip-active,var(--card))] text-[color:var(--vetd-ink,var(--foreground))] shadow-sm"
+								: "text-[color:var(--vetd-ink-soft,var(--muted-foreground))] hover:text-[color:var(--vetd-ink,var(--foreground))]"
 						}`}
 					>
 						{t(`interaction.mode.${entry}`)}

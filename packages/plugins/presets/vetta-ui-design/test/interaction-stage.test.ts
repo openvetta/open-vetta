@@ -54,3 +54,16 @@ describe("edgeColor", () => {
 		expect(EDGE_ALPHA).toBeGreaterThan(VEIL_ALPHA * 3);
 	});
 });
+
+describe("chromeVars", () => {
+	it("顶部条配色跟底色走：亮底深字浅胶囊，暗底浅字，与宿主主题无关", async () => {
+		const { chromeVars } = await import("../src/interaction/stage");
+		const light = chromeVars(parseCssColor("#e5e7eb"));
+		expect(light["--vetd-ink"]).toBe("#111827");
+		expect(light["--vetd-chip"]).toContain("0, 0, 0");
+		const dark = chromeVars(parseCssColor("#0b0b0c"));
+		expect(dark["--vetd-ink"]).toBe("#f8fafc");
+		expect(dark["--vetd-chip"]).toContain("255, 255, 255");
+		expect(Object.keys(light)).toEqual(Object.keys(dark));
+	});
+});

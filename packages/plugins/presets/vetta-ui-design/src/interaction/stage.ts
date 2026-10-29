@@ -99,6 +99,30 @@ export function edgeColor(base: Rgb | null): string {
 }
 
 /**
+ * 顶部条控件的配色：由舞台底色算出，而不是跟宿主主题走——宿主是暗色、设计底色是浅色时，
+ * 宿主的 muted / foreground 在这块底色上就是深色块配浅色字。
+ *
+ * 变量名带 `--vetd-` 前缀，控件用 `var(--vetd-xxx, 宿主变量)` 取：设计模式下没有这些变量，
+ * 自然回落到宿主的颜色。
+ */
+export function chromeVars(base: Rgb | null): Record<string, string> {
+	const light = base === null ? true : isLightColor(base);
+	return light
+		? {
+				"--vetd-ink": "#111827",
+				"--vetd-ink-soft": "rgba(17, 24, 39, 0.58)",
+				"--vetd-chip": "rgba(0, 0, 0, 0.07)",
+				"--vetd-chip-active": "#ffffff",
+			}
+		: {
+				"--vetd-ink": "#f8fafc",
+				"--vetd-ink-soft": "rgba(248, 250, 252, 0.62)",
+				"--vetd-chip": "rgba(255, 255, 255, 0.1)",
+				"--vetd-chip-active": "rgba(255, 255, 255, 0.22)",
+			};
+}
+
+/**
  * 交互舞台的底色：色卡里的背景 token，占位色卡 / 没有背景 token 时为 null，
  * 由调用方落到宿主的背景变量。
  */

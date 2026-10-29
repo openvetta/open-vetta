@@ -327,7 +327,7 @@ export function CanvasTab() {
 	const modeToggle = (
 		phase.kind === "ready" && session ? (
 			<div
-				className="flex h-7 shrink-0 items-center rounded-lg bg-muted p-0.5"
+				className="flex h-7 shrink-0 items-center rounded-lg bg-[var(--vetd-chip,var(--muted))] p-0.5"
 				role="radiogroup"
 				aria-label={t("interaction.toggle.label")}
 			>
@@ -343,7 +343,9 @@ export function CanvasTab() {
 							disabled={entry === "interaction" && session.manifest.frames.length === 0}
 							onClick={() => (entry === "interaction" ? enterInteraction() : setInteracting(false))}
 							className={`h-6 rounded-md px-2.5 text-xs font-medium transition-colors disabled:opacity-40 ${
-								selected ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+								selected
+										? "bg-[var(--vetd-chip-active,var(--card))] text-[color:var(--vetd-ink,var(--foreground))] shadow-sm"
+										: "text-[color:var(--vetd-ink-soft,var(--muted-foreground))] hover:text-[color:var(--vetd-ink,var(--foreground))]"
 							}`}
 						>
 							{t(`interaction.toggle.${entry}`)}

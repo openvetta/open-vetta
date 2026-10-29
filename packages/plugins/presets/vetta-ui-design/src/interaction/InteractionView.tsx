@@ -9,7 +9,7 @@ import { InteractionToolbar } from "./InteractionToolbar";
 import { PhoneShell } from "./PhoneShell";
 import { resolvePhoneDevice, shellOuterSize } from "./phone-shell";
 import { useNavBridge } from "./nav-bridge";
-import { edgeColor, fitScale, parseCssColor, themeStageBackground, veilColor } from "./stage";
+import { chromeVars, edgeColor, fitScale, parseCssColor, themeStageBackground, veilColor } from "./stage";
 
 interface InteractionViewProps {
 	port: number;
@@ -53,6 +53,7 @@ function useVeil(session: DesignSession, revision: number, stageRef: React.RefOb
 	const [themeBackground, setThemeBackground] = useState<string | null>(null);
 	const [veil, setVeil] = useState(() => veilColor(null));
 	const [edge, setEdge] = useState(() => edgeColor(null));
+	const [chrome, setChrome] = useState(() => chromeVars(null));
 
 	useEffect(() => {
 		let cancelled = false;
@@ -72,6 +73,7 @@ function useVeil(session: DesignSession, revision: number, stageRef: React.RefOb
 			const base = parseCssColor(resolved);
 			setVeil(veilColor(base));
 			setEdge(edgeColor(base));
+			setChrome(chromeVars(base));
 		};
 		update();
 		// 宿主切换亮 / 暗主题时背景变量会变，夹层要跟着换。
@@ -80,7 +82,7 @@ function useVeil(session: DesignSession, revision: number, stageRef: React.RefOb
 		return () => observer.disconnect();
 	}, [themeBackground, stageRef]);
 
-	return { themeBackground, veil, edge };
+	return { themeBackground, veil, edge, chrome };
 }
 
 /**
@@ -99,7 +101,7 @@ export function InteractionView({ port, session, active, leadingSlot }: Interact
 	const [deviceId, setDeviceId] = useState<string | null>(null);
 	const [stageRef, stage] = useStageSize();
 	const rootRef = useRef<HTMLDivElement | null>(null);
-	const { themeBackground, veil, edge } = useVeil(session, revision, rootRef);
+	const { themeBackground, veil, edge, chrome } = useVeil(session, revision, rootRef);
 
 	const { frames } = session.manifest;
 	// 引擎侧的 frameIds 是排过序的，「字典序第一帧」的回落依赖它。
@@ -170,7 +172,11 @@ export function InteractionView({ port, session, active, leadingSlot }: Interact
 		<div
 			ref={rootRef}
 			className="absolute inset-0 flex flex-col bg-background"
-			style={{ visibility: active ? "visible" : "hidden", ...(themeBackground ? { backgroundColor: themeBackground } : {}) }}
+			style={{
+				visibility: active ? "visible" : "hidden",
+				...(themeBackground ? { backgroundColor: themeBackground } : {}),
+				...chrome,
+			}}
 			aria-hidden={!active}
 		>
 			{/* 灰色夹层：夹在底色与设备 / 画框之间，把两者分开。 */}
