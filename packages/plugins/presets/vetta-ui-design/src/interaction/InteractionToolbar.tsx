@@ -84,7 +84,7 @@ export function InteractionToolbar({
 	const { t } = useTranslation();
 	return (
 		<>
-		<div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+		<div className="flex min-w-0 flex-1 basis-56 items-center gap-1">
 			<IconButton label={t("interaction.back")} disabled={!canBack} onClick={onBack}>
 				{icons.back}
 			</IconButton>
@@ -98,7 +98,7 @@ export function InteractionToolbar({
 				{icons.home}
 			</IconButton>
 			<span
-				className="max-w-32 truncate rounded-lg bg-[var(--vetd-chip,var(--muted))] px-2 py-1 text-xs text-[color:var(--vetd-ink-soft,var(--muted-foreground))]"
+				className="min-w-6 max-w-32 shrink truncate rounded-lg bg-[var(--vetd-chip,var(--muted))] px-2 py-1 text-xs text-[color:var(--vetd-ink-soft,var(--muted-foreground))]"
 				title={path}
 			>
 				{path}
@@ -108,7 +108,7 @@ export function InteractionToolbar({
 				onChange={(event) => event.target.value && onPickFrame(event.target.value)}
 				title={t("interaction.pages")}
 				aria-label={t("interaction.pages")}
-				className="min-w-14 max-w-32 truncate rounded-lg border-none bg-[var(--vetd-chip,var(--muted))] px-1.5 py-1 text-xs text-[color:var(--vetd-ink,var(--foreground))] outline-none focus:outline-none"
+				className="min-w-0 max-w-32 shrink truncate rounded-lg border-none bg-[var(--vetd-chip,var(--muted))] px-1.5 py-1 text-xs text-[color:var(--vetd-ink,var(--foreground))] outline-none focus:outline-none"
 			>
 				{currentFrameId === null ? <option value="">{t("interaction.pages")}</option> : null}
 				{frames.map((frame) => (
@@ -118,7 +118,7 @@ export function InteractionToolbar({
 				))}
 			</select>
 		</div>
-		<div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+		<div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1">
 			{mode === "mobile" ? (
 				<select
 					value={deviceId ?? ""}

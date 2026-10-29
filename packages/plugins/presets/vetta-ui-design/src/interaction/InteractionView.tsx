@@ -181,27 +181,25 @@ export function InteractionView({ port, session, active, leadingSlot }: Interact
 		>
 			{/* 灰色夹层：夹在底色与设备 / 画框之间，把两者分开。 */}
 			<div className="pointer-events-none absolute inset-0" style={{ backgroundColor: veil }} />
-			<div className="relative z-10 flex shrink-0 items-center gap-2 px-3 py-2">
+			<div className="relative z-10 flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2">
 				<div className="flex shrink-0 items-center gap-1">{leadingSlot}</div>
-				<div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-					<InteractionToolbar
-						path={path}
-						canBack={nav?.canBack === true}
-						canForward={nav?.canForward === true}
-						frames={frames}
-						currentFrameId={currentFrameId}
-						mode={mode}
-						deviceId={deviceId}
-						onPickDevice={setDeviceId}
-						onBack={() => go(-1)}
-						onForward={() => go(1)}
-						onReload={reload}
-						onHome={() => navigateTo("/")}
-						onPickFrame={(frameId) => navigateTo(pathOfFrame(frameId))}
-						onPickMode={(next) => session.setInteractionMode(next)}
-						onOpenExternal={openExternal}
-					/>
-				</div>
+				<InteractionToolbar
+					path={path}
+					canBack={nav?.canBack === true}
+					canForward={nav?.canForward === true}
+					frames={frames}
+					currentFrameId={currentFrameId}
+					mode={mode}
+					deviceId={deviceId}
+					onPickDevice={setDeviceId}
+					onBack={() => go(-1)}
+					onForward={() => go(1)}
+					onReload={reload}
+					onHome={() => navigateTo("/")}
+					onPickFrame={(frameId) => navigateTo(pathOfFrame(frameId))}
+					onPickMode={(next) => session.setInteractionMode(next)}
+					onOpenExternal={openExternal}
+				/>
 			</div>
 			<div ref={stageRef} className="relative min-h-0 flex-1 overflow-hidden">
 				{src ? (
