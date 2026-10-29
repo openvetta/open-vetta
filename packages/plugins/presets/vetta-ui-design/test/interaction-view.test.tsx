@@ -33,7 +33,10 @@ function fakeSession(manifest: Partial<VetdManifest>): { session: DesignSession;
 		manifest: { version: 1, type: "vetta-design", canvas: { x: 0, y: 0, zoom: 1 }, frames: [], ...manifest },
 		on: () => ({ dispose: () => {} }),
 		readThemeCss: async () => "@theme {\n  --color-background: #faf7f2;\n}",
-		setInteractionMode: (mode: InteractionMode) => modes.push(mode),
+		setInteractionMode: (mode: InteractionMode) => {
+			modes.push(mode);
+			(session as unknown as { manifest: VetdManifest }).manifest.interactionMode = mode;
+		},
 	} as unknown as DesignSession;
 	return { session, modes };
 }
@@ -138,5 +141,24 @@ describe("InteractionView", () => {
 		await render(fakeSession({ frames: [frame("index", 1440, 900)] }).session);
 		const header = host.querySelector("[aria-hidden] > .z-10") as HTMLElement;
 		expect(header.className).not.toContain("flex-wrap");
+	});
+
+	it("选了别的类别的设备预设：设备类型跟着切，视口就是预设的尺寸；选回跟随设计稿则恢复", async () => {
+		const { session, modes } = fakeSession({ frames: [frame("index", 393, 852)], interactionMode: "mobile" });
+		await render(session);
+		const iframeWidth = (): string => (host.querySelector("iframe") as HTMLElement).style.width;
+		expect(iframeWidth()).toBe("393px");
+		const open = (): void => act(() => (host.querySelector("[aria-label='interaction.switchDevice']") as HTMLElement).click());
+		open();
+		act(() => (host.querySelector("[aria-label='canvas.size.category.desktop']") as HTMLElement).click());
+		const mac = [...host.querySelectorAll<HTMLElement>("[role=menuitemradio]")].find((item) => item.textContent?.startsWith('MacBook Pro 14"'));
+		await act(async () => mac?.click());
+		expect(modes).toEqual(["desktop"]);
+		expect(iframeWidth()).toBe("1512px");
+		// 选回「跟随设计稿」：设备类型还是桌面端（它已经改了），但视口回到稿子自己的尺寸。
+		open();
+		const follow = [...host.querySelectorAll<HTMLElement>("[role=menuitemradio]")].find((item) => item.textContent === "interaction.device.follow");
+		await act(async () => follow?.click());
+		expect(iframeWidth()).toBe("393px");
 	});
 });

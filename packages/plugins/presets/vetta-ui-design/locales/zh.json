@@ -371,7 +371,7 @@
 	"interaction.toggle.design": "设计",
 	"interaction.toggle.interaction": "交互",
 	"interaction.toggle.label": "设计 / 交互模式",
-	"interaction.device": "手机机型",
+	"interaction.device": "预设尺寸",
 	"interaction.device.follow": "跟随设计稿",
 	"interaction.deviceMenu": "设备与机型",
 	"interaction.switchDevice": "切换设备",

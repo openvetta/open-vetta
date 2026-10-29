@@ -1,20 +1,33 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
-import { type RefObject, useEffect } from "react";
+import { type RefObject, useEffect, useState } from "react";
+import { categoryIcons, OrientationToggle } from "../canvas/FrameSizeUi";
 import { INTERACTION_MODES, type InteractionMode } from "../vetd/interaction-mode";
-import { PHONE_PRESETS } from "./phone-shell";
+import { formatSize, type Orientation, presetSize, SIZE_CATEGORIES } from "../vetd/size-presets";
+import { type DeviceChoice, defaultCategory, resolveChoice } from "./device-choice";
 
 interface DevicePopoverProps {
 	mode: InteractionMode;
-	/** 手机机型：null 跟随设计稿。 */
-	deviceId: string | null;
+	/** 当前生效的设备预设；null = 跟随设计稿（或选的预设与设备类型对不上而被忽略）。 */
+	device: DeviceChoice | null;
 	/** 触发按钮所在的容器：点它自己不算「点到外面」，否则会先关再开。 */
 	boundaryRef: RefObject<HTMLElement | null>;
 	onPickMode(mode: InteractionMode): void;
-	onPickDevice(id: string | null): void;
+	onPickDevice(choice: DeviceChoice | null): void;
 	onClose(): void;
 }
 
-function Item({ selected, onClick, children }: { selected: boolean; onClick(): void; children: string }) {
+function Item({
+	selected,
+	meta,
+	onClick,
+	children,
+}: {
+	selected: boolean;
+	/** 右侧的弱化文字（像素尺寸）。 */
+	meta?: string;
+	onClick(): void;
+	children: string;
+}) {
 	return (
 		<button
 			type="button"
@@ -30,17 +43,25 @@ function Item({ selected, onClick, children }: { selected: boolean; onClick(): v
 					</svg>
 				) : null}
 			</span>
-			<span className="truncate">{children}</span>
+			<span className="min-w-0 flex-1 truncate">{children}</span>
+			{meta ? <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{meta}</span> : null}
 		</button>
 	);
 }
 
 /**
- * 设备类型 + 手机机型合在一个浮层里：类型三选一，选了移动端才多出机型一栏。
+ * 设备类型 + 设备预设合在一个浮层里。
+ *
+ * 预设与画布底部的尺寸面板同源（SIZE_CATEGORIES：Phone / Desktop / Watch / 纸张 / iPad），
+ * 名称、像素、圆角、iPad 的横竖屏都一样，都能选。选了预设，交互视图的视口就是它的尺寸。
  * 配色完全走宿主主题（bg-card / text-foreground）：浮层是盖在舞台上的一层，不该再沿用舞台底色。
  */
-export function DevicePopover({ mode, deviceId, boundaryRef, onPickMode, onPickDevice, onClose }: DevicePopoverProps) {
+export function DevicePopover({ mode, device, boundaryRef, onPickMode, onPickDevice, onClose }: DevicePopoverProps) {
 	const { t } = useTranslation();
+	const [active, setActive] = useState(() => defaultCategory(device, mode));
+	const [orientation, setOrientation] = useState<Orientation>(device?.orientation ?? "portrait");
+	const category = SIZE_CATEGORIES.find((entry) => entry.id === active) ?? SIZE_CATEGORIES[0];
+	const chosen = resolveChoice(device);
 
 	useEffect(() => {
 		const onPointerDown = (event: PointerEvent): void => {
@@ -64,55 +85,76 @@ export function DevicePopover({ mode, deviceId, boundaryRef, onPickMode, onPickD
 		<div
 			role="menu"
 			aria-label={t("interaction.deviceMenu")}
-			className="absolute right-0 top-full z-50 mt-1.5 w-48 rounded-xl border border-border bg-card p-1.5 text-foreground shadow-lg"
+			className="absolute right-0 top-full z-50 mt-1.5 w-64 rounded-xl border border-border bg-card p-1.5 text-foreground shadow-lg"
 		>
-			<div className="px-2 pb-1 pt-0.5 text-[11px] text-muted-foreground">
-				{t("interaction.deviceType")}
-			</div>
+			<div className="px-2 pb-1 pt-0.5 text-[11px] text-muted-foreground">{t("interaction.deviceType")}</div>
 			{INTERACTION_MODES.map((entry) => (
 				<Item
 					key={entry}
 					selected={entry === mode}
 					onClick={() => {
 						onPickMode(entry);
-						// 选了移动端还要接着选机型，浮层留着；其他类型选完就收。
-						if (entry !== "mobile") onClose();
+						onClose();
 					}}
 				>
 					{t(`interaction.mode.${entry}`)}
 				</Item>
 			))}
-			{mode === "mobile" ? (
-				<>
-					<div className="mx-1 my-1.5 h-px bg-border" />
-					<div className="px-2 pb-1 text-[11px] text-muted-foreground">
-						{t("interaction.device")}
-					</div>
-					<div className="max-h-52 overflow-y-auto">
+			<div className="mx-1 my-1.5 h-px bg-border" />
+			<div className="flex items-center justify-between gap-2 px-2 pb-1">
+				<span className="text-[11px] text-muted-foreground">{t("interaction.device")}</span>
+				{category.orientable ? <OrientationToggle value={orientation} onChange={setOrientation} /> : null}
+			</div>
+			<div role="tablist" className="mb-1 flex items-center gap-1 px-1">
+				{SIZE_CATEGORIES.map((entry) => (
+					<button
+						key={entry.id}
+						type="button"
+						role="tab"
+						aria-selected={active === entry.id}
+						aria-label={t(`canvas.size.category.${entry.id}`)}
+						title={t(`canvas.size.category.${entry.id}`)}
+						onClick={() => setActive(entry.id)}
+						className={`flex h-7 flex-1 items-center justify-center rounded-full transition-colors ${
+							active === entry.id
+								? "bg-primary text-primary-foreground"
+								: "text-muted-foreground hover:bg-accent hover:text-foreground"
+						}`}
+					>
+						{categoryIcons[entry.id]}
+					</button>
+				))}
+			</div>
+			<div className="px-2 pb-1 text-[11px] text-muted-foreground">{t(`canvas.size.category.${category.id}`)}</div>
+			<div className="max-h-56 overflow-y-auto">
+				<Item
+					selected={device === null}
+					onClick={() => {
+						onPickDevice(null);
+						onClose();
+					}}
+				>
+					{t("interaction.device.follow")}
+				</Item>
+				{category.presets.map((preset) => {
+					const size = presetSize(category, preset, orientation);
+					const selected =
+						chosen?.preset.id === preset.id && (!category.orientable || device?.orientation === orientation);
+					return (
 						<Item
-							selected={deviceId === null}
+							key={preset.id}
+							selected={selected}
+							meta={formatSize(size)}
 							onClick={() => {
-								onPickDevice(null);
+								onPickDevice({ id: preset.id, orientation: category.orientable ? orientation : "portrait" });
 								onClose();
 							}}
 						>
-							{t("interaction.device.follow")}
+							{preset.name}
 						</Item>
-						{PHONE_PRESETS.map((preset) => (
-							<Item
-								key={preset.id}
-								selected={deviceId === preset.id}
-								onClick={() => {
-									onPickDevice(preset.id);
-									onClose();
-								}}
-							>
-								{preset.name}
-							</Item>
-						))}
-					</div>
-				</>
-			) : null}
+					);
+				})}
+			</div>
 		</div>
 	);
 }

@@ -371,7 +371,7 @@
 	"interaction.toggle.design": "Design",
 	"interaction.toggle.interaction": "Interact",
 	"interaction.toggle.label": "Design / interaction mode",
-	"interaction.device": "Phone model",
+	"interaction.device": "Preset size",
 	"interaction.device.follow": "Match design",
 	"interaction.deviceMenu": "Device & model",
 	"interaction.switchDevice": "Switch device",

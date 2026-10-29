@@ -7,6 +7,7 @@ import type { DesignSession } from "../vetd/design-session";
 import { frameRadius } from "../vetd/manifest-types";
 import { InteractionToolbar } from "./InteractionToolbar";
 import { PhoneShell } from "./PhoneShell";
+import { type DeviceChoice, resolveChoice } from "./device-choice";
 import { resolvePhoneDevice, shellOuterSize } from "./phone-shell";
 import { useNavBridge } from "./nav-bridge";
 import {
@@ -110,8 +111,8 @@ export function InteractionView({ port, session, active, trailingSlot }: Interac
 	const revision = useSessionRevision(session);
 	const iframeRef = useRef<HTMLIFrameElement | null>(null);
 	const { nav, navigateTo, go, reload, configure, setRadius, customStatusBar } = useNavBridge(iframeRef);
-	/** 手机机型：只在本次会话里生效，不写进设计稿（设计稿的真实尺寸才是依据）。 */
-	const [deviceId, setDeviceId] = useState<string | null>(null);
+	/** 设备预设：只在本次会话里生效，不写进设计稿（设计稿的真实尺寸才是依据）。 */
+	const [device, setDevice] = useState<DeviceChoice | null>(null);
 	const [stageRef, stage] = useStageSize();
 	const rootRef = useRef<HTMLDivElement | null>(null);
 	const { themeBackground, themePrimary, veil, edge, chrome } = useVeil(session, revision, rootRef);
@@ -134,13 +135,18 @@ export function InteractionView({ port, session, active, trailingSlot }: Interac
 	const src = useMemo(() => (hasFrames ? `http://127.0.0.1:${port}${pathRef.current}` : null), [hasFrames, port, mobile]);
 
 	// 移动端按设备走（可能与稿子尺寸不同）；桌面端和其他就是稿子本身的尺寸。
-	const phone = mobile ? resolvePhoneDevice({ selectedId: deviceId, home }) : null;
+	// 选的预设与当前设备类型对不上（用户手动切了类型）就先忽略，切回来还在。
+	const resolved = resolveChoice(device);
+	const choice = resolved && resolved.mode === mode ? resolved : null;
+	const phone = mobile ? resolvePhoneDevice({ selectedId: choice?.preset.id ?? null, home }) : null;
 	const viewport = phone
 		? phone.viewport
-		: home
-			? { width: home.width, height: home.height }
-			: { width: 390, height: 844 };
-	const radius = phone ? phone.radius : home ? frameRadius(home) : 0;
+		: choice
+			? choice.size
+			: home
+				? { width: home.width, height: home.height }
+				: { width: 390, height: 844 };
+	const radius = phone ? phone.radius : choice ? choice.radius : home ? frameRadius(home) : 0;
 	const shellKind = phone?.kind ?? "island";
 	const outer = mobile
 		? shellOuterSize(shellKind, viewport)
@@ -208,8 +214,13 @@ export function InteractionView({ port, session, active, trailingSlot }: Interac
 					currentFrameId={currentFrameId}
 					mode={mode}
 					{...toolbarLevel(stage.width)}
-					deviceId={deviceId}
-					onPickDevice={setDeviceId}
+					device={choice ? device : null}
+					onPickDevice={(next) => {
+						// 选了别的类别的预设，设备类型跟着走（桌面预设 → 桌面端），这样视口和外壳一致。
+						const target = resolveChoice(next)?.mode;
+						if (target && target !== mode) session.setInteractionMode(target);
+						setDevice(next);
+					}}
 					onBack={() => go(-1)}
 					onForward={() => go(1)}
 					onReload={reload}

@@ -2,6 +2,7 @@ import { useTranslation } from "@vetta-org/plugin-sdk";
 import { type JSX, useRef, useState } from "react";
 import type { InteractionMode } from "../vetd/interaction-mode";
 import { CAPSULE_CLASS, CapsuleButton, PLAIN_CLASS } from "./Capsule";
+import { type DeviceChoice } from "./device-choice";
 import { DevicePopover } from "./DevicePopover";
 
 interface InteractionToolbarProps {
@@ -15,9 +16,9 @@ interface InteractionToolbarProps {
 	iconOnly: boolean;
 	/** 路由胶囊整组收起（面板很窄）。 */
 	hideRoute: boolean;
-	/** 手机机型：null 跟随设计稿。只在移动端显示下拉。 */
-	deviceId: string | null;
-	onPickDevice(id: string | null): void;
+	/** 当前生效的设备预设（与画布尺寸面板同源）；null = 跟随设计稿。 */
+	device: DeviceChoice | null;
+	onPickDevice(choice: DeviceChoice | null): void;
 	onBack(): void;
 	onForward(): void;
 	onReload(): void;
@@ -73,7 +74,7 @@ export function InteractionToolbar({
 	mode,
 	iconOnly,
 	hideRoute,
-	deviceId,
+	device,
 	onPickDevice,
 	onBack,
 	onForward,
@@ -131,7 +132,7 @@ export function InteractionToolbar({
 					{deviceOpen ? (
 						<DevicePopover
 							mode={mode}
-							deviceId={deviceId}
+							device={device}
 							boundaryRef={deviceRef}
 							onPickMode={onPickMode}
 							onPickDevice={onPickDevice}

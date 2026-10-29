@@ -79,7 +79,7 @@ export function categoryOf(size: Size): SizeCategoryId | null {
 	return null;
 }
 
-function OrientationToggle({ value, onChange }: { value: Orientation; onChange(value: Orientation): void }) {
+export function OrientationToggle({ value, onChange }: { value: Orientation; onChange(value: Orientation): void }) {
 	const { t } = useTranslation();
 	return (
 		<div className="inline-flex rounded-full bg-secondary p-0.5 text-[11px] font-medium" role="group">
