@@ -44,8 +44,11 @@ export function fitScale(container: FrameSize, content: FrameSize, padding = STA
 	return Math.min(1, room.width / content.width, room.height / content.height);
 }
 
-/** 底部渐变起点的不透明度（%）：只是给底色一点气色，不能抢设计稿。 */
+/** 底部渐变起点的不透明度（%）：只是给底色一点气色，不能抢设计稿。深色底上这个量刚好。 */
 export const GLOW_ALPHA = 32;
+
+/** 浅色底上同样的主色看起来会重得多，只留一点点气色，免得突兀。 */
+export const GLOW_ALPHA_LIGHT = 6;
 
 /** 渐变从底部往上淡出到哪一档高度（%）。 */
 export const GLOW_REACH = 75;
@@ -61,8 +64,12 @@ export function themeStagePrimary(themeCss: string | null): string | null {
 
 /**
  * 舞台底部的渐变：主色（低透明度）从下往上淡出到透明，透出下面的底色。
- * 主色不是合法 CSS 颜色时整个声明会被浏览器丢掉，等于没有渐变，不会出错。
+ *
+ * 浅色和深色用不同的浓度，靠 `light-dark()` 跟着宿主的 color-scheme 走（画布底色同理，
+ * 见 style.css 的 --vetd-canvas）。主色不是合法 CSS 颜色时整个声明会被浏览器丢掉，
+ * 等于没有渐变，不会出错。
  */
 export function stageGlow(primary: string): string {
-	return `linear-gradient(to top, color-mix(in srgb, ${primary} ${GLOW_ALPHA}%, transparent), transparent ${GLOW_REACH}%)`;
+	const tint = (alpha: number): string => `color-mix(in srgb, ${primary} ${alpha}%, transparent)`;
+	return `linear-gradient(to top, light-dark(${tint(GLOW_ALPHA_LIGHT)}, ${tint(GLOW_ALPHA)}), transparent ${GLOW_REACH}%)`;
 }

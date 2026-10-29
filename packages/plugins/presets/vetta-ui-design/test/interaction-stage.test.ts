@@ -34,16 +34,22 @@ describe("toolbarLevel", () => {
 
 describe("底部渐变", () => {
 	it("主色优先取设计色卡，占位色卡和没写 primary 时让给宿主", async () => {
-		const { themeStagePrimary, stageGlow, GLOW_ALPHA, GLOW_REACH } = await import("../src/interaction/stage");
+		const { themeStagePrimary, stageGlow, GLOW_ALPHA, GLOW_ALPHA_LIGHT, GLOW_REACH } = await import("../src/interaction/stage");
 		expect(themeStagePrimary("@theme {\n  --color-primary: #0f172a;\n  --color-background: #fff;\n}")).toBe("#0f172a");
 		expect(themeStagePrimary("@theme {\n  --color-background: #fff;\n}")).toBeNull();
 		expect(themeStagePrimary("/* vetd:placeholder-theme */\n@theme {\n  --color-primary: #888;\n}")).toBeNull();
 		expect(themeStagePrimary(null)).toBeNull();
 		const glow = stageGlow("#0f172a");
 		expect(glow).toContain("to top");
+		// 深色浓度不变；浅色另用一档很淡的，两档靠 light-dark() 跟着宿主明暗走。
+		expect(glow).toContain("light-dark(");
 		expect(glow).toContain(`#0f172a ${GLOW_ALPHA}%`);
+		expect(glow).toContain(`#0f172a ${GLOW_ALPHA_LIGHT}%`);
+		expect(glow.indexOf(`${GLOW_ALPHA_LIGHT}%`)).toBeLessThan(glow.indexOf(`${GLOW_ALPHA}%`));
 		expect(glow).toContain(`transparent ${GLOW_REACH}%`);
 		// 低透明度：不能抢设计稿。
 		expect(GLOW_ALPHA).toBeLessThanOrEqual(40);
+		expect(GLOW_ALPHA).toBe(32);
+		expect(GLOW_ALPHA_LIGHT).toBeLessThanOrEqual(10);
 	});
 });
