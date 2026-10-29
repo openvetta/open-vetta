@@ -53,8 +53,12 @@ describe("InteractionToolbar", () => {
 		expect(host.textContent).toContain("/detail");
 		expect(has(host, "interaction.switchDevice")).toBe(true);
 		// 宽面板里每个按钮都带文字标签。
-		const labels = ["interaction.back", "interaction.forward", "interaction.reload", "interaction.home", "interaction.switchDevice", "interaction.openExternal.short"];
-		for (const label of labels) expect(host.textContent).toContain(label);
+		for (const label of ["interaction.switchDevice", "interaction.openExternal.short"]) expect(host.textContent).toContain(label);
+		// 左边的路由胶囊只有图标，不带文字标签（名字在悬停提示和无障碍标签里）。
+		for (const label of ["interaction.back", "interaction.forward", "interaction.reload", "interaction.home", "interaction.pages"]) {
+			expect(host.textContent).not.toContain(label);
+			expect(has(host, label)).toBe(true);
+		}
 		// 路由这一组是同一个带边框的胶囊，里面的按钮各自没有边框（不要一颗一颗分开）。
 		const back = host.querySelector<HTMLElement>('button[aria-label="interaction.back"]');
 		const group = back?.parentElement;

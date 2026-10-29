@@ -86,17 +86,16 @@ export function InteractionToolbar({
 	return (
 		<>
 			{compact ? null : (
-				// 路由这一组是同一个胶囊：里面的按钮不各画边框，也没有分隔线。
+				// 路由这一组是同一个胶囊：里面只有图标（名字在悬停提示里），不各画边框，也没有分隔线。
 				<div className={`${CAPSULE_CLASS} min-w-0 shrink gap-0.5 px-1`}>
-					<CapsuleButton variant="plain" label={t("interaction.back")} icon={icons.back} disabled={!canBack} onClick={onBack} />
-					<CapsuleButton variant="plain" label={t("interaction.forward")} icon={icons.forward} disabled={!canForward} onClick={onForward} />
-					<CapsuleButton variant="plain" label={t("interaction.reload")} icon={icons.reload} onClick={onReload} />
-					<CapsuleButton variant="plain" label={t("interaction.home")} icon={icons.home} onClick={onHome} />
+					<CapsuleButton variant="plain" iconOnly label={t("interaction.back")} icon={icons.back} disabled={!canBack} onClick={onBack} />
+					<CapsuleButton variant="plain" iconOnly label={t("interaction.forward")} icon={icons.forward} disabled={!canForward} onClick={onForward} />
+					<CapsuleButton variant="plain" iconOnly label={t("interaction.reload")} icon={icons.reload} onClick={onReload} />
+					<CapsuleButton variant="plain" iconOnly label={t("interaction.home")} icon={icons.home} onClick={onHome} />
 					<span className={`${PLAIN_CLASS} min-w-0 max-w-40 shrink px-2.5 font-normal`} title={path}>
 						<span className="truncate">{path}</span>
 					</span>
 					<label className={`${PLAIN_CLASS} min-w-0 max-w-48 shrink px-2.5`}>
-						<span className="whitespace-nowrap">{t("interaction.pages")}</span>
 						<select
 							value={currentFrameId ?? ""}
 							onChange={(event) => event.target.value && onPickFrame(event.target.value)}
