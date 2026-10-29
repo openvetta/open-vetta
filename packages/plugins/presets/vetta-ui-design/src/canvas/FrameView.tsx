@@ -38,7 +38,7 @@ interface FrameViewProps {
 	/** Resize handles show only for a lone selection — a group resize has no obvious meaning. */
 	resizable: boolean;
 	/**
-	 * frame 操作栏上的展开/收缩按钮（见 frame-extent）。null 表示不出现：没单独选中、
+	 * Frame Menu 上的展开/收缩按钮（见 frame-extent）。null 表示不出现：没单独选中、
 	 * 或标准尺寸已经装得下完整内容。
 	 */
 	expandAction: "expand" | "collapse" | null;
@@ -511,11 +511,13 @@ export const FrameView = memo(function FrameView({
 				</div>
 			) : null}
 
-			{/* frame 操作栏：左侧外部、与 frame 顶边对齐的一列按钮，只对单独选中的 frame
-			    出现。和标题栏一样反向缩放；以后的 frame 级操作往这一列里加。 */}
+			{/* Frame Menu：左侧外部、与 frame 顶边对齐的一列胶囊按钮（主题色，图标 + 文字），
+			    只对单独选中的 frame 出现。和标题栏一样反向缩放；按钮宽度随文字变，靠右对齐
+			    贴着 frame。以后的 frame 级操作往这一列里加。 */}
 			{selected && resizable && expandAction !== null ? (
 				<div
-					className="absolute top-0 flex flex-col gap-1"
+					className="absolute top-0 flex flex-col items-end gap-1.5"
+					data-vetd-frame-menu=""
 					style={{
 						right: "100%",
 						transform: `scale(${labelScale})`,
@@ -525,16 +527,15 @@ export const FrameView = memo(function FrameView({
 				>
 					<button
 						type="button"
-						className="flex size-7 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm hover:bg-muted"
-						title={t(expandAction === "expand" ? "canvas.frame.action.expand" : "canvas.frame.action.collapse")}
-						aria-label={t(expandAction === "expand" ? "canvas.frame.action.expand" : "canvas.frame.action.collapse")}
+						className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
+						title={t(expandAction === "expand" ? "canvas.frameMenu.expandHint" : "canvas.frameMenu.collapseHint")}
 						// 按下不能冒泡到画布：那边会当成点了空白处，清掉选中、起一个框选。
 						onPointerDown={(event) => event.stopPropagation()}
 						onClick={() => onToggleExpanded(frame.id)}
 					>
 						<svg
 							viewBox="0 0 24 24"
-							className="size-4"
+							className="size-3.5"
 							fill="none"
 							stroke="currentColor"
 							strokeWidth="2"
@@ -548,6 +549,7 @@ export const FrameView = memo(function FrameView({
 								<path d="m7 20 5-5 5 5M7 4l5 5 5-5" />
 							)}
 						</svg>
+						{t(expandAction === "expand" ? "canvas.frameMenu.expand" : "canvas.frameMenu.collapse")}
 					</button>
 				</div>
 			) : null}

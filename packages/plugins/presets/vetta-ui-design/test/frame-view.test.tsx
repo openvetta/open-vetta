@@ -137,18 +137,22 @@ it("covers a frame that has nothing painted yet with the loading overlay", () =>
 	painted.cleanup();
 });
 
-it("puts the expand action left of a lone-selected frame and reports clicks", () => {
+it("puts the Frame Menu left of a lone-selected frame and reports clicks", () => {
 	const toggled: string[] = [];
 	const { host, cleanup } = renderFrame(false, true, null, {
 		expandAction: "expand",
 		onToggleExpanded: (frameId) => toggled.push(frameId),
 	});
-	const button = host.querySelector<HTMLButtonElement>('button[aria-label="canvas.frame.action.expand"]');
-	expect(button).not.toBeNull();
-	const rail = button?.parentElement;
+	const menu = host.querySelector<HTMLElement>("[data-vetd-frame-menu]");
 	// 贴在 frame 左侧外部、与顶边对齐。
-	expect(rail?.style.right).toBe("100%");
-	expect(rail?.className).toContain("top-0");
+	expect(menu?.style.right).toBe("100%");
+	expect(menu?.className).toContain("top-0");
+	const button = menu?.querySelector<HTMLButtonElement>("button");
+	// 胶囊按钮、主题色、图标 + 文字。
+	expect(button?.className).toContain("rounded-full");
+	expect(button?.className).toContain("bg-primary");
+	expect(button?.querySelector("svg")).not.toBeNull();
+	expect(button?.textContent).toBe("canvas.frameMenu.expand");
 	act(() => button?.click());
 	expect(toggled).toEqual(["home"]);
 	cleanup();
@@ -156,15 +160,15 @@ it("puts the expand action left of a lone-selected frame and reports clicks", ()
 
 it("offers collapse on an expanded frame and keeps only the horizontal resize handle", () => {
 	const { host, cleanup } = renderFrame(false, true, null, { expanded: true, expandAction: "collapse" });
-	expect(host.querySelector('button[aria-label="canvas.frame.action.collapse"]')).not.toBeNull();
+	expect(host.querySelector("[data-vetd-frame-menu] button")?.textContent).toBe("canvas.frameMenu.collapse");
 	const handles = host.querySelectorAll('[class*="resize"]');
 	expect(handles).toHaveLength(1);
 	expect(handles[0]?.className).toContain("cursor-ew-resize");
 	cleanup();
 });
 
-it("shows no action rail when there is nothing to expand", () => {
+it("shows no Frame Menu when there is nothing to expand", () => {
 	const { host, cleanup } = renderFrame(false, true, null, { expandAction: null });
-	expect(host.querySelector('button[aria-label^="canvas.frame.action"]')).toBeNull();
+	expect(host.querySelector("[data-vetd-frame-menu]")).toBeNull();
 	cleanup();
 });
