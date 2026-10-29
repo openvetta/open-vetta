@@ -67,3 +67,12 @@ describe("chromeVars", () => {
 		expect(Object.keys(light)).toEqual(Object.keys(dark));
 	});
 });
+
+describe("isNarrow", () => {
+	it("0 是还没量到，不算窄；小于阈值才算", async () => {
+		const { isNarrow, NARROW_BELOW } = await import("../src/interaction/stage");
+		expect(isNarrow(0)).toBe(false);
+		expect(isNarrow(NARROW_BELOW - 1)).toBe(true);
+		expect(isNarrow(NARROW_BELOW)).toBe(false);
+	});
+});

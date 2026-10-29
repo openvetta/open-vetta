@@ -9,7 +9,7 @@ import { InteractionToolbar } from "./InteractionToolbar";
 import { PhoneShell } from "./PhoneShell";
 import { resolvePhoneDevice, shellOuterSize } from "./phone-shell";
 import { useNavBridge } from "./nav-bridge";
-import { chromeVars, edgeColor, fitScale, parseCssColor, themeStageBackground, veilColor } from "./stage";
+import { chromeVars, edgeColor, fitScale, isNarrow, parseCssColor, themeStageBackground, veilColor } from "./stage";
 
 interface InteractionViewProps {
 	port: number;
@@ -190,6 +190,7 @@ export function InteractionView({ port, session, active, leadingSlot }: Interact
 					frames={frames}
 					currentFrameId={currentFrameId}
 					mode={mode}
+				compact={isNarrow(stage.width)}
 					deviceId={deviceId}
 					onPickDevice={setDeviceId}
 					onBack={() => go(-1)}

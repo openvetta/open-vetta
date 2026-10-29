@@ -5,6 +5,16 @@ import { themeBackgroundToken } from "../vetd/scaffold";
 /** 夹层的不透明度：足以把设备 / 画框和底色分开，又不盖掉底色自己的色相。 */
 export const VEIL_ALPHA = 0.07;
 
+/**
+ * 面板窄于这个宽度（px）就收起路由相关的控件（前进后退刷新、首页、路径、页面列表）：
+ * 它们加上开关和设备类型一行放不下，挤在一起比没有更难用。窄屏下靠页面里的链接点着走。
+ */
+export const NARROW_BELOW = 600;
+
+export function isNarrow(width: number): boolean {
+	return width > 0 && width < NARROW_BELOW;
+}
+
 /** 视口四周留给灰色夹层的边距（px）。 */
 export const STAGE_PADDING = 24;
 

@@ -10,6 +10,8 @@ interface InteractionToolbarProps {
 	frames: readonly { id: string; title: string }[];
 	currentFrameId: string | null;
 	mode: InteractionMode;
+	/** 窄面板：收起路由相关的控件，只留设备类型和系统浏览器。 */
+	compact: boolean;
 	/** 手机机型：null 跟随设计稿。只在移动端显示下拉。 */
 	deviceId: string | null;
 	onPickDevice(id: string | null): void;
@@ -71,6 +73,7 @@ export function InteractionToolbar({
 	frames,
 	currentFrameId,
 	mode,
+	compact,
 	deviceId,
 	onPickDevice,
 	onBack,
@@ -84,40 +87,42 @@ export function InteractionToolbar({
 	const { t } = useTranslation();
 	return (
 		<>
-		<div className="flex min-w-0 flex-1 basis-56 items-center gap-1">
-			<IconButton label={t("interaction.back")} disabled={!canBack} onClick={onBack}>
-				{icons.back}
-			</IconButton>
-			<IconButton label={t("interaction.forward")} disabled={!canForward} onClick={onForward}>
-				{icons.forward}
-			</IconButton>
-			<IconButton label={t("interaction.reload")} onClick={onReload}>
-				{icons.reload}
-			</IconButton>
-			<IconButton label={t("interaction.home")} onClick={onHome}>
-				{icons.home}
-			</IconButton>
-			<span
-				className="min-w-6 max-w-32 shrink truncate rounded-lg bg-[var(--vetd-chip,var(--muted))] px-2 py-1 text-xs text-[color:var(--vetd-ink-soft,var(--muted-foreground))]"
-				title={path}
-			>
-				{path}
-			</span>
-			<select
-				value={currentFrameId ?? ""}
-				onChange={(event) => event.target.value && onPickFrame(event.target.value)}
-				title={t("interaction.pages")}
-				aria-label={t("interaction.pages")}
-				className="min-w-0 max-w-32 shrink truncate rounded-lg border-none bg-[var(--vetd-chip,var(--muted))] px-1.5 py-1 text-xs text-[color:var(--vetd-ink,var(--foreground))] outline-none focus:outline-none"
-			>
-				{currentFrameId === null ? <option value="">{t("interaction.pages")}</option> : null}
-				{frames.map((frame) => (
-					<option key={frame.id} value={frame.id}>
-						{frame.title}
-					</option>
-				))}
-			</select>
-		</div>
+		{compact ? null : (
+			<div className="flex min-w-0 flex-1 basis-56 items-center gap-1">
+				<IconButton label={t("interaction.back")} disabled={!canBack} onClick={onBack}>
+					{icons.back}
+				</IconButton>
+				<IconButton label={t("interaction.forward")} disabled={!canForward} onClick={onForward}>
+					{icons.forward}
+				</IconButton>
+				<IconButton label={t("interaction.reload")} onClick={onReload}>
+					{icons.reload}
+				</IconButton>
+				<IconButton label={t("interaction.home")} onClick={onHome}>
+					{icons.home}
+				</IconButton>
+				<span
+					className="min-w-6 max-w-32 shrink truncate rounded-lg bg-[var(--vetd-chip,var(--muted))] px-2 py-1 text-xs text-[color:var(--vetd-ink-soft,var(--muted-foreground))]"
+					title={path}
+				>
+					{path}
+				</span>
+				<select
+					value={currentFrameId ?? ""}
+					onChange={(event) => event.target.value && onPickFrame(event.target.value)}
+					title={t("interaction.pages")}
+					aria-label={t("interaction.pages")}
+					className="min-w-0 max-w-32 shrink truncate rounded-lg border-none bg-[var(--vetd-chip,var(--muted))] px-1.5 py-1 text-xs text-[color:var(--vetd-ink,var(--foreground))] outline-none focus:outline-none"
+				>
+					{currentFrameId === null ? <option value="">{t("interaction.pages")}</option> : null}
+					{frames.map((frame) => (
+						<option key={frame.id} value={frame.id}>
+							{frame.title}
+						</option>
+					))}
+				</select>
+			</div>
+		)}
 		<div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1">
 			{mode === "mobile" ? (
 				<select
