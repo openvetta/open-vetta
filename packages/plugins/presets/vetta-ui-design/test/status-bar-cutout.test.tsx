@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { StatusBar } from "../engine/src/ios/StatusBar";
 import { hasCustomStatusBar } from "../engine/src/status-bar-probe";
-import { PhoneShell } from "../src/interaction/PhoneShell";
+import { DeviceShell } from "../src/interaction/DeviceShell";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -41,11 +41,11 @@ describe("设计手写的状态栏探测", () => {
 	});
 });
 
-describe("PhoneShell", () => {
+describe("DeviceShell", () => {
 	it("设计自带灵动岛时外壳让出自己的（Home 键款不受影响）", () => {
 		const view = { width: 393, height: 852 };
-		expect(render(<PhoneShell kind="island" viewport={view} hideIsland>x</PhoneShell>).querySelector(".vetd-no-island")).not.toBeNull();
-		expect(render(<PhoneShell kind="island" viewport={view}>x</PhoneShell>).querySelector(".vetd-no-island")).toBeNull();
-		expect(render(<PhoneShell kind="home" viewport={view} hideIsland>x</PhoneShell>).querySelector(".vetd-no-island")).toBeNull();
+		expect(render(<DeviceShell kind="island" viewport={view} hideIsland>x</DeviceShell>).querySelector(".vetd-no-island")).not.toBeNull();
+		expect(render(<DeviceShell kind="island" viewport={view}>x</DeviceShell>).querySelector(".vetd-no-island")).toBeNull();
+		expect(render(<DeviceShell kind="home" viewport={view} hideIsland>x</DeviceShell>).querySelector(".vetd-no-island")).toBeNull();
 	});
 });

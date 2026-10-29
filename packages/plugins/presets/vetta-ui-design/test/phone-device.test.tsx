@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolvePhoneDevice } from "../src/interaction/phone-shell";
+import { resolvePhoneDevice } from "../src/interaction/device-shell";
 
 describe("resolvePhoneDevice", () => {
 	it("稿子尺寸对不上任何手机预设：没有设备信息，用 iPhone 17 Pro", () => {
@@ -23,15 +23,15 @@ describe("resolvePhoneDevice", () => {
 	});
 });
 
-describe("PhoneShell 圆角", () => {
+describe("DeviceShell 圆角", () => {
 	it("不覆盖机身和屏幕的圆角，交给外壳库", async () => {
 		const { createRoot } = await import("react-dom/client");
 		const { act } = await import("react");
-		const { PhoneShell } = await import("../src/interaction/PhoneShell");
+		const { DeviceShell } = await import("../src/interaction/DeviceShell");
 		(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 		const host = document.createElement("div");
 		document.body.appendChild(host);
-		act(() => createRoot(host).render(<PhoneShell kind="island" viewport={{ width: 402, height: 874 }}>x</PhoneShell>));
+		act(() => createRoot(host).render(<DeviceShell kind="island" viewport={{ width: 402, height: 874 }}>x</DeviceShell>));
 		expect((host.querySelector(".device-frame") as HTMLElement).style.borderRadius).toBe("");
 		expect((host.querySelector(".device-screen") as HTMLElement).style.borderRadius).toBe("");
 		host.remove();

@@ -46,15 +46,6 @@ describe("themeStageBackground", () => {
 	});
 });
 
-describe("edgeColor", () => {
-	it("按底色明暗取反色，并且明显浓于夹层", async () => {
-		const { edgeColor, EDGE_ALPHA, VEIL_ALPHA } = await import("../src/interaction/stage");
-		expect(edgeColor(parseCssColor("#ffffff"))).toBe(`rgba(0, 0, 0, ${EDGE_ALPHA})`);
-		expect(edgeColor(parseCssColor("#111827"))).toBe(`rgba(255, 255, 255, ${EDGE_ALPHA})`);
-		expect(EDGE_ALPHA).toBeGreaterThan(VEIL_ALPHA * 3);
-	});
-});
-
 describe("chromeVars", () => {
 	it("顶部条配色跟底色走：亮底深字浅胶囊，暗底浅字，与宿主主题无关", async () => {
 		const { chromeVars } = await import("../src/interaction/stage");

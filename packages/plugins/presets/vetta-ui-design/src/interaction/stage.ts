@@ -112,18 +112,6 @@ export function veilColor(base: Rgb | null): string {
 	return light ? `rgba(0, 0, 0, ${VEIL_ALPHA})` : `rgba(255, 255, 255, ${VEIL_ALPHA})`;
 }
 
-/** 裸画面外边框的不透明度：要明显高于夹层，否则边框和底色糊成一片。 */
-export const EDGE_ALPHA = 0.32;
-
-/**
- * 裸画面（桌面端 / 其他）外边框的颜色：同夹层一样按底色明暗取反色，但浓得多，
- * 在亮底上是深灰、暗底上是亮灰。
- */
-export function edgeColor(base: Rgb | null): string {
-	const light = base === null ? true : isLightColor(base);
-	return light ? `rgba(0, 0, 0, ${EDGE_ALPHA})` : `rgba(255, 255, 255, ${EDGE_ALPHA})`;
-}
-
 /**
  * 顶部条控件的配色：由舞台底色算出，而不是跟宿主主题走——宿主是暗色、设计底色是浅色时，
  * 宿主的 muted / foreground 在这块底色上就是深色块配浅色字。
