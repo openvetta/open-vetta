@@ -814,3 +814,9 @@
 	-webkit-background-clip: text;
 	color: transparent;
 }
+
+/* 设计自带状态栏（含灵动岛 / 刘海）时，外壳不再画自己的那一块。选择器比 devices.css 多一级才压得住它。 */
+.device.vetd-no-island .device-header,
+.device.vetd-no-island .device-sensors {
+	display: none;
+}

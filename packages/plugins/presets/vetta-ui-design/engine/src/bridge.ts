@@ -10,10 +10,11 @@
  *                    | resolve-element | interaction-config
  *   iframe → parent: ready | rendered | selected | exit-inspect | captured | hmr-updated
  *                    | frame-error | context-menu | navigated | wheel | space | element-resolved
- *                    | storage
+ *                    | storage | status-bar-kind
  */
 import { toJpeg, toPng } from "html-to-image";
 import { pathOfFrame } from "./routes";
+import { watchCustomStatusBar } from "./status-bar-probe";
 import { setTouchMode } from "./touch";
 import { watchLocalStorage } from "./storage-sync";
 
@@ -381,6 +382,7 @@ function safePixelRatio(requested: number): number {
 }
 
 export function installBridge(host: BridgeHost): void {
+	let stopStatusBarWatch: (() => void) | null = null;
 	let mode: InspectMode = "off";
 	let selected: Element | null = null;
 
@@ -543,12 +545,16 @@ export function installBridge(host: BridgeHost): void {
 			case "show-frame":
 				if (typeof data.id === "string") go(pathOfFrame(data.id));
 				return;
-			// 交互模式的外壳配置：手机要触摸手势，外壳自带灵动岛 / 刘海，设计稿自己的状态栏
-			// 就隐藏（visibility 而不是卸载，留着它占的安全区高度，布局不跳）。
+			// 交互模式的外壳配置：手机要触摸手势；外壳自带灵动岛 / 刘海，所以把设计稿状态栏里
+			// 的挖孔藏掉（时间、电量保留）。设计手写的状态栏拆不开，探测到就回报宿主，
+			// 由宿主把外壳自己的灵动岛去掉。
 			case "interaction-config":
 				setTouchMode(data.touch === true);
-				if (data.hideStatusBar === true) document.documentElement.setAttribute("data-vetd-hide-status-bar", "");
-				else document.documentElement.removeAttribute("data-vetd-hide-status-bar");
+				if (data.hideCutout === true) document.documentElement.setAttribute("data-vetd-hide-cutout", "");
+				else document.documentElement.removeAttribute("data-vetd-hide-cutout");
+				stopStatusBarWatch?.();
+				stopStatusBarWatch =
+					data.hideCutout === true ? watchCustomStatusBar((custom) => post({ type: "status-bar-kind", custom })) : null;
 				return;
 			case "navigate":
 				if (typeof data.to === "string") go(data.to);

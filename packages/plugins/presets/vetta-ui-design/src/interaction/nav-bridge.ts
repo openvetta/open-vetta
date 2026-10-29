@@ -24,19 +24,27 @@ export interface NavBridge {
 	go(delta: number): void;
 	/** 整页重载——帧内 state 一起清掉，客户端路由做不到这件事。 */
 	reload(): void;
-	/** 告诉页面外壳配置：手机要触摸手势，外壳自带灵动岛 / 刘海所以隐藏设计稿状态栏。 */
-	configure(config: { touch: boolean; hideStatusBar: boolean }): void;
+	/** 设计里是不是自己写了状态栏组件（灵动岛画在图里，外壳要让出自己的灵动岛）。 */
+	customStatusBar: boolean;
+	/** 告诉页面外壳配置：手机要触摸手势，外壳自带灵动岛 / 刘海所以藏掉设计稿状态栏的挖孔。 */
+	configure(config: { touch: boolean; hideCutout: boolean }): void;
 }
 
 export function useNavBridge(iframeRef: RefObject<HTMLIFrameElement | null>): NavBridge {
 	const [nav, setNav] = useState<NavState | null>(null);
+	const [customStatusBar, setCustomStatusBar] = useState(false);
 
 	useEffect(() => {
 		const onMessage = (event: MessageEvent): void => {
 			// 画布上的每个 frame 也在往同一个 window 发消息，来源过滤是必须的。
 			if (event.source !== iframeRef.current?.contentWindow) return;
 			const data = event.data as Record<string, unknown> | null;
-			if (!data || data.vetd !== true || data.type !== "navigated") return;
+			if (!data || data.vetd !== true) return;
+			if (data.type === "status-bar-kind") {
+				setCustomStatusBar(data.custom === true);
+				return;
+			}
+			if (data.type !== "navigated") return;
 			setNav({
 				path: typeof data.path === "string" ? data.path : "/",
 				frameId: typeof data.frameId === "string" ? data.frameId : null,
@@ -60,9 +68,9 @@ export function useNavBridge(iframeRef: RefObject<HTMLIFrameElement | null>): Na
 	const reload = useCallback((): void => post({ type: "reload" }), [post]);
 
 	const configure = useCallback(
-		(config: { touch: boolean; hideStatusBar: boolean }): void => post({ type: "interaction-config", ...config }),
+		(config: { touch: boolean; hideCutout: boolean }): void => post({ type: "interaction-config", ...config }),
 		[post],
 	);
 
-	return { nav, navigateTo, go, reload, configure };
+	return { nav, navigateTo, go, reload, configure, customStatusBar };
 }
