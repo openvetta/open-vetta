@@ -82,19 +82,21 @@ describe("InteractionView", () => {
 
 	it("设备类别：存了用存的，老文档按首页尺寸推断", async () => {
 		await render(fakeSession({ frames: [frame("index", 390, 844)] }).session);
-		const checked = () => host.querySelector("[role=radio][aria-checked=true]:not(:disabled)")?.textContent;
-		expect(checked()).toBe("interaction.mode.mobile");
+		const checked = () => (host.querySelector("select[aria-label='interaction.deviceType']") as HTMLSelectElement).value;
+		expect(checked()).toBe("mobile");
 		await render(fakeSession({ frames: [frame("index", 390, 844)], interactionMode: "other" }).session);
-		expect(checked()).toBe("interaction.mode.other");
+		expect(checked()).toBe("other");
 	});
 
 	it("工具条改设备类别写回会话", async () => {
 		const { session, modes } = fakeSession({ frames: [frame("index", 1440, 900)] });
 		await render(session);
-		const desktop = [...host.querySelectorAll<HTMLButtonElement>("[role=radio]")].find(
-			(button) => button.textContent === "interaction.mode.other",
-		);
-		act(() => desktop?.click());
+		const select = host.querySelector("select[aria-label='interaction.deviceType']") as HTMLSelectElement;
+		await act(async () => {
+			const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
+			setter?.call(select, "other");
+			select.dispatchEvent(new Event("change", { bubbles: true }));
+		});
 		expect(modes).toEqual(["other"]);
 	});
 
@@ -111,7 +113,7 @@ describe("InteractionView", () => {
 		await render(session);
 		const header = host.querySelector("[aria-hidden]")?.firstElementChild?.nextElementSibling as HTMLElement;
 		expect(header.className).not.toMatch(/\bbg-/);
-		const order = [...header.querySelectorAll<HTMLElement>("button, [role=radiogroup]")].map(
+		const order = [...header.querySelectorAll<HTMLElement>("button, select")].map(
 			(element) => element.getAttribute("aria-label") ?? element.textContent ?? "",
 		);
 		const index = (label: string): number => order.findIndex((entry) => entry.includes(label));

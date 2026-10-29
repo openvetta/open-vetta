@@ -24,6 +24,28 @@ interface InteractionToolbarProps {
 	onOpenExternal(): void;
 }
 
+/** 设备类型图标：当前是哪一类就画哪一类。 */
+const modeIcons: Record<InteractionMode, JSX.Element> = {
+	mobile: (
+		<>
+			<rect x="7" y="2.5" width="10" height="19" rx="2.5" />
+			<path d="M11 18.5h2" strokeLinecap="round" />
+		</>
+	),
+	desktop: (
+		<>
+			<rect x="3" y="4" width="18" height="12" rx="2" />
+			<path d="M9 20h6M12 16v4" strokeLinecap="round" />
+		</>
+	),
+	other: (
+		<>
+			<rect x="4" y="4" width="16" height="16" rx="3" />
+			<path d="M9 9h6v6H9z" strokeLinejoin="round" />
+		</>
+	),
+};
+
 const icons = {
 	back: <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />,
 	forward: <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />,
@@ -140,24 +162,26 @@ export function InteractionToolbar({
 					))}
 				</select>
 			) : null}
-			<div className="flex shrink-0 items-center rounded-lg bg-[var(--vetd-chip,var(--muted))] p-0.5" role="radiogroup" aria-label={t("interaction.deviceType")}>
-				{INTERACTION_MODES.map((entry) => (
-					// biome-ignore lint/a11y/useSemanticElements: segmented control, not a form field
-					<button
-						key={entry}
-						type="button"
-						role="radio"
-						aria-checked={entry === mode}
-						onClick={() => onPickMode(entry)}
-						className={`rounded-md px-2 py-0.5 text-xs transition-colors ${
-							entry === mode
-								? "bg-[var(--vetd-chip-active,var(--card))] text-[color:var(--vetd-ink,var(--foreground))] shadow-sm"
-								: "text-[color:var(--vetd-ink-soft,var(--muted-foreground))] hover:text-[color:var(--vetd-ink,var(--foreground))]"
-						}`}
-					>
-						{t(`interaction.mode.${entry}`)}
-					</button>
-				))}
+			{/* 一个图标 + 盖在上面的透明原生 <select>：点图标弹出的就是系统原生下拉菜单。 */}
+			<div
+				className="relative flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--vetd-chip,var(--muted))] text-[color:var(--vetd-ink,var(--foreground))]"
+				title={`${t("interaction.deviceType")}：${t(`interaction.mode.${mode}`)}`}
+			>
+				<svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+					{modeIcons[mode]}
+				</svg>
+				<select
+					value={mode}
+					onChange={(event) => onPickMode(event.target.value as InteractionMode)}
+					aria-label={t("interaction.deviceType")}
+					className="absolute inset-0 size-full cursor-pointer appearance-none rounded-lg border-none opacity-0 outline-none"
+				>
+					{INTERACTION_MODES.map((entry) => (
+						<option key={entry} value={entry}>
+							{t(`interaction.mode.${entry}`)}
+						</option>
+					))}
+				</select>
 			</div>
 			<IconButton label={t("interaction.openExternal")} onClick={onOpenExternal}>
 				{icons.external}
