@@ -41,16 +41,19 @@ Interface Guidelines for watchOS; the rest are house rules.
 
 **Navigation (watchOS 26)**
 - A pushed screen has a **round back button at top-left**: a chevron.left glyph in a
-  circle about 40px across, no label. A second round button may sit top-right for
+  circle about 40px across, no label, **inset 14px from the left and top edges** —
+  never closer. The screen corner is round (radius 42 on the 46mm, 38 on the 42mm), and
+  a button pushed into it touches the curve and looks cramped; at 14px it clears the
+  curve by about 10px. The time sits on the same row, its right edge also 14px in. A second round button may sit top-right for
   one contextual action. They are Liquid Glass: a translucent fill (white 16-22%) with
   a 1px inner highlight (white 20%), no blur needed.
 - The **title** is a Headline-size noun, in white or the accent, to the right of the
   back button; the **time** (`9:41`, Headline-size) is top-right. The system moves
   the title and time to make room for the corner buttons (Apple), so with a
   trailing button the time shifts left of it.
-- Content scrolls **under** the corner buttons: let the first row start below them
-  (top padding about 44px), and fade the content out under the buttons rather than
-  drawing a bar behind them.
+- Content scrolls **under** the corner buttons: the first row starts about 56px down
+  (the 14px inset plus the button), and content fades out under the buttons rather
+  than a bar being drawn behind them.
 - No bottom tab bar. Tab views are page dots plus the Crown (Apple): at most two or
   three peer pages, shown as a small dot row near the bottom, and keep the hierarchy
   shallow. Primary navigation is a list of rows that push.
@@ -67,8 +70,11 @@ Interface Guidelines for watchOS; the rest are house rules.
 - One column. The first screen answers one question with one figure, one line of
   context and at most one action. Three pieces of information is already a lot.
 - Edge to edge is fine for fills and pictures, but text stays at least 12px inside the
-  display edge and 16px inside the rounded corners; shapes near a corner are
-  concentric with the screen radius.
+  display edge and 16px inside the rounded corners. A round shape of diameter d placed
+  a px from both edges of a corner of radius R clears the curve by
+  R − (√2·(R − a − d/2) + d/2); keep that at 8px or more (R 42, d 40 needs a ≥ 12).
+  Corner shapes follow the screen radius (concentric), and everything else sits well
+  inside it.
 - Lists are short; show the most relevant rows and a way to see more (Apple). A
   detail view that has to scroll is still fine, but short details let people swipe
   between them.

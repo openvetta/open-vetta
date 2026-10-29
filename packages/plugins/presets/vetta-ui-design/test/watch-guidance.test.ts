@@ -71,4 +71,16 @@ describe("watch.md", () => {
 		expect(watch).toMatch(/backdrop-filter/);
 		expect(watch).toMatch(/translucent fill/);
 	});
+
+	it("返回按钮离屏幕边缘至少 14px，并给出贴圆角的算法和判据", () => {
+		expect(watch).toMatch(/inset 14px from the left and top edges/);
+		expect(watch).toMatch(/clears the curve by/);
+		expect(watch).toMatch(/8px or more/);
+		// 规则里的算例要和公式一致：R 42、d 40、a 14 → 余量约 10px。
+		const clearance = (R: number, d: number, a: number): number => R - (Math.SQRT2 * (R - a - d / 2) + d / 2);
+		expect(clearance(42, 40, 14)).toBeGreaterThan(10);
+		expect(clearance(38, 40, 14)).toBeGreaterThanOrEqual(8);
+		// 贴着 7px 放，余量不到 1px，正是要避免的。
+		expect(clearance(42, 40, 7)).toBeLessThan(1);
+	});
 });
