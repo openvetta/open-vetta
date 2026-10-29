@@ -39,7 +39,11 @@ function isEditable(target: Element | null): boolean {
 function install(): () => void {
 	const style = document.createElement("style");
 	style.id = STYLE_ID;
-	style.textContent = "html[data-vetd-touch], html[data-vetd-touch] * { cursor: none !important; }";
+	// 手机上文字和图片不能被拖选 / 拖走：不禁掉的话，按住链接拖动会变成浏览器的拖放。
+	style.textContent = [
+		"html[data-vetd-touch], html[data-vetd-touch] * { cursor: none !important; -webkit-user-drag: none; }",
+		"html[data-vetd-touch] *:not(input):not(textarea):not([contenteditable]) { user-select: none; -webkit-user-select: none; }",
+	].join("\n");
 	document.head.appendChild(style);
 
 	const dot = document.createElement("div");
@@ -163,12 +167,16 @@ function install(): () => void {
 
 	const onWheel = (): void => stopInertia();
 
+	// 链接和图片的原生拖放会吞掉后续的 mousemove，滚动手势就断了。
+	const onDragStart = (event: DragEvent): void => event.preventDefault();
+
 	document.addEventListener("mousemove", onMouseMove, true);
 	document.addEventListener("mousedown", onMouseDown, true);
 	document.addEventListener("mouseup", onMouseUp, true);
 	document.addEventListener("click", onClick, true);
 	document.addEventListener("mouseout", onLeave, true);
 	document.addEventListener("wheel", onWheel, { capture: true, passive: true });
+	document.addEventListener("dragstart", onDragStart, true);
 
 	return () => {
 		stopInertia();
@@ -179,6 +187,7 @@ function install(): () => void {
 		document.removeEventListener("click", onClick, true);
 		document.removeEventListener("mouseout", onLeave, true);
 		document.removeEventListener("wheel", onWheel, true);
+		document.removeEventListener("dragstart", onDragStart, true);
 		document.documentElement.removeAttribute("data-vetd-touch");
 		style.remove();
 		dot.remove();
