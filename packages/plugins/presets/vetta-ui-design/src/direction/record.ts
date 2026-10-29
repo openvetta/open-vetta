@@ -156,6 +156,8 @@ export interface DealParams {
 	screens?: unknown;
 	have?: unknown;
 	keep?: unknown;
+	/** `vetd_create` 的品类；只有手表会据此换一份提案说明。 */
+	product?: unknown;
 }
 
 const strings = (value: unknown): string[] =>
@@ -200,6 +202,7 @@ export function appInputFrom(params: DealParams): AppInput {
 		screens: strings(params.screens).slice(0, 20),
 		keep: keepSlots(params.keep),
 		avoid: [],
+		...(typeof params.product === "string" ? { product: params.product } : {}),
 	};
 }
 

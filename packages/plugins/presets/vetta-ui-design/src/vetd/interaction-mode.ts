@@ -42,6 +42,7 @@ export function inferInteractionModeFromSize(size: FrameSize): InteractionMode {
 const PRODUCT_MODES: Record<string, InteractionMode> = {
 	mobile: "mobile",
 	desktop: "desktop",
+	watch: "other",
 	landing: "desktop",
 	slide: "other",
 	poster: "other",

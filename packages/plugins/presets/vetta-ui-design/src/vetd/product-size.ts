@@ -17,6 +17,8 @@ export const PRODUCT_SIZES = {
 	// 画布面板、vetd_sizes 和这里永远是同一个数。
 	mobile: presetPixels("iphone-14"),
 	desktop: presetPixels("desktop-hd"),
+	// Apple Watch 46mm：手表没有「默认机型」，取画布预设里的 46mm（42mm 走 vetd_sizes）。
+	watch: presetPixels("watch-46"),
 	landing: { width: 1440, height: 2400 },
 	slide: presetPixels("desktop-1080p"),
 	poster: { width: 1080, height: 1440 },

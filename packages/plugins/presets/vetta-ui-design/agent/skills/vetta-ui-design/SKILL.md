@@ -182,13 +182,13 @@ rule below.
 The first decision: `vetd_create` requires it
 (`product`, or `frameSize` in pixels for anything the enum cannot express), and
 it becomes the design's default size. Read it off the user's own words, in
-whatever language they wrote them — a phone app is `mobile`, an admin console or
-dashboard is `desktop`. An explicit user instruction always wins. Do not default to a phone frame; a
+whatever language they wrote them (table below). An explicit user instruction always wins. Do not default to a phone frame; a
 dashboard at 390 wide is the most common failure.
 
 | Product | `product` | Default size | What matters |
 | --- | --- | --- | --- |
 | Mobile screen | `mobile` | 390x844 | One primary action; thumb reach; full state coverage |
+| Watch app | `watch` | 208x248 | Black, no serif: `references/taste/app/watch.md` |
 | Desktop app / dashboard | `desktop` | 1440x900 | Real density; aligned grid; no empty middle |
 | Landing page | `landing` | 1440x2400 | hero → proof → CTA rhythm |
 | Slide | `slide` | 1920x1080 | One idea; large type; generous margins |

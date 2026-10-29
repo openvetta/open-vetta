@@ -1,6 +1,7 @@
 # App screens
 
-Read when the product type is `desktop` or `mobile`: dashboards, admin and back
+Read when the product type is `desktop`, `mobile` or `watch` (a watch also reads `app/watch.md`, which
+overrides the phone numbers below): dashboards, admin and back
 office, analytics, settings and billing, inboxes and queues, wallets, builders,
 the detail page of one object. A product page that shows its interface is a
 landing page; the interface fragments on it follow this file for their insides.
@@ -10,7 +11,7 @@ Numbers are from taste-skill v2's study of 23 real product screens (see
 every screen needs. The app sheet (`vetd_direction`) holds the direction you
 proposed — its idea, tokens, type and layout — and ends with the reference
 parts. Without a sheet, read the parts you need from `app/`:
-`shell`, `kpis`, `charts`, `tables`, `forms`, `values` (type and colour), `phone`, `navigation` (the phone bar).
+`shell`, `kpis`, `charts`, `tables`, `forms`, `values` (type and colour), `phone`, `navigation` (the phone bar), `watch` (Apple Watch).
 
 ## What separates real screens from generated ones
 

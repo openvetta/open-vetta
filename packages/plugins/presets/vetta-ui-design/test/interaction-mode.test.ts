@@ -118,4 +118,15 @@ describe("vetd_create 设备类别", () => {
 		await create({ name: "b", frameSize: { width: 800, height: 800 }, interaction: "mobile" });
 		expect(manifestOf("b").interactionMode).toBe("mobile");
 	});
+
+	it("手表品类：208x248，设备类型是其他，没有状态栏，走 App 方向提案", async () => {
+		const result = await create({ name: "w", product: "watch", brief: "run tracker" });
+		expect(result.defaultFrameSize).toEqual({ width: 208, height: 248 });
+		expect(manifestOf("w").interactionMode).toBe("other");
+		expect(manifestOf("w").statusBar).toBeUndefined();
+		// 手表也要提案：返回里带着提案说明，且是手表那份。
+		const direction = result.direction as { mode: string; propose: string };
+		expect(direction.mode).toBe("app");
+		expect(direction.propose).toContain("Apple Watch");
+	});
 });

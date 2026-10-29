@@ -462,7 +462,19 @@ const BOLDNESS_PROPOSE_NOTE: Record<Boldness, string> = {
 	bold: "\nThe user wants a bold design. Every option declares `shell` (the three differ) and `breaks`: the one default rule it deliberately breaks, and why it suits this product. Gradients, resting shadows and glass pass the screenshot check; one big move on the first screen, everything else quiet.",
 };
 
-export const proposeNote = (boldness?: Boldness): string => PROPOSE_NOTE + (boldness ? BOLDNESS_PROPOSE_NOTE[boldness] : "");
+/**
+ * Apple Watch 的补充说明。手机 / 桌面那份默认「明暗、色系、字类至少两条不同」，手表的底色
+ * 默认就是纯黑，明暗这条轴天然不可用，要说在前面，不然 agent 会硬凑一个亮色方向。
+ * 衬线只是「尽量不要」：不进校验器，免得用户明说要衬线时没有出口。
+ */
+const WATCH_PROPOSE_NOTE = `
+This is an Apple Watch app (watchOS 26): read references/taste/app/watch.md before proposing. What that changes here:
+- Every option is theme "dark" with a pure black ground (#000000) — the watch display is black and the ground melts into the bezel — unless the user asked for another background. So the light/dark axis is not available: differ on accent colour family and display type class instead.
+- Type is the system sans (SF). Do not pick a serif, slab or other serif class for the display face unless the user asked for one; keep to the sans classes (rounded-friendly, grotesk, geometric, condensed or heavy for one big figure).
+- One glanceable idea per screen. The shell is the watch's own: a round back button top-left, the title, the system time top-right — no tab bar. State the one big figure of the first screen in \`layout\`.`;
+
+export const proposeNote = (boldness?: Boldness, product?: string): string =>
+	PROPOSE_NOTE + (product === "watch" ? WATCH_PROPOSE_NOTE : "") + (boldness ? BOLDNESS_PROPOSE_NOTE[boldness] : "");
 
 export const PROPOSE_NOTE = `App screens are not dealt from templates: you propose three directions with vetd_direction action "propose", and the tool checks them. How to think them up:
 1. Inventory the product: the data the screens hold, the jobs people do there, the one question the first screen answers, and the things only this product has (its objects, rituals, units, places, printed matter).

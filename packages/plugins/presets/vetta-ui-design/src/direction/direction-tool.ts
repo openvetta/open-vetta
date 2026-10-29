@@ -193,7 +193,11 @@ export function registerDirectionTool(ctx: PluginContext, options: DirectionTool
 					if (!previous || previous.mode !== "app" || !previous.choice) {
 						await writeRecord(startProposal(appInputFrom({ ...input, keep }), dealSession.seed, now, stated));
 					}
-					return { ok: true, mode, ...proposeBrief(dealSession, stated.boldness) };
+					return {
+						ok: true,
+						mode,
+						...proposeBrief(dealSession, stated.boldness, (previous?.input as AppInput | undefined)?.product ?? (typeof input.product === "string" ? input.product : undefined)),
+					};
 				}
 
 				if (input.action === "propose") {
@@ -243,7 +247,12 @@ export function registerDirectionTool(ctx: PluginContext, options: DirectionTool
 				if (input.action === "show") {
 					if (!record.choice) {
 						if (record.mode === "app" && record.options.length === 0) {
-							return { ok: true, chosen: false, mode: "app", ...proposeBrief(dealSession, record.intent?.stated.boldness) };
+							return {
+								ok: true,
+								chosen: false,
+								mode: "app",
+								...proposeBrief(dealSession, record.intent?.stated.boldness, (record.input as AppInput).product),
+							};
 						}
 						const ask = record.intent?.questions ?? [];
 						return {

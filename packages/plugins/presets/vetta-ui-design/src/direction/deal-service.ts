@@ -38,7 +38,7 @@ const randomSeed = () => (crypto.getRandomValues(new Uint32Array(1))[0] & 0x7fff
 export function directionModeFor(product: unknown): DirectionMode | null {
 	const type = product as ProductType;
 	if (type === "landing") return "page";
-	if (type === "mobile" || type === "desktop") return "app";
+	if (type === "mobile" || type === "desktop" || type === "watch") return "app";
 	return null;
 }
 
@@ -85,8 +85,8 @@ export interface ProposeBrief {
 	ingredients: ReturnType<typeof ingredients>;
 }
 
-export function proposeBrief(session: DealSession, boldness?: Boldness): ProposeBrief {
-	return { propose: proposeNote(boldness), ingredients: ingredients(session.lib, session.dealer.rnd) };
+export function proposeBrief(session: DealSession, boldness?: Boldness, product?: string): ProposeBrief {
+	return { propose: proposeNote(boldness, product), ingredients: ingredients(session.lib, session.dealer.rnd) };
 }
 
 export async function dealIntoDesign(
@@ -110,7 +110,7 @@ export async function awaitProposalInDesign(
 	stated: StatedIntent,
 ): Promise<ProposeBrief> {
 	await writeDirectionRecord(fs, dirPath, startProposal(appInputFrom(params), session.seed, new Date().toISOString(), stated));
-	return proposeBrief(session, stated.boldness);
+	return proposeBrief(session, stated.boldness, typeof params.product === "string" ? params.product : undefined);
 }
 
 const CHOOSE =
