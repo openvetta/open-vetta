@@ -44,8 +44,8 @@ export function fitScale(container: FrameSize, content: FrameSize, padding = STA
 	return Math.min(1, room.width / content.width, room.height / content.height);
 }
 
-/** 底部渐变起点的不透明度（%）：只是给底色一点气色，不能抢设计稿。深色底上这个量刚好。 */
-export const GLOW_ALPHA = 32;
+/** 底部渐变起点的不透明度（%）：只是给底色一点气色，不能抢设计稿。深色底上的量；比最初的 32% 略淡一点。 */
+export const GLOW_ALPHA = 24;
 
 /** 浅色底上同样的主色看起来会重得多，只留一点点气色，免得突兀。 */
 export const GLOW_ALPHA_LIGHT = 6;

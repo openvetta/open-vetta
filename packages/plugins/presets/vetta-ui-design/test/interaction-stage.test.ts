@@ -49,7 +49,7 @@ describe("底部渐变", () => {
 		expect(glow).toContain(`transparent ${GLOW_REACH}%`);
 		// 低透明度：不能抢设计稿。
 		expect(GLOW_ALPHA).toBeLessThanOrEqual(40);
-		expect(GLOW_ALPHA).toBe(32);
+		expect(GLOW_ALPHA).toBe(24);
 		expect(GLOW_ALPHA_LIGHT).toBeLessThanOrEqual(10);
 	});
 });
