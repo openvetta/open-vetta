@@ -45,3 +45,12 @@ describe("themeStageBackground", () => {
 		expect(themeStageBackground(null)).toBeNull();
 	});
 });
+
+describe("edgeColor", () => {
+	it("按底色明暗取反色，并且明显浓于夹层", async () => {
+		const { edgeColor, EDGE_ALPHA, VEIL_ALPHA } = await import("../src/interaction/stage");
+		expect(edgeColor(parseCssColor("#ffffff"))).toBe(`rgba(0, 0, 0, ${EDGE_ALPHA})`);
+		expect(edgeColor(parseCssColor("#111827"))).toBe(`rgba(255, 255, 255, ${EDGE_ALPHA})`);
+		expect(EDGE_ALPHA).toBeGreaterThan(VEIL_ALPHA * 3);
+	});
+});

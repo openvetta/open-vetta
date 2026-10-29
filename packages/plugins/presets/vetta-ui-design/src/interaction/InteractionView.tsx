@@ -9,7 +9,7 @@ import { InteractionToolbar } from "./InteractionToolbar";
 import { PhoneShell } from "./PhoneShell";
 import { resolvePhoneDevice, shellOuterSize } from "./phone-shell";
 import { useNavBridge } from "./nav-bridge";
-import { fitScale, parseCssColor, themeStageBackground, veilColor } from "./stage";
+import { edgeColor, fitScale, parseCssColor, themeStageBackground, veilColor } from "./stage";
 
 interface InteractionViewProps {
 	port: number;
@@ -52,6 +52,7 @@ function useStageSize(): [React.RefObject<HTMLDivElement | null>, { width: numbe
 function useVeil(session: DesignSession, revision: number, stageRef: React.RefObject<HTMLDivElement | null>) {
 	const [themeBackground, setThemeBackground] = useState<string | null>(null);
 	const [veil, setVeil] = useState(() => veilColor(null));
+	const [edge, setEdge] = useState(() => edgeColor(null));
 
 	useEffect(() => {
 		let cancelled = false;
@@ -68,7 +69,9 @@ function useVeil(session: DesignSession, revision: number, stageRef: React.RefOb
 		if (!element) return;
 		const update = (): void => {
 			const resolved = themeBackground ?? getComputedStyle(element).backgroundColor;
-			setVeil(veilColor(parseCssColor(resolved)));
+			const base = parseCssColor(resolved);
+			setVeil(veilColor(base));
+			setEdge(edgeColor(base));
 		};
 		update();
 		// 宿主切换亮 / 暗主题时背景变量会变，夹层要跟着换。
@@ -77,7 +80,7 @@ function useVeil(session: DesignSession, revision: number, stageRef: React.RefOb
 		return () => observer.disconnect();
 	}, [themeBackground, stageRef]);
 
-	return { themeBackground, veil };
+	return { themeBackground, veil, edge };
 }
 
 /**
@@ -95,7 +98,7 @@ export function InteractionView({ port, session, active, titleSlot }: Interactio
 	/** 手机机型：只在本次会话里生效，不写进设计稿（设计稿的真实尺寸才是依据）。 */
 	const [deviceId, setDeviceId] = useState<string | null>(null);
 	const [stageRef, stage] = useStageSize();
-	const { themeBackground, veil } = useVeil(session, revision, stageRef);
+	const { themeBackground, veil, edge } = useVeil(session, revision, stageRef);
 
 	const { frames } = session.manifest;
 	// 引擎侧的 frameIds 是排过序的，「字典序第一帧」的回落依赖它。
@@ -214,14 +217,15 @@ export function InteractionView({ port, session, active, titleSlot }: Interactio
 							</div>
 						) : (
 							<div
-								className="text-foreground"
 								style={{
 									width: outer.width,
 									height: outer.height,
 									transform: `scale(${scale})`,
 									transformOrigin: "0 0",
 									boxSizing: "border-box",
-									border: `${BARE_BORDER}px solid color-mix(in srgb, currentColor 22%, transparent)`,
+									border: `${BARE_BORDER}px solid ${edge}`,
+									// 投影把画面从底色上托起来，边框再深也不至于和夹层糊在一起。
+									boxShadow: "0 6px 24px rgba(0, 0, 0, 0.18)",
 									borderRadius: radius + BARE_BORDER,
 									overflow: "hidden",
 									backgroundColor: "#fff",
