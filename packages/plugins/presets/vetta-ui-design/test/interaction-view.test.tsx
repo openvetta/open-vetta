@@ -83,9 +83,9 @@ describe("InteractionView", () => {
 	it("设备类别：存了用存的，老文档按首页尺寸推断", async () => {
 		await render(fakeSession({ frames: [frame("index", 390, 844)] }).session);
 		const checked = (): string | null | undefined => {
-			act(() => (host.querySelector("[aria-label='interaction.deviceMenu']") as HTMLElement).click());
+			act(() => (host.querySelector("[aria-label='interaction.switchDevice']") as HTMLElement).click());
 			const value = host.querySelector("[role=menuitemradio][aria-checked=true]")?.textContent;
-			act(() => (host.querySelector("[aria-label='interaction.deviceMenu']") as HTMLElement).click());
+			act(() => (host.querySelector("[aria-label='interaction.switchDevice']") as HTMLElement).click());
 			return value;
 		};
 		expect(checked()).toBe("interaction.mode.mobile");
@@ -96,7 +96,7 @@ describe("InteractionView", () => {
 	it("工具条改设备类别写回会话", async () => {
 		const { session, modes } = fakeSession({ frames: [frame("index", 1440, 900)] });
 		await render(session);
-		act(() => (host.querySelector("[aria-label='interaction.deviceMenu']") as HTMLElement).click());
+		act(() => (host.querySelector("[aria-label='interaction.switchDevice']") as HTMLElement).click());
 		const other = [...host.querySelectorAll<HTMLElement>("[role=menuitemradio]")].find(
 			(item) => item.textContent === "interaction.mode.other",
 		);
@@ -123,7 +123,7 @@ describe("InteractionView", () => {
 		const index = (label: string): number => order.findIndex((entry) => entry.includes(label));
 		// 设计 / 交互开关在最右端。
 		expect(header.lastElementChild?.textContent).toBe("toggle");
-		expect(index("interaction.back")).toBeLessThan(index("interaction.deviceMenu"));
-		expect(index("interaction.home")).toBeLessThan(index("interaction.openExternal"));
+		expect(index("interaction.back")).toBeLessThan(index("interaction.switchDevice"));
+		expect(index("interaction.home")).toBeLessThan(index("interaction.openExternal.short"));
 	});
 });

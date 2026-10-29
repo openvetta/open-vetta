@@ -1,6 +1,7 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
 import { type JSX, useRef, useState } from "react";
 import type { InteractionMode } from "../vetd/interaction-mode";
+import { CAPSULE_CLASS, CapsuleButton } from "./Capsule";
 import { DevicePopover } from "./DevicePopover";
 
 interface InteractionToolbarProps {
@@ -60,34 +61,7 @@ const icons = {
 	),
 };
 
-function IconButton({
-	label,
-	disabled,
-	onClick,
-	children,
-}: {
-	label: string;
-	disabled?: boolean;
-	onClick(): void;
-	children: JSX.Element;
-}) {
-	return (
-		<button
-			type="button"
-			title={label}
-			aria-label={label}
-			disabled={disabled}
-			onClick={onClick}
-			className="flex size-7 shrink-0 items-center justify-center rounded-lg text-[color:var(--vetd-ink-soft,var(--muted-foreground))] hover:bg-[var(--vetd-chip,var(--accent))] disabled:opacity-40 disabled:hover:bg-transparent"
-		>
-			<svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-				{children}
-			</svg>
-		</button>
-	);
-}
-
-/** 交互模式顶部的导航条：前进后退刷新、当前路径、跳页面、设备类别。纯展示，状态归 InteractionView。 */
+/** 交互模式顶部的导航条：前进后退刷新、当前路径、跳页面、设备。纯展示，状态归 InteractionView。 */
 export function InteractionToolbar({
 	path,
 	canBack,
@@ -111,77 +85,65 @@ export function InteractionToolbar({
 	const [deviceOpen, setDeviceOpen] = useState(false);
 	return (
 		<>
-		{compact ? null : (
-			<div className="flex min-w-0 flex-1 basis-56 items-center gap-1">
-				<IconButton label={t("interaction.back")} disabled={!canBack} onClick={onBack}>
-					{icons.back}
-				</IconButton>
-				<IconButton label={t("interaction.forward")} disabled={!canForward} onClick={onForward}>
-					{icons.forward}
-				</IconButton>
-				<IconButton label={t("interaction.reload")} onClick={onReload}>
-					{icons.reload}
-				</IconButton>
-				<IconButton label={t("interaction.home")} onClick={onHome}>
-					{icons.home}
-				</IconButton>
-				<span
-					className="min-w-6 max-w-32 shrink truncate rounded-lg bg-[var(--vetd-chip,var(--muted))] px-2 py-1 text-xs text-[color:var(--vetd-ink-soft,var(--muted-foreground))]"
-					title={path}
-				>
-					{path}
-				</span>
-				<select
-					value={currentFrameId ?? ""}
-					onChange={(event) => event.target.value && onPickFrame(event.target.value)}
-					title={t("interaction.pages")}
-					aria-label={t("interaction.pages")}
-					className="min-w-0 max-w-32 shrink truncate rounded-lg border-none bg-[var(--vetd-chip,var(--muted))] px-1.5 py-1 text-xs text-[color:var(--vetd-ink,var(--foreground))] outline-none focus:outline-none"
-				>
-					{currentFrameId === null ? <option value="">{t("interaction.pages")}</option> : null}
-					{frames.map((frame) => (
-						<option key={frame.id} value={frame.id}>
-							{frame.title}
-						</option>
-					))}
-				</select>
-			</div>
-		)}
-		<div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1">
-			{/* 设备类型和手机机型合成一个按钮，点开是浮层。 */}
-			<div ref={deviceRef} className="relative shrink-0">
-				<button
-					type="button"
-					aria-haspopup="menu"
-					aria-expanded={deviceOpen}
-					aria-label={t("interaction.deviceMenu")}
-					title={`${t("interaction.deviceMenu")}：${t(`interaction.mode.${mode}`)}`}
-					onClick={() => setDeviceOpen((open) => !open)}
-					className={`flex h-7 items-center justify-center gap-1.5 rounded-lg bg-[var(--vetd-chip,var(--muted))] text-xs text-[color:var(--vetd-ink,var(--foreground))] transition-opacity hover:opacity-80 ${
-						compact ? "w-7" : "px-2"
-					}`}
-				>
-					<svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-						{modeIcons[mode]}
-					</svg>
-					{/* 窄面板只留图标，名字在悬停提示和无障碍标签里。 */}
-					{compact ? null : <span className="whitespace-nowrap">{t("interaction.switchDevice")}</span>}
-				</button>
-				{deviceOpen ? (
-					<DevicePopover
-						mode={mode}
-						deviceId={deviceId}
-						boundaryRef={deviceRef}
-						onPickMode={onPickMode}
-						onPickDevice={onPickDevice}
-						onClose={() => setDeviceOpen(false)}
+			{compact ? null : (
+				<div className="flex min-w-0 flex-1 basis-56 flex-wrap items-center gap-1.5">
+					<CapsuleButton label={t("interaction.back")} icon={icons.back} disabled={!canBack} onClick={onBack} />
+					<CapsuleButton label={t("interaction.forward")} icon={icons.forward} disabled={!canForward} onClick={onForward} />
+					<CapsuleButton label={t("interaction.reload")} icon={icons.reload} onClick={onReload} />
+					<CapsuleButton label={t("interaction.home")} icon={icons.home} onClick={onHome} />
+					<span className={`${CAPSULE_CLASS} min-w-0 max-w-40 shrink px-3 font-normal`} title={path}>
+						<span className="truncate">{path}</span>
+					</span>
+					<label className={`${CAPSULE_CLASS} min-w-0 max-w-48 shrink px-3`}>
+						<span className="whitespace-nowrap">{t("interaction.pages")}</span>
+						<select
+							value={currentFrameId ?? ""}
+							onChange={(event) => event.target.value && onPickFrame(event.target.value)}
+							title={t("interaction.pages")}
+							aria-label={t("interaction.pages")}
+							className="min-w-0 max-w-28 shrink truncate border-none bg-transparent text-xs font-normal text-inherit outline-none focus:outline-none"
+						>
+							{currentFrameId === null ? <option value="">{t("interaction.pages")}</option> : null}
+							{frames.map((frame) => (
+								<option key={frame.id} value={frame.id}>
+									{frame.title}
+								</option>
+							))}
+						</select>
+					</label>
+				</div>
+			)}
+			<div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+				{/* 设备类型和手机机型合成一个按钮，点开是浮层。 */}
+				<div ref={deviceRef} className="relative shrink-0">
+					<CapsuleButton
+						label={t("interaction.switchDevice")}
+						title={`${t("interaction.deviceMenu")}：${t(`interaction.mode.${mode}`)}`}
+						icon={modeIcons[mode]}
+						iconOnly={compact}
+						aria-haspopup="menu"
+						aria-expanded={deviceOpen}
+						onClick={() => setDeviceOpen((open) => !open)}
 					/>
-				) : null}
+					{deviceOpen ? (
+						<DevicePopover
+							mode={mode}
+							deviceId={deviceId}
+							boundaryRef={deviceRef}
+							onPickMode={onPickMode}
+							onPickDevice={onPickDevice}
+							onClose={() => setDeviceOpen(false)}
+						/>
+					) : null}
+				</div>
+				<CapsuleButton
+					label={t("interaction.openExternal.short")}
+					title={t("interaction.openExternal")}
+					icon={icons.external}
+					iconOnly={compact}
+					onClick={onOpenExternal}
+				/>
 			</div>
-			<IconButton label={t("interaction.openExternal")} onClick={onOpenExternal}>
-				{icons.external}
-			</IconButton>
-		</div>
 		</>
 	);
 }

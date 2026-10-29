@@ -60,10 +60,12 @@ describe("chromeVars", () => {
 		const { chromeVars } = await import("../src/interaction/stage");
 		const light = chromeVars(parseCssColor("#e5e7eb"));
 		expect(light["--vetd-ink"]).toBe("#111827");
-		expect(light["--vetd-chip"]).toContain("0, 0, 0");
+		expect(light["--vetd-pill"]).toBe("#ffffff");
+		expect(light["--vetd-line"]).toContain("0, 0, 0");
 		const dark = chromeVars(parseCssColor("#0b0b0c"));
 		expect(dark["--vetd-ink"]).toBe("#f8fafc");
-		expect(dark["--vetd-chip"]).toContain("255, 255, 255");
+		expect(dark["--vetd-pill"]).toContain("255, 255, 255");
+		expect(dark["--vetd-line"]).toContain("255, 255, 255");
 		expect(Object.keys(light)).toEqual(Object.keys(dark));
 	});
 });

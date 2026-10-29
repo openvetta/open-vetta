@@ -358,7 +358,7 @@
 	"interaction.back": "Back",
 	"interaction.forward": "Forward",
 	"interaction.reload": "Reload",
-	"interaction.home": "Back to home",
+	"interaction.home": "Home",
 	"interaction.pages": "Pages",
 	"interaction.deviceType": "Device type",
 	"interaction.mode.mobile": "Mobile",
@@ -374,5 +374,6 @@
 	"interaction.device": "Phone model",
 	"interaction.device.follow": "Match design",
 	"interaction.deviceMenu": "Device & model",
-	"interaction.switchDevice": "Switch device"
+	"interaction.switchDevice": "Switch device",
+	"interaction.openExternal.short": "Browser"
 }

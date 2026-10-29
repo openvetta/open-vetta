@@ -51,9 +51,14 @@ describe("InteractionToolbar", () => {
 			expect(has(host, label)).toBe(true);
 		}
 		expect(host.textContent).toContain("/detail");
-		expect(has(host, "interaction.deviceMenu")).toBe(true);
-		// 宽面板里设备按钮带文字「切换设备」，窄面板只留图标。
-		expect(host.textContent).toContain("interaction.switchDevice");
+		expect(has(host, "interaction.switchDevice")).toBe(true);
+		// 宽面板里每个按钮都带文字标签，且都是胶囊 + 边框，与画布右上角的按钮一致。
+		for (const label of ["interaction.back", "interaction.forward", "interaction.reload", "interaction.home", "interaction.switchDevice", "interaction.openExternal.short"]) {
+			expect(host.textContent).toContain(label);
+			const button = host.querySelector<HTMLElement>(`button[aria-label="${label}"]`);
+			expect(button?.className).toMatch(/rounded-full/);
+			expect(button?.className).toMatch(/\bborder\b/);
+		}
 	});
 
 	it("窄面板：路由操作、路径、页面列表都收起，设备类型和系统浏览器留着", () => {
@@ -62,9 +67,11 @@ describe("InteractionToolbar", () => {
 			expect(has(host, label)).toBe(false);
 		}
 		expect(host.textContent).not.toContain("/detail");
+		// 窄面板只留图标，名字在无障碍标签里。
 		expect(host.textContent).not.toContain("interaction.switchDevice");
-		expect(has(host, "interaction.deviceMenu")).toBe(true);
-		expect(has(host, "interaction.openExternal")).toBe(true);
+		expect(host.textContent).not.toContain("interaction.openExternal.short");
+		expect(has(host, "interaction.switchDevice")).toBe(true);
+		expect(has(host, "interaction.openExternal.short")).toBe(true);
 	});
 
 	it("设备类型和机型合在一个按钮的浮层里：移动端才有机型一栏，选完收起", () => {
@@ -94,7 +101,7 @@ describe("InteractionToolbar", () => {
 			),
 		);
 		expect(host.querySelector("[role=menu]")).toBeNull();
-		act(() => (host.querySelector("[aria-label='interaction.deviceMenu']") as HTMLElement).click());
+		act(() => (host.querySelector("[aria-label='interaction.switchDevice']") as HTMLElement).click());
 		const items = (): HTMLElement[] => [...host.querySelectorAll<HTMLElement>("[role=menuitemradio]")];
 		const labels = items().map((item) => item.textContent);
 		expect(labels).toEqual(expect.arrayContaining(["interaction.mode.mobile", "interaction.mode.desktop", "interaction.device.follow", "iPhone 17 Pro"]));

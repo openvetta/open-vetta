@@ -358,7 +358,7 @@
 	"interaction.back": "后退",
 	"interaction.forward": "前进",
 	"interaction.reload": "刷新",
-	"interaction.home": "回到首页",
+	"interaction.home": "首页",
 	"interaction.pages": "页面",
 	"interaction.deviceType": "设备类型",
 	"interaction.mode.mobile": "移动端",
@@ -374,5 +374,6 @@
 	"interaction.device": "手机机型",
 	"interaction.device.follow": "跟随设计稿",
 	"interaction.deviceMenu": "设备与机型",
-	"interaction.switchDevice": "切换设备"
+	"interaction.switchDevice": "切换设备",
+	"interaction.openExternal.short": "浏览器打开"
 }

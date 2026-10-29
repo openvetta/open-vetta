@@ -327,7 +327,7 @@ export function CanvasTab() {
 	const modeToggle = (
 		phase.kind === "ready" && session ? (
 			<div
-				className="flex h-8 shrink-0 items-center rounded-full bg-[var(--vetd-chip,var(--muted))] p-0.5"
+				className="flex h-8 shrink-0 items-center rounded-full border border-[color:var(--vetd-line,var(--border))] bg-[var(--vetd-pill,var(--popover))] p-0.5"
 				role="radiogroup"
 				aria-label={t("interaction.toggle.label")}
 			>
