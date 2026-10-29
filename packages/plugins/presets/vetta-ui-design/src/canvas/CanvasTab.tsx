@@ -423,21 +423,25 @@ export function CanvasTab() {
 				) : null}
 				{phase.kind === "ready" && session && notesStore ? (
 					<>
-						<DesignCanvas
-							session={session}
-							notes={notesStore}
-							cwd={cwd}
-							port={phase.port}
-							bridge={bridgeRef.current}
-							onEngineUnavailable={onEngineUnavailable}
-							captureRef={captureRef}
-							suspended={interacting}
-							resolveNoteElementsRef={resolveNoteElementsRef}
-							notesVisible={notesVisibility.visible}
-							showNotes={notesVisibility.show}
-							onToggleNotes={notesVisibility.toggle}
-							titleSlot={titleSlot}
-						/>
+						{/* 交互模式下画布整块隐藏（工具栏、标题、顶部渐隐、版本历史 / 导出都属于它），
+						    但保持挂载：缩放、平移、选中、撤销栈切回来原样不动。 */}
+						<div className="absolute inset-0" style={{ visibility: interacting ? "hidden" : "visible" }}>
+							<DesignCanvas
+								session={session}
+								notes={notesStore}
+								cwd={cwd}
+								port={phase.port}
+								bridge={bridgeRef.current}
+								onEngineUnavailable={onEngineUnavailable}
+								captureRef={captureRef}
+								suspended={interacting}
+								resolveNoteElementsRef={resolveNoteElementsRef}
+								notesVisible={notesVisibility.visible}
+								showNotes={notesVisibility.show}
+								onToggleNotes={notesVisibility.toggle}
+								titleSlot={titleSlot}
+							/>
+						</div>
 						{interactionMounted ? (
 							<InteractionView port={phase.port} session={session} active={interacting} titleSlot={titleSlot} />
 						) : null}
