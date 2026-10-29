@@ -56,6 +56,7 @@ import {
 	type RenderVerificationSummary,
 	type ScreenshotSelectionInput,
 } from "./vetd/render-verification";
+import { INTERACTION_MODES, resolveInteractionMode } from "./vetd/interaction-mode";
 import { scaffoldDesign } from "./vetd/scaffold";
 import { resolveStatusBar, STATUS_BAR_SETTINGS, statusBarNote } from "./vetd/status-bar";
 
@@ -68,6 +69,7 @@ interface CreateInput {
 	product?: string;
 	frameSize?: { width: number; height: number };
 	statusBar?: string;
+	interaction?: string;
 	brief?: string;
 	sector?: string;
 	screens?: string[];
@@ -189,6 +191,12 @@ export function registerDesignTools(ctx: PluginContext): void {
 					description:
 						"mobile only: the iOS status bar every screen carries. Omit it unless the user said otherwise — the default is `island` (Dynamic Island). `notch` when they ask for a notch, `flat` when they want a status bar with no notch or island, `none` when they do not want a status bar at all. Stored with the design, so later screens keep it.",
 				},
+				interaction: {
+					type: "string",
+					enum: [...INTERACTION_MODES],
+					description:
+						"Which kind of device the user will try this design on in interaction mode: `mobile` gets a phone body and touch gestures, `desktop` and `other` show the bare screen. Omit it — it follows `product` (mobile → mobile, desktop / landing → desktop, slide / poster → other) or, with a custom `frameSize`, the size. Pass it only when those would guess wrong (e.g. the user wants a mini-program at a custom size). Stored with the design; the user can change it afterwards, you cannot.",
+				},
 				brief: { type: "string", description: "landing / mobile / desktop: one line about the subject, in English." },
 				sector: { type: "string", enum: [...PAGE_SECTORS], description: "landing: the closest sector." },
 				screens: {
@@ -244,7 +252,19 @@ export function registerDesignTools(ctx: PluginContext): void {
 				}
 			}
 			const statusBar = resolveStatusBar(trigger.input);
-			const result = await scaffoldDesign(host.fs, session.cwd, trigger.input.name ?? "design", defaultFrameSize, statusBar);
+			const interactionMode = resolveInteractionMode({
+				interaction: trigger.input.interaction,
+				product: trigger.input.product,
+				size: defaultFrameSize,
+			});
+			const result = await scaffoldDesign(
+				host.fs,
+				session.cwd,
+				trigger.input.name ?? "design",
+				defaultFrameSize,
+				statusBar,
+				interactionMode,
+			);
 			// Provider 在一个 Turn 内只执行一次：仅更新 presence 只能让下一 Turn 开闸。
 			// 工具 handler 的 effect 会在当前 Turn 后续模型调用上重放，因此创建成功后
 			// 还要显式覆盖本轮开头写入的 disable，避免 agent 只剩 vetd_create 可用。
@@ -274,6 +294,7 @@ export function registerDesignTools(ctx: PluginContext): void {
 				vetdPath: result.vetdPath,
 				sourcesDir: result.dirPath,
 				defaultFrameSize,
+				interactionMode,
 				...(statusBar ? { statusBar } : {}),
 				...(dealt
 					? {
@@ -577,6 +598,9 @@ export function registerDesignTools(ctx: PluginContext): void {
 								: {}),
 							// 手机界面的状态栏设置：加新页面时照着它写，不要回到默认。
 							...(controller.session.manifest.statusBar ? { statusBar: controller.session.manifest.statusBar } : {}),
+							...(controller.session.manifest.interactionMode
+								? { interactionMode: controller.session.manifest.interactionMode }
+								: {}),
 							// 复用面先于画框列出：agent 是一屏一屏往下写的，看不见既有的
 							// 外壳与组件就会在每个 frame 里重抄一遍导航栏。
 							sharedShell: shell,

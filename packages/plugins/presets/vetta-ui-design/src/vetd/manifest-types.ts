@@ -1,3 +1,4 @@
+import type { InteractionMode } from "./interaction-mode";
 import type { StatusBarSetting } from "./status-bar";
 
 /** A canvas frame's pixel size. */
@@ -82,6 +83,11 @@ export interface VetdManifest {
 	 * 明确不要。只在移动端设计里有，老文档没有——读不到就当默认的灵动岛（见 status-bar.ts）。
 	 */
 	statusBar?: StatusBarSetting;
+	/**
+	 * 交互模式按哪类设备呈现：手机带机身外壳和触摸手势，桌面和其他是裸画面（见 interaction-mode.ts）。
+	 * 老文档没有这个字段，运行时按首页画框尺寸推断，不回写；用户在交互模式工具条里改了才写入。
+	 */
+	interactionMode?: InteractionMode;
 }
 
 export function emptyManifest(): VetdManifest {

@@ -1,5 +1,6 @@
 import type { PluginFsApi } from "@vetta-org/plugin-sdk";
 import { designPackageJson, PACKAGE_FILE } from "./design-package";
+import type { InteractionMode } from "./interaction-mode";
 import { emptyManifest, type FrameSize, manifestPathOf, type VetdManifest } from "./manifest-types";
 import type { StatusBarSetting } from "./status-bar";
 
@@ -52,6 +53,7 @@ export async function scaffoldDesign(
 	rawName: string,
 	defaultFrameSize?: FrameSize | null,
 	statusBar?: StatusBarSetting | null,
+	interactionMode?: InteractionMode | null,
 ): Promise<ScaffoldResult> {
 	const name = sanitizeDesignName(rawName);
 	let vetdPath = `${cwd}/${name}.vetd`;
@@ -69,6 +71,7 @@ export async function scaffoldDesign(
 		...emptyManifest(),
 		...(defaultFrameSize ? { defaultFrameSize } : {}),
 		...(statusBar ? { statusBar } : {}),
+		...(interactionMode ? { interactionMode } : {}),
 	};
 	await fs.writeFile(manifestPathOf(vetdPath), `${JSON.stringify(manifest, null, "\t")}\n`);
 	return { vetdPath, dirPath: vetdPath };
