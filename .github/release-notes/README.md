@@ -12,10 +12,35 @@
 
 ## 怎么写
 
-- 标题用 `# Vetta <版本号>`，下一行写发布日期。
+- 标题用 `# Vetta <版本号>`，下一行是发布状态标记（见下）。
 - 分 `## 新增` / `## 改进` / `## 修复` / `## 其他` 四节，没有内容的小节直接省略。
 - 面向用户描述影响：说清楚用户会看到什么变化，而不是改了哪个函数。行为有取舍时把代价一并写出来。
 - 关联 PR 或 issue 时统一用 `owner/repo#123` 格式，例如 `openvetta/open-vetta#8`。
-- 已发布版本的文件不再修改；发现写错另起一条修订说明。
+- 已发布版本的文件不再修改；发现写错另起一条修订说明。唯一的例外是发版完成后把状态标记改成 `released`。
+
+## 发布状态标记
+
+标题下一行是一条 HTML 注释，在 Release 页面上不显示：
+
+```
+# Vetta 0.5.70
+<!-- release-status: unreleased -->
+```
+
+- `unreleased`：开发中，可以往里写条目，也只有这个状态能打 tag 发布。
+- `released YYYY-MM-DD`：已发布，不能再写条目，也不能再发一次。
+- 没有标记：0.5.69 之前的旧文件，按已发布处理。
+
+标记由脚本维护，不要手改：
+
+| 命令 | 作用 |
+| --- | --- |
+| `node scripts/release/release-notes.mjs --status` | 查看当前版本的状态 |
+| `node scripts/release/release-notes.mjs --mark-released` | 发版完成后标为已发布（默认今天） |
+| `node scripts/release/release-version.mjs --start-next [patch\|minor\|major\|x.y.z]` | 开下一个版本：改 `package.json`、`bun.lock`，新建带 `unreleased` 的说明文件 |
+| `node scripts/release/release-version.mjs --retarget x.y.z` | 开发中途改这一版的版本号，条目原样带过去 |
+| `node scripts/release/release-preflight.mjs` | 打 tag 前的预检，在合并好的 main 上运行 |
+
+完整流程见 `vetta-release` skill。
 
 历史版本（0.5.48 及更早）的记录留在 `apps/desktop/CHANGELOG.md`。

@@ -74,6 +74,8 @@
 - 关联 PR 或 issue 时统一使用 `owner/repo#123` 格式（如 `openvetta/open-vetta#8`）。
 - 无用户可感知影响的纯内部改动（内部重构、测试、开发文档）仍需在「其他」留一条一句话记录。
 - 已发布版本的说明文件严禁修改；`apps/desktop/CHANGELOG.md` 自 0.5.58 起冻结，不再追加。
+- **写条目前先看状态标记**：标题下一行的 `<!-- release-status: ... -->` 是 `unreleased` 才能写；是 `released` 或没有标记（按已发布处理）就停下，问用户是否开下一个版本。`node scripts/release/release-notes.mjs --status` 可直接查。
+- 发版、开下一个版本、改这一版的版本号，一律走 `vetta-release` skill。
 
 **违规后果警告**：
 
