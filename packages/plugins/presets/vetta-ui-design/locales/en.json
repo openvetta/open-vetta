@@ -373,5 +373,6 @@
 	"interaction.toggle.label": "Design / interaction mode",
 	"interaction.device": "Phone model",
 	"interaction.device.follow": "Match design",
-	"interaction.deviceMenu": "Device & model"
+	"interaction.deviceMenu": "Device & model",
+	"interaction.switchDevice": "Switch device"
 }

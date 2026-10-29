@@ -52,6 +52,8 @@ describe("InteractionToolbar", () => {
 		}
 		expect(host.textContent).toContain("/detail");
 		expect(has(host, "interaction.deviceMenu")).toBe(true);
+		// 宽面板里设备按钮带文字「切换设备」，窄面板只留图标。
+		expect(host.textContent).toContain("interaction.switchDevice");
 	});
 
 	it("窄面板：路由操作、路径、页面列表都收起，设备类型和系统浏览器留着", () => {
@@ -60,6 +62,7 @@ describe("InteractionToolbar", () => {
 			expect(has(host, label)).toBe(false);
 		}
 		expect(host.textContent).not.toContain("/detail");
+		expect(host.textContent).not.toContain("interaction.switchDevice");
 		expect(has(host, "interaction.deviceMenu")).toBe(true);
 		expect(has(host, "interaction.openExternal")).toBe(true);
 	});

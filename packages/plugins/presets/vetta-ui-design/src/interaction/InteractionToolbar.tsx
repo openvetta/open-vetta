@@ -157,11 +157,15 @@ export function InteractionToolbar({
 					aria-label={t("interaction.deviceMenu")}
 					title={`${t("interaction.deviceMenu")}：${t(`interaction.mode.${mode}`)}`}
 					onClick={() => setDeviceOpen((open) => !open)}
-					className="flex size-7 items-center justify-center rounded-lg bg-[var(--vetd-chip,var(--muted))] text-[color:var(--vetd-ink,var(--foreground))] transition-opacity hover:opacity-80"
+					className={`flex h-7 items-center justify-center gap-1.5 rounded-lg bg-[var(--vetd-chip,var(--muted))] text-xs text-[color:var(--vetd-ink,var(--foreground))] transition-opacity hover:opacity-80 ${
+						compact ? "w-7" : "px-2"
+					}`}
 				>
-					<svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+					<svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
 						{modeIcons[mode]}
 					</svg>
+					{/* 窄面板只留图标，名字在悬停提示和无障碍标签里。 */}
+					{compact ? null : <span className="whitespace-nowrap">{t("interaction.switchDevice")}</span>}
 				</button>
 				{deviceOpen ? (
 					<DevicePopover
