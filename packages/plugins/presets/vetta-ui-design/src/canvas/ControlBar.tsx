@@ -306,6 +306,11 @@ export function ControlBar({
 									}}
 									visible={notesVisible}
 									onToggle={onToggleNotes}
+									// 与左邻的备注工具拼成一颗胶囊：同底色、同缩放、贴在一起（抵掉 dock 的 gap）。
+									joinedActive={tool === "note"}
+									scale={scales[index - 1] ?? 1}
+									transition={dockTransition(reducedMotion)}
+									style={{ marginLeft: -DOCK_GAP }}
 								/>
 							);
 						}
@@ -326,7 +331,7 @@ export function ControlBar({
 									slot.active
 										? "bg-primary text-primary-foreground"
 										: "bg-muted/55 text-foreground hover:bg-muted"
-								} ${slot.wide ? "px-2.5" : ""} ${scale > 1.02 ? "z-[2]" : ""}`}
+								} ${slot.wide ? "px-2.5" : ""} ${slot.key === "note" ? "rounded-r-none" : ""} ${scale > 1.02 ? "z-[2]" : ""}`}
 								style={{
 									width: slot.wide ? undefined : DOCK_ICON,
 									minWidth: slot.wide ? DOCK_ICON + 12 : undefined,
