@@ -1,5 +1,5 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
 	formatSize,
 	type Orientation,
@@ -67,7 +67,7 @@ function matches(size: Size, other: Size): boolean {
 }
 
 /** 当前尺寸落在哪个分类的哪个预设里（横竖都认），用来默认展开分类、高亮预设。 */
-function categoryOf(size: Size): SizeCategoryId | null {
+export function categoryOf(size: Size): SizeCategoryId | null {
 	for (const category of SIZE_CATEGORIES) {
 		for (const preset of category.presets) {
 			if (matches(size, preset) || (category.orientable && matches(size, { width: preset.height, height: preset.width }))) {
@@ -99,81 +99,6 @@ function OrientationToggle({ value, onChange }: { value: Orientation; onChange(v
 	);
 }
 
-/**
- * Frame Menu 里的「尺寸」浮层：左边是分类，鼠标移到哪个分类，右边（实际是左边，菜单贴着 frame
- * 左侧，往画布外展开）就列出它的预设，每一行右侧标着像素。选一个就改选中 frame 的尺寸。
- */
-export function FrameSizeMenu({ current, onPick }: { current: Size; onPick(size: Size, radius: number): void }) {
-	const { t } = useTranslation();
-	const [active, setActive] = useState<SizeCategoryId>(() => categoryOf(current) ?? "phone");
-	const [orientation, setOrientation] = useState<Orientation>(() =>
-		current.width > current.height && categoryOf(current) === "ipad" ? "landscape" : "portrait",
-	);
-	const category = SIZE_CATEGORIES.find((entry) => entry.id === active) ?? SIZE_CATEGORIES[0];
-
-	return (
-		<div className="relative" data-vetd-size-menu="">
-			<div
-				role="menu"
-				aria-label={t("canvas.size.title")}
-				className="absolute top-1 right-0 z-10 w-40 rounded-xl border border-border bg-card p-1 shadow-xl"
-			>
-				{SIZE_CATEGORIES.map((entry) => (
-					<button
-						key={entry.id}
-						type="button"
-						role="menuitem"
-						aria-haspopup="menu"
-						aria-expanded={active === entry.id}
-						onMouseEnter={() => setActive(entry.id)}
-						onFocus={() => setActive(entry.id)}
-						onClick={() => setActive(entry.id)}
-						className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-accent ${
-							active === entry.id ? "bg-accent" : ""
-						}`}
-					>
-						<span className="flex items-center gap-2">
-							{categoryIcons[entry.id]}
-							{t(`canvas.size.category.${entry.id}`)}
-						</span>
-						<svg viewBox="0 0 24 24" className="size-3 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-							<path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
-						</svg>
-					</button>
-				))}
-				{/* pr 留的是与分类列表的视觉间距，同时让指针从分类走向预设时不会穿过空隙而丢掉悬停。 */}
-				<div className="absolute top-0 right-full pr-1.5">
-					<div role="menu" aria-label={t(`canvas.size.category.${category.id}`)} className="w-64 rounded-xl border border-border bg-card p-1 shadow-xl">
-						{category.orientable ? (
-							<div className="flex justify-end px-1 pt-0.5 pb-1.5">
-								<OrientationToggle value={orientation} onChange={setOrientation} />
-							</div>
-						) : null}
-						{category.presets.map((preset) => {
-							const size = presetSize(category, preset, orientation);
-							const selected = matches(current, size);
-							return (
-								<button
-									key={preset.id}
-									type="button"
-									role="menuitem"
-									onClick={() => onPick(size, preset.radius ?? 0)}
-									className={`flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent ${
-										selected ? "bg-primary/10 text-primary" : "text-foreground"
-									}`}
-								>
-									<span className="truncate">{preset.name}</span>
-									<span className="shrink-0 tabular-nums text-muted-foreground">{formatSize(size)}</span>
-								</button>
-							);
-						})}
-					</div>
-				</div>
-			</div>
-		</div>
-	);
-}
-
 const PREVIEW_BOX = 64;
 
 function PresetPreview({ size, radius }: { size: Size; radius: number }) {
@@ -197,11 +122,30 @@ function PresetPreview({ size, radius }: { size: Size; radius: number }) {
  * Frame 工具的底部面板内容：顶部一排分类 tab（图标 + 文字），下面横向排着该分类的预设，
  * 每张卡片是按比例缩小的外形 + 名称 + 像素；点一下就在画布中创建。
  */
-export function FrameSizePanel({ onCreate }: { onCreate(size: Size, radius: number, preset: SizePreset): void }) {
+export function FrameSizePanel({
+	target,
+	onPick,
+}: {
+	/** 非 null = 改尺寸模式：改的是这个 frame；null = 新建。 */
+	target: { name: string; size: Size } | null;
+	onPick(size: Size, radius: number, preset: SizePreset): void;
+}) {
 	const { t } = useTranslation();
 	const [active, setActive] = useState<SizeCategoryId>("phone");
 	const [orientation, setOrientation] = useState<Orientation>("portrait");
 	const category = SIZE_CATEGORIES.find((entry) => entry.id === active) ?? SIZE_CATEGORIES[0];
+
+	// 进入改尺寸模式时，直接翻到它现在所属的分类（iPad 横着的就切到横屏）；匹配不上就留在原处。
+	const targetWidth = target?.size.width;
+	const targetHeight = target?.size.height;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: 只在目标 frame 的尺寸变化时同步
+	useEffect(() => {
+		if (targetWidth === undefined || targetHeight === undefined) return;
+		const found = categoryOf({ width: targetWidth, height: targetHeight });
+		if (found === null) return;
+		setActive(found);
+		if (found === "ipad") setOrientation(targetWidth > targetHeight ? "landscape" : "portrait");
+	}, [target === null, targetWidth, targetHeight]);
 
 	return (
 		<div className="flex h-full flex-col">
@@ -226,20 +170,26 @@ export function FrameSizePanel({ onCreate }: { onCreate(size: Size, radius: numb
 					))}
 				</div>
 				<div className="flex min-w-0 items-center gap-3">
-					<span className="hidden truncate text-[11px] text-muted-foreground sm:inline">{t("canvas.size.panelHint")}</span>
+					<span className="hidden truncate text-[11px] text-muted-foreground sm:inline">
+						{target ? t("canvas.size.panelHintResize", { name: target.name }) : t("canvas.size.panelHint")}
+					</span>
 					{category.orientable ? <OrientationToggle value={orientation} onChange={setOrientation} /> : null}
 				</div>
 			</div>
 			<div role="tabpanel" className="flex min-h-0 flex-1 items-stretch gap-2 overflow-x-auto px-3 py-3">
 				{category.presets.map((preset) => {
 					const size = presetSize(category, preset, orientation);
+					// 改尺寸模式下，与目标 frame 当前尺寸一致的那张卡标出来。
+					const current = target !== null && matches(target.size, size);
 					return (
 						<button
 							key={`${preset.id}-${orientation}`}
 							type="button"
-							onClick={() => onCreate(size, preset.radius ?? 0, preset)}
+							onClick={() => onPick(size, preset.radius ?? 0, preset)}
 							title={`${preset.name} · ${formatSize(size)}`}
-							className="group flex w-32 shrink-0 flex-col items-center justify-between gap-1 rounded-xl border border-transparent bg-secondary/60 px-2 py-2 transition-colors hover:border-primary/40 hover:bg-accent"
+							className={`group flex w-32 shrink-0 flex-col items-center justify-between gap-1 rounded-xl border px-2 py-2 transition-colors hover:border-primary/40 hover:bg-accent ${
+								current ? "border-primary/60 bg-primary/10" : "border-transparent bg-secondary/60"
+							}`}
 						>
 							<PresetPreview size={size} radius={preset.radius ?? 0} />
 							<span className="flex w-full min-w-0 flex-col items-center leading-tight">

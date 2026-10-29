@@ -1,4 +1,3 @@
-import { createPortal } from "react-dom";
 import { usePluginShortcutScope, useTranslation } from "@vetta-org/plugin-sdk";
 import {
 	type CSSProperties,
@@ -74,7 +73,7 @@ import { NOTES_PANEL_INSET, NotesDrawer } from "./NotesDrawer";
 import { type NoteDraft, NotesLayer } from "./NotesLayer";
 import { resolveAskMode, selectionAfterHmr } from "./selection-ask";
 import { type FrameMenuItem, frameMenuIcons } from "./FrameMenu";
-import { FrameSizeMenu, FrameSizePanel, sizeIcon } from "./FrameSizeUi";
+import { FrameSizePanel, sizeIcon } from "./FrameSizeUi";
 import { formatSize, placeNewFrame } from "./size-presets";
 import { NoteIntentIcon } from "./NoteSurface";
 import {
@@ -1523,12 +1522,14 @@ export function DesignCanvas({
 			return current?.frameId === frameId ? null : current;
 		});
 	}, []);
-	const [sizeOpen, setSizeOpen] = useState(false);
-	// 菜单换了主人（取消选中 / 改选别的 frame）尺寸浮层就收起，免得它带着上一个 frame 的数据留在原地。
-	// biome-ignore lint/correctness/useExhaustiveDependencies: 只在 menuFrameId 变化时收起
+	/**
+	 * 「改尺寸」模式：Frame Menu 的尺寸胶囊把 Frame 工具切出来、底部面板弹起，这里记着改的是哪个
+	 * frame。面板里选预设就改它而不是新建——新建和修改走同一块面板。离开 Frame 工具即退出。
+	 */
+	const [sizeTargetId, setSizeTargetId] = useState<string | null>(null);
 	useEffect(() => {
-		setSizeOpen(false);
-	}, [menuFrameId]);
+		if (tool !== "frame") setSizeTargetId(null);
+	}, [tool]);
 	const askMode = resolveAskMode(blockedReason);
 	const askInMenu = askActive && selection?.kind === "frames";
 	const expandAction = menuFrameId === null ? null : expandActionOf(menuFrameId);
@@ -1552,10 +1553,7 @@ export function DesignCanvas({
 				// 空闲：说清它要改的是哪个画框；忙：说清落下的是备注、不会打断它。
 				caption: askMode === "ask" ? t("canvas.frameMenu.askCaption", { name }) : t("canvas.ask.note.hint"),
 				active: askOpen,
-				onSelect: () => {
-					setSizeOpen(false);
-					setAskOpen((open) => !open);
-				},
+				onSelect: () => setAskOpen((open) => !open),
 			});
 		}
 		const sizeFrame = storedManifest.frames.find((entry) => entry.id === menuFrameId);
@@ -1565,10 +1563,15 @@ export function DesignCanvas({
 				icon: sizeIcon,
 				label: formatSize(sizeFrame),
 				hint: t("canvas.frameMenu.sizeHint"),
-				active: sizeOpen,
+				active: tool === "frame" && sizeTargetId === menuFrameId,
 				onSelect: () => {
 					setAskOpen(false);
-					setSizeOpen((open) => !open);
+					if (tool === "frame" && sizeTargetId === menuFrameId) {
+						setTool("select");
+						return;
+					}
+					setSizeTargetId(menuFrameId);
+					setTool("frame");
 				},
 			});
 		}
@@ -1582,7 +1585,13 @@ export function DesignCanvas({
 			});
 		}
 		return items;
-	}, [menuFrameId, askInMenu, askMode, askOpen, sizeOpen, storedManifest.frames, expandAction, toggleExpanded, t]);
+	}, [menuFrameId, askInMenu, askMode, askOpen, tool, sizeTargetId, storedManifest.frames, expandAction, toggleExpanded, t]);
+
+	const sizeTargetFrame =
+		sizeTargetId === null ? null : (storedManifest.frames.find((entry) => entry.id === sizeTargetId) ?? null);
+	const sizeTarget = sizeTargetFrame
+		? { name: sizeTargetFrame.title || sizeTargetFrame.id, size: { width: sizeTargetFrame.width, height: sizeTargetFrame.height } }
+		: null;
 
 	/** 改选中 frame 的尺寸：左上角不动，展开态一并收起（展开高度对新尺寸已经没有意义）。 */
 	const applySize = useCallback(
@@ -1594,7 +1603,8 @@ export function DesignCanvas({
 			session.updateFramePlacement(frameId, { ...size, radius });
 			// 位图是按旧尺寸截的，不重截就是被拉伸的糊图。
 			invalidateRaster(frameId);
-			setSizeOpen(false);
+			// 改完回到选择工具，面板收起，Frame 仍选中。
+			setTool("select");
 		},
 		[session, invalidateRaster],
 	);
@@ -1743,15 +1753,6 @@ export function DesignCanvas({
 					onSubmitted={handleAskSubmitted}
 					frameMenuSlot={menuSlot !== null && menuSlot.frameId === menuFrameId ? menuSlot.element : null}
 				/>
-				{sizeOpen && menuFrameId !== null && menuSlot !== null && menuSlot.frameId === menuFrameId
-					? createPortal(
-							<FrameSizeMenu
-								current={storedManifest.frames.find((entry) => entry.id === menuFrameId) ?? { width: 0, height: 0 }}
-								onPick={(size, radius) => applySize(menuFrameId, size, radius)}
-							/>,
-							menuSlot.element,
-						)
-					: null}
 				{/* 整理工具条与 gap 手柄：多选且不在拖动/缩放中才出，免得跟正在进行的操作抢指针。 */}
 				{arrangeActive && arrangeBounds ? (
 					<>
@@ -1926,9 +1927,15 @@ export function DesignCanvas({
 				/>
 			) : null}
 
-			{/* 底部面板：选中 Frame 工具时从底部伸起，列出常见设备 / 纸张尺寸，点一下就在视口中心新建。 */}
+			{/* 底部面板：选中 Frame 工具时从底部伸起，列出常见设备 / 纸张尺寸。
+			    新建模式点一下在视口中心新建；改尺寸模式（从 Frame Menu 进来）点一下改选中的那个 frame。 */}
 			<BottomPanel open={tool === "frame"} label={t("canvas.size.panelLabel")}>
-				<FrameSizePanel onCreate={createFromPreset} />
+				<FrameSizePanel
+					target={sizeTarget}
+					onPick={(size, radius) =>
+						sizeTargetId !== null ? applySize(sizeTargetId, size, radius) : createFromPreset(size, radius)
+					}
+				/>
 			</BottomPanel>
 
 			<ControlBar

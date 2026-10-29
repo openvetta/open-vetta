@@ -1,6 +1,6 @@
 /**
  * 预设尺寸：数据本身站得住（无重复、尺寸为正）、iPad 横竖屏对调、新建落点避开已有 frame；
- * 以及两处入口——Frame Menu 的尺寸浮层（改已有 frame）和底部面板（新建）的交互。
+ * 以及底部面板的交互：新建和（从 Frame Menu 进来的）改尺寸共用这一块面板。
  */
 import { expect, it, vi } from "vitest";
 
@@ -11,7 +11,7 @@ vi.mock("@vetta-org/plugin-sdk", () => ({
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { BottomPanel } from "../src/canvas/BottomPanel";
-import { FrameSizeMenu, FrameSizePanel } from "../src/canvas/FrameSizeUi";
+import { FrameSizePanel } from "../src/canvas/FrameSizeUi";
 import { formatSize, placeNewFrame, presetSize, SIZE_CATEGORIES } from "../src/canvas/size-presets";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -82,52 +82,9 @@ it("places a new frame at the viewport center unless a frame is in the way", () 
 	expect(placeNewFrame(size, { x: 500, y: 500 }, blocking, 80)).toEqual({ x: 780, y: 350 });
 });
 
-it("size menu lists presets with pixel sizes and applies the picked one", () => {
-	const picked: Array<{ width: number; height: number; radius: number }> = [];
-	const view = mount(
-		<FrameSizeMenu current={{ width: 393, height: 852 }} onPick={(size, radius) => picked.push({ ...size, radius })} />,
-	);
-	// 当前尺寸是 iPhone 17，所以默认展开 Phone，右侧每行都标着像素。
-	const rows = [...view.host.querySelectorAll<HTMLButtonElement>("[role='menu'] [role='menu'] [role='menuitem']")];
-	expect(rows[0]?.textContent).toContain("iPhone 17 Pro Max");
-	expect(rows[0]?.textContent).toContain("440 × 956");
-
-	const categories = [...view.host.querySelectorAll<HTMLButtonElement>("[aria-haspopup='menu']")];
-	expect(categories.map((button) => button.textContent)).toEqual([
-		"canvas.size.category.phone",
-		"canvas.size.category.desktop",
-		"canvas.size.category.watch",
-		"canvas.size.category.paper",
-		"canvas.size.category.ipad",
-	]);
-	act(() => categories[2]?.click());
-	const watchRows = [...view.host.querySelectorAll<HTMLButtonElement>("[role='menu'] [role='menu'] [role='menuitem']")];
-	act(() => watchRows[1]?.click());
-	expect(picked).toEqual([{ width: 208, height: 248, radius: 42 }]);
-	view.cleanup();
-});
-
-it("size menu offers portrait / landscape for iPad", () => {
-	const picked: Array<{ width: number; height: number; radius: number }> = [];
-	const view = mount(
-		<FrameSizeMenu current={{ width: 1, height: 1 }} onPick={(size, radius) => picked.push({ ...size, radius })} />,
-	);
-	const ipad = [...view.host.querySelectorAll<HTMLButtonElement>("[aria-haspopup='menu']")][4];
-	act(() => ipad?.click());
-	const landscape = [...view.host.querySelectorAll<HTMLButtonElement>("button[aria-pressed]")].find((button) =>
-		button.textContent?.includes("landscape"),
-	);
-	act(() => landscape?.click());
-	const first = view.host.querySelector<HTMLButtonElement>("[role='menu'] [role='menu'] [role='menuitem']");
-	expect(first?.textContent).toContain("1376 × 1032");
-	act(() => first?.click());
-	expect(picked).toEqual([{ width: 1376, height: 1032, radius: 18 }]);
-	view.cleanup();
-});
-
 it("bottom panel tabs switch category and a card click creates that size", () => {
 	const created: Array<{ width: number; height: number; radius: number }> = [];
-	const view = mount(<FrameSizePanel onCreate={(size, radius) => created.push({ ...size, radius })} />);
+	const view = mount(<FrameSizePanel target={null} onPick={(size, radius) => created.push({ ...size, radius })} />);
 	const tabs = [...view.host.querySelectorAll<HTMLButtonElement>("[role='tab']")];
 	expect(tabs).toHaveLength(5);
 	expect(tabs[0]?.getAttribute("aria-selected")).toBe("true");
@@ -164,4 +121,25 @@ it("bottom panel is inert while closed and interactive when open", () => {
 	);
 	expect((open.host.querySelector("section") as HTMLElement).inert).toBe(false);
 	open.cleanup();
+});
+
+it("resize mode jumps to the frame's category, marks the matching card and says which frame it edits", () => {
+	const picked: Array<{ width: number; height: number; radius: number }> = [];
+	const view = mount(
+		<FrameSizePanel
+			target={{ name: "登录页", size: { width: 1376, height: 1032 } }}
+			onPick={(size, radius) => picked.push({ ...size, radius })}
+		/>,
+	);
+	// 1376 × 1032 是横着的 iPad Pro 13"：翻到 iPad 分类、切到横屏。
+	const tabs = [...view.host.querySelectorAll<HTMLButtonElement>("[role='tab']")];
+	expect(tabs[4]?.getAttribute("aria-selected")).toBe("true");
+	expect(view.host.textContent).toContain("canvas.size.panelHintResize");
+	const cards = [...view.host.querySelectorAll<HTMLButtonElement>("[role='tabpanel'] button")];
+	const current = cards.filter((card) => card.className.includes("bg-primary/10"));
+	expect(current).toHaveLength(1);
+	expect(current[0]?.textContent).toContain("1376 × 1032");
+	act(() => cards[1]?.click());
+	expect(picked).toEqual([{ width: 1210, height: 834, radius: 18 }]);
+	view.cleanup();
 });
