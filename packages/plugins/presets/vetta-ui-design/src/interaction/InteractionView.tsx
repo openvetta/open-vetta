@@ -1,12 +1,13 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
-import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { homeFrameId, pathOfFrame } from "../../engine/src/routes";
 import { getPluginCtx, notify } from "../plugin-context";
 import { effectiveInteractionMode, type InteractionMode } from "../vetd/interaction-mode";
 import type { DesignSession } from "../vetd/design-session";
-import { frameUrl } from "../vetd/frame-url";
 import { frameRadius } from "../vetd/manifest-types";
 import { InteractionToolbar } from "./InteractionToolbar";
+import { PhoneShell } from "./PhoneShell";
+import { PHONE_PRESETS, phoneShellKind, shellKindOfPreset, shellOuterSize } from "./phone-shell";
 import { useNavBridge } from "./nav-bridge";
 import { fitScale, parseCssColor, themeStageBackground, veilColor } from "./stage";
 
@@ -72,7 +73,7 @@ function useVeil(session: DesignSession, revision: number, stageRef: React.RefOb
 		update();
 		// 宿主切换亮 / 暗主题时背景变量会变，夹层要跟着换。
 		const observer = new MutationObserver(update);
-		observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style", "data-theme"] });
+		observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style", "data-theme", "data-mode"] });
 		return () => observer.disconnect();
 	}, [themeBackground, stageRef]);
 
@@ -90,7 +91,9 @@ export function InteractionView({ port, session, active, titleSlot }: Interactio
 	const { t } = useTranslation();
 	const revision = useSessionRevision(session);
 	const iframeRef = useRef<HTMLIFrameElement | null>(null);
-	const { nav, navigateTo, go, reload } = useNavBridge(iframeRef);
+	const { nav, navigateTo, go, reload, configure } = useNavBridge(iframeRef);
+	/** 手机机型：只在本次会话里生效，不写进设计稿（设计稿的真实尺寸才是依据）。 */
+	const [deviceId, setDeviceId] = useState<string | null>(null);
 	const [stageRef, stage] = useStageSize();
 	const { themeBackground, veil } = useVeil(session, revision, stageRef);
 
@@ -100,13 +103,36 @@ export function InteractionView({ port, session, active, titleSlot }: Interactio
 	const home = frames.find((frame) => frame.id === homeId) ?? null;
 	const mode: InteractionMode = effectiveInteractionMode(session.manifest, home);
 
-	/** iframe 的 src 只算一次：之后的换页走客户端路由，重设 src 会整页重载。 */
-	const initialUrlRef = useRef(homeId ? frameUrl(port, homeId) : null);
+	/**
+	 * iframe 的 src 不能随换页变：换页走客户端路由，重设 src 会整页重载。它只在设备类别
+	 * 切换（外壳换了一棵树，iframe 必然重挂）时按当前路径重算，这样切换后停在原页面。
+	 */
+	const pathRef = useRef("/");
+	pathRef.current = nav?.path ?? pathRef.current;
+	const mobile = mode === "mobile";
+	const hasFrames = homeId !== null;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: 只在 mobile 变化时重算，路径读 ref
+	const src = useMemo(() => (hasFrames ? `http://127.0.0.1:${port}${pathRef.current}` : null), [hasFrames, port, mobile]);
 
-	const viewport = home ? { width: home.width, height: home.height } : { width: 390, height: 844 };
-	const radius = home ? frameRadius(home) : 0;
-	const outer = { width: viewport.width + BARE_BORDER * 2, height: viewport.height + BARE_BORDER * 2 };
+	const devicePreset = mobile ? (PHONE_PRESETS.find((preset) => preset.id === deviceId) ?? null) : null;
+	const viewport = devicePreset
+		? { width: devicePreset.width, height: devicePreset.height }
+		: home
+			? { width: home.width, height: home.height }
+			: { width: 390, height: 844 };
+	const radius = devicePreset ? (devicePreset.radius ?? 0) : home ? frameRadius(home) : 0;
+	const shellKind = devicePreset ? shellKindOfPreset(devicePreset) : phoneShellKind(viewport, session.manifest.statusBar);
+	const outer = mobile
+		? shellOuterSize(shellKind, viewport)
+		: { width: viewport.width + BARE_BORDER * 2, height: viewport.height + BARE_BORDER * 2 };
 	const scale = stage.width > 0 ? fitScale(stage, outer) : 1;
+
+	// 页面重载（刷新、整页 HMR）后配置会丢，所以每次导航回报时再发一遍；发送是幂等的。
+	const pathKey = nav?.path;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: pathKey 只是重发的触发器
+	useEffect(() => {
+		configure({ touch: mobile, hideStatusBar: mobile });
+	}, [configure, mobile, pathKey]);
 
 	const currentFrameId = nav ? nav.frameId : homeId;
 	const path = nav?.path ?? "/";
@@ -118,6 +144,17 @@ export function InteractionView({ port, session, active, titleSlot }: Interactio
 			.then(() => notify({ message: t("interaction.openExternal.hint"), durationMs: 6000 }))
 			.catch((error: unknown) => notify({ message: t("interaction.openExternal.failed"), error }));
 	}, [port, path, t]);
+
+	const frameElement = (
+		<iframe
+			ref={iframeRef}
+			title={t("interaction.title")}
+			src={src ?? undefined}
+			className="block border-0"
+			style={{ width: viewport.width, height: viewport.height }}
+			onLoad={() => configure({ touch: mobile, hideStatusBar: mobile })}
+		/>
+	);
 
 	return (
 		<div
@@ -135,6 +172,8 @@ export function InteractionView({ port, session, active, titleSlot }: Interactio
 						frames={frames}
 						currentFrameId={currentFrameId}
 						mode={mode}
+						deviceId={deviceId}
+						onPickDevice={setDeviceId}
 						onBack={() => go(-1)}
 						onForward={() => go(1)}
 						onReload={reload}
@@ -152,7 +191,7 @@ export function InteractionView({ port, session, active, titleSlot }: Interactio
 			>
 				{/* 灰色夹层：夹在底色与设备 / 画框之间，把两者分开。 */}
 				<div className="absolute inset-0" style={{ backgroundColor: veil }} />
-				{initialUrlRef.current ? (
+				{src ? (
 					<div
 						className="absolute"
 						style={{
@@ -162,28 +201,30 @@ export function InteractionView({ port, session, active, titleSlot }: Interactio
 							top: Math.max(0, (stage.height - outer.height * scale) / 2),
 						}}
 					>
-						<div
-							className="text-foreground"
-							style={{
-								width: outer.width,
-								height: outer.height,
-								transform: `scale(${scale})`,
-								transformOrigin: "0 0",
-								boxSizing: "border-box",
-								border: `${BARE_BORDER}px solid color-mix(in srgb, currentColor 22%, transparent)`,
-								borderRadius: radius + BARE_BORDER,
-								overflow: "hidden",
-								backgroundColor: "#fff",
-							}}
-						>
-							<iframe
-								ref={iframeRef}
-								title={t("interaction.title")}
-								src={initialUrlRef.current}
-								className="block border-0"
-								style={{ width: viewport.width, height: viewport.height }}
-							/>
-						</div>
+						{mobile ? (
+							<div style={{ width: outer.width, height: outer.height, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
+								<PhoneShell kind={shellKind} viewport={viewport} radius={radius}>
+									{frameElement}
+								</PhoneShell>
+							</div>
+						) : (
+							<div
+								className="text-foreground"
+								style={{
+									width: outer.width,
+									height: outer.height,
+									transform: `scale(${scale})`,
+									transformOrigin: "0 0",
+									boxSizing: "border-box",
+									border: `${BARE_BORDER}px solid color-mix(in srgb, currentColor 22%, transparent)`,
+									borderRadius: radius + BARE_BORDER,
+									overflow: "hidden",
+									backgroundColor: "#fff",
+								}}
+							>
+								{frameElement}
+							</div>
+						)}
 					</div>
 				) : (
 					<div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">

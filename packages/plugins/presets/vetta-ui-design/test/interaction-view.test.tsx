@@ -73,9 +73,9 @@ describe("InteractionView", () => {
 		expect(iframe?.style.height).toBe("900px");
 	});
 
-	it("没有 index 回落到字典序第一帧，没有画框不起 iframe", async () => {
-		await render(fakeSession({ frames: [frame("b", 390, 844), frame("a", 390, 844)] }).session);
-		expect(host.querySelector("iframe")?.getAttribute("src")).toBe("http://127.0.0.1:5173/a");
+	it("没有 index 时首页回落到字典序第一帧（视口尺寸取它），没有画框不起 iframe", async () => {
+		await render(fakeSession({ frames: [frame("b", 390, 844), frame("a", 1280, 800)] }).session);
+		expect((host.querySelector("iframe") as HTMLElement).style.width).toBe("1280px");
 		await render(fakeSession({ frames: [] }).session);
 		expect(host.querySelector("iframe")).toBeNull();
 	});

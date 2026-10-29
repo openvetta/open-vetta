@@ -3,6 +3,8 @@
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
+/* 交互模式的手机外壳（MIT，见 devices.css/LICENSE）。 */
+@import "devices.css/dist/devices.min.css";
 
 /* 插件 CSS 被构建包进以插件根为界的 @scope，宿主 <html data-mode="dark"> 在作用域之外，
    任何祖先选择器（含 Tailwind dark: 变体）都匹配不到。明暗只能靠继承下来的宿主 CSS 变量，

@@ -370,5 +370,7 @@
 	"interaction.empty": "No frames to interact with yet",
 	"interaction.toggle.design": "Design",
 	"interaction.toggle.interaction": "Interact",
-	"interaction.toggle.label": "Design / interaction mode"
+	"interaction.toggle.label": "Design / interaction mode",
+	"interaction.device": "Phone model",
+	"interaction.device.follow": "Match design"
 }

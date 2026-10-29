@@ -1,6 +1,7 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
 import type { JSX } from "react";
 import { INTERACTION_MODES, type InteractionMode } from "../vetd/interaction-mode";
+import { PHONE_PRESETS } from "./phone-shell";
 
 interface InteractionToolbarProps {
 	path: string;
@@ -9,6 +10,9 @@ interface InteractionToolbarProps {
 	frames: readonly { id: string; title: string }[];
 	currentFrameId: string | null;
 	mode: InteractionMode;
+	/** 手机机型：null 跟随设计稿。只在移动端显示下拉。 */
+	deviceId: string | null;
+	onPickDevice(id: string | null): void;
 	onBack(): void;
 	onForward(): void;
 	onReload(): void;
@@ -67,6 +71,8 @@ export function InteractionToolbar({
 	frames,
 	currentFrameId,
 	mode,
+	deviceId,
+	onPickDevice,
 	onBack,
 	onForward,
 	onReload,
@@ -110,6 +116,22 @@ export function InteractionToolbar({
 					</option>
 				))}
 			</select>
+			{mode === "mobile" ? (
+				<select
+					value={deviceId ?? ""}
+					onChange={(event) => onPickDevice(event.target.value || null)}
+					title={t("interaction.device")}
+					aria-label={t("interaction.device")}
+					className="min-w-14 max-w-32 truncate rounded-lg border-none bg-muted px-1.5 py-1 text-xs text-foreground outline-none focus:outline-none"
+				>
+					<option value="">{t("interaction.device.follow")}</option>
+					{PHONE_PRESETS.map((preset) => (
+						<option key={preset.id} value={preset.id}>
+							{preset.name}
+						</option>
+					))}
+				</select>
+			) : null}
 			<div className="flex shrink-0 items-center rounded-lg bg-muted p-0.5" role="radiogroup" aria-label={t("interaction.deviceType")}>
 				{INTERACTION_MODES.map((entry) => (
 					// biome-ignore lint/a11y/useSemanticElements: segmented control, not a form field

@@ -370,5 +370,7 @@
 	"interaction.empty": "还没有画框可以交互",
 	"interaction.toggle.design": "设计",
 	"interaction.toggle.interaction": "交互",
-	"interaction.toggle.label": "设计 / 交互模式"
+	"interaction.toggle.label": "设计 / 交互模式",
+	"interaction.device": "手机机型",
+	"interaction.device.follow": "跟随设计稿"
 }

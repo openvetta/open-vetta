@@ -7,13 +7,14 @@
  *
  * Message contract (both directions carry `{ vetd: true }`):
  *   parent → iframe: set-mode | show-frame | navigate | reload | clear-selection | capture
- *                    | resolve-element
+ *                    | resolve-element | interaction-config
  *   iframe → parent: ready | rendered | selected | exit-inspect | captured | hmr-updated
  *                    | frame-error | context-menu | navigated | wheel | space | element-resolved
  *                    | storage
  */
 import { toJpeg, toPng } from "html-to-image";
 import { pathOfFrame } from "./routes";
+import { setTouchMode } from "./touch";
 import { watchLocalStorage } from "./storage-sync";
 
 type InspectMode = "off" | "inspect";
@@ -541,6 +542,13 @@ export function installBridge(host: BridgeHost): void {
 			// 导出快照走 srcdoc（没有 URL 可以拼），选帧只能靠这条消息。
 			case "show-frame":
 				if (typeof data.id === "string") go(pathOfFrame(data.id));
+				return;
+			// 交互模式的外壳配置：手机要触摸手势，外壳自带灵动岛 / 刘海，设计稿自己的状态栏
+			// 就隐藏（visibility 而不是卸载，留着它占的安全区高度，布局不跳）。
+			case "interaction-config":
+				setTouchMode(data.touch === true);
+				if (data.hideStatusBar === true) document.documentElement.setAttribute("data-vetd-hide-status-bar", "");
+				else document.documentElement.removeAttribute("data-vetd-hide-status-bar");
 				return;
 			case "navigate":
 				if (typeof data.to === "string") go(data.to);

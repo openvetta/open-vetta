@@ -29,3 +29,8 @@ body {
 	height: 0;
 	display: none;
 }
+
+/* 交互模式的手机外壳自带灵动岛 / 刘海：隐藏设计稿的状态栏，但保留它占的安全区高度。 */
+html[data-vetd-hide-status-bar] [data-vetd-status-bar] {
+	visibility: hidden;
+}

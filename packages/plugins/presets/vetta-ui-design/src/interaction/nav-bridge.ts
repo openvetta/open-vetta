@@ -24,6 +24,8 @@ export interface NavBridge {
 	go(delta: number): void;
 	/** 整页重载——帧内 state 一起清掉，客户端路由做不到这件事。 */
 	reload(): void;
+	/** 告诉页面外壳配置：手机要触摸手势，外壳自带灵动岛 / 刘海所以隐藏设计稿状态栏。 */
+	configure(config: { touch: boolean; hideStatusBar: boolean }): void;
 }
 
 export function useNavBridge(iframeRef: RefObject<HTMLIFrameElement | null>): NavBridge {
@@ -57,5 +59,10 @@ export function useNavBridge(iframeRef: RefObject<HTMLIFrameElement | null>): Na
 	const go = useCallback((delta: number): void => post({ type: "navigate", delta }), [post]);
 	const reload = useCallback((): void => post({ type: "reload" }), [post]);
 
-	return { nav, navigateTo, go, reload };
+	const configure = useCallback(
+		(config: { touch: boolean; hideStatusBar: boolean }): void => post({ type: "interaction-config", ...config }),
+		[post],
+	);
+
+	return { nav, navigateTo, go, reload, configure };
 }
