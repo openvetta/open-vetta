@@ -37,7 +37,7 @@ function Item({ selected, onClick, children }: { selected: boolean; onClick(): v
 
 /**
  * 设备类型 + 手机机型合在一个浮层里：类型三选一，选了移动端才多出机型一栏。
- * 配色跟舞台底色走（--vetd-popover / --vetd-border），设计模式下没有这些变量时回落宿主色。
+ * 配色完全走宿主主题（bg-card / text-foreground）：浮层是盖在舞台上的一层，不该再沿用舞台底色。
  */
 export function DevicePopover({ mode, deviceId, boundaryRef, onPickMode, onPickDevice, onClose }: DevicePopoverProps) {
 	const { t } = useTranslation();
@@ -64,9 +64,9 @@ export function DevicePopover({ mode, deviceId, boundaryRef, onPickMode, onPickD
 		<div
 			role="menu"
 			aria-label={t("interaction.deviceMenu")}
-			className="absolute right-0 top-full z-50 mt-1.5 w-48 rounded-xl border border-[color:var(--vetd-border,var(--border))] bg-[var(--vetd-popover,var(--card))] p-1.5 text-[color:var(--vetd-ink,var(--foreground))] shadow-lg"
+			className="absolute right-0 top-full z-50 mt-1.5 w-48 rounded-xl border border-border bg-card p-1.5 text-foreground shadow-lg"
 		>
-			<div className="px-2 pb-1 pt-0.5 text-[11px] text-[color:var(--vetd-ink-soft,var(--muted-foreground))]">
+			<div className="px-2 pb-1 pt-0.5 text-[11px] text-muted-foreground">
 				{t("interaction.deviceType")}
 			</div>
 			{INTERACTION_MODES.map((entry) => (
@@ -84,8 +84,8 @@ export function DevicePopover({ mode, deviceId, boundaryRef, onPickMode, onPickD
 			))}
 			{mode === "mobile" ? (
 				<>
-					<div className="mx-1 my-1.5 h-px bg-[color:var(--vetd-border,var(--border))]" />
-					<div className="px-2 pb-1 text-[11px] text-[color:var(--vetd-ink-soft,var(--muted-foreground))]">
+					<div className="mx-1 my-1.5 h-px bg-border" />
+					<div className="px-2 pb-1 text-[11px] text-muted-foreground">
 						{t("interaction.device")}
 					</div>
 					<div className="max-h-52 overflow-y-auto">
