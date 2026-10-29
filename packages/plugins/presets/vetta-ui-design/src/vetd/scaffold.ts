@@ -85,11 +85,25 @@ export function sanitizeDesignName(raw: string): string {
 }
 
 /** Frame source template used by the canvas "Frame" tool (drag-to-create). */
-export function blankFrameSource(title: string, width: number, height: number): string {
+/** 新画框的底色按这个顺序在 theme.css 里找：靠前的更像「页面背景」。 */
+const BACKGROUND_TOKEN_CANDIDATES = ["background", "bg", "surface", "base", "canvas"];
+
+/**
+ * 新画框用的底色 class：用当前色卡的背景色，色卡里没有（或还是脚手架的占位灰）就纯白。
+ * 占位灰不是用户的配色，拿它当底色只会让每个新画框都灰着出生。
+ */
+export function blankFrameBackground(themeCss: string | null): string {
+	if (!themeCss || themeCss.includes(PLACEHOLDER_THEME_MARK)) return "bg-white";
+	const declared = new Set([...themeCss.matchAll(/--color-([a-z][a-z0-9-]*)\s*:/g)].map((match) => match[1]));
+	const token = BACKGROUND_TOKEN_CANDIDATES.find((name) => declared.has(name));
+	return token ? `bg-${token}` : "bg-white";
+}
+
+export function blankFrameSource(title: string, width: number, height: number, background = "bg-white"): string {
 	return `export const frame = { width: ${width}, height: ${height}, title: "${title}" };
 
 export default function Frame() {
-	return <div className="h-full bg-surface" />;
+	return <div className="h-full ${background}" />;
 }
 `;
 }

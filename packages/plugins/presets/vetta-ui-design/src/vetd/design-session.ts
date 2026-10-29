@@ -11,7 +11,7 @@ import {
 	type VetdFrameEntry,
 	type VetdManifest,
 } from "./manifest-types";
-import { blankFrameSource } from "./scaffold";
+import { blankFrameBackground, blankFrameSource } from "./scaffold";
 
 export const FRAME_GAP = 80;
 const RECONCILE_DEBOUNCE_MS = 150;
@@ -355,7 +355,11 @@ export class DesignSession {
 			id = `frame-${index}`;
 		}
 		this.pendingPlacements.set(id, { x, y });
-		await this.ctx.fs.writeFile(`${this.dirPath}/frames/${id}.tsx`, blankFrameSource(title, width, height));
+		const background = blankFrameBackground(await this.readThemeCss());
+		await this.ctx.fs.writeFile(
+			`${this.dirPath}/frames/${id}.tsx`,
+			blankFrameSource(title, width, height, background),
+		);
 		await this.reconcile();
 		return id;
 	}
