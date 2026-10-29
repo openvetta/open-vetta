@@ -76,6 +76,7 @@ function renderFrame(
 				onDragStart={() => {}}
 				onDragDelta={() => {}}
 				onDragEnd={() => {}}
+				onRadiusCommit={() => {}}
 			/>,
 		);
 	});
@@ -193,10 +194,11 @@ it("renders the core action as a two-line hero capsule with its caption", () => 
 	cleanup();
 });
 
-it("rounds the frame's four corners by 12px without painting a background", () => {
+it("rounds the frame's four corners by 12px by default without painting a background", () => {
 	const { host, cleanup } = renderFrame(false, true);
 	const surface = host.querySelector<HTMLElement>("[data-vetd-frame] > div.relative");
-	expect(surface?.className).toContain("rounded-[12px]");
+	// 圆角走 inline style（可在画布上调），没设过就是 12px。
+	expect(surface?.style.borderRadius).toBe("12px");
 	// 底色会在缩放到非整数像素时透出一圈亮边，不能带回来。
 	expect(surface?.className).not.toMatch(/\bbg-/);
 	cleanup();
