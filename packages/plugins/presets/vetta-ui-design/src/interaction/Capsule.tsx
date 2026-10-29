@@ -9,20 +9,36 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 export const CAPSULE_CLASS =
 	"flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[color:var(--vetd-line,var(--border))] bg-[var(--vetd-pill,var(--popover))] text-xs font-medium text-[color:var(--vetd-ink,var(--foreground))] transition-colors";
 
+/**
+ * 合进一个大胶囊里的按钮：没有自己的边框和底色，只在悬停时高亮。
+ * 一组连续的动作（后退 / 前进 / 刷新 / 首页）要看起来是一个整体，不要一颗一颗地分开。
+ */
+export const PLAIN_CLASS =
+	"flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-full text-xs font-medium text-[color:var(--vetd-ink,var(--foreground))] transition-colors";
+
+/** 悬停高亮：取当前文字色的一小撮，亮暗底都适用。 */
+const PLAIN_HOVER = "hover:bg-[color-mix(in_srgb,currentColor_10%,transparent)]";
+
 interface CapsuleButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "className"> {
 	label: string;
+	/** `plain`：用在大胶囊里面，不画自己的边框和底色。 */
+	variant?: "capsule" | "plain";
 	icon: ReactNode;
 	/** 只画图标（窄面板）：名字留在悬停提示和无障碍标签里。 */
 	iconOnly?: boolean;
 }
 
-export function CapsuleButton({ label, icon, iconOnly = false, title, ...rest }: CapsuleButtonProps) {
+export function CapsuleButton({ label, icon, iconOnly = false, variant = "capsule", title, ...rest }: CapsuleButtonProps) {
+	const className =
+		variant === "plain"
+			? `${PLAIN_CLASS} ${PLAIN_HOVER} disabled:opacity-40 disabled:hover:bg-transparent ${iconOnly ? "w-7" : "px-2.5"}`
+			: `${CAPSULE_CLASS} hover:opacity-80 disabled:opacity-40 disabled:hover:opacity-40 ${iconOnly ? "w-8" : "px-3"}`;
 	return (
 		<button
 			type="button"
 			title={title ?? label}
 			aria-label={label}
-			className={`${CAPSULE_CLASS} hover:opacity-80 disabled:opacity-40 disabled:hover:opacity-40 ${iconOnly ? "w-8" : "px-3"}`}
+			className={className}
 			{...rest}
 		>
 			<svg viewBox="0 0 24 24" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>

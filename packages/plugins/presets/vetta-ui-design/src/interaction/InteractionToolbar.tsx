@@ -1,7 +1,7 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
 import { type JSX, useRef, useState } from "react";
 import type { InteractionMode } from "../vetd/interaction-mode";
-import { CAPSULE_CLASS, CapsuleButton } from "./Capsule";
+import { CAPSULE_CLASS, CapsuleButton, PLAIN_CLASS } from "./Capsule";
 import { DevicePopover } from "./DevicePopover";
 
 interface InteractionToolbarProps {
@@ -86,15 +86,16 @@ export function InteractionToolbar({
 	return (
 		<>
 			{compact ? null : (
-				<div className="flex min-w-0 flex-1 basis-56 flex-wrap items-center gap-1.5">
-					<CapsuleButton label={t("interaction.back")} icon={icons.back} disabled={!canBack} onClick={onBack} />
-					<CapsuleButton label={t("interaction.forward")} icon={icons.forward} disabled={!canForward} onClick={onForward} />
-					<CapsuleButton label={t("interaction.reload")} icon={icons.reload} onClick={onReload} />
-					<CapsuleButton label={t("interaction.home")} icon={icons.home} onClick={onHome} />
-					<span className={`${CAPSULE_CLASS} min-w-0 max-w-40 shrink px-3 font-normal`} title={path}>
+				// 路由这一组是同一个胶囊：里面的按钮不各画边框，也没有分隔线。
+				<div className={`${CAPSULE_CLASS} min-w-0 shrink gap-0.5 px-1`}>
+					<CapsuleButton variant="plain" label={t("interaction.back")} icon={icons.back} disabled={!canBack} onClick={onBack} />
+					<CapsuleButton variant="plain" label={t("interaction.forward")} icon={icons.forward} disabled={!canForward} onClick={onForward} />
+					<CapsuleButton variant="plain" label={t("interaction.reload")} icon={icons.reload} onClick={onReload} />
+					<CapsuleButton variant="plain" label={t("interaction.home")} icon={icons.home} onClick={onHome} />
+					<span className={`${PLAIN_CLASS} min-w-0 max-w-40 shrink px-2.5 font-normal`} title={path}>
 						<span className="truncate">{path}</span>
 					</span>
-					<label className={`${CAPSULE_CLASS} min-w-0 max-w-48 shrink px-3`}>
+					<label className={`${PLAIN_CLASS} min-w-0 max-w-48 shrink px-2.5`}>
 						<span className="whitespace-nowrap">{t("interaction.pages")}</span>
 						<select
 							value={currentFrameId ?? ""}
