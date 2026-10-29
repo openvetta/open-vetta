@@ -1,6 +1,5 @@
 import type { FrameSize } from "../vetd/manifest-types";
 import { SIZE_CATEGORIES, type SizePreset } from "../vetd/size-presets";
-import type { StatusBarSetting } from "../vetd/status-bar";
 
 /**
  * 交互模式里的手机外壳，用 devices.css 画。它只有三种机身，我们的手机预设按特征归并：
@@ -38,18 +37,46 @@ export function matchPhonePreset(size: FrameSize): SizePreset | null {
 	return PHONE_PRESETS.find((preset) => preset.width === size.width && preset.height === size.height) ?? null;
 }
 
-/**
- * 当前该套哪种机身。对得上预设就按预设；对不上（自定义尺寸）时看设计声明的状态栏：
- * 声明了刘海就是刘海款，其余默认灵动岛。
- */
-export function phoneShellKind(size: FrameSize, statusBar: StatusBarSetting | undefined): PhoneShellKind {
-	const preset = matchPhonePreset(size);
-	if (preset) return shellKindOfPreset(preset);
-	return statusBar === "notch" ? "notch" : "island";
-}
-
 /** 外壳连屏幕的整体尺寸。 */
 export function shellOuterSize(kind: PhoneShellKind, viewport: FrameSize): FrameSize {
 	const { padding } = PHONE_SHELLS[kind];
 	return { width: viewport.width + padding.x * 2, height: viewport.height + padding.y * 2 };
+}
+
+/** 稿子没有设备信息（尺寸对不上任何手机预设）时套用的机型。 */
+export const DEFAULT_PHONE_PRESET_ID = "iphone-17-pro";
+
+export interface PhoneDevice {
+	viewport: FrameSize;
+	/** 屏幕圆角（px）。 */
+	radius: number;
+	kind: PhoneShellKind;
+}
+
+/**
+ * 移动端交互时实际用哪台设备。
+ *
+ * 用户在工具条里选了机型就用它。「跟随设计稿」时：尺寸正好是某个手机预设，就是那台
+ * （视口不变，圆角取稿子自己声明的，没声明取预设的——老稿子没有圆角字段，落到画布默认的
+ * 12px 套在大圆角机身里很难看）；对不上任何预设说明稿子没有设备信息，用 iPhone 17 Pro。
+ */
+export function resolvePhoneDevice(input: {
+	selectedId: string | null;
+	home: (FrameSize & { radius?: number }) | null;
+}): PhoneDevice {
+	const byId = (id: string | null): SizePreset | undefined => PHONE_PRESETS.find((preset) => preset.id === id);
+	const selected = byId(input.selectedId);
+	if (selected) {
+		return { viewport: { width: selected.width, height: selected.height }, radius: selected.radius ?? 0, kind: shellKindOfPreset(selected) };
+	}
+	const matched = input.home ? matchPhonePreset(input.home) : null;
+	if (matched && input.home) {
+		return {
+			viewport: { width: matched.width, height: matched.height },
+			radius: input.home.radius ?? matched.radius ?? 0,
+			kind: shellKindOfPreset(matched),
+		};
+	}
+	const fallback = byId(DEFAULT_PHONE_PRESET_ID) ?? PHONE_PRESETS[0];
+	return { viewport: { width: fallback.width, height: fallback.height }, radius: fallback.radius ?? 0, kind: shellKindOfPreset(fallback) };
 }

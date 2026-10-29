@@ -7,7 +7,7 @@ import type { DesignSession } from "../vetd/design-session";
 import { frameRadius } from "../vetd/manifest-types";
 import { InteractionToolbar } from "./InteractionToolbar";
 import { PhoneShell } from "./PhoneShell";
-import { PHONE_PRESETS, phoneShellKind, shellKindOfPreset, shellOuterSize } from "./phone-shell";
+import { resolvePhoneDevice, shellOuterSize } from "./phone-shell";
 import { useNavBridge } from "./nav-bridge";
 import { fitScale, parseCssColor, themeStageBackground, veilColor } from "./stage";
 
@@ -114,14 +114,15 @@ export function InteractionView({ port, session, active, titleSlot }: Interactio
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 只在 mobile 变化时重算，路径读 ref
 	const src = useMemo(() => (hasFrames ? `http://127.0.0.1:${port}${pathRef.current}` : null), [hasFrames, port, mobile]);
 
-	const devicePreset = mobile ? (PHONE_PRESETS.find((preset) => preset.id === deviceId) ?? null) : null;
-	const viewport = devicePreset
-		? { width: devicePreset.width, height: devicePreset.height }
+	// 移动端按设备走（可能与稿子尺寸不同）；桌面端和其他就是稿子本身的尺寸。
+	const phone = mobile ? resolvePhoneDevice({ selectedId: deviceId, home }) : null;
+	const viewport = phone
+		? phone.viewport
 		: home
 			? { width: home.width, height: home.height }
 			: { width: 390, height: 844 };
-	const radius = devicePreset ? (devicePreset.radius ?? 0) : home ? frameRadius(home) : 0;
-	const shellKind = devicePreset ? shellKindOfPreset(devicePreset) : phoneShellKind(viewport, session.manifest.statusBar);
+	const radius = phone ? phone.radius : home ? frameRadius(home) : 0;
+	const shellKind = phone?.kind ?? "island";
 	const outer = mobile
 		? shellOuterSize(shellKind, viewport)
 		: { width: viewport.width + BARE_BORDER * 2, height: viewport.height + BARE_BORDER * 2 };
