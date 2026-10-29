@@ -1,5 +1,6 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
 import { type CSSProperties, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CanvasDotGlow } from "../canvas/CanvasDotGlow";
 import { fitViewport, useViewport } from "../canvas/use-viewport";
 import type { VetdFrameEntry, VetdManifest } from "../vetd/manifest-types";
 
@@ -290,6 +291,7 @@ export function PreviewCanvas({ manifest, snapshotHtml }: PreviewCanvasProps) {
 			onPointerMove={(event) => view.panMove(event.pointerId, event.clientX, event.clientY)}
 			onPointerUp={(event) => view.endPan(event.pointerId)}
 		>
+			<CanvasDotGlow />
 			<div ref={worldRef} className="absolute left-0 top-0" style={worldStyle}>
 				{renderedFrames.map((frame) => (
 					<div

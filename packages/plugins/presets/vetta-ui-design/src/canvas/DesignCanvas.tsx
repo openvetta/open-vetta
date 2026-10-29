@@ -39,6 +39,7 @@ import {
 	type SelectedElementPayload,
 } from "./bridge-client";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { CanvasDotGlow } from "./CanvasDotGlow";
 import { ControlBar, type CanvasTool } from "./ControlBar";
 import {
 	clearFrameErrors,
@@ -1610,6 +1611,7 @@ export function DesignCanvas({
 			onPointerMove={onBackgroundPointerMove}
 			onPointerUp={onBackgroundPointerUp}
 		>
+			<CanvasDotGlow />
 			<div ref={worldRef} className="absolute left-0 top-0" style={worldStyle}>
 				{renderedFrames.map((frame) => (
 					<FrameView

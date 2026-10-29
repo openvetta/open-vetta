@@ -23,7 +23,7 @@
 	--color-primary-foreground: var(--primary-foreground);
 }
 
-/* 无限画布：纹理是一层低不透明度的点阵（每 14px 一个点，不随画布缩放）。
+/* 无限画布：纹理是一层很淡的点阵（每 10px 一个点，不随画布缩放）。
    底色不能取宿主背景色（--background）：画布外面就是它，两者一样就分不出画布的边界，
    白底的设计稿在浅色主题里也没有衬托。取 --secondary，明暗两套都比背景深/亮约 20 级，
    又不会抢设计稿的颜色。要换底色只改 --vetd-canvas 这一处。
@@ -33,11 +33,45 @@
 	/* 选中态固定用 Figma 蓝，刻意不跟随宿主主题色：主题色可能与设计稿本身的配色
 	   撞车，而「哪个 frame 被选中」必须在任何主题、任何设计稿上都一眼可辨。 */
 	--vetd-selected: #0d99ff;
-	--vetd-grid-dot: color-mix(in oklab, var(--foreground, #000) 16%, transparent);
+	--vetd-dot-pitch: 10px;
+	--vetd-grid-dot: color-mix(in oklab, var(--foreground, #000) 9%, transparent);
 	--vetd-canvas: var(--secondary, light-dark(#ebebeb, #262628));
 	background-color: var(--vetd-canvas);
-	background-image: radial-gradient(circle at center, var(--vetd-grid-dot) 1px, transparent 1.4px);
-	background-size: 14px 14px;
+	background-image: radial-gradient(circle at center, var(--vetd-grid-dot) 0.6px, transparent 1px);
+	background-size: var(--vetd-dot-pitch) var(--vetd-dot-pitch);
+}
+
+/* 指针附近的光晕（CanvasDotGlow）：同一张点阵再叠一层更亮的，用以指针为圆心的径向
+   渐变做遮罩。位置只靠两个 CSS 变量，没有 JS 动画；淡入淡出是 opacity 过渡。
+   点距、点的形状与底层完全一致，所以亮起来的就是底下那些点本身。 */
+.vetd-dot-glow {
+	--vetd-glow-x: 0px;
+	--vetd-glow-y: 0px;
+	--vetd-glow-on: 0;
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background-image: radial-gradient(
+		circle at center,
+		color-mix(in oklab, var(--foreground, #000) 60%, transparent) 0.6px,
+		transparent 1px
+	);
+	background-size: var(--vetd-dot-pitch) var(--vetd-dot-pitch);
+	-webkit-mask-image: radial-gradient(circle 150px at var(--vetd-glow-x) var(--vetd-glow-y), #000, transparent);
+	mask-image: radial-gradient(circle 150px at var(--vetd-glow-x) var(--vetd-glow-y), #000, transparent);
+	opacity: var(--vetd-glow-on);
+	transition: opacity 200ms ease-out;
+}
+
+/* 缩放/平移期间收起：每帧都在重绘，少一层少一份开销。 */
+.vetd-interacting .vetd-dot-glow {
+	opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.vetd-dot-glow {
+		transition: none;
+	}
 }
 
 /* 框选选框的填充（描边直接用工具类取 --vetd-selected） */
