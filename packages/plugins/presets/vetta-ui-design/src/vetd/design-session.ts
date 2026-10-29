@@ -3,6 +3,7 @@ import { isFrameFile } from "../../engine/src/routes";
 import { bootstrapHistory } from "../history/history-bootstrap";
 import { type ParsedFrameMeta, parseFrameMeta, sameMeta, sanitizeFrameTitle, withFrameTitle } from "./frame-meta";
 import { FALLBACK_FRAME_SIZE, resolveFrameSizes } from "./frame-size";
+import type { InteractionMode } from "./interaction-mode";
 import {
 	designNameOf,
 	emptyManifest,
@@ -448,6 +449,17 @@ export class DesignSession {
 			this.emit("frames");
 			void this.persist();
 		});
+	}
+
+	/**
+	 * 用户在交互模式工具条里改设备类别。不进撤销栈：它不是画布上的编辑，
+	 * 而且只影响交互模式怎么呈现，撤销键不该回滚它。
+	 */
+	setInteractionMode(mode: InteractionMode): void {
+		if (this.manifest.interactionMode === mode) return;
+		this.manifest = { ...this.manifest, interactionMode: mode };
+		this.emit("frames");
+		void this.persist();
 	}
 
 	saveViewport(viewport: VetdCanvasViewport): void {

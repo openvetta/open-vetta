@@ -10,7 +10,7 @@ import { exportDesign } from "../export/export-design";
 import { NotesStore } from "../notes/notes-store";
 import { useNotesVisibility } from "../notes/notes-visibility";
 import { getPluginCtx, notify } from "../plugin-context";
-import { PreviewDialog } from "../preview-mode/PreviewDialog";
+import { InteractionView } from "../interaction/InteractionView";
 import { DesignSession } from "../vetd/design-session";
 import { findVetdFiles } from "../vetd/discover";
 import { scaffoldDesign } from "../vetd/scaffold";
@@ -63,14 +63,27 @@ export function CanvasTab() {
 	const bridgeRef = useRef(new BridgeHub());
 	/** 画布挂载后填入，见 DesignCanvas 的 captureRef。 */
 	const captureRef = useRef<FrameCapture | null>(null);
-	/** 同上，问画布「此刻单独选中的是哪一帧」，预览按钮据此定位起始帧。 */
-	const previewTargetRef = useRef<(() => string | null) | null>(null);
-	/** 预览窗口打开在哪一帧上；null 表示没开。 */
-	const [previewFrameId, setPreviewFrameId] = useState<string | null>(null);
+	/**
+	 * 设计 / 交互。只存在内存里，换设计回到设计模式。交互视图首次进入才挂载（要起 iframe），
+	 * 之后常驻：路径、滚动位置和表单输入都留着，画布也一直挂着，切回来缩放平移选中原样。
+	 */
+	const [interacting, setInteracting] = useState(false);
+	const [interactionMounted, setInteractionMounted] = useState(false);
+	const enterInteraction = (): void => {
+		setInteractionMounted(true);
+		setInteracting(true);
+	};
 	/** 同 captureRef：vetd_notes 的锚点保鲜入口，画布挂载后填入。 */
 	const resolveNoteElementsRef = useRef<
 		((frameId: string, queries: ElementQuery[]) => Promise<(SelectedElementPayload | null)[]>) | null
 	>(null);
+
+	// 换设计：交互视图连同它的 iframe 一起丢掉，回到设计模式。
+	useEffect(() => {
+		void session;
+		setInteracting(false);
+		setInteractionMounted(false);
+	}, [session]);
 
 	// 画布很吃宽度：每次激活本标签卡（切走会卸载，故每次都触发）把活动面板拉满，
 	// 用户之后仍可自行拖窄。
@@ -248,15 +261,6 @@ export function CanvasTab() {
 		}
 	};
 
-	/** 选中哪帧就从哪帧开始预览；没选中则从画布顺序里的第一帧开始。 */
-	const openPreview = (): void => {
-		if (!session) return;
-		const selected = previewTargetRef.current?.() ?? null;
-		const first = [...session.manifest.frames].sort(byCanvasOrder)[0]?.id ?? null;
-		const target = selected ?? first;
-		if (target) setPreviewFrameId(target);
-	};
-
 	const runExport = async (): Promise<void> => {
 		if (!session || exporting) return;
 		setExporting(true);
@@ -338,6 +342,33 @@ export function CanvasTab() {
 					</option>
 				))}
 			</select>
+			{phase.kind === "ready" && session ? (
+				<div
+					className="flex h-7 shrink-0 items-center rounded-lg bg-muted p-0.5"
+					role="radiogroup"
+					aria-label={t("interaction.toggle.label")}
+				>
+					{(["design", "interaction"] as const).map((entry) => {
+						const selected = (entry === "interaction") === interacting;
+						return (
+							// biome-ignore lint/a11y/useSemanticElements: segmented control, not a form field
+							<button
+								key={entry}
+								type="button"
+								role="radio"
+								aria-checked={selected}
+								disabled={entry === "interaction" && session.manifest.frames.length === 0}
+								onClick={() => (entry === "interaction" ? enterInteraction() : setInteracting(false))}
+								className={`h-6 rounded-md px-2.5 text-xs font-medium transition-colors disabled:opacity-40 ${
+									selected ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+								}`}
+							>
+								{t(`interaction.toggle.${entry}`)}
+							</button>
+						);
+					})}
+				</div>
+			) : null}
 			{SHOW_EXPORT_SHARE ? (
 				<button
 					type="button"
@@ -400,24 +431,15 @@ export function CanvasTab() {
 							bridge={bridgeRef.current}
 							onEngineUnavailable={onEngineUnavailable}
 							captureRef={captureRef}
-							previewTargetRef={previewTargetRef}
-							previewing={previewFrameId !== null}
+							suspended={interacting}
 							resolveNoteElementsRef={resolveNoteElementsRef}
 							notesVisible={notesVisibility.visible}
 							showNotes={notesVisibility.show}
 							onToggleNotes={notesVisibility.toggle}
-							onRun={openPreview}
-							runDisabled={session.manifest.frames.length === 0}
 							titleSlot={titleSlot}
 						/>
-						{previewFrameId !== null ? (
-							<PreviewDialog
-								port={phase.port}
-								frames={session.manifest.frames}
-								vetdPath={session.vetdPath}
-								initialFrameId={previewFrameId}
-								onClose={() => setPreviewFrameId(null)}
-							/>
+						{interactionMounted ? (
+							<InteractionView port={phase.port} session={session} active={interacting} titleSlot={titleSlot} />
 						) : null}
 					</>
 				) : null}

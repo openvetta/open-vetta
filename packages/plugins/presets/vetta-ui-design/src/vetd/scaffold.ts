@@ -96,10 +96,15 @@ const BACKGROUND_TOKEN_CANDIDATES = ["background", "bg", "surface", "base", "can
  * 占位灰不是用户的配色，拿它当底色只会让每个新画框都灰着出生。
  */
 export function blankFrameBackground(themeCss: string | null): string {
-	if (!themeCss || themeCss.includes(PLACEHOLDER_THEME_MARK)) return "bg-white";
-	const declared = new Set([...themeCss.matchAll(/--color-([a-z][a-z0-9-]*)\s*:/g)].map((match) => match[1]));
-	const token = BACKGROUND_TOKEN_CANDIDATES.find((name) => declared.has(name));
+	const token = themeBackgroundToken(themeCss);
 	return token ? `bg-${token}` : "bg-white";
+}
+
+/** 色卡里「页面背景」那个 token 的名字；占位色卡或没有候选时为 null。 */
+export function themeBackgroundToken(themeCss: string | null): string | null {
+	if (!themeCss || themeCss.includes(PLACEHOLDER_THEME_MARK)) return null;
+	const declared = new Set([...themeCss.matchAll(/--color-([a-z][a-z0-9-]*)\s*:/g)].map((match) => match[1]));
+	return BACKGROUND_TOKEN_CANDIDATES.find((name) => declared.has(name)) ?? null;
 }
 
 export function blankFrameSource(

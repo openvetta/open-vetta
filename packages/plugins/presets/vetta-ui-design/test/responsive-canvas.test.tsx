@@ -115,28 +115,19 @@ const cornerProps = {
 	onExport: () => {},
 	materials: { selectedCount: 0, totalCount: 1, progress: null, onPick: () => {} },
 	onToggleHistory: () => {},
-	onRun: () => {},
-	runDisabled: false,
 };
 
-it("corner actions keep their labels in full, lose history/export text in icons, and lose run text in minimal", () => {
+it("corner actions keep their labels in full and lose history/export text in icons", () => {
 	const full = mount(<CanvasCornerActions {...cornerProps} density="full" />);
 	expect(full.host.textContent).toContain("controlbar.history");
 	expect(full.host.textContent).toContain("canvas.export.label");
-	expect(full.host.textContent).toContain("canvas.run");
 	full.cleanup();
 
 	const icons = mount(<CanvasCornerActions {...cornerProps} density="icons" />);
 	expect(icons.host.textContent).not.toContain("controlbar.history");
 	expect(icons.host.textContent).not.toContain("canvas.export.label");
-	expect(icons.host.textContent).toContain("canvas.run");
 	// 只剩图标时仍要有可读的名字。
 	expect(icons.host.querySelector("button[aria-label='controlbar.history']")).not.toBeNull();
 	expect(icons.host.querySelector("button[aria-label='canvas.export.label']")).not.toBeNull();
 	icons.cleanup();
-
-	const minimal = mount(<CanvasCornerActions {...cornerProps} density="minimal" />);
-	expect(minimal.host.textContent).not.toContain("canvas.run");
-	expect(minimal.host.querySelector("button[aria-label='canvas.run']")).not.toBeNull();
-	minimal.cleanup();
 });

@@ -117,15 +117,10 @@ interface DesignCanvasProps {
 	 */
 	captureRef: RefObject<FrameCapture | null>;
 	/**
-	 * 出口：预览按钮问「该预览哪一帧」。单独选中一个就是它，否则交给调用方回落
-	 * （画布顺序里的第一帧）。
+	 * 交互模式开着。画布还挂着但被盖住了：整体降为位图，没必要继续养 N 份活体
+	 * React 应用与 HMR 连接，也不响应选择、撤销这些画布编辑。
 	 */
-	previewTargetRef: RefObject<(() => string | null) | null>;
-	/**
-	 * 预览窗口开着。背后的画布整体降为位图——反正被盖住了，没必要继续养 N 份
-	 * 活体 React 应用与 HMR 连接。
-	 */
-	previewing: boolean;
+	suspended: boolean;
 	/**
 	 * 出口：vetd_notes 的锚点保鲜。拉活体后按 domPath/坐标逐条查元素，
 	 * 与 captureRef 同型（runLive 只存在于本组件）。
@@ -139,9 +134,6 @@ interface DesignCanvasProps {
 	showNotes(): void;
 	/** 右上角按钮组最左端的备注显隐开关。 */
 	onToggleNotes(): void;
-	/** 右上角按钮组最右端的「运行」：进预览模式。 */
-	onRun(): void;
-	runDisabled: boolean;
 	/**
 	 * 左上角标题区（设计切换 + 色卡）。内容归 CanvasTab（设计列表、色卡开合都是
 	 * 它的状态），定位与「给查看模式横幅让位」归画布——右上角按钮组同理。
@@ -308,14 +300,11 @@ export function DesignCanvas({
 	bridge,
 	onEngineUnavailable,
 	captureRef,
-	previewTargetRef,
-	previewing,
+	suspended,
 	resolveNoteElementsRef,
 	notesVisible,
 	showNotes,
 	onToggleNotes,
-	onRun,
-	runDisabled,
 	titleSlot,
 }: DesignCanvasProps) {
 	const { t } = useTranslation();
@@ -530,15 +519,13 @@ export function DesignCanvas({
 	 *
 	 * 托手工具/按住空格时不开：那时整块画布都在平移，指针不该被 iframe 吃掉。
 	 */
-	const inspectFrameId = tool === "select" && !panActive && !previewing ? activeFrameId : null;
-
-	previewTargetRef.current = () => activeFrameId;
+	const inspectFrameId = tool === "select" && !panActive && !suspended ? activeFrameId : null;
 
 	/**
-	 * 位图化时「必须保持活体」的那一帧。预览开着时一帧都不留：画布整个被盖住，
-	 * 唯一在看的渲染树是预览窗口里那一份。
+	 * 位图化时「必须保持活体」的那一帧。交互模式下一帧都不留：画布整个被盖住，
+	 * 唯一在看的渲染树是交互视图里那一份。
 	 */
-	const liveFrameId = previewing ? null : activeFrameId;
+	const liveFrameId = suspended ? null : activeFrameId;
 
 	/**
 	 * 空闲 frame 用位图代替活体 iframe，画布上就不再有 N 套渲染树同时合成。
@@ -766,7 +753,7 @@ export function DesignCanvas({
 	usePluginShortcutScope(registerShortcutScope, {
 		id: "undo-redo",
 		kind: "surface",
-		enabled: () => peek === null && !previewing,
+		enabled: () => peek === null && !suspended,
 		bindings: [
 			{ key: "mod+z", when: "not-editable", run: () => void runHistory("undo") },
 			{ key: "mod+shift+z", when: "not-editable", run: () => void runHistory("redo") },
@@ -1566,7 +1553,7 @@ export function DesignCanvas({
 		selectedIds.length === 1 &&
 		tool === "select" &&
 		!panActive &&
-		!previewing &&
+		!suspended &&
 		moveDelta === null &&
 		resizeRect === null;
 
@@ -1795,7 +1782,7 @@ export function DesignCanvas({
 				<NotesLayer
 					store={notes}
 					frames={manifest.frames}
-					interactive={(tool === "select" || tool === "note") && !panActive && !previewing}
+					interactive={(tool === "select" || tool === "note") && !panActive && !suspended}
 					visible={notesVisible}
 					draft={noteDraft}
 					blockedReason={blockedReason}
@@ -1935,8 +1922,6 @@ export function DesignCanvas({
 			<CanvasCornerActions
 				offsetTop={peek ? PEEK_BANNER_HEIGHT : 0}
 				historyOpen={historyOpen}
-				onRun={onRun}
-				runDisabled={runDisabled}
 				density={density.corner}
 				onExport={openExport}
 				materials={{
@@ -2014,8 +1999,8 @@ export function DesignCanvas({
 				lift={tool === "frame" ? BOTTOM_PANEL_LIFT : 0}
 				density={density.dock}
 				history={{
-					canUndo: undoState.canUndo && peek === null && !previewing,
-					canRedo: undoState.canRedo && peek === null && !previewing,
+					canUndo: undoState.canUndo && peek === null && !suspended,
+					canRedo: undoState.canRedo && peek === null && !suspended,
 					undoLabel: undoState.undoKind ? t(`undo.action.${undoState.undoKind}`) : null,
 					redoLabel: undoState.redoKind ? t(`undo.action.${undoState.redoKind}`) : null,
 					onUndo: () => void runHistory("undo"),

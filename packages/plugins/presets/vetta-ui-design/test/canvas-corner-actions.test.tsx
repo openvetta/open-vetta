@@ -21,7 +21,7 @@ interface Rendered {
 	cleanup(): void;
 }
 
-function render(options: { runDisabled?: boolean } = {}): Rendered {
+function render(): Rendered {
 	const host = document.createElement("div");
 	document.body.appendChild(host);
 	const root = createRoot(host);
@@ -34,8 +34,6 @@ function render(options: { runDisabled?: boolean } = {}): Rendered {
 				onExport={() => calls.push("export")}
 				materials={{ selectedCount: 0, totalCount: 1, progress: null, onPick: (action) => calls.push(action) }}
 				onToggleHistory={() => calls.push("history")}
-				onRun={() => calls.push("run")}
-				runDisabled={options.runDisabled ?? false}
 			/>,
 		);
 	});
@@ -49,28 +47,15 @@ function render(options: { runDisabled?: boolean } = {}): Rendered {
 	};
 }
 
-it("orders the group as history export run, with no refresh button", () => {
-	const { buttons, calls, cleanup } = render();
+it("orders the group as history export, with no run or refresh button", () => {
+	const { buttons, cleanup } = render();
 	expect(buttons.map((button) => button.getAttribute("aria-label") ?? button.getAttribute("title"))).toEqual([
 		"controlbar.history",
 		"canvas.export.label",
-		"canvas.run",
 	]);
-	// 三个按钮各自是独立的全圆角胶囊，不再合在一条 bar 里。
+	// 两个按钮各自是独立的全圆角胶囊，不再合在一条 bar 里。
 	for (const button of buttons) expect(button.className).toMatch(/rounded-full/);
 	expect(buttons[0]?.textContent).toContain("controlbar.history");
 	expect(buttons[1]?.textContent).toContain("canvas.export.label");
-
-	act(() => buttons[2]?.click());
-	expect(calls).toEqual(["run"]);
-	cleanup();
-});
-
-it("disables run when the design has no frames", () => {
-	const { buttons, calls, cleanup } = render({ runDisabled: true });
-	const run = buttons[2];
-	expect(run?.disabled).toBe(true);
-	act(() => run?.click());
-	expect(calls).toEqual([]);
 	cleanup();
 });

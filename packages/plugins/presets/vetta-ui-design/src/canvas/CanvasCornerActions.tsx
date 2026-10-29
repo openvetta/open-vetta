@@ -16,9 +16,6 @@ interface CanvasCornerActionsProps {
 		onPick(action: MaterialAction): void;
 	};
 	onToggleHistory(): void;
-	/** 运行（进预览模式）：这组最右端，也是整组唯一的主色按钮。 */
-	onRun(): void;
-	runDisabled: boolean;
 	/** 画布变窄时的档位（见 responsive.ts）；缺省 full。 */
 	density?: CornerDensity;
 }
@@ -29,11 +26,6 @@ const icons = {
 			<path d="M3 12a9 9 0 1 0 3-6.7L3 8" strokeLinecap="round" strokeLinejoin="round" />
 			<path d="M3 4v4h4" strokeLinecap="round" strokeLinejoin="round" />
 			<path d="M12 7.5V12l3 2" strokeLinecap="round" strokeLinejoin="round" />
-		</svg>
-	),
-	run: (
-		<svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-			<path d="M6 4l12 8-12 8V4z" strokeLinejoin="round" />
 		</svg>
 	),
 };
@@ -82,8 +74,6 @@ export function CanvasCornerActions({
 	onExport,
 	materials,
 	onToggleHistory,
-	onRun,
-	runDisabled,
 	density = "full",
 }: CanvasCornerActionsProps) {
 	const { t } = useTranslation();
@@ -107,20 +97,6 @@ export function CanvasCornerActions({
 				onMakeMockup={onExport}
 				iconOnly={density !== "full"}
 			/>
-			{/* 运行带文字：它是这组里唯一一个「进入另一种模式」的动作，纯 icon 认不出来。 */}
-			<button
-				type="button"
-				disabled={runDisabled}
-				onClick={onRun}
-				title={t("canvas.run")}
-				aria-label={t("canvas.run")}
-				className={`flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 ${
-					density === "minimal" ? "w-8" : "px-3.5"
-				}`}
-			>
-				{icons.run}
-				{density === "minimal" ? null : t("canvas.run")}
-			</button>
 		</div>
 	);
 }
