@@ -414,7 +414,6 @@ export function CanvasTab() {
 							bridge={bridgeRef.current}
 							onEngineUnavailable={onEngineUnavailable}
 							captureRef={captureRef}
-							onRescanDesigns={() => void refreshFiles()}
 							previewTargetRef={previewTargetRef}
 							previewing={previewFrameId !== null}
 							resolveNoteElementsRef={resolveNoteElementsRef}

@@ -1,6 +1,6 @@
 /**
  * 画布右上角按钮组的构成与顺序：运行在最右，中间是
- * 刷新 / 版本历史 / 导出渲染图 / 下载素材。顺序是产品要求，不是实现细节，
+ * 版本历史 / 导出。顺序是产品要求，不是实现细节，
  * 所以按 DOM 顺序断言。
  */
 import { expect, it, vi } from "vitest";
@@ -31,7 +31,6 @@ function render(options: { runDisabled?: boolean } = {}): Rendered {
 			<CanvasCornerActions
 				offsetTop={0}
 				historyOpen={false}
-				onRefresh={() => calls.push("refresh")}
 				onExport={() => calls.push("export")}
 				materials={{ selectedCount: 0, totalCount: 1, progress: null, onPick: (action) => calls.push(action) }}
 				onToggleHistory={() => calls.push("history")}
@@ -50,27 +49,26 @@ function render(options: { runDisabled?: boolean } = {}): Rendered {
 	};
 }
 
-it("orders the group as refresh history export download | run", () => {
+it("orders the group as history export run, with no refresh button", () => {
 	const { buttons, calls, cleanup } = render();
 	expect(buttons.map((button) => button.getAttribute("aria-label") ?? button.getAttribute("title"))).toEqual([
-		"canvas.refresh",
 		"controlbar.history",
-		"controlbar.exportMockup.label",
-		"canvas.download.label",
+		"canvas.export.label",
 		"canvas.run",
 	]);
-	// 打开面板的两个动作带文字：纯 icon 认不出「版本历史」和「导出渲染图」的区别。
-	expect(buttons[1]?.textContent).toContain("controlbar.history");
-	expect(buttons[2]?.textContent).toContain("controlbar.exportMockup.label");
+	// 三个按钮各自是独立的全圆角胶囊，不再合在一条 bar 里。
+	for (const button of buttons) expect(button.className).toMatch(/rounded-full/);
+	expect(buttons[0]?.textContent).toContain("controlbar.history");
+	expect(buttons[1]?.textContent).toContain("canvas.export.label");
 
-	act(() => buttons[4]?.click());
+	act(() => buttons[2]?.click());
 	expect(calls).toEqual(["run"]);
 	cleanup();
 });
 
 it("disables run when the design has no frames", () => {
 	const { buttons, calls, cleanup } = render({ runDisabled: true });
-	const run = buttons[4];
+	const run = buttons[2];
 	expect(run?.disabled).toBe(true);
 	act(() => run?.click());
 	expect(calls).toEqual([]);

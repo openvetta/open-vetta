@@ -53,7 +53,7 @@ import {
 } from "./design-runtime";
 import { DesignSystemDialog } from "./DesignSystemDialog";
 import { CanvasCornerActions } from "./CanvasCornerActions";
-import type { MaterialAction, MaterialProgress } from "./DownloadMaterialsMenu";
+import type { MaterialAction, MaterialProgress } from "./ExportMenu";
 import { byCanvasOrder } from "./frame-order";
 import { type FrameMenuAnchor, FrameContextMenu } from "./FrameContextMenu";
 import { refreshCover } from "./cover-compose";
@@ -111,11 +111,6 @@ interface DesignCanvasProps {
 	 * 位图态（display:none）的 frame 截不出任何东西，只会卡到超时。
 	 */
 	captureRef: RefObject<FrameCapture | null>;
-	/**
-	 * 右上角的刷新按钮除了重载画布，还要让宿主重扫一遍设计列表——那是「与磁盘
-	 * 重新对齐」的唯一入口，面板开着时新出现的设计也该在这里被收进来。
-	 */
-	onRescanDesigns(): void;
 	/**
 	 * 出口：预览按钮问「该预览哪一帧」。单独选中一个就是它，否则交给调用方回落
 	 * （画布顺序里的第一帧）。
@@ -290,7 +285,6 @@ export function DesignCanvas({
 	bridge,
 	onEngineUnavailable,
 	captureRef,
-	onRescanDesigns,
 	previewTargetRef,
 	previewing,
 	resolveNoteElementsRef,
@@ -1796,12 +1790,6 @@ export function DesignCanvas({
 				historyOpen={historyOpen}
 				onRun={onRun}
 				runDisabled={runDisabled}
-				// 手动刷新：热更新链路（文件监听 / HMR）万一没生效时的兜底出路，
-				// 强制所有 frame 重新加载最新代码并重截位图，同时重扫设计列表。
-				onRefresh={() => {
-					reloadAll();
-					onRescanDesigns();
-				}}
 				onExport={openExport}
 				materials={{
 					selectedCount: orderedSelection.length,

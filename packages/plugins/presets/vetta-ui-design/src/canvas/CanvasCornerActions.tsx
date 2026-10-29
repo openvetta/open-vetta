@@ -1,12 +1,11 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
 import type { ReactNode } from "react";
-import { DownloadMaterialsMenu, type MaterialAction, type MaterialProgress } from "./DownloadMaterialsMenu";
+import { ExportMenu, type MaterialAction, type MaterialProgress } from "./ExportMenu";
 
 interface CanvasCornerActionsProps {
 	/** 查看模式的横幅压在画布顶部，按钮组要给它让位。 */
 	offsetTop: number;
 	historyOpen: boolean;
-	onRefresh(): void;
 	onExport(): void;
 	/** 「下载素材」下拉：每帧完整内容的原图 / PDF，直接落文件（与渲染图工作台分开）。 */
 	materials: {
@@ -22,18 +21,6 @@ interface CanvasCornerActionsProps {
 }
 
 const icons = {
-	refresh: (
-		<svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-			<path d="M20 11a8 8 0 10-2.3 5.7M20 5v6h-6" strokeLinecap="round" strokeLinejoin="round" />
-		</svg>
-	),
-	export: (
-		<svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-			<path d="M12 3v12" strokeLinecap="round" />
-			<path d="M8 7l4-4 4 4" strokeLinecap="round" strokeLinejoin="round" />
-			<path d="M4 14v4a3 3 0 003 3h10a3 3 0 003-3v-4" strokeLinecap="round" strokeLinejoin="round" />
-		</svg>
-	),
 	history: (
 		<svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
 			<path d="M3 12a9 9 0 1 0 3-6.7L3 8" strokeLinecap="round" strokeLinejoin="round" />
@@ -47,10 +34,6 @@ const icons = {
 		</svg>
 	),
 };
-
-function Divider() {
-	return <span className="mx-0.5 h-4 w-px shrink-0 bg-border" aria-hidden />;
-}
 
 function Action({
 	label,
@@ -74,9 +57,9 @@ function Action({
 			aria-label={label}
 			aria-pressed={active}
 			onClick={onClick}
-			className={`flex h-7 items-center justify-center rounded-md transition-colors ${
-				showLabel ? "gap-1.5 px-2 text-xs font-medium" : "w-7"
-			} ${active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
+			className={`flex h-8 items-center justify-center rounded-full border border-border transition-colors ${
+				showLabel ? "gap-1.5 px-3 text-xs font-medium" : "w-8"
+			} ${active ? "bg-primary/10 text-primary" : "bg-popover text-foreground hover:bg-accent"}`}
 		>
 			{children}
 			{showLabel ? <span className="whitespace-nowrap">{label}</span> : null}
@@ -85,7 +68,7 @@ function Action({
 }
 
 /**
- * 画布右上角的动作按钮组：刷新 / 版本历史 / 导出渲染图 / 下载素材 | 运行。
+ * 画布右上角的动作按钮组：版本历史 / 导出 / 运行；各自独立的胶囊，不再合在一条 bar 上。
  *
  * 不放进 ControlBar：那一排是「用什么工具画」（选择、拖手、画框、备注、缩放；备注显隐开关也在那里），
  * 这些不是画布工具，混进去还会让本来就长的 dock 再长一截。
@@ -93,7 +76,6 @@ function Action({
 export function CanvasCornerActions({
 	offsetTop,
 	historyOpen,
-	onRefresh,
 	onExport,
 	materials,
 	onToggleHistory,
@@ -104,35 +86,29 @@ export function CanvasCornerActions({
 	return (
 		<div
 			style={{ top: 12 + offsetTop }}
-			className="pointer-events-auto absolute right-3 z-40 flex items-center gap-0.5 rounded-lg border border-border bg-popover p-0.5"
+			className="pointer-events-auto absolute right-3 z-40 flex items-center gap-2"
 			// 同历史抽屉：不截断的话画布根会捕获指针，按钮点不动。
 			onPointerDown={(event) => event.stopPropagation()}
 			onPointerMove={(event) => event.stopPropagation()}
 			onPointerUp={(event) => event.stopPropagation()}
 		>
-			<Action label={t("canvas.refresh")} active={false} onClick={onRefresh}>
-				{icons.refresh}
-			</Action>
 			<Action label={t("controlbar.history")} showLabel active={historyOpen} onClick={onToggleHistory}>
 				{icons.history}
 			</Action>
-			<Action label={t("controlbar.exportMockup.label")} showLabel active={false} onClick={onExport}>
-				{icons.export}
-			</Action>
-			<DownloadMaterialsMenu
+			<ExportMenu
 				selectedCount={materials.selectedCount}
 				totalCount={materials.totalCount}
 				progress={materials.progress}
 				onPick={materials.onPick}
+				onMakeMockup={onExport}
 			/>
-			<Divider />
 			{/* 运行带文字：它是这组里唯一一个「进入另一种模式」的动作，纯 icon 认不出来。 */}
 			<button
 				type="button"
 				disabled={runDisabled}
 				onClick={onRun}
 				title={t("canvas.run")}
-				className="flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+				className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
 			>
 				{icons.run}
 				{t("canvas.run")}
