@@ -59,3 +59,24 @@ it("orders the group as history export, with no run or refresh button", () => {
 	expect(buttons[1]?.textContent).toContain("canvas.export.label");
 	cleanup();
 });
+
+it("puts the trailing slot (design / interaction toggle) at the far right of the group", () => {
+	const host = document.createElement("div");
+	document.body.appendChild(host);
+	const root = createRoot(host);
+	act(() => {
+		root.render(
+			<CanvasCornerActions
+				offsetTop={0}
+				historyOpen={false}
+				onExport={() => {}}
+				materials={{ selectedCount: 0, totalCount: 1, progress: null, onPick: () => {} }}
+				onToggleHistory={() => {}}
+				trailing={<span data-testid="toggle">t</span>}
+			/>,
+		);
+	});
+	expect(host.firstElementChild?.lastElementChild?.getAttribute("data-testid")).toBe("toggle");
+	act(() => root.unmount());
+	host.remove();
+});

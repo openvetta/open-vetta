@@ -18,6 +18,8 @@ interface CanvasCornerActionsProps {
 	onToggleHistory(): void;
 	/** 画布变窄时的档位（见 responsive.ts）；缺省 full。 */
 	density?: CornerDensity;
+	/** 按钮组最右端的内容（设计 / 交互开关）。 */
+	trailing?: ReactNode;
 }
 
 const icons = {
@@ -75,6 +77,7 @@ export function CanvasCornerActions({
 	materials,
 	onToggleHistory,
 	density = "full",
+	trailing,
 }: CanvasCornerActionsProps) {
 	const { t } = useTranslation();
 	return (
@@ -97,6 +100,7 @@ export function CanvasCornerActions({
 				onMakeMockup={onExport}
 				iconOnly={density !== "full"}
 			/>
+			{trailing}
 		</div>
 	);
 }

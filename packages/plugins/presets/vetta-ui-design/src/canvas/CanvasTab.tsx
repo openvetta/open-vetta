@@ -323,11 +323,11 @@ export function CanvasTab() {
 		);
 	}
 
-	/** 设计 / 交互开关：交互视图里只保留它（设计稿切换不需要），所以单独成块。 */
+	/** 设计 / 交互开关：两个模式下都在右上角，交互视图里没有设计稿切换，所以单独成块。 */
 	const modeToggle = (
 		phase.kind === "ready" && session ? (
 			<div
-				className="flex h-7 shrink-0 items-center rounded-lg bg-[var(--vetd-chip,var(--muted))] p-0.5"
+				className="flex h-8 shrink-0 items-center rounded-full bg-[var(--vetd-chip,var(--muted))] p-0.5"
 				role="radiogroup"
 				aria-label={t("interaction.toggle.label")}
 			>
@@ -342,10 +342,10 @@ export function CanvasTab() {
 							aria-checked={selected}
 							disabled={entry === "interaction" && session.manifest.frames.length === 0}
 							onClick={() => (entry === "interaction" ? enterInteraction() : setInteracting(false))}
-							className={`h-6 rounded-md px-2.5 text-xs font-medium transition-colors disabled:opacity-40 ${
+							className={`h-7 rounded-full px-3 text-xs font-medium transition-colors disabled:opacity-40 ${
 								selected
-										? "bg-[var(--vetd-chip-active,var(--card))] text-[color:var(--vetd-ink,var(--foreground))] shadow-sm"
-										: "text-[color:var(--vetd-ink-soft,var(--muted-foreground))] hover:text-[color:var(--vetd-ink,var(--foreground))]"
+									? "bg-primary text-primary-foreground"
+									: "text-[color:var(--vetd-ink-soft,var(--muted-foreground))] hover:text-[color:var(--vetd-ink,var(--foreground))]"
 							}`}
 						>
 							{t(`interaction.toggle.${entry}`)}
@@ -375,7 +375,6 @@ export function CanvasTab() {
 					</option>
 				))}
 			</select>
-			{modeToggle}
 			{SHOW_EXPORT_SHARE ? (
 				<button
 					type="button"
@@ -447,10 +446,11 @@ export function CanvasTab() {
 								showNotes={notesVisibility.show}
 								onToggleNotes={notesVisibility.toggle}
 								titleSlot={titleSlot}
+								modeToggle={modeToggle}
 							/>
 						</div>
 						{interactionMounted ? (
-							<InteractionView port={phase.port} session={session} active={interacting} leadingSlot={modeToggle} />
+							<InteractionView port={phase.port} session={session} active={interacting} trailingSlot={modeToggle} />
 						) : null}
 					</>
 				) : null}

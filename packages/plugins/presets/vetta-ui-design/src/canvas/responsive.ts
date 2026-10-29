@@ -33,8 +33,8 @@ export function densityOf(width: number): CanvasDensity {
 	};
 }
 
-/** 右上角按钮组在各档下的大致占宽（px），左上角标题据此留出让位的空间。 */
-export const CORNER_RESERVE: Record<CornerDensity, number> = { full: 290, icons: 180, minimal: 130 };
+/** 右上角按钮组（含最右端的设计 / 交互开关）在各档下的大致占宽（px），左上角标题据此留出让位的空间。 */
+export const CORNER_RESERVE: Record<CornerDensity, number> = { full: 400, icons: 290, minimal: 240 };
 
 /** 底部预设面板窄于这个宽度，分类 tab 收成下拉（5 个 tab + 横竖屏开关大约 560px）。 */
 export const PANEL_NARROW_BELOW = 640;

@@ -58,7 +58,7 @@ let instance = 0;
 async function render(session: DesignSession, active = true): Promise<void> {
 	instance += 1;
 	await act(async () => {
-		root.render(<InteractionView key={instance} port={5173} session={session} active={active} leadingSlot={<span>toggle</span>} />);
+		root.render(<InteractionView key={instance} port={5173} session={session} active={active} trailingSlot={<span>toggle</span>} />);
 		await Promise.resolve();
 	});
 }
@@ -112,7 +112,7 @@ describe("InteractionView", () => {
 		expect(host.querySelector("iframe")).not.toBeNull();
 	});
 
-	it("顶部条：左边是开关和导航，设备类别在右边，且顶部条没有自己的底色", async () => {
+	it("顶部条：左边是导航，设备类别在右边，开关在最右端，且顶部条没有自己的底色", async () => {
 		const { session } = fakeSession({ frames: [frame("index", 1440, 900)] });
 		await render(session);
 		const header = host.querySelector("[aria-hidden]")?.firstElementChild?.nextElementSibling as HTMLElement;
@@ -121,7 +121,8 @@ describe("InteractionView", () => {
 			(element) => element.getAttribute("aria-label") ?? element.textContent ?? "",
 		);
 		const index = (label: string): number => order.findIndex((entry) => entry.includes(label));
-		expect(host.textContent).toContain("toggle");
+		// 设计 / 交互开关在最右端。
+		expect(header.lastElementChild?.textContent).toBe("toggle");
 		expect(index("interaction.back")).toBeLessThan(index("interaction.deviceMenu"));
 		expect(index("interaction.home")).toBeLessThan(index("interaction.openExternal"));
 	});

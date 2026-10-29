@@ -139,6 +139,8 @@ interface DesignCanvasProps {
 	 * 它的状态），定位与「给查看模式横幅让位」归画布——右上角按钮组同理。
 	 */
 	titleSlot: ReactNode;
+	/** 右上角最右端的「设计 / 交互」开关（挂在角落按钮组的末尾）。 */
+	modeToggle?: ReactNode;
 }
 
 interface Rect {
@@ -306,6 +308,7 @@ export function DesignCanvas({
 	showNotes,
 	onToggleNotes,
 	titleSlot,
+	modeToggle,
 }: DesignCanvasProps) {
 	const { t } = useTranslation();
 	/**
@@ -1930,6 +1933,7 @@ export function DesignCanvas({
 					progress: materialProgress,
 					onPick: runMaterialExport,
 				}}
+				trailing={modeToggle}
 				onToggleHistory={() => setHistoryOpen((open) => !open)}
 			/>
 

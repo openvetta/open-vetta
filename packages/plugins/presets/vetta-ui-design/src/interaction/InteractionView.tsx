@@ -16,8 +16,8 @@ interface InteractionViewProps {
 	session: DesignSession;
 	/** 当前是否在交互模式。不在时整块隐藏但保持挂载，iframe 的路径和滚动位置都留着。 */
 	active: boolean;
-	/** 左上角只放「设计 / 交互」开关；设计稿切换在交互里不需要。 */
-	leadingSlot: ReactNode;
+	/** 右上角最右端的「设计 / 交互」开关；交互里没有设计稿切换。 */
+	trailingSlot: ReactNode;
 }
 
 /** 非手机的裸画面外边框粗细（px，设计稿坐标）。 */
@@ -92,7 +92,7 @@ function useVeil(session: DesignSession, revision: number, stageRef: React.RefOb
  * 由 frame 源码里的 `<Link to>` 完成，走引擎的真实路由。视口始终是首页画框的设计尺寸，
  * 放不下就整体等比缩小，页面布局不会因面板窄而变形。
  */
-export function InteractionView({ port, session, active, leadingSlot }: InteractionViewProps) {
+export function InteractionView({ port, session, active, trailingSlot }: InteractionViewProps) {
 	const { t } = useTranslation();
 	const revision = useSessionRevision(session);
 	const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -182,7 +182,6 @@ export function InteractionView({ port, session, active, leadingSlot }: Interact
 			{/* 灰色夹层：夹在底色与设备 / 画框之间，把两者分开。 */}
 			<div className="pointer-events-none absolute inset-0" style={{ backgroundColor: veil }} />
 			<div className="relative z-10 flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2">
-				<div className="flex shrink-0 items-center gap-1">{leadingSlot}</div>
 				<InteractionToolbar
 					path={path}
 					canBack={nav?.canBack === true}
@@ -190,7 +189,7 @@ export function InteractionView({ port, session, active, leadingSlot }: Interact
 					frames={frames}
 					currentFrameId={currentFrameId}
 					mode={mode}
-				compact={isNarrow(stage.width)}
+					compact={isNarrow(stage.width)}
 					deviceId={deviceId}
 					onPickDevice={setDeviceId}
 					onBack={() => go(-1)}
@@ -201,6 +200,7 @@ export function InteractionView({ port, session, active, leadingSlot }: Interact
 					onPickMode={(next) => session.setInteractionMode(next)}
 					onOpenExternal={openExternal}
 				/>
+				<div className="flex shrink-0 items-center">{trailingSlot}</div>
 			</div>
 			<div ref={stageRef} className="relative min-h-0 flex-1 overflow-hidden">
 				{src ? (
