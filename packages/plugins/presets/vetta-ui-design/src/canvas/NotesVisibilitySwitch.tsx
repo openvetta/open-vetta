@@ -31,7 +31,7 @@ export const NotesVisibilitySwitch = forwardRef<HTMLButtonElement, NotesVisibili
 				aria-label={label}
 				onClick={onToggle}
 				className={`relative flex h-[34px] shrink-0 origin-bottom items-center rounded-l-none rounded-r-full pr-2.5 pl-1 outline-none will-change-transform focus-visible:ring-2 focus-visible:ring-ring/40 ${
-					joinedActive ? "bg-primary text-primary-foreground" : "bg-muted/55 text-primary hover:bg-muted"
+					joinedActive ? "bg-primary text-primary-foreground" : "bg-secondary text-primary hover:bg-accent"
 				}`}
 				style={{ ...style, transform: `scale(${scale})`, transition }}
 			>

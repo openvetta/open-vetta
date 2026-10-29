@@ -330,7 +330,7 @@ export function ControlBar({
 								className={`relative z-[1] flex shrink-0 origin-bottom items-center justify-center rounded-full border border-transparent outline-none will-change-transform focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 ${
 									slot.active
 										? "bg-primary text-primary-foreground"
-										: "bg-muted/55 text-foreground hover:bg-muted"
+										: "bg-secondary text-foreground hover:bg-accent"
 								} ${slot.wide ? "px-2.5" : ""} ${slot.key === "note" ? "rounded-r-none" : ""} ${scale > 1.02 ? "z-[2]" : ""}`}
 								style={{
 									width: slot.wide ? undefined : DOCK_ICON,
