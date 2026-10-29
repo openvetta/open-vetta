@@ -25,7 +25,6 @@ import {
 } from "./design-runtime";
 import { DesignCanvas, type FrameCapture } from "./DesignCanvas";
 import { byCanvasOrder } from "./frame-order";
-import { ThemePalette } from "./ThemePalette";
 
 type Phase =
 	| { kind: "idle" }
@@ -49,7 +48,6 @@ export function CanvasTab() {
 	const [phase, setPhase] = useState<Phase>({ kind: "idle" });
 	const [session, setSession] = useState<DesignSession | null>(null);
 	const [notesStore, setNotesStore] = useState<NotesStore | null>(null);
-	const [showPalette, setShowPalette] = useState(false);
 	/** 画布备注气泡的显隐。开关在顶栏，自动规则（切工具/建备注/定位）只往显示推。 */
 	const notesVisibility = useNotesVisibility();
 	const [exporting, setExporting] = useState(false);
@@ -322,7 +320,7 @@ export function CanvasTab() {
 	}
 
 	/**
-	 * 画布左上角的标题区：设计切换（就是这张画布的标题，所以不套卡片底）+ 色卡开关。
+	 * 画布左上角的标题区：设计切换（就是这张画布的标题，所以不套卡片底）。
 	 * 定位交给画布（它要给查看模式的横幅让位），这里只管内容。
 	 */
 	const titleSlot = (
@@ -340,18 +338,6 @@ export function CanvasTab() {
 					</option>
 				))}
 			</select>
-			<button
-				type="button"
-				onClick={() => setShowPalette((value) => !value)}
-				title={t("canvas.theme.title")}
-				aria-label={t("canvas.theme.title")}
-				aria-pressed={showPalette}
-				className={`flex size-7 shrink-0 items-center justify-center rounded-md text-xs transition-colors ${
-					showPalette ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"
-				}`}
-			>
-				◐
-			</button>
 			{SHOW_EXPORT_SHARE ? (
 				<button
 					type="button"
@@ -424,7 +410,6 @@ export function CanvasTab() {
 							runDisabled={session.manifest.frames.length === 0}
 							titleSlot={titleSlot}
 						/>
-						{showPalette ? <ThemePalette session={session} /> : null}
 						{previewFrameId !== null ? (
 							<PreviewDialog
 								port={phase.port}

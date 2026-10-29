@@ -87,7 +87,6 @@ vi.mock("../src/canvas/bridge-client", () => ({ BridgeHub: class {} }));
 vi.mock("../src/canvas/DesignCanvas", () => ({
 	DesignCanvas: ({ port }: { port: number }) => <div data-testid="design-canvas" data-port={port} />,
 }));
-vi.mock("../src/canvas/ThemePalette", () => ({ ThemePalette: () => null }));
 vi.mock("../src/preview-mode/PreviewDialog", () => ({ PreviewDialog: () => null }));
 
 import { CanvasTab } from "../src/canvas/CanvasTab";
