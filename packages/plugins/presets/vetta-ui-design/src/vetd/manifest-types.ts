@@ -28,6 +28,11 @@ export interface VetdFrameEntry {
 	height: number;
 	title: string;
 	meta: FrameMeta;
+	/**
+	 * 画布上展开显示完整内容（见 canvas/frame-extent）。只是显示状态：width/height
+	 * 仍是标准设计尺寸，收缩就是去掉它，不必另记原值。
+	 */
+	expanded?: true;
 }
 
 export interface VetdCanvasViewport {

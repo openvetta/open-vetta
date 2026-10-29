@@ -111,3 +111,45 @@ it("agent 自创 schema 写的 manifest：条目丢弃后由 tsx 全量重建，
 
 	session.dispose();
 });
+
+it("展开是显示状态：存进 manifest、重开还在，收缩后字段消失，标准尺寸始终不动", async () => {
+	const manifest = {
+		version: 1,
+		type: "vetta-design",
+		canvas: { x: 0, y: 0, zoom: 1 },
+		frames: [
+			{
+				id: "index",
+				file: "frames/index.tsx",
+				x: 0,
+				y: 0,
+				width: 390,
+				height: 844,
+				title: "首页",
+				meta: { width: 390, height: 844, title: "首页" },
+			},
+		],
+	};
+	const { ctx, written } = fakeCtx({
+		[MANIFEST]: JSON.stringify(manifest),
+		[`${DIR}/frames/index.tsx`]: frameSource("首页"),
+	});
+	const session = new DesignSession(ctx, VETD);
+	await session.open();
+
+	session.setFrameExpanded("index", true);
+	await vi.waitFor(() => expect(JSON.parse(written[MANIFEST] ?? "{}").frames?.[0]?.expanded).toBe(true));
+	expect(session.manifest.frames[0]).toMatchObject({ width: 390, height: 844, expanded: true });
+
+	// 重开：从磁盘读回来的条目保留展开状态。
+	const reopened = new DesignSession(ctx, VETD);
+	await reopened.open();
+	expect(reopened.manifest.frames[0]?.expanded).toBe(true);
+	reopened.dispose();
+
+	session.setFrameExpanded("index", false);
+	await vi.waitFor(() => expect("expanded" in JSON.parse(written[MANIFEST] ?? "{}").frames[0]).toBe(false));
+	expect(session.manifest.frames[0]).toMatchObject({ width: 390, height: 844 });
+
+	session.dispose();
+});

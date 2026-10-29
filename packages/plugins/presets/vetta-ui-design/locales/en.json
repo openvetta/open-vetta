@@ -83,6 +83,8 @@
 	"canvas.frame.creating": "Creating",
 	"canvas.frame.updated": "Updated",
 	"canvas.frame.buildError": "Build failed",
+	"canvas.frame.action.expand": "Expand to full content",
+	"canvas.frame.action.collapse": "Collapse to design size",
 	"canvas.newFrame.defaultTitle": "New frame",
 	"canvas.frame.menu.rename": "Rename",
 	"canvas.frame.menu.copyImage": "Copy as image",

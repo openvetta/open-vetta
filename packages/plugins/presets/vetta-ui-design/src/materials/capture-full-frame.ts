@@ -166,6 +166,15 @@ export async function captureFullFrame(deps: FullFrameDeps, request: FullFrameRe
 	return stitchTiles(deps, request, shot, rest.hidden, rest.top, rest.bottom, viewportHeight);
 }
 
+/**
+ * 完整内容有多高（CSS px）：画布「展开 frame」用。与 {@link captureFullFrame} 同一套
+ * 拉高规则，所以展开后的高度就是下载素材拼出来的那张图的高度；只量不拼。
+ */
+export async function measureFullFrameHeight(deps: FullFrameDeps, request: FullFrameRequest): Promise<number> {
+	const { viewportHeight, rest } = await growToContent(deps, request);
+	return rest === null ? viewportHeight : planTiles({ viewportHeight, ...rest }).height;
+}
+
 async function stitchTiles(
 	deps: FullFrameDeps,
 	request: FullFrameRequest,

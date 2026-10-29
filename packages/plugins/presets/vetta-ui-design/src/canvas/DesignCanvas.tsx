@@ -13,8 +13,9 @@ import {
 import { useNotesAutoDispatch, useNotesHandoff } from "../notes/handoff";
 import type { NotesStore } from "../notes/notes-store";
 import { noteWorldPosition, pendingNotes } from "../notes/types";
-import type { FullFrameImage, MaterialFormat } from "../materials/capture-full-frame";
+import { type FullFrameImage, type MaterialFormat, measureFullFrameHeight } from "../materials/capture-full-frame";
 import { captureMaterial } from "../materials/capture-material";
+import { loadImage } from "../mockup/load-image";
 import { exportMaterials, type MaterialFrame } from "../materials/export-materials";
 import { getPluginCtx, notify } from "../plugin-context";
 import type { DesignSession } from "../vetd/design-session";
@@ -57,7 +58,8 @@ import { type FrameMenuAnchor, FrameContextMenu } from "./FrameContextMenu";
 import { refreshCover } from "./cover-compose";
 import { useFrameRasters } from "./frame-raster";
 import { useBridgeEvents } from "./use-bridge-events";
-import { setOffscreenStorageSeed } from "./offscreen-raster";
+import { displayFrames, isExpandable, useFrameExtents } from "./frame-extent";
+import { offscreenRasterSupported, setOffscreenStorageSeed } from "./offscreen-raster";
 import { type FrameDragEdge, FrameView } from "./FrameView";
 import { GapHandles } from "./GapHandles";
 import { HistoryDrawer } from "../history/HistoryDrawer";
@@ -297,11 +299,15 @@ export function DesignCanvas({
 	titleSlot,
 }: DesignCanvasProps) {
 	const { t } = useTranslation();
-	const [manifest, setManifest] = useState<VetdManifest>(session.manifest);
+	/**
+	 * manifest 原样（frame 是标准设计尺寸）。画布上的几何一律用下面派生的 `manifest`
+	 * ——展开的 frame 在那里换成了完整内容高度（见 frame-extent）；只有写回尺寸、
+	 * 判断展开状态时才看这一份。
+	 */
+	const [storedManifest, setManifest] = useState<VetdManifest>(session.manifest);
 	// 下面那些交给 FrameView 的回调必须引用稳定（memo 的前提），所以它们读 ref 而不是
-	// 闭包捕获随渲染变化的 state。
-	const manifestRef = useRef(manifest);
-	manifestRef.current = manifest;
+	// 闭包捕获随渲染变化的 state。赋值在派生出显示用的 manifest 之后。
+	const manifestRef = useRef(storedManifest);
 	const [tool, setTool] = useState<CanvasTool>("select");
 	const toolRef = useRef(tool);
 	toolRef.current = tool;
@@ -522,14 +528,16 @@ export function DesignCanvas({
 	 * 用 cullRect 而不是精确视口：它本来就带一屏预留，且只在余量不足半屏时才重算，
 	 * 平移途中不会把队列反复打乱。
 	 */
+	// 用标准尺寸排：显示尺寸要等量完内容高度才有，而量高度又以位图为版本。展开的
+	// frame 只是在优先级上按它的标准范围算，不影响谁会被截。
 	const orderedFrameIds = useMemo(() => {
-		const sorted = [...manifest.frames].sort(byCanvasOrder);
+		const sorted = [...storedManifest.frames].sort(byCanvasOrder);
 		if (!cullRect) return sorted.map((frame) => frame.id);
 		const visible: string[] = [];
 		const rest: string[] = [];
 		for (const frame of sorted) (intersects(cullRect, frame) ? visible : rest).push(frame.id);
 		return [...visible, ...rest];
-	}, [manifest.frames, cullRect]);
+	}, [storedManifest.frames, cullRect]);
 	const {
 		rasterOf,
 		isMounted,
@@ -552,8 +560,9 @@ export function DesignCanvas({
 		offscreen: {
 			port,
 			onUnavailable: onEngineUnavailable,
+			// 显示尺寸：展开的 frame 按完整内容高度截（超过宿主上限时分块拼接）。
 			sizeOf: (frameId) => {
-				const frame = manifest.frames.find((candidate) => candidate.id === frameId);
+				const frame = manifestRef.current.frames.find((candidate) => candidate.id === frameId);
 				return frame ? { width: frame.width, height: frame.height } : null;
 			},
 		},
@@ -561,6 +570,67 @@ export function DesignCanvas({
 	/** 渲染图工作台读画布位图用，见 openExport。 */
 	const rasterOfRef = useRef(rasterOf);
 	rasterOfRef.current = rasterOf;
+
+	/** 要知道内容高度的 frame：单独选中的那个（决定显不显示展开按钮），以及展开着的。 */
+	const extentWanted = useMemo(() => {
+		const ids = storedManifest.frames.filter((frame) => frame.expanded === true).map((frame) => frame.id);
+		return activeFrameId !== null && !ids.includes(activeFrameId) ? [activeFrameId, ...ids] : ids;
+	}, [storedManifest.frames, activeFrameId]);
+	const measureExtent = useMemo(() => {
+		if (!offscreenRasterSupported()) return null;
+		return (frame: VetdFrameEntry): Promise<number> => {
+			// 构建失败的帧永远等不到「画完了」，量只会白等到超时。
+			const buildError = getFrameError(frame.id);
+			if (buildError) return Promise.reject(new Error(buildError));
+			const capture = getPluginCtx().capture;
+			if (!capture) return Promise.reject(new Error("offscreen capture unavailable"));
+			return measureFullFrameHeight(
+				{ capture: (options) => capture.offscreen(options), loadImage },
+				{ port, frameId: frame.id, width: frame.width, height: frame.height, format: "jpeg", quality: 0.3 },
+			);
+		};
+	}, [port]);
+	const fullHeightOf = useFrameExtents({
+		frames: storedManifest.frames,
+		wanted: extentWanted,
+		versionOf: rasterOf,
+		measure: measureExtent,
+	});
+	const manifest = useMemo(
+		() => ({ ...storedManifest, frames: displayFrames(storedManifest.frames, fullHeightOf) }),
+		[storedManifest, fullHeightOf],
+	);
+	manifestRef.current = manifest;
+
+	// 显示高度变了（展开、收缩、展开着的内容长高变矮）：旧位图是按旧尺寸截的，
+	// 放进新尺寸里就是被 object-cover 拉伸裁剪的图——重新排队截一张。
+	const shownHeightsRef = useRef(new Map<string, number>());
+	useEffect(() => {
+		const previous = shownHeightsRef.current;
+		const next = new Map<string, number>();
+		for (const frame of manifest.frames) {
+			next.set(frame.id, frame.height);
+			const before = previous.get(frame.id);
+			if (before !== undefined && before !== frame.height) invalidateRaster(frame.id);
+		}
+		shownHeightsRef.current = next;
+	}, [manifest.frames, invalidateRaster]);
+
+	/** 单独选中的 frame 上该出现哪个按钮：展开着的给收缩，装不下的给展开。 */
+	const expandActionOf = (frameId: string): "expand" | "collapse" | null => {
+		const stored = storedManifest.frames.find((frame) => frame.id === frameId);
+		if (!stored) return null;
+		if (stored.expanded === true) return "collapse";
+		return isExpandable(stored, fullHeightOf(frameId)) ? "expand" : null;
+	};
+
+	const toggleExpanded = useCallback(
+		(frameId: string): void => {
+			const frame = session.manifest.frames.find((entry) => entry.id === frameId);
+			if (frame) session.setFrameExpanded(frameId, frame.expanded !== true);
+		},
+		[session],
+	);
 
 
 	/**
@@ -1108,7 +1178,12 @@ export function DesignCanvas({
 			return;
 		}
 		if (!resize) return;
-		void session.updateFramePlacement(resize.frameId, resize.rect);
+		// 展开着的 frame 显示的是内容高度，不是它的标准高度：只写回横向，标准高度不动。
+		const stored = session.manifest.frames.find((frame) => frame.id === resize.frameId);
+		void session.updateFramePlacement(
+			resize.frameId,
+			stored?.expanded === true ? { x: resize.rect.x, width: resize.rect.width } : resize.rect,
+		);
 		// 位图是按旧尺寸截的，改完尺寸再显示就是被 object-cover 拉伸裁剪
 		// 的糊图——重新排队截一张。
 		invalidateRaster(resize.frameId);
@@ -1497,6 +1572,10 @@ export function DesignCanvas({
 						entered={inspectFrameId === frame.id}
 						interactive={tool === "select" && !panActive}
 						resizable={selectedIds.length === 1}
+						expandAction={
+							selectedIds.length === 1 && selectedIds[0] === frame.id ? expandActionOf(frame.id) : null
+						}
+						onToggleExpanded={toggleExpanded}
 						mounted={isMounted(frame.id)}
 						live={isLive(frame.id)}
 						parked={isParked(frame.id)}

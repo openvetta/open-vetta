@@ -83,6 +83,8 @@
 	"canvas.frame.creating": "创作中",
 	"canvas.frame.updated": "已更新",
 	"canvas.frame.buildError": "构建失败",
+	"canvas.frame.action.expand": "展开完整内容",
+	"canvas.frame.action.collapse": "收缩回设计尺寸",
 	"canvas.newFrame.defaultTitle": "新画框",
 	"canvas.frame.menu.rename": "重命名",
 	"canvas.frame.menu.copyImage": "复制为图片",

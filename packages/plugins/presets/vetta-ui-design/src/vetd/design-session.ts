@@ -56,6 +56,7 @@ function recoverFrameEntry(value: unknown): RecoveredFrameEntry | null {
 			title,
 			// An invalid snapshot must differ from every resolved frame declaration so reconcile repairs it.
 			meta: hasMeta ? rawMeta : { width: -1, height: -1, title: "" },
+			...(value.expanded === true ? { expanded: true as const } : {}),
 		},
 		repaired: !hasMeta || title !== value.title,
 	};
@@ -309,6 +310,24 @@ export class DesignSession {
 				if (!patch) return frame;
 				changed = true;
 				return { ...frame, ...patch };
+			}),
+		};
+		if (!changed) return;
+		this.emit("frames");
+		void this.persist();
+	}
+
+	/** 画布上展开/收缩 frame：只动显示状态，标准尺寸不变。 */
+	setFrameExpanded(id: string, expanded: boolean): void {
+		let changed = false;
+		this.manifest = {
+			...this.manifest,
+			frames: this.manifest.frames.map((frame) => {
+				if (frame.id !== id || (frame.expanded === true) === expanded) return frame;
+				changed = true;
+				if (expanded) return { ...frame, expanded: true };
+				const { expanded: _expanded, ...rest } = frame;
+				return rest;
 			}),
 		};
 		if (!changed) return;

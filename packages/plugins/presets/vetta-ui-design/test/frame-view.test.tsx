@@ -24,6 +24,11 @@ function renderFrame(
 	renaming: boolean,
 	selected = false,
 	raster: string | null = null,
+	extra: {
+		expanded?: boolean;
+		expandAction?: "expand" | "collapse" | null;
+		onToggleExpanded?: (frameId: string) => void;
+	} = {},
 ): { host: HTMLElement; label: HTMLElement; cleanup: () => void } {
 	const host = document.createElement("div");
 	document.body.appendChild(host);
@@ -31,14 +36,26 @@ function renderFrame(
 	act(() => {
 		root.render(
 			<FrameView
-				frame={{ id: "home", title: "Home dynamics", x: 0, y: 0, width: 390, height: 1046 }}
+				frame={{
+					id: "home",
+					file: "frames/home.tsx",
+					title: "Home dynamics",
+					x: 0,
+					y: 0,
+					width: 390,
+					height: 1046,
+					meta: { width: 390, height: 844, title: "Home dynamics" },
+					...(extra.expanded ? { expanded: true as const } : {}),
+				}}
 				port={1234}
 				getZoom={() => 1}
 				bridge={bridge}
 				selected={selected}
 				entered={false}
 				interactive
-				resizable={false}
+				resizable={extra.expandAction !== undefined}
+				expandAction={extra.expandAction ?? null}
+				onToggleExpanded={extra.onToggleExpanded ?? (() => {})}
 				mounted={false}
 				live={false}
 				parked={false}
@@ -118,4 +135,36 @@ it("covers a frame that has nothing painted yet with the loading overlay", () =>
 	const painted = renderFrame(false, false, "data:image/png;base64,AAAA");
 	expect(painted.host.querySelector(".vetd-loading-dots")).toBeNull();
 	painted.cleanup();
+});
+
+it("puts the expand action left of a lone-selected frame and reports clicks", () => {
+	const toggled: string[] = [];
+	const { host, cleanup } = renderFrame(false, true, null, {
+		expandAction: "expand",
+		onToggleExpanded: (frameId) => toggled.push(frameId),
+	});
+	const button = host.querySelector<HTMLButtonElement>('button[aria-label="canvas.frame.action.expand"]');
+	expect(button).not.toBeNull();
+	const rail = button?.parentElement;
+	// 贴在 frame 左侧外部、与顶边对齐。
+	expect(rail?.style.right).toBe("100%");
+	expect(rail?.className).toContain("top-0");
+	act(() => button?.click());
+	expect(toggled).toEqual(["home"]);
+	cleanup();
+});
+
+it("offers collapse on an expanded frame and keeps only the horizontal resize handle", () => {
+	const { host, cleanup } = renderFrame(false, true, null, { expanded: true, expandAction: "collapse" });
+	expect(host.querySelector('button[aria-label="canvas.frame.action.collapse"]')).not.toBeNull();
+	const handles = host.querySelectorAll('[class*="resize"]');
+	expect(handles).toHaveLength(1);
+	expect(handles[0]?.className).toContain("cursor-ew-resize");
+	cleanup();
+});
+
+it("shows no action rail when there is nothing to expand", () => {
+	const { host, cleanup } = renderFrame(false, true, null, { expandAction: null });
+	expect(host.querySelector('button[aria-label^="canvas.frame.action"]')).toBeNull();
+	cleanup();
 });

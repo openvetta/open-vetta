@@ -37,6 +37,12 @@ interface FrameViewProps {
 	interactive: boolean;
 	/** Resize handles show only for a lone selection — a group resize has no obvious meaning. */
 	resizable: boolean;
+	/**
+	 * frame 操作栏上的展开/收缩按钮（见 frame-extent）。null 表示不出现：没单独选中、
+	 * 或标准尺寸已经装得下完整内容。
+	 */
+	expandAction: "expand" | "collapse" | null;
+	onToggleExpanded(frameId: string): void;
 	/** false 时连 iframe 都还没挂（启动期的挂载节流），见 frame-raster.ts。 */
 	mounted: boolean;
 	/** false 时 iframe 收成 display:none，改用 `raster` 位图显示。 */
@@ -110,6 +116,8 @@ export const FrameView = memo(function FrameView({
 	entered,
 	interactive,
 	resizable,
+	expandAction,
+	onToggleExpanded,
 	mounted,
 	live,
 	parked,
@@ -300,7 +308,7 @@ export const FrameView = memo(function FrameView({
 	 * 它——所以缩放画布不会让这个组件重渲染，浏览器自己重算 transform。
 	 */
 	const labelScale = "var(--vetd-lscale, 1)";
-	const handles: { edge: ResizeEdge; className: string }[] = [
+	const allHandles: { edge: ResizeEdge; className: string }[] = [
 		{ edge: "nw", className: "-left-1 -top-1 cursor-nwse-resize" },
 		{ edge: "ne", className: "-right-1 -top-1 cursor-nesw-resize" },
 		{ edge: "sw", className: "-bottom-1 -left-1 cursor-nesw-resize" },
@@ -308,6 +316,8 @@ export const FrameView = memo(function FrameView({
 		{ edge: "e", className: "-right-1 top-1/2 -translate-y-1/2 cursor-ew-resize" },
 		{ edge: "s", className: "-bottom-1 left-1/2 -translate-x-1/2 cursor-ns-resize" },
 	];
+	// 展开着的 frame 显示的是内容高度：只留横向手柄，要改标准高度先收缩。
+	const handles = frame.expanded === true ? allHandles.filter(({ edge }) => edge === "e") : allHandles;
 
 	return (
 		// biome-ignore lint/a11y/noStaticElementInteractions: canvas manipulation surface
@@ -498,6 +508,47 @@ export const FrameView = memo(function FrameView({
 					}}
 				>
 					{Math.round(rect.width)}×{Math.round(rect.height)}
+				</div>
+			) : null}
+
+			{/* frame 操作栏：左侧外部、与 frame 顶边对齐的一列按钮，只对单独选中的 frame
+			    出现。和标题栏一样反向缩放；以后的 frame 级操作往这一列里加。 */}
+			{selected && resizable && expandAction !== null ? (
+				<div
+					className="absolute top-0 flex flex-col gap-1"
+					style={{
+						right: "100%",
+						transform: `scale(${labelScale})`,
+						transformOrigin: "right top",
+						marginRight: `calc(8px * ${labelScale})`,
+					}}
+				>
+					<button
+						type="button"
+						className="flex size-7 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm hover:bg-muted"
+						title={t(expandAction === "expand" ? "canvas.frame.action.expand" : "canvas.frame.action.collapse")}
+						aria-label={t(expandAction === "expand" ? "canvas.frame.action.expand" : "canvas.frame.action.collapse")}
+						// 按下不能冒泡到画布：那边会当成点了空白处，清掉选中、起一个框选。
+						onPointerDown={(event) => event.stopPropagation()}
+						onClick={() => onToggleExpanded(frame.id)}
+					>
+						<svg
+							viewBox="0 0 24 24"
+							className="size-4"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							aria-hidden
+						>
+							{expandAction === "expand" ? (
+								<path d="m7 15 5 5 5-5M7 9l5-5 5 5" />
+							) : (
+								<path d="m7 20 5-5 5 5M7 4l5 5 5-5" />
+							)}
+						</svg>
+					</button>
 				</div>
 			) : null}
 
