@@ -820,3 +820,14 @@
 .device.vetd-no-island .device-sensors {
 	display: none;
 }
+
+/* 外壳的装饰元素（天线条、灵动岛、按键）不接收指针：devices.css 的天线条是横跨屏幕的 7px 窄带，
+   会把落在那个位置的点击和拖动挡在设计页之外。 */
+.device .device-stripe,
+.device .device-header,
+.device .device-sensors,
+.device .device-btns,
+.device .device-power,
+.device .device-home {
+	pointer-events: none;
+}

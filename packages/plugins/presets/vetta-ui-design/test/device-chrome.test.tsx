@@ -108,3 +108,17 @@ describe("iPad 和手表的外壳", () => {
 		expect(page.style.width).toBe("187px");
 	});
 });
+
+describe("外壳装饰不挡指针", () => {
+	it("天线条、灵动岛、按键等装饰元素 pointer-events: none，否则那几条 7px 窄带会挡住点击和拖动", async () => {
+		const { readFileSync } = await import("node:fs");
+		const { resolve } = await import("node:path");
+		const css = readFileSync(resolve(process.cwd(), "src/style.css"), "utf8");
+		const rule = css.slice(css.indexOf(".device .device-stripe"));
+		const body = rule.slice(0, rule.indexOf("}"));
+		for (const part of [".device-stripe", ".device-header", ".device-sensors", ".device-btns", ".device-power", ".device-home"]) {
+			expect(body).toContain(part);
+		}
+		expect(body).toContain("pointer-events: none");
+	});
+});
