@@ -30,7 +30,10 @@ body {
 	display: none;
 }
 
-/* 交互模式的手机外壳自带灵动岛 / 刘海：隐藏设计稿的状态栏，但保留它占的安全区高度。 */
-html[data-vetd-hide-status-bar] [data-vetd-status-bar] {
+/* 交互模式的手机外壳自带灵动岛 / 刘海：隐藏设计稿的状态栏，但保留它占的安全区高度。
+   两类都要认：引擎自带的 @vetta/ios StatusBar（自己带标记），以及设计里自己写的
+   StatusBar 组件——后者靠源码插桩的 data-vetd-source（文件路径含 StatusBar）识别。 */
+html[data-vetd-hide-status-bar] [data-vetd-status-bar],
+html[data-vetd-hide-status-bar] [data-vetd-source*="StatusBar" i] {
 	visibility: hidden;
 }
