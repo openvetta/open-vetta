@@ -20,7 +20,7 @@ export function ProjectsPanelEmptyState({
 }: ProjectsPanelEmptyStateProps): JSX.Element {
 	return (
 		<div className="px-1 py-2">
-			<div className="flex flex-col gap-3 rounded-2xl bg-muted/40 p-3.5">
+			<div className="flex flex-col gap-3 rounded-2xl bg-card p-3.5">
 				<div className="flex flex-col gap-1">
 					<p className="text-[14px] font-semibold text-foreground">{labels.title}</p>
 					<p className="text-[12px] leading-relaxed text-muted-foreground">{labels.description}</p>
