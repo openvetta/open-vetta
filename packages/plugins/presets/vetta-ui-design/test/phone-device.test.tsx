@@ -13,6 +13,23 @@ describe("resolvePhoneDevice", () => {
 		expect(device).toEqual({ viewport: { width: 390, height: 844 }, radius: 49, kind: "notch" });
 	});
 
+	it("跟随设计稿时机身款式看状态栏设置：390 × 844 的灵动岛稿子不配刘海外壳", () => {
+		const home = { width: 390, height: 844 };
+		expect(resolvePhoneDevice({ selectedId: null, home, statusBar: "island" })).toEqual({
+			viewport: home,
+			radius: 49,
+			kind: "island",
+		});
+		expect(resolvePhoneDevice({ selectedId: null, home, statusBar: "notch" }).kind).toBe("notch");
+		expect(resolvePhoneDevice({ selectedId: null, home, statusBar: "none" }).kind).toBe("notch");
+		expect(resolvePhoneDevice({ selectedId: null, home: null, statusBar: "notch" }).kind).toBe("notch");
+	});
+
+	it("手选机型时不受状态栏设置影响", () => {
+		const device = resolvePhoneDevice({ selectedId: "iphone-14", home: null, statusBar: "island" });
+		expect(device.kind).toBe("notch");
+	});
+
 	it("稿子声明了圆角也不套：外壳已经定了屏幕圆角", () => {
 		expect(resolvePhoneDevice({ selectedId: null, home: { width: 393, height: 852, radius: 40 } }).radius).toBe(49);
 	});
