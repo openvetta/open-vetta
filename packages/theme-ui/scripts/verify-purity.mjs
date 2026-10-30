@@ -21,9 +21,7 @@ async function walk(dir) {
 }
 
 const requiredExports = [
-	"SceneCard",
 	"SkillCard",
-	"DefaultSceneCarousel",
 	"DefaultSkillBadgeRow",
 	"InputBarToolbarButton",
 	"InputBarCapsule",
