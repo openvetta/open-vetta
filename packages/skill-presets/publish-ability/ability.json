@@ -51,7 +51,7 @@
 						"items": [
 							{
 								"title": "Identify the ability type",
-								"description": "Choose Skill, scene, MCP, plugin, or bundle."
+								"description": "Choose Skill, MCP, plugin, or bundle."
 							},
 							{
 								"title": "Prepare the presentation",

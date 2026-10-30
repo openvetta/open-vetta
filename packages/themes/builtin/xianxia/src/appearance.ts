@@ -3,7 +3,7 @@ import { xianxiaAssets } from "./assets";
 
 const xianxiaPanelFrame: ThemeSurfaceFrame = {
 	kind: "nine-slice-image",
-	imageUrl: xianxiaAssets.newSessionScenePanel,
+	imageUrl: xianxiaAssets.panelFrame,
 	decoration: {
 		borderWidth: "18px",
 		outset: "2px",
