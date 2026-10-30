@@ -1,3 +1,4 @@
+import { Button } from "@vetta-org/ui/button";
 import type { JSX } from "react";
 
 function cn(...parts: Array<string | false | null | undefined>): string {
@@ -19,14 +20,10 @@ export function AddProjectMenuTriggerView({
 }: AddProjectMenuTriggerViewProps): JSX.Element {
 	if (variant === "secondary") {
 		return (
-			<button
-				type="button"
-				onClick={onClick}
-				className="no-drag flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-colors bg-muted/60 text-foreground hover:bg-muted"
-			>
+			<Button variant="secondary" size="lg" className="no-drag w-full text-[13px]" onClick={onClick}>
 				<span className="icon-[solar--add-folder-linear] h-4 w-4 shrink-0" />
 				{label}
-			</button>
+			</Button>
 		);
 	}
 
