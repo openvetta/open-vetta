@@ -25,7 +25,7 @@
 		"hide": "Hide sidebar",
 		"empty": {
 			"title": "No projects yet",
-			"description": "Click + above to create a project"
+			"description": "No projects yet. Click + above to create one"
 		},
 		"projects": {
 			"noSessions": "No sessions",
