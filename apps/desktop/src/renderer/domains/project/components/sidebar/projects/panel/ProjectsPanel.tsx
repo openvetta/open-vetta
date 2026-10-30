@@ -27,6 +27,11 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 	const showProjectsEmpty = model.noOtherProjects && showDefaultRegion;
 	const showProjectsRegion = hasUserProjects || showProjectsEmpty;
 
+	const defaultCwd = model.defaultProject?.cwd;
+	const newConversation = (): void => {
+		if (defaultCwd) model.actions.defaultNewSession(defaultCwd);
+	};
+
 	const defaultSection =
 		showDefaultRegion && model.defaultProject ? (
 			<DefaultConversationSection
@@ -49,7 +54,7 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 	return (
 		<ProjectsPanelView
 			defaultSection={defaultSection}
-			emptyState={<ProjectsPanelEmptyState />}
+			emptyState={<ProjectsPanelEmptyState onNewConversation={newConversation} />}
 			menus={<ProjectsPanelMenus model={model} />}
 			onScrollRef={setScrollEl}
 			scrollElement={scrollEl}
@@ -57,7 +62,7 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 				hasUserProjects ? (
 					<ProjectGroupsSection model={model} scrollParent={scrollEl} />
 				) : (
-					<ProjectsPanelEmptyState />
+					<ProjectsPanelEmptyState onNewConversation={newConversation} />
 				)
 			}
 			quickScrollLabels={{

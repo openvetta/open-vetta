@@ -24,7 +24,8 @@
 		"clawConnected": "Claw connected",
 		"hide": "Hide sidebar",
 		"empty": {
-			"title": "No projects yet"
+			"title": "Start here",
+			"description": "Your projects and chat history will live here."
 		},
 		"projects": {
 			"noSessions": "No sessions",

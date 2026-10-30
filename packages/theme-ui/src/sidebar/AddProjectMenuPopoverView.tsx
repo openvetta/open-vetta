@@ -16,7 +16,7 @@ export interface AddProjectMenuPopoverItem {
 export interface AddProjectMenuPopoverViewProps {
 	items: AddProjectMenuPopoverItem[];
 	open: boolean;
-	variant: "icon" | "navItem" | "primary";
+	variant: "icon" | "navItem" | "primary" | "secondary";
 }
 
 export function AddProjectMenuPopoverView({

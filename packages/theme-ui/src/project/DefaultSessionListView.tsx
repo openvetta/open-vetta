@@ -47,7 +47,6 @@ export function DefaultSessionListView<T extends DefaultSessionListViewItem>({
 	hasMore,
 	labels,
 	loading = false,
-	onEmptyAction,
 	onToggleShowAll,
 	renderSession,
 	scrollParent,
@@ -62,24 +61,8 @@ export function DefaultSessionListView<T extends DefaultSessionListViewItem>({
 	useActiveSessionAutoScroll({ activeIndex, activeKey, scrollParent, virtuosoRef });
 	if (loading) return <ProjectSessionsLoadingView />;
 
-	if (totalCount === 0) {
-		const showAction = Boolean(labels.emptyAction && onEmptyAction);
-		return (
-			<div className={cn("flex flex-col gap-2 px-1 py-2", className)}>
-				<p className="px-1 text-[12px] text-muted-foreground">{labels.emptyTitle}</p>
-				{showAction && (
-					<button
-						type="button"
-						onClick={onEmptyAction}
-						className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-[12.5px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
-					>
-						<span className="icon-[solar--add-circle-linear] h-4 w-4 shrink-0" />
-						{labels.emptyAction}
-					</button>
-				)}
-			</div>
-		);
-	}
+	// 空状态的引导统一放在项目区的卡片里，对话区本身不放内容。
+	if (totalCount === 0) return <></>;
 
 	const useVirtual = showAll && scrollParent != null;
 
