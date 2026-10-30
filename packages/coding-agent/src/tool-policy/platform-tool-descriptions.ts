@@ -5,7 +5,9 @@ export function createCodingAgentCommandToolDescription(toolName: "bash" | "shel
 	const platformNote = toolName === "shell" ? "\n\nOn Windows, this tool uses PowerShell by default." : "";
 	return `Execute a ${toolName} command in the current working directory. Returns stdout and stderr. Output is truncated to the last 2000 lines or 50KB; full truncated output is saved to a temporary file.
 
-Default to foreground commands. Set \`run_in_background: true\` for servers, watchers, containers, tunnels, REPLs, or any process that runs until killed. Do not use shell backgrounding such as \`&\`, \`nohup\`, or manual disown. Use \`task_output\` and \`task_stop\` for background work.
+Default to foreground commands. Set \`run_in_background: true\` for servers, watchers, containers, tunnels, REPLs, or any process that runs until killed. Do not use shell backgrounding such as \`&\`, \`nohup\`, or manual disown. Background tasks also suit long-running finite work (large builds, full test suites, installs, downloads) when you have other useful work to do meanwhile.
+
+Background tasks notify you automatically: when the command exits, a \`<task-notification>\` is delivered into the conversation. Never start a second command to poll, sleep, or wait for it (no \`sleep\` loops, no \`tail -f\`, no repeated status checks). Either continue with independent work, or end your turn and wait for the notification. Use \`task_output\` only to inspect progress or output on demand, and \`task_stop\` to terminate.
 
 Use dedicated tools for file reads, edits, writes, path search, content search, directory listing, PDF extraction, image OCR, and skill invocation. Use ${toolName} for scripts, package managers, git, compilers, interpreters, pipelines, and operations without a dedicated tool.
 

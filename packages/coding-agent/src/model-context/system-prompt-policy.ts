@@ -288,6 +288,9 @@ function buildGuidelines(tools: string[], scenario?: ConversationScenario): stri
 		guidelinesList.push(
 			"Before bash/shell: if the process may not exit on its own (dev server, watcher, docker compose up without -d, make dev), MUST set run_in_background: true. Foreground blocks the entire agent turn until exit (or auto-promote after the soft wait).",
 		);
+		guidelinesList.push(
+			"Background tasks (run_in_background, or auto-promoted) automatically deliver a <task-notification> when they finish. Do NOT spawn a polling/sleep/wait command to check on them; do other work or end your turn, and read output via task_output only when needed.",
+		);
 	}
 
 	if (hasDirTree) {
