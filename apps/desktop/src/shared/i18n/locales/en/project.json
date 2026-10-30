@@ -24,8 +24,7 @@
 		"clawConnected": "Claw connected",
 		"hide": "Hide sidebar",
 		"empty": {
-			"title": "No projects yet",
-			"description": "No projects yet. Click + above to create one"
+			"title": "No projects yet"
 		},
 		"projects": {
 			"noSessions": "No sessions",

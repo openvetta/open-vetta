@@ -47,6 +47,7 @@ export function DefaultSessionListView<T extends DefaultSessionListViewItem>({
 	hasMore,
 	labels,
 	loading = false,
+	onEmptyAction,
 	onToggleShowAll,
 	renderSession,
 	scrollParent,
@@ -62,11 +63,20 @@ export function DefaultSessionListView<T extends DefaultSessionListViewItem>({
 	if (loading) return <ProjectSessionsLoadingView />;
 
 	if (totalCount === 0) {
+		const showAction = Boolean(labels.emptyAction && onEmptyAction);
 		return (
-			<div className={cn("py-1.5", className)}>
-				<p className="mx-1 rounded-lg border border-dashed border-border/60 px-3 py-2.5 text-[11.5px] leading-relaxed text-muted-foreground/80">
-					{labels.emptyDescription}
-				</p>
+			<div className={cn("flex flex-col gap-2 px-1 py-2", className)}>
+				<p className="px-1 text-[12px] text-muted-foreground">{labels.emptyTitle}</p>
+				{showAction && (
+					<button
+						type="button"
+						onClick={onEmptyAction}
+						className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-[12.5px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
+					>
+						<span className="icon-[solar--add-circle-linear] h-4 w-4 shrink-0" />
+						{labels.emptyAction}
+					</button>
+				)}
 			</div>
 		);
 	}

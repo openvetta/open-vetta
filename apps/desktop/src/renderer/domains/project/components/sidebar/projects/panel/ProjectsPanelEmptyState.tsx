@@ -1,3 +1,4 @@
+import { AddProjectMenu } from "../../add-project/AddProjectMenu";
 import { ProjectsPanelEmptyState as ThemeProjectsPanelEmptyState } from "@vetta-org/theme-ui/sidebar/ProjectsPanelEmptyState";
 import { useTranslation } from "react-i18next";
 
@@ -6,10 +7,8 @@ export function ProjectsPanelEmptyState(): JSX.Element {
 	const { t } = useTranslation("project");
 	return (
 		<ThemeProjectsPanelEmptyState
-			labels={{
-				title: t("sidebar.empty.title"),
-				description: t("sidebar.empty.description"),
-			}}
+			action={<AddProjectMenu variant="primary" />}
+			labels={{ title: t("sidebar.empty.title") }}
 		/>
 	);
 }

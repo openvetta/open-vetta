@@ -8,7 +8,7 @@ export interface AddProjectMenuTriggerViewProps {
 	label: string;
 	onClick: () => void;
 	open: boolean;
-	variant: "icon" | "navItem";
+	variant: "icon" | "navItem" | "primary";
 }
 
 export function AddProjectMenuTriggerView({
@@ -17,6 +17,19 @@ export function AddProjectMenuTriggerView({
 	open,
 	variant,
 }: AddProjectMenuTriggerViewProps): JSX.Element {
+	if (variant === "primary") {
+		return (
+			<button
+				type="button"
+				onClick={onClick}
+				className="no-drag flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-[12.5px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
+			>
+				<span className="icon-[solar--add-circle-linear] h-4 w-4 shrink-0" />
+				{label}
+			</button>
+		);
+	}
+
 	if (variant === "navItem") {
 		return (
 			<button

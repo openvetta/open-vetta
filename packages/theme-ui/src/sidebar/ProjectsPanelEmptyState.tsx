@@ -1,18 +1,20 @@
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
 
 export interface ProjectsPanelEmptyStateLabels {
 	title: string;
-	description: string;
 }
 
 export interface ProjectsPanelEmptyStateProps {
+	/** Full-width primary action, e.g. the add-project menu. */
+	action?: ReactNode;
 	labels: ProjectsPanelEmptyStateLabels;
 }
 
-export function ProjectsPanelEmptyState({ labels }: ProjectsPanelEmptyStateProps): JSX.Element {
+export function ProjectsPanelEmptyState({ action, labels }: ProjectsPanelEmptyStateProps): JSX.Element {
 	return (
-		<div className="px-1 py-1.5">
-			<p className="rounded-lg border border-dashed border-border/60 px-3 py-2.5 text-[11.5px] leading-relaxed text-muted-foreground/80">{labels.description}</p>
+		<div className="flex flex-col gap-2 px-1 py-2">
+			<p className="px-1 text-[12px] text-muted-foreground">{labels.title}</p>
+			{action}
 		</div>
 	);
 }
