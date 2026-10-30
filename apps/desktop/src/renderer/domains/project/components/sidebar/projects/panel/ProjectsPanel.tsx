@@ -6,6 +6,7 @@ import { DefaultConversationSection } from "./DefaultConversationSection";
 import { ProjectGroupsSection } from "./ProjectGroupsSection";
 import { ProjectsPanelEmptyState } from "./ProjectsPanelEmptyState";
 import { ProjectsPanelMenus } from "./ProjectsPanelMenus";
+import { useHasSidebarProjects } from "../../../../hooks/useHasSidebarProjects";
 import { useConversationTagsSync } from "../../../../hooks/useConversationTagsSync";
 import { useProjectsPanelModel } from "./useProjectsPanelModel";
 import type { ProjectsPanelProps } from "./types";
@@ -30,8 +31,9 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 		if (defaultCwd) model.actions.defaultNewSession(defaultCwd);
 	};
 
+	const hasAnyProjects = useHasSidebarProjects();
 	const showStartCard =
-		!hasUserProjects &&
+		!hasAnyProjects &&
 		!model.defaultSessionsLoading &&
 		model.defaultSessions.length === 0 &&
 		model.defaultConversationFilter === "conversation";
