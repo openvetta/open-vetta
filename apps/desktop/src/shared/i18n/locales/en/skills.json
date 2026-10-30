@@ -26,11 +26,11 @@
 		},
 		"install-ability": {
 			"name": "Install Ability",
-			"description": "Install plugins, Skills/scenes, and MCP servers into this machine's Vetta, reloading right away when a plugin upgrade leaves a pending version."
+			"description": "Install plugins, Skills, and MCP servers into this machine's Vetta, reloading right away when a plugin upgrade leaves a pending version."
 		},
 		"publish-ability": {
 			"name": "Publish Ability",
-			"description": "Submit a skill, scene, MCP server, plugin, or ability bundle to the Vetta marketplace, covering required fields, localization, and the review flow."
+			"description": "Submit a skill, MCP server, plugin, or ability bundle to the Vetta marketplace, covering required fields, localization, and the review flow."
 		}
 	}
 }
