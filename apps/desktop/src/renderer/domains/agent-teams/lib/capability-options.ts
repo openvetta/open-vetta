@@ -4,7 +4,7 @@ import { getSkillDisplayDescription, getSkillDisplayName, isSkillVisibleOnSurfac
 import { resolvePluginText } from "@vetta-org/plugin-sdk";
 import { resolveMcpIcon } from "../../settings/mcp/builtin-mcp-presets";
 
-export type AgentCapabilityKind = "skill" | "scene" | "mcp" | "plugin";
+export type AgentCapabilityKind = "skill" | "mcp" | "plugin";
 
 export interface AgentCapabilityOption {
 	readonly id: string;

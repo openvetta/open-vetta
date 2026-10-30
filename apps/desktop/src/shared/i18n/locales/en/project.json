@@ -7,7 +7,6 @@
 			"knowledge": "Knowledge",
 			"skills": "Capabilities",
 			"agents": "Agents",
-			"scenes": "Scenes",
 			"plugins": "Plugins",
 			"modelSettings": "Model Settings",
 			"agentSettings": "Agent Settings",
@@ -24,8 +23,8 @@
 		"clawConnected": "Claw connected",
 		"hide": "Hide sidebar",
 		"empty": {
-			"title": "No projects yet",
-			"description": "Click + above to create a project"
+			"title": "Start here",
+			"description": "Your projects and chat history will live here."
 		},
 		"projects": {
 			"noSessions": "No sessions",

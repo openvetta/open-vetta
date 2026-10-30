@@ -113,6 +113,17 @@ describe("buildSystemPrompt", () => {
 			expect(prompt).toContain("run_in_background: true");
 			expect(prompt).toContain("auto-promote");
 		});
+
+		test("tells the model background tasks notify on completion and must not be polled", () => {
+			const prompt = buildSystemPrompt({
+				selectedTools: ["bash", "read"],
+				contextFiles: [],
+				skills: [],
+			});
+
+			expect(prompt).toContain("<task-notification>");
+			expect(prompt).toContain("Do NOT spawn a polling");
+		});
 	});
 
 	describe("scenario gating of UI rendering guidelines", () => {

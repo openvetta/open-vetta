@@ -114,7 +114,11 @@ export function InteractionView({ port, session, active, trailingSlot }: Interac
 	// 选的预设与当前设备类型对不上（用户手动切了类型）就先忽略，切回来还在。
 	const phone =
 		chromeKind === "phone"
-			? resolvePhoneDevice({ selectedId: choice?.category.id === "phone" ? choice.preset.id : null, home })
+			? resolvePhoneDevice({
+					selectedId: choice?.category.id === "phone" ? choice.preset.id : null,
+					home,
+					statusBar: session.manifest.statusBar,
+				})
 			: null;
 	const viewport = phone
 		? phone.viewport

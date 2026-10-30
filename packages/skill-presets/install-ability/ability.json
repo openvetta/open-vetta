@@ -59,7 +59,7 @@
 						"items": [
 							{
 								"title": "Classify first",
-								"description": "Plugins, Skills/scenes, and MCP servers each have their own install path.",
+								"description": "Plugins, Skills, and MCP servers each have their own install path.",
 								"icon": "solar:widget-5-linear"
 							},
 							{

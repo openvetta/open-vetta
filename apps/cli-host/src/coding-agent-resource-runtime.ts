@@ -3,13 +3,7 @@ import type {
 	CodingAgentPromptRuntimeSourceContext,
 	CodingAgentPromptRuntimeSources,
 } from "@vetta/coding-agent/composition";
-import {
-	CONFIG_DIR_NAME,
-	getAgentDir,
-	getSceneDir,
-	getUserSkillsDir,
-	getVettaHomePath,
-} from "@vetta/coding-agent/config";
+import { CONFIG_DIR_NAME, getAgentDir, getUserSkillsDir, getVettaHomePath } from "@vetta/coding-agent/config";
 import {
 	configureThemeRuntime,
 	detectColorMode,
@@ -102,7 +96,6 @@ export function createCliSessionResourceRuntime(
 		extensionFactoryLoader: createCodingAgentNodeExtensionFactoryLoader(),
 		extensionCommandExecutor: createNodeCommandExecutor(),
 		skillLocations: {
-			sceneDir: getSceneDir(),
 			managedSkillsDir: getUserSkillsDir(),
 			manifestPath: host.resourceAccess.paths.join(getVettaHomePath(), "skills-manifest.json"),
 		},

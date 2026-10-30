@@ -20,7 +20,7 @@ export const CommandToolInputSchema = Type.Object({
 	run_in_background: Type.Optional(
 		Type.Boolean({
 			description:
-				"Run as a background task immediately (returns task ID). REQUIRED for any process that does not exit on its own: dev servers, watchers, docker compose up (without -d), make dev, tunnels. Do not use for quick one-shot commands. Ignores timeout.",
+				"Run as a background task immediately (returns task ID). REQUIRED for any process that does not exit on its own: dev servers, watchers, docker compose up (without -d), make dev, tunnels. Completion is reported automatically via a <task-notification>, so never start another command to poll or wait for it. Do not use for quick one-shot commands you need the result of immediately. Ignores timeout.",
 		}),
 	),
 });

@@ -1,5 +1,6 @@
 import type { FrameSize } from "../vetd/manifest-types";
 import type { InteractionMode } from "../vetd/interaction-mode";
+import type { StatusBarSetting } from "../vetd/status-bar";
 import { SIZE_CATEGORIES, type SizeCategoryId, type SizePreset } from "../vetd/size-presets";
 import type { ResolvedChoice } from "./device-choice";
 
@@ -97,15 +98,21 @@ export interface PhoneDevice {
  *
  * 用户在工具条里选了机型就用它。「跟随设计稿」时：尺寸正好是某个手机预设，就是那台
  * （视口不变）；对不上任何预设说明稿子没有设备信息，用 iPhone 17 Pro。
+ *
+ * 机身款式（灵动岛 / 刘海）跟随设计稿时以稿子的状态栏设置为准：默认尺寸 390 × 844
+ * 恰好是 iPhone 14（刘海款），但稿子画的是灵动岛，只看尺寸会配出刘海外壳。
+ * 稿子没有设置、或设成 flat / none 时才回到按预设特征归并。
  */
-function deviceOf(preset: SizePreset, viewport: FrameSize): PhoneDevice {
-	const kind = shellKindOfPreset(preset);
+function deviceOf(preset: SizePreset, viewport: FrameSize, follow?: StatusBarSetting | null): PhoneDevice {
+	const kind = follow === "island" || follow === "notch" ? follow : shellKindOfPreset(preset);
 	return { viewport, radius: SHELLS[kind].screenRadius, kind };
 }
 
 export function resolvePhoneDevice(input: {
 	selectedId: string | null;
 	home: (FrameSize & { radius?: number }) | null;
+	/** 稿子的状态栏设置（manifest.statusBar）；只在「跟随设计稿」时决定机身款式。 */
+	statusBar?: StatusBarSetting | null;
 }): PhoneDevice {
 	const byId = (id: string | null): SizePreset | undefined => PHONE_PRESETS.find((preset) => preset.id === id);
 	const selected = byId(input.selectedId);
@@ -114,10 +121,10 @@ export function resolvePhoneDevice(input: {
 	}
 	const matched = input.home ? matchPhonePreset(input.home) : null;
 	if (matched && input.home) {
-		return deviceOf(matched, { width: matched.width, height: matched.height });
+		return deviceOf(matched, { width: matched.width, height: matched.height }, input.statusBar);
 	}
 	const fallback = byId(DEFAULT_PHONE_PRESET_ID) ?? PHONE_PRESETS[0];
-	return deviceOf(fallback, { width: fallback.width, height: fallback.height });
+	return deviceOf(fallback, { width: fallback.width, height: fallback.height }, input.statusBar);
 }
 
 /**

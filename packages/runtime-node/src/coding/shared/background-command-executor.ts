@@ -54,8 +54,8 @@ export function createBackgroundCommandToolExecutor(options: BackgroundCommandEx
 				const text = prependPathCorrectionNotes(
 					`Command running in background with task ID: ${task.id}\n` +
 						`Output file: ${task.outputFile}\n` +
-						"A <task-notification> will be delivered when the command finishes. " +
-						"Use task_output to read incremental output, task_stop to terminate.",
+						"A <task-notification> will be delivered automatically when the command finishes, so do not poll or sleep-wait for it with another command. " +
+						"Use task_output only to read incremental output on demand, task_stop to terminate.",
 					pathCorrections,
 				);
 				return {
@@ -152,7 +152,7 @@ function createAutoPromotedResult(
 		`Partial output:\n${partial}\n` +
 		`Full output file: ${task.outputFile}\n` +
 		"Use task_output to read more, task_stop to terminate.\n" +
-		"A <task-notification> will be delivered when it finishes.";
+		"A <task-notification> will be delivered automatically when it finishes; do not poll or sleep-wait for it with another command.";
 	text = appendProtectedDirectoryWarning(text, protectedChanges);
 	text = prependPathCorrectionNotes(text, pathCorrections);
 	return {
