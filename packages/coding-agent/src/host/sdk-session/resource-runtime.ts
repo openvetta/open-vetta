@@ -17,7 +17,7 @@ import {
 	loadThemeFromContent,
 } from "../../theme/index.js";
 import { createCodingAgentNodeExtensionFactoryLoader } from "../extensions/node-extension-factory-loader.js";
-import { getSceneDir, getUserSkillsDir, getVettaHomePath } from "../node-config.js";
+import { getUserSkillsDir, getVettaHomePath } from "../node-config.js";
 
 export interface CreateCodingAgentSdkSessionResourceRuntimeOptions
 	extends Omit<
@@ -61,7 +61,6 @@ export function createCodingAgentSdkSessionResourceRuntime(
 		extensionFactoryLoader: createCodingAgentNodeExtensionFactoryLoader(),
 		extensionCommandExecutor: createNodeCommandExecutor(),
 		skillLocations: {
-			sceneDir: getSceneDir(),
 			managedSkillsDir: getUserSkillsDir(),
 			manifestPath: host.resourceAccess.paths.join(getVettaHomePath(), "skills-manifest.json"),
 		},

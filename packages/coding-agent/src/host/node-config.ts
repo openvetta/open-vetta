@@ -190,10 +190,6 @@ export function getDebugLogPath(): string {
 	return join(getAgentDir(), `${APP_NAME}-debug.log`);
 }
 
-export function getSceneDir(): string {
-	return join(getVettaHomePath(), "scene");
-}
-
 export function getUserSkillsDir(): string {
 	return join(getVettaHomePath(), "skills");
 }

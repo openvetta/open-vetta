@@ -11,7 +11,6 @@ import {
 	CONFIG_DIR_NAME,
 	getAgentDir,
 	getKnowledgeDir,
-	getSceneDir,
 	getUserSkillsDir,
 	getVettaHomePath,
 } from "@vetta/coding-agent/config";
@@ -151,7 +150,6 @@ function createDesktopNodeToolHost(cwd: string, configuredAgentDir?: string) {
 	const protectedCommandDirectories = [
 		resolve(agentDir, "skills"),
 		resolve(getUserSkillsDir()),
-		resolve(getSceneDir()),
 		resolve(cwd, CONFIG_DIR_NAME, "skills"),
 	];
 	const pathClassifier = createNodePathBoundaryClassifier({
@@ -163,7 +161,7 @@ function createDesktopNodeToolHost(cwd: string, configuredAgentDir?: string) {
 		managedDirectory: join(getKnowledgeDir(), "wiki"),
 	});
 	const boundaries = {
-		isProtectedSkillOrScenePath: pathClassifier.isReadOnlyPath,
+		isProtectedSkillPath: pathClassifier.isReadOnlyPath,
 		isKnowledgeWikiPath: pathClassifier.isManagedPath,
 	};
 	const resolveShell = () => {
@@ -194,7 +192,6 @@ function resolveLocalReadRoots(configuredAgentDir: string | undefined): readonly
 		getVettaHomePath(),
 		configuredAgentDir ?? getAgentDir(),
 		getUserSkillsDir(),
-		getSceneDir(),
 		tmpdir(),
 		// Electron 主进程才有；CLI 与测试里是 undefined。
 		(process as NodeJS.Process & { resourcesPath?: string }).resourcesPath,
