@@ -63,9 +63,11 @@ export function DefaultSessionListView<T extends DefaultSessionListViewItem>({
 
 	if (totalCount === 0) {
 		return (
-			<p className={cn("px-2.5 py-2 text-[12px] leading-relaxed text-muted-foreground", className)}>
-				{labels.emptyDescription}
-			</p>
+			<div className={cn("py-1.5", className)}>
+				<p className="mx-1 rounded-lg border border-dashed border-border/60 px-3 py-2.5 text-[11.5px] leading-relaxed text-muted-foreground/80">
+					{labels.emptyDescription}
+				</p>
+			</div>
 		);
 	}
 
