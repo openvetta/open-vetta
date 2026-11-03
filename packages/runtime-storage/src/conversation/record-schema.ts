@@ -831,6 +831,7 @@ export const ConversationDocumentEntrySchema = Type.Union([
 			reason: Type.Optional(
 				Type.Union([Type.Literal("manual"), Type.Literal("threshold"), Type.Literal("overflow")]),
 			),
+			turnId: Type.Optional(Type.String({ minLength: 1 })),
 		},
 		{ additionalProperties: false },
 	),
