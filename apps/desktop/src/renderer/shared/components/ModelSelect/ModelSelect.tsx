@@ -1,4 +1,5 @@
 import { ProviderIcon } from "@vetta-org/theme-ui/shared/provider-icon/index";
+import { ModelVisionIcon } from "@vetta-org/theme-ui/chat";
 import { cn } from "@shared/lib/utils";
 import { modelCatalog } from "@shared/store/model-catalog";
 import { ThemeSurface } from "@vetta-org/theme-ui/appearance/ThemeSurface";
@@ -339,9 +340,10 @@ export function ModelSelect({
 														<span className="min-w-0 flex-1 truncate">{m.displayName}</span>
 														<MultiplierTag multiplier={m.multiplier} />
 														{m.supportsImage && (
-															<span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-																{t("modelSelect.visionBadge")}
-															</span>
+															<ModelVisionIcon
+																label={t("modelSelect.visionBadge")}
+																className="size-3.5"
+															/>
 														)}
 														{m.tags?.map((tag) => (
 															<span

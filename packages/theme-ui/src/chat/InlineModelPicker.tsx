@@ -4,7 +4,7 @@ import { Switch } from "@vetta-org/ui/switch";
 import type { JSX, KeyboardEvent } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { ProviderIcon } from "../shared/provider-icon";
-import type { ModelSelectorLabels, ModelSelectorProviderGroup } from "./ModelSelectorView";
+import { type ModelSelectorLabels, type ModelSelectorProviderGroup, ModelVisionIcon } from "./ModelSelectorView";
 import { ReasoningStepSlider } from "./ReasoningStepSlider";
 
 /** A searchable picker body for an existing surface. It never creates a second overlay. */
@@ -177,7 +177,7 @@ export function InlineModelPicker({
 									<span className="shrink-0 text-[11px] text-muted-foreground">{labels.multiplierLabel(model)}</span>
 								) : null}
 								{model.supportsImage ? (
-									<span className="shrink-0 text-[10px] text-muted-foreground">{labels.visionBadge}</span>
+									<ModelVisionIcon label={labels.visionBadge} />
 								) : null}
 								{model.key === defaultKey ? (
 									<span className="shrink-0 text-[10px] text-muted-foreground">{labels.defaultBadge}</span>
