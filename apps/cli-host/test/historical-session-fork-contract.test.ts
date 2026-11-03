@@ -64,7 +64,7 @@ describe("Historical session fork contract", () => {
 				allReferencesResolved: true,
 				branchSummaryFromId: "legacy-custom-hidden",
 				eventCount: 4,
-				operationCount: 1,
+				operationCount: 2,
 				parentEntryId: forkEntryId,
 				reason: "fork",
 				sourceEntryId: forkEntryId,
@@ -100,7 +100,7 @@ describe("Historical session fork contract", () => {
 			expect(describeForkFile(await readFile(forkPath, "utf8"))).toMatchObject({
 				allParentsResolved: true,
 				allReferencesResolved: true,
-				eventCount: 12,
+				eventCount: 14,
 			});
 		} finally {
 			await process.close();

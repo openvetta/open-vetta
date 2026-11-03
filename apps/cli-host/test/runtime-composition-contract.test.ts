@@ -21,6 +21,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createCliPromptRuntimeSources } from "../src/coding-agent-resource-runtime.js";
 import { createCodingAgentRuntimeComposition } from "./fixtures/runtime-composition.js";
 
+const GOAL_CONTROL_TOOLS = ["get_goal", "create_goal", "update_goal"];
+
 describe("Runtime composition contract", () => {
 	const temporaryDirectories: string[] = [];
 	const compositions: CodingAgentRuntimeComposition[] = [];
@@ -448,13 +450,13 @@ describe("Runtime composition contract", () => {
 			},
 			{
 				sessionId: "system-prompt-session",
-				activeToolNames: ["read"],
+				activeToolNames: ["read", ...GOAL_CONTROL_TOOLS],
 				messageRoles: ["user"],
 				modelId: "recorded-model",
 			},
 			{
 				sessionId: "system-prompt-session",
-				activeToolNames: ["read"],
+				activeToolNames: ["read", ...GOAL_CONTROL_TOOLS],
 				messageRoles: ["user", "assistant", "user"],
 				modelId: "recorded-model",
 			},
@@ -475,13 +477,12 @@ describe("Runtime composition contract", () => {
 			boundTools.snapshot.entries.find(({ registration }) => registration.tool.name === "read")?.registration.tool,
 		).toMatchObject({ description: registeredRead?.description });
 		await boundTools.release();
-		expect(calls[0]?.tools).toEqual([
-			{
-				name: "read",
-				description: registeredRead?.description,
-				inputSchema: jsonValue(registeredRead?.inputSchema),
-			},
-		]);
+		expect(calls[0]?.tools.map(({ name }) => name)).toEqual(["read", ...GOAL_CONTROL_TOOLS]);
+		expect(calls[0]?.tools[0]).toEqual({
+			name: "read",
+			description: registeredRead?.description,
+			inputSchema: jsonValue(registeredRead?.inputSchema),
+		});
 		await session.dispose();
 	});
 
@@ -810,6 +811,7 @@ describe("Runtime composition contract", () => {
 			},
 			{ type: "message", message: { role: "user" } },
 			{ type: "message", message: { role: "assistant" } },
+			{ type: "assistant_turn_timing" },
 		]);
 		await session.dispose();
 

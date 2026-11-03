@@ -804,7 +804,7 @@ function sessionContinuityResponse(
 	fixture: AgentRpcFixture,
 	semantic: "replacement" | "continuation",
 ): { readonly kind: "events"; readonly events: readonly unknown[] } {
-	const requestText = JSON.stringify(request.body.input);
+	const requestText = request.rawBody;
 	if (requestText.includes("You maintain a concise long-term MEMORY")) {
 		return { kind: "events", events: textResponseEvents("NONE") };
 	}
@@ -1182,24 +1182,47 @@ function describeContinuedConversation(content: string): Readonly<Record<string,
 		.split(/\r?\n/u)
 		.map((line) => JSON.parse(line) as unknown);
 	const entries: PersistedEntryReference[] = [];
+	let activeLeafId: string | null = null;
 	for (const record of records) {
 		if (!isRecord(record)) continue;
-		if (record.recordType === "conversation.import.seed" && Array.isArray(record.entries)) {
+		if (
+			(record.recordType === "conversation.import.seed" || record.recordType === "conversation.continuation.seed") &&
+			Array.isArray(record.entries)
+		) {
 			for (const entry of record.entries) {
 				const reference = readPersistedEntryReference(entry);
 				if (reference) entries.push(reference);
 			}
+			activeLeafId = typeof record.activeLeafId === "string" ? record.activeLeafId : null;
 			continue;
 		}
 		if (isRecord(record.documentEntry)) {
 			const reference = readPersistedEntryReference(record.documentEntry, readStoredEventRole(record.event));
-			if (reference) entries.push(reference);
+			if (reference) {
+				entries.push(reference);
+				activeLeafId = reference.id;
+			}
 			continue;
 		}
+		if (record.recordType === "conversation.document.operation" && isRecord(record.command)) {
+			if (record.command.type === "active_leaf.set") {
+				activeLeafId = typeof record.command.entryId === "string" ? record.command.entryId : null;
+				continue;
+			}
+			if (record.command.type === "custom.append" && typeof record.command.entryId === "string") {
+				entries.push({ id: record.command.entryId, parentId: activeLeafId });
+				activeLeafId = record.command.entryId;
+				continue;
+			}
+		}
 		const reference = readPersistedEntryReference(record);
-		if (reference) entries.push(reference);
+		if (reference) {
+			entries.push(reference);
+			activeLeafId = reference.id;
+		}
 	}
 	const knownIds = new Set<string>();
+	const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
 	let allParentsResolved = true;
 	for (const entry of entries) {
 		if (entry.parentId !== null && !knownIds.has(entry.parentId)) allParentsResolved = false;
@@ -1214,8 +1237,25 @@ function describeContinuedConversation(content: string): Readonly<Record<string,
 		allParentsResolved,
 		activeTailLinked:
 			activeTail.length === 4 &&
-			activeTail.slice(1).every((entry, index) => entry.parentId === activeTail[index]?.id),
+			activeTail.slice(1).every((entry, index) => isDescendantOf(entry, activeTail[index]?.id, entriesById)),
 	};
+}
+
+function isDescendantOf(
+	entry: PersistedEntryReference,
+	ancestorId: string | undefined,
+	entriesById: ReadonlyMap<string, PersistedEntryReference>,
+): boolean {
+	if (!ancestorId) return false;
+	const visited = new Set<string>();
+	let parentId = entry.parentId;
+	while (parentId !== null) {
+		if (parentId === ancestorId) return true;
+		if (visited.has(parentId)) return false;
+		visited.add(parentId);
+		parentId = entriesById.get(parentId)?.parentId ?? null;
+	}
+	return false;
 }
 
 function readPersistedEntryReference(value: unknown, role?: string): PersistedEntryReference | undefined {
