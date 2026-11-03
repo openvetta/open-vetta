@@ -191,7 +191,7 @@ export async function* readResponsesWebSocketEvents(
 			});
 		}
 		if (failed) throw failed;
-		if (!sawCompletion) throw new Error("WebSocket stream closed before response.completed");
+		if (!sawCompletion) throw createRetryableWebSocketError("WebSocket stream closed before response.completed");
 	} finally {
 		socket.removeEventListener("message", onMessage);
 		socket.removeEventListener("error", onError);
@@ -285,18 +285,26 @@ function scheduleSessionWebSocketExpiry(cacheKey: string, entry: CachedWebSocket
 function extractWebSocketError(event: unknown): Error {
 	if (event && typeof event === "object" && "message" in event) {
 		const message = (event as { message?: unknown }).message;
-		if (typeof message === "string" && message.length > 0) return new Error(message);
+		if (typeof message === "string" && message.length > 0) return createRetryableWebSocketError(message);
 	}
-	return new Error("WebSocket error");
+	return createRetryableWebSocketError("WebSocket error");
 }
 
 function extractWebSocketCloseError(event: unknown): Error {
-	if (!event || typeof event !== "object") return new Error("WebSocket closed");
+	if (!event || typeof event !== "object") return createRetryableWebSocketError("WebSocket closed");
 	const code = "code" in event ? (event as { code?: unknown }).code : undefined;
 	const reason = "reason" in event ? (event as { reason?: unknown }).reason : undefined;
 	const codeText = typeof code === "number" ? ` ${code}` : "";
 	const reasonText = typeof reason === "string" && reason.length > 0 ? ` ${reason}` : "";
-	return new Error(`WebSocket closed${codeText}${reasonText}`.trim());
+	return createRetryableWebSocketError(`WebSocket closed${codeText}${reasonText}`.trim());
+}
+
+/**
+ * 连接错误/中途断连是瞬时网络故障：显式标记 retryable，否则无状态码的普通 Error
+ * 会被归一化为不可重试的 AI_TRANSPORT_FAILED，自动重试被跳过。
+ */
+function createRetryableWebSocketError(message: string): Error {
+	return Object.assign(new Error(message), { retryable: true, phase: "stream" as const });
 }
 
 async function decodeWebSocketData(data: unknown): Promise<string | null> {

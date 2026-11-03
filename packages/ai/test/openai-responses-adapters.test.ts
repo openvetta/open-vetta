@@ -546,8 +546,20 @@ describe("OpenAI Responses WebSocket transport", () => {
 		});
 		const settled = await settleResponse(response);
 
-		expect(settled.eventError).toMatchObject({ code: "AI_TRANSPORT_FAILED" });
-		expect(settled.resultError).toMatchObject({ code: "AI_TRANSPORT_FAILED" });
+		expect(settled.eventError).toMatchObject({ code: "AI_TRANSPORT_FAILED", retryable: true });
+		expect(settled.resultError).toMatchObject({ code: "AI_TRANSPORT_FAILED", retryable: true });
+	});
+
+	it("marks WebSocket handshake failures as retryable in explicit websocket mode", async () => {
+		installFailingFakeWebSocket("upgrade rejected");
+		const response = await openAIResponsesAdapter.stream({
+			model: openAIModel,
+			context,
+			options: { apiKey: "test", transport: "websocket" },
+		});
+		const settled = await settleResponse(response);
+
+		expect(settled.resultError).toMatchObject({ code: "AI_TRANSPORT_FAILED", retryable: true });
 	});
 
 	it("falls back to SSE when auto WebSocket setup fails before the request starts", async () => {
