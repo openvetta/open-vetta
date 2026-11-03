@@ -16,4 +16,4 @@ for _ in $(seq 1 100); do
 done
 [[ -s "$info" ]] || { echo "interop harness did not start"; cat "$log"; exit 1; }
 cd "$root/apps/mobile/client-apple/VettaKit"
-VETTA_INTEROP_FILE="$info" swift test --no-parallel --filter InteropTests
+VETTA_INTEROP_FILE="$info" swift test --no-parallel --build-system swiftbuild --filter InteropTests
