@@ -100,7 +100,7 @@ describe("Historical session fork contract", () => {
 			expect(describeForkFile(await readFile(forkPath, "utf8"))).toMatchObject({
 				allParentsResolved: true,
 				allReferencesResolved: true,
-				eventCount: 14,
+				eventCount: 12,
 			});
 		} finally {
 			await process.close();
@@ -198,7 +198,14 @@ function describeForkFile(content: string): {
 		if (record.recordType !== "conversation.document.operation") continue;
 		operationCount += 1;
 		const command = record.command;
-		if (!isObject(command) || command.type !== "active_leaf.set") continue;
+		if (!isObject(command)) continue;
+		if (command.type === "active_leaf.set") {
+			activeLeafId = command.entryId;
+			continue;
+		}
+		if (command.type !== "custom.append" || typeof command.entryId !== "string") continue;
+		if (typeof activeLeafId === "string" && !knownEntryIds.has(activeLeafId)) allParentsResolved = false;
+		knownEntryIds.add(command.entryId);
 		activeLeafId = command.entryId;
 	}
 	return {

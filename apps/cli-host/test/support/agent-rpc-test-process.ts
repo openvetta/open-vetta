@@ -267,10 +267,17 @@ export class AgentRpcProcess {
 		return this.waitFor(
 			(frame) => frame.type === "response" && frame.id === id && frame.command === type,
 			afterIndex,
+			20_000,
+			`response id=${id} command=${type}`,
 		);
 	}
 
-	waitFor(predicate: (frame: RpcFrame) => boolean, afterIndex = 0, timeoutMs = 20_000): Promise<RpcFrame> {
+	waitFor(
+		predicate: (frame: RpcFrame) => boolean,
+		afterIndex = 0,
+		timeoutMs = 20_000,
+		description = "matching RPC frame",
+	): Promise<RpcFrame> {
 		if (this.parseError) return Promise.reject(this.parseError);
 		const existing = this.frames.slice(afterIndex).find(predicate);
 		if (existing) return Promise.resolve(existing);
@@ -282,7 +289,19 @@ export class AgentRpcProcess {
 				reject,
 				timeout: setTimeout(() => {
 					this.waiters.delete(waiter);
-					reject(new Error(`Timed out waiting for RPC frame\n${this.stderr}`));
+					reject(
+						new Error(
+							[
+								`Timed out waiting for ${description}`,
+								`afterIndex=${afterIndex} totalFrames=${this.frames.length}`,
+								`childExitCode=${String(this.child.exitCode)} childSignal=${String(this.child.signalCode)}`,
+								`framesSinceMark=${JSON.stringify(this.frames.slice(afterIndex).map(describeRpcFrame), null, 2)}`,
+								this.stderr,
+							]
+								.filter(Boolean)
+								.join("\n"),
+						),
+					);
 				}, timeoutMs),
 			};
 			this.waiters.add(waiter);
@@ -323,6 +342,15 @@ export class AgentRpcProcess {
 			this.waiters.clear();
 		}
 	}
+}
+
+function describeRpcFrame(frame: RpcFrame): Readonly<Record<string, unknown>> {
+	return Object.fromEntries(
+		["type", "id", "command", "from", "to", "reason", "error", "success"].flatMap((key) => {
+			const value = frame[key];
+			return value === undefined ? [] : [[key, value]];
+		}),
+	);
 }
 
 export function readSessionFile(frame: RpcFrame): string {
