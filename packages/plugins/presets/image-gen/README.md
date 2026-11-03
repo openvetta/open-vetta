@@ -16,10 +16,18 @@
 尺寸白名单与按次计费都在服务端，管理员在 admin 配置；能不能出图由用户的订阅档位决定
 （ADR-0056）。
 
-**插件没有 Provider 凭据设置项**，`contributes.settings` 已整块移除。Provider 选择由宿主 Agent 设置统一管理，Provider 自己负责凭据与模型配置。曾经的「自定义 API」逃生舱
+**插件没有 Provider 凭据设置项**，`contributes.settings` 已整块移除。Provider 选择由宿主 Agent 设置统一管理，Provider 自己负责凭据与模型配置。插件里曾经的「自定义 API」逃生舱
 也一并撤掉——一旦允许自带 key，插件就得重新养一套 provider 适配，而改图形态各家不同
 （官方 multipart / 聚合站 `images[].image_url`），那套适配已经在服务端存在，客户端再养
 一份就是长期双维护。存量用户填过的 key 留在 CredentialVault 里不再被读取。
+
+**自定义 OpenAI 兼容服务（ADR-0151）**：用户可在「设置 → Agent 配置 → 图片」里添加自己的
+服务（名称、Base URL、API Key、模型名，并标注支持文生图 / 图生图），由**宿主**而不是插件提供：
+主进程把每条配置注册成 `custom-openai:<id>` Provider，只说 OpenAI 兼容协议的
+`POST {baseUrl}/images/generations` 与 `POST {baseUrl}/images/edits` 两个端点，其它协议一律不支持。
+API Key 加密存放在 CredentialVault（`image-providers` 命名空间），渲染进程只能写入、读不到；
+插件对此无感知——它照旧只通过 `ctx.media` 选 Provider，不持有 key、不指定 URL，自动选择仍优先内置
+Vetta Provider。
 
 因为不再直接发 HTTP，插件也不再声明 `network.fetch` 权限；「未配置」引导弹窗随之删除，
 `ui.slot.global` 权限一并撤回。
@@ -37,6 +45,7 @@ desktop 提供受 capability session 约束的 `ctx.media`、`ctx.storage`、
 `~/.vetta/plugin-data/image-gen/`，不进服务端存储、
 也不进 LLM 上下文（工具结果只回 image id）。
 
-详见 `docs/adr/0057-host-media-protocol-and-desktop-vetta-provider.md`、
+详见 `docs/adr/0151-custom-openai-compatible-image-providers.md`、
+`docs/adr/0057-host-media-protocol-and-desktop-vetta-provider.md`、
 `docs/adr/0056-image-generation-through-vetta-gateway-metered-by-credits.md`
 与被其部分取代的 `docs/adr/0048-image-generation-owned-by-plugin-generic-network-storage.md`。

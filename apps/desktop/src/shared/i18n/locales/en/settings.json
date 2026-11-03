@@ -812,6 +812,29 @@
     "saving": "Saving",
     "imageGeneration": {
       "auto": "Automatic",
+      "custom": {
+        "add": "Add service",
+        "apiKey": "API key",
+        "apiKeyKeepHint": "Saved — leave blank to keep it",
+        "baseUrl": "Base URL",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "description": "Add OpenAI-compatible image services (/images/generations and /images/edits). They appear in the lists above once saved. The API key is stored encrypted on this device and is only sent to the Base URL you enter.",
+        "edit": "Edit",
+        "errors": {
+          "apiKey": "Enter the API key.",
+          "baseUrl": "Base URL must start with http:// or https://.",
+          "capability": "Select at least one of text-to-image or image-to-image.",
+          "required": "Name, Base URL and model name are required.",
+          "saveFailed": "Could not save: {{message}}"
+        },
+        "model": "Model name",
+        "name": "Name",
+        "save": "Save",
+        "supportsImageToImage": "Supports image-to-image",
+        "supportsTextToImage": "Supports text-to-image",
+        "title": "Custom image services"
+      },
       "description": "Choose the default model Agent uses to generate or edit images; Automatic follows available services.",
       "imageToImage": "Image-to-image model",
       "loading": "Loading image generation services…",
