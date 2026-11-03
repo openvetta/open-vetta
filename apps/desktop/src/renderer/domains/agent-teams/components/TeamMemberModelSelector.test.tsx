@@ -44,7 +44,7 @@ vi.mock("react-i18next", () => ({
 				"modelSelect.noResultsHint": "Try another query",
 				"modelSelect.reasoningHeader": "Reasoning",
 				"modelSelect.searchPlaceholder": "Search models",
-				"modelSelect.visionBadge": "Vision",
+				"modelSelect.visionBadge": "Supports image input",
 			};
 			return labels[key] ?? values?.defaultValue?.toString() ?? key;
 		},
@@ -87,8 +87,8 @@ describe("TeamMemberModelSelector", () => {
 		await user.click(trigger);
 
 		const visionModel = await screen.findByRole("menuitem", { name: /Image Model/ });
-		expect(within(visionModel).getByLabelText("Vision")).toBeTruthy();
-		expect(visionModel.textContent).not.toContain("Vision");
+		expect(within(visionModel).getByRole("img", { name: "Supports image input" })).toBeTruthy();
+		expect(visionModel.textContent).not.toContain("Supports image input");
 		await user.click(visionModel);
 		expect(onChange).toHaveBeenCalledWith("provider/vision");
 		expect(catalog.revalidate).toHaveBeenCalled();

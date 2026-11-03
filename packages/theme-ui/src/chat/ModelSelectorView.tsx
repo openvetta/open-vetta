@@ -95,6 +95,23 @@ function normalizeSearchValue(value: string): string {
 	return value.trim().toLocaleLowerCase();
 }
 
+export function ModelVisionIcon({
+	label,
+	className,
+}: {
+	readonly label?: string;
+	readonly className?: string;
+}): JSX.Element {
+	return (
+		<span
+			role="img"
+			aria-label={label}
+			title={label}
+			className={cn("icon-[solar--gallery-linear] size-3 shrink-0 text-primary", className)}
+		/>
+	);
+}
+
 export function ModelSelectorView({
 	selectedModel,
 	selectedOption,
@@ -379,11 +396,7 @@ export function ModelSelectorView({
 														<span className="min-w-0 flex-1 truncate">{model.displayName}</span>
 														<ModelMultiplier label={labels.multiplierLabel?.(model)} />
 														{model.supportsImage && (
-															<span
-																aria-label={labels.visionBadge}
-																title={labels.visionBadge}
-																className="icon-[solar--gallery-linear] size-3 shrink-0 text-primary"
-															/>
+															<ModelVisionIcon label={labels.visionBadge} />
 														)}
 														{model.key === defaultKey && (
 															<span className="shrink-0 rounded-full bg-primary/15 px-1 text-[9px] font-medium text-primary">

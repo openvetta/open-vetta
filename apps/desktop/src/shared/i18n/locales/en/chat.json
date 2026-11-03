@@ -891,7 +891,7 @@
 	"modelSelector": {
 		"defaultBadge": "Default",
 		"selectModel": "Select model",
-		"visionBadge": "vision"
+		"visionBadge": "Supports image input"
 	},
 	"newSession": {
 		"greetingDefault": "How's it going today?",
