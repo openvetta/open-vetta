@@ -230,6 +230,11 @@ export function createSystemApi(
 		},
 		media: {
 			listProviders: () => ipc.invoke("vetta:media:list-providers"),
+			customImageProviders: {
+				list: () => ipc.invoke("vetta:media:custom-image-providers:list"),
+				save: (input) => ipc.invoke("vetta:media:custom-image-providers:save", input),
+				remove: (id) => ipc.invoke("vetta:media:custom-image-providers:remove", id),
+			},
 			getAudioMetadata: (filePath) => ipc.invoke("vetta:media:audio-metadata", filePath),
 		},
 		runtimes: {
