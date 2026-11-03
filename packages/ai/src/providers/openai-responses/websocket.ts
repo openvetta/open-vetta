@@ -126,6 +126,8 @@ export async function* readResponsesWebSocketEvents(
 	let done = false;
 	let failed: Error | null = null;
 	let sawCompletion = false;
+	// 一旦向调用方交出过实质事件（文本/工具/推理），断连重试会整轮重发，造成重复内容与重复计费。
+	let emittedOutput = false;
 	const wake = () => {
 		if (!pending) return;
 		const resolve = pending;
@@ -169,7 +171,7 @@ export async function* readResponsesWebSocketEvents(
 		wake();
 	};
 	const onAbort = () => {
-		failed = new Error("Request was aborted");
+		failed = createAbortedWebSocketError();
 		done = true;
 		wake();
 	};
@@ -180,9 +182,11 @@ export async function* readResponsesWebSocketEvents(
 	signal?.addEventListener("abort", onAbort);
 	try {
 		while (true) {
-			if (signal?.aborted) throw new Error("Request was aborted");
+			if (signal?.aborted) throw createAbortedWebSocketError();
 			if (queue.length > 0) {
-				yield queue.shift() as Record<string, unknown>;
+				const next = queue.shift() as Record<string, unknown>;
+				if (!isLifecycleOnlyEvent(next)) emittedOutput = true;
+				yield next;
 				continue;
 			}
 			if (done) break;
@@ -190,8 +194,13 @@ export async function* readResponsesWebSocketEvents(
 				pending = resolve;
 			});
 		}
-		if (failed) throw failed;
-		if (!sawCompletion) throw createRetryableWebSocketError("WebSocket stream closed before response.completed");
+		if (signal?.aborted) throw createAbortedWebSocketError();
+		const error =
+			failed ??
+			(sawCompletion
+				? null
+				: createWebSocketError("WebSocket stream closed before response.completed", { retryable: true }));
+		if (error) throw emittedOutput ? markNotRetryable(error) : error;
 	} finally {
 		socket.removeEventListener("message", onMessage);
 		socket.removeEventListener("error", onError);
@@ -225,7 +234,7 @@ async function connectWebSocket(
 		const onAbort = () =>
 			settle(() => {
 				socket.close(1000, "aborted");
-				reject(new Error("Request was aborted"));
+				reject(createAbortedWebSocketError());
 			});
 		const cleanup = () => {
 			socket.removeEventListener("open", onOpen);
@@ -283,28 +292,70 @@ function scheduleSessionWebSocketExpiry(cacheKey: string, entry: CachedWebSocket
 }
 
 function extractWebSocketError(event: unknown): Error {
-	if (event && typeof event === "object" && "message" in event) {
-		const message = (event as { message?: unknown }).message;
-		if (typeof message === "string" && message.length > 0) return createRetryableWebSocketError(message);
+	const record = event && typeof event === "object" ? (event as Record<string, unknown>) : undefined;
+	const message =
+		typeof record?.message === "string" && record.message.length > 0 ? record.message : "WebSocket error";
+	const status = readHandshakeStatus(record, message);
+	return createWebSocketError(message, { status, retryable: isRetryableHandshakeStatus(status) });
+}
+
+/** 握手被拒时运行时通常只给出 HTTP 状态：优先取结构化字段，其次从消息里解析。 */
+function readHandshakeStatus(record: Record<string, unknown> | undefined, message: string): number | undefined {
+	if (record) {
+		for (const key of ["status", "statusCode"]) {
+			const value = record[key];
+			if (typeof value === "number") return value;
+		}
+		const response = record.response;
+		if (response && typeof response === "object") {
+			const status = (response as { status?: unknown }).status;
+			if (typeof status === "number") return status;
+		}
 	}
-	return createRetryableWebSocketError("WebSocket error");
+	const matched = /(?:server response|status(?: code)?|HTTP)\D{0,3}([1-5]\d{2})\b/i.exec(message);
+	return matched ? Number(matched[1]) : undefined;
+}
+
+/** 4xx（除 408/429）是认证/参数类错误，重试无意义；无状态码的网络错误、5xx、408、429 可重试。 */
+function isRetryableHandshakeStatus(status: number | undefined): boolean {
+	if (status === undefined) return true;
+	if (status === 408 || status === 429) return true;
+	return status >= 500;
+}
+
+function isLifecycleOnlyEvent(event: Record<string, unknown>): boolean {
+	return (
+		event.type === "response.created" || event.type === "response.in_progress" || event.type === "response.queued"
+	);
+}
+
+function createAbortedWebSocketError(): Error {
+	return Object.assign(new Error("Request was aborted"), { retryable: false });
+}
+
+function markNotRetryable(error: Error): Error {
+	return Object.assign(error, { retryable: false });
 }
 
 function extractWebSocketCloseError(event: unknown): Error {
-	if (!event || typeof event !== "object") return createRetryableWebSocketError("WebSocket closed");
+	if (!event || typeof event !== "object") return createWebSocketError("WebSocket closed", { retryable: true });
 	const code = "code" in event ? (event as { code?: unknown }).code : undefined;
 	const reason = "reason" in event ? (event as { reason?: unknown }).reason : undefined;
 	const codeText = typeof code === "number" ? ` ${code}` : "";
 	const reasonText = typeof reason === "string" && reason.length > 0 ? ` ${reason}` : "";
-	return createRetryableWebSocketError(`WebSocket closed${codeText}${reasonText}`.trim());
+	return createWebSocketError(`WebSocket closed${codeText}${reasonText}`.trim(), { retryable: true });
 }
 
 /**
- * 连接错误/中途断连是瞬时网络故障：显式标记 retryable，否则无状态码的普通 Error
- * 会被归一化为不可重试的 AI_TRANSPORT_FAILED，自动重试被跳过。
+ * 显式标记 retryable：无状态码的普通 Error 会被归一化为不可重试的 AI_TRANSPORT_FAILED，
+ * 瞬时网络故障的自动重试会被跳过。带 HTTP 状态时由归一化器按状态码分类。
  */
-function createRetryableWebSocketError(message: string): Error {
-	return Object.assign(new Error(message), { retryable: true, phase: "stream" as const });
+function createWebSocketError(message: string, options: { status?: number; retryable: boolean }): Error {
+	return Object.assign(new Error(message), {
+		retryable: options.retryable,
+		phase: "stream" as const,
+		...(options.status === undefined ? {} : { status: options.status }),
+	});
 }
 
 async function decodeWebSocketData(data: unknown): Promise<string | null> {
