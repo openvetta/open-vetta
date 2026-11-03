@@ -332,7 +332,10 @@ import Testing
 		var phases: [PairingPhase] = []
 		let flow = PairingFlow(options: PairingFlowOptions(link: makeLink(), createTransport: desktop.createTransport) { phases.append($0) })
 		let pairing = Task { await flow.pairManually("192.168.1.20:43117") }
-		#expect(await eventually { approve != nil })
+		#expect(await eventually {
+			guard approve != nil, case .awaitingApproval = phases.last else { return false }
+			return true
+		})
 		guard case let .awaitingApproval(code, _) = phases.last else {
 			Issue.record("expected awaiting approval, got \(phases)")
 			return
