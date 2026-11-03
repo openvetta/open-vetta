@@ -104,6 +104,7 @@ export function ModelVisionIcon({
 }): JSX.Element {
 	return (
 		<span
+			role="img"
 			aria-label={label}
 			title={label}
 			className={cn("icon-[solar--gallery-linear] size-3 shrink-0 text-primary", className)}

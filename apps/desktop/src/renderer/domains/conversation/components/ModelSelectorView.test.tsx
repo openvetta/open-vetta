@@ -20,7 +20,7 @@ const labels: ModelSelectorViewProps["labels"] = {
 	reasoningHeader: "Reasoning",
 	modelHeader: "Models",
 	cloudOnly: "Cloud",
-	visionBadge: "Vision",
+	visionBadge: "Supports image input",
 	defaultBadge: "Default",
 	levelLabel: (value) => value,
 };
@@ -234,7 +234,7 @@ describe("ModelSelectorView", () => {
 		await user.click(screen.getByRole("button", { name: "Alpha" }));
 		const item = await screen.findByRole("menuitem", { name: /Image Model/ });
 		expect(item).not.toBeNull();
-		expect(screen.getByLabelText("Vision")).toBeTruthy();
-		expect(item.textContent).not.toContain("Vision");
+		expect(screen.getByRole("img", { name: "Supports image input" })).toBeTruthy();
+		expect(item.textContent).not.toContain("Supports image input");
 	});
 });

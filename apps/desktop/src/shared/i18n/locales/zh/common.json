@@ -961,7 +961,7 @@
 		"noResultsHint": "请尝试其他模型名称、ID 或供应商",
 		"unset": "未设置",
 		"defaultBadge": "默认",
-		"visionBadge": "vision",
+		"visionBadge": "支持图片输入",
 		"cloudOnly": "云端",
 		"reasoningHeader": "推理",
 		"modelHeader": "模型",
