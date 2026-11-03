@@ -546,8 +546,105 @@ describe("OpenAI Responses WebSocket transport", () => {
 		});
 		const settled = await settleResponse(response);
 
-		expect(settled.eventError).toMatchObject({ code: "AI_TRANSPORT_FAILED" });
-		expect(settled.resultError).toMatchObject({ code: "AI_TRANSPORT_FAILED" });
+		expect(settled.eventError).toMatchObject({ code: "AI_TRANSPORT_FAILED", retryable: true });
+		expect(settled.resultError).toMatchObject({ code: "AI_TRANSPORT_FAILED", retryable: true });
+	});
+
+	it("marks WebSocket handshake failures as retryable in explicit websocket mode", async () => {
+		installFailingFakeWebSocket("upgrade rejected");
+		const response = await openAIResponsesAdapter.stream({
+			model: openAIModel,
+			context,
+			options: { apiKey: "test", transport: "websocket" },
+		});
+		const settled = await settleResponse(response);
+
+		expect(settled.resultError).toMatchObject({ code: "AI_TRANSPORT_FAILED", retryable: true });
+	});
+
+	it.each([
+		["Unexpected server response: 401", "AI_AUTHENTICATION_FAILED"],
+		["Unexpected server response: 403", "AI_PERMISSION_DENIED"],
+		["Unexpected server response: 400", "AI_INVALID_REQUEST"],
+		["Unexpected server response: 422", "AI_INVALID_REQUEST"],
+	])("does not retry handshake failure %s", async (message, code) => {
+		installFailingFakeWebSocket(message);
+		const response = await openAIResponsesAdapter.stream({
+			model: openAIModel,
+			context,
+			options: { apiKey: "test", transport: "websocket" },
+		});
+		const settled = await settleResponse(response);
+
+		expect(settled.resultError).toMatchObject({ code, retryable: false });
+	});
+
+	it.each(["Unexpected server response: 502", "Unexpected server response: 429"])(
+		"retries handshake failure %s",
+		async (message) => {
+			installFailingFakeWebSocket(message);
+			const response = await openAIResponsesAdapter.stream({
+				model: openAIModel,
+				context,
+				options: { apiKey: "test", transport: "websocket" },
+			});
+			const settled = await settleResponse(response);
+
+			expect(settled.resultError).toMatchObject({ retryable: true });
+		},
+	);
+
+	it("does not retry a disconnect after output was already emitted", async () => {
+		installFakeWebSocket((socket) => {
+			queueMicrotask(() => {
+				for (const event of textEvents().slice(0, 3)) socket.emit("message", { data: JSON.stringify(event) });
+				socket.emit("close", { code: 1006, reason: "lost" });
+			});
+		});
+		const response = await openAIResponsesAdapter.stream({
+			model: openAIModel,
+			context,
+			options: { apiKey: "test", transport: "websocket" },
+		});
+		const settled = await settleResponse(response);
+
+		expect(settled.resultError).toMatchObject({ code: "AI_TRANSPORT_FAILED", retryable: false });
+	});
+
+	it("still retries a disconnect that only followed lifecycle frames", async () => {
+		installFakeWebSocket((socket) => {
+			queueMicrotask(() => {
+				socket.emit("message", { data: JSON.stringify({ type: "response.created", response: { id: "r" } }) });
+				socket.emit("close", { code: 1006, reason: "lost" });
+			});
+		});
+		const response = await openAIResponsesAdapter.stream({
+			model: openAIModel,
+			context,
+			options: { apiKey: "test", transport: "websocket" },
+		});
+		const settled = await settleResponse(response);
+
+		expect(settled.resultError).toMatchObject({ code: "AI_TRANSPORT_FAILED", retryable: true });
+	});
+
+	it("never retries a user abort", async () => {
+		let markRequestSent: (() => void) | undefined;
+		const requestSent = new Promise<void>((resolve) => {
+			markRequestSent = resolve;
+		});
+		installFakeWebSocket(() => markRequestSent?.());
+		const controller = new AbortController();
+		const response = await openAIResponsesAdapter.stream({
+			model: openAIModel,
+			context,
+			options: { apiKey: "test", transport: "websocket", signal: controller.signal },
+		});
+		const settled = settleResponse(response);
+		await requestSent;
+
+		controller.abort();
+		expect(await settled).toMatchObject({ resultError: { code: "AI_ABORTED", retryable: false } });
 	});
 
 	it("falls back to SSE when auto WebSocket setup fails before the request starts", async () => {
@@ -614,8 +711,37 @@ describe("Codex Responses WebSocket transport", () => {
 		});
 		const settled = await settleResponse(response);
 
-		expect(settled.eventError).toMatchObject({ code: "AI_TRANSPORT_FAILED" });
-		expect(settled.resultError).toMatchObject({ code: "AI_TRANSPORT_FAILED" });
+		expect(settled.eventError).toMatchObject({ code: "AI_TRANSPORT_FAILED", retryable: true });
+		expect(settled.resultError).toMatchObject({ code: "AI_TRANSPORT_FAILED", retryable: true });
+	});
+
+	it("does not retry a disconnect after output was already emitted", async () => {
+		installFakeWebSocket((socket) => {
+			queueMicrotask(() => {
+				for (const event of textEvents().slice(0, 3)) socket.emit("message", { data: JSON.stringify(event) });
+				socket.emit("close", { code: 1006, reason: "lost" });
+			});
+		});
+		const response = await openAICodexResponsesAdapter.stream({
+			model: codexModel,
+			context,
+			options: { apiKey: codexToken, transport: "websocket" },
+		});
+		const settled = await settleResponse(response);
+
+		expect(settled.resultError).toMatchObject({ code: "AI_TRANSPORT_FAILED", retryable: false });
+	});
+
+	it("does not retry a 401 handshake failure", async () => {
+		installFailingFakeWebSocket("Unexpected server response: 401");
+		const response = await openAICodexResponsesAdapter.stream({
+			model: codexModel,
+			context,
+			options: { apiKey: codexToken, transport: "websocket" },
+		});
+		const settled = await settleResponse(response);
+
+		expect(settled.resultError).toMatchObject({ code: "AI_AUTHENTICATION_FAILED", retryable: false });
 	});
 
 	it("propagates cancellation after the socket starts", async () => {
