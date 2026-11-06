@@ -9,6 +9,8 @@ import type { RuntimeHostSession } from "@vetta/runtime-core";
 import { afterEach, describe, expect, it } from "vitest";
 import { createCodingAgentRuntimeComposition } from "./fixtures/runtime-composition.js";
 
+const GOAL_CONTROL_TOOLS = ["get_goal", "create_goal", "update_goal"];
+
 describe("Todo Runtime composition contract", () => {
 	const directories: string[] = [];
 	const compositions: CodingAgentRuntimeComposition[] = [];
@@ -86,7 +88,11 @@ describe("Todo Runtime composition contract", () => {
 			throw new Error(`${result.error?.code ?? "TURN_FAILED"}: ${result.error?.message ?? "Turn failed"}`);
 		}
 		expect(result).toMatchObject({ status: "completed" });
-		expect(toolLists).toEqual([["todo"], ["todo"], ["todo"]]);
+		expect(toolLists).toEqual([
+			["todo", ...GOAL_CONTROL_TOOLS],
+			["todo", ...GOAL_CONTROL_TOOLS],
+			["todo", ...GOAL_CONTROL_TOOLS],
+		]);
 		expect(readTodos(session)).toEqual([{ id: 1, content: "Implement the slice", status: "done" }]);
 		expect((await session.readMessages()).map(({ role }) => role)).toEqual([
 			"user",
