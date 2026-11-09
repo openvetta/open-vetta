@@ -9,7 +9,7 @@ import {
 } from "@shared/theme/new-session-texture";
 import type { OrnamentId } from "@shared/theme/ornament";
 import type { ThemeDef } from "@shared/theme/tokens";
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { SettingsAiAssist } from "../ai-assist";
 import appearanceMascot from "../assets/appearance-mascot.webp";
@@ -31,46 +31,49 @@ import type {
 type ThemeMode = AppearanceModeOption["value"];
 type SelectionPoint = { x: number; y: number };
 
+/** 松手后才应用：拖动时只改本地预览档位，避免整个界面跟着手实时重排。 */
 function UiZoomControl({ model }: { model: AppearanceSettingsModel }): JSX.Element {
 	const { factor, stepIndex, steps } = model.uiZoom;
+	const [draftIndex, setDraftIndex] = useState<number>();
+	// 主进程确认的档位变了（快捷键、恢复默认），丢掉残留的预览。
+	useEffect(() => setDraftIndex(undefined), [stepIndex]);
 	const percent = (value: number) => `${Math.round(value * 100)}%`;
-	const select = (index: number) => {
+	const shownIndex = draftIndex ?? stepIndex;
+	const commit = (index: number) => {
+		setDraftIndex(undefined);
 		const next = steps[index];
-		if (next !== undefined) model.actions.setUiZoom(next);
+		if (next !== undefined && next !== factor) model.actions.setUiZoom(next);
 	};
 	return (
-		<div className="rounded-xl border border-border/50 bg-card/40 p-4">
-			<div className="mb-3 flex items-center justify-between">
-				<span className="text-[20px] font-semibold tabular-nums text-foreground">{percent(factor)}</span>
-				<Button
-					variant="ghost"
-					size="sm"
-					disabled={factor === model.uiZoom.default}
-					onClick={model.actions.resetUiZoom}
-				>
-					{model.labels.uiZoomReset}
-				</Button>
+		<div className="flex max-w-xl items-start gap-3">
+			{/* 两端的「A」只是大小暗示，与轨道同高对齐；轨道本身与底下的档位文字由 StepSlider 负责。 */}
+			<span aria-hidden className="flex h-5 w-4 shrink-0 items-center justify-center text-[11px] text-muted-foreground">
+				A
+			</span>
+			<div className="min-w-0 flex-1">
+				<StepSlider
+					labels={steps.map(percent)}
+					index={shownIndex}
+					showTicks
+					aria-label={model.labels.uiZoomSliderLabel}
+					aria-valuetext={percent(steps[shownIndex] ?? factor)}
+					onIndexChange={setDraftIndex}
+					onIndexCommit={commit}
+					onCancel={() => setDraftIndex(undefined)}
+				/>
 			</div>
-			<div className="flex items-start gap-3">
-				{/* 两端的「A」只是大小暗示，与轨道同高对齐；轨道本身与底下的档位文字由 StepSlider 负责。 */}
-				<span aria-hidden className="flex h-5 w-4 shrink-0 items-center justify-center text-[11px] text-muted-foreground">
-					A
-				</span>
-				<div className="min-w-0 flex-1">
-					<StepSlider
-						labels={steps.map(percent)}
-						index={stepIndex}
-						showTicks
-						aria-label={model.labels.uiZoomSliderLabel}
-						aria-valuetext={percent(factor)}
-						onIndexChange={select}
-						onIndexCommit={select}
-					/>
-				</div>
-				<span aria-hidden className="flex h-5 w-4 shrink-0 items-center justify-center text-[15px] text-muted-foreground">
-					A
-				</span>
-			</div>
+			<span aria-hidden className="flex h-5 w-4 shrink-0 items-center justify-center text-[15px] text-muted-foreground">
+				A
+			</span>
+			<Button
+				variant="ghost"
+				size="sm"
+				className="shrink-0"
+				disabled={factor === model.uiZoom.default}
+				onClick={model.actions.resetUiZoom}
+			>
+				{model.labels.uiZoomReset}
+			</Button>
 		</div>
 	);
 }
@@ -602,6 +605,12 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				</div>
 			)}
 
+			<div className="mb-6">
+				<SettingHeading title={model.labels.sections.uiZoom} section={SETTINGS_SECTION["appearance-ui-zoom"]} className="mb-1" />
+				<p className="mb-3 text-[12px] text-muted-foreground">{model.labels.uiZoomHint}</p>
+				<UiZoomControl model={model} />
+			</div>
+
 			{/* 新会话页装饰：装饰件与纹理都只改这一页，连排在一起用户不必逐项猜它们作用在哪。
 			    不套卡片、不加边框——这一页其余分区都是平铺的，单独给它加一层壳反而把它拔高成了别的东西。 */}
 			<div className="mb-6">
@@ -631,12 +640,6 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 						))}
 					</div>
 				</div>
-			</div>
-
-			<div className="mb-6">
-				<SettingHeading title={model.labels.sections.uiZoom} section={SETTINGS_SECTION["appearance-ui-zoom"]} className="mb-1" />
-				<p className="mb-3 text-[12px] text-muted-foreground">{model.labels.uiZoomHint}</p>
-				<UiZoomControl model={model} />
 			</div>
 
 			<div className="mb-6">
