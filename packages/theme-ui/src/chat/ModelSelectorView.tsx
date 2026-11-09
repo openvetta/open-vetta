@@ -6,6 +6,7 @@ import type {
 	ReactNode,
 } from "react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "@vetta-org/ui/utils";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@vetta-org/ui/dropdown-menu";
 import { ThemeSurface } from "../appearance/ThemeSurface";
@@ -116,6 +117,14 @@ const MODEL_ITEM_SELECTOR = "[data-model-key]";
 /** 紧凑行：覆盖 @vetta-org/ui 默认的 px-3 py-2 text-[13px]，让模型多时列表不至于过长。 */
 const COMPACT_ITEM_CLASS = "gap-1.5 rounded-md px-2 py-1 text-xs";
 const COMPACT_LABEL_CLASS = "px-2 pb-0.5 pt-1 text-[10px]";
+/** 行与分组头的固定高度：虚拟列表按它算位置，不逐行测量。 */
+const ROW_HEIGHT = 28;
+const HEADER_HEIGHT = 24;
+/** 条目数超过它才虚拟化；少量条目直接渲染更简单，也保留菜单自带的字符跳转。 */
+const VIRTUALIZE_THRESHOLD = 40;
+const VIRTUAL_OVERSCAN = 8;
+/** 虚拟列表首帧还量不到滚动容器时，按这个高度估一屏，避免先闪一帧空白。 */
+const LIST_FALLBACK_HEIGHT = 300;
 /** 第一栏里「收藏」入口的标识；供应商 id 不会含 NUL。 */
 const FAVORITES_TAB = "\u0000favorites";
 
@@ -164,7 +173,7 @@ export function ModelSelectorView({
 	// 用户在第一栏手动点选的栏目；null 表示没点过，跟随当前所选模型的供应商。关菜单即重置。
 	const [tabOverride, setTabOverride] = useState<string | null>(null);
 	const searchInputRef = useRef<HTMLInputElement>(null);
-	const modelListRef = useRef<HTMLDivElement>(null);
+	const modelListRef = useRef<HTMLDivElement | null>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const portalContainer = open
 		? (triggerRef.current?.closest<HTMLElement>('[data-slot="drawer-content"], [data-slot="dialog-content"]') ??
@@ -234,6 +243,21 @@ export function ModelSelectorView({
 		listTitle = activeGroup?.label ?? listTitle;
 	}
 
+	const entries = useMemo<readonly ListEntry[]>(
+		() =>
+			visibleGroups.flatMap((group) => [
+				...(showProviderHeaders ? [{ kind: "header" as const, group }] : []),
+				...group.models.map((model) => ({ kind: "model" as const, model })),
+			]),
+		[visibleGroups, showProviderHeaders],
+	);
+	const providerHeaderClassName = classNames?.providerHeader;
+	const itemClassName = classNames?.item;
+	const cloudOnlyLabel = labels.cloudOnly;
+	const visionBadge = labels.visionBadge;
+	const defaultBadge = labels.defaultBadge;
+	const multiplierLabel = labels.multiplierLabel;
+
 	const handleOpenChange = useCallback(
 		(nextOpen: boolean) => {
 			setOpen(nextOpen);
@@ -249,17 +273,9 @@ export function ModelSelectorView({
 	useEffect(() => {
 		if (!open) return;
 
-		const frame = requestAnimationFrame(() => {
-			searchInputRef.current?.focus();
-			if (!selectedModel) return;
-			const selectedItem = Array.from(
-				modelListRef.current?.querySelectorAll<HTMLElement>(MODEL_ITEM_SELECTOR) ?? [],
-			).find((item) => item.dataset.modelKey === selectedModel);
-			selectedItem?.scrollIntoView({ block: "nearest" });
-		});
-
+		const frame = requestAnimationFrame(() => searchInputRef.current?.focus());
 		return () => cancelAnimationFrame(frame);
-	}, [open, selectedModel]);
+	}, [open]);
 
 	const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
 		setSearchQuery(event.target.value);
@@ -302,6 +318,33 @@ export function ModelSelectorView({
 			setSearchQuery("");
 		},
 		[searching],
+	);
+
+	const listContext = useMemo<ModelListContext>(
+		() => ({
+			selectedModel,
+			defaultKey,
+			favorites,
+			providerHeaderClassName,
+			itemClassName,
+			cloudOnlyLabel,
+			visionBadge,
+			defaultBadge,
+			multiplierLabel,
+			onSelect: handleModelSelect,
+		}),
+		[
+			selectedModel,
+			defaultKey,
+			favorites,
+			providerHeaderClassName,
+			itemClassName,
+			cloudOnlyLabel,
+			visionBadge,
+			defaultBadge,
+			multiplierLabel,
+			handleModelSelect,
+		],
 	);
 
 	const selectTab = (tab: string) => {
@@ -403,67 +446,45 @@ export function ModelSelectorView({
 									)}
 								</div>
 							</div>
-							<div ref={modelListRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-								{emptyOption && (
-									<>
-										<DropdownMenuItem
-											aria-current={!selectedModel ? "true" : undefined}
-											className={cn(
-												COMPACT_ITEM_CLASS,
-												!selectedModel && "bg-accent text-accent-foreground",
-											)}
-											onSelect={emptyOption.onSelect}
-										>
-											<span className="min-w-0 flex-1 truncate">{emptyOption.label}</span>
-											{!selectedModel && (
-												<span className="icon-[solar--check-circle-linear] h-3 w-3 shrink-0" />
-											)}
-										</DropdownMenuItem>
-										<DropdownMenuSeparator />
-									</>
-								)}
-								<DropdownMenuLabel className={COMPACT_LABEL_CLASS}>{listTitle}</DropdownMenuLabel>
-								{visibleGroups.map((group) => (
-									<div key={group.provider}>
-										{showProviderHeaders && (
-											<ProviderHeader
-												group={group}
-												cloudOnlyLabel={labels.cloudOnly}
-												className={classNames?.providerHeader}
-											/>
-										)}
-										{group.models.map((model) => (
-											<ModelRow
-												key={model.key}
-												model={model}
-												selected={model.key === selectedModel}
-												isDefault={model.key === defaultKey}
-												isFavorite={favorites ? favorites.keys.has(model.key) : undefined}
-												favoriteLabels={favorites?.labels}
-												onToggleFavorite={favorites?.onToggle}
-												itemClassName={classNames?.item}
-												visionBadge={labels.visionBadge}
-												defaultBadge={labels.defaultBadge}
-												multiplierLabel={labels.multiplierLabel}
-												onSelect={handleModelSelect}
-											/>
-										))}
-									</div>
-								))}
-								{visibleGroups.length === 0 && !searching && favorites && activeTab === FAVORITES_TAB && (
-									<div className="flex min-h-24 flex-col items-center justify-center px-4 py-6 text-center">
-										<span aria-hidden="true" className="icon-[solar--star-linear] mb-1.5 size-4 text-muted-foreground" />
-										<p className="text-[11px] text-muted-foreground">{favorites.labels.empty}</p>
-									</div>
-								)}
-								{visibleGroups.length === 0 && searching && (
-									<div className="flex min-h-24 flex-col items-center justify-center px-4 py-6 text-center">
-										<span aria-hidden="true" className="icon-[solar--magnifer-linear] mb-1.5 size-4 text-muted-foreground" />
-										<p className="text-xs font-medium text-foreground">{labels.noResults}</p>
-										<p className="mt-0.5 text-[11px] text-muted-foreground">{labels.noResultsHint}</p>
-									</div>
-								)}
-							</div>
+							{emptyOption && (
+								<>
+									<DropdownMenuItem
+										aria-current={!selectedModel ? "true" : undefined}
+										className={cn(COMPACT_ITEM_CLASS, !selectedModel && "bg-accent text-accent-foreground")}
+										onSelect={emptyOption.onSelect}
+									>
+										<span className="min-w-0 flex-1 truncate">{emptyOption.label}</span>
+										{!selectedModel && <span className="icon-[solar--check-circle-linear] h-3 w-3 shrink-0" />}
+									</DropdownMenuItem>
+									<DropdownMenuSeparator />
+								</>
+							)}
+							<DropdownMenuLabel className={COMPACT_LABEL_CLASS}>{listTitle}</DropdownMenuLabel>
+							{entries.length > 0 ? (
+								<ModelList
+									// 换栏目或改搜索词就整张列表重来：滚动位置回到顶部（或所选项），虚拟窗口也跟着重算。
+									key={`${searching ? "search" : activeTab}|${searchQuery}`}
+									entries={entries}
+									context={listContext}
+									scrollRef={modelListRef}
+								/>
+							) : (
+								<div ref={modelListRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+									{!searching && favorites && activeTab === FAVORITES_TAB && (
+										<div className="flex min-h-24 flex-col items-center justify-center px-4 py-6 text-center">
+											<span aria-hidden="true" className="icon-[solar--star-linear] mb-1.5 size-4 text-muted-foreground" />
+											<p className="text-[11px] text-muted-foreground">{favorites.labels.empty}</p>
+										</div>
+									)}
+									{searching && (
+										<div className="flex min-h-24 flex-col items-center justify-center px-4 py-6 text-center">
+											<span aria-hidden="true" className="icon-[solar--magnifer-linear] mb-1.5 size-4 text-muted-foreground" />
+											<p className="text-xs font-medium text-foreground">{labels.noResults}</p>
+											<p className="mt-0.5 text-[11px] text-muted-foreground">{labels.noResultsHint}</p>
+										</div>
+									)}
+								</div>
+							)}
 						</div>
 						{menuLevels.length > 0 && (
 							<div className="relative flex w-32 shrink-0 flex-col overflow-hidden border-l border-border/40">
@@ -538,6 +559,154 @@ function RailItem({
 	);
 }
 
+type ListEntry =
+	| { readonly kind: "header"; readonly group: ModelSelectorProviderGroup }
+	| { readonly kind: "model"; readonly model: ModelSelectorOptionView };
+
+/** 列表项渲染所需的一切。整体 memo 成一个对象，行组件的 memo 才不会被它打穿。 */
+interface ModelListContext {
+	readonly selectedModel?: string;
+	readonly defaultKey?: string;
+	readonly favorites?: ModelSelectorFavorites;
+	readonly providerHeaderClassName?: string;
+	readonly itemClassName?: string;
+	readonly cloudOnlyLabel: string;
+	readonly visionBadge: string;
+	readonly defaultBadge: string;
+	readonly multiplierLabel?: (option: ModelSelectorOptionView) => string | undefined;
+	readonly onSelect: (model: ModelSelectorOptionView, event: Event) => void;
+}
+
+function entryKey(entry: ListEntry): string {
+	return entry.kind === "header" ? `header:${entry.group.provider}` : entry.model.key;
+}
+
+function ListEntryView({
+	entry,
+	context,
+}: {
+	readonly entry: ListEntry;
+	readonly context: ModelListContext;
+}): JSX.Element {
+	if (entry.kind === "header") {
+		return (
+			<ProviderHeader
+				group={entry.group}
+				cloudOnlyLabel={context.cloudOnlyLabel}
+				className={context.providerHeaderClassName}
+			/>
+		);
+	}
+	const { model } = entry;
+	const { favorites } = context;
+	return (
+		<ModelRow
+			model={model}
+			selected={model.key === context.selectedModel}
+			isDefault={model.key === context.defaultKey}
+			isFavorite={favorites ? favorites.keys.has(model.key) : undefined}
+			favoriteLabels={favorites?.labels}
+			onToggleFavorite={favorites?.onToggle}
+			itemClassName={context.itemClassName}
+			visionBadge={context.visionBadge}
+			defaultBadge={context.defaultBadge}
+			multiplierLabel={context.multiplierLabel}
+			onSelect={context.onSelect}
+		/>
+	);
+}
+
+interface ModelListProps {
+	readonly entries: readonly ListEntry[];
+	readonly context: ModelListContext;
+	/** 滚动容器；父组件用它做方向键从搜索框跳进列表。 */
+	readonly scrollRef: { current: HTMLDivElement | null };
+}
+
+/**
+ * 模型列表。几百个模型时每个菜单项都要向 Radix 菜单注册、挂载并参与布局，一次全挂上就是卡顿的来源，
+ * 所以条目多时只渲染可视窗口内的那几十行。
+ */
+function ModelList(props: ModelListProps): JSX.Element {
+	return props.entries.length > VIRTUALIZE_THRESHOLD ? <VirtualModelList {...props} /> : <PlainModelList {...props} />;
+}
+
+function PlainModelList({ entries, context, scrollRef }: ModelListProps): JSX.Element {
+	const { selectedModel } = context;
+	useEffect(() => {
+		if (!selectedModel) return;
+		const frame = requestAnimationFrame(() => {
+			const selectedItem = Array.from(
+				scrollRef.current?.querySelectorAll<HTMLElement>(MODEL_ITEM_SELECTOR) ?? [],
+			).find((item) => item.dataset.modelKey === selectedModel);
+			selectedItem?.scrollIntoView({ block: "nearest" });
+		});
+		return () => cancelAnimationFrame(frame);
+		// 只在列表出现时把所选项滚入可视区；选中后菜单还开着时不要再跳。
+		// biome-ignore lint/correctness/useExhaustiveDependencies: 见上
+	}, []);
+
+	return (
+		<div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+			{entries.map((entry) => (
+				<ListEntryView key={entryKey(entry)} entry={entry} context={context} />
+			))}
+		</div>
+	);
+}
+
+function VirtualModelList({ entries, context, scrollRef }: ModelListProps): JSX.Element {
+	// 菜单内容经 Portal 挂载，滚动容器要等到真正进了 DOM 才拿得到，所以用 state 接 ref。
+	const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
+	const setRefs = useCallback(
+		(node: HTMLDivElement | null) => {
+			scrollRef.current = node;
+			setScrollElement(node);
+		},
+		[scrollRef],
+	);
+	const virtualizer = useVirtualizer({
+		count: entries.length,
+		getScrollElement: () => scrollElement,
+		estimateSize: (index) => (entries[index]?.kind === "header" ? HEADER_HEIGHT : ROW_HEIGHT),
+		getItemKey: (index) => {
+			const entry = entries[index];
+			return entry ? entryKey(entry) : index;
+		},
+		overscan: VIRTUAL_OVERSCAN,
+		initialRect: { width: 0, height: LIST_FALLBACK_HEIGHT },
+	});
+
+	const { selectedModel } = context;
+	useEffect(() => {
+		if (!scrollElement || !selectedModel) return;
+		const index = entries.findIndex((entry) => entry.kind === "model" && entry.model.key === selectedModel);
+		if (index >= 0) virtualizer.scrollToIndex(index, { align: "auto" });
+		// 只在滚动容器就绪时定位一次；选中后菜单还开着时不要再跳。
+		// biome-ignore lint/correctness/useExhaustiveDependencies: 见上
+	}, [scrollElement]);
+
+	return (
+		<div ref={setRefs} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+			<div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+				{virtualizer.getVirtualItems().map((item) => {
+					const entry = entries[item.index];
+					if (!entry) return null;
+					return (
+						<div
+							key={item.key}
+							className="absolute left-0 top-0 w-full"
+							style={{ height: item.size, transform: `translateY(${item.start}px)` }}
+						>
+							<ListEntryView entry={entry} context={context} />
+						</div>
+					);
+				})}
+			</div>
+		</div>
+	);
+}
+
 /** 搜索结果与收藏列表里的供应商分组头。 */
 function ProviderHeader({
 	group,
@@ -551,7 +720,7 @@ function ProviderHeader({
 	return (
 		<div
 			className={cn(
-				"flex items-center gap-1 px-2 pb-0.5 pt-1 text-[10px] font-medium text-muted-foreground/50",
+				"flex h-6 items-center gap-1 px-2 pb-0.5 pt-1 text-[10px] font-medium text-muted-foreground/50",
 				className,
 			)}
 		>
@@ -599,7 +768,7 @@ const ModelRow = memo(function ModelRow({
 		<DropdownMenuItem
 			data-model-key={model.key}
 			aria-current={selected ? "true" : undefined}
-			className={cn(COMPACT_ITEM_CLASS, "group", selected && "bg-accent text-accent-foreground", itemClassName)}
+			className={cn(COMPACT_ITEM_CLASS, "group h-7", selected && "bg-accent text-accent-foreground", itemClassName)}
 			onSelect={(event) => onSelect(model, event)}
 		>
 			<span className="min-w-0 flex-1 truncate">{model.displayName}</span>

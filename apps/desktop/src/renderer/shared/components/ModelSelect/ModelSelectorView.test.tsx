@@ -9,7 +9,7 @@ import {
 	type ModelSelectorProviderGroup,
 	ModelSelectorView,
 } from "@vetta-org/theme-ui/chat/ModelSelectorView";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 const labels: ModelSelectorLabels = {
 	placeholder: "Choose model",
@@ -42,7 +42,20 @@ function makeGroup(provider: string, label: string, count: number): ModelSelecto
 	return { provider, label, models };
 }
 
+// jsdom 没有布局，滚动容器量出来是 0 高，虚拟列表就一行都不画；给元素一个像真实布局的尺寸。
+const originalClientHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientHeight");
+const originalClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth");
+beforeAll(() => {
+	Object.defineProperty(HTMLElement.prototype, "clientHeight", { configurable: true, get: () => 300 });
+	Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 256 });
+});
+afterAll(() => {
+	if (originalClientHeight) Object.defineProperty(HTMLElement.prototype, "clientHeight", originalClientHeight);
+	if (originalClientWidth) Object.defineProperty(HTMLElement.prototype, "clientWidth", originalClientWidth);
+});
+
 const groups = [makeGroup("alpha", "Alpha", 3), makeGroup("magpie", "Magpie", 120)];
+const hugeGroups = [makeGroup("alpha", "Alpha", 3), makeGroup("magpie", "Magpie", 500)];
 
 function renderView(overrides: Partial<Parameters<typeof ModelSelectorView>[0]> = {}) {
 	const selected = groups[0]?.models[0] ?? null;
@@ -134,6 +147,45 @@ describe("ModelSelectorView 三栏布局", () => {
 
 		await user.click(screen.getByRole("menuitem", { name: "Alpha Model 2" }));
 		await waitFor(() => expect(screen.queryByPlaceholderText("Search models")).toBeNull());
+	});
+});
+
+describe("ModelSelectorView 大列表", () => {
+	beforeAll(() => {
+		Element.prototype.scrollIntoView = vi.fn();
+	});
+
+	it("供应商有几百个模型时只挂载窗口内的行，而不是全部", async () => {
+		const user = userEvent.setup();
+		renderView({ groups: hugeGroups });
+		await openMenu(user);
+		await user.click(screen.getByRole("menuitem", { name: "Magpie" }));
+
+		const rows = screen.getAllByRole("menuitem").filter((item) => item.hasAttribute("data-model-key"));
+		expect(rows.length).toBeGreaterThan(0);
+		expect(rows.length).toBeLessThan(60);
+		expect(screen.getByRole("menuitem", { name: "Magpie Model 0" })).toBeTruthy();
+		expect(screen.queryByRole("menuitem", { name: "Magpie Model 499" })).toBeNull();
+	});
+
+	it("虚拟列表里的行仍可选中", async () => {
+		const user = userEvent.setup();
+		const onModelSelect = vi.fn();
+		renderView({ groups: hugeGroups, onModelSelect });
+		await openMenu(user);
+		await user.click(screen.getByRole("menuitem", { name: "Magpie" }));
+		await user.click(screen.getByRole("menuitem", { name: "Magpie Model 2" }));
+
+		expect(onModelSelect).toHaveBeenCalledWith("magpie/m2");
+	});
+
+	it("搜索能在整个大列表里命中窗口之外的模型", async () => {
+		const user = userEvent.setup();
+		renderView({ groups: hugeGroups });
+		await openMenu(user);
+		await user.type(screen.getByPlaceholderText("Search models"), "Magpie Model 499");
+
+		expect(screen.getByRole("menuitem", { name: "Magpie Model 499" })).toBeTruthy();
 	});
 });
 
