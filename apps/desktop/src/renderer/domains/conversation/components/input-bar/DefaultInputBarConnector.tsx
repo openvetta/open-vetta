@@ -213,6 +213,7 @@ export const DefaultInputBarConnector = memo(function DefaultInputBarConnector(p
 		contextMenu,
 		editor: { namespace: "chat-input" },
 		leadingTools: [{ kind: "execution-mode", model: executionModeModel }],
+		executionModeInModelMenu: true,
 		trailingTools: contextUsageModel ? [{ kind: "context-usage", model: contextUsageModel }] : [],
 		sendBehavior: "queueable",
 		labels,

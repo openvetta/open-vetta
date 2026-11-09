@@ -954,6 +954,7 @@
 		}
 	},
 	"modelSelect": {
+		"shortcutHint": "Toggle model menu",
 		"moreProviders": "{{count}} more providers",
 		"fewerProviders": "Show fewer providers",
 		"favorites": {

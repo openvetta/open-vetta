@@ -8,7 +8,7 @@ import { useMatches, useNavigate } from "@tanstack/react-router";
 import type { CodingAgentPlanReviewRequest } from "@vetta/coding-agent/function-extensions";
 import { getDefaultStore, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FILE_EDITOR_SAVE_EVENT } from "@/shared/shortcuts";
+import { FILE_EDITOR_SAVE_EVENT, OPEN_MODEL_SELECTOR_EVENT } from "@/shared/shortcuts";
 import { loadNewSessionPage } from "../domains/conversation/components/loadNewSessionPage";
 import { useAppInit } from "../domains/conversation/hooks/useAppInit";
 import { useSessionManager } from "../domains/conversation/hooks/useSessionManager";
@@ -469,6 +469,10 @@ export function useRootLayoutModel(): RootLayoutModel {
 					case "open-command-menu": {
 						// 面板内自己绑了一条 mod+k 关闭；能走到这里说明面板是关着的。
 						setCommandMenuOpen(true);
+						break;
+					}
+					case "open-model-selector": {
+						window.dispatchEvent(new Event(OPEN_MODEL_SELECTOR_EVENT));
 						break;
 					}
 					case "save-file": {

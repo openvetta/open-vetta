@@ -1780,6 +1780,8 @@
   "shortcutOpenSettingsDesc": "打开设置页面",
   "shortcutOpenCommandMenuLabel": "打开命令面板",
   "shortcutOpenCommandMenuDesc": "居中弹出，搜索项目、会话、能力、设置与插件视图",
+  "shortcutOpenModelSelectorLabel": "打开模型选择",
+  "shortcutOpenModelSelectorDesc": "在输入框弹出模型菜单，可选模型、思考强度与沙箱权限；菜单开着时再按一次收起",
   "shortcutSaveFileLabel": "保存文件",
   "shortcutSaveFileDesc": "保存右侧文件编辑器中的当前文件",
   "kbHiwTitle": "知识库是怎么工作的",

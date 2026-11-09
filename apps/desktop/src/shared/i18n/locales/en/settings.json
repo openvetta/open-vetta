@@ -1780,6 +1780,8 @@
   "shortcutOpenSettingsDesc": "Open the settings page",
   "shortcutOpenCommandMenuLabel": "Open command menu",
   "shortcutOpenCommandMenuDesc": "Centered palette for projects, sessions, abilities, settings and plugin views",
+  "shortcutOpenModelSelectorLabel": "Open model menu",
+  "shortcutOpenModelSelectorDesc": "Pop up the model menu in the input box to pick model, reasoning and sandbox access; press again to close",
   "shortcutSaveFileLabel": "Save File",
   "shortcutSaveFileDesc": "Save the current file in the right-side editor",
   "kbHiwTitle": "How the Knowledge Base Works",

@@ -258,6 +258,8 @@ export interface InputBarModel {
 
 	/** 工具栏按真实组成项装配，避免用 showX/capability 布尔值扩展产品分支。 */
 	leadingTools: readonly InputBarLeadingTool[];
+	/** 为 true 时执行模式选择器不在工具栏左侧出现，而是放进模型选择菜单的底栏。 */
+	executionModeInModelMenu?: boolean;
 	trailingTools: readonly InputBarTrailingTool[];
 	sendBehavior: "direct" | "queueable";
 	labels: InputBarLabels;

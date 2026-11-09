@@ -954,6 +954,7 @@
 		}
 	},
 	"modelSelect": {
+		"shortcutHint": "切换模型菜单",
 		"moreProviders": "更多服务商（{{count}}）",
 		"fewerProviders": "收起服务商",
 		"favorites": {
