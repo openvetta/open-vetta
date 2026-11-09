@@ -34,6 +34,12 @@ const labels: PresetProvidersSectionLabels = {
 	refreshingModels: "Refreshing models",
 	refreshCatalog: "Refresh catalog",
 	copyApiKey: "Copy API key",
+	testConnect: "Test",
+	testing: "Testing",
+	testOk: "OK",
+	testFailed: "Failed",
+	editBaseUrl: "Change server address",
+	baseUrlPlaceholder: "Server address",
 	toggleProvider: (provider) => `Toggle ${provider}`,
 };
 
