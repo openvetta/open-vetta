@@ -45,36 +45,16 @@ function UiZoomControl({ model }: { model: AppearanceSettingsModel }): JSX.Eleme
 		if (next !== undefined && next !== factor) model.actions.setUiZoom(next);
 	};
 	return (
-		<div className="flex max-w-xl items-start gap-3">
-			{/* 两端的「A」只是大小暗示，与轨道同高对齐；轨道本身与底下的档位文字由 StepSlider 负责。 */}
-			<span aria-hidden className="flex h-5 w-4 shrink-0 items-center justify-center text-[11px] text-muted-foreground">
-				A
-			</span>
-			<div className="min-w-0 flex-1">
-				<StepSlider
-					labels={steps.map(percent)}
-					index={shownIndex}
-					showTicks
-					aria-label={model.labels.uiZoomSliderLabel}
-					aria-valuetext={percent(steps[shownIndex] ?? factor)}
-					onIndexChange={setDraftIndex}
-					onIndexCommit={commit}
-					onCancel={() => setDraftIndex(undefined)}
-				/>
-			</div>
-			<span aria-hidden className="flex h-5 w-4 shrink-0 items-center justify-center text-[15px] text-muted-foreground">
-				A
-			</span>
-			<Button
-				variant="ghost"
-				size="sm"
-				className="shrink-0"
-				disabled={factor === model.uiZoom.default}
-				onClick={model.actions.resetUiZoom}
-			>
-				{model.labels.uiZoomReset}
-			</Button>
-		</div>
+		<StepSlider
+			labels={steps.map(percent)}
+			index={shownIndex}
+			showTicks
+			aria-label={model.labels.uiZoomSliderLabel}
+			aria-valuetext={percent(steps[shownIndex] ?? factor)}
+			onIndexChange={setDraftIndex}
+			onIndexCommit={commit}
+			onCancel={() => setDraftIndex(undefined)}
+		/>
 	);
 }
 
@@ -606,7 +586,19 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 			)}
 
 			<div className="mb-10">
-				<SettingHeading title={model.labels.sections.uiZoom} section={SETTINGS_SECTION["appearance-ui-zoom"]} className="mb-1" />
+				<div className="mb-1 flex items-center justify-between gap-2">
+					<SettingHeading title={model.labels.sections.uiZoom} section={SETTINGS_SECTION["appearance-ui-zoom"]} />
+					<Button
+						variant="ghost"
+						size="icon-xs"
+						title={model.labels.uiZoomReset}
+						aria-label={model.labels.uiZoomReset}
+						disabled={model.uiZoom.factor === model.uiZoom.default}
+						onClick={model.actions.resetUiZoom}
+					>
+						<span aria-hidden className="icon-[solar--restart-linear] h-3.5 w-3.5" />
+					</Button>
+				</div>
 				<p className="mb-4 text-[12px] text-muted-foreground">{model.labels.uiZoomHint}</p>
 				<UiZoomControl model={model} />
 			</div>
