@@ -274,8 +274,11 @@ describe("ModelSelectorView 底栏与受控开合", () => {
 		await openMenu(user);
 
 		const content = document.querySelector('[data-slot="dropdown-menu-content"]') as HTMLElement;
-		expect(content.className).toContain("bg-background/50");
-		expect(content.className).toContain("backdrop-blur-xl");
+		expect(content.className).toContain("bg-background/40");
+		expect(content.className).toContain("backdrop-blur-2xl");
+		// 透出背后内容就别再叠自绘的描边/高光/阴影。
+		expect(content.className).not.toContain("ring-white");
+		expect(content.innerHTML).not.toContain("bg-gradient");
 	});
 
 	it("受控 open：宿主设为 true 就打开，设回 false 就关闭并清掉搜索词", async () => {
