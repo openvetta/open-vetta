@@ -2,6 +2,7 @@ import { resolveReasoning } from "@shared/components/ModelSelect/resolveReasonin
 import { type ModelOption, useModelOptions } from "@shared/components/ModelSelect/useModelOptions";
 import {
 	activeSessionAtom,
+	favoriteModelsAtom,
 	modelSupportsImagesAtom,
 	reasoningByModelAtom,
 	SELECTED_MODEL_STORAGE_KEY,
@@ -182,6 +183,35 @@ export function useModelSelectorModel({
 		[selectedModel, reasoningByModel, setReasoningByModel, scope],
 	);
 
+	// 选中后菜单要保持打开、让用户接着在第三栏选思考强度的模型。
+	const reasoningModelKeys = useMemo(
+		() => new Set(options.filter((option) => resolveReasoning(option)).map((option) => option.key)),
+		[options],
+	);
+
+	const [favoriteKeyList, setFavoriteKeyList] = useAtom(favoriteModelsAtom);
+	const favoriteKeys = useMemo(() => new Set(favoriteKeyList), [favoriteKeyList]);
+	const toggleFavorite = useCallback(
+		(key: string) =>
+			setFavoriteKeyList((current) =>
+				current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
+			),
+		[setFavoriteKeyList],
+	);
+	const favorites = useMemo<NonNullable<ModelSelectorViewProps["favorites"]>>(
+		() => ({
+			keys: favoriteKeys,
+			onToggle: toggleFavorite,
+			labels: {
+				tab: t("modelSelect.favorites.tab"),
+				empty: t("modelSelect.favorites.empty"),
+				add: t("modelSelect.favorites.add"),
+				remove: t("modelSelect.favorites.remove"),
+			},
+		}),
+		[favoriteKeys, toggleFavorite, t],
+	);
+
 	// 引用保持稳定：视图里的搜索过滤、行组件的 memo 都依赖它们不随无关 atom 变化而换新。
 	const groups = useMemo(
 		() =>
@@ -219,6 +249,8 @@ export function useModelSelectorModel({
 			defaultKey,
 			groups,
 			labels,
+			favorites,
+			reasoningModelKeys,
 			menuLevels,
 			onModelSelect: handleModelSelect,
 			onOpenChange: handleOpenChange,

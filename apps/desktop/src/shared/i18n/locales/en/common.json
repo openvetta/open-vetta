@@ -954,6 +954,12 @@
 		}
 	},
 	"modelSelect": {
+		"favorites": {
+			"tab": "Favorite models",
+			"empty": "No favorites yet. Click the star next to a model to add it.",
+			"add": "Add to favorites",
+			"remove": "Remove from favorites"
+		},
 		"placeholder": "Select model",
 		"searchPlaceholder": "Search models or providers",
 		"clearSearch": "Clear search",

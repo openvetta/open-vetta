@@ -954,6 +954,12 @@
 		}
 	},
 	"modelSelect": {
+		"favorites": {
+			"tab": "收藏的模型",
+			"empty": "还没有收藏的模型，在模型右侧点星标即可收藏",
+			"add": "收藏",
+			"remove": "取消收藏"
+		},
 		"placeholder": "选择模型",
 		"searchPlaceholder": "搜索模型或供应商",
 		"clearSearch": "清除搜索",
