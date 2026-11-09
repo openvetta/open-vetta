@@ -954,6 +954,24 @@
 		}
 	},
 	"modelSelect": {
+		"info": {
+			"button": "模型详情",
+			"source": "来源",
+			"id": "模型 ID",
+			"contextWindow": "上下文窗口",
+			"maxOutput": "最大输出",
+			"inputModes": "输入模式",
+			"reasoning": "思考强度",
+			"reasoningSupported": "支持",
+			"multiplier": "计费倍率",
+			"modality": {
+				"text": "文本",
+				"image": "图片",
+				"audio": "音频",
+				"video": "视频",
+				"pdf": "PDF"
+			}
+		},
 		"shortcutHint": "切换模型菜单",
 		"moreProviders": "更多服务商（{{count}}）",
 		"fewerProviders": "收起服务商",

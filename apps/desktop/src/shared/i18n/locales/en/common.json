@@ -954,6 +954,24 @@
 		}
 	},
 	"modelSelect": {
+		"info": {
+			"button": "Model details",
+			"source": "Source",
+			"id": "Model ID",
+			"contextWindow": "Context window",
+			"maxOutput": "Max output",
+			"inputModes": "Input",
+			"reasoning": "Reasoning",
+			"reasoningSupported": "Supported",
+			"multiplier": "Pricing",
+			"modality": {
+				"text": "Text",
+				"image": "Image",
+				"audio": "Audio",
+				"video": "Video",
+				"pdf": "PDF"
+			}
+		},
 		"shortcutHint": "Toggle model menu",
 		"moreProviders": "{{count}} more providers",
 		"fewerProviders": "Show fewer providers",

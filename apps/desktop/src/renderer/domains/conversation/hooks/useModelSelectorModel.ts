@@ -239,6 +239,18 @@ export function useModelSelectorModel({
 			reasoningHeader: t("modelSelect.reasoningHeader"),
 			searchPlaceholder: t("modelSelect.searchPlaceholder"),
 			visionBadge: t("modelSelect.visionBadge"),
+			info: {
+				button: t("modelSelect.info.button"),
+				source: t("modelSelect.info.source"),
+				id: t("modelSelect.info.id"),
+				contextWindow: t("modelSelect.info.contextWindow"),
+				maxOutput: t("modelSelect.info.maxOutput"),
+				inputModes: t("modelSelect.info.inputModes"),
+				reasoning: t("modelSelect.info.reasoning"),
+				reasoningSupported: t("modelSelect.info.reasoningSupported"),
+				multiplier: t("modelSelect.info.multiplier"),
+				modality: (modality: string) => t(`modelSelect.info.modality.${modality}`, { defaultValue: modality }),
+			},
 		}),
 		[t, multiplierLabelFor, levelLabel],
 	);

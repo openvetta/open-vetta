@@ -191,6 +191,152 @@ describe("ModelSelectorView 大列表", () => {
 	});
 });
 
+describe("ModelSelectorView 模型详情", () => {
+	beforeAll(() => {
+		Element.prototype.scrollIntoView = vi.fn();
+	});
+
+	const infoLabels = {
+		button: "Model details",
+		source: "Source",
+		id: "Model ID",
+		contextWindow: "Context window",
+		maxOutput: "Max output",
+		inputModes: "Input",
+		reasoning: "Reasoning",
+		reasoningSupported: "Supported",
+		multiplier: "Pricing",
+		modality: (modality: string) => `mod:${modality}`,
+	};
+	const detailed: ModelSelectorOptionView = {
+		key: "alpha/vision",
+		provider: "alpha",
+		modelId: "vision-pro-1",
+		displayName: "Vision Pro",
+		supportsImage: true,
+		inputModalities: ["text", "image"],
+		contextWindow: 131072,
+		maxTokens: 8192,
+		reasoning: true,
+		reasoningLevels: ["low", "high"],
+		remote: true,
+	};
+	const detailedGroups: ModelSelectorProviderGroup[] = [
+		{ provider: "alpha", label: "Alpha Cloud", models: [detailed, ...makeGroup("alpha", "Alpha", 2).models] },
+	];
+
+	function renderDetailed(overrides: Partial<Parameters<typeof ModelSelectorView>[0]> = {}) {
+		return renderView({
+			groups: detailedGroups,
+			selectedModel: detailed.key,
+			selectedOption: detailed,
+			labels: { ...labels, multiplierLabel: () => "2×", info: infoLabels },
+			defaultKey: detailed.key,
+			...overrides,
+		});
+	}
+
+	it("提供 info 后，识图图标、倍率与默认徽章不再平铺在行上，只剩悬停出现的详情图标", async () => {
+		const user = userEvent.setup();
+		renderDetailed();
+		await user.click(screen.getByRole("button", { name: /Vision Pro/ }));
+
+		const row = screen.getByRole("menuitem", { name: /Vision Pro/ });
+		expect(row.textContent).not.toContain("2×");
+		expect(row.textContent).not.toContain("Default");
+		expect(screen.queryByRole("img", { name: "Supports image input" })).toBeNull();
+
+		const infoButton = screen.getAllByRole("button", { name: "Model details" })[0] as HTMLElement;
+		expect(infoButton.className).toContain("hidden");
+		expect(infoButton.className).toContain("group-hover:inline-flex");
+		expect(infoButton.className).toContain("data-[state=open]:inline-flex");
+	});
+
+	it("点详情图标弹出浮层：名称、来源、ID、上下文、输入模式、思考档位、倍率；不选中模型也不关菜单", async () => {
+		const user = userEvent.setup();
+		const onModelSelect = vi.fn();
+		renderDetailed({ onModelSelect });
+		await user.click(screen.getByRole("button", { name: /Vision Pro/ }));
+		await user.click(screen.getAllByRole("button", { name: "Model details" })[0] as HTMLElement);
+
+		const card = await screen.findByText("vision-pro-1");
+		const panel = card.closest('[data-slot="popover-content"]') as HTMLElement;
+		expect(panel).toBeTruthy();
+		const text = panel.textContent ?? "";
+		expect(text).toContain("Vision Pro");
+		expect(text).toContain("Alpha Cloud");
+		expect(text).toContain("Cloud");
+		expect(text).toContain("128K");
+		expect(text).toContain("8K");
+		expect(text).toContain("mod:text");
+		expect(text).toContain("mod:image");
+		expect(text).toContain("level:low");
+		expect(text).toContain("level:high");
+		expect(text).toContain("2×");
+		expect(text).toContain("Default");
+
+		await user.click(panel);
+		expect(onModelSelect).not.toHaveBeenCalled();
+		expect(screen.getByPlaceholderText("Search models")).toBeTruthy();
+	});
+
+	it("鼠标划过菜单里别的行（焦点移走）浮层不关闭，点浮层外面才关闭", async () => {
+		const user = userEvent.setup();
+		renderDetailed();
+		await user.click(screen.getByRole("button", { name: /Vision Pro/ }));
+		await user.click(screen.getAllByRole("button", { name: "Model details" })[0] as HTMLElement);
+		await screen.findByText("vision-pro-1");
+
+		const other = screen.getByRole("menuitem", { name: /Alpha Model 1/ });
+		await user.hover(other);
+		other.focus();
+		expect(screen.queryByText("vision-pro-1")).toBeTruthy();
+
+		await user.click(document.body);
+		await waitFor(() => expect(screen.queryByText("vision-pro-1")).toBeNull());
+	});
+
+	it("没有上下文等数据的模型只显示它有的行，输入模式缺省时由识图能力推出", async () => {
+		const user = userEvent.setup();
+		const bare: ModelSelectorOptionView = { key: "alpha/bare", provider: "alpha", modelId: "bare-1", displayName: "Bare" };
+		renderDetailed({
+			groups: [{ provider: "alpha", label: "Alpha", models: [bare] }],
+			selectedModel: bare.key,
+			selectedOption: bare,
+			defaultKey: undefined,
+			labels: { ...labels, info: infoLabels },
+		});
+		await user.click(screen.getByRole("button", { name: /Bare/ }));
+		await user.click(screen.getAllByRole("button", { name: "Model details" })[0] as HTMLElement);
+
+		const panel = (await screen.findByText("bare-1")).closest('[data-slot="popover-content"]') as HTMLElement;
+		const text = panel.textContent ?? "";
+		expect(text).not.toContain("Context window");
+		expect(text).not.toContain("Max output");
+		expect(text).not.toContain("Reasoning");
+		expect(text).toContain("mod:text");
+		expect(text).not.toContain("mod:image");
+	});
+
+	it("宿主标出有推理能力但没配档位时，只显示「支持」", async () => {
+		const user = userEvent.setup();
+		const plain: ModelSelectorOptionView = { key: "alpha/r", provider: "alpha", modelId: "r-1", displayName: "R" };
+		renderDetailed({
+			groups: [{ provider: "alpha", label: "Alpha", models: [plain] }],
+			selectedModel: plain.key,
+			selectedOption: plain,
+			defaultKey: undefined,
+			labels: { ...labels, info: infoLabels },
+			reasoningModelKeys: new Set([plain.key]),
+		});
+		await user.click(screen.getByRole("button", { name: /^R$/ }));
+		await user.click(screen.getAllByRole("button", { name: "Model details" })[0] as HTMLElement);
+
+		const panel = (await screen.findByText("r-1")).closest('[data-slot="popover-content"]') as HTMLElement;
+		expect(panel.textContent).toContain("Supported");
+	});
+});
+
 describe("ModelSelectorView 列表滚动", () => {
 	const originalScrollHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollHeight");
 	const scrollTo = vi.fn();

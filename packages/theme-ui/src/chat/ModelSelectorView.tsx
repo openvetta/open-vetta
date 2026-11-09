@@ -8,6 +8,7 @@ import type {
 } from "react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { Popover, PopoverContent, PopoverTrigger } from "@vetta-org/ui/popover";
 import { cn } from "@vetta-org/ui/utils";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@vetta-org/ui/dropdown-menu";
 import { ThemeSurface } from "../appearance/ThemeSurface";
@@ -36,6 +37,33 @@ export interface ModelSelectorOptionView {
 	/** 来自远程目录（云端）；分组头会打上 `labels.cloudOnly` 徽章。 */
 	readonly remote?: boolean;
 	readonly supportsImage?: boolean;
+	/** 以下几项只用于「模型详情」浮层，缺哪项就不显示哪行。 */
+	/** 输入模态（text / image / …）；缺省时按 `supportsImage` 推出。 */
+	readonly inputModalities?: readonly string[];
+	/** 上下文窗口（tokens）。 */
+	readonly contextWindow?: number;
+	/** 最大输出（tokens）。 */
+	readonly maxTokens?: number;
+	readonly reasoning?: boolean;
+	/** 明确配置的思考档位；没配但有推理能力时只显示「支持」。 */
+	readonly reasoningLevels?: readonly string[];
+}
+
+/** 「模型详情」浮层的文案。 */
+export interface ModelSelectorInfoLabels {
+	/** 详情图标的名称（无障碍与悬停提示）。 */
+	button: string;
+	source: string;
+	id: string;
+	contextWindow: string;
+	maxOutput: string;
+	inputModes: string;
+	reasoning: string;
+	/** 有推理能力但没有明确档位时显示。 */
+	reasoningSupported: string;
+	multiplier: string;
+	/** 输入模态的显示名（text → 文本）。 */
+	modality: (modality: string) => string;
 }
 
 export interface ModelSelectorLabels {
@@ -50,6 +78,11 @@ export interface ModelSelectorLabels {
 	visionBadge: string;
 	defaultBadge: string;
 	levelLabel: (value: string) => string;
+	/**
+	 * 提供后，模型行上的识图图标、计费倍率与「默认」徽章不再平铺，统一收进悬停出现的详情图标，
+	 * 点开看完整信息；不提供则保持平铺。
+	 */
+	info?: ModelSelectorInfoLabels;
 	/**
 	 * 第一栏服务商过多时，折叠按钮的名称（带被折叠的数量）与收起按钮的名称。
 	 * 两个都提供才会折叠；不提供则第一栏始终全部列出。
@@ -280,7 +313,7 @@ export function ModelSelectorView({
 		() =>
 			visibleGroups.flatMap((group) => [
 				...(showProviderHeaders ? [{ kind: "header" as const, group }] : []),
-				...group.models.map((model) => ({ kind: "model" as const, model })),
+				...group.models.map((model) => ({ kind: "model" as const, model, providerLabel: group.label })),
 			]),
 		[visibleGroups, showProviderHeaders],
 	);
@@ -292,6 +325,8 @@ export function ModelSelectorView({
 	const visionBadge = labels.visionBadge;
 	const defaultBadge = labels.defaultBadge;
 	const multiplierLabel = labels.multiplierLabel;
+	const info = labels.info;
+	const levelLabel = labels.levelLabel;
 
 	const handleOpenChange = useCallback(
 		(nextOpen: boolean) => {
@@ -371,6 +406,9 @@ export function ModelSelectorView({
 			visionBadge,
 			defaultBadge,
 			multiplierLabel,
+			info,
+			levelLabel,
+			reasoningModelKeys,
 			onSelect: handleModelSelect,
 		}),
 		[
@@ -383,6 +421,9 @@ export function ModelSelectorView({
 			visionBadge,
 			defaultBadge,
 			multiplierLabel,
+			info,
+			levelLabel,
+			reasoningModelKeys,
 			handleModelSelect,
 		],
 	);
@@ -629,7 +670,7 @@ function RailItem({
 
 type ListEntry =
 	| { readonly kind: "header"; readonly group: ModelSelectorProviderGroup }
-	| { readonly kind: "model"; readonly model: ModelSelectorOptionView };
+	| { readonly kind: "model"; readonly model: ModelSelectorOptionView; readonly providerLabel: string };
 
 /** 列表项渲染所需的一切。整体 memo 成一个对象，行组件的 memo 才不会被它打穿。 */
 interface ModelListContext {
@@ -642,6 +683,9 @@ interface ModelListContext {
 	readonly visionBadge: string;
 	readonly defaultBadge: string;
 	readonly multiplierLabel?: (option: ModelSelectorOptionView) => string | undefined;
+	readonly info?: ModelSelectorInfoLabels;
+	readonly levelLabel: (value: string) => string;
+	readonly reasoningModelKeys?: ReadonlySet<string>;
 	readonly onSelect: (model: ModelSelectorOptionView, event: Event) => void;
 }
 
@@ -679,6 +723,11 @@ function ListEntryView({
 			visionBadge={context.visionBadge}
 			defaultBadge={context.defaultBadge}
 			multiplierLabel={context.multiplierLabel}
+			info={context.info}
+			levelLabel={context.levelLabel}
+			providerLabel={entry.providerLabel}
+			cloudOnlyLabel={context.cloudOnlyLabel}
+			hasReasoning={context.reasoningModelKeys?.has(model.key) ?? false}
 			onSelect={context.onSelect}
 		/>
 	);
@@ -869,6 +918,11 @@ const ModelRow = memo(function ModelRow({
 	visionBadge,
 	defaultBadge,
 	multiplierLabel,
+	info,
+	levelLabel,
+	providerLabel,
+	cloudOnlyLabel,
+	hasReasoning,
 	onSelect,
 }: {
 	readonly model: ModelSelectorOptionView;
@@ -882,6 +936,12 @@ const ModelRow = memo(function ModelRow({
 	readonly visionBadge: string;
 	readonly defaultBadge: string;
 	readonly multiplierLabel?: (option: ModelSelectorOptionView) => string | undefined;
+	/** 提供后识图/倍率/默认标识收进详情浮层。 */
+	readonly info?: ModelSelectorInfoLabels;
+	readonly levelLabel: (value: string) => string;
+	readonly providerLabel: string;
+	readonly cloudOnlyLabel: string;
+	readonly hasReasoning: boolean;
 	readonly onSelect: (model: ModelSelectorOptionView, event: Event) => void;
 }): JSX.Element {
 	return (
@@ -918,17 +978,197 @@ const ModelRow = memo(function ModelRow({
 					/>
 				</button>
 			)}
-			<ModelMultiplier label={multiplierLabel?.(model)} />
-			{model.supportsImage && <ModelVisionIcon label={visionBadge} />}
-			{isDefault && (
-				<span className="shrink-0 rounded-full bg-primary/15 px-1 text-[9px] font-medium text-primary">
-					{defaultBadge}
-				</span>
+			{info ? (
+				<ModelInfoButton
+					model={model}
+					info={info}
+					levelLabel={levelLabel}
+					providerLabel={providerLabel}
+					cloudOnlyLabel={cloudOnlyLabel}
+					defaultBadge={isDefault ? defaultBadge : undefined}
+					multiplier={multiplierLabel?.(model)}
+					hasReasoning={hasReasoning}
+				/>
+			) : (
+				<>
+					<ModelMultiplier label={multiplierLabel?.(model)} />
+					{model.supportsImage && <ModelVisionIcon label={visionBadge} />}
+					{isDefault && (
+						<span className="shrink-0 rounded-full bg-primary/15 px-1 text-[9px] font-medium text-primary">
+							{defaultBadge}
+						</span>
+					)}
+				</>
 			)}
 			{selected && <span className="icon-[solar--check-circle-linear] h-3 w-3 shrink-0" />}
 		</DropdownMenuItem>
 	);
 });
+
+/** 输入 token 数的简写：128K / 1M；2 的幂按 1024 进位（131072 → 128K），其余按 1000。 */
+function formatTokens(value: number): string {
+	const trim = (n: number): string => `${Math.round(n * 10) / 10}`;
+	if (value >= 1 << 20 && value % (1 << 20) === 0) return `${value / (1 << 20)}M`;
+	if (value >= 1024 && value < 1 << 20 && value % 1024 === 0) return `${value / 1024}K`;
+	if (value >= 1_000_000) return `${trim(value / 1_000_000)}M`;
+	if (value >= 1000) return `${trim(value / 1000)}K`;
+	return String(value);
+}
+
+const MODALITY_ICONS: Record<string, string> = {
+	text: "icon-[solar--text-field-linear]",
+	image: "icon-[solar--gallery-linear]",
+	audio: "icon-[solar--microphone-3-linear]",
+	video: "icon-[solar--videocamera-record-linear]",
+	pdf: "icon-[solar--document-text-linear]",
+};
+
+/**
+ * 模型行上唯一的详情入口：悬停/高亮时才出现（打开浮层期间保持显示，免得触发器消失让浮层失去锚点），
+ * 点开后在浮层里看名称、来源、ID、上下文与输入模式等。
+ */
+function ModelInfoButton({
+	model,
+	info,
+	levelLabel,
+	providerLabel,
+	cloudOnlyLabel,
+	defaultBadge,
+	multiplier,
+	hasReasoning,
+}: {
+	readonly model: ModelSelectorOptionView;
+	readonly info: ModelSelectorInfoLabels;
+	readonly levelLabel: (value: string) => string;
+	readonly providerLabel: string;
+	readonly cloudOnlyLabel: string;
+	readonly defaultBadge?: string;
+	readonly multiplier?: string;
+	readonly hasReasoning: boolean;
+}): JSX.Element {
+	const modalities = model.inputModalities?.length
+		? Array.from(new Set(model.inputModalities))
+		: ["text", ...(model.supportsImage ? ["image"] : [])];
+	const levels = model.reasoningLevels ?? [];
+	const supportsReasoning = hasReasoning || Boolean(model.reasoning) || levels.length > 0;
+
+	return (
+		<Popover>
+			<PopoverTrigger asChild>
+				<button
+					type="button"
+					tabIndex={-1}
+					aria-label={info.button}
+					title={info.button}
+					// 在菜单项里：不能让点击冒泡成「选中该模型」。
+					onClick={(event) => event.stopPropagation()}
+					className="hidden size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted data-[state=open]:inline-flex group-hover:inline-flex group-data-[highlighted]:inline-flex"
+				>
+					<span aria-hidden="true" className="icon-[solar--info-circle-linear] size-3.5" />
+				</button>
+			</PopoverTrigger>
+			<PopoverContent
+				side="right"
+				align="start"
+				sideOffset={10}
+				collisionPadding={16}
+				// 浮层经 Portal 挂出去，但 React 事件仍会冒泡回所在的菜单项：不拦就会被当成「选中该模型」或触发菜单的键盘导航。
+				onClick={(event) => event.stopPropagation()}
+				onPointerDown={(event) => event.stopPropagation()}
+				onPointerUp={(event) => event.stopPropagation()}
+				onKeyDown={(event) => {
+					if (event.key !== "Escape") event.stopPropagation();
+				}}
+				// 只在「点了浮层外面」或按 Esc 时关闭。鼠标划过菜单里别的行会让那一行拿到焦点，
+				// Radix 会把"焦点移出浮层"也当成关闭，于是鼠标一动浮层就没了；这里忽略焦点移动。
+				onFocusOutside={(event) => event.preventDefault()}
+				className="w-64 gap-3 border-border/60 bg-background/70 p-3 backdrop-blur-xl backdrop-saturate-150"
+			>
+				<div className="flex min-w-0 flex-col gap-0.5">
+					<div className="flex items-center gap-1.5">
+						<p className="min-w-0 break-words text-[13px] font-medium leading-snug text-foreground">
+							{model.displayName}
+						</p>
+						{defaultBadge && (
+							<span className="shrink-0 rounded-full bg-primary/15 px-1.5 text-[10px] font-medium text-primary">
+								{defaultBadge}
+							</span>
+						)}
+					</div>
+				</div>
+				<dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-2 text-[11px]">
+					<InfoRow label={info.source}>
+						<span className="flex flex-wrap items-center gap-1">
+							<span className="break-words">{providerLabel}</span>
+							{model.remote && (
+								<span className="shrink-0 rounded-full bg-primary/15 px-1 text-[9px] font-medium text-primary">
+									{cloudOnlyLabel}
+								</span>
+							)}
+						</span>
+					</InfoRow>
+					<InfoRow label={info.id}>
+						<span className="select-text break-all font-mono text-[10px]">{model.modelId}</span>
+					</InfoRow>
+					{model.contextWindow ? (
+						<InfoRow label={info.contextWindow}>
+							<span title={model.contextWindow.toLocaleString()}>{formatTokens(model.contextWindow)}</span>
+						</InfoRow>
+					) : null}
+					{model.maxTokens ? (
+						<InfoRow label={info.maxOutput}>
+							<span title={model.maxTokens.toLocaleString()}>{formatTokens(model.maxTokens)}</span>
+						</InfoRow>
+					) : null}
+					<InfoRow label={info.inputModes}>
+						<span className="flex flex-wrap items-center gap-1">
+							{modalities.map((modality) => (
+								<span
+									key={modality}
+									className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px]"
+								>
+									{MODALITY_ICONS[modality] && (
+										<span aria-hidden="true" className={cn(MODALITY_ICONS[modality], "size-3")} />
+									)}
+									{info.modality(modality)}
+								</span>
+							))}
+						</span>
+					</InfoRow>
+					{supportsReasoning ? (
+						<InfoRow label={info.reasoning}>
+							{levels.length > 0 ? (
+								<span className="flex flex-wrap items-center gap-1">
+									{levels.map((level) => (
+										<span key={level} className="rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px]">
+											{levelLabel(level)}
+										</span>
+									))}
+								</span>
+							) : (
+								info.reasoningSupported
+							)}
+						</InfoRow>
+					) : null}
+					{multiplier ? (
+						<InfoRow label={info.multiplier}>
+							<span>{multiplier}</span>
+						</InfoRow>
+					) : null}
+				</dl>
+			</PopoverContent>
+		</Popover>
+	);
+}
+
+function InfoRow({ label, children }: { readonly label: string; readonly children: ReactNode }): JSX.Element {
+	return (
+		<>
+			<dt className="whitespace-nowrap text-muted-foreground">{label}</dt>
+			<dd className="min-w-0 text-foreground">{children}</dd>
+		</>
+	);
+}
 
 function ModelMultiplier({ label }: { label?: string }): JSX.Element | null {
 	return label ? <MultiplierTag text={label} /> : null;

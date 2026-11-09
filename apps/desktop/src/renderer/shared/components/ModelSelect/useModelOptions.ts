@@ -16,6 +16,12 @@ export interface ModelOption {
 	tags?: string[];
 	/** Whether this model supports image input */
 	supportsImage?: boolean;
+	/** 输入模态（text / image / …），模型详情里展示 */
+	inputModalities?: string[];
+	/** 上下文窗口（tokens） */
+	contextWindow?: number;
+	/** 最大输出（tokens） */
+	maxTokens?: number;
 	/** API type ("openai-completions" / "openai-responses" / ...), for reasoning preset fallback */
 	api?: string;
 	/** Whether the model is reasoning-capable */
@@ -41,6 +47,9 @@ function flattenModels(config: ModelsConfigData, remote?: boolean): ModelOption[
 				remote,
 				tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : undefined,
 				supportsImage: model.input?.includes("image") ?? false,
+				inputModalities: model.input?.length ? [...model.input] : undefined,
+				contextWindow: model.contextWindow,
+				maxTokens: model.maxTokens,
 				api: model.api ?? providerConfig.api,
 				reasoning: model.reasoning,
 				reasoningLevels: model.reasoningLevels,
