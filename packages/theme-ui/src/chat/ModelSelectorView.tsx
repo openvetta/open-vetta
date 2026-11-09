@@ -334,6 +334,8 @@ export function ModelSelectorView({
 						asChild
 						portalContainer={portalContainer}
 						align="start"
+						// 三栏后菜单较宽，贴着窗口右缘放会被推到边上；留出边距让它整体往左收。
+						collisionPadding={16}
 						className={cn(
 							// 底色跟搜索框走同一个变量：搜索行去掉底色后要和面板融成一块
 							"w-auto min-w-[180px] max-w-[calc(100vw-2rem)] overflow-visible bg-background p-0",
