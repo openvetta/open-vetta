@@ -37,6 +37,8 @@ export interface ModelOption {
 function flattenModels(config: ModelsConfigData, remote?: boolean): ModelOption[] {
 	const result: ModelOption[] = [];
 	for (const [provider, providerConfig] of Object.entries(config.providers)) {
+		// 用户停用的服务商：保留配置与密钥，但不再出现在任何模型选择里。
+		if (providerConfig.disabled) continue;
 		for (const model of providerConfig.models ?? []) {
 			const raw = model as Record<string, unknown>;
 			result.push({
@@ -137,5 +139,10 @@ export function useModelOptions(): UseModelOptionsResult {
 		[config, remoteProviders],
 	);
 
-	return { options, grouped, defaultKey: config?.defaultModel, iconFor, labelFor };
+	// 默认模型属于被停用的服务商时视为没有默认，否则选择器会自动选中一个已不可用的模型。
+	const defaultModel = config?.defaultModel;
+	const defaultKey =
+		defaultModel && config?.providers[defaultModel.split("/", 1)[0] ?? ""]?.disabled ? undefined : defaultModel;
+
+	return { options, grouped, defaultKey, iconFor, labelFor };
 }
