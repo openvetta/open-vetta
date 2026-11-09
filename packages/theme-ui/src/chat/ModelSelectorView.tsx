@@ -1,4 +1,3 @@
-import { AnimatePresence, motion } from "motion/react";
 import type {
 	ChangeEvent,
 	JSX,
@@ -327,190 +326,176 @@ export function ModelSelectorView({
 					className={cn(className, classNames?.trigger)}
 				/>
 			</DropdownMenuTrigger>
-			<AnimatePresence>
-				{open && (
-					<DropdownMenuContent
-						forceMount
-						asChild
-						portalContainer={portalContainer}
-						align="start"
-						// 三栏后菜单较宽，贴着窗口右缘放会被推到边上；留出边距让它整体往左收。
-						collisionPadding={16}
+			<DropdownMenuContent
+				portalContainer={portalContainer}
+				align="start"
+				// 三栏后菜单较宽，贴着窗口右缘放会被推到边上；留出边距让它整体往左收。
+				collisionPadding={16}
+				className={cn(
+					// 底色跟搜索框走同一个变量：搜索行去掉底色后要和面板融成一块
+					"w-auto min-w-[180px] max-w-[calc(100vw-2rem)] overflow-visible bg-background p-0",
+					classNames?.content,
+				)}
+			>
+				<div className="relative overflow-visible rounded-[inherit]">
+					<ThemeSurface slot="chat.modelSelectorMenu" />
+					<div
 						className={cn(
-							// 底色跟搜索框走同一个变量：搜索行去掉底色后要和面板融成一块
-							"w-auto min-w-[180px] max-w-[calc(100vw-2rem)] overflow-visible bg-background p-0",
-							classNames?.content,
+							"relative z-10 flex h-[min(340px,60vh)] overflow-hidden rounded-[inherit]",
+							classNames?.contentInner,
 						)}
-						style={{ animation: "none" }}
 					>
-						<motion.div
-							initial={{ opacity: 0, scale: 0.96, y: 8 }}
-							animate={{ opacity: 1, scale: 1, y: 0 }}
-							exit={{ opacity: 0, scale: 0.96, y: 8 }}
-							transition={{ duration: 0.1, ease: [0.16, 1, 0.3, 1] }}
-						>
-							<div className="relative overflow-visible rounded-[inherit]">
-								<ThemeSurface slot="chat.modelSelectorMenu" />
-								<div
-									className={cn(
-										"relative z-10 flex h-[min(340px,60vh)] overflow-hidden rounded-[inherit]",
-										classNames?.contentInner,
-									)}
-								>
-									{showRail && (
-										<div className="flex w-11 shrink-0 flex-col items-center gap-1 overflow-y-auto overflow-x-hidden border-r border-border/40 p-1">
-											{favorites && (
-												<RailItem
-													label={favorites.labels.tab}
-													active={!searching && activeTab === FAVORITES_TAB}
-													onSelect={() => selectTab(FAVORITES_TAB)}
-												>
-													<span aria-hidden="true" className="icon-[solar--star-bold] size-4" />
-												</RailItem>
-											)}
-											{groups.map((group) => (
-												<RailItem
-													key={group.provider}
-													label={group.label}
-													active={!searching && activeTab === group.provider}
-													onSelect={() => selectTab(group.provider)}
-												>
-													{getProviderIcon(group.icon) ? (
-														<ProviderIcon symbol={group.icon} className="size-4" />
-													) : (
-														<span aria-hidden="true" className="text-[12px] font-semibold uppercase leading-none">
-															{providerInitial(group.label)}
-														</span>
-													)}
-												</RailItem>
-											))}
-										</div>
-									)}
-									<div className="flex w-64 min-w-0 shrink flex-col p-1">
-										<div className="shrink-0 p-0.5">
-											<div className="relative" onKeyDown={handleSearchKeyDown}>
-												<span
-													aria-hidden="true"
-													className="icon-[solar--magnifer-linear] pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground"
-												/>
-												<input
-													ref={searchInputRef}
-													type="search"
-													value={searchQuery}
-													onChange={handleSearchChange}
-													onClick={handleSearchClick}
-													placeholder={labels.searchPlaceholder}
-													aria-label={labels.searchPlaceholder}
-													className="h-7 w-full rounded-md pl-7 pr-7 text-[11px] text-foreground outline-none placeholder:text-muted-foreground"
-												/>
-												{searchQuery && (
-													<button
-														type="button"
-														onClick={handleClearSearch}
-														aria-label={labels.clearSearch}
-														className="absolute right-1 top-1/2 inline-flex size-4 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-													>
-														<span aria-hidden="true" className="icon-[solar--close-circle-linear] size-3" />
-													</button>
-												)}
-											</div>
-										</div>
-										<div ref={modelListRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-											{emptyOption && (
-												<>
-													<DropdownMenuItem
-														aria-current={!selectedModel ? "true" : undefined}
-														className={cn(
-															COMPACT_ITEM_CLASS,
-															!selectedModel && "bg-accent text-accent-foreground",
-														)}
-														onSelect={emptyOption.onSelect}
-													>
-														<span className="min-w-0 flex-1 truncate">{emptyOption.label}</span>
-														{!selectedModel && (
-															<span className="icon-[solar--check-circle-linear] h-3 w-3 shrink-0" />
-														)}
-													</DropdownMenuItem>
-													<DropdownMenuSeparator />
-												</>
-											)}
-											<DropdownMenuLabel className={COMPACT_LABEL_CLASS}>{listTitle}</DropdownMenuLabel>
-											{visibleGroups.map((group) => (
-												<div key={group.provider}>
-													{showProviderHeaders && (
-														<ProviderHeader
-															group={group}
-															cloudOnlyLabel={labels.cloudOnly}
-															className={classNames?.providerHeader}
-														/>
-													)}
-													{group.models.map((model) => (
-														<ModelRow
-															key={model.key}
-															model={model}
-															selected={model.key === selectedModel}
-															isDefault={model.key === defaultKey}
-															isFavorite={favorites ? favorites.keys.has(model.key) : undefined}
-															favoriteLabels={favorites?.labels}
-															onToggleFavorite={favorites?.onToggle}
-															itemClassName={classNames?.item}
-															visionBadge={labels.visionBadge}
-															defaultBadge={labels.defaultBadge}
-															multiplierLabel={labels.multiplierLabel}
-															onSelect={handleModelSelect}
-														/>
-													))}
-												</div>
-											))}
-											{visibleGroups.length === 0 && !searching && favorites && activeTab === FAVORITES_TAB && (
-												<div className="flex min-h-24 flex-col items-center justify-center px-4 py-6 text-center">
-													<span aria-hidden="true" className="icon-[solar--star-linear] mb-1.5 size-4 text-muted-foreground" />
-													<p className="text-[11px] text-muted-foreground">{favorites.labels.empty}</p>
-												</div>
-											)}
-											{visibleGroups.length === 0 && searching && (
-												<div className="flex min-h-24 flex-col items-center justify-center px-4 py-6 text-center">
-													<span aria-hidden="true" className="icon-[solar--magnifer-linear] mb-1.5 size-4 text-muted-foreground" />
-													<p className="text-xs font-medium text-foreground">{labels.noResults}</p>
-													<p className="mt-0.5 text-[11px] text-muted-foreground">{labels.noResultsHint}</p>
-												</div>
-											)}
-										</div>
-									</div>
-									{menuLevels.length > 0 && (
-										<div className="relative flex w-32 shrink-0 flex-col overflow-hidden border-l border-border/40">
-											<ThemeSurface slot="chat.modelSelectorReasoningMenu" />
-											<div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto p-1">
-												<DropdownMenuLabel className={COMPACT_LABEL_CLASS}>{labels.reasoningHeader}</DropdownMenuLabel>
-												{selectedOption && (
-													<p className="truncate px-2 pb-1 text-[10px] text-muted-foreground/70">
-														{selectedOption.displayName}
-													</p>
-												)}
-												{menuLevels.map((level) => (
-													<DropdownMenuItem
-														key={level}
-														className={cn(
-															COMPACT_ITEM_CLASS,
-															level === currentLevel && "bg-accent text-accent-foreground",
-														)}
-														onSelect={() => onReasoningSelect(level)}
-													>
-														<span className="min-w-0 flex-1 truncate">{labels.levelLabel(level)}</span>
-														{level === currentLevel && (
-															<span className="icon-[solar--check-circle-linear] h-3 w-3 shrink-0" />
-														)}
-													</DropdownMenuItem>
-												))}
-											</div>
-										</div>
+						{showRail && (
+							<div className="flex w-11 shrink-0 flex-col items-center gap-1 overflow-y-auto overflow-x-hidden border-r border-border/40 p-1">
+								{favorites && (
+									<RailItem
+										label={favorites.labels.tab}
+										active={!searching && activeTab === FAVORITES_TAB}
+										onSelect={() => selectTab(FAVORITES_TAB)}
+									>
+										<span aria-hidden="true" className="icon-[solar--star-bold] size-4" />
+									</RailItem>
+								)}
+								{groups.map((group) => (
+									<RailItem
+										key={group.provider}
+										label={group.label}
+										active={!searching && activeTab === group.provider}
+										onSelect={() => selectTab(group.provider)}
+									>
+										{getProviderIcon(group.icon) ? (
+											<ProviderIcon symbol={group.icon} className="size-4" />
+										) : (
+											<span aria-hidden="true" className="text-[12px] font-semibold uppercase leading-none">
+												{providerInitial(group.label)}
+											</span>
+										)}
+									</RailItem>
+								))}
+							</div>
+						)}
+						<div className="flex w-64 min-w-0 shrink flex-col p-1">
+							<div className="shrink-0 p-0.5">
+								<div className="relative" onKeyDown={handleSearchKeyDown}>
+									<span
+										aria-hidden="true"
+										className="icon-[solar--magnifer-linear] pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground"
+									/>
+									<input
+										ref={searchInputRef}
+										type="search"
+										value={searchQuery}
+										onChange={handleSearchChange}
+										onClick={handleSearchClick}
+										placeholder={labels.searchPlaceholder}
+										aria-label={labels.searchPlaceholder}
+										className="h-7 w-full rounded-md pl-7 pr-7 text-[11px] text-foreground outline-none placeholder:text-muted-foreground"
+									/>
+									{searchQuery && (
+										<button
+											type="button"
+											onClick={handleClearSearch}
+											aria-label={labels.clearSearch}
+											className="absolute right-1 top-1/2 inline-flex size-4 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+										>
+											<span aria-hidden="true" className="icon-[solar--close-circle-linear] size-3" />
+										</button>
 									)}
 								</div>
 							</div>
-						</motion.div>
-					</DropdownMenuContent>
-				)}
-			</AnimatePresence>
+							<div ref={modelListRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+								{emptyOption && (
+									<>
+										<DropdownMenuItem
+											aria-current={!selectedModel ? "true" : undefined}
+											className={cn(
+												COMPACT_ITEM_CLASS,
+												!selectedModel && "bg-accent text-accent-foreground",
+											)}
+											onSelect={emptyOption.onSelect}
+										>
+											<span className="min-w-0 flex-1 truncate">{emptyOption.label}</span>
+											{!selectedModel && (
+												<span className="icon-[solar--check-circle-linear] h-3 w-3 shrink-0" />
+											)}
+										</DropdownMenuItem>
+										<DropdownMenuSeparator />
+									</>
+								)}
+								<DropdownMenuLabel className={COMPACT_LABEL_CLASS}>{listTitle}</DropdownMenuLabel>
+								{visibleGroups.map((group) => (
+									<div key={group.provider}>
+										{showProviderHeaders && (
+											<ProviderHeader
+												group={group}
+												cloudOnlyLabel={labels.cloudOnly}
+												className={classNames?.providerHeader}
+											/>
+										)}
+										{group.models.map((model) => (
+											<ModelRow
+												key={model.key}
+												model={model}
+												selected={model.key === selectedModel}
+												isDefault={model.key === defaultKey}
+												isFavorite={favorites ? favorites.keys.has(model.key) : undefined}
+												favoriteLabels={favorites?.labels}
+												onToggleFavorite={favorites?.onToggle}
+												itemClassName={classNames?.item}
+												visionBadge={labels.visionBadge}
+												defaultBadge={labels.defaultBadge}
+												multiplierLabel={labels.multiplierLabel}
+												onSelect={handleModelSelect}
+											/>
+										))}
+									</div>
+								))}
+								{visibleGroups.length === 0 && !searching && favorites && activeTab === FAVORITES_TAB && (
+									<div className="flex min-h-24 flex-col items-center justify-center px-4 py-6 text-center">
+										<span aria-hidden="true" className="icon-[solar--star-linear] mb-1.5 size-4 text-muted-foreground" />
+										<p className="text-[11px] text-muted-foreground">{favorites.labels.empty}</p>
+									</div>
+								)}
+								{visibleGroups.length === 0 && searching && (
+									<div className="flex min-h-24 flex-col items-center justify-center px-4 py-6 text-center">
+										<span aria-hidden="true" className="icon-[solar--magnifer-linear] mb-1.5 size-4 text-muted-foreground" />
+										<p className="text-xs font-medium text-foreground">{labels.noResults}</p>
+										<p className="mt-0.5 text-[11px] text-muted-foreground">{labels.noResultsHint}</p>
+									</div>
+								)}
+							</div>
+						</div>
+						{menuLevels.length > 0 && (
+							<div className="relative flex w-32 shrink-0 flex-col overflow-hidden border-l border-border/40">
+								<ThemeSurface slot="chat.modelSelectorReasoningMenu" />
+								<div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto p-1">
+									<DropdownMenuLabel className={COMPACT_LABEL_CLASS}>{labels.reasoningHeader}</DropdownMenuLabel>
+									{selectedOption && (
+										<p className="truncate px-2 pb-1 text-[10px] text-muted-foreground/70">
+											{selectedOption.displayName}
+										</p>
+									)}
+									{menuLevels.map((level) => (
+										<DropdownMenuItem
+											key={level}
+											className={cn(
+												COMPACT_ITEM_CLASS,
+												level === currentLevel && "bg-accent text-accent-foreground",
+											)}
+											onSelect={() => onReasoningSelect(level)}
+										>
+											<span className="min-w-0 flex-1 truncate">{labels.levelLabel(level)}</span>
+											{level === currentLevel && (
+												<span className="icon-[solar--check-circle-linear] h-3 w-3 shrink-0" />
+											)}
+										</DropdownMenuItem>
+									))}
+								</div>
+							</div>
+						)}
+					</div>
+				</div>
+			</DropdownMenuContent>
 		</DropdownMenu>
 	);
 }
