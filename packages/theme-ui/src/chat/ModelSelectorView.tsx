@@ -412,14 +412,16 @@ export function ModelSelectorView({
 				// 三栏后菜单较宽，贴着窗口右缘放会被推到边上；留出边距让它整体往左收。
 				collisionPadding={16}
 				className={cn(
-					// 毛玻璃：半透明底色 + 背景模糊，背后的内容只透出柔和的轮廓；底色仍是主题的 background 变量，
-					// 搜索行等没有自己底色的子元素因此和面板融成一块。
-					"w-auto min-w-[180px] max-w-[calc(100vw-2rem)] overflow-visible border-border/60 bg-background/70 p-0 backdrop-blur-xl backdrop-saturate-150",
+					// 毛玻璃：半透明底色 + 背景模糊 + 提饱和，背后的内容只透出柔和的轮廓；底色仍是主题的 background 变量，
+					// 搜索行等没有自己底色的子元素因此和面板融成一块。深色主题的 background 近乎纯黑，
+					// 不透明度太高就跟实色看不出区别，所以压到一半；内描边与顶部高光让边缘在纯色背景上也有玻璃感。
+					"w-auto min-w-[180px] max-w-[calc(100vw-2rem)] overflow-visible border-border/50 bg-background/50 p-0 shadow-2xl ring-1 ring-inset ring-white/10 backdrop-blur-xl backdrop-saturate-[1.8]",
 					classNames?.content,
 				)}
 			>
 				<div className="relative overflow-visible rounded-[inherit]">
 					<ThemeSurface slot="chat.modelSelectorMenu" />
+					<div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 rounded-[inherit] bg-gradient-to-b from-white/[0.07] to-transparent" />
 					<div
 						className={cn(
 							"relative z-10 flex flex-col overflow-hidden rounded-[inherit]",

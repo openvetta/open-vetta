@@ -274,7 +274,7 @@ describe("ModelSelectorView 底栏与受控开合", () => {
 		await openMenu(user);
 
 		const content = document.querySelector('[data-slot="dropdown-menu-content"]') as HTMLElement;
-		expect(content.className).toContain("bg-background/70");
+		expect(content.className).toContain("bg-background/50");
 		expect(content.className).toContain("backdrop-blur-xl");
 	});
 
