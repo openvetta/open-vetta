@@ -76,10 +76,7 @@ export interface ModelSelectorFavorites {
 	readonly labels: {
 		/** 第一栏「收藏」入口的名称，也是收藏列表的标题 */
 		tab: string;
-		/** 空态标题 */
 		empty: string;
-		/** 空态说明：告诉用户怎么收藏 */
-		emptyHint: string;
 		add: string;
 		remove: string;
 	};
@@ -274,6 +271,8 @@ export function ModelSelectorView({
 			]),
 		[visibleGroups, showProviderHeaders],
 	);
+	// 收藏还空着时整栏只放空态提示，不再显示列表标题。
+	const favoritesEmpty = favorites !== undefined && !searching && activeTab === FAVORITES_TAB && entries.length === 0;
 	const providerHeaderClassName = classNames?.providerHeader;
 	const itemClassName = classNames?.item;
 	const cloudOnlyLabel = labels.cloudOnly;
@@ -498,7 +497,9 @@ export function ModelSelectorView({
 									<DropdownMenuSeparator />
 								</>
 							)}
-							<DropdownMenuLabel className={COMPACT_LABEL_CLASS}>{listTitle}</DropdownMenuLabel>
+							{!favoritesEmpty && (
+				<DropdownMenuLabel className={COMPACT_LABEL_CLASS}>{listTitle}</DropdownMenuLabel>
+			)}
 							{entries.length > 0 ? (
 								<ModelList
 									// 换栏目或改搜索词就整张列表重来：滚动位置回到顶部（或所选项），虚拟窗口也跟着重算。
@@ -517,12 +518,7 @@ export function ModelSelectorView({
 											>
 												<span className="icon-[solar--star-bold] size-6" />
 											</span>
-											<div className="space-y-1">
-												<p className="text-xs font-medium text-foreground">{favorites.labels.empty}</p>
-												<p className="text-[11px] leading-relaxed text-muted-foreground">
-													{favorites.labels.emptyHint}
-												</p>
-											</div>
+											<p className="text-xs font-medium text-foreground">{favorites.labels.empty}</p>
 										</div>
 									)}
 									{searching && (

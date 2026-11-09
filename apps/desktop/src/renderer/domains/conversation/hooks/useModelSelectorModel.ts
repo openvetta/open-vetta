@@ -205,7 +205,6 @@ export function useModelSelectorModel({
 			labels: {
 				tab: t("modelSelect.favorites.tab"),
 				empty: t("modelSelect.favorites.empty"),
-				emptyHint: t("modelSelect.favorites.emptyHint"),
 				add: t("modelSelect.favorites.add"),
 				remove: t("modelSelect.favorites.remove"),
 			},

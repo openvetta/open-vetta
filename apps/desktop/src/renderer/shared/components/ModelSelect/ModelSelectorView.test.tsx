@@ -28,7 +28,6 @@ const labels: ModelSelectorLabels = {
 const favoriteLabels: ModelSelectorFavorites["labels"] = {
 	tab: "Favorites",
 	empty: "No favorites yet",
-	emptyHint: "Hover a model and click the star",
 	add: "Add to favorites",
 	remove: "Remove from favorites",
 };
@@ -302,13 +301,15 @@ describe("ModelSelectorView 收藏", () => {
 
 		expect(screen.getByRole("menuitem", { name: /Magpie Model 5/ })).toBeTruthy();
 		expect(screen.queryByRole("menuitem", { name: /Alpha Model 1/ })).toBeNull();
+		expect(screen.getByText("Favorites")).toBeTruthy();
 		unmount();
 
 		renderView({ favorites: { ...favorites, keys: new Set() } });
 		await openMenu(user);
 		await user.click(screen.getByRole("menuitem", { name: "Favorites" }));
 		expect(screen.getByText("No favorites yet")).toBeTruthy();
-		expect(screen.getByText("Hover a model and click the star")).toBeTruthy();
+		// 空态只留一句提示，不再显示列表标题。
+		expect(screen.queryByText("Favorites")).toBeNull();
 	});
 
 	it("宿主不接收藏时不出现星标和「收藏」入口", async () => {

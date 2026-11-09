@@ -959,7 +959,6 @@
 		"favorites": {
 			"tab": "Favorite models",
 			"empty": "No favorite models yet",
-			"emptyHint": "Hover a model and click the star to add it here",
 			"add": "Add to favorites",
 			"remove": "Remove from favorites"
 		},
