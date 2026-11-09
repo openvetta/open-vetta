@@ -132,6 +132,8 @@ export function ModelSelectorView({
 	const [open, setOpen] = useState(false);
 	const [reasoningOpen, setReasoningOpen] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
+	// 用户手动展开/折叠过的结果；null 表示还没动过，按"只展开当前选中模型所在分组"。关菜单即重置。
+	const [expandedOverride, setExpandedOverride] = useState<ReadonlySet<string> | null>(null);
 	const searchInputRef = useRef<HTMLInputElement>(null);
 	const modelListRef = useRef<HTMLDivElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
@@ -158,12 +160,29 @@ export function ModelSelectorView({
 		});
 	}, [groups, searchQuery]);
 
+	const searching = normalizeSearchValue(searchQuery) !== "";
+	// 只有一个分组时没有折叠的意义；搜索时命中的分组一律展开，免得结果藏在折叠里。
+	const collapsible = !searching && groups.length > 1;
+	const expandedProviders = useMemo<ReadonlySet<string>>(
+		() => expandedOverride ?? new Set(selectedOption ? [selectedOption.provider] : []),
+		[expandedOverride, selectedOption],
+	);
+	const toggleProvider = useCallback(
+		(provider: string) => {
+			const next = new Set(expandedProviders);
+			if (!next.delete(provider)) next.add(provider);
+			setExpandedOverride(next);
+		},
+		[expandedProviders],
+	);
+
 	const handleOpenChange = useCallback(
 		(nextOpen: boolean) => {
 			setOpen(nextOpen);
 			if (!nextOpen) {
 				setReasoningOpen(false);
 				setSearchQuery("");
+				setExpandedOverride(null);
 			}
 			onOpenChange?.(nextOpen);
 		},
@@ -368,37 +387,35 @@ export function ModelSelectorView({
 											</>
 										)}
 										<DropdownMenuLabel className={COMPACT_LABEL_CLASS}>{labels.modelHeader}</DropdownMenuLabel>
-										{filteredGroups.map((group) => (
-											<div key={group.provider}>
-												<div
-													className={cn(
-														"flex items-center gap-1 px-2 pb-0.5 pt-1 text-[10px] font-medium text-muted-foreground/50",
-														classNames?.providerHeader,
-													)}
-												>
-													<ProviderIcon symbol={group.icon} className="h-2.5 w-2.5" />
-													<span className="min-w-0 truncate">{group.label}</span>
-													{group.models[0]?.remote && (
-														<span className="shrink-0 rounded-full bg-primary/15 px-1 text-[9px] font-medium text-primary">
-															{labels.cloudOnly}
-														</span>
-													)}
-												</div>
-												{group.models.map((model) => (
-													<ModelRow
-														key={model.key}
-														model={model}
-														selected={model.key === selectedModel}
-														isDefault={model.key === defaultKey}
-														itemClassName={classNames?.item}
-														visionBadge={labels.visionBadge}
-														defaultBadge={labels.defaultBadge}
-														multiplierLabel={labels.multiplierLabel}
-														onSelect={handleModelSelect}
+										{filteredGroups.map((group) => {
+											const expanded = !collapsible || expandedProviders.has(group.provider);
+											return (
+												<div key={group.provider}>
+													<ProviderHeader
+														group={group}
+														cloudOnlyLabel={labels.cloudOnly}
+														className={classNames?.providerHeader}
+														collapsible={collapsible}
+														expanded={expanded}
+														onToggle={toggleProvider}
 													/>
-												))}
-											</div>
-										))}
+													{expanded &&
+														group.models.map((model) => (
+															<ModelRow
+																key={model.key}
+																model={model}
+																selected={model.key === selectedModel}
+																isDefault={model.key === defaultKey}
+																itemClassName={classNames?.item}
+																visionBadge={labels.visionBadge}
+																defaultBadge={labels.defaultBadge}
+																multiplierLabel={labels.multiplierLabel}
+																onSelect={handleModelSelect}
+															/>
+														))}
+												</div>
+											);
+										})}
 										{filteredGroups.length === 0 && (
 											<div className="flex min-h-24 flex-col items-center justify-center px-4 py-6 text-center">
 												<span aria-hidden="true" className="icon-[solar--magnifer-linear] mb-1.5 size-4 text-muted-foreground" />
@@ -414,6 +431,69 @@ export function ModelSelectorView({
 				)}
 			</AnimatePresence>
 		</DropdownMenu>
+	);
+}
+
+/**
+ * 分组头。可折叠时渲染成菜单项（保留方向键导航），选中后阻止菜单关闭，只切换展开状态。
+ */
+function ProviderHeader({
+	group,
+	cloudOnlyLabel,
+	className,
+	collapsible,
+	expanded,
+	onToggle,
+}: {
+	readonly group: ModelSelectorProviderGroup;
+	readonly cloudOnlyLabel: string;
+	readonly className?: string;
+	readonly collapsible: boolean;
+	readonly expanded: boolean;
+	readonly onToggle: (provider: string) => void;
+}): JSX.Element {
+	const content = (
+		<>
+			<ProviderIcon symbol={group.icon} className="h-2.5 w-2.5" />
+			<span className="min-w-0 truncate">{group.label}</span>
+			{group.models[0]?.remote && (
+				<span className="shrink-0 rounded-full bg-primary/15 px-1 text-[9px] font-medium text-primary">
+					{cloudOnlyLabel}
+				</span>
+			)}
+		</>
+	);
+	if (!collapsible) {
+		return (
+			<div
+				className={cn(
+					"flex items-center gap-1 px-2 pb-0.5 pt-1 text-[10px] font-medium text-muted-foreground/50",
+					className,
+				)}
+			>
+				{content}
+			</div>
+		);
+	}
+	return (
+		<DropdownMenuItem
+			aria-expanded={expanded}
+			className={cn("gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-muted-foreground", className)}
+			onSelect={(event) => {
+				event.preventDefault();
+				onToggle(group.provider);
+			}}
+		>
+			{content}
+			<span className="ml-auto shrink-0 tabular-nums">{group.models.length}</span>
+			<span
+				aria-hidden="true"
+				className={cn(
+					"size-3 shrink-0",
+					expanded ? "icon-[solar--alt-arrow-down-linear]" : "icon-[solar--alt-arrow-right-linear]",
+				)}
+			/>
+		</DropdownMenuItem>
 	);
 }
 
