@@ -88,9 +88,11 @@ export function PresetProviderRowView({
 	const tryAdopt = (): void => {
 		if (draftKey.trim() && !saving) onAdopt();
 	};
+	// 内置服务（Magpie）只开放端口：主机与路径固定，草稿里只放端口号。
+	const portValid = urlDraft !== null && /^\d{1,5}$/.test(urlDraft) && Number(urlDraft) >= 1 && Number(urlDraft) <= 65535;
 	const submitUrl = async (): Promise<void> => {
-		if (urlDraft === null || !urlDraft.trim() || saving) return;
-		if (await onChangeBaseUrl(urlDraft)) setUrlDraft(null);
+		if (urlDraft === null || !portValid || saving || !row.baseUrl) return;
+		if (await onChangeBaseUrl(withPort(row.baseUrl, urlDraft))) setUrlDraft(null);
 	};
 
 	return (
@@ -160,7 +162,7 @@ export function PresetProviderRowView({
 						<Button
 							variant="ghost"
 							size="icon-sm"
-							onClick={() => setUrlDraft(row.baseUrl ?? "")}
+							onClick={() => setUrlDraft(portOf(row.baseUrl))}
 							title={labels.editBaseUrl}
 							aria-label={labels.editBaseUrl}
 							className="text-muted-foreground hover:text-foreground"
@@ -255,26 +257,29 @@ export function PresetProviderRowView({
 						<DialogTitle className="text-[15px]">{row.displayName}</DialogTitle>
 						<DialogDescription className="text-[12px]">{labels.editBaseUrl}</DialogDescription>
 					</DialogHeader>
-					<InputField
-						value={urlDraft ?? ""}
-						onChange={setUrlDraft}
-						placeholder={labels.baseUrlPlaceholder}
-						disabled={saving}
-						autoFocus
-						aria-label={labels.editBaseUrl}
-						className="h-9 rounded-md px-2.5 text-[13px]"
+					<div className="flex items-center gap-2">
+						<span className="shrink-0 text-[13px] text-muted-foreground">{hostPrefix(row.baseUrl)}</span>
+						<InputField
+							value={urlDraft ?? ""}
+							onChange={(value) => setUrlDraft(value.replace(/\D/g, "").slice(0, 5))}
+							placeholder={labels.baseUrlPlaceholder}
+							disabled={saving}
+							autoFocus
+							aria-label={labels.editBaseUrl}
+							className="h-9 w-24 rounded-md px-2.5 text-[13px]"
 						onKeyDown={(event) => {
 							if (event.key === "Enter") {
 								event.preventDefault();
 								void submitUrl();
 							}
 						}}
-					/>
+						/>
+					</div>
 					<DialogFooter>
 						<Button variant="ghost" size="sm" onClick={() => setUrlDraft(null)} disabled={saving}>
 							{labels.cancel}
 						</Button>
-						<Button variant="primary" size="sm" onClick={() => void submitUrl()} disabled={!urlDraft?.trim() || saving}>
+						<Button variant="primary" size="sm" onClick={() => void submitUrl()} disabled={!portValid || saving}>
 							{labels.save}
 						</Button>
 					</DialogFooter>
@@ -282,4 +287,27 @@ export function PresetProviderRowView({
 			</Dialog>
 		</div>
 	);
+}
+
+function portOf(baseUrl: string | undefined): string {
+	try {
+		return baseUrl ? new URL(baseUrl).port : "";
+	} catch {
+		return "";
+	}
+}
+
+/** 端口输入框左侧的固定前缀，如 `http://127.0.0.1:`。 */
+function hostPrefix(baseUrl: string | undefined): string {
+	try {
+		return baseUrl ? `${new URL(baseUrl).protocol}//${new URL(baseUrl).hostname}:` : "";
+	} catch {
+		return "";
+	}
+}
+
+function withPort(baseUrl: string, port: string): string {
+	const url = new URL(baseUrl);
+	url.port = port;
+	return url.toString().replace(/\/$/, "");
 }
