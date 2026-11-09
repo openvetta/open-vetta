@@ -952,6 +952,18 @@ const ModelRow = memo(function ModelRow({
 			onSelect={(event) => onSelect(model, event)}
 		>
 			<span className="min-w-0 flex-1 truncate">{model.displayName}</span>
+			{info && (
+				<ModelInfoButton
+					model={model}
+					info={info}
+					levelLabel={levelLabel}
+					providerLabel={providerLabel}
+					cloudOnlyLabel={cloudOnlyLabel}
+					defaultBadge={isDefault ? defaultBadge : undefined}
+					multiplier={multiplierLabel?.(model)}
+					hasReasoning={hasReasoning}
+				/>
+			)}
 			{isFavorite !== undefined && favoriteLabels && onToggleFavorite && (
 				<button
 					type="button"
@@ -978,18 +990,7 @@ const ModelRow = memo(function ModelRow({
 					/>
 				</button>
 			)}
-			{info ? (
-				<ModelInfoButton
-					model={model}
-					info={info}
-					levelLabel={levelLabel}
-					providerLabel={providerLabel}
-					cloudOnlyLabel={cloudOnlyLabel}
-					defaultBadge={isDefault ? defaultBadge : undefined}
-					multiplier={multiplierLabel?.(model)}
-					hasReasoning={hasReasoning}
-				/>
-			) : (
+			{!info && (
 				<>
 					<ModelMultiplier label={multiplierLabel?.(model)} />
 					{model.supportsImage && <ModelVisionIcon label={visionBadge} />}

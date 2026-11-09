@@ -252,6 +252,22 @@ describe("ModelSelectorView 模型详情", () => {
 		expect(infoButton.className).toContain("data-[state=open]:inline-flex");
 	});
 
+	it("行内顺序：名称、详情图标、星标、选中对勾", async () => {
+		const user = userEvent.setup();
+		renderDetailed({
+			favorites: { keys: new Set([detailed.key]), onToggle: vi.fn(), labels: favoriteLabels },
+		});
+		await user.click(screen.getByRole("button", { name: /Vision Pro/ }));
+
+		const row = screen.getByRole("menuitem", { name: /Vision Pro/ });
+		const order = Array.from(row.children).map(
+			(node) => node.getAttribute("aria-label") ?? node.className.match(/icon-\[[^\]]+\]/)?.[0] ?? node.tagName,
+		);
+		expect(order.indexOf("Model details")).toBeGreaterThan(-1);
+		expect(order.indexOf("Model details")).toBeLessThan(order.indexOf("Remove from favorites"));
+		expect(order.indexOf("Remove from favorites")).toBeLessThan(order.findIndex((entry) => entry.includes("check-circle")));
+	});
+
 	it("点详情图标弹出浮层：名称、来源、ID、上下文、输入模式、思考档位、倍率；不选中模型也不关菜单", async () => {
 		const user = userEvent.setup();
 		const onModelSelect = vi.fn();
