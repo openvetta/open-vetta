@@ -230,6 +230,8 @@ export function useModelSelectorModel({
 			cloudOnly: t("modelSelect.cloudOnly"),
 			defaultBadge: t("modelSelect.defaultBadge"),
 			levelLabel,
+			moreProviders: (count) => t("modelSelect.moreProviders", { count }),
+			fewerProviders: t("modelSelect.fewerProviders"),
 			modelHeader: t("modelSelect.modelHeader"),
 			noResults: t("modelSelect.noResults"),
 			noResultsHint: t("modelSelect.noResultsHint"),

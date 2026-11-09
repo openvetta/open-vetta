@@ -954,6 +954,8 @@
 		}
 	},
 	"modelSelect": {
+		"moreProviders": "更多服务商（{{count}}）",
+		"fewerProviders": "收起服务商",
 		"favorites": {
 			"tab": "收藏的模型",
 			"empty": "还没有收藏的模型，在模型右侧点星标即可收藏",

@@ -954,6 +954,8 @@
 		}
 	},
 	"modelSelect": {
+		"moreProviders": "{{count}} more providers",
+		"fewerProviders": "Show fewer providers",
 		"favorites": {
 			"tab": "Favorite models",
 			"empty": "No favorites yet. Click the star next to a model to add it.",

@@ -189,6 +189,62 @@ describe("ModelSelectorView 大列表", () => {
 	});
 });
 
+describe("ModelSelectorView 服务商过多时折叠第一栏", () => {
+	beforeAll(() => {
+		Element.prototype.scrollIntoView = vi.fn();
+	});
+
+	const manyProviders = Array.from({ length: 14 }, (_, index) => makeGroup(`p${index}`, `Prov${index}`, 2));
+	const foldLabels = {
+		...labels,
+		moreProviders: (count: number) => `${count} more`,
+		fewerProviders: "Fewer",
+	};
+
+	function renderMany(selectedIndex: number) {
+		const selected = manyProviders[selectedIndex]?.models[0] ?? null;
+		return renderView({
+			groups: manyProviders,
+			labels: foldLabels,
+			selectedModel: selected?.key,
+			selectedOption: selected,
+		});
+	}
+
+	it("只露前 8 个服务商，其余收进「更多」，点开后全部列出并可再收起", async () => {
+		const user = userEvent.setup();
+		renderMany(0);
+		await user.click(screen.getByRole("button", { name: /Prov0 Model 0/ }));
+
+		expect(screen.getByRole("menuitem", { name: "Prov7" })).toBeTruthy();
+		expect(screen.queryByRole("menuitem", { name: "Prov8" })).toBeNull();
+
+		await user.click(screen.getByRole("menuitem", { name: "6 more" }));
+		expect(screen.getByRole("menuitem", { name: "Prov13" })).toBeTruthy();
+
+		await user.click(screen.getByRole("menuitem", { name: "Fewer" }));
+		expect(screen.queryByRole("menuitem", { name: "Prov13" })).toBeNull();
+	});
+
+	it("所选模型的服务商排在折叠区里也始终露出", async () => {
+		const user = userEvent.setup();
+		renderMany(12);
+		await user.click(screen.getByRole("button", { name: /Prov12 Model 0/ }));
+
+		expect(screen.getByRole("menuitem", { name: "Prov12" })).toBeTruthy();
+		expect(screen.queryByRole("menuitem", { name: "Prov11" })).toBeNull();
+		expect(screen.getByRole("menuitem", { name: "5 more" })).toBeTruthy();
+	});
+
+	it("宿主没提供折叠文案时第一栏全部列出", async () => {
+		const user = userEvent.setup();
+		renderView({ groups: manyProviders, selectedModel: "p0/m0", selectedOption: manyProviders[0]?.models[0] ?? null });
+		await user.click(screen.getByRole("button", { name: /Prov0 Model 0/ }));
+
+		expect(screen.getByRole("menuitem", { name: "Prov13" })).toBeTruthy();
+	});
+});
+
 describe("ModelSelectorView 收藏", () => {
 	beforeAll(() => {
 		Element.prototype.scrollIntoView = vi.fn();

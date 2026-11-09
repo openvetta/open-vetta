@@ -50,6 +50,12 @@ export interface ModelSelectorLabels {
 	defaultBadge: string;
 	levelLabel: (value: string) => string;
 	/**
+	 * 第一栏服务商过多时，折叠按钮的名称（带被折叠的数量）与收起按钮的名称。
+	 * 两个都提供才会折叠；不提供则第一栏始终全部列出。
+	 */
+	moreProviders?: (hiddenCount: number) => string;
+	fewerProviders?: string;
+	/**
 	 * 计费倍率标（如「2×」「免费」）。返回空/undefined 则不渲染——倍率含义与文案属于
 	 * 宿主的计费口径，视图不猜。
 	 */
@@ -123,6 +129,8 @@ const HEADER_HEIGHT = 24;
 /** 条目数超过它才虚拟化；少量条目直接渲染更简单，也保留菜单自带的字符跳转。 */
 const VIRTUALIZE_THRESHOLD = 40;
 const VIRTUAL_OVERSCAN = 8;
+/** 第一栏折叠时保留显示的服务商个数（当前栏目始终可见，不计入）。 */
+const RAIL_COLLAPSED_COUNT = 8;
 /** 虚拟列表首帧还量不到滚动容器时，按这个高度估一屏，避免先闪一帧空白。 */
 const LIST_FALLBACK_HEIGHT = 300;
 /** 第一栏里「收藏」入口的标识；供应商 id 不会含 NUL。 */
@@ -172,6 +180,7 @@ export function ModelSelectorView({
 	const [searchQuery, setSearchQuery] = useState("");
 	// 用户在第一栏手动点选的栏目；null 表示没点过，跟随当前所选模型的供应商。关菜单即重置。
 	const [tabOverride, setTabOverride] = useState<string | null>(null);
+	const [railExpanded, setRailExpanded] = useState(false);
 	const searchInputRef = useRef<HTMLInputElement>(null);
 	const modelListRef = useRef<HTMLDivElement | null>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
@@ -226,6 +235,17 @@ export function ModelSelectorView({
 				: defaultTab;
 	const activeGroup = groups.find((group) => group.provider === activeTab);
 
+	// 服务商很多时第一栏只露前几个（当前栏目始终露出），其余收进一个"更多"按钮。
+	const canFoldRail =
+		labels.moreProviders !== undefined &&
+		labels.fewerProviders !== undefined &&
+		groups.length > RAIL_COLLAPSED_COUNT + 1;
+	const railFolded = canFoldRail && !railExpanded;
+	const railGroups = railFolded
+		? groups.filter((group, index) => index < RAIL_COLLAPSED_COUNT || group.provider === activeTab)
+		: groups;
+	const railHiddenCount = groups.length - railGroups.length;
+
 	// 搜索跨所有供应商；没有第一栏时就是全部；否则只看当前栏目。
 	let visibleGroups: readonly ModelSelectorProviderGroup[];
 	let showProviderHeaders = true;
@@ -264,6 +284,7 @@ export function ModelSelectorView({
 			if (!nextOpen) {
 				setSearchQuery("");
 				setTabOverride(null);
+				setRailExpanded(false);
 			}
 			onOpenChange?.(nextOpen);
 		},
@@ -399,7 +420,7 @@ export function ModelSelectorView({
 										<span aria-hidden="true" className="icon-[solar--star-bold] size-4" />
 									</RailItem>
 								)}
-								{groups.map((group) => (
+								{railGroups.map((group) => (
 									<RailItem
 										key={group.provider}
 										label={group.label}
@@ -415,6 +436,21 @@ export function ModelSelectorView({
 										)}
 									</RailItem>
 								))}
+								{canFoldRail && labels.moreProviders && labels.fewerProviders && (
+									<RailItem
+										label={railFolded ? labels.moreProviders(railHiddenCount) : labels.fewerProviders}
+										active={false}
+										onSelect={() => setRailExpanded(railFolded)}
+									>
+										{railFolded ? (
+											<span aria-hidden="true" className="text-[10px] font-medium tabular-nums">
+												+{railHiddenCount}
+											</span>
+										) : (
+											<span aria-hidden="true" className="icon-[solar--alt-arrow-up-linear] size-4" />
+										)}
+									</RailItem>
+								)}
 							</div>
 						)}
 						<div className="flex w-64 min-w-0 shrink flex-col p-1">
