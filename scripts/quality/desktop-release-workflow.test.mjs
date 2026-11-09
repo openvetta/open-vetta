@@ -37,10 +37,16 @@ describe("Desktop release workflow contracts", () => {
 
 	it("publishes each platform's installers as soon as it is built", () => {
 		expect(jobs.build.strategy["fail-fast"]).toBe(false);
-		expect(Object.keys(jobs)).toEqual(["prepare", "quality", "build", "android", "promote"]);
+		expect(Object.keys(jobs)).toEqual([
+			"prepare",
+			"quality",
+			"build",
+			"android",
+			"promote",
+			"publish-github-metadata",
+		]);
 		expect(workflow).not.toContain("release-build-");
 		expect(workflow).not.toContain("test:e2e:packaged");
-		expect(workflow).not.toContain("download-artifact");
 		expect(workflow).not.toContain("merge:updates:mac");
 		const buildSteps = jobs.build.steps;
 		const index = (name) => buildSteps.findIndex((step) => step.name === name);
@@ -113,6 +119,19 @@ describe("Desktop release workflow contracts", () => {
 		expect(jobs.promote.secrets).toBe("inherit");
 		expect(jobs.promote.permissions).toEqual({ contents: "write" });
 		expect(parse(workflow).on.workflow_dispatch.inputs.auto_promote.default).toBe(true);
+	});
+
+	it("uploads GitHub update metadata only after every platform build succeeds", () => {
+		const job = jobs["publish-github-metadata"];
+		expect(job.needs).toEqual(["prepare", "build"]);
+		expect(job.if).toContain("needs.prepare.outputs.should-publish == 'true'");
+		expect(job.if).toContain("needs.prepare.outputs.release_target == 'github'");
+		expect(job.if).not.toContain("always()");
+		expect(job.if).not.toContain("failure()");
+		expect(job.permissions).toEqual({ contents: "write" });
+		const upload = job.steps.find((step) => step.name === "Merge macOS metadata and upload to GitHub Release");
+		expect(upload.run).toContain("merge-mac-update-metadata.mjs");
+		expect(upload.run).toContain("latest*.yml");
 	});
 
 	it("runs quality and packaging tests before the platform matrix", () => {

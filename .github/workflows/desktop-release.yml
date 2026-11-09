@@ -564,3 +564,45 @@ jobs:
       version: ${{ needs.prepare.outputs.release-version }}
       channel: ${{ needs.prepare.outputs.channel }}
     secrets: inherit
+
+  # GitHub 目标没有 R2 暂存目录：electron-updater 直接读 Release 里的 latest*.yml，
+  # 所以清单只在全部平台构建成功后才上传，之前 Release 里只有安装包，客户端读不到半成品。
+  # 任一平台失败时跳过，修好后重跑失败的平台会一并重跑本任务。
+  publish-github-metadata:
+    name: publish update metadata to GitHub Release
+    needs: [prepare, build]
+    if: needs.prepare.outputs.should-publish == 'true' && needs.prepare.outputs.release_target == 'github' && needs.prepare.outputs.channel != 'test'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: desktop-production
+    permissions:
+      contents: write
+    concurrency:
+      group: desktop-publish-github-metadata
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        uses: ./.github/actions/install-bun-dependencies
+
+      - name: Download update metadata
+        uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: ${{ runner.temp }}/metadata
+          merge-multiple: true
+
+      - name: Merge macOS metadata and upload to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.release-version }}
+        shell: bash
+        run: |
+          node apps/desktop/scripts/merge-mac-update-metadata.mjs "${RUNNER_TEMP}/metadata"
+          gh release upload "v${RELEASE_VERSION#v}" "${RUNNER_TEMP}"/metadata/latest*.yml --clobber

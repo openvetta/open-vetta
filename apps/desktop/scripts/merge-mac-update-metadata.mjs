@@ -74,8 +74,8 @@ export async function mergeMacUpdateMetadata({ releaseDir = defaultReleaseDir } 
 	return merged;
 }
 
-export async function main() {
-	const merged = await mergeMacUpdateMetadata();
+export async function main(releaseDir = process.argv[2]) {
+	const merged = await mergeMacUpdateMetadata(releaseDir ? { releaseDir: resolve(releaseDir) } : undefined);
 	if (!merged) console.info("[merge-mac-update] no per-architecture Mac metadata found; nothing to merge");
 }
 

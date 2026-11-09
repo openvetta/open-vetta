@@ -21,7 +21,15 @@ R2 目标在**全部平台构建成功后**由 `promote` 任务自动调用 desk
 - 任一平台失败时 `promote` 跳过，线上清单保持旧版本；修好后在原运行里 **Re-run failed jobs**，
   失败的平台和 `promote` 会一起重跑。也可以先手动运行 desktop-promote，只上线已经成功的平台。
 - 手动发版（`workflow_dispatch`）可取消勾选 `auto_promote`，构建完只暂存清单，之后再手动上线。
-- 以 GitHub Release 为更新源的构建（开源版）没有 R2 暂存目录，不会自动上线，需要按下文手动处理。
+- 发布目标为 `github` 时没有 R2 暂存目录，也不经过 `promote`：全部平台成功后由 `publish-github-metadata` 合并 macOS 清单，
+  并把 `latest*.yml` 上传到 `v<版本>` 的 Release。清单在安装包之后上传，之前 Release 里没有清单，客户端读不到半成品。
+
+### 从商业版（R2）迁移到开源版（GitHub）
+
+构建内置的更新源由 `cloud_enabled` 决定（商业版读 R2，开源版读 GitHub Release），与发布目标无关。
+已安装的商业版只会读 R2，所以迁移要发一个过渡版本：`cloud_enabled=false`、`release_target=r2`，
+构建内置 GitHub 更新源，清单仍走 R2 的 pending → promote，让老用户收到；用户装上它之后更新就走 GitHub。
+之后把 `VETTA_RELEASE_TARGET` 改为 `github`。仍在 R2 旧版本的用户升级前，不要下线 R2 的 `latest*.yml`。
 
 ### 上线更新清单：desktop-promote
 
@@ -46,8 +54,7 @@ R2 目标在**全部平台构建成功后**由 `promote` 任务自动调用 desk
 `VETTA_R2_SECRET_ACCESS_KEY`、`VETTA_R2_BUCKET`、`VETTA_R2_PREFIX`、`VETTA_UPDATE_URL`，再运行
 `bun run --cwd apps/desktop promote:updates:r2 -- --version <版本> [--platforms mac] [--dry-run]`。
 
-以 GitHub Release 为更新源的构建（开源版）没有 R2 暂存目录，需从 Actions 制品取回清单、
-用 `merge:updates:mac` 合并后手动上传到 Release。
+发布目标为 `github` 的构建，清单由 `publish-github-metadata` 上传；它失败时在原运行里重跑失败的任务即可。
 
 ## 同期 Android APK
 
