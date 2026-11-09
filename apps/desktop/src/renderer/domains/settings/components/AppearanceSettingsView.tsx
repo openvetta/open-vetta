@@ -49,6 +49,7 @@ function UiZoomControl({ model }: { model: AppearanceSettingsModel }): JSX.Eleme
 			labels={steps.map(percent)}
 			index={shownIndex}
 			showTicks
+			fullWidth
 			aria-label={model.labels.uiZoomSliderLabel}
 			aria-valuetext={percent(steps[shownIndex] ?? factor)}
 			onIndexChange={setDraftIndex}

@@ -32,12 +32,22 @@ describe("StepSlider", () => {
     expect(onIndexCommit).toHaveBeenCalledWith(2);
   });
 
-  test("draws one tick per step only when asked", async () => {
+  test("draws ticks only on interior steps that are not under the thumb, and only when asked", async () => {
     const plain = await mount();
     expect(plain.host.querySelectorAll("[aria-hidden] > span")).toHaveLength(0);
 
     document.body.replaceChildren();
-    const ticked = await mount({ showTicks: true });
-    expect(ticked.host.querySelectorAll("[aria-hidden] > span")).toHaveLength(3);
+    const ticked = await mount({ showTicks: true, labels: ["a", "b", "c", "d", "e"], index: 2 });
+    expect(ticked.host.querySelectorAll("[aria-hidden] > span")).toHaveLength(2);
+  });
+
+  test("fullWidth pins the first label to the left edge and the last to the right edge", async () => {
+    const { host } = await mount({ fullWidth: true });
+    const [first, middle, last] = Array.from(host.querySelectorAll("button"));
+
+    expect(first?.style.left).toBe("0%");
+    expect(middle?.style.left).toBe("50%");
+    expect(last?.style.left).toBe("100%");
+    expect(last?.style.transform).toBe("translateX(-100%)");
   });
 });
