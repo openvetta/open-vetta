@@ -1,6 +1,6 @@
 import { useRef, type JSX, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Button, cn } from "@vetta-org/ui";
+import { Button, Switch, cn } from "@vetta-org/ui";
 import { InputField } from "./SettingsFormFields";
 import { shouldCloseEmptyApiKeyEditor } from "./shouldCloseEmptyApiKeyEditor";
 
@@ -18,6 +18,8 @@ export interface PresetProviderRowModelView {
 	readonly isExpanded: boolean;
 	readonly isOpen: boolean;
 	readonly adopted: boolean;
+	readonly enabled: boolean;
+	readonly autoKey: boolean;
 	readonly offline: boolean;
 	readonly models: readonly unknown[];
 	readonly refreshing: boolean;
@@ -43,6 +45,7 @@ export interface PresetProviderRowViewLabels {
 	readonly refreshModels: string;
 	readonly refreshingModels: string;
 	readonly copyApiKey: string;
+	readonly toggleProvider: (name: string) => string;
 }
 
 export interface PresetProviderRowViewProps {
@@ -54,6 +57,7 @@ export interface PresetProviderRowViewProps {
 	readonly onToggleEditor: () => void;
 	readonly onDraftKeyChange: (key: string) => void;
 	readonly onAdopt: () => void;
+	readonly onToggleEnabled: (next: boolean) => void;
 	readonly onRemove: () => void;
 	readonly onRefreshModels: () => void;
 	readonly onCopyApiKey: () => void;
@@ -70,6 +74,7 @@ export function PresetProviderRowView({
 	onToggleEditor,
 	onDraftKeyChange,
 	onAdopt,
+	onToggleEnabled,
 	onRemove,
 	onRefreshModels,
 	onCopyApiKey,
@@ -77,7 +82,7 @@ export function PresetProviderRowView({
 	modelsList,
 }: PresetProviderRowViewProps): JSX.Element {
 	// 已下线的旧条目不在内置目录里,给不了 key 也拉不到模型。
-	const canEditKey = !row.offline;
+	const canEditKey = !row.offline && !row.autoKey;
 	const editing = canEditKey && row.isOpen;
 	const editorRef = useRef<HTMLDivElement>(null);
 	// blur 后 microtask 再读,避免闭包拿到过期 draft/saving。
@@ -131,7 +136,7 @@ export function PresetProviderRowView({
 					<div className="min-w-0 flex-1">
 						<div className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-foreground">
 							<span className="truncate">{row.displayName}</span>
-							{row.adopted && (
+							{row.enabled && (
 								<span className="shrink-0 whitespace-nowrap rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
 									{labels.enabled}
 								</span>
@@ -270,7 +275,7 @@ export function PresetProviderRowView({
 										/>
 									</Button>
 								)}
-								{row.adopted && (
+								{row.adopted && !row.autoKey && (
 									<Button
 										variant="ghost"
 										size="icon-sm"
@@ -281,6 +286,15 @@ export function PresetProviderRowView({
 									>
 										<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
 									</Button>
+								)}
+								{!row.offline && (
+									<Switch
+										size="sm"
+										checked={row.enabled}
+										disabled={saving}
+										onCheckedChange={onToggleEnabled}
+										aria-label={labels.toggleProvider(row.displayName)}
+									/>
 								)}
 								{row.offline && !row.adopted && (
 									<span className="text-[11px] text-muted-foreground">{labels.deprecated}</span>

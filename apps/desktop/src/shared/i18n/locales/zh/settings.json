@@ -1448,6 +1448,7 @@
   "collapse": "收起",
   "changeKey": "替换 API Key",
   "copyApiKey": "复制 API Key",
+  "toggleProvider": "启用或停用 {{provider}}",
   "apiKeyCopied": "API Key 已复制，剪贴板将在 30 秒后自动清除",
   "apiKeyCopyFailed": "没有可复制的 API Key",
   "replaceApiKeyPlaceholder": "••••••••（已加密保存）",

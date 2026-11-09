@@ -24,6 +24,7 @@ export function PresetProvidersSectionView({ model }: { model: PresetProvidersSe
 					onToggleEditor={model.onToggleEditor}
 					onDraftKeyChange={model.onDraftKeyChange}
 					onAdopt={model.onAdopt}
+					onToggleEnabled={model.onToggleEnabled}
 					onRemove={model.onRemove}
 					onRefreshModels={model.onRefreshModels}
 					onCopyApiKey={model.onCopyApiKey}

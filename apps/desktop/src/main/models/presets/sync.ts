@@ -212,6 +212,7 @@ function adoptedPresetIds(config: ModelsConfig): string[] {
 	return Object.entries(config.providers)
 		.filter(([id, provider]) => {
 			if (provider.source !== "template") return false;
+			if (provider.disabled) return false;
 			if (!provider.apiKey?.trim()) return false;
 			return Boolean(getPresetProvider(provider.templateId ?? id));
 		})

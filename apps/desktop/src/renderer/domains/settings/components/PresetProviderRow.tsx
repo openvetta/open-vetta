@@ -15,6 +15,7 @@ export function PresetProviderRow({
 	onToggleEditor,
 	onDraftKeyChange,
 	onAdopt,
+	onToggleEnabled,
 	onRemove,
 	onRefreshModels,
 	onCopyApiKey,
@@ -27,6 +28,7 @@ export function PresetProviderRow({
 	onToggleEditor: (row: PresetProviderRowModel) => void;
 	onDraftKeyChange: (rowId: string, key: string) => void;
 	onAdopt: (row: PresetProviderRowModel) => Promise<void>;
+	onToggleEnabled: (row: PresetProviderRowModel, next: boolean) => Promise<void>;
 	onRemove: (row: PresetProviderRowModel) => Promise<void>;
 	onRefreshModels: (row: PresetProviderRowModel) => Promise<void>;
 	onCopyApiKey: (row: PresetProviderRowModel) => Promise<void>;
@@ -41,6 +43,7 @@ export function PresetProviderRow({
 			onToggleEditor={() => onToggleEditor(row)}
 			onDraftKeyChange={(key) => onDraftKeyChange(row.id, key)}
 			onAdopt={() => void onAdopt(row)}
+			onToggleEnabled={(next) => void onToggleEnabled(row, next)}
 			onRemove={() => void onRemove(row)}
 			onRefreshModels={() => void onRefreshModels(row)}
 			onCopyApiKey={() => void onCopyApiKey(row)}

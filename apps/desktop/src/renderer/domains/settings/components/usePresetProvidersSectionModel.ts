@@ -30,6 +30,10 @@ export interface PresetProviderRow {
 	modelRows: PresetProviderModelRow[];
 	offline: boolean;
 	adopted: boolean;
+	/** 已采纳且未被用户手动停用:开关的状态。 */
+	enabled: boolean;
+	/** 内置固定密钥(本机代理类):只给开关,不让用户填 key。 */
+	autoKey: boolean;
 	isOpen: boolean;
 	isExpanded: boolean;
 	refreshing: boolean;
@@ -67,6 +71,7 @@ export interface PresetProvidersSectionLabels {
 	refreshingModels: string;
 	refreshCatalog: string;
 	copyApiKey: string;
+	toggleProvider: (provider: string) => string;
 }
 
 export interface PresetProvidersSectionModel {
@@ -81,6 +86,7 @@ export interface PresetProvidersSectionModel {
 	onToggleEditor: (row: PresetProviderRow) => void;
 	onDraftKeyChange: (rowId: string, key: string) => void;
 	onAdopt: (row: PresetProviderRow) => Promise<void>;
+	onToggleEnabled: (row: PresetProviderRow, next: boolean) => Promise<void>;
 	onRemove: (row: PresetProviderRow) => Promise<void>;
 	onRefreshModels: (row: PresetProviderRow) => Promise<void>;
 	onCopyApiKey: (row: PresetProviderRow) => Promise<void>;
@@ -171,6 +177,8 @@ export function usePresetProvidersSectionModel({
 				...row,
 				modelRows: row.models.map((model) => toModelRow(model, t)),
 				adopted,
+				enabled: adopted && !config.providers[row.id]?.disabled,
+				autoKey: Boolean(row.defaultApiKey),
 				isOpen: openId === row.id,
 				isExpanded: expandedId === row.id,
 				refreshing: refreshingId === row.id,
@@ -261,6 +269,28 @@ export function usePresetProvidersSectionModel({
 			}
 		},
 		[config, draftKeys, saveConfig, t],
+	);
+
+	/**
+	 * 开关:已采纳的只翻转 disabled,保留密钥与模型;未采纳的——内置密钥直接走启用校验,
+	 * 需要用户自己填 key 的则展开输入框。
+	 */
+	const toggleEnabled = useCallback(
+		async (row: PresetProviderRow, next: boolean): Promise<void> => {
+			const provider = config.providers[row.id];
+			if (provider && row.adopted) {
+				const { disabled: _disabled, ...rest } = provider;
+				await saveConfig({
+					...config,
+					providers: { ...config.providers, [row.id]: next ? rest : { ...rest, disabled: true } },
+				});
+				return;
+			}
+			if (!next) return;
+			if (row.autoKey) await adopt(row);
+			else handleToggleEditor(row);
+		},
+		[adopt, config, handleToggleEditor, saveConfig],
 	);
 
 	const refresh = useCallback(
@@ -378,11 +408,13 @@ export function usePresetProvidersSectionModel({
 			refreshingModels: t("refreshingModels"),
 			refreshCatalog: t("refreshCatalog"),
 			copyApiKey: t("copyApiKey"),
+			toggleProvider: (provider: string) => t("toggleProvider", { provider }),
 		},
 		onToggleExpanded: handleToggleExpanded,
 		onToggleEditor: handleToggleEditor,
 		onDraftKeyChange: handleDraftKeyChange,
 		onAdopt: adopt,
+		onToggleEnabled: toggleEnabled,
 		onRemove: remove,
 		onRefreshModels: refresh,
 		onCopyApiKey: copyApiKey,

@@ -77,6 +77,7 @@ export const ProviderModelConfigSchema = Type.Object({
 	templateId: Type.Optional(Type.String()),
 	icon: Type.Optional(Type.String()),
 	displayName: Type.Optional(Type.String()),
+	disabled: Type.Optional(Type.Boolean()),
 	models: Type.Optional(Type.Array(ModelDefinitionSchema)),
 	modelOverrides: Type.Optional(Type.Record(Type.String(), ModelOverrideSchema)),
 });
