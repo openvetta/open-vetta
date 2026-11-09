@@ -5,6 +5,8 @@ vi.mock("electron", () => ({
 	app: { isPackaged: true },
 }));
 
+vi.mock("./ui-zoom/ui-zoom-service.js", () => ({ resetUiZoom: vi.fn(), stepUiZoom: vi.fn() }));
+
 import type { MenuItemConstructorOptions } from "electron";
 import { buildApplicationMenuTemplate } from "./app-menu";
 
@@ -50,5 +52,31 @@ describe("application menu template", () => {
 		const roles = collectRoles(buildApplicationMenuTemplate({ isMac: false, allowDevTools: true }));
 
 		expect(roles).toEqual(["reload", "forceReload", "toggleDevTools"]);
+	});
+
+	// role 版缩放直接改 Chromium，不经持久化比例，会和外观页滑块各改各的。
+	it("缩放快捷键走自定义项而不是 zoom role，且同时支持 Cmd+= 与 Cmd+Plus", () => {
+		const template = buildApplicationMenuTemplate({ isMac: true, allowDevTools: false }) ?? [];
+		const roles = collectRoles(template);
+		expect(roles).not.toContain("zoomIn");
+		expect(roles).not.toContain("zoomOut");
+		expect(roles).not.toContain("resetZoom");
+
+		const accelerators: string[] = [];
+		const walk = (items: MenuItemConstructorOptions[]) => {
+			for (const item of items) {
+				if (Array.isArray(item.submenu)) walk(item.submenu);
+				else if (typeof item.accelerator === "string") accelerators.push(item.accelerator);
+			}
+		};
+		walk(template);
+		expect(accelerators).toEqual(
+			expect.arrayContaining([
+				"CommandOrControl+0",
+				"CommandOrControl+Plus",
+				"CommandOrControl+=",
+				"CommandOrControl+-",
+			]),
+		);
 	});
 });

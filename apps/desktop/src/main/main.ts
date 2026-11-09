@@ -50,6 +50,7 @@ import {
 } from "./ipc/index.js";
 import { syncQuickPanelTrigger } from "./ipc/quickpanel.js";
 import { disposeAllTerminals } from "./ipc/terminal.js";
+import { registerUiZoomIpc } from "./ipc/ui-zoom.js";
 import { registerKnowledgeIpc } from "./knowledge/ipc.js";
 import { reloadKnowledgePoller, shutdownKnowledgePoller } from "./knowledge/poller.js";
 import { getLocalRpcServerEndpointFilePath } from "./local-rpc/endpoint-file.js";
@@ -432,6 +433,7 @@ if (!gotSingleLock) {
 		// 若晚于 createWindow 注册会与异步 page-load 抢跑、读到 undefined 回落错语言（首帧闪）。
 		// i18n IPC 与具体窗口无关（广播给全部窗口），故脱离 registerAllIpc 独立早注册、app 级常驻。
 		registerI18nIpc();
+		registerUiZoomIpc();
 		const appLifecycle = registerAppLifecycleIpc();
 
 		// 必须放在 whenReady 之后：早于 ready 调用时主进程 bundle identity

@@ -1,3 +1,5 @@
+import { Button } from "@shared/components/ui/button";
+import { Slider } from "@shared/components/ui/slider";
 import { PixelMarioBlocks } from "@shared/components/mario/PixelMarioBlocks";
 import { cn } from "@shared/lib/utils";
 import type { CursorStyle } from "@shared/theme/cursor";
@@ -584,6 +586,34 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 							<TextureCard key={option.id} {...option} onSelect={model.actions.setTexture} />
 						))}
 					</div>
+				</div>
+			</div>
+
+			<div className="mb-6">
+				<SettingHeading title={model.labels.sections.uiZoom} section={SETTINGS_SECTION["appearance-ui-zoom"]} className="mb-1" />
+				<p className="mb-3 text-[12px] text-muted-foreground">{model.labels.uiZoomHint}</p>
+				<div className="flex items-center gap-4">
+					<Slider
+						className="max-w-sm flex-1"
+						aria-label={model.labels.uiZoomSliderLabel}
+						aria-valuetext={`${Math.round(model.uiZoom.factor * 100)}%`}
+						min={model.uiZoom.min}
+						max={model.uiZoom.max}
+						step={model.uiZoom.step}
+						value={[model.uiZoom.factor]}
+						onValueChange={([value]) => model.actions.setUiZoom(value)}
+					/>
+					<span className="w-12 text-right text-[13px] tabular-nums text-foreground">
+						{Math.round(model.uiZoom.factor * 100)}%
+					</span>
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={model.uiZoom.factor === model.uiZoom.default}
+						onClick={model.actions.resetUiZoom}
+					>
+						{model.labels.uiZoomReset}
+					</Button>
 				</div>
 			</div>
 

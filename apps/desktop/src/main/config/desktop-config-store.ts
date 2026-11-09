@@ -12,6 +12,7 @@ import {
 	normalizeNotificationPreferences,
 } from "../../shared/notification-preferences.js";
 import { normalizeShortcutsConfig, type ShortcutsConfig } from "../../shared/shortcuts.js";
+import { normalizeUiZoomFactor } from "../../shared/ui-zoom.js";
 import { isAgentMode } from "../agent-modes/index.js";
 import { DEFAULT_PROXY_CONFIG, type DesktopProxyConfig, normalizeProxyConfig } from "../proxy/proxy-settings.js";
 import { DESKTOP_CONFIG_SCHEMA_VERSION, migrateDesktopConfig } from "./desktop/migrate-config.js";
@@ -51,6 +52,8 @@ export interface DesktopConfig {
 	notificationsEnabled?: boolean;
 	notificationPreferences: DesktopNotificationPreferences;
 	language?: LanguagePreference;
+	/** 主窗口界面缩放比例（设置 → 外观 → 界面大小）。缺省 1。 */
+	uiZoomFactor?: number;
 	/** 新建会话的默认工作模式（合法值来自 main/agent-modes 模式注册表，ADR-0071）。会话创建时固化进会话，改这里只影响之后新建的会话。 */
 	defaultAgentMode?: string;
 	experimental?: ExperimentalConfig;
@@ -341,6 +344,7 @@ function parseDesktopConfig(parsed: Record<string, unknown>): DesktopConfig {
 		notificationsEnabled: typeof parsed.notificationsEnabled === "boolean" ? parsed.notificationsEnabled : true,
 		notificationPreferences: normalizeNotificationPreferences(parsed.notificationPreferences),
 		language: isLanguagePreference(parsed.language) ? parsed.language : undefined,
+		uiZoomFactor: typeof parsed.uiZoomFactor === "number" ? normalizeUiZoomFactor(parsed.uiZoomFactor) : undefined,
 		experimental: normalizeExperimental(parsed.experimental),
 		proxy: normalizeProxyConfig(parsed.proxy),
 		imageGeneration: normalizeImageGeneration(parsed.imageGeneration),

@@ -39,6 +39,8 @@ function model(
 				setOrnament: vi.fn(),
 				setSidebarStyle: vi.fn(),
 				setTexture: vi.fn(),
+				setUiZoom: vi.fn(),
+				resetUiZoom: vi.fn(),
 			},
 			overrides.actions,
 		),
@@ -59,9 +61,13 @@ function model(
 				texture: "纹理",
 				theme: "主题颜色",
 				uiTheme: "界面主题",
+				uiZoom: "界面大小",
 			},
 			textureHint: "textureHint",
 			title: "外观",
+			uiZoomHint: "uiZoomHint",
+			uiZoomReset: "恢复默认",
+			uiZoomSliderLabel: "界面大小滑块",
 		},
 		language: "system",
 		languages: [],
@@ -81,6 +87,7 @@ function model(
 		themeName: "default",
 		themes: [],
 		uiThemes: [],
+		uiZoom: { default: 1, factor: 1, max: 1.5, min: 0.7, step: 0.05 },
 		...overrides,
 	};
 }
@@ -131,5 +138,29 @@ describe("AppearanceSettingsView 的新会话页装饰区域", () => {
 		view.rerender(<AppearanceSettingsView model={{ ...initial, mode: "light" }} />);
 
 		expect(renderMarioPreview).toHaveBeenCalledTimes(1);
+	});
+
+	it("界面大小显示当前百分比，恢复默认在默认值时不可点", () => {
+		const view = render(<AppearanceSettingsView model={model()} />);
+
+		expect(view.getByText("100%")).toBeTruthy();
+		expect((view.getByRole("button", { name: "恢复默认" }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it("偏离默认值时可恢复默认", async () => {
+		const resetUiZoom = vi.fn();
+		const view = render(
+			<AppearanceSettingsView
+				model={model({
+					uiZoom: { default: 1, factor: 1.25, max: 1.5, min: 0.7, step: 0.05 },
+					actions: { resetUiZoom },
+				})}
+			/>,
+		);
+
+		expect(view.getByText("125%")).toBeTruthy();
+		await userEvent.click(view.getByRole("button", { name: "恢复默认" }));
+
+		expect(resetUiZoom).toHaveBeenCalledTimes(1);
 	});
 });
