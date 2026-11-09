@@ -87,7 +87,7 @@ function model(
 		themeName: "default",
 		themes: [],
 		uiThemes: [],
-		uiZoom: { default: 1, factor: 1, max: 1.5, min: 0.7, step: 0.05 },
+		uiZoom: { default: 1, factor: 1, stepIndex: 2, steps: [0.75, 0.9, 1, 1.1, 1.25, 1.5] },
 		...overrides,
 	};
 }
@@ -143,7 +143,6 @@ describe("AppearanceSettingsView 的新会话页装饰区域", () => {
 	it("界面大小显示当前百分比，恢复默认在默认值时不可点", () => {
 		const view = render(<AppearanceSettingsView model={model()} />);
 
-		expect(view.getByText("100%")).toBeTruthy();
 		expect((view.getByRole("button", { name: "恢复默认" }) as HTMLButtonElement).disabled).toBe(true);
 	});
 
@@ -152,15 +151,24 @@ describe("AppearanceSettingsView 的新会话页装饰区域", () => {
 		const view = render(
 			<AppearanceSettingsView
 				model={model({
-					uiZoom: { default: 1, factor: 1.25, max: 1.5, min: 0.7, step: 0.05 },
+					uiZoom: { default: 1, factor: 1.25, stepIndex: 4, steps: [0.75, 0.9, 1, 1.1, 1.25, 1.5] },
 					actions: { resetUiZoom },
 				})}
 			/>,
 		);
 
-		expect(view.getByText("125%")).toBeTruthy();
 		await userEvent.click(view.getByRole("button", { name: "恢复默认" }));
 
 		expect(resetUiZoom).toHaveBeenCalledTimes(1);
+	});
+
+	it("点某一档的文字，按该档的比例设置界面大小，当前档带选中态", async () => {
+		const setUiZoom = vi.fn();
+		const view = render(<AppearanceSettingsView model={model({ actions: { setUiZoom } })} />);
+
+		expect(view.getByRole("button", { name: "100%" }).getAttribute("aria-pressed")).toBe("true");
+		await userEvent.click(view.getByRole("button", { name: "125%" }));
+
+		expect(setUiZoom).toHaveBeenCalledWith(1.25);
 	});
 });

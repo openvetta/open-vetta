@@ -18,7 +18,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { isAppearanceUiThemeEnabled } from "@/shared/feature-flags";
 import type { LanguagePreference } from "@/shared/i18n/config";
-import { UI_ZOOM_DEFAULT, UI_ZOOM_MAX, UI_ZOOM_MIN, UI_ZOOM_STEP } from "@/shared/ui-zoom";
+import { UI_ZOOM_DEFAULT, UI_ZOOM_STEPS, uiZoomStepIndex } from "@/shared/ui-zoom";
 import defaultThemePreview from "../assets/default.webp";
 import xianxiaThemePreview from "../assets/xianxia.webp";
 import { SETTINGS_SECTION } from "../registry";
@@ -141,7 +141,7 @@ export interface AppearanceSettingsModel {
 	themeName: string;
 	themes: ThemeDef[];
 	uiThemes: AppearanceUiThemeOption[];
-	uiZoom: { default: number; factor: number; max: number; min: number; step: number };
+	uiZoom: { default: number; factor: number; stepIndex: number; steps: readonly number[] };
 }
 
 type AppearanceSettingsActions = AppearanceSettingsModel["actions"];
@@ -460,9 +460,8 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 		uiZoom: {
 			default: UI_ZOOM_DEFAULT,
 			factor: uiZoomFactor,
-			max: UI_ZOOM_MAX,
-			min: UI_ZOOM_MIN,
-			step: UI_ZOOM_STEP,
+			stepIndex: uiZoomStepIndex(uiZoomFactor),
+			steps: UI_ZOOM_STEPS,
 		},
 	};
 }

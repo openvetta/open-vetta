@@ -74,7 +74,7 @@ describe("ui zoom service", () => {
 	it("快捷键步进与恢复默认走同一入口", async () => {
 		const { resetUiZoom, stepUiZoom } = await load();
 
-		await expect(stepUiZoom(1)).resolves.toBe(1.05);
+		await expect(stepUiZoom(1)).resolves.toBe(1.1);
 		await expect(stepUiZoom(-1)).resolves.toBe(1);
 		await stepUiZoom(1);
 		await expect(resetUiZoom()).resolves.toBe(1);

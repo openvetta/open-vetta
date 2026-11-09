@@ -1,5 +1,5 @@
 import { Button } from "@shared/components/ui/button";
-import { Slider } from "@shared/components/ui/slider";
+import { StepSlider } from "@shared/components/ui/step-slider";
 import { PixelMarioBlocks } from "@shared/components/mario/PixelMarioBlocks";
 import { cn } from "@shared/lib/utils";
 import type { CursorStyle } from "@shared/theme/cursor";
@@ -30,6 +30,50 @@ import type {
 
 type ThemeMode = AppearanceModeOption["value"];
 type SelectionPoint = { x: number; y: number };
+
+function UiZoomControl({ model }: { model: AppearanceSettingsModel }): JSX.Element {
+	const { factor, stepIndex, steps } = model.uiZoom;
+	const percent = (value: number) => `${Math.round(value * 100)}%`;
+	const select = (index: number) => {
+		const next = steps[index];
+		if (next !== undefined) model.actions.setUiZoom(next);
+	};
+	return (
+		<div className="rounded-xl border border-border/50 bg-card/40 p-4">
+			<div className="mb-3 flex items-center justify-between">
+				<span className="text-[20px] font-semibold tabular-nums text-foreground">{percent(factor)}</span>
+				<Button
+					variant="ghost"
+					size="sm"
+					disabled={factor === model.uiZoom.default}
+					onClick={model.actions.resetUiZoom}
+				>
+					{model.labels.uiZoomReset}
+				</Button>
+			</div>
+			<div className="flex items-start gap-3">
+				{/* 两端的「A」只是大小暗示，与轨道同高对齐；轨道本身与底下的档位文字由 StepSlider 负责。 */}
+				<span aria-hidden className="flex h-5 w-4 shrink-0 items-center justify-center text-[11px] text-muted-foreground">
+					A
+				</span>
+				<div className="min-w-0 flex-1">
+					<StepSlider
+						labels={steps.map(percent)}
+						index={stepIndex}
+						showTicks
+						aria-label={model.labels.uiZoomSliderLabel}
+						aria-valuetext={percent(factor)}
+						onIndexChange={select}
+						onIndexCommit={select}
+					/>
+				</div>
+				<span aria-hidden className="flex h-5 w-4 shrink-0 items-center justify-center text-[15px] text-muted-foreground">
+					A
+				</span>
+			</div>
+		</div>
+	);
+}
 
 function languageOptionLabel(option: AppearanceLanguageOption): JSX.Element {
 	return (
@@ -592,29 +636,7 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 			<div className="mb-6">
 				<SettingHeading title={model.labels.sections.uiZoom} section={SETTINGS_SECTION["appearance-ui-zoom"]} className="mb-1" />
 				<p className="mb-3 text-[12px] text-muted-foreground">{model.labels.uiZoomHint}</p>
-				<div className="flex items-center gap-4">
-					<Slider
-						className="max-w-sm flex-1"
-						aria-label={model.labels.uiZoomSliderLabel}
-						aria-valuetext={`${Math.round(model.uiZoom.factor * 100)}%`}
-						min={model.uiZoom.min}
-						max={model.uiZoom.max}
-						step={model.uiZoom.step}
-						value={[model.uiZoom.factor]}
-						onValueChange={([value]) => model.actions.setUiZoom(value)}
-					/>
-					<span className="w-12 text-right text-[13px] tabular-nums text-foreground">
-						{Math.round(model.uiZoom.factor * 100)}%
-					</span>
-					<Button
-						variant="outline"
-						size="sm"
-						disabled={model.uiZoom.factor === model.uiZoom.default}
-						onClick={model.actions.resetUiZoom}
-					>
-						{model.labels.uiZoomReset}
-					</Button>
-				</div>
+				<UiZoomControl model={model} />
 			</div>
 
 			<div className="mb-6">

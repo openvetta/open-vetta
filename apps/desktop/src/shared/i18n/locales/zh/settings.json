@@ -1348,7 +1348,7 @@
   "newSessionDecorTitle": "新会话页装饰",
   "newSessionDecorHint": "以下两项只改新会话页的样子：装饰件挂在输入框上方，纹理是整页背后的底衬。",
   "section_appearance-ui-zoom": "界面大小",
-  "uiZoomHint": "整体放大或缩小界面，效果与 Cmd/Ctrl + 加减号相同，重启后保留。",
+  "uiZoomHint": "调整页面的显示大小。",
   "uiZoomReset": "恢复默认",
   "uiZoomSliderLabel": "界面大小",
   "section_appearance-sidebar": "侧边栏样式",

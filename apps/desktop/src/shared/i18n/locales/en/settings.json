@@ -1348,7 +1348,7 @@
   "newSessionDecorTitle": "New session page decoration",
   "newSessionDecorHint": "Both settings below only change the new session page: the ornament sits above the composer, the texture is the backdrop behind the whole page.",
   "section_appearance-ui-zoom": "Interface Size",
-  "uiZoomHint": "Scale the whole interface up or down, same as Cmd/Ctrl plus or minus. Kept across restarts.",
+  "uiZoomHint": "Adjust how large the interface appears.",
   "uiZoomReset": "Reset",
   "uiZoomSliderLabel": "Interface size",
   "section_appearance-sidebar": "Sidebar Style",
