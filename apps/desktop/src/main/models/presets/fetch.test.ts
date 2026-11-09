@@ -199,4 +199,40 @@ describe("Magpie 本机代理预设", () => {
 		expect(calls).toEqual(["http://127.0.0.1:3425/v1/models"]);
 		expect(result.models.map((m) => m.id)).toEqual(["gpt-5"]);
 	});
+
+	it("保留 Magpie /models 带的思考档位、模态与上下文,而不是只认 supports_* 写法", async () => {
+		const result = await fetchPresetModels(
+			def("magpie"),
+			"magpie",
+			async () =>
+				jsonResponse({
+					data: [
+						{
+							id: "auto/mimo-v2.6-pro",
+							display_name: "MiMo-V2.6-Pro",
+							context_length: 1048576,
+							max_output_tokens: 131072,
+							modalities: { input: ["text", "image"] },
+							reasoning: true,
+							reasoning_levels: ["low", "high", "max"],
+							supported_reasoning_levels: [{ effort: "low" }, { effort: "high" }, { effort: "max" }],
+						},
+						{ id: "plain-chat", modalities: { input: ["text"] } },
+					],
+				}),
+			new AbortController().signal,
+			1000,
+		);
+		const byId = new Map(result.models.map((m) => [m.id, m]));
+		expect(byId.get("auto/mimo-v2.6-pro")).toMatchObject({
+			name: "MiMo-V2.6-Pro",
+			reasoning: true,
+			reasoningLevels: ["low", "high", "max"],
+			input: ["text", "image"],
+			contextWindow: 1048576,
+			maxTokens: 131072,
+		});
+		expect(byId.get("plain-chat")?.reasoning).toBeUndefined();
+		expect(byId.get("plain-chat")?.reasoningLevels).toBeUndefined();
+	});
 });

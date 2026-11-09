@@ -1,4 +1,5 @@
 import type { ModelDefinition } from "../model-settings-service.js";
+import { parseProviderModels } from "../parse-provider-models.js";
 import type { PresetProviderDef } from "./catalog.js";
 import { type PresetError, PresetFetchError, toPresetError } from "./errors.js";
 
@@ -158,7 +159,8 @@ async function fetchAnthropicModels(
 }
 
 // ─── OpenAI 兼容: GET {baseUrl}/models,Bearer 鉴权 ───
-// OpenAI / DeepSeek / Z.ai 只给 id;Kimi 额外给 context_length / supports_* 能力位。
+// OpenAI / DeepSeek / Z.ai 只给 id;Kimi 额外给 context_length / supports_* 能力位;
+// Magpie 这类聚合网关用 reasoning / reasoning_levels / modalities 等另一套写法。
 
 interface OpenAICompatibleModel {
 	id?: string;
@@ -172,13 +174,20 @@ interface OpenAICompatibleModel {
 export function parseOpenAICompatibleModel(raw: OpenAICompatibleModel | string): ModelDefinition | null {
 	if (typeof raw === "string") return raw ? { id: raw } : null;
 	if (!raw.id) return null;
-	const contextWindow = raw.context_length ?? raw.max_context_length;
+	// 键名不统一的网关写法（思考档位、模态、上下文、输出上限）交给「从接口拉取」同一个解析器识别，
+	// 两条路径对同一个网关看到的参数才一致；Kimi 明确给的 supports_* 仍然优先。
+	const rich = parseProviderModels({ data: [raw] })[0];
+	const contextWindow = raw.context_length ?? raw.max_context_length ?? rich?.contextWindow;
+	const reasoning = raw.supports_reasoning ?? rich?.reasoning;
+	const vision = raw.supports_image_in ?? (rich?.vision ? true : undefined);
 	return {
 		id: raw.id,
 		...(raw.display_name ? { name: raw.display_name } : {}),
-		...(raw.supports_reasoning === undefined ? {} : { reasoning: raw.supports_reasoning }),
-		...(raw.supports_image_in === undefined ? {} : { input: raw.supports_image_in ? ["text", "image"] : ["text"] }),
+		...(reasoning === undefined ? {} : { reasoning }),
+		...(rich?.reasoningLevels?.length ? { reasoningLevels: rich.reasoningLevels } : {}),
+		...(vision === undefined ? {} : { input: vision ? ["text", "image"] : ["text"] }),
 		...(contextWindow ? { contextWindow } : {}),
+		...(rich?.maxTokens ? { maxTokens: rich.maxTokens } : {}),
 	};
 }
 
