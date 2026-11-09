@@ -1,5 +1,6 @@
 import type {
 	ChangeEvent,
+	CSSProperties,
 	JSX,
 	KeyboardEvent as ReactKeyboardEvent,
 	MouseEvent as ReactMouseEvent,
@@ -136,6 +137,8 @@ const VIRTUALIZE_THRESHOLD = 40;
 const VIRTUAL_OVERSCAN = 8;
 /** 第一栏折叠时保留显示的服务商个数（当前栏目始终可见，不计入）。 */
 const RAIL_COLLAPSED_COUNT = 8;
+/** 列表上下边缘渐隐带的高度；定位所选项时要让出这一段，否则它刚好落在渐隐里。 */
+const FADE_PX = 16;
 /** 虚拟列表首帧还量不到滚动容器时，按这个高度估一屏，避免先闪一帧空白。 */
 const LIST_FALLBACK_HEIGHT = 300;
 /** 第一栏里「收藏」入口的标识；供应商 id 不会含 NUL。 */
@@ -696,23 +699,81 @@ function ModelList(props: ModelListProps): JSX.Element {
 	return props.entries.length > VIRTUALIZE_THRESHOLD ? <VirtualModelList {...props} /> : <PlainModelList {...props} />;
 }
 
+/**
+ * 列表滚动容器：上方/下方还有可滚的内容时，对应边缘用 mask 渐隐，提示"这里还能滚"。
+ * 用 mask-image 让内容本身淡出，不在上面叠遮罩；到顶/到底的那一侧不渐隐。
+ */
+function useFadingScroll(scrollRef: { current: HTMLDivElement | null }): {
+	readonly node: HTMLDivElement | null;
+	readonly setNode: (node: HTMLDivElement | null) => void;
+	/** 铺在滚动容器上：mask 样式 + 标明哪一侧在渐隐的 data-fade（top / bottom / both）。 */
+	readonly fadeProps: { readonly style?: CSSProperties; readonly "data-fade"?: string };
+} {
+	// 菜单内容经 Portal 挂载，滚动容器要等到真正进了 DOM 才拿得到，所以用 state 接 ref。
+	const [node, setNodeState] = useState<HTMLDivElement | null>(null);
+	const [fade, setFade] = useState({ top: false, bottom: false });
+	const setNode = useCallback(
+		(next: HTMLDivElement | null) => {
+			scrollRef.current = next;
+			setNodeState(next);
+		},
+		[scrollRef],
+	);
+
+	useEffect(() => {
+		if (!node) return;
+		const update = (): void => {
+			const top = node.scrollTop > 1;
+			const bottom = node.scrollTop + node.clientHeight < node.scrollHeight - 1;
+			setFade((prev) => (prev.top === top && prev.bottom === bottom ? prev : { top, bottom }));
+		};
+		update();
+		node.addEventListener("scroll", update, { passive: true });
+		const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(update);
+		observer?.observe(node);
+		if (node.firstElementChild) observer?.observe(node.firstElementChild);
+		return () => {
+			node.removeEventListener("scroll", update);
+			observer?.disconnect();
+		};
+	}, [node]);
+
+	if (!fade.top && !fade.bottom) return { node, setNode, fadeProps: {} };
+	const mask = `linear-gradient(to bottom, ${fade.top ? `transparent 0, #000 ${FADE_PX}px` : "#000 0"}, ${
+		fade.bottom ? `#000 calc(100% - ${FADE_PX}px), transparent 100%` : "#000 100%"
+	})`;
+	return {
+		node,
+		setNode,
+		fadeProps: {
+			style: { maskImage: mask, WebkitMaskImage: mask },
+			"data-fade": fade.top && fade.bottom ? "both" : fade.top ? "top" : "bottom",
+		},
+	};
+}
+
 function PlainModelList({ entries, context, scrollRef }: ModelListProps): JSX.Element {
 	const { selectedModel } = context;
+	const { setNode, fadeProps } = useFadingScroll(scrollRef);
 	useEffect(() => {
 		if (!selectedModel) return;
 		const frame = requestAnimationFrame(() => {
-			const selectedItem = Array.from(
-				scrollRef.current?.querySelectorAll<HTMLElement>(MODEL_ITEM_SELECTOR) ?? [],
-			).find((item) => item.dataset.modelKey === selectedModel);
-			selectedItem?.scrollIntoView({ block: "nearest" });
+			const container = scrollRef.current;
+			const selectedItem = Array.from(container?.querySelectorAll<HTMLElement>(MODEL_ITEM_SELECTOR) ?? []).find(
+				(item) => item.dataset.modelKey === selectedModel,
+			);
+			if (!container || !selectedItem) return;
+			// 把所选项对齐到列表顶部（让出渐隐带）；够不着顶部时浏览器会自动停在能滚到的最远处。
+			const delta = selectedItem.getBoundingClientRect().top - container.getBoundingClientRect().top;
+			container.scrollTop = Math.max(0, container.scrollTop + delta - FADE_PX);
 		});
 		return () => cancelAnimationFrame(frame);
-		// 只在列表出现时把所选项滚入可视区；选中后菜单还开着时不要再跳。
+		// 只在列表出现时定位一次；选中后菜单还开着时不要再跳。
 		// biome-ignore lint/correctness/useExhaustiveDependencies: 见上
 	}, []);
 
 	return (
-		<div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+		<div ref={setNode} {...fadeProps} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
 			{entries.map((entry) => (
 				<ListEntryView key={entryKey(entry)} entry={entry} context={context} />
 			))}
@@ -721,15 +782,7 @@ function PlainModelList({ entries, context, scrollRef }: ModelListProps): JSX.El
 }
 
 function VirtualModelList({ entries, context, scrollRef }: ModelListProps): JSX.Element {
-	// 菜单内容经 Portal 挂载，滚动容器要等到真正进了 DOM 才拿得到，所以用 state 接 ref。
-	const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
-	const setRefs = useCallback(
-		(node: HTMLDivElement | null) => {
-			scrollRef.current = node;
-			setScrollElement(node);
-		},
-		[scrollRef],
-	);
+	const { node: scrollElement, setNode: setRefs, fadeProps } = useFadingScroll(scrollRef);
 	const virtualizer = useVirtualizer({
 		count: entries.length,
 		getScrollElement: () => scrollElement,
@@ -739,6 +792,8 @@ function VirtualModelList({ entries, context, scrollRef }: ModelListProps): JSX.
 			return entry ? entryKey(entry) : index;
 		},
 		overscan: VIRTUAL_OVERSCAN,
+		// 定位到某项时让它落在顶部渐隐带下面，而不是被淡掉。
+		scrollPaddingStart: FADE_PX,
 		initialRect: { width: 0, height: LIST_FALLBACK_HEIGHT },
 	});
 
@@ -746,13 +801,13 @@ function VirtualModelList({ entries, context, scrollRef }: ModelListProps): JSX.
 	useEffect(() => {
 		if (!scrollElement || !selectedModel) return;
 		const index = entries.findIndex((entry) => entry.kind === "model" && entry.model.key === selectedModel);
-		if (index >= 0) virtualizer.scrollToIndex(index, { align: "auto" });
+		if (index >= 0) virtualizer.scrollToIndex(index, { align: "start" });
 		// 只在滚动容器就绪时定位一次；选中后菜单还开着时不要再跳。
 		// biome-ignore lint/correctness/useExhaustiveDependencies: 见上
 	}, [scrollElement]);
 
 	return (
-		<div ref={setRefs} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+		<div ref={setRefs} {...fadeProps} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
 			<div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
 				{virtualizer.getVirtualItems().map((item) => {
 					const entry = entries[item.index];

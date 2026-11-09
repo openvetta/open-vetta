@@ -191,6 +191,65 @@ describe("ModelSelectorView 大列表", () => {
 	});
 });
 
+describe("ModelSelectorView 列表滚动", () => {
+	const originalScrollHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollHeight");
+	const scrollTo = vi.fn();
+
+	beforeAll(() => {
+		Element.prototype.scrollIntoView = vi.fn();
+		HTMLElement.prototype.scrollTo = scrollTo;
+	});
+	afterAll(() => {
+		if (originalScrollHeight) Object.defineProperty(HTMLElement.prototype, "scrollHeight", originalScrollHeight);
+		else Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
+	});
+
+	function stubScrollHeight(height: number): void {
+		Object.defineProperty(HTMLElement.prototype, "scrollHeight", { configurable: true, get: () => height });
+	}
+
+	function scroller(): HTMLElement {
+		const node = document.querySelector('[data-slot="dropdown-menu-content"] .overflow-y-auto.flex-1');
+		if (!(node instanceof HTMLElement)) throw new Error("scroll container not found");
+		return node;
+	}
+
+	it("列表还能往下滚时底部渐隐，滚离顶部后顶部也渐隐", async () => {
+		stubScrollHeight(2000);
+		const user = userEvent.setup();
+		renderView({ groups: hugeGroups });
+		await openMenu(user);
+		await user.click(screen.getByRole("menuitem", { name: "Magpie" }));
+
+		await waitFor(() => expect(scroller().getAttribute("data-fade")).toBe("bottom"));
+
+		Object.defineProperty(scroller(), "scrollTop", { configurable: true, value: 120 });
+		fireEvent.scroll(scroller());
+		await waitFor(() => expect(scroller().getAttribute("data-fade")).toBe("both"));
+	});
+
+	it("内容装得下、没有滚动空间时不渐隐", async () => {
+		stubScrollHeight(100);
+		const user = userEvent.setup();
+		renderView({ groups: hugeGroups });
+		await openMenu(user);
+
+		expect(scroller().hasAttribute("data-fade")).toBe(false);
+	});
+
+	it("打开时把当前模型滚到列表顶部（让出渐隐带），而不是停在底部", async () => {
+		stubScrollHeight(20000);
+		scrollTo.mockClear();
+		const selected = hugeGroups[1]?.models[300] ?? null;
+		const user = userEvent.setup();
+		renderView({ groups: hugeGroups, selectedModel: selected?.key, selectedOption: selected });
+		await user.click(screen.getByRole("button", { name: /Magpie Model 300/ }));
+
+		// 第 300 项、每行 28px，再减去 16px 渐隐带。
+		await waitFor(() => expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 300 * 28 - 16 })));
+	});
+});
+
 describe("ModelSelectorView 服务商过多时折叠第一栏", () => {
 	beforeAll(() => {
 		Element.prototype.scrollIntoView = vi.fn();
