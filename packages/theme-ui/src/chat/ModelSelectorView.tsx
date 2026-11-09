@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import type { ChangeEvent, JSX, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@vetta-org/ui/utils";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@vetta-org/ui/dropdown-menu";
 import { ThemeSurface } from "../appearance/ThemeSurface";
@@ -211,10 +211,13 @@ export function ModelSelectorView({
 		searchInputRef.current?.focus();
 	};
 
-	const handleModelSelect = (key: string) => {
-		onModelSelect(key);
+	// 宿主的 onModelSelect 会随会话状态换引用；经 ref 取最新值，行组件的 memo 才不会被它打穿。
+	const onModelSelectRef = useRef(onModelSelect);
+	onModelSelectRef.current = onModelSelect;
+	const handleModelSelect = useCallback((key: string) => {
+		onModelSelectRef.current(key);
 		setSearchQuery("");
-	};
+	}, []);
 
 	return (
 		// 搜索型选择器不需要锁住页面；modal 模式会改写 body 的滚动与 pointer-events，
@@ -382,31 +385,17 @@ export function ModelSelectorView({
 													)}
 												</div>
 												{group.models.map((model) => (
-													<DropdownMenuItem
+													<ModelRow
 														key={model.key}
-														data-model-key={model.key}
-														aria-current={model.key === selectedModel ? "true" : undefined}
-														className={cn(
-															COMPACT_ITEM_CLASS,
-															model.key === selectedModel && "bg-accent text-accent-foreground",
-															classNames?.item,
-														)}
-														onSelect={() => handleModelSelect(model.key)}
-													>
-														<span className="min-w-0 flex-1 truncate">{model.displayName}</span>
-														<ModelMultiplier label={labels.multiplierLabel?.(model)} />
-														{model.supportsImage && (
-															<ModelVisionIcon label={labels.visionBadge} />
-														)}
-														{model.key === defaultKey && (
-															<span className="shrink-0 rounded-full bg-primary/15 px-1 text-[9px] font-medium text-primary">
-																{labels.defaultBadge}
-															</span>
-														)}
-														{model.key === selectedModel && (
-															<span className="icon-[solar--check-circle-linear] h-3 w-3 shrink-0" />
-														)}
-													</DropdownMenuItem>
+														model={model}
+														selected={model.key === selectedModel}
+														isDefault={model.key === defaultKey}
+														itemClassName={classNames?.item}
+														visionBadge={labels.visionBadge}
+														defaultBadge={labels.defaultBadge}
+														multiplierLabel={labels.multiplierLabel}
+														onSelect={handleModelSelect}
+													/>
 												))}
 											</div>
 										))}
@@ -427,6 +416,48 @@ export function ModelSelectorView({
 		</DropdownMenu>
 	);
 }
+
+/**
+ * 单行模型项。模型多达几百个时，搜索每敲一个字符都会重渲染列表；memo 让没变化的行直接跳过。
+ */
+const ModelRow = memo(function ModelRow({
+	model,
+	selected,
+	isDefault,
+	itemClassName,
+	visionBadge,
+	defaultBadge,
+	multiplierLabel,
+	onSelect,
+}: {
+	readonly model: ModelSelectorOptionView;
+	readonly selected: boolean;
+	readonly isDefault: boolean;
+	readonly itemClassName?: string;
+	readonly visionBadge: string;
+	readonly defaultBadge: string;
+	readonly multiplierLabel?: (option: ModelSelectorOptionView) => string | undefined;
+	readonly onSelect: (key: string) => void;
+}): JSX.Element {
+	return (
+		<DropdownMenuItem
+			data-model-key={model.key}
+			aria-current={selected ? "true" : undefined}
+			className={cn(COMPACT_ITEM_CLASS, selected && "bg-accent text-accent-foreground", itemClassName)}
+			onSelect={() => onSelect(model.key)}
+		>
+			<span className="min-w-0 flex-1 truncate">{model.displayName}</span>
+			<ModelMultiplier label={multiplierLabel?.(model)} />
+			{model.supportsImage && <ModelVisionIcon label={visionBadge} />}
+			{isDefault && (
+				<span className="shrink-0 rounded-full bg-primary/15 px-1 text-[9px] font-medium text-primary">
+					{defaultBadge}
+				</span>
+			)}
+			{selected && <span className="icon-[solar--check-circle-linear] h-3 w-3 shrink-0" />}
+		</DropdownMenuItem>
+	);
+});
 
 function ModelMultiplier({ label }: { label?: string }): JSX.Element | null {
 	return label ? <MultiplierTag text={label} /> : null;
