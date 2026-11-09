@@ -295,6 +295,7 @@ export {
 export type { ModelConfigurationGroup, ModelConfigurationMember } from "./ModelConfiguration";
 export { ModelConfigurationOverview, ModelConfigurationPopover } from "./ModelConfiguration";
 export type {
+	ModelSelectorFavorites,
 	ModelSelectorLabels,
 	ModelSelectorOptionView,
 	ModelSelectorProviderGroup,

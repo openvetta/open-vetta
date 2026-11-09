@@ -413,6 +413,34 @@ export const reasoningByModelAtom = atom(
 	},
 );
 
+/**
+ * 收藏的模型 key（"provider/modelId"），按收藏先后排列。
+ * 存 localStorage，仅本机生效；所有已挂载的模型选择器共用同一份，收藏后立刻同步。
+ */
+const FAVORITE_MODELS_KEY = "vetta-favorite-models";
+function loadFavoriteModels(): string[] {
+	try {
+		const raw = localStorage.getItem(FAVORITE_MODELS_KEY);
+		const parsed: unknown = raw ? JSON.parse(raw) : [];
+		return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+	} catch {
+		return [];
+	}
+}
+const favoriteModelsBaseAtom = atom<string[]>(loadFavoriteModels());
+export const favoriteModelsAtom = atom(
+	(get) => get(favoriteModelsBaseAtom),
+	(get, set, update: string[] | ((current: string[]) => string[])) => {
+		const next = typeof update === "function" ? update(get(favoriteModelsBaseAtom)) : update;
+		set(favoriteModelsBaseAtom, next);
+		try {
+			localStorage.setItem(FAVORITE_MODELS_KEY, JSON.stringify(next));
+		} catch {
+			// ignore persistence errors (private mode / quota)
+		}
+	},
+);
+
 /** Whether the current session model supports image input */
 export const modelSupportsImagesAtom = atom<boolean>(true);
 

@@ -5,6 +5,7 @@ import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { useNewSessionTexture } from "@shared/hooks/useNewSessionTexture";
 import { useSidebarStyle } from "@shared/hooks/useSidebarStyle";
 import { useTheme } from "@shared/hooks/useTheme";
+import { useUiZoom } from "@shared/hooks/useUiZoom";
 import type { ThemeMode } from "@shared/store/atoms";
 import { type CursorStyle, STOAT_CURSOR_PREVIEW_URL } from "@shared/theme/cursor";
 import { NEW_SESSION_TEXTURE_CATALOG, type NewSessionTextureId } from "@shared/theme/new-session-texture";
@@ -17,6 +18,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { isAppearanceUiThemeEnabled } from "@/shared/feature-flags";
 import type { LanguagePreference } from "@/shared/i18n/config";
+import { UI_ZOOM_DEFAULT, UI_ZOOM_STEPS, uiZoomStepIndex } from "@/shared/ui-zoom";
 import defaultThemePreview from "../assets/default.webp";
 import xianxiaThemePreview from "../assets/xianxia.webp";
 import { SETTINGS_SECTION } from "../registry";
@@ -93,6 +95,8 @@ export interface AppearanceSettingsModel {
 		setOrnament: (id: OrnamentId) => void;
 		setSidebarStyle: (style: SidebarStyle) => void;
 		setTexture: (id: NewSessionTextureId) => void;
+		setUiZoom: (factor: number) => void;
+		resetUiZoom: () => void;
 	};
 	activeUiThemeId: string;
 	cursorOptions: AppearanceCursorOption[];
@@ -112,8 +116,12 @@ export interface AppearanceSettingsModel {
 			texture: string;
 			theme: string;
 			uiTheme: string;
+			uiZoom: string;
 		};
 		textureHint: string;
+		uiZoomHint: string;
+		uiZoomReset: string;
+		uiZoomSliderLabel: string;
 		title: string;
 	};
 	/** 用户语言偏好（含 system），用于选择器高亮。 */
@@ -133,6 +141,7 @@ export interface AppearanceSettingsModel {
 	themeName: string;
 	themes: ThemeDef[];
 	uiThemes: AppearanceUiThemeOption[];
+	uiZoom: { default: number; factor: number; stepIndex: number; steps: readonly number[] };
 }
 
 type AppearanceSettingsActions = AppearanceSettingsModel["actions"];
@@ -228,6 +237,7 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 	const { languagePreference, setLanguage } = useLanguage();
 	const { style: cursorStyle, setStyle: setCursorStyle } = useCursorStyle();
 	const { style: sidebarStyle, setStyle: setSidebarStyle } = useSidebarStyle();
+	const { factor: uiZoomFactor, setFactor: setUiZoomFactor, reset: resetUiZoom } = useUiZoom();
 	const { ornamentId, setOrnament } = useHeroOrnament();
 	const { textureId, setTexture } = useNewSessionTexture();
 	const { t } = useTranslation("settings");
@@ -350,8 +360,12 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 				texture: t(SETTINGS_SECTION["appearance-texture"].titleKey),
 				theme: t(SETTINGS_SECTION["appearance-theme"].titleKey),
 				uiTheme: t(SETTINGS_SECTION["appearance-ui-theme"].titleKey),
+				uiZoom: t(SETTINGS_SECTION["appearance-ui-zoom"].titleKey),
 			},
 			textureHint: t("textureHint"),
+			uiZoomHint: t("uiZoomHint"),
+			uiZoomReset: t("uiZoomReset"),
+			uiZoomSliderLabel: t("uiZoomSliderLabel"),
 			title: t("appearanceTitle"),
 		}),
 		[t],
@@ -391,6 +405,13 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 				setTexture(id);
 				recordSettingsUsage({ tab: "appearance", action: "changed", target: "new-session-texture", value: id });
 			},
+			setUiZoom: (factor) => {
+				setUiZoomFactor(factor);
+			},
+			resetUiZoom: () => {
+				resetUiZoom();
+				recordSettingsUsage({ tab: "appearance", action: "changed", target: "ui-zoom", value: "reset" });
+			},
 			setSidebarStyle: (style) => {
 				setSidebarStyle(style);
 				recordSettingsUsage({
@@ -401,7 +422,18 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 				});
 			},
 		}),
-		[selectTheme, setCursorStyle, setLanguage, setMode, setOrnament, setSidebarStyle, setTexture, setThemeName],
+		[
+			resetUiZoom,
+			selectTheme,
+			setCursorStyle,
+			setLanguage,
+			setMode,
+			setOrnament,
+			setSidebarStyle,
+			setTexture,
+			setThemeName,
+			setUiZoomFactor,
+		],
 	);
 
 	return {
@@ -425,5 +457,11 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 		themeName,
 		themes,
 		uiThemes,
+		uiZoom: {
+			default: UI_ZOOM_DEFAULT,
+			factor: uiZoomFactor,
+			stepIndex: uiZoomStepIndex(uiZoomFactor),
+			steps: UI_ZOOM_STEPS,
+		},
 	};
 }

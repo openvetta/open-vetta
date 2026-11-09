@@ -37,6 +37,7 @@ describe("createOfficialShortcutsApi", () => {
 			{ id: "open-project", defaultShortcut: "mod+o" },
 			{ id: "open-settings", defaultShortcut: "mod+," },
 			{ id: "open-command-menu", defaultShortcut: "mod+k" },
+			{ id: "open-model-selector", defaultShortcut: "mod+p" },
 			{ id: "save-file", defaultShortcut: "mod+s" },
 			{ id: "steer-message", defaultShortcut: "mod+enter" },
 			{ id: "toggle-plan-mode", defaultShortcut: "shift+tab" },

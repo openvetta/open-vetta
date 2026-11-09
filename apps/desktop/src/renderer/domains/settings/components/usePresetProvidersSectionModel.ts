@@ -15,6 +15,7 @@ export interface PresetProviderModelRow {
 	contextWindow?: number;
 	hasVision: boolean;
 	hasReasoning: boolean;
+	reasoningLevels?: string[];
 	price: string | null;
 }
 
@@ -24,10 +25,16 @@ export interface PresetProviderRow {
 	api: string;
 	baseUrl?: string;
 	icon?: string;
+	/** 预填密钥:草稿为空时作为输入框初值,点启用即用。 */
+	defaultApiKey?: string;
 	models: NonNullable<ProviderEntry["models"]>;
 	modelRows: PresetProviderModelRow[];
 	offline: boolean;
 	adopted: boolean;
+	/** 已采纳且未被用户手动停用:开关的状态。 */
+	enabled: boolean;
+	/** 内置固定密钥(本机代理类):只给开关,不让用户填 key。 */
+	autoKey: boolean;
 	isOpen: boolean;
 	isExpanded: boolean;
 	refreshing: boolean;
@@ -65,6 +72,13 @@ export interface PresetProvidersSectionLabels {
 	refreshingModels: string;
 	refreshCatalog: string;
 	copyApiKey: string;
+	editBaseUrl: string;
+	baseUrlPlaceholder: string;
+	testConnect: string;
+	testing: string;
+	testOk: string;
+	testFailed: string;
+	toggleProvider: (provider: string) => string;
 }
 
 export interface PresetProvidersSectionModel {
@@ -79,6 +93,9 @@ export interface PresetProvidersSectionModel {
 	onToggleEditor: (row: PresetProviderRow) => void;
 	onDraftKeyChange: (rowId: string, key: string) => void;
 	onAdopt: (row: PresetProviderRow) => Promise<void>;
+	onToggleEnabled: (row: PresetProviderRow, next: boolean) => Promise<void>;
+	/** 返回是否已保存,用于输入框决定是否收起。 */
+	onChangeBaseUrl: (row: PresetProviderRow, url: string) => Promise<boolean>;
 	onRemove: (row: PresetProviderRow) => Promise<void>;
 	onRefreshModels: (row: PresetProviderRow) => Promise<void>;
 	onCopyApiKey: (row: PresetProviderRow) => Promise<void>;
@@ -155,8 +172,9 @@ export function usePresetProvidersSectionModel({
 			id: preset.id,
 			displayName: preset.displayName,
 			api: preset.api,
-			baseUrl: preset.baseUrl,
+			baseUrl: config.providers[preset.id]?.baseUrl ?? preset.baseUrl,
 			icon: preset.icon,
+			defaultApiKey: preset.defaultApiKey,
 			// 已启用的用账号实际可用的 /models 结果,未启用的展示 models.dev 公共目录。
 			models: config.providers[preset.id]?.models ?? preset.catalogModels,
 			offline: false,
@@ -168,6 +186,8 @@ export function usePresetProvidersSectionModel({
 				...row,
 				modelRows: row.models.map((model) => toModelRow(model, t)),
 				adopted,
+				enabled: adopted && !config.providers[row.id]?.disabled,
+				autoKey: Boolean(row.defaultApiKey),
 				isOpen: openId === row.id,
 				isExpanded: expandedId === row.id,
 				refreshing: refreshingId === row.id,
@@ -213,8 +233,8 @@ export function usePresetProvidersSectionModel({
 	);
 
 	const adopt = useCallback(
-		async (row: PresetProviderRow): Promise<void> => {
-			const key = (draftKeys[row.id] ?? "").trim();
+		async (row: PresetProviderRow, baseUrl: string | undefined = row.baseUrl): Promise<void> => {
+			const key = (draftKeys[row.id] ?? row.defaultApiKey ?? "").trim();
 			if (!key) return;
 			setSaving(true);
 			try {
@@ -222,7 +242,7 @@ export function usePresetProvidersSectionModel({
 				// 预设服务商全是云端 API,拉不通时启用它也没有任何模型可用;放行「非认证类失败」
 				// 会让用户以为已生效,还得自己去发现它是个空壳。面板与草稿保留,改完再点一次即可。
 				// 已下线的旧条目不在内置目录里,没有可校验的上游,只改 key 不校验。
-				const fetched = row.offline ? null : await refreshModels(row.id, key);
+				const fetched = row.offline ? null : await refreshModels(row.id, key, baseUrl);
 				if (fetched && (fetched.error || fetched.models.length === 0)) {
 					const error = fetched.error ?? { code: "empty-models" as const };
 					notifyKeyRejected(row.displayName, error, t);
@@ -240,7 +260,7 @@ export function usePresetProvidersSectionModel({
 							displayName: row.displayName,
 							icon: row.icon,
 							api: row.api,
-							baseUrl: row.baseUrl,
+							baseUrl,
 							apiKey: key,
 							models: fetched?.models ?? row.models,
 							...(fetched ? { modelsSyncedAt: new Date().toISOString() } : {}),
@@ -258,6 +278,74 @@ export function usePresetProvidersSectionModel({
 			}
 		},
 		[config, draftKeys, saveConfig, t],
+	);
+
+	/**
+	 * 开关:已采纳的只翻转 disabled,保留密钥与模型;未采纳的——内置密钥直接走启用校验,
+	 * 需要用户自己填 key 的则展开输入框。
+	 */
+	const toggleEnabled = useCallback(
+		async (row: PresetProviderRow, next: boolean): Promise<void> => {
+			const provider = config.providers[row.id];
+			if (provider && row.adopted) {
+				const { disabled: _disabled, ...rest } = provider;
+				await saveConfig({
+					...config,
+					providers: { ...config.providers, [row.id]: next ? rest : { ...rest, disabled: true } },
+				});
+				return;
+			}
+			if (!next) return;
+			if (row.autoKey) await adopt(row);
+			else handleToggleEditor(row);
+		},
+		[adopt, config, handleToggleEditor, saveConfig],
+	);
+
+	/**
+	 * 修改服务地址(如 Magpie 换端口)。先用新地址拉一次模型再落盘,拉不通就不保存;
+	 * 未启用的借道启用流程,等于顺手把它打开。
+	 */
+	const changeBaseUrl = useCallback(
+		async (row: PresetProviderRow, input: string): Promise<boolean> => {
+			const url = input.trim().replace(/\/+$/, "");
+			if (!/^https?:\/\/\S+$/i.test(url)) {
+				showToast({ variant: "error", message: t("baseUrlInvalid") });
+				return false;
+			}
+			const provider = config.providers[row.id];
+			if (!provider || !row.adopted) {
+				await adopt(row, url);
+				return true;
+			}
+			setSaving(true);
+			try {
+				const fetched = await refreshModels(row.id, provider.apiKey, url);
+				if (fetched.error || fetched.models.length === 0) {
+					const error = fetched.error ?? { code: "empty-models" as const };
+					notifyPresetError(row.displayName, error, t);
+					setModelsErrors((prev) => withError(prev, row.id, error, t));
+					return false;
+				}
+				setModelsErrors((prev) => withError(prev, row.id, undefined, t));
+				await saveConfig({
+					...config,
+					providers: {
+						...config.providers,
+						[row.id]: {
+							...provider,
+							baseUrl: url,
+							models: fetched.models,
+							modelsSyncedAt: new Date().toISOString(),
+						},
+					},
+				});
+				return true;
+			} finally {
+				setSaving(false);
+			}
+		},
+		[adopt, config, saveConfig, t],
 	);
 
 	const refresh = useCallback(
@@ -375,11 +463,20 @@ export function usePresetProvidersSectionModel({
 			refreshingModels: t("refreshingModels"),
 			refreshCatalog: t("refreshCatalog"),
 			copyApiKey: t("copyApiKey"),
+			testConnect: t("testConnect"),
+			testing: t("testing"),
+			testOk: t("testOk"),
+			testFailed: t("testFailed"),
+			editBaseUrl: t("editBaseUrl"),
+			baseUrlPlaceholder: t("baseUrlPlaceholder"),
+			toggleProvider: (provider: string) => t("toggleProvider", { provider }),
 		},
 		onToggleExpanded: handleToggleExpanded,
 		onToggleEditor: handleToggleEditor,
 		onDraftKeyChange: handleDraftKeyChange,
 		onAdopt: adopt,
+		onToggleEnabled: toggleEnabled,
+		onChangeBaseUrl: changeBaseUrl,
 		onRemove: remove,
 		onRefreshModels: refresh,
 		onCopyApiKey: copyApiKey,
@@ -398,6 +495,7 @@ function toModelRow(
 		contextWindow: model.contextWindow,
 		hasVision: model.input?.includes("image") ?? false,
 		hasReasoning: Boolean(model.reasoning),
+		reasoningLevels: model.reasoningLevels,
 		price: formatPrice(model.cost, t),
 	};
 }
@@ -408,6 +506,7 @@ interface BaseRow {
 	api: string;
 	baseUrl?: string;
 	icon?: string;
+	defaultApiKey?: string;
 	models: NonNullable<ProviderEntry["models"]>;
 	offline: boolean;
 }
@@ -415,9 +514,10 @@ interface BaseRow {
 async function refreshModels(
 	providerId: string,
 	apiKey?: string,
+	baseUrl?: string,
 ): Promise<{ models: NonNullable<ProviderEntry["models"]>; error?: PresetError }> {
 	try {
-		return await window.vetta.models.refreshPresetModels(providerId, apiKey);
+		return await window.vetta.models.refreshPresetModels(providerId, apiKey, baseUrl);
 	} catch (err) {
 		return { models: [], error: { code: "network", detail: err instanceof Error ? err.message : String(err) } };
 	}

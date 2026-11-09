@@ -34,6 +34,13 @@ const labels: PresetProvidersSectionLabels = {
 	refreshingModels: "Refreshing models",
 	refreshCatalog: "Refresh catalog",
 	copyApiKey: "Copy API key",
+	testConnect: "Test",
+	testing: "Testing",
+	testOk: "OK",
+	testFailed: "Failed",
+	editBaseUrl: "Change server address",
+	baseUrlPlaceholder: "Server address",
+	toggleProvider: (provider) => `Toggle ${provider}`,
 };
 
 const row: PresetProviderRow = {
@@ -66,6 +73,8 @@ const row: PresetProviderRow = {
 	],
 	offline: false,
 	adopted: false,
+	enabled: false,
+	autoKey: false,
 	isOpen: false,
 	isExpanded: true,
 	refreshing: false,

@@ -1,3 +1,5 @@
+import { Button } from "@shared/components/ui/button";
+import { StepSlider } from "@shared/components/ui/step-slider";
 import { PixelMarioBlocks } from "@shared/components/mario/PixelMarioBlocks";
 import { cn } from "@shared/lib/utils";
 import type { CursorStyle } from "@shared/theme/cursor";
@@ -7,7 +9,7 @@ import {
 } from "@shared/theme/new-session-texture";
 import type { OrnamentId } from "@shared/theme/ornament";
 import type { ThemeDef } from "@shared/theme/tokens";
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { SettingsAiAssist } from "../ai-assist";
 import appearanceMascot from "../assets/appearance-mascot.webp";
@@ -28,6 +30,34 @@ import type {
 
 type ThemeMode = AppearanceModeOption["value"];
 type SelectionPoint = { x: number; y: number };
+
+/** 松手后才应用：拖动时只改本地预览档位，避免整个界面跟着手实时重排。 */
+function UiZoomControl({ model }: { model: AppearanceSettingsModel }): JSX.Element {
+	const { factor, stepIndex, steps } = model.uiZoom;
+	const [draftIndex, setDraftIndex] = useState<number>();
+	// 主进程确认的档位变了（快捷键、恢复默认），丢掉残留的预览。
+	useEffect(() => setDraftIndex(undefined), [stepIndex]);
+	const percent = (value: number) => `${Math.round(value * 100)}%`;
+	const shownIndex = draftIndex ?? stepIndex;
+	const commit = (index: number) => {
+		setDraftIndex(undefined);
+		const next = steps[index];
+		if (next !== undefined && next !== factor) model.actions.setUiZoom(next);
+	};
+	return (
+		<StepSlider
+			labels={steps.map(percent)}
+			index={shownIndex}
+			showTicks
+			fullWidth
+			aria-label={model.labels.uiZoomSliderLabel}
+			aria-valuetext={percent(steps[shownIndex] ?? factor)}
+			onIndexChange={setDraftIndex}
+			onIndexCommit={commit}
+			onCancel={() => setDraftIndex(undefined)}
+		/>
+	);
+}
 
 function languageOptionLabel(option: AppearanceLanguageOption): JSX.Element {
 	return (
@@ -487,16 +517,16 @@ const TextureCard = memo(function TextureCard({
 export function AppearanceSettingsView({ model }: { model: AppearanceSettingsModel }): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 pt-2 pb-4">
-			<div className="mb-4 flex min-w-0 flex-wrap items-center gap-3">
+			<div className="mb-8 flex min-w-0 flex-wrap items-center gap-3">
 				<h1 className="text-[20px] font-bold text-foreground">{model.labels.title}</h1>
 				<SettingsAiAssist tabId="appearance" />
 			</div>
 
 			{/* 语言区 + 右侧外观吉祥物 */}
-			<div className="mb-6 flex items-center gap-4 pr-10">
+			<div className="mb-10 flex items-center gap-4 pr-10">
 				<div className="min-w-0 flex-1">
 					<SettingHeading title={model.labels.sections.language} section={SETTINGS_SECTION["appearance-language"]} className="mb-1" />
-					<p className="mb-3 text-[12px] text-muted-foreground">{model.labels.languageHint}</p>
+					<p className="mb-4 text-[12px] text-muted-foreground">{model.labels.languageHint}</p>
 					<LanguageSelect language={model.language} languages={model.languages} onSelect={model.actions.changeLanguage} />
 				</div>
 				{!model.narrow && (
@@ -512,8 +542,8 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				)}
 			</div>
 
-			<div className="mb-6">
-				<SettingHeading title={model.labels.sections.mode} section={SETTINGS_SECTION["appearance-mode"]} className="mb-3" />
+			<div className="mb-10">
+				<SettingHeading title={model.labels.sections.mode} section={SETTINGS_SECTION["appearance-mode"]} className="mb-4" />
 				<div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
 					{model.modeOptions.map((mode) => (
 						<ModeCard
@@ -530,9 +560,9 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 			</div>
 
 			{model.showUiTheme && (
-				<div className="mb-6">
-					<SettingHeading title={model.labels.sections.uiTheme} section={SETTINGS_SECTION["appearance-ui-theme"]} className="mb-3" />
-					<div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
+				<div className="mb-10">
+					<SettingHeading title={model.labels.sections.uiTheme} section={SETTINGS_SECTION["appearance-ui-theme"]} className="mb-4" />
+					<div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
 						{model.uiThemes.map((theme) => (
 							<UiThemeCard key={theme.id} {...theme} onSelect={model.actions.selectUiTheme} />
 						))}
@@ -541,8 +571,8 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 			)}
 
 			{model.activeUiThemeId === "default" && (
-				<div className="mb-6">
-					<SettingHeading title={model.labels.sections.theme} section={SETTINGS_SECTION["appearance-theme"]} className="mb-3" />
+				<div className="mb-10">
+					<SettingHeading title={model.labels.sections.theme} section={SETTINGS_SECTION["appearance-theme"]} className="mb-4" />
 					<div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
 						{model.themes.map((theme) => (
 							<ThemeCard
@@ -556,19 +586,37 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				</div>
 			)}
 
+			<div className="mb-10">
+				<div className="mb-1 flex items-center justify-between gap-2">
+					<SettingHeading title={model.labels.sections.uiZoom} section={SETTINGS_SECTION["appearance-ui-zoom"]} />
+					<Button
+						variant="ghost"
+						size="icon-xs"
+						title={model.labels.uiZoomReset}
+						aria-label={model.labels.uiZoomReset}
+						disabled={model.uiZoom.factor === model.uiZoom.default}
+						onClick={model.actions.resetUiZoom}
+					>
+						<span aria-hidden className="icon-[solar--restart-linear] h-3.5 w-3.5" />
+					</Button>
+				</div>
+				<p className="mb-4 text-[12px] text-muted-foreground">{model.labels.uiZoomHint}</p>
+				<UiZoomControl model={model} />
+			</div>
+
 			{/* 新会话页装饰：装饰件与纹理都只改这一页，连排在一起用户不必逐项猜它们作用在哪。
 			    不套卡片、不加边框——这一页其余分区都是平铺的，单独给它加一层壳反而把它拔高成了别的东西。 */}
-			<div className="mb-6">
-				<div className="mb-4">
+			<div className="mb-10">
+				<div className="mb-5">
 					<h2 className="text-[15px] font-semibold text-foreground">{model.labels.newSessionDecorTitle}</h2>
 					<p className="mt-1 text-[12px] text-muted-foreground">{model.labels.newSessionDecorHint}</p>
 				</div>
 
 				{/* 装饰件：输入框上方那块挂饰位 */}
-				<div className="mb-5">
+				<div className="mb-8">
 					<SettingHeading title={model.labels.sections.ornament} section={SETTINGS_SECTION["appearance-ornament"]} className="mb-1 text-[13px]" />
-					<p className="mb-3 text-[12px] text-muted-foreground">{model.labels.ornamentHint}</p>
-					<div className="grid grid-cols-4 gap-3">
+					<p className="mb-4 text-[12px] text-muted-foreground">{model.labels.ornamentHint}</p>
+					<div className="grid grid-cols-4 gap-4">
 						{model.ornamentOptions.map((option) => (
 							<OrnamentCard key={option.id} {...option} onSelect={model.actions.setOrnament} />
 						))}
@@ -578,8 +626,8 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				{/* 纹理：整页背后的底衬 */}
 				<div>
 					<SettingHeading title={model.labels.sections.texture} section={SETTINGS_SECTION["appearance-texture"]} className="mb-1 text-[13px]" />
-					<p className="mb-3 text-[12px] text-muted-foreground">{model.labels.textureHint}</p>
-					<div className="grid grid-cols-4 gap-3">
+					<p className="mb-4 text-[12px] text-muted-foreground">{model.labels.textureHint}</p>
+					<div className="grid grid-cols-4 gap-4">
 						{model.textureOptions.map((option) => (
 							<TextureCard key={option.id} {...option} onSelect={model.actions.setTexture} />
 						))}
@@ -587,9 +635,9 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				</div>
 			</div>
 
-			<div className="mb-6">
-				<SettingHeading title={model.labels.sections.sidebar} section={SETTINGS_SECTION["appearance-sidebar"]} className="mb-3" />
-				<div className="grid grid-cols-2 gap-3">
+			<div className="mb-10">
+				<SettingHeading title={model.labels.sections.sidebar} section={SETTINGS_SECTION["appearance-sidebar"]} className="mb-4" />
+				<div className="grid grid-cols-2 gap-4">
 					{model.sidebarStyleOptions.map((option) => (
 						<SidebarStyleCard key={option.id} {...option} onSelect={model.actions.setSidebarStyle} />
 					))}
@@ -597,9 +645,9 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 			</div>
 
 			{/* 鼠标指针：两列卡片，排在本页最末 */}
-			<div className="mb-6">
-				<SettingHeading title={model.labels.sections.cursor} section={SETTINGS_SECTION["appearance-cursor"]} className="mb-3" />
-				<div className="grid grid-cols-2 gap-3">
+			<div className="mb-10">
+				<SettingHeading title={model.labels.sections.cursor} section={SETTINGS_SECTION["appearance-cursor"]} className="mb-4" />
+				<div className="grid grid-cols-2 gap-4">
 					{model.cursorOptions.map((option) => (
 						<CursorStyleCard
 							key={option.id}

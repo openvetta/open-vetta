@@ -24,6 +24,8 @@ export interface ModelsConfigData {
 			modelsSyncedAt?: string;
 			/** 该服务商是否经应用代理出网；缺省跟随全局，显式 false 才排除。 */
 			useProxy?: boolean;
+			/** 用户手动停用：保留配置与密钥，但不参与模型列表与请求。缺省视为启用。 */
+			disabled?: boolean;
 			models?: Array<{
 				id: string;
 				/** 上游 API 真实模型名。远程渠道下 id=网关路由 key、modelId=上游真名；缺省回退 id。 */
@@ -92,6 +94,8 @@ export interface PresetProviderInfo {
 	baseUrl: string;
 	/** 供应商图标 symbol。 */
 	icon: string;
+	/** 预填的密钥(本机代理类服务商),用户直接点启用即可。 */
+	defaultApiKey?: string;
 	/** 公共目录(models.dev)里该家的模型,免 key 可见;填 key 后由账号实际可用的列表取代。 */
 	catalogModels: NonNullable<ModelsConfigData["providers"][string]["models"]>;
 }
@@ -137,7 +141,7 @@ export interface DesktopModelsApi {
 	/** 读取客户端内置的[[预设服务商]]目录(无网络请求)。 */
 	listPresets(): Promise<PresetProvidersResult>;
 	/** 按 key 拉取某预设服务商上游 `/models` 的模型列表。只拉不写,由调用方落盘。 */
-	refreshPresetModels(providerId: string, apiKey?: string): Promise<PresetModelsResult>;
+	refreshPresetModels(providerId: string, apiKey?: string, baseUrl?: string): Promise<PresetModelsResult>;
 	/** 手动刷新 models.dev 公共目录(清掉失败冷却强制重拉),失败时返回可读的错误原文。 */
 	refreshPresetCatalog(): Promise<{ ok: boolean; error?: PresetError; elapsedMs: number; modelCount: number }>;
 	/** 公共目录后台刷新到新数据时触发,收到后重新 listPresets 即可。返回取消订阅函数。 */

@@ -16,6 +16,12 @@ export interface ModelOption {
 	tags?: string[];
 	/** Whether this model supports image input */
 	supportsImage?: boolean;
+	/** 输入模态（text / image / …），模型详情里展示 */
+	inputModalities?: string[];
+	/** 上下文窗口（tokens） */
+	contextWindow?: number;
+	/** 最大输出（tokens） */
+	maxTokens?: number;
 	/** API type ("openai-completions" / "openai-responses" / ...), for reasoning preset fallback */
 	api?: string;
 	/** Whether the model is reasoning-capable */
@@ -31,6 +37,8 @@ export interface ModelOption {
 function flattenModels(config: ModelsConfigData, remote?: boolean): ModelOption[] {
 	const result: ModelOption[] = [];
 	for (const [provider, providerConfig] of Object.entries(config.providers)) {
+		// 用户停用的服务商：保留配置与密钥，但不再出现在任何模型选择里。
+		if (providerConfig.disabled) continue;
 		for (const model of providerConfig.models ?? []) {
 			const raw = model as Record<string, unknown>;
 			result.push({
@@ -41,6 +49,9 @@ function flattenModels(config: ModelsConfigData, remote?: boolean): ModelOption[
 				remote,
 				tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : undefined,
 				supportsImage: model.input?.includes("image") ?? false,
+				inputModalities: model.input?.length ? [...model.input] : undefined,
+				contextWindow: model.contextWindow,
+				maxTokens: model.maxTokens,
 				api: model.api ?? providerConfig.api,
 				reasoning: model.reasoning,
 				reasoningLevels: model.reasoningLevels,
@@ -107,11 +118,14 @@ export function useModelOptions(): UseModelOptionsResult {
 		return groups;
 	}, [options]);
 
-	const iconFor = (provider: string): string | undefined => {
-		const local = config?.providers[provider] as { icon?: string } | undefined;
-		const remote = (remoteProviders as Record<string, { icon?: string }>)[provider];
-		return local?.icon ?? remote?.icon;
-	};
+	const iconFor = useCallback(
+		(provider: string): string | undefined => {
+			const local = config?.providers[provider] as { icon?: string } | undefined;
+			const remote = (remoteProviders as Record<string, { icon?: string }>)[provider];
+			return local?.icon ?? remote?.icon;
+		},
+		[config, remoteProviders],
+	);
 
 	const labelFor = useCallback(
 		(provider: string): string => {
@@ -125,5 +139,10 @@ export function useModelOptions(): UseModelOptionsResult {
 		[config, remoteProviders],
 	);
 
-	return { options, grouped, defaultKey: config?.defaultModel, iconFor, labelFor };
+	// 默认模型属于被停用的服务商时视为没有默认，否则选择器会自动选中一个已不可用的模型。
+	const defaultModel = config?.defaultModel;
+	const defaultKey =
+		defaultModel && config?.providers[defaultModel.split("/", 1)[0] ?? ""]?.disabled ? undefined : defaultModel;
+
+	return { options, grouped, defaultKey, iconFor, labelFor };
 }

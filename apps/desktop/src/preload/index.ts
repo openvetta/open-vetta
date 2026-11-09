@@ -30,6 +30,7 @@ import { createSystemApi } from "./apis/system.js";
 import { createTelemetryApi } from "./apis/telemetry.js";
 import { createTerminalApi } from "./apis/terminal.js";
 import { createThemesApi } from "./apis/themes.js";
+import { createUiZoomApi } from "./apis/ui-zoom.js";
 import { createWebhookApi } from "./apis/webhook.js";
 import { createHostAccessGate } from "./host-access.js";
 import { createUserActivityReporter, USER_ACTIVITY_CHANNEL } from "./user-activity.js";
@@ -69,6 +70,7 @@ const rawApi: Omit<DesktopApi, "hostAccess"> = {
 	remotePairing: createRemotePairingApi(ipcRenderer),
 	...createAppshotApi(ipcRenderer),
 	...createI18nApi(ipcRenderer),
+	...createUiZoomApi(ipcRenderer),
 	...createTelemetryApi(ipcRenderer),
 	...createSystemApi(ipcRenderer, webUtils),
 };

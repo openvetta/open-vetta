@@ -38,6 +38,8 @@ export interface ProviderConfig {
 	 * 开启后默认走代理；显式 false 才排除。应用代理未启用时本字段无效。
 	 */
 	useProxy?: boolean;
+	/** 用户手动停用:保留配置与密钥,但不参与模型列表与请求。缺省视为启用。 */
+	disabled?: boolean;
 	models?: ModelDefinition[];
 	modelOverrides?: Record<string, Record<string, unknown>>;
 }
@@ -269,21 +271,23 @@ export class ModelSettingsService {
 		const config = await this.getConfig();
 		return {
 			defaultModel: config.defaultModel ?? null,
-			providers: Object.entries(config.providers).map(([id, provider]) => ({
-				id,
-				displayName: provider.displayName ?? id,
-				...(provider.baseUrl === undefined ? {} : { baseUrl: provider.baseUrl }),
-				...(provider.api === undefined ? {} : { api: provider.api }),
-				hasApiKey: Boolean(provider.apiKey),
-				...(provider.icon === undefined ? {} : { icon: provider.icon }),
-				modelCount: provider.models?.length ?? 0,
-				models: (provider.models ?? []).map((model) => ({
-					id: model.id,
-					...(model.name === undefined ? {} : { name: model.name }),
-					...(model.api === undefined ? {} : { api: model.api }),
-					...(model.reasoning === undefined ? {} : { reasoning: model.reasoning }),
+			providers: Object.entries(config.providers)
+				.filter(([, provider]) => !provider.disabled)
+				.map(([id, provider]) => ({
+					id,
+					displayName: provider.displayName ?? id,
+					...(provider.baseUrl === undefined ? {} : { baseUrl: provider.baseUrl }),
+					...(provider.api === undefined ? {} : { api: provider.api }),
+					hasApiKey: Boolean(provider.apiKey),
+					...(provider.icon === undefined ? {} : { icon: provider.icon }),
+					modelCount: provider.models?.length ?? 0,
+					models: (provider.models ?? []).map((model) => ({
+						id: model.id,
+						...(model.name === undefined ? {} : { name: model.name }),
+						...(model.api === undefined ? {} : { api: model.api }),
+						...(model.reasoning === undefined ? {} : { reasoning: model.reasoning }),
+					})),
 				})),
-			})),
 		};
 	}
 

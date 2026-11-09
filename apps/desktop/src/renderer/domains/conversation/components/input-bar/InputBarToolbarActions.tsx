@@ -1,5 +1,6 @@
 import { MessageInput } from "@vetta-org/theme-ui/chat/MessageInputView";
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
+import { ModelSelectorFooterProvider, type ModelSelectorFooterValue } from "../model-selector-footer";
 import { InputBarMention } from "./InputBarMention";
 import {
 	InputBarActiveActions,
@@ -43,9 +44,11 @@ export function InputBarLeadingActions({ model }: { readonly model: InputBarMode
 				onSelectFiles={() => void model.actions.handleSelectFiles()}
 				onSelectImages={() => void model.actions.handleSelectImages()}
 			/>
-			{model.leadingTools.map((tool) => (
-				<InputBarExecutionModeAction key={tool.kind} visible={!slashOpen} model={tool.model} />
-			))}
+			{model.executionModeInModelMenu
+				? null
+				: model.leadingTools.map((tool) => (
+						<InputBarExecutionModeAction key={tool.kind} visible={!slashOpen} model={tool.model} />
+					))}
 			<InputBarActiveActions
 				items={model.activeActions}
 				removeHint={model.labels.capsule.removeDefault}
@@ -85,13 +88,23 @@ export function InputBarToolbar({
 	readonly model: InputBarModel;
 	readonly children: ReactNode;
 }): JSX.Element {
+	const slashOpen = model.commands?.slashOpen ?? false;
+	const footer = useMemo<ModelSelectorFooterValue | null>(
+		() =>
+			model.executionModeInModelMenu
+				? { executionMode: model.leadingTools.find((tool) => tool.kind === "execution-mode")?.model, active: !slashOpen }
+				: null,
+		[model.executionModeInModelMenu, model.leadingTools, slashOpen],
+	);
 	return (
 		<>
 			<MessageInput.ToolbarLeading>
 				<InputBarLeadingActions model={model} />
 			</MessageInput.ToolbarLeading>
 			<MessageInput.ToolbarTrailing>
-				<div className={model.commands?.slashOpen ? "hidden" : "min-w-0 shrink"}>{children}</div>
+				<div className={slashOpen ? "hidden" : "min-w-0 shrink"}>
+					<ModelSelectorFooterProvider value={footer}>{children}</ModelSelectorFooterProvider>
+				</div>
 				<InputBarTrailingActions model={model} />
 			</MessageInput.ToolbarTrailing>
 		</>

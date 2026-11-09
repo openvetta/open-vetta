@@ -17,13 +17,15 @@ export function PresetProvidersSectionView({ model }: { model: PresetProvidersSe
 				<PresetProviderRow
 					key={row.id}
 					row={row}
-					draftKey={model.draftKeys[row.id] ?? ""}
+					draftKey={model.draftKeys[row.id] ?? row.defaultApiKey ?? ""}
 					saving={model.saving}
 					labels={model.labels}
 					onToggleExpanded={model.onToggleExpanded}
 					onToggleEditor={model.onToggleEditor}
 					onDraftKeyChange={model.onDraftKeyChange}
 					onAdopt={model.onAdopt}
+					onToggleEnabled={model.onToggleEnabled}
+					onChangeBaseUrl={model.onChangeBaseUrl}
 					onRemove={model.onRemove}
 					onRefreshModels={model.onRefreshModels}
 					onCopyApiKey={model.onCopyApiKey}

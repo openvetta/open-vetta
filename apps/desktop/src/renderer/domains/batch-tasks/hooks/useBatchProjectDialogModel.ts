@@ -34,9 +34,10 @@ function getProjectData(project: BatchProject | undefined): BatchProjectEditable
 }
 
 function flattenModelKeys(config: ModelsConfigData, remoteProviders: ModelsConfigData["providers"]): string[] {
-	const localKeys = Object.entries(config.providers).flatMap(([provider, providerConfig]) =>
-		(providerConfig.models ?? []).map((model) => `${provider}/${model.id}`),
-	);
+	const localKeys = Object.entries(config.providers)
+		// 已停用的服务商不参与模型选择。
+		.filter(([, providerConfig]) => !providerConfig.disabled)
+		.flatMap(([provider, providerConfig]) => (providerConfig.models ?? []).map((model) => `${provider}/${model.id}`));
 	const localKeySet = new Set(localKeys);
 	const remoteKeys = Object.entries(remoteProviders).flatMap(([provider, providerConfig]) =>
 		(providerConfig.models ?? []).map((model) => `${provider}/${model.id}`).filter((key) => !localKeySet.has(key)),

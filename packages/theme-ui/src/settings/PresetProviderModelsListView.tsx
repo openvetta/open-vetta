@@ -1,13 +1,22 @@
-import { Input } from "@vetta-org/ui";
+import { Button, Input, cn } from "@vetta-org/ui";
 import type { JSX } from "react";
+
+/** 单个模型的连通性测试结果。 */
+export interface PresetProviderModelTestView {
+	readonly status: "testing" | "ok" | "fail";
+	readonly message?: string;
+}
 
 export interface PresetProviderModelRowView {
 	readonly contextWindow?: number | null;
 	readonly hasReasoning?: boolean;
+	/** 上游声明的思考档位，跟在「思考」标记后面。 */
+	readonly reasoningLevels?: readonly string[];
 	readonly hasVision?: boolean;
 	readonly id: string;
 	readonly name: string;
 	readonly price?: string | null;
+	readonly test?: PresetProviderModelTestView;
 }
 
 export interface PresetProviderModelsListViewLabels {
@@ -18,12 +27,18 @@ export interface PresetProviderModelsListViewLabels {
 	readonly perMillionTokens: string;
 	readonly searchPlaceholder: string;
 	readonly thinking: string;
+	readonly testAction: string;
+	readonly testing: string;
+	readonly testOk: string;
+	readonly testFail: string;
 }
 
 export interface PresetProviderModelsListViewProps {
 	readonly labels: PresetProviderModelsListViewLabels;
 	readonly modelRows: readonly PresetProviderModelRowView[];
 	readonly onSearchQueryChange: (value: string) => void;
+	/** 缺省则不显示测试按钮(服务商还没启用,无从探测)。 */
+	readonly onTest?: (modelId: string) => void;
 	readonly searchQuery: string;
 	readonly totalModelCount: number;
 }
@@ -32,13 +47,14 @@ export function PresetProviderModelsListView({
 	labels,
 	modelRows,
 	onSearchQueryChange,
+	onTest,
 	searchQuery,
 	totalModelCount,
 }: PresetProviderModelsListViewProps): JSX.Element {
 	return (
 		<div className="border-t border-border bg-secondary/30">
 			{totalModelCount > 0 && (
-				<div className="px-5 py-2 pl-12">
+				<div className="px-5 py-2">
 					<div className="relative">
 						<span
 							aria-hidden="true"
@@ -77,12 +93,25 @@ export function PresetProviderModelsListView({
 					</div>
 				)}
 				{modelRows.map((model) => (
-					<div key={model.id} className="border-b border-border/50 px-5 py-2 pl-12 last:border-b-0">
-						<div className="truncate text-[12px] text-foreground">{model.name}</div>
-						{model.name !== model.id && (
-							<div className="truncate text-[10px] text-muted-foreground/70">{model.id}</div>
-						)}
-						<div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
+					<div
+						key={model.id}
+						className="flex items-center gap-3 border-b border-border/50 px-5 py-2 last:border-b-0 hover:bg-accent/40"
+					>
+						<div className="min-w-0 flex-1">
+							<div className="truncate text-[12px] text-foreground">{model.name}</div>
+							{model.name !== model.id && (
+								<div className="truncate text-[10px] text-muted-foreground/70">{model.id}</div>
+							)}
+							{model.price && (
+								<div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground/80">
+									<span>{model.price}</span>
+									<span className="rounded bg-accent px-1 py-0.5 text-[9px] text-muted-foreground">
+										{labels.perMillionTokens}
+									</span>
+								</div>
+							)}
+						</div>
+						<span className="flex shrink-0 items-center gap-2 text-[10px] text-muted-foreground">
 							{model.contextWindow != null && <span>{(model.contextWindow / 1024).toFixed(0)}K ctx</span>}
 							{model.hasVision && (
 								<span className="rounded bg-primary/10 px-1 py-0.5 text-[9px] text-primary">vision</span>
@@ -90,20 +119,57 @@ export function PresetProviderModelsListView({
 							{model.hasReasoning && (
 								<span className="rounded bg-accent px-1 py-0.5 text-[9px] text-muted-foreground">
 									{labels.thinking}
+									{model.reasoningLevels?.length ? ` · ${model.reasoningLevels.join("/")}` : ""}
 								</span>
 							)}
-						</div>
-						{model.price && (
-							<div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground/80">
-								<span>{model.price}</span>
-								<span className="rounded bg-accent px-1 py-0.5 text-[9px] text-muted-foreground">
-									{labels.perMillionTokens}
-								</span>
-							</div>
-						)}
+						</span>
+						{onTest && <ModelTestControl model={model} labels={labels} onTest={onTest} />}
 					</div>
 				))}
 			</div>
 		</div>
+	);
+}
+
+function ModelTestControl({
+	model,
+	labels,
+	onTest,
+}: {
+	readonly model: PresetProviderModelRowView;
+	readonly labels: PresetProviderModelsListViewLabels;
+	readonly onTest: (modelId: string) => void;
+}): JSX.Element {
+	const test = model.test;
+	if (test?.status === "testing") {
+		return (
+			<Button variant="ghost" size="xs" disabled className="shrink-0">
+				<span className="icon-[solar--refresh-linear] h-3 w-3 animate-spin" />
+				{labels.testing}
+			</Button>
+		);
+	}
+	if (test?.status === "ok" || test?.status === "fail") {
+		const ok = test.status === "ok";
+		return (
+			<Button
+				variant="ghost"
+				size="xs"
+				onClick={() => onTest(model.id)}
+				title={test.message}
+				className={cn("shrink-0", ok ? "text-emerald-400" : "text-destructive")}
+			>
+				<span
+					className={cn("h-3 w-3", ok ? "icon-[solar--check-circle-linear]" : "icon-[solar--danger-triangle-linear]")}
+				/>
+				{ok ? labels.testOk : labels.testFail}
+			</Button>
+		);
+	}
+	return (
+		<Button variant="ghost" size="xs" onClick={() => onTest(model.id)} title={labels.testAction} className="shrink-0">
+			<span className="icon-[solar--plug-circle-linear] h-3 w-3" />
+			{labels.testAction}
+		</Button>
 	);
 }

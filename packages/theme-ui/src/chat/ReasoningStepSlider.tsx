@@ -1,5 +1,4 @@
-import { Button } from "@vetta-org/ui/button";
-import { Slider } from "@vetta-org/ui/slider";
+import { StepSlider } from "@vetta-org/ui/step-slider";
 import type { JSX } from "react";
 import { useEffect, useState } from "react";
 
@@ -47,44 +46,16 @@ export function ReasoningStepSlider({
 					{previewLevel ? levelLabel(previewLevel) : null}
 				</span>
 			</div>
-			<div className="grid" style={{ gridTemplateColumns: `repeat(${levels.length}, minmax(0, 1fr))` }}>
-				<div
-					className="col-span-full"
-					onPointerCancelCapture={() => setDraftIndex(undefined)}
-					style={{ marginInline: `${50 / levels.length}%` }}
-				>
-					<Slider
-						value={[previewIndex]}
-						min={0}
-						max={Math.max(0, levels.length - 1)}
-						step={1}
-						animateValue
-						className="data-[disabled]:opacity-100"
-						disabled={disabled || levels.length < 2}
-						aria-label={label}
-						aria-valuetext={previewLevel ? levelLabel(previewLevel) : undefined}
-						onValueChange={([index]) => setDraftIndex(index)}
-						onValueCommit={([index]) => commit(index ?? currentIndex)}
-					/>
-				</div>
-				{levels.map((level, index) => (
-					<Button
-						key={level}
-						variant="ghost"
-						size="sm"
-						className={
-							previewIndex === index
-								? "h-6 min-w-0 px-0 text-[11px] text-primary disabled:opacity-100"
-								: "h-6 min-w-0 px-0 text-[11px] disabled:opacity-100"
-						}
-						disabled={disabled}
-						aria-pressed={previewIndex === index}
-						onClick={() => commit(index)}
-					>
-						{levelLabel(level)}
-					</Button>
-				))}
-			</div>
+			<StepSlider
+				labels={levels.map(levelLabel)}
+				index={previewIndex}
+				disabled={disabled}
+				aria-label={label}
+				aria-valuetext={previewLevel ? levelLabel(previewLevel) : undefined}
+				onIndexChange={setDraftIndex}
+				onIndexCommit={commit}
+				onCancel={() => setDraftIndex(undefined)}
+			/>
 		</div>
 	);
 }

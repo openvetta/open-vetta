@@ -6,6 +6,7 @@ import { type RendererConsoleLevel, shouldPersistRendererConsoleMessage } from "
 import { getAppLogger } from "./logger.js";
 import { openExternalUrl } from "./open-external.js";
 import { configureMainWindowMediaPermissions } from "./speech-input/media-permissions.js";
+import { attachUiZoom } from "./ui-zoom/ui-zoom-service.js";
 
 const isMac = process.platform === "darwin";
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
@@ -76,6 +77,7 @@ export function createWindow(): BrowserWindow {
 			webviewTag: true,
 		},
 	});
+	attachUiZoom(mainWindow.webContents);
 	if (isSpeechInputBuildEnabled()) {
 		configureMainWindowMediaPermissions(mainWindow.webContents.session, mainWindow.webContents);
 	}
