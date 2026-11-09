@@ -1076,13 +1076,16 @@ function ModelInfoButton({
 				onClick={(event) => event.stopPropagation()}
 				onPointerDown={(event) => event.stopPropagation()}
 				onPointerUp={(event) => event.stopPropagation()}
+				// 菜单项在 pointermove 时会把焦点抢到自己身上，拖选文字时选区会被打断。
+				onPointerMove={(event) => event.stopPropagation()}
 				onKeyDown={(event) => {
 					if (event.key !== "Escape") event.stopPropagation();
 				}}
 				// 只在「点了浮层外面」或按 Esc 时关闭。鼠标划过菜单里别的行会让那一行拿到焦点，
 				// Radix 会把"焦点移出浮层"也当成关闭，于是鼠标一动浮层就没了；这里忽略焦点移动。
 				onFocusOutside={(event) => event.preventDefault()}
-				className="w-64 gap-3 border-border/60 bg-background/70 p-3 backdrop-blur-xl backdrop-saturate-150"
+				// 应用默认不可选中文字；详情里的 ID、名称等常要复制，整个浮层放开选择。
+				className="w-64 cursor-text select-text gap-3 border-border/60 bg-background/70 p-3 backdrop-blur-xl backdrop-saturate-150"
 			>
 				<div className="flex min-w-0 flex-col gap-0.5">
 					<div className="flex items-center gap-1.5">
@@ -1096,7 +1099,7 @@ function ModelInfoButton({
 						)}
 					</div>
 				</div>
-				<dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-2 text-[11px]">
+				<dl className="flex flex-col gap-2.5 text-[11px]">
 					<InfoRow label={info.source}>
 						<span className="flex flex-wrap items-center gap-1">
 							<span className="break-words">{providerLabel}</span>
@@ -1108,7 +1111,7 @@ function ModelInfoButton({
 						</span>
 					</InfoRow>
 					<InfoRow label={info.id}>
-						<span className="select-text break-all font-mono text-[10px]">{model.modelId}</span>
+						<span className="break-all font-mono text-[10px]">{model.modelId}</span>
 					</InfoRow>
 					{model.contextWindow ? (
 						<InfoRow label={info.contextWindow}>
@@ -1161,12 +1164,13 @@ function ModelInfoButton({
 	);
 }
 
+/** 标签在上、值在下，左对齐；标签比值小一号。 */
 function InfoRow({ label, children }: { readonly label: string; readonly children: ReactNode }): JSX.Element {
 	return (
-		<>
-			<dt className="whitespace-nowrap text-muted-foreground">{label}</dt>
-			<dd className="min-w-0 text-foreground">{children}</dd>
-		</>
+		<div className="flex min-w-0 flex-col items-start gap-0.5">
+			<dt className="text-[10px] leading-none text-muted-foreground">{label}</dt>
+			<dd className="min-w-0 text-left text-foreground">{children}</dd>
+		</div>
 	);
 }
 

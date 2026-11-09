@@ -280,6 +280,28 @@ describe("ModelSelectorView 模型详情", () => {
 		expect(screen.getByPlaceholderText("Search models")).toBeTruthy();
 	});
 
+	it("浮层内文字可选中；标签在上、值在下且左对齐，标签比值小", async () => {
+		const user = userEvent.setup();
+		renderDetailed();
+		await user.click(screen.getByRole("button", { name: /Vision Pro/ }));
+		await user.click(screen.getAllByRole("button", { name: "Model details" })[0] as HTMLElement);
+
+		const panel = (await screen.findByText("vision-pro-1")).closest('[data-slot="popover-content"]') as HTMLElement;
+		expect(panel.className).toContain("select-text");
+
+		// 在浮层里移动鼠标（拖选文字）不能让所在的菜单项抢走焦点。
+		const row = screen.getAllByRole("menuitem", { name: /Vision Pro/ })[0] as HTMLElement;
+		fireEvent.pointerMove(panel);
+		expect(document.activeElement).not.toBe(row);
+
+		const infoRow = screen.getByText("Model ID").parentElement as HTMLElement;
+		expect(infoRow.className).toContain("flex-col");
+		expect(infoRow.className).toContain("items-start");
+		expect(Array.from(infoRow.children).map((node) => node.tagName)).toEqual(["DT", "DD"]);
+		expect(screen.getByText("Model ID").className).toContain("text-[10px]");
+		expect(screen.getByText("vision-pro-1").closest("dd")?.className).toContain("text-left");
+	});
+
 	it("鼠标划过菜单里别的行（焦点移走）浮层不关闭，点浮层外面才关闭", async () => {
 		const user = userEvent.setup();
 		renderDetailed();
