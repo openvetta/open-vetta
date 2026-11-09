@@ -537,11 +537,6 @@ export function ModelSelectorView({
 								<ThemeSurface slot="chat.modelSelectorReasoningMenu" />
 								<div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto p-1">
 									<DropdownMenuLabel className={COMPACT_LABEL_CLASS}>{labels.reasoningHeader}</DropdownMenuLabel>
-									{selectedOption && (
-										<p className="truncate px-2 pb-1 text-[10px] text-muted-foreground/70">
-											{selectedOption.displayName}
-										</p>
-									)}
 									{menuLevels.map((level) => (
 										<DropdownMenuItem
 											key={level}
