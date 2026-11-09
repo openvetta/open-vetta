@@ -65,5 +65,6 @@ export {
 } from "./select";
 export { Slider, type SliderProps } from "./slider";
 export { Spin, type SpinProps, type SpinSize } from "./spin";
+export { StepSlider, type StepSliderProps } from "./step-slider";
 export { Switch } from "./switch";
 export { type ClassValue, cn } from "./utils";
