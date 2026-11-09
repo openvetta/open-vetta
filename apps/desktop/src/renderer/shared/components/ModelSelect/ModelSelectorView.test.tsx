@@ -28,6 +28,7 @@ const labels: ModelSelectorLabels = {
 const favoriteLabels: ModelSelectorFavorites["labels"] = {
 	tab: "Favorites",
 	empty: "No favorites yet",
+	emptyHint: "Hover a model and click the star",
 	add: "Add to favorites",
 	remove: "Remove from favorites",
 };
@@ -265,6 +266,33 @@ describe("ModelSelectorView 收藏", () => {
 		expect(screen.getByPlaceholderText("Search models")).toBeTruthy();
 	});
 
+	it("未收藏的星标平时不占位、悬停才出现；已收藏的常显，且排在右侧其它图标之前", async () => {
+		const user = userEvent.setup();
+		const selected = { ...makeGroup("alpha", "Alpha", 3).models[0]!, supportsImage: true };
+		const withVision: ModelSelectorProviderGroup[] = [
+			{ provider: "alpha", label: "Alpha", models: [selected, ...makeGroup("alpha", "Alpha", 3).models.slice(1)] },
+			makeGroup("magpie", "Magpie", 2),
+		];
+		renderView({
+			groups: withVision,
+			selectedModel: selected.key,
+			selectedOption: selected,
+			favorites: { keys: new Set([selected.key]), onToggle: vi.fn(), labels: favoriteLabels },
+		});
+		await user.click(screen.getByRole("button", { name: /Alpha Model 0/ }));
+
+		const idle = screen.getAllByRole("button", { name: "Add to favorites" })[0] as HTMLElement;
+		expect(idle.className).toContain("hidden");
+		expect(idle.className).toContain("group-hover:inline-flex");
+
+		const pinned = screen.getByRole("button", { name: "Remove from favorites" });
+		expect(pinned.className).not.toContain("hidden");
+		const icons = Array.from(pinned.closest('[role="menuitem"]')?.children ?? []);
+		const vision = icons.findIndex((node) => node.getAttribute("aria-label") === labels.visionBadge);
+		expect(icons.indexOf(pinned)).toBeGreaterThan(0);
+		expect(icons.indexOf(pinned)).toBeLessThan(vision);
+	});
+
 	it("「收藏」入口按供应商分组列出收藏的模型，没有收藏时给出提示", async () => {
 		const user = userEvent.setup();
 		const favorites = { keys: new Set(["magpie/m5"]), onToggle: vi.fn(), labels: favoriteLabels };
@@ -280,6 +308,7 @@ describe("ModelSelectorView 收藏", () => {
 		await openMenu(user);
 		await user.click(screen.getByRole("menuitem", { name: "Favorites" }));
 		expect(screen.getByText("No favorites yet")).toBeTruthy();
+		expect(screen.getByText("Hover a model and click the star")).toBeTruthy();
 	});
 
 	it("宿主不接收藏时不出现星标和「收藏」入口", async () => {

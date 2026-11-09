@@ -958,7 +958,8 @@
 		"fewerProviders": "Show fewer providers",
 		"favorites": {
 			"tab": "Favorite models",
-			"empty": "No favorites yet. Click the star next to a model to add it.",
+			"empty": "No favorite models yet",
+			"emptyHint": "Hover a model and click the star to add it here",
 			"add": "Add to favorites",
 			"remove": "Remove from favorites"
 		},

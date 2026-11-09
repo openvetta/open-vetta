@@ -76,7 +76,10 @@ export interface ModelSelectorFavorites {
 	readonly labels: {
 		/** 第一栏「收藏」入口的名称，也是收藏列表的标题 */
 		tab: string;
+		/** 空态标题 */
 		empty: string;
+		/** 空态说明：告诉用户怎么收藏 */
+		emptyHint: string;
 		add: string;
 		remove: string;
 	};
@@ -507,9 +510,19 @@ export function ModelSelectorView({
 							) : (
 								<div ref={modelListRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
 									{!searching && favorites && activeTab === FAVORITES_TAB && (
-										<div className="flex min-h-24 flex-col items-center justify-center px-4 py-6 text-center">
-											<span aria-hidden="true" className="icon-[solar--star-linear] mb-1.5 size-4 text-muted-foreground" />
-											<p className="text-[11px] text-muted-foreground">{favorites.labels.empty}</p>
+										<div className="flex h-full min-h-40 flex-col items-center justify-center gap-3 px-6 text-center">
+											<span
+												aria-hidden="true"
+												className="flex size-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/20"
+											>
+												<span className="icon-[solar--star-bold] size-6" />
+											</span>
+											<div className="space-y-1">
+												<p className="text-xs font-medium text-foreground">{favorites.labels.empty}</p>
+												<p className="text-[11px] leading-relaxed text-muted-foreground">
+													{favorites.labels.emptyHint}
+												</p>
+											</div>
 										</div>
 									)}
 									{searching && (
@@ -808,14 +821,6 @@ const ModelRow = memo(function ModelRow({
 			onSelect={(event) => onSelect(model, event)}
 		>
 			<span className="min-w-0 flex-1 truncate">{model.displayName}</span>
-			<ModelMultiplier label={multiplierLabel?.(model)} />
-			{model.supportsImage && <ModelVisionIcon label={visionBadge} />}
-			{isDefault && (
-				<span className="shrink-0 rounded-full bg-primary/15 px-1 text-[9px] font-medium text-primary">
-					{defaultBadge}
-				</span>
-			)}
-			{selected && <span className="icon-[solar--check-circle-linear] h-3 w-3 shrink-0" />}
 			{isFavorite !== undefined && favoriteLabels && onToggleFavorite && (
 				<button
 					type="button"
@@ -828,11 +833,12 @@ const ModelRow = memo(function ModelRow({
 						event.stopPropagation();
 						onToggleFavorite(model.key);
 					}}
+					// 已收藏的常亮；没收藏的悬停/高亮时才出现，平时 display:none 不占位。
 					className={cn(
-						"-mr-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded transition-opacity hover:bg-muted",
+						"size-5 shrink-0 items-center justify-center rounded hover:bg-muted",
 						isFavorite
-							? "text-amber-500 opacity-100"
-							: "text-muted-foreground opacity-0 focus-visible:opacity-100 group-hover:opacity-100 group-data-[highlighted]:opacity-100",
+							? "inline-flex text-amber-500"
+							: "hidden text-muted-foreground group-hover:inline-flex group-data-[highlighted]:inline-flex",
 					)}
 				>
 					<span
@@ -841,6 +847,14 @@ const ModelRow = memo(function ModelRow({
 					/>
 				</button>
 			)}
+			<ModelMultiplier label={multiplierLabel?.(model)} />
+			{model.supportsImage && <ModelVisionIcon label={visionBadge} />}
+			{isDefault && (
+				<span className="shrink-0 rounded-full bg-primary/15 px-1 text-[9px] font-medium text-primary">
+					{defaultBadge}
+				</span>
+			)}
+			{selected && <span className="icon-[solar--check-circle-linear] h-3 w-3 shrink-0" />}
 		</DropdownMenuItem>
 	);
 });
