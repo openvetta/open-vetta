@@ -38,7 +38,7 @@ jobs:
 
       - name: Test VettaKit
         working-directory: apps/mobile/client-apple/VettaKit
-        run: swift test --no-parallel
+        run: swift test --no-parallel --build-system swiftbuild
 
       - name: Interop with the desktop LAN server and relay
         run: scripts/interop.sh

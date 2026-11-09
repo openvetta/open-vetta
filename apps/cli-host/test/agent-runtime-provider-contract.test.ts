@@ -277,12 +277,25 @@ describe("Agent Runtime Provider contract", { timeout: 30_000 }, () => {
 				const transitionMark = process.mark();
 
 				await process.request("continuation-rollover", "prompt", { message: "trigger-continuation-rollover" });
-				await process.waitFor((frame) => frame.type === "agent_end", transitionMark, 10_000);
-				const pathChange = await process.waitFor(
-					(frame) => frame.type === "session_path_changed" && typeof frame.to === "string",
+				await process.waitFor(
+					(frame) => frame.type === "agent_end",
 					transitionMark,
-					5_000,
+					10_000,
+					"agent_end after continuation rollover prompt",
 				);
+				const pathChange = await process
+					.waitFor(
+						(frame) => frame.type === "session_path_changed" && typeof frame.to === "string",
+						transitionMark,
+						5_000,
+						"session_path_changed after storage continuation",
+					)
+					.catch((error: unknown) => {
+						throw new Error(
+							`Storage continuation did not publish a path change. Provider requests:\n${describeProviderRequests(server.requests)}`,
+							{ cause: error },
+						);
+					});
 				const targetPath = pathChange.to;
 				if (typeof targetPath !== "string") throw new Error("Expected rollover target path");
 				expect(await readFile(targetPath, "utf8")).toContain(ROLLOVER_SUMMARY);
@@ -804,18 +817,20 @@ function sessionContinuityResponse(
 	fixture: AgentRpcFixture,
 	semantic: "replacement" | "continuation",
 ): { readonly kind: "events"; readonly events: readonly unknown[] } {
-	const requestText = JSON.stringify(request.body.input);
-	if (requestText.includes("You maintain a concise long-term MEMORY")) {
+	const requestText = request.rawBody;
+	const isSummarizationRequest = isContextSummarizationRequest(request);
+	if (isSummarizationRequest && requestText.includes("You maintain a concise long-term MEMORY")) {
 		return { kind: "events", events: textResponseEvents("NONE") };
 	}
-	if (requestText.includes("You are a context summarization assistant")) {
+	if (isSummarizationRequest && requestText.includes("You are a context summarization assistant")) {
 		return {
 			kind: "events",
 			events: textResponseEvents(`<summary>${ROLLOVER_SUMMARY}</summary>`),
 		};
 	}
-	if (request.rawBody.includes(`inspect-${semantic}-todos`)) {
-		return request.rawBody.includes("call_inspect_todo")
+	const currentUserText = readLatestProviderUserText(request);
+	if (currentUserText.includes(`inspect-${semantic}-todos`)) {
+		return requestText.includes("call_inspect_todo")
 			? { kind: "events", events: textResponseEvents("Todo state inspected.") }
 			: {
 					kind: "events",
@@ -826,7 +841,7 @@ function sessionContinuityResponse(
 					),
 				};
 	}
-	if (semantic === "continuation" && request.rawBody.includes("trigger-continuation-rollover")) {
+	if (semantic === "continuation" && currentUserText.includes("trigger-continuation-rollover")) {
 		if (rolloverTriggeredFixtures.has(fixture.root)) {
 			return { kind: "events", events: textResponseEvents("Continuation resumed after rollover.") };
 		}
@@ -836,8 +851,8 @@ function sessionContinuityResponse(
 			events: textResponseEvents("Continuation rollover response.", { inputTokens: 5_999, outputTokens: 1 }),
 		};
 	}
-	if (request.rawBody.includes(`seed-${semantic}-resources`)) {
-		if (!request.rawBody.includes("call_seed_todo")) {
+	if (currentUserText.includes(`seed-${semantic}-resources`)) {
+		if (!requestText.includes("call_seed_todo")) {
 			return {
 				kind: "events",
 				events: toolCallResponseEvents(
@@ -847,7 +862,7 @@ function sessionContinuityResponse(
 				),
 			};
 		}
-		if (!request.rawBody.includes("call_seed_todo_done")) {
+		if (!requestText.includes("call_seed_todo_done")) {
 			return {
 				kind: "events",
 				events: toolCallResponseEvents(
@@ -857,7 +872,7 @@ function sessionContinuityResponse(
 				),
 			};
 		}
-		if (!request.rawBody.includes("call_seed_shell")) {
+		if (!requestText.includes("call_seed_shell")) {
 			return {
 				kind: "events",
 				events: toolCallResponseEvents(
@@ -879,6 +894,34 @@ function sessionContinuityResponse(
 		};
 	}
 	return { kind: "events", events: textResponseEvents(`Unexpected ${semantic} request for ${fixture.workspace}`) };
+}
+
+function readLatestProviderUserText(request: ProviderRequestRecord): string {
+	for (let index = request.body.input.length - 1; index >= 0; index -= 1) {
+		const entry = request.body.input[index];
+		if (!isRecord(entry) || entry.role !== "user") continue;
+		return JSON.stringify(entry);
+	}
+	return "";
+}
+
+function describeProviderRequests(requests: readonly ProviderRequestRecord[]): string {
+	return JSON.stringify(
+		requests.map((request, index) => ({
+			index,
+			latestUser: readLatestProviderUserText(request).slice(0, 240),
+			summarization: isContextSummarizationRequest(request),
+			toolCount: request.body.tools?.length ?? 0,
+			markers: {
+				contextSummary: request.rawBody.includes("You are a context summarization assistant"),
+				memoryFlush: request.rawBody.includes("You maintain a concise long-term MEMORY"),
+				rollover: request.rawBody.includes("trigger-continuation-rollover"),
+				seed: request.rawBody.includes("seed-continuation-resources"),
+			},
+		})),
+		null,
+		2,
+	);
 }
 
 function heldProcessCommand(relativePidPath: string): string {
@@ -1182,24 +1225,47 @@ function describeContinuedConversation(content: string): Readonly<Record<string,
 		.split(/\r?\n/u)
 		.map((line) => JSON.parse(line) as unknown);
 	const entries: PersistedEntryReference[] = [];
+	let activeLeafId: string | null = null;
 	for (const record of records) {
 		if (!isRecord(record)) continue;
-		if (record.recordType === "conversation.import.seed" && Array.isArray(record.entries)) {
+		if (
+			(record.recordType === "conversation.import.seed" || record.recordType === "conversation.continuation.seed") &&
+			Array.isArray(record.entries)
+		) {
 			for (const entry of record.entries) {
 				const reference = readPersistedEntryReference(entry);
 				if (reference) entries.push(reference);
 			}
+			activeLeafId = typeof record.activeLeafId === "string" ? record.activeLeafId : null;
 			continue;
 		}
 		if (isRecord(record.documentEntry)) {
 			const reference = readPersistedEntryReference(record.documentEntry, readStoredEventRole(record.event));
-			if (reference) entries.push(reference);
+			if (reference) {
+				entries.push(reference);
+				activeLeafId = reference.id;
+			}
 			continue;
 		}
+		if (record.recordType === "conversation.document.operation" && isRecord(record.command)) {
+			if (record.command.type === "active_leaf.set") {
+				activeLeafId = typeof record.command.entryId === "string" ? record.command.entryId : null;
+				continue;
+			}
+			if (record.command.type === "custom.append" && typeof record.command.entryId === "string") {
+				entries.push({ id: record.command.entryId, parentId: activeLeafId });
+				activeLeafId = record.command.entryId;
+				continue;
+			}
+		}
 		const reference = readPersistedEntryReference(record);
-		if (reference) entries.push(reference);
+		if (reference) {
+			entries.push(reference);
+			activeLeafId = reference.id;
+		}
 	}
 	const knownIds = new Set<string>();
+	const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
 	let allParentsResolved = true;
 	for (const entry of entries) {
 		if (entry.parentId !== null && !knownIds.has(entry.parentId)) allParentsResolved = false;
@@ -1214,8 +1280,25 @@ function describeContinuedConversation(content: string): Readonly<Record<string,
 		allParentsResolved,
 		activeTailLinked:
 			activeTail.length === 4 &&
-			activeTail.slice(1).every((entry, index) => entry.parentId === activeTail[index]?.id),
+			activeTail.slice(1).every((entry, index) => isDescendantOf(entry, activeTail[index]?.id, entriesById)),
 	};
+}
+
+function isDescendantOf(
+	entry: PersistedEntryReference,
+	ancestorId: string | undefined,
+	entriesById: ReadonlyMap<string, PersistedEntryReference>,
+): boolean {
+	if (!ancestorId) return false;
+	const visited = new Set<string>();
+	let parentId = entry.parentId;
+	while (parentId !== null) {
+		if (parentId === ancestorId) return true;
+		if (visited.has(parentId)) return false;
+		visited.add(parentId);
+		parentId = entriesById.get(parentId)?.parentId ?? null;
+	}
+	return false;
 }
 
 function readPersistedEntryReference(value: unknown, role?: string): PersistedEntryReference | undefined {

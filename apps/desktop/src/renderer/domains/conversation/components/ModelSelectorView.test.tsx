@@ -20,7 +20,7 @@ const labels: ModelSelectorViewProps["labels"] = {
 	reasoningHeader: "Reasoning",
 	modelHeader: "Models",
 	cloudOnly: "Cloud",
-	visionBadge: "Vision",
+	visionBadge: "Supports image input",
 	defaultBadge: "Default",
 	levelLabel: (value) => value,
 };
@@ -197,5 +197,44 @@ describe("ModelSelectorView", () => {
 		expect(drawer).not.toBeNull();
 		expect(menu).not.toBeNull();
 		expect(drawer?.contains(menu)).toBe(true);
+	});
+	it("renders vision capability as an icon with accessible label and without text badge", async () => {
+		const user = userEvent.setup();
+		render(
+			<ModelSelectorView
+				selectedModel="provider/alpha"
+				selectedOption={{
+					key: "provider/alpha",
+					provider: "provider",
+					modelId: "alpha",
+					displayName: "Alpha",
+				}}
+				menuLevels={[]}
+				groups={[
+					{
+						provider: "provider",
+						label: "Provider",
+						models: [
+							{
+								key: "provider/vision",
+								provider: "provider",
+								modelId: "vision",
+								displayName: "Image Model",
+								supportsImage: true,
+							},
+						],
+					},
+				]}
+				labels={labels}
+				onModelSelect={vi.fn()}
+				onReasoningSelect={vi.fn()}
+			/>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "Alpha" }));
+		const item = await screen.findByRole("menuitem", { name: /Image Model/ });
+		expect(item).not.toBeNull();
+		expect(screen.getByRole("img", { name: "Supports image input" })).toBeTruthy();
+		expect(item.textContent).not.toContain("Supports image input");
 	});
 });

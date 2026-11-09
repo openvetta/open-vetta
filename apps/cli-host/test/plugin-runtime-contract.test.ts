@@ -7,6 +7,8 @@ import type { CodingAgentPluginRuntimeSource, CodingAgentRuntimeModelSource } fr
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createCodingAgentRuntimeComposition } from "./fixtures/runtime-composition.js";
 
+const GOAL_CONTROL_TOOLS = ["get_goal", "create_goal", "update_goal"];
+
 describe("Plugin Runtime composition contract", () => {
 	const temporaryDirectories: string[] = [];
 	const compositions: CodingAgentRuntimeComposition[] = [];
@@ -103,10 +105,10 @@ describe("Plugin Runtime composition contract", () => {
 		expect(providerCalls).toEqual(["plugin-session:0"]);
 		expect(modelCalls).toHaveLength(2);
 		expect(modelCalls[0]?.prompt).toContain("Dynamic plugin instruction");
-		expect(modelCalls[0]?.tools).toEqual(["read", "current_time"]);
+		expect(modelCalls[0]?.tools).toEqual(["read", "current_time", ...GOAL_CONTROL_TOOLS]);
 		expect(modelCalls[1]?.messages).toEqual(["inspect", "first response", "plugin continuation"]);
-		expect(modelCalls[1]?.tools).toEqual(["read", "current_time"]);
-		expect(session.readState().activeToolNames).toEqual(["read", "current_time"]);
+		expect(modelCalls[1]?.tools).toEqual(["read", "current_time", ...GOAL_CONTROL_TOOLS]);
+		expect(session.readState().activeToolNames).toEqual(["read", ...GOAL_CONTROL_TOOLS, "current_time"]);
 		expect((await session.readMessages()).map(({ role }) => role)).toEqual([
 			"user",
 			"assistant",

@@ -812,6 +812,29 @@
     "saving": "保存中",
     "imageGeneration": {
       "auto": "自动选择",
+      "custom": {
+        "add": "添加服务",
+        "apiKey": "API Key",
+        "apiKeyKeepHint": "已保存，留空则保持不变",
+        "baseUrl": "Base URL",
+        "cancel": "取消",
+        "delete": "删除",
+        "description": "添加兼容 OpenAI 的图片服务（/images/generations 与 /images/edits），保存后会出现在上面的下拉里。API Key 加密保存在本机，只会发送到你填写的 Base URL。",
+        "edit": "编辑",
+        "errors": {
+          "apiKey": "请填写 API Key。",
+          "baseUrl": "Base URL 需以 http:// 或 https:// 开头。",
+          "capability": "文生图和图生图至少选择一项。",
+          "required": "名称、Base URL 和模型名都必填。",
+          "saveFailed": "保存失败：{{message}}"
+        },
+        "model": "模型名",
+        "name": "名称",
+        "save": "保存",
+        "supportsImageToImage": "支持图生图",
+        "supportsTextToImage": "支持文生图",
+        "title": "自定义图片服务"
+      },
       "description": "选择 Agent 生成或编辑图片时使用的默认模型；自动选择会跟随可用服务。",
       "imageToImage": "图生图模型",
       "loading": "正在读取图片生成服务…",

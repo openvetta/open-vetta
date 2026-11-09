@@ -961,7 +961,7 @@
 		"noResultsHint": "Try another model name, ID, or provider",
 		"unset": "Not set",
 		"defaultBadge": "Default",
-		"visionBadge": "vision",
+		"visionBadge": "Supports image input",
 		"cloudOnly": "Cloud",
 		"reasoningHeader": "Reasoning",
 		"modelHeader": "Model",

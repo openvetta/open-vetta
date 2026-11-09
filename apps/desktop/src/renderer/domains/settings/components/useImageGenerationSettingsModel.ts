@@ -1,6 +1,7 @@
 import type { MediaProviderDescriptor } from "@vetta-org/capability-sdk";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { CustomImageProviderSummary } from "../../../../preload/api-types/media";
 import { SETTINGS_SECTION } from "../registry";
 import { recordSettingsUsage } from "./recordSettingsUsage";
 
@@ -14,7 +15,65 @@ export interface ImageGenerationProviderOption {
 	label: string;
 }
 
+export interface CustomImageProviderDraft {
+	id?: string;
+	name: string;
+	baseUrl: string;
+	apiKey: string;
+	model: string;
+	supportsTextToImage: boolean;
+	supportsImageToImage: boolean;
+	/** 编辑时：库里已有 key，留空即沿用。 */
+	hasStoredApiKey: boolean;
+}
+
+type CustomLabelKey =
+	| "add"
+	| "apiKey"
+	| "apiKeyKeepHint"
+	| "baseUrl"
+	| "cancel"
+	| "delete"
+	| "description"
+	| "edit"
+	| "model"
+	| "name"
+	| "save"
+	| "supportsImageToImage"
+	| "supportsTextToImage"
+	| "title";
+
+const CUSTOM_LABEL_KEYS: readonly CustomLabelKey[] = [
+	"add",
+	"apiKey",
+	"apiKeyKeepHint",
+	"baseUrl",
+	"cancel",
+	"delete",
+	"description",
+	"edit",
+	"model",
+	"name",
+	"save",
+	"supportsImageToImage",
+	"supportsTextToImage",
+	"title",
+];
+
 export interface ImageGenerationSettingsModel {
+	custom: {
+		providers: readonly CustomImageProviderSummary[];
+		draft: CustomImageProviderDraft | null;
+		error: string | null;
+		saving: boolean;
+		startAdd: () => void;
+		startEdit: (id: string) => void;
+		cancel: () => void;
+		updateDraft: (patch: Partial<CustomImageProviderDraft>) => void;
+		save: () => Promise<void>;
+		remove: (id: string) => Promise<void>;
+		labels: Record<CustomLabelKey, string>;
+	};
 	actions: {
 		setImageToImageRoute: (value: string) => Promise<void>;
 		setTextToImageRoute: (value: string) => Promise<void>;
@@ -114,15 +173,21 @@ export function useImageGenerationSettingsModel(): ImageGenerationSettingsModel 
 	const [imageToImageProviderId, setImageToImageProviderId] = useState<string | undefined>();
 	const [imageToImageModelId, setImageToImageModelId] = useState<string | undefined>();
 	const [loading, setLoading] = useState(true);
+	const [customProviders, setCustomProviders] = useState<CustomImageProviderSummary[]>([]);
+	const [draft, setDraft] = useState<CustomImageProviderDraft | null>(null);
+	const [customError, setCustomError] = useState<string | null>(null);
+	const [saving, setSaving] = useState(false);
 
 	const load = useCallback(async () => {
 		setLoading(true);
 		try {
-			const [nextProviders, config] = await Promise.all([
+			const [nextProviders, config, nextCustomProviders] = await Promise.all([
 				window.vetta.media.listProviders(),
 				window.vetta.config.get(),
+				window.vetta.media.customImageProviders.list(),
 			]);
 			setProviders(nextProviders);
+			setCustomProviders(nextCustomProviders);
 			setTextToImageProviderId(config.imageGeneration?.textToImageProviderId ?? undefined);
 			setTextToImageModelId(config.imageGeneration?.textToImageModelId ?? undefined);
 			setImageToImageProviderId(config.imageGeneration?.imageToImageProviderId ?? undefined);
@@ -167,6 +232,108 @@ export function useImageGenerationSettingsModel(): ImageGenerationSettingsModel 
 		[load],
 	);
 
+	const startAdd = useCallback(() => {
+		setCustomError(null);
+		setDraft({
+			name: "",
+			baseUrl: "",
+			apiKey: "",
+			model: "",
+			supportsTextToImage: true,
+			supportsImageToImage: false,
+			hasStoredApiKey: false,
+		});
+	}, []);
+
+	const startEdit = useCallback(
+		(id: string) => {
+			const entry = customProviders.find((candidate) => candidate.id === id);
+			if (!entry) return;
+			setCustomError(null);
+			setDraft({
+				id: entry.id,
+				name: entry.name,
+				baseUrl: entry.baseUrl,
+				apiKey: "",
+				model: entry.model,
+				supportsTextToImage: entry.supportsTextToImage,
+				supportsImageToImage: entry.supportsImageToImage,
+				hasStoredApiKey: entry.hasApiKey,
+			});
+		},
+		[customProviders],
+	);
+
+	const cancelDraft = useCallback(() => {
+		setDraft(null);
+		setCustomError(null);
+	}, []);
+
+	const updateDraft = useCallback((patch: Partial<CustomImageProviderDraft>) => {
+		setDraft((current) => (current ? { ...current, ...patch } : current));
+	}, []);
+
+	const saveDraft = useCallback(async (): Promise<void> => {
+		if (!draft) return;
+		const name = draft.name.trim();
+		const model = draft.model.trim();
+		const baseUrl = draft.baseUrl.trim();
+		const apiKey = draft.apiKey.trim();
+		if (!name || !model || !baseUrl) return setCustomError(t("agentSettings.imageGeneration.custom.errors.required"));
+		if (!/^https?:\/\//i.test(baseUrl)) {
+			return setCustomError(t("agentSettings.imageGeneration.custom.errors.baseUrl"));
+		}
+		if (!draft.supportsTextToImage && !draft.supportsImageToImage) {
+			return setCustomError(t("agentSettings.imageGeneration.custom.errors.capability"));
+		}
+		if (!apiKey && !draft.hasStoredApiKey) {
+			return setCustomError(t("agentSettings.imageGeneration.custom.errors.apiKey"));
+		}
+		setSaving(true);
+		setCustomError(null);
+		try {
+			await window.vetta.media.customImageProviders.save({
+				...(draft.id ? { id: draft.id } : {}),
+				name,
+				baseUrl,
+				model,
+				supportsTextToImage: draft.supportsTextToImage,
+				supportsImageToImage: draft.supportsImageToImage,
+				...(apiKey ? { apiKey } : {}),
+			});
+			setDraft(null);
+			recordSettingsUsage({ tab: "agent", action: "saved", target: "custom-image-provider" });
+			await load();
+		} catch (error) {
+			// 主进程的校验错误文案不含 key；key 只存在于 draft 里，不进错误。
+			const message =
+				error instanceof Error ? error.message.replace(/^Error invoking remote method '[^']+': /, "") : "";
+			setCustomError(t("agentSettings.imageGeneration.custom.errors.saveFailed", { message }));
+		} finally {
+			setSaving(false);
+		}
+	}, [draft, load, t]);
+
+	const removeCustom = useCallback(
+		async (id: string): Promise<void> => {
+			try {
+				await window.vetta.media.customImageProviders.remove(id);
+				recordSettingsUsage({ tab: "agent", action: "deleted", target: "custom-image-provider" });
+			} finally {
+				await load();
+			}
+		},
+		[load],
+	);
+
+	const customLabels = useMemo(
+		() =>
+			Object.fromEntries(
+				CUSTOM_LABEL_KEYS.map((key) => [key, t(`agentSettings.imageGeneration.custom.${key}`)]),
+			) as Record<CustomLabelKey, string>,
+		[t],
+	);
+
 	const textToImageOptions = useMemo(
 		() =>
 			optionsForMode(
@@ -199,6 +366,19 @@ export function useImageGenerationSettingsModel(): ImageGenerationSettingsModel 
 	);
 
 	return {
+		custom: {
+			providers: customProviders,
+			draft,
+			error: customError,
+			saving,
+			startAdd,
+			startEdit,
+			cancel: cancelDraft,
+			updateDraft,
+			save: saveDraft,
+			remove: removeCustom,
+			labels: customLabels,
+		},
 		actions: {
 			setImageToImageRoute: (value) => setRoute("image-to-image", value),
 			setTextToImageRoute: (value) => setRoute("text-to-image", value),

@@ -109,9 +109,6 @@ export function resolveDesktopReleaseConfig(request = {}) {
 	if (releaseTarget === "github" && cloudEnabled !== "false") {
 		throw new Error("GitHub Releases can only publish the open-source build (cloud_enabled=false)");
 	}
-	if (releaseTarget === "r2" && cloudEnabled !== "true") {
-		throw new Error("R2 can only publish the commercial build (cloud_enabled=true)");
-	}
 	const speechInput = parseFlag(pick("speech_input", "VETTA_SPEECH_INPUT_ENABLED"), "speech_input");
 
 	const channel = pick("channel", "VETTA_RELEASE_CHANNEL", "default");
@@ -174,7 +171,9 @@ export function resolveDesktopReleaseConfig(request = {}) {
 		siteUrl,
 		speechInput,
 		tenant,
-		updateProvider: releaseTarget === "r2" ? "generic" : "github",
+		// 内置更新源跟随版本形态，与发布目标无关：商业版读 R2，开源版读 GitHub Release。
+		// 开源版也可以发布到 R2，用于让仍读 R2 的旧商业版客户端升级到内置 GitHub 源的过渡版本。
+		updateProvider: cloudEnabled === "true" ? "generic" : "github",
 		updateUrl,
 	};
 }

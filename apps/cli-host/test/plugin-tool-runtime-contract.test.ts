@@ -15,6 +15,8 @@ import type { CodingAgentPluginRuntimeSource, CodingAgentRuntimeModelSource } fr
 import { afterEach, describe, expect, it } from "vitest";
 import { createCodingAgentRuntimeComposition } from "./fixtures/runtime-composition.js";
 
+const GOAL_CONTROL_TOOLS = ["get_goal", "create_goal", "update_goal"];
+
 describe("Plugin Tool Runtime composition contract", () => {
 	const temporaryDirectories: string[] = [];
 	const compositions: CodingAgentRuntimeComposition[] = [];
@@ -141,11 +143,11 @@ describe("Plugin Tool Runtime composition contract", () => {
 		expect(invocations[0]?.input).toEqual({ title: "Report" });
 		expect(invocations[0]?.conversation.messages.map(({ role }) => role)).toEqual(["user", "assistant"]);
 		expect(modelCalls).toHaveLength(3);
-		expect(modelCalls[0]?.tools).toEqual(["read", "plugin_artifact"]);
-		expect(modelCalls[1]?.tools).toEqual(["plugin_artifact"]);
+		expect(modelCalls[0]?.tools).toEqual(["read", ...GOAL_CONTROL_TOOLS, "plugin_artifact"]);
+		expect(modelCalls[1]?.tools).toEqual([...GOAL_CONTROL_TOOLS, "plugin_artifact"]);
 		expect(modelCalls[1]?.prompt).toContain("Artifact tool completed");
 		expect(modelCalls[2]?.messages.map(messageText)).toContain("verify artifact");
-		expect(session.readState().activeToolNames).toEqual(["plugin_artifact"]);
+		expect(session.readState().activeToolNames).toEqual([...GOAL_CONTROL_TOOLS, "plugin_artifact"]);
 		expect(
 			hookEvents.map((event) => ({
 				eventName: event.eventName,

@@ -226,12 +226,25 @@ describe("resolveDesktopReleaseConfig", () => {
 				inputs: { release_target: "github", cloud_enabled: "true" },
 			}),
 		).toThrow(/open-source build/);
-		expect(() =>
-			resolveDesktopReleaseConfig({
-				eventName: "workflow_dispatch",
-				inputs: { release_target: "r2", cloud_enabled: "false" },
-			}),
-		).toThrow(/commercial build/);
+	});
+
+	it("lets the open-source build publish to R2 while embedding the GitHub update source", () => {
+		const config = resolveDesktopReleaseConfig({
+			eventName: "workflow_dispatch",
+			inputs: { release_target: "r2", cloud_enabled: "false" },
+			vars: {
+				VETTA_R2_PREFIX: "desktop/stable",
+				VETTA_UPDATE_URL: "https://releases.example.com/desktop/stable",
+				VETTA_SERVER_URL: "https://api.example.com/api/v1",
+			},
+		});
+		expect(config).toMatchObject({
+			cloudEnabled: "false",
+			releaseTarget: "r2",
+			serverUrl: "",
+			updateProvider: "github",
+			updateUrl: "https://releases.example.com/desktop/stable",
+		});
 	});
 
 	it("omits empty optional keys from GITHUB_ENV", () => {
