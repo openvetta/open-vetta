@@ -268,6 +268,16 @@ describe("ModelSelectorView 底栏与受控开合", () => {
 		expect(screen.queryByText("hint-left")).toBeNull();
 	});
 
+	it("面板是毛玻璃材质：半透明底色加背景模糊", async () => {
+		const user = userEvent.setup();
+		renderView();
+		await openMenu(user);
+
+		const content = document.querySelector('[data-slot="dropdown-menu-content"]') as HTMLElement;
+		expect(content.className).toContain("bg-background/70");
+		expect(content.className).toContain("backdrop-blur-xl");
+	});
+
 	it("受控 open：宿主设为 true 就打开，设回 false 就关闭并清掉搜索词", async () => {
 		const user = userEvent.setup();
 		const { rerender } = renderView({ open: false });

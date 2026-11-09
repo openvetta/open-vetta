@@ -412,8 +412,9 @@ export function ModelSelectorView({
 				// 三栏后菜单较宽，贴着窗口右缘放会被推到边上；留出边距让它整体往左收。
 				collisionPadding={16}
 				className={cn(
-					// 底色跟搜索框走同一个变量：搜索行去掉底色后要和面板融成一块
-					"w-auto min-w-[180px] max-w-[calc(100vw-2rem)] overflow-visible bg-background p-0",
+					// 毛玻璃：半透明底色 + 背景模糊，背后的内容只透出柔和的轮廓；底色仍是主题的 background 变量，
+					// 搜索行等没有自己底色的子元素因此和面板融成一块。
+					"w-auto min-w-[180px] max-w-[calc(100vw-2rem)] overflow-visible border-border/60 bg-background/70 p-0 backdrop-blur-xl backdrop-saturate-150",
 					classNames?.content,
 				)}
 			>
