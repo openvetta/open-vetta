@@ -554,7 +554,6 @@ export function ModelSelectorView({
 											onSelect={emptyOption.onSelect}
 										>
 											<span className="min-w-0 flex-1 truncate">{emptyOption.label}</span>
-											{!selectedModel && <span className="icon-[solar--check-circle-linear] h-3 w-3 shrink-0" />}
 										</DropdownMenuItem>
 										<DropdownMenuSeparator />
 									</>
@@ -1001,7 +1000,6 @@ const ModelRow = memo(function ModelRow({
 					)}
 				</>
 			)}
-			{selected && <span className="icon-[solar--check-circle-linear] h-3 w-3 shrink-0" />}
 		</DropdownMenuItem>
 	);
 });
