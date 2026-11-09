@@ -114,6 +114,11 @@ export interface ModelSelectorViewProps {
 	 * 不传则选中任何模型都直接关闭菜单。
 	 */
 	reasoningModelKeys?: ReadonlySet<string>;
+	/** 受控的开合状态；不传则视图自己管理。 */
+	open?: boolean;
+	/** 底栏左侧（如快捷键提示）与右侧（如执行模式选择）的内容；两个都不传就没有底栏。 */
+	footerStart?: ReactNode;
+	footerEnd?: ReactNode;
 	/** 菜单开合回调，宿主可借此在打开时刷新模型目录 */
 	onOpenChange?: (open: boolean) => void;
 }
@@ -172,11 +177,16 @@ export function ModelSelectorView({
 	classNames,
 	favorites,
 	reasoningModelKeys,
+	open: openProp,
+	footerStart,
+	footerEnd,
 	onModelSelect,
 	onReasoningSelect,
 	onOpenChange,
 }: ModelSelectorViewProps): JSX.Element {
-	const [open, setOpen] = useState(false);
+	const [openState, setOpenState] = useState(false);
+	// 宿主可以传 open 来控制（例如快捷键唤起）；不传就由视图自己管。
+	const open = openProp ?? openState;
 	const [searchQuery, setSearchQuery] = useState("");
 	// 用户在第一栏手动点选的栏目；null 表示没点过，跟随当前所选模型的供应商。关菜单即重置。
 	const [tabOverride, setTabOverride] = useState<string | null>(null);
@@ -282,16 +292,19 @@ export function ModelSelectorView({
 
 	const handleOpenChange = useCallback(
 		(nextOpen: boolean) => {
-			setOpen(nextOpen);
-			if (!nextOpen) {
-				setSearchQuery("");
-				setTabOverride(null);
-				setRailExpanded(false);
-			}
+			setOpenState(nextOpen);
 			onOpenChange?.(nextOpen);
 		},
 		[onOpenChange],
 	);
+
+	// 无论是用户关的还是宿主把 open 改成 false，下次打开都从干净的状态开始。
+	useEffect(() => {
+		if (open) return;
+		setSearchQuery("");
+		setTabOverride(null);
+		setRailExpanded(false);
+	}, [open]);
 
 	useEffect(() => {
 		if (!open) return;
@@ -305,7 +318,8 @@ export function ModelSelectorView({
 	};
 
 	const handleSearchKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
-		if (event.key === "Escape") return;
+		// Escape 交给菜单关闭；带 Cmd/Ctrl 的组合键是全局快捷键（如再按一次收起菜单），都不拦。
+		if (event.key === "Escape" || event.metaKey || event.ctrlKey) return;
 		event.stopPropagation();
 
 		if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
@@ -407,154 +421,162 @@ export function ModelSelectorView({
 					<ThemeSurface slot="chat.modelSelectorMenu" />
 					<div
 						className={cn(
-							"relative z-10 flex h-[min(340px,60vh)] overflow-hidden rounded-[inherit]",
+							"relative z-10 flex flex-col overflow-hidden rounded-[inherit]",
 							classNames?.contentInner,
 						)}
 					>
-						{showRail && (
-							<div className="flex w-11 shrink-0 flex-col items-center gap-1 overflow-y-auto overflow-x-hidden border-r border-border/40 p-1">
-								{favorites && (
-									<RailItem
-										label={favorites.labels.tab}
-										active={!searching && activeTab === FAVORITES_TAB}
-										onSelect={() => selectTab(FAVORITES_TAB)}
-									>
-										<span aria-hidden="true" className="icon-[solar--star-bold] size-4" />
-									</RailItem>
-								)}
-								{railGroups.map((group) => (
-									<RailItem
-										key={group.provider}
-										label={group.label}
-										active={!searching && activeTab === group.provider}
-										onSelect={() => selectTab(group.provider)}
-									>
-										{getProviderIcon(group.icon) ? (
-											<ProviderIcon symbol={group.icon} className="size-4" />
-										) : (
-											<span aria-hidden="true" className="text-[12px] font-semibold uppercase leading-none">
-												{providerInitial(group.label)}
-											</span>
-										)}
-									</RailItem>
-								))}
-								{canFoldRail && labels.moreProviders && labels.fewerProviders && (
-									<RailItem
-										label={railFolded ? labels.moreProviders(railHiddenCount) : labels.fewerProviders}
-										active={false}
-										onSelect={() => setRailExpanded(railFolded)}
-									>
-										{railFolded ? (
-											<span aria-hidden="true" className="text-[10px] font-medium tabular-nums">
-												+{railHiddenCount}
-											</span>
-										) : (
-											<span aria-hidden="true" className="icon-[solar--alt-arrow-up-linear] size-4" />
-										)}
-									</RailItem>
-								)}
-							</div>
-						)}
-						<div className="flex w-64 min-w-0 shrink flex-col p-1">
-							<div className="shrink-0 p-0.5">
-								<div className="relative" onKeyDown={handleSearchKeyDown}>
-									<span
-										aria-hidden="true"
-										className="icon-[solar--magnifer-linear] pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground"
-									/>
-									{/* type=search 在 WebKit 里自带清除按钮，隐藏它，只留下面自绘的那个 */}
-									<input
-										ref={searchInputRef}
-										type="search"
-										value={searchQuery}
-										onChange={handleSearchChange}
-										onClick={handleSearchClick}
-										placeholder={labels.searchPlaceholder}
-										aria-label={labels.searchPlaceholder}
-										className="h-7 w-full rounded-md pl-7 pr-7 text-[11px] text-foreground outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
-									/>
-									{searchQuery && (
-										<button
-											type="button"
-											onClick={handleClearSearch}
-											aria-label={labels.clearSearch}
-											className="absolute right-1 top-1/2 inline-flex size-4 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+						<div className="flex h-[min(340px,60vh)] min-h-0">
+							{showRail && (
+								<div className="flex w-11 shrink-0 flex-col items-center gap-1 overflow-y-auto overflow-x-hidden border-r border-border/40 p-1">
+									{favorites && (
+										<RailItem
+											label={favorites.labels.tab}
+											active={!searching && activeTab === FAVORITES_TAB}
+											onSelect={() => selectTab(FAVORITES_TAB)}
 										>
-											<span aria-hidden="true" className="icon-[solar--close-circle-linear] size-3" />
-										</button>
+											<span aria-hidden="true" className="icon-[solar--star-bold] size-4" />
+										</RailItem>
+									)}
+									{railGroups.map((group) => (
+										<RailItem
+											key={group.provider}
+											label={group.label}
+											active={!searching && activeTab === group.provider}
+											onSelect={() => selectTab(group.provider)}
+										>
+											{getProviderIcon(group.icon) ? (
+												<ProviderIcon symbol={group.icon} className="size-4" />
+											) : (
+												<span aria-hidden="true" className="text-[12px] font-semibold uppercase leading-none">
+													{providerInitial(group.label)}
+												</span>
+											)}
+										</RailItem>
+									))}
+									{canFoldRail && labels.moreProviders && labels.fewerProviders && (
+										<RailItem
+											label={railFolded ? labels.moreProviders(railHiddenCount) : labels.fewerProviders}
+											active={false}
+											onSelect={() => setRailExpanded(railFolded)}
+										>
+											{railFolded ? (
+												<span aria-hidden="true" className="text-[10px] font-medium tabular-nums">
+													+{railHiddenCount}
+												</span>
+											) : (
+												<span aria-hidden="true" className="icon-[solar--alt-arrow-up-linear] size-4" />
+											)}
+										</RailItem>
 									)}
 								</div>
-							</div>
-							{emptyOption && (
-								<>
-									<DropdownMenuItem
-										aria-current={!selectedModel ? "true" : undefined}
-										className={cn(COMPACT_ITEM_CLASS, !selectedModel && "bg-accent text-accent-foreground")}
-										onSelect={emptyOption.onSelect}
-									>
-										<span className="min-w-0 flex-1 truncate">{emptyOption.label}</span>
-										{!selectedModel && <span className="icon-[solar--check-circle-linear] h-3 w-3 shrink-0" />}
-									</DropdownMenuItem>
-									<DropdownMenuSeparator />
-								</>
 							)}
-							{!favoritesEmpty && (
-				<DropdownMenuLabel className={COMPACT_LABEL_CLASS}>{listTitle}</DropdownMenuLabel>
-			)}
-							{entries.length > 0 ? (
-								<ModelList
-									// 换栏目或改搜索词就整张列表重来：滚动位置回到顶部（或所选项），虚拟窗口也跟着重算。
-									key={`${searching ? "search" : activeTab}|${searchQuery}`}
-									entries={entries}
-									context={listContext}
-									scrollRef={modelListRef}
-								/>
-							) : (
-								<div ref={modelListRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-									{!searching && favorites && activeTab === FAVORITES_TAB && (
-										<div className="flex h-full min-h-40 flex-col items-center justify-center gap-3 px-6 text-center">
-											<span
-												aria-hidden="true"
-												className="flex size-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/20"
+							<div className="flex w-64 min-w-0 shrink flex-col p-1">
+								<div className="shrink-0 p-0.5">
+									<div className="relative" onKeyDown={handleSearchKeyDown}>
+										<span
+											aria-hidden="true"
+											className="icon-[solar--magnifer-linear] pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground"
+										/>
+										{/* type=search 在 WebKit 里自带清除按钮，隐藏它，只留下面自绘的那个 */}
+										<input
+											ref={searchInputRef}
+											type="search"
+											value={searchQuery}
+											onChange={handleSearchChange}
+											onClick={handleSearchClick}
+											placeholder={labels.searchPlaceholder}
+											aria-label={labels.searchPlaceholder}
+											className="h-7 w-full rounded-md pl-7 pr-7 text-[11px] text-foreground outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
+										/>
+										{searchQuery && (
+											<button
+												type="button"
+												onClick={handleClearSearch}
+												aria-label={labels.clearSearch}
+												className="absolute right-1 top-1/2 inline-flex size-4 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 											>
-												<span className="icon-[solar--star-bold] size-6" />
-											</span>
-											<p className="text-xs font-medium text-foreground">{favorites.labels.empty}</p>
-										</div>
-									)}
-									{searching && (
-										<div className="flex min-h-24 flex-col items-center justify-center px-4 py-6 text-center">
-											<span aria-hidden="true" className="icon-[solar--magnifer-linear] mb-1.5 size-4 text-muted-foreground" />
-											<p className="text-xs font-medium text-foreground">{labels.noResults}</p>
-											<p className="mt-0.5 text-[11px] text-muted-foreground">{labels.noResultsHint}</p>
-										</div>
-									)}
+												<span aria-hidden="true" className="icon-[solar--close-circle-linear] size-3" />
+											</button>
+										)}
+									</div>
+								</div>
+								{emptyOption && (
+									<>
+										<DropdownMenuItem
+											aria-current={!selectedModel ? "true" : undefined}
+											className={cn(COMPACT_ITEM_CLASS, !selectedModel && "bg-accent text-accent-foreground")}
+											onSelect={emptyOption.onSelect}
+										>
+											<span className="min-w-0 flex-1 truncate">{emptyOption.label}</span>
+											{!selectedModel && <span className="icon-[solar--check-circle-linear] h-3 w-3 shrink-0" />}
+										</DropdownMenuItem>
+										<DropdownMenuSeparator />
+									</>
+								)}
+								{!favoritesEmpty && (
+					<DropdownMenuLabel className={COMPACT_LABEL_CLASS}>{listTitle}</DropdownMenuLabel>
+				)}
+								{entries.length > 0 ? (
+									<ModelList
+										// 换栏目或改搜索词就整张列表重来：滚动位置回到顶部（或所选项），虚拟窗口也跟着重算。
+										key={`${searching ? "search" : activeTab}|${searchQuery}`}
+										entries={entries}
+										context={listContext}
+										scrollRef={modelListRef}
+									/>
+								) : (
+									<div ref={modelListRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+										{!searching && favorites && activeTab === FAVORITES_TAB && (
+											<div className="flex h-full min-h-40 flex-col items-center justify-center gap-3 px-6 text-center">
+												<span
+													aria-hidden="true"
+													className="flex size-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/20"
+												>
+													<span className="icon-[solar--star-bold] size-6" />
+												</span>
+												<p className="text-xs font-medium text-foreground">{favorites.labels.empty}</p>
+											</div>
+										)}
+										{searching && (
+											<div className="flex min-h-24 flex-col items-center justify-center px-4 py-6 text-center">
+												<span aria-hidden="true" className="icon-[solar--magnifer-linear] mb-1.5 size-4 text-muted-foreground" />
+												<p className="text-xs font-medium text-foreground">{labels.noResults}</p>
+												<p className="mt-0.5 text-[11px] text-muted-foreground">{labels.noResultsHint}</p>
+											</div>
+										)}
+									</div>
+								)}
+							</div>
+							{menuLevels.length > 0 && (
+								<div className="relative flex w-32 shrink-0 flex-col overflow-hidden border-l border-border/40">
+									<ThemeSurface slot="chat.modelSelectorReasoningMenu" />
+									<div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto p-1">
+										<DropdownMenuLabel className={COMPACT_LABEL_CLASS}>{labels.reasoningHeader}</DropdownMenuLabel>
+										{menuLevels.map((level) => (
+											<DropdownMenuItem
+												key={level}
+												className={cn(
+													COMPACT_ITEM_CLASS,
+													level === currentLevel && "bg-accent text-accent-foreground",
+												)}
+												onSelect={() => onReasoningSelect(level)}
+											>
+												<span className="min-w-0 flex-1 truncate">{labels.levelLabel(level)}</span>
+												{level === currentLevel && (
+													<span className="icon-[solar--check-circle-linear] h-3 w-3 shrink-0" />
+												)}
+											</DropdownMenuItem>
+										))}
+									</div>
 								</div>
 							)}
 						</div>
-						{menuLevels.length > 0 && (
-							<div className="relative flex w-32 shrink-0 flex-col overflow-hidden border-l border-border/40">
-								<ThemeSurface slot="chat.modelSelectorReasoningMenu" />
-								<div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto p-1">
-									<DropdownMenuLabel className={COMPACT_LABEL_CLASS}>{labels.reasoningHeader}</DropdownMenuLabel>
-									{menuLevels.map((level) => (
-										<DropdownMenuItem
-											key={level}
-											className={cn(
-												COMPACT_ITEM_CLASS,
-												level === currentLevel && "bg-accent text-accent-foreground",
-											)}
-											onSelect={() => onReasoningSelect(level)}
-										>
-											<span className="min-w-0 flex-1 truncate">{labels.levelLabel(level)}</span>
-											{level === currentLevel && (
-												<span className="icon-[solar--check-circle-linear] h-3 w-3 shrink-0" />
-											)}
-										</DropdownMenuItem>
-									))}
-								</div>
-							</div>
-						)}
+					{(footerStart || footerEnd) && (
+						<div className="flex h-9 shrink-0 items-center justify-between gap-2 border-t border-border/40 px-2">
+							<div className="flex min-w-0 items-center">{footerStart}</div>
+							<div className="flex min-w-0 shrink-0 items-center">{footerEnd}</div>
+						</div>
+					)}
 					</div>
 				</div>
 			</DropdownMenuContent>

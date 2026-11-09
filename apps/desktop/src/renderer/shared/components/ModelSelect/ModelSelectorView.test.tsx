@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
 	type ModelSelectorFavorites,
@@ -57,20 +57,22 @@ afterAll(() => {
 const groups = [makeGroup("alpha", "Alpha", 3), makeGroup("magpie", "Magpie", 120)];
 const hugeGroups = [makeGroup("alpha", "Alpha", 3), makeGroup("magpie", "Magpie", 500)];
 
-function renderView(overrides: Partial<Parameters<typeof ModelSelectorView>[0]> = {}) {
+function baseProps(overrides: Partial<Parameters<typeof ModelSelectorView>[0]> = {}): Parameters<typeof ModelSelectorView>[0] {
 	const selected = groups[0]?.models[0] ?? null;
-	return render(
-		<ModelSelectorView
-			selectedModel={selected?.key}
-			selectedOption={selected}
-			menuLevels={[]}
-			groups={groups}
-			labels={labels}
-			onModelSelect={vi.fn()}
-			onReasoningSelect={vi.fn()}
-			{...overrides}
-		/>,
-	);
+	return {
+		selectedModel: selected?.key,
+		selectedOption: selected,
+		menuLevels: [],
+		groups,
+		labels,
+		onModelSelect: vi.fn(),
+		onReasoningSelect: vi.fn(),
+		...overrides,
+	};
+}
+
+function renderView(overrides: Partial<Parameters<typeof ModelSelectorView>[0]> = {}) {
+	return render(<ModelSelectorView {...baseProps(overrides)} />);
 }
 
 async function openMenu(user: ReturnType<typeof userEvent.setup>) {
@@ -242,6 +244,60 @@ describe("ModelSelectorView 服务商过多时折叠第一栏", () => {
 		await user.click(screen.getByRole("button", { name: /Prov0 Model 0/ }));
 
 		expect(screen.getByRole("menuitem", { name: "Prov13" })).toBeTruthy();
+	});
+});
+
+describe("ModelSelectorView 底栏与受控开合", () => {
+	beforeAll(() => {
+		Element.prototype.scrollIntoView = vi.fn();
+	});
+
+	it("传了 footerStart / footerEnd 就在底部渲染，没传就没有底栏", async () => {
+		const user = userEvent.setup();
+		const { unmount } = renderView({
+			footerStart: <span>hint-left</span>,
+			footerEnd: <button type="button">sandbox-right</button>,
+		});
+		await openMenu(user);
+		expect(screen.getByText("hint-left")).toBeTruthy();
+		expect(screen.getByRole("button", { name: "sandbox-right" })).toBeTruthy();
+		unmount();
+
+		renderView();
+		await openMenu(user);
+		expect(screen.queryByText("hint-left")).toBeNull();
+	});
+
+	it("受控 open：宿主设为 true 就打开，设回 false 就关闭并清掉搜索词", async () => {
+		const user = userEvent.setup();
+		const { rerender } = renderView({ open: false });
+		expect(screen.queryByPlaceholderText("Search models")).toBeNull();
+
+		rerender(<ModelSelectorView {...baseProps()} open />);
+		const search = await screen.findByPlaceholderText("Search models");
+		await user.type(search, "zzz");
+
+		rerender(<ModelSelectorView {...baseProps()} open={false} />);
+		await waitFor(() => expect(screen.queryByPlaceholderText("Search models")).toBeNull());
+
+		rerender(<ModelSelectorView {...baseProps()} open />);
+		expect((await screen.findByPlaceholderText("Search models")) as HTMLInputElement).toHaveProperty("value", "");
+	});
+
+	it("搜索框里带 Cmd/Ctrl 的按键不会被拦截，保证全局快捷键还能再按一次收起菜单", async () => {
+		const user = userEvent.setup();
+		renderView();
+		await openMenu(user);
+		const search = screen.getByPlaceholderText("Search models");
+		const reachedWindow = vi.fn();
+		window.addEventListener("keydown", reachedWindow);
+
+		fireEvent.keyDown(search, { key: "p", metaKey: true });
+		expect(reachedWindow).toHaveBeenCalledTimes(1);
+		fireEvent.keyDown(search, { key: "p" });
+		expect(reachedWindow).toHaveBeenCalledTimes(1);
+
+		window.removeEventListener("keydown", reachedWindow);
 	});
 });
 
