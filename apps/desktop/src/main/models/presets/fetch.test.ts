@@ -178,3 +178,25 @@ describe("fetchPresetModels", () => {
 		expect(result.error).toEqual({ code: "empty-models" });
 	});
 });
+
+describe("Magpie 本机代理预设", () => {
+	it("指向本机 3425 端口并预填密钥,按 OpenAI 兼容的 /models 拉取", async () => {
+		const magpie = def("magpie");
+		expect(magpie.baseUrl).toBe("http://127.0.0.1:3425/v1");
+		expect(magpie.defaultApiKey).toBe("magpie");
+
+		const calls: string[] = [];
+		const result = await fetchPresetModels(
+			magpie,
+			"magpie",
+			async (url) => {
+				calls.push(url);
+				return jsonResponse({ data: [{ id: "gpt-5" }, { id: "text-embedding-3" }] });
+			},
+			new AbortController().signal,
+			1000,
+		);
+		expect(calls).toEqual(["http://127.0.0.1:3425/v1/models"]);
+		expect(result.models.map((m) => m.id)).toEqual(["gpt-5"]);
+	});
+});

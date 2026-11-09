@@ -24,6 +24,8 @@ export interface PresetProviderRow {
 	api: string;
 	baseUrl?: string;
 	icon?: string;
+	/** 预填密钥:草稿为空时作为输入框初值,点启用即用。 */
+	defaultApiKey?: string;
 	models: NonNullable<ProviderEntry["models"]>;
 	modelRows: PresetProviderModelRow[];
 	offline: boolean;
@@ -157,6 +159,7 @@ export function usePresetProvidersSectionModel({
 			api: preset.api,
 			baseUrl: preset.baseUrl,
 			icon: preset.icon,
+			defaultApiKey: preset.defaultApiKey,
 			// 已启用的用账号实际可用的 /models 结果,未启用的展示 models.dev 公共目录。
 			models: config.providers[preset.id]?.models ?? preset.catalogModels,
 			offline: false,
@@ -214,7 +217,7 @@ export function usePresetProvidersSectionModel({
 
 	const adopt = useCallback(
 		async (row: PresetProviderRow): Promise<void> => {
-			const key = (draftKeys[row.id] ?? "").trim();
+			const key = (draftKeys[row.id] ?? row.defaultApiKey ?? "").trim();
 			if (!key) return;
 			setSaving(true);
 			try {
@@ -408,6 +411,7 @@ interface BaseRow {
 	api: string;
 	baseUrl?: string;
 	icon?: string;
+	defaultApiKey?: string;
 	models: NonNullable<ProviderEntry["models"]>;
 	offline: boolean;
 }

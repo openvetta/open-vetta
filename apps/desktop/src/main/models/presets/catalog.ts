@@ -10,6 +10,8 @@ export interface PresetProviderDef {
 	readonly api: string;
 	readonly baseUrl: string;
 	readonly fetcher: PresetFetcher;
+	/** 本机代理类服务商的固定密钥:设置页预填,用户一键启用即可。 */
+	readonly defaultApiKey?: string;
 	/** 上游 /models 会混入 embedding / tts / 图像等非对话模型,按此过滤。 */
 	readonly isChatModel: (id: string) => boolean;
 }
@@ -95,6 +97,17 @@ export const PRESET_PROVIDERS: readonly PresetProviderDef[] = [
 		// baseUrl 必须带版本段:google provider 见到 baseUrl 就不再追加 apiVersion。
 		baseUrl: "https://generativelanguage.googleapis.com/v1beta",
 		fetcher: "gemini",
+		isChatModel: (id) => !NON_CHAT.test(id),
+	},
+	{
+		// Magpie 是用户本机的代理,模型清单以其 /models 为准,不在 models.dev 目录里。
+		id: "magpie",
+		displayName: "Magpie",
+		icon: "magpie",
+		api: "openai-completions",
+		baseUrl: "http://127.0.0.1:3425/v1",
+		fetcher: "openai-compatible",
+		defaultApiKey: "magpie",
 		isChatModel: (id) => !NON_CHAT.test(id),
 	},
 ];

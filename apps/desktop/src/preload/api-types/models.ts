@@ -92,6 +92,8 @@ export interface PresetProviderInfo {
 	baseUrl: string;
 	/** 供应商图标 symbol。 */
 	icon: string;
+	/** 预填的密钥(本机代理类服务商),用户直接点启用即可。 */
+	defaultApiKey?: string;
 	/** 公共目录(models.dev)里该家的模型,免 key 可见;填 key 后由账号实际可用的列表取代。 */
 	catalogModels: NonNullable<ModelsConfigData["providers"][string]["models"]>;
 }

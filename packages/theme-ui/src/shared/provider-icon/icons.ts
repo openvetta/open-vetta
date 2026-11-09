@@ -12,6 +12,7 @@ import qwenIcon from "@lobehub/icons-static-svg/icons/qwen-color.svg?url";
 import xiaomiMimoIcon from "@lobehub/icons-static-svg/icons/xiaomimimo.svg?url";
 import zaiIcon from "@lobehub/icons-static-svg/icons/zai.svg?url";
 import zhipuIcon from "@lobehub/icons-static-svg/icons/zhipu-color.svg?url";
+import magpieIcon from "./magpie.svg?url";
 
 type ProviderIconAppearance = "color" | "monochrome";
 
@@ -28,6 +29,7 @@ const PROVIDER_ICON_ASSETS = {
 	grok: { src: grokIcon, appearance: "monochrome" },
 	qwen: { src: qwenIcon, appearance: "color" },
 	kimi: { src: kimiIcon, appearance: "monochrome" },
+	magpie: { src: magpieIcon, appearance: "monochrome" },
 	minimax: { src: minimaxIcon, appearance: "color" },
 	nvidia: { src: nvidiaIcon, appearance: "color" },
 	ollama: { src: ollamaIcon, appearance: "monochrome" },
