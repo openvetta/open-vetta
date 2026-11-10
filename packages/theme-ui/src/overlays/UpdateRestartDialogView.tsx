@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import type { JSX, RefObject } from "react";
 import { cn } from "@vetta-org/ui/utils";
+import { ReleaseNoteMarkdown } from "./ReleaseNoteMarkdown";
 import { ThemeSurface } from "../appearance/ThemeSurface";
 
 export interface UpdateRestartDialogViewLabels {
@@ -52,7 +53,7 @@ export function UpdateRestartDialogView({
 						animate={{ opacity: 1, scale: 1 }}
 						exit={{ opacity: 0, scale: 0.95 }}
 						transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-						className="relative w-[420px] rounded-xl border border-border bg-popover shadow-lg"
+						className="relative w-[560px] max-w-[92vw] rounded-xl border border-border bg-popover shadow-lg"
 					>
 						<ThemeSurface slot="root.updateRestartDialog.panel" />
 						<div className="relative z-10 p-5">
@@ -62,10 +63,8 @@ export function UpdateRestartDialogView({
 							</div>
 							<p className="mt-2 text-[12px] text-muted-foreground">{labels.message}</p>
 							{releaseNote && (
-								<div className="mt-3 max-h-[40vh] overflow-auto rounded-lg border border-border bg-secondary/50 p-3">
-									<p className="whitespace-pre-wrap break-words text-[12px] text-muted-foreground">
-										{releaseNote}
-									</p>
+								<div className="markdown-body mt-3 max-h-[50vh] overflow-auto rounded-lg border border-border bg-secondary/50 p-3 text-[12.5px] leading-[1.5] text-muted-foreground break-words">
+									<ReleaseNoteMarkdown>{releaseNote}</ReleaseNoteMarkdown>
 								</div>
 							)}
 							<div className="mt-5 flex justify-end gap-2">
