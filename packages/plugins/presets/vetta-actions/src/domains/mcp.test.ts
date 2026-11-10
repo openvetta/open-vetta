@@ -100,4 +100,24 @@ describe("registerMcpActions scope", () => {
 		expect(help.guidance).toContain("scope");
 		expect(help.guidance).toContain(".mcp.json");
 	});
+
+	it("lets the agent install an sse server and tells it when sse is appropriate", async () => {
+		const { manage, official } = createMockCtx();
+		const upsertBranch = manage.inputSchema.oneOf.find(
+			(branch) => (branch.properties.operation as { const?: string }).const === "upsert",
+		);
+		const dataBranches = (upsertBranch?.properties.data as { oneOf: { properties: { type?: unknown } }[] }).oneOf;
+		const remoteType = dataBranches.map((branch) => branch.properties.type).find((type) => "enum" in (type as object));
+
+		expect(remoteType).toEqual({ enum: ["http", "sse"] });
+		await manage.handler({
+			input: { operation: "upsert", name: "legacy", data: { type: "sse", url: "https://legacy.example.com/sse" } },
+			signal,
+		});
+		expect(official.mcp.upsert).toHaveBeenCalledWith(
+			"legacy",
+			{ type: "sse", url: "https://legacy.example.com/sse" },
+			{},
+		);
+	});
 });

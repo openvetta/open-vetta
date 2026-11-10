@@ -6497,6 +6497,10 @@
                 {
                   "const": "http",
                   "type": "string"
+                },
+                {
+                  "const": "sse",
+                  "type": "string"
                 }
               ]
             },
@@ -6582,6 +6586,10 @@
               },
               {
                 "const": "http",
+                "type": "string"
+              },
+              {
+                "const": "sse",
                 "type": "string"
               }
             ]
@@ -6675,8 +6683,16 @@
                 ],
                 "properties": {
                   "type": {
-                    "const": "http",
-                    "type": "string"
+                    "anyOf": [
+                      {
+                        "const": "http",
+                        "type": "string"
+                      },
+                      {
+                        "const": "sse",
+                        "type": "string"
+                      }
+                    ]
                   },
                   "url": {
                     "type": "string"
@@ -6795,6 +6811,10 @@
               },
               {
                 "const": "http",
+                "type": "string"
+              },
+              {
+                "const": "sse",
                 "type": "string"
               }
             ]

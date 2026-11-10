@@ -21,6 +21,7 @@ import type {
 	FsTextPreviewResult,
 } from "../../preload/fs-types.js";
 import { FS_READ_TEXT_PREVIEW_CHANNEL } from "../../preload/fs-types.js";
+import { isRemoteMcpServer } from "../../shared/mcp-server-kind.js";
 import { normalizeNotificationPreferences } from "../../shared/notification-preferences.js";
 import {
 	type AppshotConfig,
@@ -576,12 +577,12 @@ export function registerFsIpc(): () => void {
 			const server = config.mcpServers[name];
 			if (!serverUrl) {
 				if (!server) throw new Error(`MCP server '${name}' not found`);
-				if (server.type !== "http" || typeof server.url !== "string" || !server.url.trim()) {
+				if (!isRemoteMcpServer(server) || typeof server.url !== "string" || !server.url.trim()) {
 					throw new Error(`MCP server '${name}' is not a remote HTTP server`);
 				}
 				serverUrl = server.url.trim();
 			}
-			if (server?.type === "http") {
+			if (server && isRemoteMcpServer(server)) {
 				if (!oauthClientId && typeof server.oauthClientId === "string") oauthClientId = server.oauthClientId.trim();
 				if (!deviceFlow && server.oauthDeviceFlow === true) deviceFlow = true;
 				if (!scopes && typeof server.oauthScopes === "string") scopes = server.oauthScopes;
@@ -599,10 +600,13 @@ export function registerFsIpc(): () => void {
 			return;
 		}
 
+		// 旧 SSE 服务器要用 SSE 传输走完授权，换成 Streamable HTTP 拿到的 token 对不上它的端点。
+		const configured = (await mcp.getConfig()).mcpServers[name];
 		await mcpOAuth.loginBrowser({
 			serverName: name,
 			serverUrl,
 			oauthClientId: oauthClientId || undefined,
+			transport: configured?.type === "sse" ? "sse" : "streamable-http",
 		});
 	});
 

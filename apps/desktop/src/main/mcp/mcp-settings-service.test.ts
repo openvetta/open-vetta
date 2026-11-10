@@ -280,4 +280,71 @@ describe("McpSettingsService", () => {
 			await expect(service.get("g", { scope: "project", cwd: PROJECT })).rejects.toThrow("MCP server not found: g");
 		});
 	});
+
+	describe("sse servers", () => {
+		function createService(initial: McpConfigData["mcpServers"] = {}) {
+			let config: McpConfigData = { mcpServers: initial };
+			const service = new McpSettingsService({
+				readConfig: async () => config,
+				writeConfig: async (next) => {
+					config = next;
+				},
+			});
+			return { service, read: () => config };
+		}
+
+		it("stores an sse install as type sse and reports it as an sse server with redacted headers", async () => {
+			const { service, read } = createService();
+
+			const detail = await service.upsert("legacy", {
+				type: "sse",
+				url: "https://legacy.example.com/sse",
+				headers: { Authorization: "Bearer secret" },
+			});
+
+			expect(read().mcpServers.legacy).toEqual({
+				type: "sse",
+				url: "https://legacy.example.com/sse",
+				headers: { Authorization: "Bearer secret" },
+			});
+			expect(detail).toEqual({
+				name: "legacy",
+				type: "sse",
+				url: "https://legacy.example.com/sse",
+				headers: { Authorization: "***" },
+				disabled: false,
+			});
+			await expect(service.list()).resolves.toEqual([
+				{ name: "legacy", type: "sse", disabled: false, url: "https://legacy.example.com/sse" },
+			]);
+		});
+
+		it("keeps an sse server's url when only its headers are updated", async () => {
+			const { service, read } = createService({ legacy: { type: "sse", url: "https://legacy.example.com/sse" } });
+
+			await service.upsert("legacy", { type: "sse", headers: { "X-Region": "us" } });
+
+			expect(read().mcpServers.legacy).toEqual({
+				type: "sse",
+				url: "https://legacy.example.com/sse",
+				headers: { "X-Region": "us" },
+			});
+		});
+
+		it("does not carry http-only managed runtime fields over when a server is switched to sse", async () => {
+			const { service, read } = createService({
+				web: { type: "http", url: "https://web.example.com/mcp", managedRuntimeId: "runtime", oauthClientId: "id" },
+			});
+
+			await service.upsert("web", { type: "sse", url: "https://web.example.com/sse" });
+
+			expect(read().mcpServers.web).toEqual({ type: "sse", url: "https://web.example.com/sse" });
+		});
+
+		it("requires a url for a new sse server", async () => {
+			const { service } = createService();
+
+			await expect(service.upsert("legacy", { type: "sse" })).rejects.toThrow("SSE MCP server requires url.");
+		});
+	});
 });

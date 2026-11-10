@@ -164,7 +164,7 @@ export interface PluginOfficialMcpTarget {
 
 export interface PluginOfficialMcpServerSummary {
 	name: string;
-	type: "http" | "stdio";
+	type: "http" | "sse" | "stdio";
 	disabled: boolean;
 	command?: string;
 	url?: string;
@@ -176,7 +176,7 @@ export interface PluginOfficialMcpServerSummary {
 
 export interface PluginOfficialMcpServerDetail {
 	name: string;
-	type?: "http" | "stdio";
+	type?: "http" | "sse" | "stdio";
 	command?: string;
 	args?: string[];
 	env?: Record<string, string>;
@@ -204,7 +204,8 @@ export type PluginOfficialMcpUpsertData =
 			debug?: boolean;
 	  }
 	| {
-			type: "http";
+			/** `sse` 是旧式 HTTP+SSE 传输，仅为兼容仍在使用它的服务器。 */
+			type: "http" | "sse";
 			url?: string;
 			headers?: Record<string, string>;
 			disabled?: boolean;

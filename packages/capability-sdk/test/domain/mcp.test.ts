@@ -105,7 +105,7 @@ describe("MCP domain capabilities", () => {
 							type: "object",
 							required: ["type"],
 							properties: {
-								type: { const: MCP_SERVER_TYPES.HTTP },
+								type: { anyOf: [{ const: MCP_SERVER_TYPES.HTTP }, { const: MCP_SERVER_TYPES.SSE }] },
 							},
 						},
 						{
@@ -157,5 +157,31 @@ describe("MCP domain capabilities", () => {
 			{ name: "a", type: "stdio", disabled: false, command: "node", scope: "global" },
 			{ name: "b", type: "stdio", disabled: false, command: "node", scope: "project", readOnly: true },
 		]);
+	});
+
+	it("accepts sse as a remote server type on upsert and in outputs, and still rejects stdio fields on it", () => {
+		expect(
+			DOMAIN_MCP_CAPABILITIES.UPSERT_SERVER.parseInput({
+				name: "legacy",
+				data: { type: MCP_SERVER_TYPES.SSE, url: "https://legacy.example.com/sse", headers: { "X-Key": "v" } },
+			}),
+		).toEqual({
+			name: "legacy",
+			data: { type: "sse", url: "https://legacy.example.com/sse", headers: { "X-Key": "v" } },
+		});
+		expect(() =>
+			DOMAIN_MCP_CAPABILITIES.UPSERT_SERVER.parseInput({
+				name: "legacy",
+				data: { type: "sse", url: "https://legacy.example.com/sse", command: "node" },
+			}),
+		).toThrow();
+		expect(
+			DOMAIN_MCP_CAPABILITIES.LIST_SERVERS.parseOutput([
+				{ name: "legacy", type: "sse", disabled: false, url: "https://legacy.example.com/sse" },
+			]),
+		).toEqual([{ name: "legacy", type: "sse", disabled: false, url: "https://legacy.example.com/sse" }]);
+		expect(() =>
+			DOMAIN_MCP_CAPABILITIES.UPSERT_SERVER.parseInput({ name: "x", data: { type: "websocket", url: "wss://x" } }),
+		).toThrow();
 	});
 });

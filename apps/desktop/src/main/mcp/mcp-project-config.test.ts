@@ -62,6 +62,7 @@ describe("project MCP config files", () => {
 				mcpServers: {
 					ok: { command: "node", env: { TOKEN: variableReference } },
 					legacy: { type: "sse", url: "https://example.test/sse" },
+					unsupported: { type: "websocket", url: "wss://example.test/ws" },
 				},
 			}),
 		);
@@ -73,7 +74,7 @@ describe("project MCP config files", () => {
 
 		const compat = await readCompatMcpConfig(cwd);
 
-		expect(Object.keys(compat.mcpServers)).toEqual(["ok"]);
+		expect(Object.keys(compat.mcpServers)).toEqual(["ok", "legacy"]);
 		expect(compat.mcpServers.ok).toMatchObject({ env: { TOKEN: variableReference } });
 	});
 });

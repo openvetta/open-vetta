@@ -80,7 +80,7 @@ const manageSchema: PluginJsonSchema = {
 						{
 							type: "object",
 							properties: {
-								type: { const: "http" },
+								type: { enum: ["http", "sse"] },
 								url: { type: "string", minLength: 1 },
 								headers: { type: "object", additionalProperties: { type: "string" } },
 								disabled: { type: "boolean" },
@@ -180,7 +180,7 @@ export function registerMcpActions(ctx: PluginContext): void {
 		title: "管理 MCP 服务器",
 		summary: "创建、更新、启用/禁用或删除 MCP server。",
 		description:
-			'对象参数；operation 为 "upsert"、"set-enabled" 或 "remove"。stdio 需 command；http 需 type:"http" 与 url。env/headers 密钥勿写入参数，审批弹窗可手填。scope 缺省为全局；scope:"project" 必须传项目根 cwd，写入该项目的 .vetta/mcp.json（可随仓库提交，密钥须用 ${VAR} 引用）。set-enabled/remove 只给 cwd 不给 scope 时按名字自动定位，全局与项目同名则必须指明 scope。',
+			'对象参数；operation 为 "upsert"、"set-enabled" 或 "remove"。stdio 需 command；远程需 type:"http"（Streamable HTTP，首选）或 type:"sse"（旧式 HTTP+SSE，仅用于只提供 SSE 端点的服务器）与 url。env/headers 密钥勿写入参数，审批弹窗可手填。scope 缺省为全局；scope:"project" 必须传项目根 cwd，写入该项目的 .vetta/mcp.json（可随仓库提交，密钥须用 ${VAR} 引用）。set-enabled/remove 只给 cwd 不给 scope 时按名字自动定位，全局与项目同名则必须指明 scope。',
 		keywords: ["mcp", "MCP", "添加", "删除", "启用", "禁用", "command", "密钥", "env"],
 		effect: "write",
 		approval: {

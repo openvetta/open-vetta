@@ -4,6 +4,8 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+- `official.mcp` 的 `type` 新增 `"sse"`（旧式 HTTP+SSE 传输），列表、详情与 `upsert` 数据都可用，用于只提供 SSE 端点的服务器；能用 Streamable HTTP（`"http"`）时仍应首选它。仅官方插件可用，插件清单里的 MCP 声明不受影响，`pluginApiVersion` 不变。
+
 - `official.mcp` 的各个方法新增可选的 `target`（`{ scope?: "global" | "project"; cwd? }`）：`scope: "project"` 配合项目根 `cwd` 读写 `<cwd>/.vetta/mcp.json`，省略时仍只操作全局，既有调用不受影响。列表与详情新增 `scope`、`readOnly`（来自项目根 `.mcp.json`、Vetta 不会改写的条目）。此前 Agent 只能把 MCP 装进全局，没法按「只在这个仓库里用」安装。该 API 仅官方插件可用，不涉及清单字段，`pluginApiVersion` 不变。
 
 - `PluginModelDefinition.input` 可声明 `text` / `image`。Desktop 模型写入合同同步保留该字段，修复网关已声明图像输入但模型注册后仍退回纯文本的问题；省略时仍采用宿主默认，旧宿主可能清除该字段。
