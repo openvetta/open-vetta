@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type JSX } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@vetta-org/ui";
 
@@ -121,6 +121,23 @@ export function UpdateCheckerDetail({
 	);
 }
 
+/** 更新日志的排版：标题、列表、行内代码要有层次和间距，不依赖宿主的 markdown 样式。 */
+const releaseNoteComponents: Components = {
+	h1: ({ children }) => <h1 className="mb-2 text-[14px] font-semibold text-foreground">{children}</h1>,
+	h2: ({ children }) => (
+		<h2 className="mb-1.5 mt-4 text-[13px] font-semibold text-foreground first:mt-0">{children}</h2>
+	),
+	h3: ({ children }) => <h3 className="mb-1 mt-3 text-[12.5px] font-semibold text-foreground">{children}</h3>,
+	p: ({ children }) => <p className="my-1.5">{children}</p>,
+	ul: ({ children }) => <ul className="my-1.5 list-disc space-y-1.5 pl-5">{children}</ul>,
+	ol: ({ children }) => <ol className="my-1.5 list-decimal space-y-1.5 pl-5">{children}</ol>,
+	li: ({ children }) => <li className="pl-0.5">{children}</li>,
+	strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+	code: ({ children }) => (
+		<code className="rounded bg-muted px-1 py-0.5 font-mono text-[11.5px] text-foreground">{children}</code>
+	),
+};
+
 const MAX_LINES = 10;
 // Line height ~1.5rem (24px) for 13px font text, 10 lines is ~240px
 const MAX_HEIGHT_PX = 240;
@@ -159,7 +176,7 @@ function ReleaseNotePreview({
 				}`}
 				style={isOverflowing ? { maxHeight: `${MAX_HEIGHT_PX}px` } : undefined}
 			>
-				<ReactMarkdown remarkPlugins={[remarkGfm]}>
+				<ReactMarkdown remarkPlugins={[remarkGfm]} components={releaseNoteComponents}>
 					{releaseNote}
 				</ReactMarkdown>
 			</div>
