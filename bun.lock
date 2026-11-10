@@ -62,7 +62,7 @@
     },
     "apps/desktop": {
       "name": "@vetta/desktop",
-      "version": "0.5.74",
+      "version": "0.5.75",
       "dependencies": {
         "@dagrejs/dagre": "^3.0.0",
         "@fontsource-variable/geist": "^5.2.8",
