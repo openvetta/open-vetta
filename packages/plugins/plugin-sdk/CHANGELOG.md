@@ -4,6 +4,8 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+- `official.mcp` 的各个方法新增可选的 `target`（`{ scope?: "global" | "project"; cwd? }`）：`scope: "project"` 配合项目根 `cwd` 读写 `<cwd>/.vetta/mcp.json`，省略时仍只操作全局，既有调用不受影响。列表与详情新增 `scope`、`readOnly`（来自项目根 `.mcp.json`、Vetta 不会改写的条目）。此前 Agent 只能把 MCP 装进全局，没法按「只在这个仓库里用」安装。该 API 仅官方插件可用，不涉及清单字段，`pluginApiVersion` 不变。
+
 - `PluginModelDefinition.input` 可声明 `text` / `image`。Desktop 模型写入合同同步保留该字段，修复网关已声明图像输入但模型注册后仍退回纯文本的问题；省略时仍采用宿主默认，旧宿主可能清除该字段。
 
 - 底部面板实例新增 `useBottomPanel().openTerminal({ command, cwd?, label? })` 与 `revealInstance(instanceId)`，配套权限 `terminal.run`，要求 Plugin API `^2.8.0`。脚本运行器一类插件此前只能用 `command.spawn` 轮询 64KB 的输出尾巴：没有伪终端、不能输入、没有颜色，也不支持远程项目。现在由宿主开内置终端、把命令敲进用户的 shell，交互、分屏、关闭确认与远程终端都直接复用；命令只在终端首次启动时敲一次，重开会话不会重跑。

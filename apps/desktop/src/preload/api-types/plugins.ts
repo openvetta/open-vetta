@@ -30,6 +30,7 @@ import type {
 	McpServerDetail,
 	McpServerSummary,
 	McpServerUpsertData,
+	McpTarget,
 	MediaProviderDescriptor,
 	ModelConfigSnapshot,
 	ModelDefaultResult,
@@ -531,11 +532,11 @@ export interface DesktopPluginCapabilityArtifactsApi {
 }
 
 export interface DesktopPluginCapabilityMcpApi {
-	list(sessionId: string): Promise<McpServerSummary[]>;
-	get(sessionId: string, name: string): Promise<McpServerDetail>;
-	upsert(sessionId: string, name: string, data: McpServerUpsertData): Promise<McpServerDetail>;
-	setEnabled(sessionId: string, name: string, enabled: boolean): Promise<void>;
-	remove(sessionId: string, name: string): Promise<void>;
+	list(sessionId: string, target?: McpTarget): Promise<McpServerSummary[]>;
+	get(sessionId: string, name: string, target?: McpTarget): Promise<McpServerDetail>;
+	upsert(sessionId: string, name: string, data: McpServerUpsertData, target?: McpTarget): Promise<McpServerDetail>;
+	setEnabled(sessionId: string, name: string, enabled: boolean, target?: McpTarget): Promise<void>;
+	remove(sessionId: string, name: string, target?: McpTarget): Promise<void>;
 }
 
 export interface DesktopPluginCapabilityBatchTasksApi {

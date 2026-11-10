@@ -6453,7 +6453,24 @@
       "inputSchema": {
         "additionalProperties": false,
         "type": "object",
-        "properties": {}
+        "properties": {
+          "scope": {
+            "anyOf": [
+              {
+                "const": "global",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "type": "string"
+              }
+            ]
+          },
+          "cwd": {
+            "minLength": 1,
+            "type": "string"
+          }
+        }
       },
       "kind": "query",
       "layer": "domain",
@@ -6491,6 +6508,21 @@
             },
             "url": {
               "type": "string"
+            },
+            "scope": {
+              "anyOf": [
+                {
+                  "const": "global",
+                  "type": "string"
+                },
+                {
+                  "const": "project",
+                  "type": "string"
+                }
+              ]
+            },
+            "readOnly": {
+              "type": "boolean"
             }
           }
         }
@@ -6508,6 +6540,22 @@
         "properties": {
           "name": {
             "pattern": "\\S",
+            "type": "string"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "const": "global",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "type": "string"
+              }
+            ]
+          },
+          "cwd": {
+            "minLength": 1,
             "type": "string"
           }
         }
@@ -6582,6 +6630,21 @@
             "type": "number"
           },
           "debug": {
+            "type": "boolean"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "const": "global",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "type": "string"
+              }
+            ]
+          },
+          "readOnly": {
             "type": "boolean"
           }
         }
@@ -6691,6 +6754,22 @@
                 }
               }
             ]
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "const": "global",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "type": "string"
+              }
+            ]
+          },
+          "cwd": {
+            "minLength": 1,
+            "type": "string"
           }
         }
       },
@@ -6765,6 +6844,21 @@
           },
           "debug": {
             "type": "boolean"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "const": "global",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "type": "string"
+              }
+            ]
+          },
+          "readOnly": {
+            "type": "boolean"
           }
         }
       },
@@ -6786,6 +6880,22 @@
           },
           "enabled": {
             "type": "boolean"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "const": "global",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "type": "string"
+              }
+            ]
+          },
+          "cwd": {
+            "minLength": 1,
+            "type": "string"
           }
         }
       },
@@ -6805,6 +6915,22 @@
         "properties": {
           "name": {
             "pattern": "\\S",
+            "type": "string"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "const": "global",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "type": "string"
+              }
+            ]
+          },
+          "cwd": {
+            "minLength": 1,
             "type": "string"
           }
         }

@@ -5,14 +5,22 @@ import {
 	ApprovalImpactCard,
 	ApprovalRawFallback,
 	ApprovalToggleIntentCard,
+	ApprovalValueList,
 } from "../ApprovalParts";
 import { useManageApprovalFrame } from "../useManageApprovalShell";
+import {
+	describeMcpLocation,
+	type McpApprovalTarget,
+	mcpTargetPayload,
+	readMcpApprovalTarget,
+} from "./mcp-approval-target";
 
 interface McpSetEnabledInput {
 	operation: "set-enabled";
 	name: string;
 	enabled: boolean;
 	approvalUi?: string;
+	target: McpApprovalTarget;
 }
 
 function parseInput(input: unknown): McpSetEnabledInput | null {
@@ -30,6 +38,7 @@ function parseInput(input: unknown): McpSetEnabledInput | null {
 		name: record.name,
 		enabled: record.enabled,
 		approvalUi: typeof record.approvalUi === "string" ? record.approvalUi : undefined,
+		target: readMcpApprovalTarget(record),
 	};
 }
 
@@ -44,6 +53,11 @@ function McpSetEnabledApprovalContent({ approval }: { approval: ActiveActionAppr
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
 	const [enabled, setEnabled] = useState(input?.enabled ?? true);
+	const location = describeMcpLocation(input?.target ?? {});
+	const locationLabel =
+		location.kind === "project"
+			? t("manageApproval.mcp.locationProject", { path: location.path })
+			: t("manageApproval.mcp.locationGlobal");
 	const copy = getToggleApprovalCopy(t, "mcp", enabled);
 	const shared = getToggleSharedLabels(t);
 
@@ -65,6 +79,7 @@ function McpSetEnabledApprovalContent({ approval }: { approval: ActiveActionAppr
 							operation: "set-enabled",
 							name: input.name,
 							enabled,
+							...mcpTargetPayload(input.target),
 							approvalUi: input.approvalUi ?? "mcp.set-enabled",
 						})
 					: approve()
@@ -84,6 +99,15 @@ function McpSetEnabledApprovalContent({ approval }: { approval: ActiveActionAppr
 						stateOffLabel={shared.stateOff}
 						stateHint={enabled ? shared.stateOnHint : shared.stateOffHint}
 						editableHint={shared.editableHint}
+					/>
+					<ApprovalValueList
+						rows={[
+							{
+								label: t("manageApproval.fields.configLocation"),
+								value: locationLabel,
+								mono: location.kind === "project",
+							},
+						]}
 					/>
 					<ApprovalImpactCard
 						icon={copy.icon}

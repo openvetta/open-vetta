@@ -11,8 +11,14 @@ import {
 	ApprovalValueList,
 } from "../ApprovalParts";
 import { useManageApprovalFrame } from "../useManageApprovalShell";
+import {
+	describeMcpLocation,
+	type McpApprovalTarget,
+	mcpTargetPayload,
+	readMcpApprovalTarget,
+} from "./mcp-approval-target";
 
-interface McpUpsertInput {
+interface McpUpsertInput extends McpApprovalTarget {
 	operation: "upsert";
 	name: string;
 	data?: {
@@ -54,7 +60,7 @@ function parseInput(input: unknown): McpUpsertInput | null {
 	if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
 	const record = input as Record<string, unknown>;
 	if (record.operation !== "upsert" || typeof record.name !== "string") return null;
-	return record as unknown as McpUpsertInput;
+	return { ...(record as unknown as McpUpsertInput), ...readMcpApprovalTarget(record) };
 }
 
 
@@ -87,8 +93,16 @@ function McpUpsertApprovalContent({ approval }: { approval: ActiveActionApproval
 		input?.data?.type === "http" || input?.data?.url ? "http" : "stdio",
 	);
 
+	const isProjectScope = input?.scope === "project";
+	const location = describeMcpLocation(input ?? {});
+	const locationLabel =
+		location.kind === "project"
+			? t("manageApproval.mcp.locationProject", { path: location.path })
+			: t("manageApproval.mcp.locationGlobal");
+
 	useEffect(() => {
-		if (!input?.name) return;
+		// 回填读的是全局配置；项目安装若同名会被错误预填，项目请求自带完整参数，不需要回填。
+		if (!input?.name || isProjectScope) return;
 		let cancelled = false;
 		void window.vetta.mcp
 			.get()
@@ -118,7 +132,7 @@ function McpUpsertApprovalContent({ approval }: { approval: ActiveActionApproval
 		return () => {
 			cancelled = true;
 		};
-	}, [input?.name]);
+	}, [input?.name, isProjectScope]);
 
 	const onApprove = (): void => {
 		if (!input) {
@@ -145,6 +159,7 @@ function McpUpsertApprovalContent({ approval }: { approval: ActiveActionApproval
 			operation: "upsert",
 			name: input.name,
 			data,
+			...mcpTargetPayload(input),
 			approvalUi: input.approvalUi ?? "mcp.upsert",
 		});
 	};
@@ -171,6 +186,15 @@ function McpUpsertApprovalContent({ approval }: { approval: ActiveActionApproval
 						title={input.name}
 						subtitle={t("manageApproval.fields.serverName")}
 						badge={serverType}
+					/>
+					<ApprovalValueList
+						rows={[
+							{
+								label: t("manageApproval.fields.configLocation"),
+								value: locationLabel,
+								mono: location.kind === "project",
+							},
+						]}
 					/>
 					{serverType === "stdio" ? (
 						<>

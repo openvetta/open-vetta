@@ -152,12 +152,26 @@ export interface PluginOfficialImLog {
 	fields?: Record<string, unknown>;
 }
 
+/**
+ * MCP 配置落点。省略时只操作全局 `~/.vetta/agent/mcp.json`；
+ * `scope: "project"` 必须同时给出项目根 `cwd`，读写 `<cwd>/.vetta/mcp.json`。
+ * 只给 `cwd` 时读操作会把项目一并纳入，写操作仍默认全局。
+ */
+export interface PluginOfficialMcpTarget {
+	scope?: "global" | "project";
+	cwd?: string;
+}
+
 export interface PluginOfficialMcpServerSummary {
 	name: string;
 	type: "http" | "stdio";
 	disabled: boolean;
 	command?: string;
 	url?: string;
+	/** 仅在传了 `scope` 或 `cwd` 时返回。 */
+	scope?: "global" | "project";
+	/** 来自项目根 `.mcp.json`：Vetta 只读取，不会改写。 */
+	readOnly?: boolean;
 }
 
 export interface PluginOfficialMcpServerDetail {
@@ -173,6 +187,8 @@ export interface PluginOfficialMcpServerDetail {
 	autoApprove?: string[];
 	startupTimeout?: number;
 	debug?: boolean;
+	scope?: "global" | "project";
+	readOnly?: boolean;
 }
 
 export type PluginOfficialMcpUpsertData =
@@ -555,12 +571,16 @@ export interface PluginOfficialApi {
 		}): Promise<{ ok: boolean; error?: string }>;
 	};
 	mcp: {
-		list(): Promise<PluginOfficialMcpServerSummary[]>;
-		get(name: string): Promise<PluginOfficialMcpServerDetail>;
-		listNames(): Promise<string[]>;
-		upsert(name: string, data: PluginOfficialMcpUpsertData): Promise<PluginOfficialMcpServerDetail>;
-		setEnabled(name: string, enabled: boolean): Promise<void>;
-		remove(name: string): Promise<void>;
+		list(target?: PluginOfficialMcpTarget): Promise<PluginOfficialMcpServerSummary[]>;
+		get(name: string, target?: PluginOfficialMcpTarget): Promise<PluginOfficialMcpServerDetail>;
+		listNames(target?: PluginOfficialMcpTarget): Promise<string[]>;
+		upsert(
+			name: string,
+			data: PluginOfficialMcpUpsertData,
+			target?: PluginOfficialMcpTarget,
+		): Promise<PluginOfficialMcpServerDetail>;
+		setEnabled(name: string, enabled: boolean, target?: PluginOfficialMcpTarget): Promise<void>;
+		remove(name: string, target?: PluginOfficialMcpTarget): Promise<void>;
 	};
 	models: {
 		/**

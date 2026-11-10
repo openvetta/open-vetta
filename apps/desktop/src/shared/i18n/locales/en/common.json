@@ -186,7 +186,8 @@
 			"shortcutActionId": "Shortcut action",
 			"shortcutCombo": "Key combo",
 			"quickpanelTrigger": "Summon trigger",
-			"quickpanelBehavior": "After send"
+			"quickpanelBehavior": "After send",
+			"configLocation": "Config location"
 		},
 		"shortcuts": {
 			"ops": {
@@ -318,7 +319,9 @@
 			},
 			"headersConfigured": "Custom headers included (secrets masked)",
 			"envPlaceholder": "One KEY=VALUE per line; fill secrets here yourself",
-			"headersPlaceholder": "One HeaderName=value per line; fill secrets here yourself"
+			"headersPlaceholder": "One HeaderName=value per line; fill secrets here yourself",
+			"locationGlobal": "Global (all projects)",
+			"locationProject": "This project only: {{path}}"
 		},
 		"skills": {
 			"ops": {
