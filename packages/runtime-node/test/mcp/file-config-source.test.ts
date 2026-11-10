@@ -139,7 +139,7 @@ describe("FileMcpConfigSource", () => {
 		await writeJson(fixture.globalConfigPath, { mcpServers: { global: { command: "global" } } });
 		await writeJson(fixture.compatProjectConfigPath, {
 			mcpServers: {
-				legacySse: { type: "sse", url: "https://compat.test/sse" },
+				unsupported: { type: "websocket", url: "wss://compat.test/ws" },
 				broken: { type: "http" },
 				ok: { command: "ok" },
 			},
@@ -158,7 +158,7 @@ describe("FileMcpConfigSource", () => {
 		});
 		source.loadProject();
 		expect(diagnostics).toHaveLength(2);
-		expect(diagnostics.join("\n")).toContain("Skipped server 'legacySse'");
+		expect(diagnostics.join("\n")).toContain("Skipped server 'unsupported'");
 		expect(diagnostics.join("\n")).toContain("Skipped server 'broken'");
 
 		await writeFile(fixture.compatProjectConfigPath, "{ not json", "utf8");
@@ -188,6 +188,43 @@ describe("FileMcpConfigSource", () => {
 			url: "https://default.test/mcp",
 			headers: { "X-Key": "fallback", "X-Set": "value" },
 		});
+	});
+
+	it("keeps type sse from a compat file and expands variables in its url and headers", async () => {
+		const fixture = await createFixture();
+		await writeJson(fixture.compatProjectConfigPath, {
+			mcpServers: {
+				legacy: {
+					type: "sse",
+					url: `https://${configVariable("HOST")}/sse`,
+					headers: { Authorization: configVariable("TOKEN") },
+				},
+			},
+		});
+		const source = new FileMcpConfigSource({
+			...fixture,
+			projectRoot: fixture.root,
+			environment: { HOST: "example.test", TOKEN: "secret" },
+		});
+
+		expect(source.loadMerged().mcpServers.legacy).toMatchObject({
+			type: "sse",
+			url: "https://example.test/sse",
+			headers: { Authorization: "secret" },
+		});
+	});
+
+	it("rejects an sse server that asks for the modern protocol", () => {
+		expect(
+			parseMcpConfig({ mcpServers: { s: { type: "sse", url: "https://x.test/sse", protocolMode: "legacy" } } }),
+		).toBeDefined();
+		expect(() =>
+			parseMcpConfig({ mcpServers: { s: { type: "sse", url: "https://x.test/sse", protocolMode: "modern" } } }),
+		).toThrow('only supports protocolMode "legacy"');
+		expect(() =>
+			parseMcpConfig({ mcpServers: { s: { type: "sse", url: "https://x.test/sse", protocolMode: "auto" } } }),
+		).toThrow('only supports protocolMode "legacy"');
+		expect(() => parseMcpConfig({ mcpServers: { s: { type: "sse" } } })).toThrow("missing or invalid 'url'");
 	});
 
 	it("includes the compat file in the merged signature", async () => {
