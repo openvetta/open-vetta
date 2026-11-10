@@ -1469,7 +1469,7 @@
   "noRemoteMcp": "No remote MCP servers available right now",
   "added": "Added",
   "jsonMustHaveMcpServers": "JSON must contain a mcpServers object",
-  "jsonTypeMustBeStdioOrHttp": "Server \"{{name}}\" type must be \"stdio\" or \"http\"",
+  "jsonTypeMustBeStdioOrHttp": "Server \"{{name}}\" type must be \"stdio\", \"http\" or \"sse\"",
   "jsonMissingUrl": "Server \"{{name}}\" is missing the url field",
   "jsonMissingCommand": "Server \"{{name}}\" is missing the command field",
   "jsonParseError": "JSON parse error: {{msg}}",

@@ -159,13 +159,15 @@ export function createPluginsApi(ipc: IpcRenderer, webUtils: WebUtils): Pick<Des
 					cancel: (sessionId, id) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.JOB_CANCEL, sessionId, id),
 				},
 				mcp: {
-					list: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MCP_SERVER_LIST, sessionId),
-					get: (sessionId, name) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MCP_SERVER_GET, sessionId, name),
-					upsert: (sessionId, name, data) =>
-						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MCP_SERVER_UPSERT, sessionId, name, data),
-					setEnabled: (sessionId, name, enabled) =>
-						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MCP_SERVER_SET_ENABLED, sessionId, name, enabled),
-					remove: (sessionId, name) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MCP_SERVER_REMOVE, sessionId, name),
+					list: (sessionId, target) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MCP_SERVER_LIST, sessionId, target),
+					get: (sessionId, name, target) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MCP_SERVER_GET, sessionId, name, target),
+					upsert: (sessionId, name, data, target) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MCP_SERVER_UPSERT, sessionId, name, data, target),
+					setEnabled: (sessionId, name, enabled, target) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MCP_SERVER_SET_ENABLED, sessionId, name, enabled, target),
+					remove: (sessionId, name, target) =>
+						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.MCP_SERVER_REMOVE, sessionId, name, target),
 				},
 				batchTasks: {
 					listProjects: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.BATCH_PROJECT_LIST, sessionId),

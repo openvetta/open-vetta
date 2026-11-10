@@ -197,6 +197,7 @@ export type {
 	PluginOfficialImStatus,
 	PluginOfficialImLog,
 	PluginOfficialMcpServerSummary,
+	PluginOfficialMcpTarget,
 	PluginOfficialMcpServerDetail,
 	PluginOfficialMcpUpsertData,
 	PluginOfficialExecutionMode,

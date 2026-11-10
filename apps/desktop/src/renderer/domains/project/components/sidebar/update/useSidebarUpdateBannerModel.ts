@@ -1,5 +1,5 @@
-import { updaterStateAtom } from "@shared/store/atoms";
-import { useAtomValue } from "jotai";
+import { updaterRestartDialogOpenAtom, updaterStateAtom } from "@shared/store/atoms";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -18,9 +18,12 @@ export function useSidebarUpdateBannerModel(): SidebarUpdateBannerModel | null {
 	// 按版本记忆忽略状态：下一个版本就绪时重新出现
 	const [dismissedVersion, setDismissedVersion] = useState<string | null>(null);
 
+	const openRestartDialog = useSetAtom(updaterRestartDialogOpenAtom);
+
+	// 先弹出带更新内容的对话框，由用户在里面确认重启
 	const onRestart = useCallback(() => {
-		void window.vetta.updater.install();
-	}, []);
+		openRestartDialog(true);
+	}, [openRestartDialog]);
 
 	// 忽略：隐藏此条，安装交给退出时的自动流程
 	const onDismiss = useCallback(() => {

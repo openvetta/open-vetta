@@ -10,11 +10,33 @@ import {
 export const MCP_SERVER_TYPES = {
 	STDIO: "stdio",
 	HTTP: "http",
+	/** 旧式 HTTP+SSE 传输，仅为兼容仍在使用它的服务器。 */
+	SSE: "sse",
 } as const;
 
-const mcpEmptyInputType = Type.Object({}, { additionalProperties: false });
+export const MCP_SCOPES = {
+	GLOBAL: "global",
+	PROJECT: "project",
+} as const;
 
-const mcpServerTypeType = Type.Union([Type.Literal(MCP_SERVER_TYPES.STDIO), Type.Literal(MCP_SERVER_TYPES.HTTP)]);
+const mcpScopeType = Type.Union([Type.Literal(MCP_SCOPES.GLOBAL), Type.Literal(MCP_SCOPES.PROJECT)]);
+
+/**
+ * 配置落在哪一层。不传 `scope` 与 `cwd` 时只操作全局（`~/.vetta/agent/mcp.json`）；
+ * `scope: "project"` 必须同时给出项目根 `cwd`，写入 `<cwd>/.vetta/mcp.json`。
+ */
+const mcpTargetFields = {
+	scope: Type.Optional(mcpScopeType),
+	cwd: Type.Optional(Type.String({ minLength: 1 })),
+};
+
+const mcpListInputType = Type.Object(mcpTargetFields, { additionalProperties: false });
+
+const mcpServerTypeType = Type.Union([
+	Type.Literal(MCP_SERVER_TYPES.STDIO),
+	Type.Literal(MCP_SERVER_TYPES.HTTP),
+	Type.Literal(MCP_SERVER_TYPES.SSE),
+]);
 
 const mcpStringMapType = Type.Record(Type.String(), Type.String());
 
@@ -25,6 +47,9 @@ const mcpServerSummaryType = Type.Object(
 		disabled: Type.Boolean(),
 		command: Type.Optional(Type.String()),
 		url: Type.Optional(Type.String()),
+		scope: Type.Optional(mcpScopeType),
+		/** 来自 Vetta 不改写的外部文件（项目根 `.mcp.json`）。 */
+		readOnly: Type.Optional(Type.Boolean()),
 	},
 	{ additionalProperties: false },
 );
@@ -43,6 +68,8 @@ const mcpServerDetailType = Type.Object(
 		autoApprove: Type.Optional(Type.Array(Type.String())),
 		startupTimeout: Type.Optional(Type.Number()),
 		debug: Type.Optional(Type.Boolean()),
+		scope: Type.Optional(mcpScopeType),
+		readOnly: Type.Optional(Type.Boolean()),
 	},
 	{ additionalProperties: false },
 );
@@ -50,6 +77,7 @@ const mcpServerDetailType = Type.Object(
 const mcpServerNameInputType = Type.Object(
 	{
 		name: Type.String({ pattern: "\\S" }),
+		...mcpTargetFields,
 	},
 	{ additionalProperties: false },
 );
@@ -74,10 +102,10 @@ const mcpStdioServerUpsertDataType = Type.Object(
 	{ additionalProperties: false },
 );
 
-/** http upsert: type must be "http"; stdio-only fields are rejected via additionalProperties. */
+/** http/sse upsert: type must be "http" or "sse"; stdio-only fields are rejected via additionalProperties. */
 const mcpHttpServerUpsertDataType = Type.Object(
 	{
-		type: Type.Literal(MCP_SERVER_TYPES.HTTP),
+		type: Type.Union([Type.Literal(MCP_SERVER_TYPES.HTTP), Type.Literal(MCP_SERVER_TYPES.SSE)]),
 		url: Type.Optional(Type.String()),
 		headers: Type.Optional(mcpStringMapType),
 		...mcpServerCommonUpsertFields,
@@ -92,6 +120,7 @@ const mcpServerUpsertInputType = Type.Object(
 	{
 		name: Type.String({ pattern: "\\S" }),
 		data: mcpServerUpsertDataType,
+		...mcpTargetFields,
 	},
 	{ additionalProperties: false },
 );
@@ -100,10 +129,15 @@ const mcpServerSetEnabledInputType = Type.Object(
 	{
 		name: Type.String({ pattern: "\\S" }),
 		enabled: Type.Boolean(),
+		...mcpTargetFields,
 	},
 	{ additionalProperties: false },
 );
 
+export type McpScope = Static<typeof mcpScopeType>;
+export type McpListInput = Readonly<Static<typeof mcpListInputType>>;
+/** `scope` 与 `cwd` 组成的配置落点，list 的入参就是它本身。 */
+export type McpTarget = McpListInput;
 export type McpServerType = Static<typeof mcpServerTypeType>;
 export type McpServerSummary = Readonly<Static<typeof mcpServerSummaryType>>;
 export type McpServerDetail = Readonly<Static<typeof mcpServerDetailType>>;
@@ -114,7 +148,7 @@ export type McpServerNameInput = Readonly<Static<typeof mcpServerNameInputType>>
 export type McpServerUpsertInput = Readonly<Static<typeof mcpServerUpsertInputType>>;
 export type McpServerSetEnabledInput = Readonly<Static<typeof mcpServerSetEnabledInputType>>;
 
-const mcpEmptyInputSchema = defineCapabilityInputSchema(mcpEmptyInputType);
+const mcpListInputSchema = defineCapabilityInputSchema(mcpListInputType);
 const mcpServerListOutputSchema = defineCapabilityOutputSchema(Type.Array(mcpServerSummaryType), { clean: true });
 const mcpServerNameInputSchema = defineCapabilityInputSchema(mcpServerNameInputType, { clean: true });
 const mcpServerDetailOutputSchema = defineCapabilityOutputSchema(mcpServerDetailType, { clean: true });
@@ -124,12 +158,12 @@ const mcpServerSetEnabledInputSchema = defineCapabilityInputSchema(mcpServerSetE
 const mcpNoOutputSchema = defineCapabilityNoOutputSchema();
 
 export const DOMAIN_MCP_CAPABILITIES = {
-	LIST_SERVERS: defineCapability<Record<string, never>, McpServerSummary[]>({
+	LIST_SERVERS: defineCapability<McpListInput, McpServerSummary[]>({
 		id: "cap.domain.vetta.mcp.server.list",
 		kind: "query",
 		layer: CAPABILITY_LAYERS.DOMAIN,
 		version: 1,
-		input: mcpEmptyInputSchema,
+		input: mcpListInputSchema,
 		output: mcpServerListOutputSchema,
 	}),
 	GET_SERVER: defineCapability<McpServerNameInput, McpServerDetail>({

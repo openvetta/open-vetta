@@ -592,6 +592,8 @@ describe("ModelSelectorView 收藏", () => {
 			favorites: { keys: new Set([selected.key]), onToggle: vi.fn(), labels: favoriteLabels },
 		});
 		await user.click(screen.getByRole("button", { name: /Alpha Model 0/ }));
+		// 当前模型已收藏，打开即在「收藏」栏；切到供应商栏才能看到未收藏的模型。
+		await user.click(screen.getByRole("menuitem", { name: "Alpha" }));
 
 		const idle = screen.getAllByRole("button", { name: "Add to favorites" })[0] as HTMLElement;
 		expect(idle.className).toContain("hidden");
@@ -623,6 +625,22 @@ describe("ModelSelectorView 收藏", () => {
 		expect(screen.getByText("No favorites yet")).toBeTruthy();
 		// 空态只留一句提示，不再显示列表标题。
 		expect(screen.queryByText("Favorites")).toBeNull();
+	});
+
+	it("当前模型已收藏时打开落在「收藏」栏，未收藏时落在它的供应商栏", async () => {
+		const user = userEvent.setup();
+		const selected = groups[1]!.models[5]!;
+		const props = { selectedModel: selected.key, selectedOption: selected };
+		const favorites = { keys: new Set([selected.key, "alpha/m1"]), onToggle: vi.fn(), labels: favoriteLabels };
+		const { unmount } = renderView({ ...props, favorites });
+		await user.click(screen.getByRole("button", { name: /Magpie Model 5/ }));
+		expect(screen.getByText("Favorites")).toBeTruthy();
+		expect(screen.getByRole("menuitem", { name: /Alpha Model 1/ })).toBeTruthy();
+		unmount();
+
+		renderView({ ...props, favorites: { ...favorites, keys: new Set(["alpha/m1"]) } });
+		await user.click(screen.getByRole("button", { name: /Magpie Model 5/ }));
+		expect(screen.queryByRole("menuitem", { name: /Alpha Model 1/ })).toBeNull();
 	});
 
 	it("宿主不接收藏时不出现星标和「收藏」入口", async () => {

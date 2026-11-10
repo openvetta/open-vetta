@@ -1469,7 +1469,7 @@
   "noRemoteMcp": "暂时没有可添加的远程 MCP",
   "added": "已添加",
   "jsonMustHaveMcpServers": "JSON 必须包含 mcpServers 对象",
-  "jsonTypeMustBeStdioOrHttp": "服务器 \"{{name}}\" 的 type 必须是 \"stdio\" 或 \"http\"",
+  "jsonTypeMustBeStdioOrHttp": "服务器 \"{{name}}\" 的 type 必须是 \"stdio\"、\"http\" 或 \"sse\"",
   "jsonMissingUrl": "服务器 \"{{name}}\" 缺少 url 字段",
   "jsonMissingCommand": "服务器 \"{{name}}\" 缺少 command 字段",
   "jsonParseError": "JSON 解析错误: {{msg}}",

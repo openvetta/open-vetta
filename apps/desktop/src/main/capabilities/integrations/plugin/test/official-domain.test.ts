@@ -227,4 +227,32 @@ describe("PluginCapabilityAdapter official domain capabilities", () => {
 			expect.objectContaining({ code: CAPABILITY_ERROR_CODES.ACCESS_DENIED }),
 		);
 	});
+	it("passes the MCP config target to the capability and rejects an unknown scope before invoking", async () => {
+		const access = new RecordingAccessFactory();
+		const adapter = new PluginCapabilityAdapter(access, {
+			isOfficialPlugin: () => true,
+			resolvePermissions: () => [],
+		});
+		const sessionId = adapter.openSession("official");
+		const target = { scope: "project", cwd: "/work/repo" } as const;
+
+		await adapter.listMcpServers(sessionId, target);
+		await adapter.getMcpServer(sessionId, "web", target);
+		await adapter.upsertMcpServer(sessionId, "web", { command: "node" }, target);
+		await adapter.setMcpServerEnabled(sessionId, "web", false, target);
+		await adapter.removeMcpServer(sessionId, "web", target);
+		await adapter.listMcpServers(sessionId);
+
+		expect(access.invocations.map((call) => call.input)).toEqual([
+			target,
+			{ name: "web", ...target },
+			{ name: "web", data: { command: "node" }, ...target },
+			{ name: "web", enabled: false, ...target },
+			{ name: "web", ...target },
+			{},
+		]);
+		const before = access.invocations.length;
+		expect(() => adapter.removeMcpServer(sessionId, "web", { scope: "workspace" } as never)).toThrow();
+		expect(access.invocations).toHaveLength(before);
+	});
 });

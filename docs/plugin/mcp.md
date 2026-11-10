@@ -11,7 +11,7 @@
 | 源 | 配置位置 | 谁拥有 |
 | --- | --- | --- |
 | **全局** | 用户 `~/.vetta/agent/mcp.json` | 用户设置页可编辑 |
-| **项目** | 项目侧 MCP 配置（若有） | 项目 |
+| **项目** | 项目 `.vetta/mcp.json`，以及读取时并入的只读 `.mcp.json`（同名以 `.vetta/mcp.json` 为准） | 项目 |
 | **插件** | `plugin.json` → `agent.mcpServers` | 插件包；**不写**用户 mcp.json |
 
 ```text

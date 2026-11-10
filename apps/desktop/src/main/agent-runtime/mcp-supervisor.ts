@@ -83,7 +83,9 @@ export function createDesktopMcpSupervisor(options: DesktopMcpSupervisorOptions)
 		: new FileMcpConfigSource({
 				globalConfigPath: join(options.agentDir, "mcp.json"),
 				projectConfigPath: join(options.projectRoot, CONFIG_DIR_NAME, "mcp.json"),
+				compatProjectConfigPath: join(options.projectRoot, ".mcp.json"),
 				projectRoot: options.projectRoot,
+				onDiagnostic: writeDiagnostic,
 				...(options.resourceScope
 					? {
 							includeServer: ({ origin, config }: { origin: "global" | "project"; config: McpServerConfig }) =>

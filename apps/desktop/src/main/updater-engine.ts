@@ -5,6 +5,7 @@ import { CancellationToken, CURRENT_APP_INSTALLER_FILE_NAME } from "builder-util
 import type { AppUpdater, ResolvedUpdateFileInfo } from "electron-updater";
 
 import type { InnoWindowsUpdateController } from "./inno-windows-update.js";
+import { releaseNotesHtmlToMarkdown } from "./release-notes-markdown.js";
 
 export interface UpdateEngineInfo {
 	version: string;
@@ -87,12 +88,13 @@ async function promoteDownloadedInstaller(updater: AppUpdater, installerPath: st
 }
 
 function normalizeReleaseNotes(releaseNotes: UpdateInfo["releaseNotes"]): string | undefined {
-	if (typeof releaseNotes === "string") return releaseNotes || undefined;
+	if (typeof releaseNotes === "string") return releaseNotesHtmlToMarkdown(releaseNotes) || undefined;
 	if (!Array.isArray(releaseNotes)) return undefined;
 
 	const notes = releaseNotes
 		.map((item) => item.note)
-		.filter((note): note is string => typeof note === "string" && note.length > 0);
+		.filter((note): note is string => typeof note === "string" && note.length > 0)
+		.map(releaseNotesHtmlToMarkdown);
 	return notes.length > 0 ? notes.join("\n\n") : undefined;
 }
 

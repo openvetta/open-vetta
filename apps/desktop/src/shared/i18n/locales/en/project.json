@@ -197,7 +197,7 @@
 		"checkFailed": "Update check failed, click to retry",
 		"downloadProgress": "Download progress",
 		"bannerReady": "Version {{version}} is ready",
-		"bannerRestart": "Restart",
+		"bannerRestart": "View update",
 		"bannerDismiss": "Dismiss"
 	},
 	"tabPicker": {

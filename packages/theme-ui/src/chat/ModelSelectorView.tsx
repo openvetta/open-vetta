@@ -266,10 +266,13 @@ export function ModelSelectorView({
 		});
 	}, [groups, favoriteKeys]);
 
+	// 常用的模型都在收藏里：当前模型已收藏就直接落在「收藏」栏，方便在常用集合里切换；没收藏则回到它的供应商栏。
 	const defaultTab =
-		selectedOption && groups.some((group) => group.provider === selectedOption.provider)
-			? selectedOption.provider
-			: (groups[0]?.provider ?? FAVORITES_TAB);
+		selectedOption && favoriteKeys?.has(selectedOption.key)
+			? FAVORITES_TAB
+			: selectedOption && groups.some((group) => group.provider === selectedOption.provider)
+				? selectedOption.provider
+				: (groups[0]?.provider ?? FAVORITES_TAB);
 	const requestedTab = tabOverride ?? defaultTab;
 	const activeTab =
 		requestedTab === FAVORITES_TAB

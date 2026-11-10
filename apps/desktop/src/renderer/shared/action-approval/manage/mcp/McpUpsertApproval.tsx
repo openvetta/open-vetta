@@ -11,12 +11,18 @@ import {
 	ApprovalValueList,
 } from "../ApprovalParts";
 import { useManageApprovalFrame } from "../useManageApprovalShell";
+import {
+	describeMcpLocation,
+	type McpApprovalTarget,
+	mcpTargetPayload,
+	readMcpApprovalTarget,
+} from "./mcp-approval-target";
 
-interface McpUpsertInput {
+interface McpUpsertInput extends McpApprovalTarget {
 	operation: "upsert";
 	name: string;
 	data?: {
-		type?: "stdio" | "http";
+		type?: "stdio" | "http" | "sse";
 		command?: string;
 		args?: string[];
 		cwd?: string;
@@ -54,7 +60,7 @@ function parseInput(input: unknown): McpUpsertInput | null {
 	if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
 	const record = input as Record<string, unknown>;
 	if (record.operation !== "upsert" || typeof record.name !== "string") return null;
-	return record as unknown as McpUpsertInput;
+	return { ...(record as unknown as McpUpsertInput), ...readMcpApprovalTarget(record) };
 }
 
 
@@ -83,12 +89,21 @@ function McpUpsertApprovalContent({ approval }: { approval: ActiveActionApproval
 		envText: serializeKeyValueMap(input?.data?.env),
 		headersText: serializeKeyValueMap(input?.data?.headers),
 	});
-	const [serverType, setServerType] = useState<"stdio" | "http">(
-		input?.data?.type === "http" || input?.data?.url ? "http" : "stdio",
+	const [serverType, setServerType] = useState<"stdio" | "http" | "sse">(
+		input?.data?.type === "sse" ? "sse" : input?.data?.type === "http" || input?.data?.url ? "http" : "stdio",
 	);
+	const isRemote = serverType !== "stdio";
+
+	const isProjectScope = input?.scope === "project";
+	const location = describeMcpLocation(input ?? {});
+	const locationLabel =
+		location.kind === "project"
+			? t("manageApproval.mcp.locationProject", { path: location.path })
+			: t("manageApproval.mcp.locationGlobal");
 
 	useEffect(() => {
-		if (!input?.name) return;
+		// 回填读的是全局配置；项目安装若同名会被错误预填，项目请求自带完整参数，不需要回填。
+		if (!input?.name || isProjectScope) return;
 		let cancelled = false;
 		void window.vetta.mcp
 			.get()
@@ -96,8 +111,8 @@ function McpUpsertApprovalContent({ approval }: { approval: ActiveActionApproval
 				if (cancelled) return;
 				const existing = config.mcpServers[input.name];
 				if (!existing) return;
-				if (existing.type === "http") {
-					setServerType("http");
+				if (existing.type === "http" || existing.type === "sse") {
+					setServerType(existing.type);
 					setForm((prev) => ({
 						...prev,
 						url: prev.url || existing.url || "",
@@ -118,7 +133,7 @@ function McpUpsertApprovalContent({ approval }: { approval: ActiveActionApproval
 		return () => {
 			cancelled = true;
 		};
-	}, [input?.name]);
+	}, [input?.name, isProjectScope]);
 
 	const onApprove = (): void => {
 		if (!input) {
@@ -128,8 +143,8 @@ function McpUpsertApprovalContent({ approval }: { approval: ActiveActionApproval
 		const data: Record<string, DesktopActionJsonValue> = {
 			...(input.data as Record<string, DesktopActionJsonValue> | undefined),
 		};
-		if (serverType === "http") {
-			data.type = "http";
+		if (serverType !== "stdio") {
+			data.type = serverType;
 			if (form.url.trim()) data.url = form.url.trim();
 			const headers = parseKeyValueLines(form.headersText);
 			if (headers) data.headers = headers;
@@ -145,6 +160,7 @@ function McpUpsertApprovalContent({ approval }: { approval: ActiveActionApproval
 			operation: "upsert",
 			name: input.name,
 			data,
+			...mcpTargetPayload(input),
 			approvalUi: input.approvalUi ?? "mcp.upsert",
 		});
 	};
@@ -172,7 +188,16 @@ function McpUpsertApprovalContent({ approval }: { approval: ActiveActionApproval
 						subtitle={t("manageApproval.fields.serverName")}
 						badge={serverType}
 					/>
-					{serverType === "stdio" ? (
+					<ApprovalValueList
+						rows={[
+							{
+								label: t("manageApproval.fields.configLocation"),
+								value: locationLabel,
+								mono: location.kind === "project",
+							},
+						]}
+					/>
+					{!isRemote ? (
 						<>
 							<ApprovalFormField id="mcp-command" label={t("manageApproval.fields.command")}>
 								<Input

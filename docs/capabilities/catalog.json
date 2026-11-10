@@ -6453,7 +6453,24 @@
       "inputSchema": {
         "additionalProperties": false,
         "type": "object",
-        "properties": {}
+        "properties": {
+          "scope": {
+            "anyOf": [
+              {
+                "const": "global",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "type": "string"
+              }
+            ]
+          },
+          "cwd": {
+            "minLength": 1,
+            "type": "string"
+          }
+        }
       },
       "kind": "query",
       "layer": "domain",
@@ -6480,6 +6497,10 @@
                 {
                   "const": "http",
                   "type": "string"
+                },
+                {
+                  "const": "sse",
+                  "type": "string"
                 }
               ]
             },
@@ -6491,6 +6512,21 @@
             },
             "url": {
               "type": "string"
+            },
+            "scope": {
+              "anyOf": [
+                {
+                  "const": "global",
+                  "type": "string"
+                },
+                {
+                  "const": "project",
+                  "type": "string"
+                }
+              ]
+            },
+            "readOnly": {
+              "type": "boolean"
             }
           }
         }
@@ -6508,6 +6544,22 @@
         "properties": {
           "name": {
             "pattern": "\\S",
+            "type": "string"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "const": "global",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "type": "string"
+              }
+            ]
+          },
+          "cwd": {
+            "minLength": 1,
             "type": "string"
           }
         }
@@ -6534,6 +6586,10 @@
               },
               {
                 "const": "http",
+                "type": "string"
+              },
+              {
+                "const": "sse",
                 "type": "string"
               }
             ]
@@ -6583,6 +6639,21 @@
           },
           "debug": {
             "type": "boolean"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "const": "global",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "type": "string"
+              }
+            ]
+          },
+          "readOnly": {
+            "type": "boolean"
           }
         }
       },
@@ -6612,8 +6683,16 @@
                 ],
                 "properties": {
                   "type": {
-                    "const": "http",
-                    "type": "string"
+                    "anyOf": [
+                      {
+                        "const": "http",
+                        "type": "string"
+                      },
+                      {
+                        "const": "sse",
+                        "type": "string"
+                      }
+                    ]
                   },
                   "url": {
                     "type": "string"
@@ -6691,6 +6770,22 @@
                 }
               }
             ]
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "const": "global",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "type": "string"
+              }
+            ]
+          },
+          "cwd": {
+            "minLength": 1,
+            "type": "string"
           }
         }
       },
@@ -6716,6 +6811,10 @@
               },
               {
                 "const": "http",
+                "type": "string"
+              },
+              {
+                "const": "sse",
                 "type": "string"
               }
             ]
@@ -6765,6 +6864,21 @@
           },
           "debug": {
             "type": "boolean"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "const": "global",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "type": "string"
+              }
+            ]
+          },
+          "readOnly": {
+            "type": "boolean"
           }
         }
       },
@@ -6786,6 +6900,22 @@
           },
           "enabled": {
             "type": "boolean"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "const": "global",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "type": "string"
+              }
+            ]
+          },
+          "cwd": {
+            "minLength": 1,
+            "type": "string"
           }
         }
       },
@@ -6805,6 +6935,22 @@
         "properties": {
           "name": {
             "pattern": "\\S",
+            "type": "string"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "const": "global",
+                "type": "string"
+              },
+              {
+                "const": "project",
+                "type": "string"
+              }
+            ]
+          },
+          "cwd": {
+            "minLength": 1,
             "type": "string"
           }
         }

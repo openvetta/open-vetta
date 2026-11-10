@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { CAPABILITY_ERROR_CODES, CAPABILITY_PREFIXES } from "../../src/contracts.js";
-import { DOMAIN_MCP_CAPABILITIES, DOMAIN_MCP_CAPABILITY_CATALOG, MCP_SERVER_TYPES } from "../../src/domain.js";
+import {
+	DOMAIN_MCP_CAPABILITIES,
+	DOMAIN_MCP_CAPABILITY_CATALOG,
+	MCP_SCOPES,
+	MCP_SERVER_TYPES,
+} from "../../src/domain.js";
 
 describe("MCP domain capabilities", () => {
 	it("uses one stable capability id per MCP server operation", () => {
@@ -100,7 +105,7 @@ describe("MCP domain capabilities", () => {
 							type: "object",
 							required: ["type"],
 							properties: {
-								type: { const: MCP_SERVER_TYPES.HTTP },
+								type: { anyOf: [{ const: MCP_SERVER_TYPES.HTTP }, { const: MCP_SERVER_TYPES.SSE }] },
 							},
 						},
 						{
@@ -116,5 +121,67 @@ describe("MCP domain capabilities", () => {
 		expect(DOMAIN_MCP_CAPABILITY_CATALOG[3]?.outputSchema).toBe(false);
 		expect(DOMAIN_MCP_CAPABILITY_CATALOG[4]?.outputSchema).toBe(false);
 		expect(() => JSON.stringify(DOMAIN_MCP_CAPABILITY_CATALOG)).not.toThrow();
+	});
+	it("accepts an optional scope and project root on every operation and keeps the global default", () => {
+		expect(DOMAIN_MCP_CAPABILITIES.LIST_SERVERS.parseInput({})).toEqual({});
+		expect(DOMAIN_MCP_CAPABILITIES.LIST_SERVERS.parseInput({ cwd: "/repo" })).toEqual({ cwd: "/repo" });
+		expect(
+			DOMAIN_MCP_CAPABILITIES.UPSERT_SERVER.parseInput({
+				name: "local",
+				data: { command: "node" },
+				scope: MCP_SCOPES.PROJECT,
+				cwd: "/repo",
+			}),
+		).toEqual({ name: "local", data: { command: "node" }, scope: "project", cwd: "/repo" });
+		expect(
+			DOMAIN_MCP_CAPABILITIES.SET_SERVER_ENABLED.parseInput({ name: "local", enabled: false, scope: "global" }),
+		).toEqual({ name: "local", enabled: false, scope: "global" });
+		expect(
+			DOMAIN_MCP_CAPABILITIES.REMOVE_SERVER.parseInput({ name: "local", scope: "project", cwd: "/repo" }),
+		).toEqual({
+			name: "local",
+			scope: "project",
+			cwd: "/repo",
+		});
+		expect(() => DOMAIN_MCP_CAPABILITIES.GET_SERVER.parseInput({ name: "local", scope: "workspace" })).toThrow();
+		expect(() => DOMAIN_MCP_CAPABILITIES.GET_SERVER.parseInput({ name: "local", cwd: "" })).toThrow();
+	});
+
+	it("reports the origin of each listed server", () => {
+		expect(
+			DOMAIN_MCP_CAPABILITIES.LIST_SERVERS.parseOutput([
+				{ name: "a", type: "stdio", disabled: false, command: "node", scope: "global" },
+				{ name: "b", type: "stdio", disabled: false, command: "node", scope: "project", readOnly: true },
+			]),
+		).toEqual([
+			{ name: "a", type: "stdio", disabled: false, command: "node", scope: "global" },
+			{ name: "b", type: "stdio", disabled: false, command: "node", scope: "project", readOnly: true },
+		]);
+	});
+
+	it("accepts sse as a remote server type on upsert and in outputs, and still rejects stdio fields on it", () => {
+		expect(
+			DOMAIN_MCP_CAPABILITIES.UPSERT_SERVER.parseInput({
+				name: "legacy",
+				data: { type: MCP_SERVER_TYPES.SSE, url: "https://legacy.example.com/sse", headers: { "X-Key": "v" } },
+			}),
+		).toEqual({
+			name: "legacy",
+			data: { type: "sse", url: "https://legacy.example.com/sse", headers: { "X-Key": "v" } },
+		});
+		expect(() =>
+			DOMAIN_MCP_CAPABILITIES.UPSERT_SERVER.parseInput({
+				name: "legacy",
+				data: { type: "sse", url: "https://legacy.example.com/sse", command: "node" },
+			}),
+		).toThrow();
+		expect(
+			DOMAIN_MCP_CAPABILITIES.LIST_SERVERS.parseOutput([
+				{ name: "legacy", type: "sse", disabled: false, url: "https://legacy.example.com/sse" },
+			]),
+		).toEqual([{ name: "legacy", type: "sse", disabled: false, url: "https://legacy.example.com/sse" }]);
+		expect(() =>
+			DOMAIN_MCP_CAPABILITIES.UPSERT_SERVER.parseInput({ name: "x", data: { type: "websocket", url: "wss://x" } }),
+		).toThrow();
 	});
 });

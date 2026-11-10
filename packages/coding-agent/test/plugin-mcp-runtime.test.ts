@@ -282,7 +282,7 @@ class FakeMcpClient implements McpClientHandle {
 			content: [
 				{
 					type: "text",
-					text: this.config.type === "http" ? this.config.url : this.config.command,
+					text: "command" in this.config ? this.config.command : this.config.url,
 				},
 			],
 		};

@@ -107,6 +107,135 @@ describe("FileMcpConfigSource", () => {
 		});
 	});
 
+	it("merges a compat .mcp.json into the project layer without letting it override the native project file", async () => {
+		const fixture = await createFixture();
+		await writeJson(fixture.globalConfigPath, { mcpServers: { shared: { command: "global" } } });
+		await writeJson(fixture.compatProjectConfigPath, {
+			mcpServers: {
+				shared: { command: "compat", args: ["compat-arg"] },
+				duplicated: { command: "compat-duplicated", args: ["compat-arg"] },
+				compatOnly: { type: "http", url: "https://compat.test/mcp" },
+			},
+		});
+		await writeJson(fixture.projectConfigPath, {
+			mcpServers: { duplicated: { command: "native-duplicated" } },
+		});
+		const source = new FileMcpConfigSource({ ...fixture, projectRoot: fixture.root });
+
+		expect(source.loadProject()).toEqual({
+			mcpServers: {
+				shared: { command: "compat", args: ["compat-arg"] },
+				duplicated: { command: "native-duplicated" },
+				compatOnly: { type: "http", url: "https://compat.test/mcp" },
+			},
+		});
+		expect(Object.keys(source.loadMerged().mcpServers).sort()).toEqual(["compatOnly", "duplicated", "shared"]);
+		expect(source.loadMerged().mcpServers.shared).toMatchObject({ command: "compat", args: ["compat-arg"] });
+	});
+
+	it("skips unsupported compat servers and malformed compat files without breaking other MCP config", async () => {
+		const fixture = await createFixture();
+		const diagnostics: string[] = [];
+		await writeJson(fixture.globalConfigPath, { mcpServers: { global: { command: "global" } } });
+		await writeJson(fixture.compatProjectConfigPath, {
+			mcpServers: {
+				unsupported: { type: "websocket", url: "wss://compat.test/ws" },
+				broken: { type: "http" },
+				ok: { command: "ok" },
+			},
+		});
+		const source = new FileMcpConfigSource({
+			...fixture,
+			projectRoot: fixture.root,
+			onDiagnostic: (message) => diagnostics.push(message),
+		});
+
+		expect(source.loadMerged()).toEqual({
+			mcpServers: {
+				global: { command: "global", args: undefined, cwd: undefined, env: undefined },
+				ok: { command: "ok", args: undefined, cwd: undefined, env: undefined },
+			},
+		});
+		source.loadProject();
+		expect(diagnostics).toHaveLength(2);
+		expect(diagnostics.join("\n")).toContain("Skipped server 'unsupported'");
+		expect(diagnostics.join("\n")).toContain("Skipped server 'broken'");
+
+		await writeFile(fixture.compatProjectConfigPath, "{ not json", "utf8");
+		expect(source.loadProject()).toBeNull();
+		expect(diagnostics.at(-1)).toContain(`Ignored ${fixture.compatProjectConfigPath}`);
+		expect(source.loadMerged().mcpServers.global).toBeDefined();
+	});
+
+	it("resolves default-value variables in the style used by .mcp.json", async () => {
+		const fixture = await createFixture();
+		await writeJson(fixture.compatProjectConfigPath, {
+			mcpServers: {
+				remote: {
+					type: "http",
+					url: `${configVariable("API_BASE:-https://default.test")}/mcp`,
+					headers: { "X-Key": configVariable("EMPTY:-fallback"), "X-Set": configVariable("SET:-unused") },
+				},
+			},
+		});
+		const source = new FileMcpConfigSource({
+			...fixture,
+			projectRoot: fixture.root,
+			environment: { EMPTY: "", SET: "value" },
+		});
+
+		expect(source.loadMerged().mcpServers.remote).toMatchObject({
+			url: "https://default.test/mcp",
+			headers: { "X-Key": "fallback", "X-Set": "value" },
+		});
+	});
+
+	it("keeps type sse from a compat file and expands variables in its url and headers", async () => {
+		const fixture = await createFixture();
+		await writeJson(fixture.compatProjectConfigPath, {
+			mcpServers: {
+				legacy: {
+					type: "sse",
+					url: `https://${configVariable("HOST")}/sse`,
+					headers: { Authorization: configVariable("TOKEN") },
+				},
+			},
+		});
+		const source = new FileMcpConfigSource({
+			...fixture,
+			projectRoot: fixture.root,
+			environment: { HOST: "example.test", TOKEN: "secret" },
+		});
+
+		expect(source.loadMerged().mcpServers.legacy).toMatchObject({
+			type: "sse",
+			url: "https://example.test/sse",
+			headers: { Authorization: "secret" },
+		});
+	});
+
+	it("rejects an sse server that asks for the modern protocol", () => {
+		expect(
+			parseMcpConfig({ mcpServers: { s: { type: "sse", url: "https://x.test/sse", protocolMode: "legacy" } } }),
+		).toBeDefined();
+		expect(() =>
+			parseMcpConfig({ mcpServers: { s: { type: "sse", url: "https://x.test/sse", protocolMode: "modern" } } }),
+		).toThrow('only supports protocolMode "legacy"');
+		expect(() =>
+			parseMcpConfig({ mcpServers: { s: { type: "sse", url: "https://x.test/sse", protocolMode: "auto" } } }),
+		).toThrow('only supports protocolMode "legacy"');
+		expect(() => parseMcpConfig({ mcpServers: { s: { type: "sse" } } })).toThrow("missing or invalid 'url'");
+	});
+
+	it("includes the compat file in the merged signature", async () => {
+		const fixture = await createFixture();
+		const source = new FileMcpConfigSource({ ...fixture, projectRoot: fixture.root });
+		const before = source.getMergedSignature();
+		await writeJson(fixture.compatProjectConfigPath, { mcpServers: { first: { command: "one" } } });
+
+		expect(source.getMergedSignature()).not.toBe(before);
+	});
+
 	it("validates untrusted JSON through the TypeBox-backed parser", () => {
 		expect(parseMcpConfig({ mcpServers: { valid: { command: "node" } } })).toEqual({
 			mcpServers: { valid: { command: "node" } },
@@ -150,6 +279,7 @@ describe("FileMcpConfigSource", () => {
 			root,
 			globalConfigPath: join(root, "agent", "mcp.json"),
 			projectConfigPath: join(root, "project", ".vetta", "mcp.json"),
+			compatProjectConfigPath: join(root, "project", ".mcp.json"),
 		};
 	}
 });

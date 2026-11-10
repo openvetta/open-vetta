@@ -11,10 +11,28 @@ MCP connects Vetta to external tools and data sources through a declared server.
 | --- | --- | --- |
 | STDIO | The server is a local executable or script | Command, arguments, environment, and executable `PATH` |
 | HTTP | The server is a reachable remote endpoint | URL, authentication, TLS, and organization network policy |
+| SSE | The server still exposes only a legacy HTTP+SSE endpoint (prefer HTTP when available) | Same as HTTP; managed runtimes are not supported |
 
 Add a connector from **Capabilities → Add capability → Add MCP manually**, or install one from a trusted capability source.
 
 Global MCP connections are prewarmed after application startup and reused across sessions. Servers from a project's `.vetta/mcp.json`, global servers that reference `${PROJECT_ROOT}`, and global servers with `"resourceScope": "workspace"` stay isolated per workspace and can use that workspace's MCP roots. If a global server depends on `roots/list` without referencing `${PROJECT_ROOT}` in its configuration, set `resourceScope` to `workspace` in the advanced JSON configuration.
+
+## Project `.mcp.json` compatibility
+
+A `.mcp.json` at the project root (the format used by Claude Code and other tools) is merged into the project layer when read, on equal footing with `.vetta/mcp.json`. For a server defined in both, `.vetta/mcp.json` wins. Vetta never rewrites `.mcp.json`. Both `${VAR}` and `${VAR:-default}` are supported.
+
+Entries with `type` set to `sse` (the legacy HTTP+SSE transport) are read as well; entries Vetta cannot recognize are skipped and logged, without affecting the other servers in the file.
+
+> A stdio server in a project file runs a local command when that project is opened. Use it only in repositories you trust.
+
+## Ask the Agent to install: global or project
+
+When you ask the Agent to install an MCP server, it first confirms where to put it:
+
+- **Global**: written to `~/.vetta/agent/mcp.json`; available in all your projects and affects only you.
+- **Project**: written to that project's `.vetta/mcp.json`; active in this project only. The file lives in the repository and can be committed, so teammates who pull it will start the server too.
+
+It does not ask when you have already said "only this project" or "all projects". The approval dialog shows the config location. Because project files end up in the repository, secrets in a project-level server should be written as `${ENV_VAR}` references with the real value kept in the environment, never as plaintext.
 
 ## Configure the smallest useful server
 

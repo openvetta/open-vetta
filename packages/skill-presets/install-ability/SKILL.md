@@ -17,7 +17,7 @@ Vetta 的能力分三种，安装路径互不相同。**先分类，再动手**�
 | 能力市场里的插件条目 | 插件 | 引导用户在能力市场页安装（§2.6） |
 | 能力市场里的 skill（有 slug） | Skill | `skills.manage install-from-market`（§3） |
 | 用户自己写的 / 仓库里的 SKILL.md | Skill / 场景 | 交给 `create-skill` skill（§3.2） |
-| `command` + `args`，或一个 MCP 的 http url | MCP | `mcp.manage upsert`（§4） |
+| `command` + `args`，或一个 MCP 的 http url | MCP | 先定装到哪一层（§1.1），再 `mcp.manage upsert`（§4） |
 
 分不清时**先问用户**，不要凭包名猜类型：npm 上的 `@modelcontextprotocol/server-*` 是 MCP，不是 Vetta 插件。
 
@@ -27,6 +27,23 @@ Vetta 的能力分三种，安装路径互不相同。**先分类，再动手**�
 - 所有写操作都会弹宿主审批。用户拒绝就**停下并如实报告**，不要改走别的路子达成同一效果。
 - **禁止直接改注册表**：`~/.vetta/plugins/`、`~/.vetta/plugins-manifest.json`、`~/.vetta/skills-manifest.json`（市场安装的部分）、`~/.vetta/agent/mcp.json` 都由宿主维护，手写会与宿主状态错位。
 - 安装源来自用户。第三方 zip / http 链接在安装前把来源念给用户确认一次。
+- **查看已装内容只用查询动作**（`mcp.query` / `skills.query` / `plugins.query`），不要去读 `~/.vetta/agent/mcp.json` 等配置文件：里面可能有明文密钥，读进来就进了对话上下文，还会发给模型供应商。查询动作返回的密钥字段已脱敏。
+
+### 1.1 装到哪一层（scope）
+
+MCP 可以装在两层：**全局**（`~/.vetta/agent/mcp.json`，我的所有项目都能用）或**项目**（`<项目根>/.vetta/mcp.json`，只对这个项目生效，文件在仓库里、可以随仓库提交给团队）。装之前先定层，不要默认替用户选：
+
+| 用户的说法 | 层 |
+| --- | --- |
+| 「这个项目 / 这个仓库 / 给团队用 / 提交进仓库」 | project |
+| 「我自己用 / 所有项目 / 全局 / 以后都要」 | global |
+| 没说清，且当前会话有项目目录 | **先问**一句：装到全局，还是只装到当前项目（`<项目根>`）？ |
+| 当前没有项目目录（纯对话） | global，不用问 |
+
+- 问的时候写明两层的区别：全局只影响他自己；项目级会写进仓库里的 `.vetta/mcp.json`，同事拉下来也会启动它。
+- 用户已经说清就**不要再问**，直接按他说的层执行。
+- **插件只有全局**，不用问。**能力市场里的 skill 目前也只能装到全局**（`install-from-market` 没有 scope）。用户明确要「只给这个项目」时如实说明这个限制，由他决定改装全局，或自己写一份项目 skill（交给 `create-skill`）。
+- 项目根用当前会话的工作目录（绝对路径）。
 
 ## 2. 插件
 
@@ -111,7 +128,7 @@ skills.manage {"operation":"install-from-market","type":"skill","slug":"<slug>"}
 
 `type` 为 `"skill"`。**slug 不确定就别猜**：用 `navigation.open` 打开能力市场让用户挑，拿到准确 slug 再装。
 
-Skill 不需要 reload，装完即进入能力页。校验：`skills.query {"operation":"manifest"}`，确认目标 name 在清单里且 `enabled: true`。
+市场 skill 一律装到全局（见 §1.1）。Skill 不需要 reload，装完即进入能力页。校验：`skills.query {"operation":"manifest"}`，确认目标 name 在清单里且 `enabled: true`。
 
 ### 3.2 本地 / 自己写的 Skill
 
@@ -134,15 +151,20 @@ mcp.manage {"operation":"upsert","name":"filesystem",
 
 mcp.manage {"operation":"upsert","name":"remote",
   "data":{"type":"http","url":"https://example.com/mcp","headers":{"Authorization":"Bearer …"}}}
+
+mcp.manage {"operation":"upsert","name":"docs","scope":"project","cwd":"/abs/project",
+  "data":{"command":"npx","args":["-y","docs-mcp"],"env":{"DOCS_TOKEN":"${DOCS_TOKEN}"}}}
 ```
 
-- 缺省是 stdio；http 必须显式写 `"type":"http"`。可选字段：`env`、`cwd`、`disabled`、`autoApprove`、`startupTimeout`、`debug`。
-- **密钥只从用户处取**，放进 `env` / `headers`，不要写进仓库文件、不要回显到聊天里。
+- 缺省是 stdio；远程必须显式写 `"type":"http"`（Streamable HTTP，**首选**）。只有服务器文档明说只提供 SSE 端点、或用户给的是 `.../sse` 地址时才用 `"type":"sse"`（旧传输，已被官方弃用，仅为兼容）；不要为了「保险」默认选 sse。可选字段：`env`、`cwd`、`disabled`、`autoApprove`、`startupTimeout`、`debug`。
+- **层由 §1.1 决定**，写在 `scope`（`global` | `project`）上：不写等于 `global`；`scope:"project"` **必须**同时传项目根 `cwd`（绝对路径），否则会被拒绝而不是悄悄退回全局。注意这个 `cwd` 是项目根，`data.cwd` 才是 server 进程的工作目录，别混。
+- **密钥只从用户处取**，放进 `env` / `headers`，不要回显到聊天里。**项目级文件会进仓库**，所以 `scope:"project"` 时密钥一律写成 `${VAR}` 引用（如 `"DOCS_TOKEN":"${DOCS_TOKEN}"`），并告诉用户把真实值放进环境变量；不要把明文写进项目文件。全局文件只在他本机，才可以由用户在审批弹窗里手填。
 - `upsert` 同名即覆盖，用它做「更新配置」，不要先 remove 再加。
-- 校验：`mcp.query {"operation":"get","name":"<name>"}`（密钥字段会脱敏）。起不来时，先把 `command args` 在终端手跑一次看报错，再改配置——不要靠反复 upsert 试。
-- 停用 / 删除：`mcp.manage set-enabled` / `remove`。
+- 装之前先 `mcp.query {"operation":"list","cwd":"<项目根>"}`：它把全局和项目的 server 一起列出并标明 `scope`，用来发现重名。来自项目根 `.mcp.json` 的条目带 `readOnly:true`——那是别的工具维护的文件，**Vetta 不会改写它**，`mcp.manage` 也改不了；要改请让用户直接编辑那个文件。
+- 校验：`mcp.query {"operation":"get","name":"<name>","scope":"…","cwd":"…"}`（密钥字段会脱敏）。**不要主动启动用户的可执行文件去做握手探测**——`get` 能返回配置就算装好了，能否连上要等宿主重连后才知道。只有用户要求排错、或工具确实起不来时，才把 `command args` 在终端手跑一次看报错，再改配置；不要靠反复 upsert 试。
+- 停用 / 删除：`mcp.manage set-enabled` / `remove`。只传 `cwd` 不传 `scope` 时按名字自动定位；全局和项目里**同名**则必须指明 `scope`，否则会报错——这时问用户要动哪一个，不要替他猜。
 - 新装 MCP 的工具在**当前会话**里可能要等宿主重连才出现。这不是安装失败，别为了让工具出现而重装。
 
 ## 5. 报告
 
-安装结束后向用户说明：装了什么类型、id/name 与版本、**是否执行了 reload 及重载后的 activeVersion**、校验结果，以及任何被用户拒绝或未能执行的步骤。不要把「已提交安装请求」说成「已安装成功」。
+安装结束后向用户说明：装了什么类型、**装在哪一层（全局，还是哪个项目的 `.vetta/mcp.json`）**、id/name 与版本、**是否执行了 reload 及重载后的 activeVersion**、校验结果，以及任何被用户拒绝或未能执行的步骤。不要把「已提交安装请求」说成「已安装成功」。

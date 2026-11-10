@@ -4,6 +4,11 @@ All notable changes to `@vetta-org/capability-sdk` are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- MCP server capabilities accept `sse` (the legacy HTTP+SSE transport) as a server `type` on upsert and in list/detail outputs, for servers that still expose only an SSE endpoint. Prefer `http` (Streamable HTTP) wherever the server supports it. Additive on version 1.
+- MCP server capabilities (`mcp.server.list` / `get` / `upsert` / `set-enabled` / `remove`) accept an optional `scope` (`global` | `project`) and project root `cwd`; omitting both keeps the previous global-only behavior. `scope: "project"` requires `cwd` and targets `<cwd>/.vetta/mcp.json`. List and detail outputs gain optional `scope` and `readOnly` (entries from the project's `.mcp.json`). Additive on version 1: existing callers and bindings are unaffected.
+
 ### Changed (breaking)
 
 - Scheduler task capabilities (`task.list` / `get` / `history.list` / `create` / `update` / `set-enabled`) move to version 2 and a new task shape: `cron` + `isOnce` become a structured `schedule` (once / interval / hourly / daily / weekly / monthly / custom cron), `cwd` becomes a `runTarget` (new session per run, or one bound session inside a project; `projectCwd` may be omitted on input to use the default conversation), `modelKey` becomes an optional `model` with reasoning level, and `executionMode` / `skill` are removed (automations always run with full access; skills are inline tokens in the prompt). Tasks gain optional webhook `notification` and a `suspendedReason`; history records add `skipped` / `missed` statuses with a reason. Old-shape input fails schema validation instead of being misread, and version-1 bindings no longer resolve.

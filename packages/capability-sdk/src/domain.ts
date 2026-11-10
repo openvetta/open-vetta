@@ -116,8 +116,11 @@ export {
 export {
 	DOMAIN_MCP_CAPABILITIES,
 	DOMAIN_MCP_CAPABILITY_CATALOG,
+	MCP_SCOPES,
 	MCP_SERVER_TYPES,
 	type McpHttpServerUpsertData,
+	type McpListInput,
+	type McpScope,
 	type McpServerDetail,
 	type McpServerNameInput,
 	type McpServerSetEnabledInput,
@@ -126,6 +129,7 @@ export {
 	type McpServerUpsertData,
 	type McpServerUpsertInput,
 	type McpStdioServerUpsertData,
+	type McpTarget,
 } from "./domain/mcp.js";
 export {
 	DOMAIN_MEDIA_CAPABILITIES,

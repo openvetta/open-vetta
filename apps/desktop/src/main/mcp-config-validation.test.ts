@@ -53,4 +53,26 @@ describe("validateMcpConfig managed runtime environment", () => {
 			}),
 		).toThrow(/managedRuntimeEnv/);
 	});
+
+	it("accepts sse servers with headers and oauth fields but not managed runtimes", () => {
+		expect(
+			validateMcpConfig({
+				mcpServers: {
+					legacy: {
+						type: "sse",
+						url: "https://legacy.example.com/sse",
+						headers: { Authorization: "Bearer x" },
+						oauthClientId: "client",
+					},
+				},
+			}).mcpServers.legacy,
+		).toMatchObject({ type: "sse", url: "https://legacy.example.com/sse" });
+		expect(() => validateMcpConfig({ mcpServers: { legacy: { type: "sse" } } })).toThrow("url");
+		expect(() =>
+			validateMcpConfig({
+				mcpServers: { legacy: { type: "sse", url: "https://x.test/sse", managedRuntimeId: "runtime" } },
+			}),
+		).toThrow();
+		expect(() => validateMcpConfig({ mcpServers: { legacy: { type: "websocket", url: "wss://x.test" } } })).toThrow();
+	});
 });

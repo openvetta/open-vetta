@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type JSX } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { Button } from "@vetta-org/ui";
+import { ReleaseNoteMarkdown } from "./ReleaseNoteMarkdown";
 
 export interface UpdateCheckerViewLabels {
 	readonly check: string;
@@ -159,9 +158,7 @@ function ReleaseNotePreview({
 				}`}
 				style={isOverflowing ? { maxHeight: `${MAX_HEIGHT_PX}px` } : undefined}
 			>
-				<ReactMarkdown remarkPlugins={[remarkGfm]}>
-					{releaseNote}
-				</ReactMarkdown>
+				<ReleaseNoteMarkdown>{releaseNote}</ReleaseNoteMarkdown>
 			</div>
 			{isOverflowing && (
 				<div className="pt-6 -mt-6 bg-gradient-to-t from-secondary via-secondary/85 to-transparent flex items-center justify-center relative z-10">

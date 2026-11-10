@@ -1,5 +1,6 @@
 import type { FileMigration } from "@vetta/toolkit/file-migrations";
 import type { McpConfigData, McpServerConfigData } from "../../../preload/api-types/mcp.js";
+import { isStdioMcpServer } from "../../../shared/mcp-server-kind.js";
 import { validateMcpConfig } from "../../mcp-config-validation.js";
 
 const MCP_CONFIG_PATH = "agent/mcp.json";
@@ -12,7 +13,7 @@ function isRetiredBuiltinServer(name: string, server: McpServerConfigData): bool
 			return server.type === "http" && server.url === "https://mcp.notion.com/mcp";
 		case "figma":
 			return (
-				server.type !== "http" &&
+				isStdioMcpServer(server) &&
 				server.command === "npx" &&
 				server.args?.join("\0") === ["-y", "figma-developer-mcp", "--stdio"].join("\0")
 			);

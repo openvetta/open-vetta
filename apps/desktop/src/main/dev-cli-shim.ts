@@ -167,6 +167,42 @@ function resolveBunCommand(): string {
 	return process.platform === "win32" ? "bun.exe" : "bun";
 }
 
+interface SignatureDependencies {
+	readonly platform?: NodeJS.Platform;
+	readonly exec?: (file: string, args: readonly string[]) => Promise<unknown>;
+}
+
+/**
+ * `bun build --compile` 在 macOS 上产出的 Mach-O 签名可能与内容对不上（连一个 `console.log` 的
+ * 空程序也会），Apple Silicon 对这种文件直接 SIGKILL（退出码 137，没有任何输出）。
+ * 开发构建不需要正式签名，ad-hoc 重签即可运行。已经有效的签名不动，只在校验失败时重签。
+ *
+ * @returns 是否重新签了名
+ */
+export async function ensureMacosAdHocSignature(
+	binaryPath: string,
+	dependencies: SignatureDependencies = {},
+): Promise<boolean> {
+	if ((dependencies.platform ?? process.platform) !== "darwin") return false;
+	const exec = dependencies.exec ?? ((file, args) => execFileAsync(file, [...args]));
+	try {
+		await exec("codesign", ["--verify", binaryPath]);
+		return false;
+	} catch {
+		// 签名无效（或没有签名）：下面重签。
+	}
+	try {
+		await exec("codesign", ["--force", "--sign", "-", binaryPath]);
+	} catch (error) {
+		throw new Error(
+			`Dev CLI binary has an invalid macOS signature and re-signing failed: ${binaryPath}: ${
+				error instanceof Error ? error.message : String(error)
+			}`,
+		);
+	}
+	return true;
+}
+
 async function assertExecutable(path: string): Promise<void> {
 	if (!(await isExecutable(path))) {
 		throw new Error(`Dev CLI shim is not executable: ${path}`);
@@ -189,6 +225,8 @@ export async function ensureDevCliShim(options: DevCliShimOptions): Promise<stri
 		});
 	}
 
+	// 命中缓存的旧产物也可能是签名无效的，所以不论是否刚编译都校验。
+	await ensureMacosAdHocSignature(binaryPath);
 	await assertExecutable(binaryPath);
 	return binaryPath;
 }
@@ -202,6 +240,7 @@ export async function ensureDevVettaCliShim(options: DevVettaCliShimOptions): Pr
 	try {
 		const [sourceMtimeMs, binaryStats] = await Promise.all([getNewestFileMtimeMs(sourceDir), stat(binaryPath)]);
 		if (sourceMtimeMs <= binaryStats.mtimeMs) {
+			await ensureMacosAdHocSignature(binaryPath);
 			await assertExecutable(binaryPath);
 			return binaryPath;
 		}
@@ -215,6 +254,7 @@ export async function ensureDevVettaCliShim(options: DevVettaCliShimOptions): Pr
 		cwd: options.appRoot,
 		windowsHide: true,
 	});
+	await ensureMacosAdHocSignature(binaryPath);
 	await assertExecutable(binaryPath);
 	return binaryPath;
 }

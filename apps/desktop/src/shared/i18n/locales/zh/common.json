@@ -186,7 +186,8 @@
 			"shortcutActionId": "快捷键动作",
 			"shortcutCombo": "组合键",
 			"quickpanelTrigger": "呼出触发",
-			"quickpanelBehavior": "发送后行为"
+			"quickpanelBehavior": "发送后行为",
+			"configLocation": "配置位置"
 		},
 		"shortcuts": {
 			"ops": {
@@ -318,7 +319,9 @@
 			},
 			"headersConfigured": "已包含自定义 headers（密钥已脱敏）",
 			"envPlaceholder": "每行一个 KEY=VALUE；密钥请在此手填，不要让 AI 传入",
-			"headersPlaceholder": "每行一个 HeaderName=value；密钥请在此手填"
+			"headersPlaceholder": "每行一个 HeaderName=value；密钥请在此手填",
+			"locationGlobal": "全局（所有项目）",
+			"locationProject": "仅此项目：{{path}}"
 		},
 		"skills": {
 			"ops": {

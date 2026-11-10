@@ -17,6 +17,16 @@ describe("VETTA_CLI_GUIDANCE", () => {
 		expect(VETTA_CLI_GUIDANCE).toContain("authoritative inventory is always `vetta action search`");
 		expect(VETTA_CLI_GUIDANCE).toContain("Do not expect CLI help to list every parameter");
 	});
+
+	test("tells the agent to keep CLI failures visible and to stop after repeated start failures", () => {
+		expect(VETTA_CLI_GUIDANCE).toContain("do not pipe `vetta` output through `head`");
+		expect(VETTA_CLI_GUIDANCE).toContain("twice in a row, stop probing other binaries or install paths");
+	});
+
+	test("keeps secrets out of the conversation by routing inspection through query actions", () => {
+		expect(VETTA_CLI_GUIDANCE).toContain("never by reading Vetta's config files");
+		expect(VETTA_CLI_GUIDANCE).toContain("plaintext secrets");
+	});
 });
 
 describe("buildSystemPrompt", () => {

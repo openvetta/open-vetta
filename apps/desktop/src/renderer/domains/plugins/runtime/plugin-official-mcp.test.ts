@@ -31,13 +31,47 @@ describe("createOfficialMcpApi", () => {
 		await expect(api.remove("web")).resolves.toBeUndefined();
 
 		expect(assertOfficial).toHaveBeenCalledTimes(6);
-		expect(mcp.list).toHaveBeenCalledWith("capability-session");
-		expect(mcp.get).toHaveBeenCalledWith("capability-session", "web");
-		expect(mcp.upsert).toHaveBeenCalledWith("capability-session", "web", {
-			type: "http",
-			url: "https://mcp.example.com",
+		expect(mcp.list).toHaveBeenCalledWith("capability-session", undefined);
+		expect(mcp.get).toHaveBeenCalledWith("capability-session", "web", undefined);
+		expect(mcp.upsert).toHaveBeenCalledWith(
+			"capability-session",
+			"web",
+			{
+				type: "http",
+				url: "https://mcp.example.com",
+			},
+			undefined,
+		);
+		expect(mcp.setEnabled).toHaveBeenCalledWith("capability-session", "web", true, undefined);
+		expect(mcp.remove).toHaveBeenCalledWith("capability-session", "web", undefined);
+	});
+
+	it("forwards the config target so project-level calls reach the host", async () => {
+		const mcp = {
+			list: vi.fn().mockResolvedValue([{ name: "docs" }]),
+			get: vi.fn().mockResolvedValue({ name: "docs" }),
+			upsert: vi.fn().mockResolvedValue({ name: "docs" }),
+			setEnabled: vi.fn().mockResolvedValue(undefined),
+			remove: vi.fn().mockResolvedValue(undefined),
+		};
+		Object.defineProperty(globalThis, "window", {
+			configurable: true,
+			value: { vetta: { plugins: { internalCapabilities: { mcp } } } },
 		});
-		expect(mcp.setEnabled).toHaveBeenCalledWith("capability-session", "web", true);
-		expect(mcp.remove).toHaveBeenCalledWith("capability-session", "web");
+		const api = createOfficialMcpApi(vi.fn(), "capability-session");
+		const target = { scope: "project", cwd: "/work/repo" } as const;
+
+		await api.list(target);
+		await expect(api.listNames(target)).resolves.toEqual(["docs"]);
+		await api.get("docs", target);
+		await api.upsert("docs", { command: "node" }, target);
+		await api.setEnabled("docs", false, target);
+		await api.remove("docs", target);
+
+		expect(mcp.list).toHaveBeenCalledWith("capability-session", target);
+		expect(mcp.get).toHaveBeenCalledWith("capability-session", "docs", target);
+		expect(mcp.upsert).toHaveBeenCalledWith("capability-session", "docs", { command: "node" }, target);
+		expect(mcp.setEnabled).toHaveBeenCalledWith("capability-session", "docs", false, target);
+		expect(mcp.remove).toHaveBeenCalledWith("capability-session", "docs", target);
 	});
 });

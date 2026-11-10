@@ -41,7 +41,7 @@ export function InputBarSkillsAction({
 }
 
 export function InputBarToolbarDivider(): JSX.Element {
-	return <div className="ml-1 h-4 w-px shrink-0 bg-border/70" />;
+	return <div data-input-bar-divider="true" className="ml-1 h-4 w-px shrink-0 bg-border/70" />;
 }
 
 export interface InputBarAttachmentActionsProps {

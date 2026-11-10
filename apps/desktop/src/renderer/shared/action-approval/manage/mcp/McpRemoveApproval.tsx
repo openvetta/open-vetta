@@ -4,20 +4,23 @@ import {
 	ApprovalImpactCard,
 	ApprovalRawFallback,
 	ApprovalTargetCard,
+	ApprovalValueList,
 	ApprovalWarningCard,
 } from "../ApprovalParts";
 import { useManageApprovalFrame } from "../useManageApprovalShell";
+import { describeMcpLocation, type McpApprovalTarget, readMcpApprovalTarget } from "./mcp-approval-target";
 
 interface McpRemoveInput {
 	operation: "remove";
 	name: string;
+	target: McpApprovalTarget;
 }
 
 function parseInput(input: unknown): McpRemoveInput | null {
 	if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
 	const record = input as Record<string, unknown>;
 	if (record.operation !== "remove" || typeof record.name !== "string") return null;
-	return { operation: "remove", name: record.name };
+	return { operation: "remove", name: record.name, target: readMcpApprovalTarget(record) };
 }
 
 export function McpRemoveApproval(): JSX.Element | null {
@@ -30,6 +33,11 @@ function McpRemoveApprovalContent({ approval }: { approval: ActiveActionApproval
 	const { Frame, t, frameLabels } = useManageApprovalFrame();
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
+	const location = describeMcpLocation(input?.target ?? {});
+	const locationLabel =
+		location.kind === "project"
+			? t("manageApproval.mcp.locationProject", { path: location.path })
+			: t("manageApproval.mcp.locationGlobal");
 
 	return (
 		<Frame
@@ -53,6 +61,15 @@ function McpRemoveApprovalContent({ approval }: { approval: ActiveActionApproval
 						icon="icon-[mdi--server-network]"
 						title={input.name}
 						subtitle={t("manageApproval.fields.serverName")}
+					/>
+					<ApprovalValueList
+						rows={[
+							{
+								label: t("manageApproval.fields.configLocation"),
+								value: locationLabel,
+								mono: location.kind === "project",
+							},
+						]}
 					/>
 					<ApprovalImpactCard
 						icon="icon-[mdi--delete-outline]"

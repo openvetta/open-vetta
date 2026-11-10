@@ -228,7 +228,7 @@
 		"checkFailed": "更新检查失败，点击重试",
 		"downloadProgress": "下载进度",
 		"bannerReady": "新版本 {{version}} 已就绪",
-		"bannerRestart": "重启更新",
+		"bannerRestart": "查看更新",
 		"bannerDismiss": "忽略"
 	},
 	"tabPicker": {
