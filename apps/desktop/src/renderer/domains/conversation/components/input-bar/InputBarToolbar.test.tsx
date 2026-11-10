@@ -142,7 +142,7 @@ describe("InputBar leading toolbar divider", () => {
 		expect(container.querySelector("[data-input-bar-divider]")).toBeNull();
 	});
 
-	it("keeps the divider when active capsules show up alone", () => {
+	it("keeps the divider when an active capsule is the only thing on the right", () => {
 		const { container } = render(
 			<InputBarLeadingActions
 				model={leadingModel({
@@ -154,7 +154,7 @@ describe("InputBar leading toolbar divider", () => {
 		);
 
 		expect(screen.getByTestId("active-capsules").textContent).toBe("plan-mode");
-		expect(container.querySelector("[data-input-bar-divider]")).toBeNull();
+		expect(container.querySelector("[data-input-bar-divider]")).not.toBeNull();
 	});
 
 	it("keeps the divider while the command panel shows the attachment actions", () => {

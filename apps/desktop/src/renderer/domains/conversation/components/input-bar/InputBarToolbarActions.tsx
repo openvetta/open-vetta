@@ -19,11 +19,13 @@ export function InputBarLeadingActions({ model }: { readonly model: InputBarMode
 	const slashOpen = commands?.slashOpen ?? false;
 	const attachmentsVisible = !commands || commands.slashOpen;
 	/**
-	 * 竖线只用来分组：右边没有可见控件时就空成一条断线。已激活的胶囊自带底色，
-	 * 与命令按钮同属输入框开关，不算需要分隔的另一组。
+	 * 竖线只用来分组：右侧没有任何可见控件时就撤掉，避免留下悬空的断线。
+	 * 已激活的胶囊、工具栏里的执行模式、命令面板展开后的图片/附件按钮都算右侧内容。
 	 */
 	const dividerVisible =
-		attachmentsVisible || (!model.executionModeInModelMenu && model.leadingTools.length > 0);
+		attachmentsVisible ||
+		model.activeActions.length > 0 ||
+		(!model.executionModeInModelMenu && model.leadingTools.length > 0);
 	return (
 		<>
 			{/*
