@@ -13,7 +13,7 @@ MCP 让 Agent 调用外部工具与数据源。在桌面端，MCP 通过侧栏 *
 
 项目根目录的 `.mcp.json`（Claude Code 等工具使用的同一格式）会在读取时并入项目层，与 `.vetta/mcp.json` 一视同仁：同名连接以 `.vetta/mcp.json` 为准，Vetta 不会改写 `.mcp.json`。`${VAR}` 与 `${VAR:-默认值}` 都可用。
 
-当前不支持 SSE 传输：`type` 为 `sse` 的条目会被跳过并记入日志，不影响文件里的其它连接。
+`type` 为 `sse` 的条目（旧式 HTTP+SSE）同样会被读取；无法识别的条目会被跳过并记入日志，不影响文件里的其它连接。
 
 > 项目文件里的 stdio 连接会在打开该项目时启动本机命令，请只在信任的仓库里使用。
 
@@ -58,7 +58,7 @@ MCP 让 Agent 调用外部工具与数据源。在桌面端，MCP 通过侧栏 *
 
 **添加能力 → 手动添加 MCP**，传输类型：
 
-<Tabs items={["STDIO", "HTTP"]}>
+<Tabs items={["STDIO", "HTTP", "SSE"]}>
   <Tab value="STDIO">
     本地进程：填写 **命令**、**参数**，可选环境变量与工作目录。
 
@@ -87,6 +87,23 @@ MCP 让 Agent 调用外部工具与数据源。在桌面端，MCP 通过侧栏 *
         "my-api": {
           "type": "http",
           "url": "https://example.com/mcp",
+          "headers": {
+            "Authorization": "Bearer ..."
+          }
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab value="SSE">
+    旧式 HTTP+SSE 传输，只用于仍然只提供 SSE 端点的服务器；服务器支持 Streamable HTTP 时请选 HTTP。字段与 HTTP 相同（URL、Headers、OAuth），不支持受管运行时。
+
+    ```json
+    {
+      "mcpServers": {
+        "legacy-api": {
+          "type": "sse",
+          "url": "https://example.com/sse",
           "headers": {
             "Authorization": "Bearer ..."
           }

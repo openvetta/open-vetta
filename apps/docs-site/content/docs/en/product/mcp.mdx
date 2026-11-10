@@ -11,6 +11,7 @@ MCP connects Vetta to external tools and data sources through a declared server.
 | --- | --- | --- |
 | STDIO | The server is a local executable or script | Command, arguments, environment, and executable `PATH` |
 | HTTP | The server is a reachable remote endpoint | URL, authentication, TLS, and organization network policy |
+| SSE | The server still exposes only a legacy HTTP+SSE endpoint (prefer HTTP when available) | Same as HTTP; managed runtimes are not supported |
 
 Add a connector from **Capabilities → Add capability → Add MCP manually**, or install one from a trusted capability source.
 
@@ -20,7 +21,7 @@ Global MCP connections are prewarmed after application startup and reused across
 
 A `.mcp.json` at the project root (the format used by Claude Code and other tools) is merged into the project layer when read, on equal footing with `.vetta/mcp.json`. For a server defined in both, `.vetta/mcp.json` wins. Vetta never rewrites `.mcp.json`. Both `${VAR}` and `${VAR:-default}` are supported.
 
-SSE transport is not supported: entries with `type` set to `sse` are skipped and logged, without affecting the other servers in the file.
+Entries with `type` set to `sse` (the legacy HTTP+SSE transport) are read as well; entries Vetta cannot recognize are skipped and logged, without affecting the other servers in the file.
 
 > A stdio server in a project file runs a local command when that project is opened. Use it only in repositories you trust.
 

@@ -155,7 +155,7 @@ mcp.manage {"operation":"upsert","name":"docs","scope":"project","cwd":"/abs/pro
   "data":{"command":"npx","args":["-y","docs-mcp"],"env":{"DOCS_TOKEN":"${DOCS_TOKEN}"}}}
 ```
 
-- 缺省是 stdio；http 必须显式写 `"type":"http"`。可选字段：`env`、`cwd`、`disabled`、`autoApprove`、`startupTimeout`、`debug`。
+- 缺省是 stdio；远程必须显式写 `"type":"http"`（Streamable HTTP，**首选**）。只有服务器文档明说只提供 SSE 端点、或用户给的是 `.../sse` 地址时才用 `"type":"sse"`（旧传输，已被官方弃用，仅为兼容）；不要为了「保险」默认选 sse。可选字段：`env`、`cwd`、`disabled`、`autoApprove`、`startupTimeout`、`debug`。
 - **层由 §1.1 决定**，写在 `scope`（`global` | `project`）上：不写等于 `global`；`scope:"project"` **必须**同时传项目根 `cwd`（绝对路径），否则会被拒绝而不是悄悄退回全局。注意这个 `cwd` 是项目根，`data.cwd` 才是 server 进程的工作目录，别混。
 - **密钥只从用户处取**，放进 `env` / `headers`，不要回显到聊天里。**项目级文件会进仓库**，所以 `scope:"project"` 时密钥一律写成 `${VAR}` 引用（如 `"DOCS_TOKEN":"${DOCS_TOKEN}"`），并告诉用户把真实值放进环境变量；不要把明文写进项目文件。全局文件只在他本机，才可以由用户在审批弹窗里手填。
 - `upsert` 同名即覆盖，用它做「更新配置」，不要先 remove 再加。
