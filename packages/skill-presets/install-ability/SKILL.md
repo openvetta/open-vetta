@@ -27,6 +27,7 @@ Vetta 的能力分三种，安装路径互不相同。**先分类，再动手**�
 - 所有写操作都会弹宿主审批。用户拒绝就**停下并如实报告**，不要改走别的路子达成同一效果。
 - **禁止直接改注册表**：`~/.vetta/plugins/`、`~/.vetta/plugins-manifest.json`、`~/.vetta/skills-manifest.json`（市场安装的部分）、`~/.vetta/agent/mcp.json` 都由宿主维护，手写会与宿主状态错位。
 - 安装源来自用户。第三方 zip / http 链接在安装前把来源念给用户确认一次。
+- **查看已装内容只用查询动作**（`mcp.query` / `skills.query` / `plugins.query`），不要去读 `~/.vetta/agent/mcp.json` 等配置文件：里面可能有明文密钥，读进来就进了对话上下文，还会发给模型供应商。查询动作返回的密钥字段已脱敏。
 
 ### 1.1 装到哪一层（scope）
 
@@ -160,7 +161,7 @@ mcp.manage {"operation":"upsert","name":"docs","scope":"project","cwd":"/abs/pro
 - **密钥只从用户处取**，放进 `env` / `headers`，不要回显到聊天里。**项目级文件会进仓库**，所以 `scope:"project"` 时密钥一律写成 `${VAR}` 引用（如 `"DOCS_TOKEN":"${DOCS_TOKEN}"`），并告诉用户把真实值放进环境变量；不要把明文写进项目文件。全局文件只在他本机，才可以由用户在审批弹窗里手填。
 - `upsert` 同名即覆盖，用它做「更新配置」，不要先 remove 再加。
 - 装之前先 `mcp.query {"operation":"list","cwd":"<项目根>"}`：它把全局和项目的 server 一起列出并标明 `scope`，用来发现重名。来自项目根 `.mcp.json` 的条目带 `readOnly:true`——那是别的工具维护的文件，**Vetta 不会改写它**，`mcp.manage` 也改不了；要改请让用户直接编辑那个文件。
-- 校验：`mcp.query {"operation":"get","name":"<name>","scope":"…","cwd":"…"}`（密钥字段会脱敏）。起不来时，先把 `command args` 在终端手跑一次看报错，再改配置——不要靠反复 upsert 试。
+- 校验：`mcp.query {"operation":"get","name":"<name>","scope":"…","cwd":"…"}`（密钥字段会脱敏）。**不要主动启动用户的可执行文件去做握手探测**——`get` 能返回配置就算装好了，能否连上要等宿主重连后才知道。只有用户要求排错、或工具确实起不来时，才把 `command args` 在终端手跑一次看报错，再改配置；不要靠反复 upsert 试。
 - 停用 / 删除：`mcp.manage set-enabled` / `remove`。只传 `cwd` 不传 `scope` 时按名字自动定位；全局和项目里**同名**则必须指明 `scope`，否则会报错——这时问用户要动哪一个，不要替他猜。
 - 新装 MCP 的工具在**当前会话**里可能要等宿主重连才出现。这不是安装失败，别为了让工具出现而重装。
 
