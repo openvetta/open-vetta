@@ -37,6 +37,11 @@
 						"title": "装完就校验",
 						"description": "回查启用状态、版本与配置，如实报告未完成的步骤。",
 						"icon": "solar:clipboard-check-linear"
+					},
+					{
+						"title": "问清装到哪一层",
+						"description": "MCP 可装到全局或只装当前项目；没说清就先问，项目级不写明文密钥。",
+						"icon": "solar:folder-with-files-linear"
 					}
 				]
 			}
@@ -76,6 +81,11 @@
 								"title": "Verify and report",
 								"description": "Check enabled state, version, and config, and report anything left undone.",
 								"icon": "solar:clipboard-check-linear"
+							},
+							{
+								"title": "Ask where to install",
+								"description": "An MCP server can go global or into the current project only; ask when unclear, and never write plaintext secrets into project files.",
+								"icon": "solar:folder-with-files-linear"
 							}
 						]
 					}

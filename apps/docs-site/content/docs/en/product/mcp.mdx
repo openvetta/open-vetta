@@ -24,6 +24,15 @@ SSE transport is not supported: entries with `type` set to `sse` are skipped and
 
 > A stdio server in a project file runs a local command when that project is opened. Use it only in repositories you trust.
 
+## Ask the Agent to install: global or project
+
+When you ask the Agent to install an MCP server, it first confirms where to put it:
+
+- **Global**: written to `~/.vetta/agent/mcp.json`; available in all your projects and affects only you.
+- **Project**: written to that project's `.vetta/mcp.json`; active in this project only. The file lives in the repository and can be committed, so teammates who pull it will start the server too.
+
+It does not ask when you have already said "only this project" or "all projects". The approval dialog shows the config location. Because project files end up in the repository, secrets in a project-level server should be written as `${ENV_VAR}` references with the real value kept in the environment, never as plaintext.
+
 ## Configure the smallest useful server
 
 Keep the command, URL, and environment explicit. Credential references should point to protected configuration or environment variables; never paste a token into a task, project file, or committed MCP configuration.
