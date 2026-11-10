@@ -16,6 +16,14 @@ Add a connector from **Capabilities → Add capability → Add MCP manually**, o
 
 Global MCP connections are prewarmed after application startup and reused across sessions. Servers from a project's `.vetta/mcp.json`, global servers that reference `${PROJECT_ROOT}`, and global servers with `"resourceScope": "workspace"` stay isolated per workspace and can use that workspace's MCP roots. If a global server depends on `roots/list` without referencing `${PROJECT_ROOT}` in its configuration, set `resourceScope` to `workspace` in the advanced JSON configuration.
 
+## Project `.mcp.json` compatibility
+
+A `.mcp.json` at the project root (the format used by Claude Code and other tools) is merged into the project layer when read, on equal footing with `.vetta/mcp.json`. For a server defined in both, `.vetta/mcp.json` wins. Vetta never rewrites `.mcp.json`. Both `${VAR}` and `${VAR:-default}` are supported.
+
+SSE transport is not supported: entries with `type` set to `sse` are skipped and logged, without affecting the other servers in the file.
+
+> A stdio server in a project file runs a local command when that project is opened. Use it only in repositories you trust.
+
 ## Configure the smallest useful server
 
 Keep the command, URL, and environment explicit. Credential references should point to protected configuration or environment variables; never paste a token into a task, project file, or committed MCP configuration.
