@@ -17,6 +17,13 @@ import type { InputBarModel } from "./types";
 export function InputBarLeadingActions({ model }: { readonly model: InputBarModel }): JSX.Element {
 	const commands = model.commands;
 	const slashOpen = commands?.slashOpen ?? false;
+	const attachmentsVisible = !commands || commands.slashOpen;
+	/**
+	 * 竖线只用来分组：右边没有可见控件时就空成一条断线。已激活的胶囊自带底色，
+	 * 与命令按钮同属输入框开关，不算需要分隔的另一组。
+	 */
+	const dividerVisible =
+		attachmentsVisible || (!model.executionModeInModelMenu && model.leadingTools.length > 0);
 	return (
 		<>
 			{/*
@@ -34,11 +41,11 @@ export function InputBarLeadingActions({ model }: { readonly model: InputBarMode
 			{model.routing ? (
 				<InputBarMention model={model.routing} disabled={!model.hasSession} visible={!slashOpen} />
 			) : null}
-			{commands ? <InputBarToolbarDivider /> : null}
+			{commands && dividerVisible ? <InputBarToolbarDivider /> : null}
 			{/* 两组控件保持挂载、只切 display，避免展开动画首帧重建复杂 selector。 */}
 			<InputBarAttachmentActions
 				disabled={!model.hasSession}
-				visible={!commands || commands.slashOpen}
+				visible={attachmentsVisible}
 				addImageTitle={model.labels.toolbar.addImage}
 				attachFileTitle={model.labels.toolbar.attachFile}
 				onSelectFiles={() => void model.actions.handleSelectFiles()}

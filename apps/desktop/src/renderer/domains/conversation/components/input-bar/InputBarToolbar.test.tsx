@@ -7,6 +7,8 @@ import {
 	InputBarSendAction,
 	InputBarSpeechAction,
 } from "./InputBarToolbar";
+import { InputBarLeadingActions } from "./InputBarToolbarActions";
+import type { InputBarModel } from "./types";
 
 vi.mock("./InputBarToolbarButton", () => ({
 	InputBarToolbarButton: ({ title, onClick }: { title: string; onClick: () => void }) => (
@@ -20,6 +22,14 @@ vi.mock("../SendButton", () => ({
 		<button type="button" onClick={onSend}>
 			Send
 		</button>
+	),
+}));
+vi.mock("../ExecutionModeSelector", () => ({
+	ExecutionModeSelector: () => <div data-testid="execution-mode" />,
+}));
+vi.mock("./ActiveActionCapsules", () => ({
+	ActiveActionCapsules: ({ items }: { items: readonly { id: string }[] }) => (
+		<div data-testid="active-capsules">{items.map((item) => item.id).join(",")}</div>
 	),
 }));
 
@@ -91,5 +101,82 @@ describe("InputBar toolbar abilities", () => {
 			/>,
 		);
 		expect(screen.getByRole("button", { name: "Send" })).toBeTruthy();
+	});
+});
+
+describe("InputBar leading toolbar divider", () => {
+	const EXECUTION_MODE_TOOL = [{ kind: "execution-mode", model: {} }] as unknown as InputBarModel["leadingTools"];
+
+	/** 只填 InputBarLeadingActions 真正读到的字段，其余由类型断言补齐。 */
+	function leadingModel({
+		slashOpen = false,
+		executionModeInModelMenu,
+		leadingTools = [],
+		activeActions = [],
+	}: {
+		readonly slashOpen?: boolean;
+		readonly executionModeInModelMenu?: boolean;
+		readonly leadingTools?: InputBarModel["leadingTools"];
+		readonly activeActions?: InputBarModel["activeActions"];
+	} = {}): InputBarModel {
+		return {
+			hasSession: true,
+			commands: { slashOpen, onOpen: vi.fn() },
+			activeActions,
+			leadingTools,
+			executionModeInModelMenu,
+			labels: {
+				toolbar: { skills: "Skills", addImage: "Add image", attachFile: "Attach file", queue: "Queue" },
+				capsule: { removeDefault: "Remove", activeGroup: (count: number) => `${count} active` },
+			},
+			actions: { handleSelectFiles: vi.fn(), handleSelectImages: vi.fn() },
+		} as unknown as InputBarModel;
+	}
+
+	it("draws no divider when the command panel is closed and the sandbox picker moved into the model menu", () => {
+		const { container } = render(
+			<InputBarLeadingActions model={leadingModel({ executionModeInModelMenu: true, leadingTools: EXECUTION_MODE_TOOL })} />,
+		);
+
+		expect(screen.getByRole("button", { name: "Skills" })).toBeTruthy();
+		expect(container.querySelector("[data-input-bar-divider]")).toBeNull();
+	});
+
+	it("keeps the divider when active capsules show up alone", () => {
+		const { container } = render(
+			<InputBarLeadingActions
+				model={leadingModel({
+					executionModeInModelMenu: true,
+					leadingTools: EXECUTION_MODE_TOOL,
+					activeActions: [{ id: "plan-mode", label: "Plan mode", onToggle: vi.fn() }],
+				})}
+			/>,
+		);
+
+		expect(screen.getByTestId("active-capsules").textContent).toBe("plan-mode");
+		expect(container.querySelector("[data-input-bar-divider]")).toBeNull();
+	});
+
+	it("keeps the divider while the command panel shows the attachment actions", () => {
+		const { container } = render(
+			<InputBarLeadingActions
+				model={leadingModel({
+					executionModeInModelMenu: true,
+					slashOpen: true,
+				})}
+			/>,
+		);
+
+		expect(screen.getByRole("button", { name: "Attach file" })).toBeTruthy();
+		expect(container.querySelector("[data-input-bar-divider]")).not.toBeNull();
+	});
+
+	it("keeps the divider for the team composer that still hosts the sandbox picker", () => {
+		const { container } = render(
+			<InputBarLeadingActions model={leadingModel({ leadingTools: EXECUTION_MODE_TOOL })} />,
+		);
+
+		expect(screen.getByTestId("execution-mode")).toBeTruthy();
+		expect(container.querySelector("[data-input-bar-divider]")).not.toBeNull();
 	});
 });
