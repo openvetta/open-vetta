@@ -1,11 +1,15 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useRef, type JSX, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ThemeSurface } from "../appearance/ThemeSurface";
 import "./command-menu.css";
 
 /**
  * 居中偏上的 Splash 面板外壳：遮罩 + 入场动效 + 高光边 + 主题 surface 槽位。
  * ⌘K 命令面板与「添加项目」这类选项面板共用这一份，样式只在这里改一次。
+ *
+ * 自己 portal 到 body：宿主可能把它挂在侧栏之类带 transform / contain 的祖先里，
+ * 那样 `fixed` 会相对祖先定位，面板就缩在侧栏里了。
  *
  * 只管外壳：头部（搜索框 / 标题）、列表和底栏都由调用方通过插槽传入，
  * 键盘导航与关闭快捷键由宿主负责，本组件只处理点击遮罩关闭。
@@ -37,7 +41,7 @@ export function SplashPanel({
 }: SplashPanelProps): JSX.Element {
 	const overlayRef = useRef<HTMLDivElement | null>(null);
 
-	return (
+	return createPortal(
 		<AnimatePresence>
 			{open && (
 				<motion.div
@@ -73,6 +77,7 @@ export function SplashPanel({
 					</motion.div>
 				</motion.div>
 			)}
-		</AnimatePresence>
+		</AnimatePresence>,
+		document.body,
 	);
 }
