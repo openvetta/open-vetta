@@ -626,6 +626,14 @@
 			"types": "./src/overlays/CommandMenuView.tsx",
 			"import": "./src/overlays/CommandMenuView.tsx"
 		},
+		"./overlays/SplashOptionRow": {
+			"types": "./src/overlays/SplashOptionRow.tsx",
+			"import": "./src/overlays/SplashOptionRow.tsx"
+		},
+		"./overlays/SplashPanel": {
+			"types": "./src/overlays/SplashPanel.tsx",
+			"import": "./src/overlays/SplashPanel.tsx"
+		},
 		"./overlays/ConfirmDialogView": {
 			"types": "./src/overlays/ConfirmDialogView.tsx",
 			"import": "./src/overlays/ConfirmDialogView.tsx"

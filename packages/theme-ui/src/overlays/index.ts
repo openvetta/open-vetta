@@ -25,6 +25,10 @@ export type {
 	RouteErrorPageViewProps,
 } from "./RouteErrorPageView";
 export { RouteErrorPageView } from "./RouteErrorPageView";
+export type { SplashOptionRowProps } from "./SplashOptionRow";
+export { SplashOptionRow } from "./SplashOptionRow";
+export type { SplashPanelProps } from "./SplashPanel";
+export { SplashPanel } from "./SplashPanel";
 export type {
 	ToasterItemView,
 	ToasterVariant,
