@@ -1,5 +1,5 @@
 import { SegmentedControl } from "@vetta-org/theme-ui/shared";
-import { Button } from "@vetta-org/ui";
+import { Button, Input } from "@vetta-org/ui";
 import { motion } from "motion/react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -101,12 +101,12 @@ export function AbilitiesPageView({
 						<div data-tour="capabilities-search-add" className="flex min-w-0 flex-wrap items-center gap-2">
 							<div className="relative w-56 shrink-0">
 								<span className="icon-[solar--magnifer-linear] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
-								<input
+								<Input
 									type="text"
 									placeholder={t("search.placeholder")}
 									value={model.searchQuery}
 									onChange={(event) => model.setSearchQuery(event.target.value)}
-									className="h-8 w-full rounded-lg bg-secondary pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors hover:bg-accent focus:bg-accent focus:outline-none"
+									className="border-transparent bg-secondary pl-8 pr-3 text-[12px] placeholder:text-muted-foreground/40 hover:border-transparent hover:bg-accent dark:bg-secondary md:text-[12px]"
 								/>
 							</div>
 							<AbilityFilterPopover
