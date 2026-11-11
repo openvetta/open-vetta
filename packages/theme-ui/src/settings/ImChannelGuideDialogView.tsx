@@ -115,7 +115,7 @@ export function ImChannelGuideDialogView({
 					))}
 				</div>
 
-				<DialogFooter className="shrink-0 px-6 py-5">
+				<DialogFooter className="mx-0 mb-0 shrink-0 px-6 py-4">
 					<Button variant="primary" onClick={onClose}>
 						{labels.close}
 					</Button>

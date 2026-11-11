@@ -58,6 +58,7 @@ export interface PresetProvidersSectionLabels {
 	remove: string;
 	enable: string;
 	apiKeyDirect: (provider: string) => string;
+	apiKeyLabel: string;
 	apiKeyPlaceholder: string;
 	encryptedApiKeyPlaceholder: string;
 	save: string;
@@ -449,6 +450,7 @@ export function usePresetProvidersSectionModel({
 			remove: t("remove"),
 			enable: t("enable"),
 			apiKeyDirect: (provider: string) => t("apiKeyDirect", { provider }),
+			apiKeyLabel: t("apiKeyLabel"),
 			apiKeyPlaceholder: t("presetApiKeyPlaceholder"),
 			encryptedApiKeyPlaceholder: t("replaceApiKeyPlaceholder"),
 			save: t("save"),

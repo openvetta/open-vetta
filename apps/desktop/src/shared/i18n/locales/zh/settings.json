@@ -1455,6 +1455,7 @@
   "apiKeyCopied": "API Key 已复制，剪贴板将在 30 秒后自动清除",
   "apiKeyCopyFailed": "没有可复制的 API Key",
   "replaceApiKeyPlaceholder": "••••••••（已加密保存）",
+  "apiKeyLabel": "API Key",
   "apiKeyDirect": "API Key（直连 {{provider}}，仅存本地）",
   "perMillionTokens": "/百万Tokens",
   "costInput": "输入",

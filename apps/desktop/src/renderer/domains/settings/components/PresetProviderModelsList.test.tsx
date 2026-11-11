@@ -20,6 +20,7 @@ const labels: PresetProvidersSectionLabels = {
 	remove: "Remove",
 	enable: "Enable",
 	apiKeyDirect: (provider) => `${provider} API key`,
+	apiKeyLabel: "API Key",
 	apiKeyPlaceholder: "API key",
 	encryptedApiKeyPlaceholder: "Saved API key",
 	save: "Save",

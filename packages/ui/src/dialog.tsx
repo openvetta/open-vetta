@@ -56,7 +56,7 @@ function DialogContent({
 				className={cn(
 					// Single max-width (not max-w + sm:max-w-sm): avoids twMerge leaving
 					// sm:max-w-sm that overrides consumer max-w-lg at the sm breakpoint.
-					// 去线留白：不用边框，靠留白和柔和投影区分层次。
+					// 不用外边框，靠留白和柔和投影区分层次。
 					"no-drag fixed top-1/2 left-1/2 z-50 grid w-full max-w-[min(24rem,calc(100%-2rem))] [transform:translate(-50%,-50%)] gap-5 rounded-2xl bg-popover p-6 text-sm text-popover-foreground outline-none",
 					PANEL_SHADOW_CLASS,
 					className,
@@ -93,8 +93,9 @@ function DialogFooter({
 		<div
 			data-slot="dialog-footer"
 			className={cn(
-				// 无分隔线、无底色：操作区只靠上方留白与正文分开。
-				"flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end",
+				// 通栏底栏：一条淡分隔线 + 比正文略深的底色，把操作区托出来。
+				// 负外边距抵消 DialogContent 的 p-6，让它贴到面板边缘。
+				"-mx-6 -mb-6 flex flex-col-reverse gap-2 rounded-b-2xl border-t border-border/50 bg-muted/40 px-6 py-4 sm:flex-row sm:justify-end",
 				className,
 			)}
 			{...props}
