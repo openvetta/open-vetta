@@ -21,7 +21,7 @@ export function SettingsMenu(): JSX.Element {
 	};
 
 	return (
-		// min-w-0 w-full：底栏 flex 中昵称过长时可收缩，不把 MessageCenter 挤出
+		// min-w-0 w-full：底栏 flex 中昵称过长时可收缩，不把右侧更新图标挤出
 		<div className="min-w-0 w-full">
 			<Popover open={open} onOpenChange={handleOpenChange}>
 				<PopoverTrigger asChild>

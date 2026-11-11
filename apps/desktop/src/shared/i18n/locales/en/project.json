@@ -234,9 +234,7 @@
 		"ready": "Update {{version}} is ready — click to restart",
 		"checkFailed": "Update check failed, click to retry",
 		"downloadProgress": "Download progress",
-		"bannerReady": "Version {{version}} is ready",
-		"bannerRestart": "View update",
-		"bannerDismiss": "Dismiss"
+		"bannerReady": "Version {{version}} is ready"
 	},
 	"tabPicker": {
 		"moreTabs": "More tabs",
