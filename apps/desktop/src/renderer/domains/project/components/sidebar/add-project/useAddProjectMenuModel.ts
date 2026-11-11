@@ -14,6 +14,9 @@ export function useAddProjectMenuModel(): {
 	showNewProject: boolean;
 	closeNewProjectDialog: () => void;
 	confirmNewProject: (name: string) => void;
+	showGitClone: boolean;
+	closeGitClone: () => void;
+	confirmGitClone: (path: string) => void;
 	showRemotePicker: boolean;
 	closeRemotePicker: () => void;
 	confirmRemoteProject: (hostId: string, remotePath: string) => void;
@@ -29,6 +32,7 @@ export function useAddProjectMenuModel(): {
 	const navigate = useNavigate();
 	const [open, setOpen] = useState(false);
 	const [showNewProject, setShowNewProject] = useState(false);
+	const [showGitClone, setShowGitClone] = useState(false);
 	const [showRemotePicker, setShowRemotePicker] = useState(false);
 
 	const handleImport = async (): Promise<void> => {
@@ -86,6 +90,7 @@ export function useAddProjectMenuModel(): {
 				action: "newProject",
 				icon: "icon-[solar--add-folder-linear]",
 				labelKey: "actions.newProject",
+				descriptionKey: "addProjectSplash.items.newProject",
 				onSelect: () => {
 					setOpen(false);
 					setShowNewProject(true);
@@ -95,6 +100,7 @@ export function useAddProjectMenuModel(): {
 				action: "openProject",
 				icon: "icon-[solar--folder-open-linear]",
 				labelKey: "actions.openProject",
+				descriptionKey: "addProjectSplash.items.openProject",
 				onSelect: () => {
 					setOpen(false);
 					void openProject();
@@ -104,6 +110,7 @@ export function useAddProjectMenuModel(): {
 				action: "addFromRemoteHost",
 				icon: "icon-[solar--server-linear]",
 				labelKey: "actions.addFromRemoteHost",
+				descriptionKey: "addProjectSplash.items.addFromRemoteHost",
 				onSelect: () => {
 					setOpen(false);
 					setShowRemotePicker(true);
@@ -113,8 +120,19 @@ export function useAddProjectMenuModel(): {
 				action: "importProject",
 				icon: "icon-[solar--import-linear]",
 				labelKey: "actions.importProject",
+				descriptionKey: "addProjectSplash.items.importProject",
 				onSelect: () => {
 					void handleImport();
+				},
+			},
+			{
+				action: "cloneFromGit",
+				icon: "icon-[solar--branching-paths-up-linear]",
+				labelKey: "actions.cloneFromGit",
+				descriptionKey: "addProjectSplash.items.cloneFromGit",
+				onSelect: () => {
+					setOpen(false);
+					setShowGitClone(true);
 				},
 			},
 		],
@@ -132,6 +150,20 @@ export function useAddProjectMenuModel(): {
 		confirmNewProject: (name: string) => {
 			setShowNewProject(false);
 			void createProject(name);
+		},
+		showGitClone,
+		closeGitClone: () => setShowGitClone(false),
+		confirmGitClone: (path: string) => {
+			setShowGitClone(false);
+			// 克隆出来的目录与「打开项目」选中的目录同构，走同一个登记入口。
+			void openProjectPath(path).catch((error: unknown) => {
+				setConfirm({
+					title: t("gitCloneDialog.registerFailedTitle"),
+					message: error instanceof Error ? error.message : String(error),
+					variant: "danger",
+					onConfirm: () => {},
+				});
+			});
 		},
 		showRemotePicker,
 		closeRemotePicker: () => setShowRemotePicker(false),

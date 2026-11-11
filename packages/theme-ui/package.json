@@ -746,10 +746,6 @@
 			"types": "./src/shared/useDelayedUnmount.ts",
 			"import": "./src/shared/useDelayedUnmount.ts"
 		},
-		"./sidebar/AddProjectMenuPopoverView": {
-			"types": "./src/sidebar/AddProjectMenuPopoverView.tsx",
-			"import": "./src/sidebar/AddProjectMenuPopoverView.tsx"
-		},
 		"./sidebar/AddProjectMenuTriggerView": {
 			"types": "./src/sidebar/AddProjectMenuTriggerView.tsx",
 			"import": "./src/sidebar/AddProjectMenuTriggerView.tsx"

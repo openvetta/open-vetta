@@ -91,7 +91,19 @@
 		"openProject": "打开项目",
 		"addFromRemoteHost": "从远程主机添加",
 		"importProject": "导入项目",
-		"more": "更多"
+		"more": "更多",
+		"cloneFromGit": "从 Git 仓库导入"
+	},
+	"addProjectSplash": {
+		"title": "添加项目",
+		"description": "选择一种方式把项目带进来。",
+		"items": {
+			"newProject": "在工作目录下创建一个空的项目文件夹，适合从零开始。",
+			"openProject": "把电脑上已有的文件夹直接登记成项目，文件留在原处，不复制。",
+			"addFromRemoteHost": "浏览已登记的 SSH 远程主机，把上面的目录作为项目，文件仍在远程。",
+			"importProject": "导入别人或另一台电脑导出的 Vetta 项目压缩包，连同会话一起还原。",
+			"cloneFromGit": "输入仓库地址，把代码克隆到本机并作为项目打开。"
+		}
 	},
 	"contextMenu": {
 		"openInFinder": "在访达中打开",
@@ -220,6 +232,27 @@
 		"emptyError": "请输入项目名称",
 		"invalidError": "项目名称不能包含特殊字符",
 		"duplicateError": "已存在同名项目"
+	},
+	"gitCloneDialog": {
+		"title": "从 Git 仓库导入",
+		"description": "把远程仓库克隆到本机，完成后自动作为项目打开。",
+		"urlLabel": "仓库地址",
+		"urlPlaceholder": "https://github.com/owner/repo.git",
+		"parentLabel": "存放到",
+		"choose": "选择…",
+		"cancel": "取消",
+		"stop": "停止",
+		"clone": "克隆",
+		"cloning": "克隆中…",
+		"registerFailedTitle": "克隆完成，但无法添加为项目",
+		"errors": {
+			"git-unavailable": "未检测到 Git，请先安装后重试。",
+			"invalid-url": "仓库地址不合法。支持 https://、ssh:// 以及 git@主机:用户/仓库 的写法。",
+			"invalid-target": "存放目录不存在，请重新选择。",
+			"target-exists": "存放目录下已有同名文件夹，请换一个目录，或先处理掉它。",
+			"clone-failed": "克隆失败：{{message}}",
+			"cancelled": "已取消"
+		}
 	},
 	"update": {
 		"newVersion": "发现新版本 {{version}}，点击后台下载",

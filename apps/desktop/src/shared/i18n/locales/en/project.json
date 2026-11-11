@@ -91,7 +91,19 @@
 		"openProject": "Open Project",
 		"addFromRemoteHost": "Add from remote host",
 		"importProject": "Import Project",
-		"more": "More"
+		"more": "More",
+		"cloneFromGit": "Import from Git repository"
+	},
+	"addProjectSplash": {
+		"title": "Add a project",
+		"description": "Pick how you want to bring a project in.",
+		"items": {
+			"newProject": "Create an empty project folder in your workspace. Good for starting from scratch.",
+			"openProject": "Register a folder that already exists on this computer. Files stay where they are; nothing is copied.",
+			"addFromRemoteHost": "Browse a registered SSH host and use one of its folders as a project. Files stay on the remote machine.",
+			"importProject": "Restore a Vetta project zip exported from another computer, sessions included.",
+			"cloneFromGit": "Enter a repository URL to clone the code to this computer and open it as a project."
+		}
 	},
 	"contextMenu": {
 		"openInFinder": "Reveal in Finder",
@@ -189,6 +201,27 @@
 		"emptyError": "Please enter a project name",
 		"invalidError": "Project name cannot contain special characters",
 		"duplicateError": "A project with this name already exists"
+	},
+	"gitCloneDialog": {
+		"title": "Import from Git repository",
+		"description": "Clone a remote repository to this computer and open it as a project.",
+		"urlLabel": "Repository URL",
+		"urlPlaceholder": "https://github.com/owner/repo.git",
+		"parentLabel": "Save to",
+		"choose": "Choose…",
+		"cancel": "Cancel",
+		"stop": "Stop",
+		"clone": "Clone",
+		"cloning": "Cloning…",
+		"registerFailedTitle": "Cloned, but could not add it as a project",
+		"errors": {
+			"git-unavailable": "Git was not found. Install it and try again.",
+			"invalid-url": "That repository URL is not valid. Use https://, ssh://, or git@host:owner/repo.",
+			"invalid-target": "The destination folder does not exist. Pick another one.",
+			"target-exists": "A folder with the same name already exists there. Pick another destination or remove it first.",
+			"clone-failed": "Clone failed: {{message}}",
+			"cancelled": "Cancelled"
+		}
 	},
 	"update": {
 		"newVersion": "New version {{version}} available — click to download in the background",
