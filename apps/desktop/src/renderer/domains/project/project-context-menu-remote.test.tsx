@@ -10,6 +10,7 @@ const props: ProjectContextMenuViewProps = {
 	isDefault: false,
 	labels: {
 		openInFolder: "Show in Finder",
+		manageSessions: "Manage sessions",
 		archiveProject: "Archive",
 		removeFromList: "Remove from list",
 		clearConversation: "Clear conversation",

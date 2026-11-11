@@ -27,6 +27,13 @@ export { DefaultSessionListView } from "./DefaultSessionListView";
 export type { DefaultSessionRowViewProps } from "./DefaultSessionRowView";
 export { DefaultSessionRowView } from "./DefaultSessionRowView";
 export type {
+	ManageSessionsMenuItemView,
+	ManageSessionsSplashViewLabels,
+	ManageSessionsSplashViewProps,
+	ManageSessionsStep,
+} from "./ManageSessionsSplashView";
+export { ManageSessionsSplashView } from "./ManageSessionsSplashView";
+export type {
 	NewProjectDialogViewLabels,
 	NewProjectDialogViewProps,
 } from "./NewProjectDialogView";

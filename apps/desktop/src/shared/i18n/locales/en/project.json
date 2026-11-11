@@ -113,9 +113,26 @@
 		"hintStop": "Esc Stop",
 		"hintBack": "Esc Back"
 	},
+	"manageSessions": {
+		"title": "Manage sessions",
+		"searchPlaceholder": "Search sessions…",
+		"searchLabel": "Search sessions",
+		"emptyAll": "No sessions yet",
+		"emptyQuery": "No matching sessions",
+		"running": "Running",
+		"moveToTag": "Move to tag",
+		"renamePlaceholder": "Enter a new session name",
+		"clearAll": "Clear all",
+		"clearProjectTitle": "Clear project sessions",
+		"clearProjectMessage": "This deletes all {{count}} sessions in “{{name}}” and cannot be undone.",
+		"hintDelete": "Delete",
+		"hintMore": "More actions",
+		"hintRename": "Enter to save"
+	},
 	"contextMenu": {
 		"openInFinder": "Reveal in Finder",
 		"openInExplorer": "Show in Explorer",
+		"manageSessions": "Manage sessions",
 		"clearConversation": "Clear sessions",
 		"clearConversationDisabled": "Stop the running session first",
 		"clearClaw": "Clear records",

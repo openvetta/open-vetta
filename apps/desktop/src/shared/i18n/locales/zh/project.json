@@ -113,9 +113,26 @@
 		"hintStop": "Esc 停止",
 		"hintBack": "Esc 返回"
 	},
+	"manageSessions": {
+		"title": "管理会话",
+		"searchPlaceholder": "搜索会话…",
+		"searchLabel": "搜索会话",
+		"emptyAll": "还没有会话",
+		"emptyQuery": "没有匹配的会话",
+		"running": "运行中",
+		"moveToTag": "移动到标签",
+		"renamePlaceholder": "输入新的会话名称",
+		"clearAll": "清空全部",
+		"clearProjectTitle": "清空项目会话",
+		"clearProjectMessage": "将删除「{{name}}」下的全部 {{count}} 个会话，且无法恢复。",
+		"hintDelete": "删除",
+		"hintMore": "更多操作",
+		"hintRename": "回车 保存"
+	},
 	"contextMenu": {
 		"openInFinder": "在访达中打开",
 		"openInExplorer": "从此电脑打开",
+		"manageSessions": "管理会话",
 		"clearConversation": "清空会话",
 		"clearConversationDisabled": "请先停止运行中的会话",
 		"clearClaw": "清空记录",
