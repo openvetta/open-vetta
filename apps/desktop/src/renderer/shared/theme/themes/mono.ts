@@ -30,7 +30,7 @@ export const monoTheme: ThemeDef = {
 		primaryForeground: "rgb(8, 8, 10)",
 		ring: "rgb(228, 228, 228)",
 		// hover（card / popover item 的 hover:bg-accent）；须明显高于 popover(28)，色相偏蓝呼应主题蓝调
-		accent: "rgb(42, 47, 62)",
+		accent: "rgb(44, 46, 52)",
 	},
 	light: {
 		...defaultTheme.light,
@@ -50,6 +50,6 @@ export const monoTheme: ThemeDef = {
 		primaryForeground: "rgb(255, 255, 255)",
 		ring: "rgb(0, 0, 0)",
 		// card hover；略深于 card，但不过重
-		accent: "rgb(229, 233, 244)",
+		accent: "rgb(231, 233, 238)",
 	},
 };

@@ -134,7 +134,7 @@ export function AbilityCard({ item, model }: { item: AbilityItem; model: Abiliti
 			onPointerEnter={() => void loadAbilityDetailView().catch(() => undefined)}
 			onPointerDown={() => void loadAbilityDetailView().catch(() => undefined)}
 			className={cn(
-				"group relative flex cursor-pointer items-center gap-3.5 rounded-xl px-3.5 py-3.5 transition-colors duration-200 hover:bg-accent/60",
+				"group relative flex cursor-pointer items-center gap-3.5 rounded-xl px-3.5 py-3.5 transition-colors duration-200 hover:bg-accent/60 dark:hover:bg-accent/35",
 				!item.enabled && item.installed && "opacity-75",
 			)}
 		>
