@@ -119,13 +119,6 @@ export function SplashInputHeader({
 				}}
 				className="min-w-0 flex-1 bg-transparent text-[14px] text-foreground outline-none placeholder:text-muted-foreground/70 disabled:opacity-60"
 			/>
-			<span
-				aria-hidden="true"
-				className={cn(
-					"command-menu-input-underline pointer-events-none absolute inset-x-3.5 bottom-0 h-px",
-					invalid ? "bg-destructive/70" : "bg-border/70",
-				)}
-			/>
 		</div>
 	);
 }
@@ -141,7 +134,7 @@ export interface SplashTitleHeaderProps {
 /** 没有输入框的步骤用它做头部：与输入头部同高同位，切步骤时外壳不跳。 */
 export function SplashTitleHeader({ title, onBack, backLabel, trailing }: SplashTitleHeaderProps): JSX.Element {
 	return (
-		<div className={cn(HEADER_CLASS, "border-b border-border/60")}>
+		<div className={HEADER_CLASS}>
 			{onBack && <BackButton label={backLabel ?? ""} onClick={onBack} />}
 			<span className="min-w-0 flex-1 truncate text-[14px] text-foreground">{title}</span>
 			{trailing}
@@ -154,7 +147,8 @@ export function SplashFooter({ children, className }: { children: ReactNode; cla
 	return (
 		<div
 			className={cn(
-				"flex min-h-8 shrink-0 items-center gap-3 border-t border-border/60 px-3.5 py-1",
+				// 唯一保留分隔线的地方，并用与面板不同的底色把操作区托出来。
+				"flex min-h-8 shrink-0 items-center gap-3 border-t border-border/60 bg-muted/50 px-3.5 py-1",
 				"text-[11px] text-muted-foreground/80",
 				className,
 			)}
