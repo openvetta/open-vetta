@@ -6,22 +6,19 @@ import { getDefaultStore, useSetAtom } from "jotai";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useProjectActions } from "../../../hooks/useProjects";
-import type { AddProjectMenuItemModel } from "./types";
+import type { AddProjectMenuItemModel, AddProjectStep } from "./types";
 
 export function useAddProjectMenuModel(): {
 	items: AddProjectMenuItemModel[];
 	open: boolean;
-	showNewProject: boolean;
-	closeNewProjectDialog: () => void;
+	step: AddProjectStep;
+	openSplash: () => void;
+	closeSplash: () => void;
+	backToRoot: () => void;
 	confirmNewProject: (name: string) => void;
-	showGitClone: boolean;
-	closeGitClone: () => void;
 	confirmGitClone: (path: string) => void;
-	showRemotePicker: boolean;
-	closeRemotePicker: () => void;
 	confirmRemoteProject: (hostId: string, remotePath: string) => void;
 	isProjectNameTaken: (name: string) => boolean;
-	setOpen: (open: boolean) => void;
 } {
 	const { t } = useTranslation("project");
 	// 判重只在点确认时读一次项目列表：这里刻意不订阅 projectsAtom，保持菜单模型零订阅面。
@@ -31,9 +28,7 @@ export function useAddProjectMenuModel(): {
 	const setConfirm = useSetAtom(confirmDialogAtom);
 	const navigate = useNavigate();
 	const [open, setOpen] = useState(false);
-	const [showNewProject, setShowNewProject] = useState(false);
-	const [showGitClone, setShowGitClone] = useState(false);
-	const [showRemotePicker, setShowRemotePicker] = useState(false);
+	const [step, setStep] = useState<AddProjectStep>("root");
 
 	const handleImport = async (): Promise<void> => {
 		setOpen(false);
@@ -92,8 +87,7 @@ export function useAddProjectMenuModel(): {
 				labelKey: "actions.newProject",
 				descriptionKey: "addProjectSplash.items.newProject",
 				onSelect: () => {
-					setOpen(false);
-					setShowNewProject(true);
+					setStep("newProject");
 				},
 			},
 			{
@@ -112,8 +106,7 @@ export function useAddProjectMenuModel(): {
 				labelKey: "actions.addFromRemoteHost",
 				descriptionKey: "addProjectSplash.items.addFromRemoteHost",
 				onSelect: () => {
-					setOpen(false);
-					setShowRemotePicker(true);
+					setStep("remoteHost");
 				},
 			},
 			{
@@ -131,14 +124,19 @@ export function useAddProjectMenuModel(): {
 				labelKey: "actions.cloneFromGit",
 				descriptionKey: "addProjectSplash.items.cloneFromGit",
 				onSelect: () => {
-					setOpen(false);
-					setShowGitClone(true);
+					setStep("cloneFromGit");
 				},
 			},
 		],
 		open,
-		showNewProject,
-		closeNewProjectDialog: () => setShowNewProject(false),
+		step,
+		// 每次打开都从第一步开始：上次停在哪一步不该影响这次。
+		openSplash: () => {
+			setStep("root");
+			setOpen(true);
+		},
+		closeSplash: () => setOpen(false),
+		backToRoot: () => setStep("root"),
 		isProjectNameTaken: (name: string) =>
 			isDuplicateProjectName(
 				name,
@@ -148,13 +146,11 @@ export function useAddProjectMenuModel(): {
 					.filter((name): name is string => Boolean(name)),
 			),
 		confirmNewProject: (name: string) => {
-			setShowNewProject(false);
+			setOpen(false);
 			void createProject(name);
 		},
-		showGitClone,
-		closeGitClone: () => setShowGitClone(false),
 		confirmGitClone: (path: string) => {
-			setShowGitClone(false);
+			setOpen(false);
 			// 克隆出来的目录与「打开项目」选中的目录同构，走同一个登记入口。
 			void openProjectPath(path).catch((error: unknown) => {
 				setConfirm({
@@ -165,14 +161,12 @@ export function useAddProjectMenuModel(): {
 				});
 			});
 		},
-		showRemotePicker,
-		closeRemotePicker: () => setShowRemotePicker(false),
 		confirmRemoteProject: (hostId: string, remotePath: string) => {
-			setShowRemotePicker(false);
+			setOpen(false);
 			// 远程项目的标识是 ssh URI；登记走与本地项目同一个服务，校验和广播才一致。
 			void openProjectPath(`ssh://${hostId}${remotePath}`).catch((error: unknown) => {
 				// 主机被删掉、选中的目录其实是文件——这些都要说清楚，否则用户只会看到
-				// 对话框关了但项目没出现。
+				// 面板关了但项目没出现。
 				setConfirm({
 					title: t("remotePicker.failedTitle"),
 					message: error instanceof Error ? error.message : String(error),
@@ -181,6 +175,5 @@ export function useAddProjectMenuModel(): {
 				});
 			});
 		},
-		setOpen,
 	};
 }

@@ -27,3 +27,6 @@ export interface AddProjectMenuItemModel {
 		| "addProjectSplash.items.cloneFromGit";
 	onSelect: () => void;
 }
+
+/** Splash 里的步骤：root 是入口列表，其余是各入口的二级步骤（打开项目、导入项目是原生对话框，没有步骤）。 */
+export type AddProjectStep = "root" | "newProject" | "cloneFromGit" | "remoteHost";

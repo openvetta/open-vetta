@@ -103,7 +103,15 @@
 			"addFromRemoteHost": "Browse a registered SSH host and use one of its folders as a project. Files stay on the remote machine.",
 			"importProject": "Restore a Vetta project zip exported from another computer, sessions included.",
 			"cloneFromGit": "Enter a repository URL to clone the code to this computer and open it as a project."
-		}
+		},
+		"back": "Back",
+		"hintNavigate": "↑↓ Navigate",
+		"hintSelect": "Enter Select",
+		"hintClose": "Esc Close",
+		"hintCreate": "Enter Create",
+		"hintClone": "Enter Clone",
+		"hintStop": "Esc Stop",
+		"hintBack": "Esc Back"
 	},
 	"contextMenu": {
 		"openInFinder": "Reveal in Finder",
@@ -203,15 +211,12 @@
 		"duplicateError": "A project with this name already exists"
 	},
 	"gitCloneDialog": {
-		"title": "Import from Git repository",
 		"description": "Clone a remote repository to this computer and open it as a project.",
 		"urlLabel": "Repository URL",
 		"urlPlaceholder": "https://github.com/owner/repo.git",
 		"parentLabel": "Save to",
 		"choose": "Choose…",
-		"cancel": "Cancel",
 		"stop": "Stop",
-		"clone": "Clone",
 		"cloning": "Cloning…",
 		"registerFailedTitle": "Cloned, but could not add it as a project",
 		"errors": {

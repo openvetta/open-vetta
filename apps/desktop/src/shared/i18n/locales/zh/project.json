@@ -103,7 +103,15 @@
 			"addFromRemoteHost": "浏览已登记的 SSH 远程主机，把上面的目录作为项目，文件仍在远程。",
 			"importProject": "导入别人或另一台电脑导出的 Vetta 项目压缩包，连同会话一起还原。",
 			"cloneFromGit": "输入仓库地址，把代码克隆到本机并作为项目打开。"
-		}
+		},
+		"back": "返回",
+		"hintNavigate": "↑↓ 选择",
+		"hintSelect": "回车 确认",
+		"hintClose": "Esc 关闭",
+		"hintCreate": "回车 创建",
+		"hintClone": "回车 克隆",
+		"hintStop": "Esc 停止",
+		"hintBack": "Esc 返回"
 	},
 	"contextMenu": {
 		"openInFinder": "在访达中打开",
@@ -234,15 +242,12 @@
 		"duplicateError": "已存在同名项目"
 	},
 	"gitCloneDialog": {
-		"title": "从 Git 仓库导入",
 		"description": "把远程仓库克隆到本机，完成后自动作为项目打开。",
 		"urlLabel": "仓库地址",
 		"urlPlaceholder": "https://github.com/owner/repo.git",
 		"parentLabel": "存放到",
 		"choose": "选择…",
-		"cancel": "取消",
 		"stop": "停止",
-		"clone": "克隆",
 		"cloning": "克隆中…",
 		"registerFailedTitle": "克隆完成，但无法添加为项目",
 		"errors": {
