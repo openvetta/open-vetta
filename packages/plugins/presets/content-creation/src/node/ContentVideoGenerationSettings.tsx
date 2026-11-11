@@ -81,7 +81,7 @@ export function ContentVideoGenerationSettings({
 					side="top"
 					sideOffset={10}
 					collisionPadding={12}
-					className="z-[100] max-h-[min(420px,var(--radix-popover-content-available-height,420px))] gap-3 overflow-y-auto rounded-lg border border-border bg-popover p-2.5 text-popover-foreground shadow-md"
+					className="z-[100] max-h-[min(420px,var(--radix-popover-content-available-height,420px))] gap-3 overflow-y-auto bg-popover p-2.5 text-popover-foreground"
 					style={{ width: "min(440px, calc(100vw - 32px))" }}
 				>
 					<SettingsSection label={t("nodeEditor.videoSettings.generateMethod")}>

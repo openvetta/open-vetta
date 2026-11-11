@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Select as SelectPrimitive } from "radix-ui";
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react";
-import { cn } from "./utils";
+import { cn, FLOATING_SURFACE_CLASS } from "./utils";
 
 /**
  * 基础 Select（无 motion）。
@@ -72,7 +72,8 @@ function SelectContent({
 				data-align-trigger={position === "item-aligned"}
 				className={cn(
 					// 面板：1px border + card/popover 面，无重 shadow/ring 叠层
-					"no-drag relative z-50 max-h-(--radix-select-content-available-height) min-w-36 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md",
+					FLOATING_SURFACE_CLASS,
+					"no-drag relative z-50 max-h-(--radix-select-content-available-height) min-w-36 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto p-1.5",
 					"data-[align-trigger=true]:animate-none",
 					"data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1",
 					"data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 duration-100",

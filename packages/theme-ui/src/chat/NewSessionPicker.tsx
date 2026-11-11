@@ -121,7 +121,7 @@ export function NewSessionPickerContent({
 			align="start"
 			side="bottom"
 			sideOffset={6}
-			className={cn("w-[228px] gap-0 overflow-visible rounded-lg border border-border p-0", className)}
+			className={cn("w-[228px] gap-0 overflow-visible p-0", className)}
 		>
 			<div className="relative z-10 rounded-[inherit] p-1">{children}</div>
 		</PopoverContent>

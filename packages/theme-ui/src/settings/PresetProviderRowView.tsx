@@ -30,6 +30,8 @@ export interface PresetProviderRowViewLabels {
 	readonly remove: string;
 	readonly enable: string;
 	readonly apiKeyDirect: (name: string) => string;
+	/** 输入框上方的字段名。 */
+	readonly apiKeyLabel: string;
 	readonly apiKeyPlaceholder: string;
 	readonly encryptedApiKeyPlaceholder: string;
 	readonly save: string;
@@ -203,42 +205,47 @@ export function PresetProviderRowView({
 			{row.isExpanded && modelsList}
 
 			<Dialog open={keyDialogOpen} onOpenChange={(next) => !next && !saving && onToggleEditor()}>
-				<DialogContent className="gap-4 sm:max-w-[420px]">
+				<DialogContent className="sm:max-w-[420px]">
 					<DialogHeader>
-						<DialogTitle className="text-[15px]">{row.displayName}</DialogTitle>
-						<DialogDescription className="text-[12px]">{labels.apiKeyDirect(row.displayName)}</DialogDescription>
+						<DialogTitle>{row.displayName}</DialogTitle>
+						<DialogDescription>{labels.apiKeyDirect(row.displayName)}</DialogDescription>
 					</DialogHeader>
-					<div className="flex items-center gap-1.5">
-						<div className="min-w-0 flex-1">
-							<InputField
-								value={draftKey}
-								onChange={onDraftKeyChange}
-								placeholder={row.hasApiKey ? labels.encryptedApiKeyPlaceholder : labels.apiKeyPlaceholder}
-								type="password"
-								disabled={saving}
-								autoFocus
-								aria-label={labels.apiKeyDirect(row.displayName)}
-								className="h-9 rounded-md px-2.5 text-[13px]"
-								onKeyDown={(event) => {
-									if (event.key === "Enter") {
-										event.preventDefault();
-										tryAdopt();
-									}
-								}}
-							/>
+					<div className="flex flex-col gap-2">
+						<span className="text-[14px] font-medium text-foreground">
+							{labels.apiKeyLabel}
+						</span>
+						<div className="flex items-center gap-1.5">
+							<div className="min-w-0 flex-1">
+								<InputField
+									value={draftKey}
+									onChange={onDraftKeyChange}
+									placeholder={row.hasApiKey ? labels.encryptedApiKeyPlaceholder : labels.apiKeyPlaceholder}
+									type="password"
+									disabled={saving}
+									autoFocus
+									aria-label={labels.apiKeyDirect(row.displayName)}
+									className="h-10 rounded-xl px-3.5 text-[15px] md:text-[15px]"
+									onKeyDown={(event) => {
+										if (event.key === "Enter") {
+											event.preventDefault();
+											tryAdopt();
+										}
+									}}
+								/>
+							</div>
+							{row.hasApiKey && (
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									onClick={onCopyApiKey}
+									title={labels.copyApiKey}
+									aria-label={labels.copyApiKey}
+									className="shrink-0 text-muted-foreground hover:text-foreground"
+								>
+									<span className="icon-[mdi--content-copy] h-3.5 w-3.5" />
+								</Button>
+							)}
 						</div>
-						{row.hasApiKey && (
-							<Button
-								variant="ghost"
-								size="icon-sm"
-								onClick={onCopyApiKey}
-								title={labels.copyApiKey}
-								aria-label={labels.copyApiKey}
-								className="shrink-0 text-muted-foreground hover:text-foreground"
-							>
-								<span className="icon-[mdi--content-copy] h-3.5 w-3.5" />
-							</Button>
-						)}
 					</div>
 					<DialogFooter>
 						<Button variant="ghost" size="sm" onClick={onToggleEditor} disabled={saving}>
@@ -252,28 +259,33 @@ export function PresetProviderRowView({
 			</Dialog>
 
 			<Dialog open={urlDialogOpen} onOpenChange={(next) => !next && !saving && setUrlDraft(null)}>
-				<DialogContent className="gap-4 sm:max-w-[420px]">
+				<DialogContent className="sm:max-w-[420px]">
 					<DialogHeader>
-						<DialogTitle className="text-[15px]">{row.displayName}</DialogTitle>
-						<DialogDescription className="text-[12px]">{labels.editBaseUrl}</DialogDescription>
+						<DialogTitle>{row.displayName}</DialogTitle>
+						<DialogDescription>{labels.editBaseUrl}</DialogDescription>
 					</DialogHeader>
-					<div className="flex items-center gap-2">
-						<span className="shrink-0 text-[13px] text-muted-foreground">{hostPrefix(row.baseUrl)}</span>
-						<InputField
-							value={urlDraft ?? ""}
-							onChange={(value) => setUrlDraft(value.replace(/\D/g, "").slice(0, 5))}
-							placeholder={labels.baseUrlPlaceholder}
-							disabled={saving}
-							autoFocus
-							aria-label={labels.editBaseUrl}
-							className="h-9 w-24 rounded-md px-2.5 text-[13px]"
-						onKeyDown={(event) => {
-							if (event.key === "Enter") {
-								event.preventDefault();
-								void submitUrl();
-							}
-						}}
-						/>
+					<div className="flex flex-col gap-2">
+						<span className="text-[14px] font-medium text-foreground">
+							{labels.baseUrlPlaceholder}
+						</span>
+						<div className="flex items-center gap-2">
+							<span className="shrink-0 text-[14px] text-muted-foreground">{hostPrefix(row.baseUrl)}</span>
+							<InputField
+								value={urlDraft ?? ""}
+								onChange={(value) => setUrlDraft(value.replace(/\D/g, "").slice(0, 5))}
+								placeholder={labels.baseUrlPlaceholder}
+								disabled={saving}
+								autoFocus
+								aria-label={labels.editBaseUrl}
+								className="h-10 w-28 rounded-xl px-3.5 text-[15px] md:text-[15px]"
+								onKeyDown={(event) => {
+									if (event.key === "Enter") {
+										event.preventDefault();
+										void submitUrl();
+									}
+								}}
+							/>
+						</div>
 					</div>
 					<DialogFooter>
 						<Button variant="ghost" size="sm" onClick={() => setUrlDraft(null)} disabled={saving}>

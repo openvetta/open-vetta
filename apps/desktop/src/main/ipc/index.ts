@@ -27,6 +27,7 @@ import { registerPluginCapabilitiesIpc } from "./plugin-capabilities.js";
 import { registerPluginMediaProvidersIpc } from "./plugin-media-providers.js";
 import { registerPluginOcrProvidersIpc } from "./plugin-ocr-providers.js";
 import { registerPluginsIpc } from "./plugins.js";
+import { registerProjectCloneIpc } from "./project-clone.js";
 import { registerProjectExportIpc } from "./project-export.js";
 import { registerProjectsIpc } from "./projects.js";
 import { registerQuickPanelIpc } from "./quickpanel.js";
@@ -66,6 +67,7 @@ interface IpcTeardown {
 	teardownMedia: () => void;
 	teardownDebug: () => void;
 	teardownProjectExport: () => void;
+	teardownProjectClone: () => void;
 	teardownProjects: () => void;
 	teardownSsh: () => void;
 	teardownWebhook: () => void;
@@ -118,6 +120,7 @@ export function registerAllIpc(
 		teardownMedia: registerMediaIpc(),
 		teardownDebug: registerDebugIpc(),
 		teardownProjectExport: registerProjectExportIpc(),
+		teardownProjectClone: registerProjectCloneIpc(),
 		teardownProjects: registerProjectsIpc(),
 		teardownSsh: registerSshIpc(),
 		teardownWebhook: registerWebhookIpc(),
@@ -163,6 +166,7 @@ export function teardownAllIpc(teardown: IpcTeardown): void {
 	teardown.teardownMedia();
 	teardown.teardownDebug();
 	teardown.teardownProjectExport();
+	teardown.teardownProjectClone();
 	teardown.teardownProjects();
 	teardown.teardownSsh();
 	teardown.teardownWebhook();

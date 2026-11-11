@@ -1,4 +1,4 @@
-import { cn } from "@vetta-org/ui/utils";
+import { cn, OVERLAY_BACKDROP_CLASS } from "@vetta-org/ui/utils";
 import { AnimatePresence, motion } from "motion/react";
 import {
 	createContext,
@@ -229,7 +229,7 @@ export function ActivityPanelSheet({
 						exit={{ opacity: 0 }}
 						transition={{ duration: 0.2 }}
 						onClick={close}
-						className={cn("fixed inset-0 z-40 bg-black/25", backdropClassName)}
+						className={cn("fixed inset-0 z-40", OVERLAY_BACKDROP_CLASS, backdropClassName)}
 					/>
 					<motion.div
 						key="activity-sheet"

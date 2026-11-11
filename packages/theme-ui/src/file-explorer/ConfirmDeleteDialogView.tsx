@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { useEffect, type JSX, type ReactNode } from "react";
+import { cn, OVERLAY_BACKDROP_CLASS } from "@vetta-org/ui/utils";
 
 export interface ConfirmDeleteDialogViewLabels {
 	title: string;
@@ -35,7 +36,7 @@ export function ConfirmDeleteDialogView({
 
 	return (
 		<div
-			className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+			className={cn("fixed inset-0 z-50 flex items-center justify-center", OVERLAY_BACKDROP_CLASS)}
 			onClick={onCancel}
 			onKeyDown={(e) => {
 				if (e.key === "Escape") onCancel();

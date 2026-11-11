@@ -626,6 +626,18 @@
 			"types": "./src/overlays/CommandMenuView.tsx",
 			"import": "./src/overlays/CommandMenuView.tsx"
 		},
+		"./overlays/SplashOptionRow": {
+			"types": "./src/overlays/SplashOptionRow.tsx",
+			"import": "./src/overlays/SplashOptionRow.tsx"
+		},
+		"./overlays/SplashParts": {
+			"types": "./src/overlays/SplashParts.tsx",
+			"import": "./src/overlays/SplashParts.tsx"
+		},
+		"./overlays/SplashPanel": {
+			"types": "./src/overlays/SplashPanel.tsx",
+			"import": "./src/overlays/SplashPanel.tsx"
+		},
 		"./overlays/ConfirmDialogView": {
 			"types": "./src/overlays/ConfirmDialogView.tsx",
 			"import": "./src/overlays/ConfirmDialogView.tsx"
@@ -665,6 +677,10 @@
 		"./project/DefaultSessionRowView": {
 			"types": "./src/project/DefaultSessionRowView.tsx",
 			"import": "./src/project/DefaultSessionRowView.tsx"
+		},
+		"./project/ManageSessionsSplashView": {
+			"types": "./src/project/ManageSessionsSplashView.tsx",
+			"import": "./src/project/ManageSessionsSplashView.tsx"
 		},
 		"./project/NewProjectDialogView": {
 			"types": "./src/project/NewProjectDialogView.tsx",
@@ -738,10 +754,6 @@
 			"types": "./src/shared/useDelayedUnmount.ts",
 			"import": "./src/shared/useDelayedUnmount.ts"
 		},
-		"./sidebar/AddProjectMenuPopoverView": {
-			"types": "./src/sidebar/AddProjectMenuPopoverView.tsx",
-			"import": "./src/sidebar/AddProjectMenuPopoverView.tsx"
-		},
 		"./sidebar/AddProjectMenuTriggerView": {
 			"types": "./src/sidebar/AddProjectMenuTriggerView.tsx",
 			"import": "./src/sidebar/AddProjectMenuTriggerView.tsx"
@@ -785,6 +797,10 @@
 		"./sidebar/SettingsMenuQuotaSection": {
 			"types": "./src/sidebar/SettingsMenuQuotaSection.tsx",
 			"import": "./src/sidebar/SettingsMenuQuotaSection.tsx"
+		},
+		"./sidebar/SidebarNavMorePanel": {
+			"types": "./src/sidebar/SidebarNavMorePanel.tsx",
+			"import": "./src/sidebar/SidebarNavMorePanel.tsx"
 		},
 		"./sidebar/SettingsMenuSettingsItem": {
 			"types": "./src/sidebar/SettingsMenuSettingsItem.tsx",

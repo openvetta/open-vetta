@@ -49,7 +49,7 @@ export function ImChannelGuideDialogView({
 			{/* 弹窗本体固定高度、不滚动：滚动条只出现在下面的内容区，
 			    页头与页脚始终可见；overflow-x-hidden 杜绝横向滚动条。 */}
 			<DialogContent className="flex max-h-[min(90vh,760px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[560px]">
-				<DialogHeader className="shrink-0 gap-3 border-b border-border px-6 pt-6 pb-5">
+				<DialogHeader className="shrink-0 gap-3 px-6 pt-6 pb-5">
 					<div className="flex items-start gap-3.5">
 						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/15 ring-inset">
 							<span className="icon-[mdi--book-open-page-variant-outline] h-5 w-5" />
@@ -115,7 +115,7 @@ export function ImChannelGuideDialogView({
 					))}
 				</div>
 
-				<DialogFooter className="shrink-0 border-t border-border px-6 py-4">
+				<DialogFooter className="mx-0 mb-0 shrink-0 px-6 py-4">
 					<Button variant="primary" onClick={onClose}>
 						{labels.close}
 					</Button>

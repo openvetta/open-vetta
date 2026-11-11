@@ -57,7 +57,7 @@ export function SidebarFilterSelectView({
 				side="bottom"
 				align="start"
 				sideOffset={4}
-				className="max-h-[60vh] w-[160px] gap-0 overflow-y-auto rounded-lg border border-border p-1"
+				className="max-h-[60vh] w-[160px] gap-0 overflow-y-auto p-1"
 			>
 				{options.map((option) => (
 					<Fragment key={option.value}>

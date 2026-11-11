@@ -178,8 +178,10 @@ export function SidebarNavigation({
 					<PopoverContent
 						side="right"
 						align="start"
-						sideOffset={8}
-						className="w-[228px] gap-0.5 overflow-hidden rounded-lg border border-border p-1 shadow-md"
+						// 负偏移让弹层压进侧栏一点，不要飘在侧栏外面。
+						sideOffset={-40}
+						// 外观（无边框、大圆角、柔和投影）由 PopoverContent 基础样式统一提供，这里只管尺寸。
+						className="w-[240px] gap-0.5 overflow-hidden p-2"
 					>
 						{customizable && navCustomizeLabels ? (
 							<SidebarNavMorePanel

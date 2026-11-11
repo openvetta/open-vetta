@@ -140,7 +140,7 @@ describe("CommandMenuView", () => {
 				],
 			}),
 		];
-		const { container } = render(<CommandMenuView {...props({ groups })} />);
+		const { baseElement: container } = render(<CommandMenuView {...props({ groups })} />);
 
 		const hits = Array.from(container.querySelectorAll(".text-primary")).map((node) => node.textContent);
 		expect(hits).toContain("vetta");
@@ -160,7 +160,7 @@ describe("CommandMenuView", () => {
 				],
 			}),
 		];
-		const { container } = render(<CommandMenuView {...props({ groups })} />);
+		const { baseElement: container } = render(<CommandMenuView {...props({ groups })} />);
 
 		const [title, subtitle] = Array.from(container.querySelectorAll("[role='option'] > span > span"));
 		// 标题不收缩、只受上限约束；副标题吃掉剩余宽度并自己截断。

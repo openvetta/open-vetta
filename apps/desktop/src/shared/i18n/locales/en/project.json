@@ -91,11 +91,51 @@
 		"openProject": "Open Project",
 		"addFromRemoteHost": "Add from remote host",
 		"importProject": "Import Project",
-		"more": "More"
+		"more": "More",
+		"cloneFromGit": "Import from Git repository"
+	},
+	"addProjectSplash": {
+		"title": "Add a project",
+		"description": "Pick how you want to bring a project in.",
+		"items": {
+			"newProject": "Create an empty project folder in your workspace. Good for starting from scratch.",
+			"openProject": "Register a folder that already exists on this computer. Files stay where they are; nothing is copied.",
+			"addFromRemoteHost": "Browse a registered SSH host and use one of its folders as a project. Files stay on the remote machine.",
+			"importProject": "Restore a Vetta project zip exported from another computer, sessions included.",
+			"cloneFromGit": "Enter a repository URL to clone the code to this computer and open it as a project."
+		},
+		"back": "Back",
+		"hintNavigate": "↑↓ Navigate",
+		"hintSelect": "Enter Select",
+		"hintClose": "Esc Close",
+		"hintCreate": "Enter Create",
+		"hintClone": "Enter Clone",
+		"hintStop": "Esc Stop",
+		"hintBack": "Esc Back"
+	},
+	"manageSessions": {
+		"title": "Manage sessions",
+		"searchPlaceholder": "Search sessions…",
+		"searchLabel": "Search sessions",
+		"loading": "Loading…",
+		"emptyAll": "No sessions yet",
+		"emptyQuery": "No matching sessions",
+		"running": "Running",
+		"moveToTag": "Move to tag",
+		"renamePlaceholder": "Enter a new session name",
+		"clearAll": "Clear all",
+		"clearProjectTitle": "Clear project sessions",
+		"clearProjectMessage": "This deletes all {{count}} sessions in “{{name}}” and cannot be undone.",
+		"tabAll": "All",
+		"hintTab": "Switch tag",
+		"hintDelete": "Delete",
+		"hintMore": "More actions",
+		"hintRename": "Enter to save"
 	},
 	"contextMenu": {
 		"openInFinder": "Reveal in Finder",
 		"openInExplorer": "Show in Explorer",
+		"manageSessions": "Manage sessions",
 		"clearConversation": "Clear sessions",
 		"clearConversationDisabled": "Stop the running session first",
 		"clearClaw": "Clear records",
@@ -190,15 +230,31 @@
 		"invalidError": "Project name cannot contain special characters",
 		"duplicateError": "A project with this name already exists"
 	},
+	"gitCloneDialog": {
+		"description": "Clone a remote repository to this computer and open it as a project.",
+		"urlLabel": "Repository URL",
+		"urlPlaceholder": "https://github.com/owner/repo.git",
+		"parentLabel": "Save to",
+		"choose": "Choose…",
+		"stop": "Stop",
+		"cloning": "Cloning…",
+		"registerFailedTitle": "Cloned, but could not add it as a project",
+		"errors": {
+			"git-unavailable": "Git was not found. Install it and try again.",
+			"invalid-url": "That repository URL is not valid. Use https://, ssh://, or git@host:owner/repo.",
+			"invalid-target": "The destination folder does not exist. Pick another one.",
+			"target-exists": "A folder with the same name already exists there. Pick another destination or remove it first.",
+			"clone-failed": "Clone failed: {{message}}",
+			"cancelled": "Cancelled"
+		}
+	},
 	"update": {
 		"newVersion": "New version {{version}} available — click to download in the background",
 		"downloading": "Downloading {{version}} ({{pct}}%)",
 		"ready": "Update {{version}} is ready — click to restart",
 		"checkFailed": "Update check failed, click to retry",
 		"downloadProgress": "Download progress",
-		"bannerReady": "Version {{version}} is ready",
-		"bannerRestart": "View update",
-		"bannerDismiss": "Dismiss"
+		"bannerReady": "Version {{version}} is ready"
 	},
 	"tabPicker": {
 		"moreTabs": "More tabs",

@@ -2,6 +2,7 @@ import type { JSX, ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { Button } from "@vetta-org/ui/button";
+import { cn, OVERLAY_BACKDROP_CLASS } from "@vetta-org/ui/utils";
 
 export const MESSAGE_CENTER_DIALOG_SPRING = {
 	type: "spring" as const,
@@ -37,7 +38,7 @@ export function MessageCenterDialogView({
 								animate={{ opacity: 1 }}
 								exit={{ opacity: 0 }}
 								transition={{ duration: 0.18 }}
-								className="no-drag fixed inset-0 z-50 bg-background/10 supports-backdrop-filter:backdrop-blur-[1px]"
+								className={cn("no-drag fixed inset-0 z-50", OVERLAY_BACKDROP_CLASS)}
 							/>
 						</DialogPrimitive.Overlay>
 

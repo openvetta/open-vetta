@@ -40,7 +40,7 @@ export function ManualMcpDialog({ model }: { model: McpSettingsModel }): JSX.Ele
 			}}
 		>
 			<DialogContent
-				className="max-h-[min(90vh,720px)] overflow-y-auto sm:max-w-[500px] rounded-2xl p-6 gap-5 border border-border/60 bg-popover shadow-2xl"
+				className="max-h-[min(90vh,720px)] overflow-y-auto sm:max-w-[500px]"
 				id={section.id}
 				data-setting-section-id={section.id}
 				data-setting-section-highlight-target={section.id}

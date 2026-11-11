@@ -4,6 +4,8 @@ All notable changes to `@vetta-org/capability-sdk` are documented in this file.
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-11-11
+
 ### Added
 
 - MCP server capabilities accept `sse` (the legacy HTTP+SSE transport) as a server `type` on upsert and in list/detail outputs, for servers that still expose only an SSE endpoint. Prefer `http` (Streamable HTTP) wherever the server supports it. Additive on version 1.

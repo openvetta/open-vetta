@@ -20,7 +20,7 @@ export function SettingsMenuPopover({ model }: SettingsMenuPopoverProps): JSX.El
 			side="top"
 			align="start"
 			sideOffset={6}
-			className="w-[180px] gap-0 overflow-hidden rounded-lg border border-border p-1"
+			className="w-[180px] gap-0 overflow-hidden p-1"
 			style={{ animation: "none" }}
 		>
 			<motion.div

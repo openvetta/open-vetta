@@ -36,7 +36,7 @@ export function KnowledgeHowItWorksDialogView({
 	return (
 		<Dialog open={open} onOpenChange={(next) => !next && onClose()}>
 			<DialogContent className="gap-0 p-0 sm:max-w-[560px]">
-				<DialogHeader className="gap-3 border-b border-border px-6 pb-5 pt-6">
+				<DialogHeader className="gap-3 px-6 pb-5 pt-6">
 					<div className="flex items-start gap-3.5">
 						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
 							<span className="icon-[mdi--lightbulb-on-outline] h-5 w-5" />

@@ -181,7 +181,7 @@ export function MessageTokenUsage({ usages, sessionUsages = usages }: MessageTok
 				side="top"
 				align="start"
 				sideOffset={6}
-				className="w-64 max-w-64 gap-0 border-border/60 shadow-md"
+				className="w-64 max-w-64 gap-0"
 			>
 				<div
 					role="tablist"

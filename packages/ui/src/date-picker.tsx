@@ -106,7 +106,7 @@ export function DatePicker({
 				align="start"
 				aria-label={label}
 				collisionPadding={12}
-				className="w-auto max-w-[calc(100vw-24px)] max-h-(--radix-popover-content-available-height) gap-0 overflow-y-auto rounded-xl p-0 shadow-md"
+				className="w-auto max-w-[calc(100vw-24px)] max-h-(--radix-popover-content-available-height) gap-0 overflow-y-auto p-0"
 				onOpenAutoFocus={(event) => event.preventDefault()}
 			>
 				<div className="border-b border-border/50 px-3 py-2 text-[12px] font-medium">{label}</div>
