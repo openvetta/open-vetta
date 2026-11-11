@@ -4,7 +4,6 @@ import { motion } from "motion/react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CapabilitiesTour } from "@shared/tour";
-import { SettingsAiAssist } from "../../settings/ai-assist";
 import { resolveCategoryLabel } from "../lib/ability-presentation";
 import {
 	ABILITY_CATEGORY_CONNECTORS,
@@ -80,14 +79,23 @@ export function AbilitiesPageView({
 						<p className="mt-1 text-[12px] text-muted-foreground/60">{t("page.subtitle")}</p>
 					</div>
 					<div className="flex min-h-8 shrink-0 items-center gap-2">
-						<SettingsAiAssist tabId="mcp" />
+						<div data-tour="capabilities-scope">
+							<SegmentedControl
+								items={[
+									{ key: "discover" as AbilityScope, label: t("scope.discover") },
+									{ key: "mine" as AbilityScope, label: t("scope.mine") },
+								]}
+								value={model.scope}
+								onChange={model.setScope}
+							/>
+						</div>
 					</div>
 				</motion.div>
 			</div>
 
 			<div className="flex-1 overflow-y-auto px-8 pt-5 pb-8 [scrollbar-gutter:stable]">
 				<div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-					<AbilitiesBanner icons={model.bannerIcons} />
+					{isPublic && <AbilitiesBanner icons={model.bannerIcons} />}
 
 					<div className="flex flex-wrap items-center justify-between gap-3">
 						<div data-tour="capabilities-search-add" className="flex min-w-0 flex-wrap items-center gap-2">
@@ -134,16 +142,6 @@ export function AbilitiesPageView({
 								/>
 								{t("actions.refresh")}
 							</Button>
-							<div data-tour="capabilities-scope">
-								<SegmentedControl
-									items={[
-										{ key: "discover" as AbilityScope, label: t("scope.discover") },
-										{ key: "mine" as AbilityScope, label: t("scope.mine") },
-									]}
-									value={model.scope}
-									onChange={model.setScope}
-								/>
-							</div>
 						</div>
 					</div>
 
