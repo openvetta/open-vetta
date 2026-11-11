@@ -1,7 +1,7 @@
 import { useMemo, type JSX, type RefCallback } from "react";
 import { useThemeComponent } from "@vetta-org/theme-sdk";
 import type { NavIndicatorBounds, SidebarNavItem } from "@vetta-org/theme-sdk/sidebar";
-import { cn } from "@vetta-org/ui/utils";
+import { cn, PANEL_SHADOW_CLASS } from "@vetta-org/ui/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@vetta-org/ui/popover";
 import { ThemeSurface } from "../appearance/ThemeSurface";
 import { SidebarNavBadgeView } from "./SidebarNavBadgeView";
@@ -179,7 +179,8 @@ export function SidebarNavigation({
 						side="right"
 						align="start"
 						sideOffset={8}
-						className="w-[228px] gap-0.5 overflow-hidden rounded-lg border border-border p-1 shadow-md"
+						// 与全局 Dialog / 确认框同一套：无外边框、大圆角、柔和投影。
+						className={cn("w-[240px] gap-0.5 overflow-hidden rounded-2xl border-0 p-2", PANEL_SHADOW_CLASS)}
 					>
 						{customizable && navCustomizeLabels ? (
 							<SidebarNavMorePanel
