@@ -115,7 +115,7 @@ export function UpdateRestartDialogView({
 										draggable={false}
 										className="h-[148px] w-full object-cover select-none"
 									/>
-									<div className={cn("px-7 pt-6", primary ? "pb-28" : "pb-8")}>
+									<div className={cn("px-7 pt-6", primary ? "pb-32" : "pb-12")}>
 								<h3 className="text-[19px] leading-snug font-semibold tracking-tight text-foreground">{title}</h3>
 								{subtitle && <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">{subtitle}</p>}
 								{status && <StatusLine status={status} />}
@@ -144,8 +144,16 @@ export function UpdateRestartDialogView({
 										scrolled ? "opacity-100" : "opacity-0",
 									)}
 								/>
-								{primary && (
-									<div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-popover via-popover/90 to-transparent px-7 pt-12 pb-7">
+								{/* 底部渐隐常驻：有按钮时更厚（按钮下方一段是实色），没按钮时只是一道薄薄的收边。 */}
+								<div
+									className={cn(
+										"pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-popover",
+										primary
+											? "via-popover/90 from-[55%] to-transparent px-7 pt-20 pb-7"
+											: "h-10 to-transparent",
+									)}
+								>
+									{primary && (
 										<button
 											type="button"
 											onClick={primary.onClick}
@@ -154,8 +162,8 @@ export function UpdateRestartDialogView({
 										>
 											{primary.label}
 										</button>
-									</div>
-								)}
+									)}
+								</div>
 							</div>
 						</div>
 					</motion.div>
