@@ -90,7 +90,7 @@ export function AbilitiesBanner({ icons }: { icons: AbilityBannerIcon[] }): JSX.
 			data-tour="capabilities-banner"
 			onMouseEnter={() => setPaused(true)}
 			onMouseLeave={() => setPaused(false)}
-			className="relative grid h-[232px] grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] overflow-hidden rounded-2xl border border-border/50 bg-card/40"
+			className="relative hidden h-[232px] min-[900px]:grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] overflow-hidden rounded-2xl border border-border/50 bg-card/40"
 		>
 			<div aria-hidden className="relative overflow-hidden">
 				<AnimatePresence initial={false}>
