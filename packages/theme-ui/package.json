@@ -678,6 +678,10 @@
 			"types": "./src/project/DefaultSessionRowView.tsx",
 			"import": "./src/project/DefaultSessionRowView.tsx"
 		},
+		"./project/ManageSessionsSplashView": {
+			"types": "./src/project/ManageSessionsSplashView.tsx",
+			"import": "./src/project/ManageSessionsSplashView.tsx"
+		},
 		"./project/NewProjectDialogView": {
 			"types": "./src/project/NewProjectDialogView.tsx",
 			"import": "./src/project/NewProjectDialogView.tsx"
