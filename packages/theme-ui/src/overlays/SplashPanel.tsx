@@ -66,7 +66,7 @@ export function SplashPanel({
 						exit={{ opacity: 0, scale: 0.96, y: -8 }}
 						transition={{ duration: 0.16, ease: [0.25, 0.1, 0.25, 1] }}
 						style={{ width: `min(${width}, calc(100vw - 32px))` }}
-						className="command-menu-sheen relative flex flex-col rounded-2xl border border-border/80 bg-popover shadow-2xl"
+						className="command-menu-sheen relative flex flex-col rounded-2xl border border-border/80 bg-popover"
 					>
 						<ThemeSurface slot="root.commandMenu.panel" />
 						<div className="relative z-10 flex min-h-0 flex-col">
