@@ -581,13 +581,13 @@ textarea:disabled,
 }
 
 /* 弹出层蒙层的「像素」质感（OVERLAY_BACKDROP_CLASS 的 .overlay-backdrop）。
-   背景先模糊（把高对比色块压柔），再被 SVG 滤镜降采样成 8px 的像素块（feFlood+feTile 取样、feMorphology 放大），
+   背景先模糊（把高对比色块压柔），再被 SVG 滤镜降采样成 4px 的细像素块（feFlood+feTile 取样、feMorphology 放大），并按 50% 与原图混合，只留一点颗粒感而不是明显的马赛克，
    滤镜用 data URI 内联，不依赖页面里有没有定义 <filter>，所有窗口的弹出层都能用。
    选择器带 :root 是为了压过 Tailwind 的 backdrop-blur 工具类（保留它作为没有本样式时的兜底）。
    代价：像素化滤镜要在 GPU 上对整屏背景逐帧重算，背景在动（流式输出）时蒙层下会持续付费。 */
 :root .overlay-backdrop {
 	backdrop-filter: blur(10px)
-		url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cfilter%20id%3D%22p%22%20x%3D%220%22%20y%3D%220%22%20width%3D%22100%25%22%20height%3D%22100%25%22%20color-interpolation-filters%3D%22sRGB%22%3E%3CfeFlood%20x%3D%223%22%20y%3D%223%22%20width%3D%222%22%20height%3D%222%22%2F%3E%3CfeComposite%20width%3D%228%22%20height%3D%228%22%2F%3E%3CfeTile%20result%3D%22t%22%2F%3E%3CfeComposite%20in%3D%22SourceGraphic%22%20in2%3D%22t%22%20operator%3D%22in%22%2F%3E%3CfeMorphology%20operator%3D%22dilate%22%20radius%3D%224%22%2F%3E%3C%2Ffilter%3E%3C%2Fsvg%3E#p");
+		url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cfilter%20id%3D%22p%22%20x%3D%220%22%20y%3D%220%22%20width%3D%22100%25%22%20height%3D%22100%25%22%20color-interpolation-filters%3D%22sRGB%22%3E%3CfeFlood%20x%3D%221%22%20y%3D%221%22%20width%3D%222%22%20height%3D%222%22%2F%3E%3CfeComposite%20width%3D%224%22%20height%3D%224%22%2F%3E%3CfeTile%20result%3D%22t%22%2F%3E%3CfeComposite%20in%3D%22SourceGraphic%22%20in2%3D%22t%22%20operator%3D%22in%22%2F%3E%3CfeMorphology%20operator%3D%22dilate%22%20radius%3D%222%22%20result%3D%22pix%22%2F%3E%3CfeComposite%20in%3D%22pix%22%20in2%3D%22SourceGraphic%22%20operator%3D%22arithmetic%22%20k1%3D%220%22%20k2%3D%220.5%22%20k3%3D%220.5%22%20k4%3D%220%22%2F%3E%3C%2Ffilter%3E%3C%2Fsvg%3E#p");
 	/* 磨砂的浅色而不是灰压暗：灰蒙蒙的底色是「脏」的主要来源。 */
 	background-color: rgb(255 255 255 / 0.2);
 }
