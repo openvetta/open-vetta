@@ -1095,7 +1095,7 @@
 		"downloadingTitle": "Downloading {{version}}",
 		"downloading": "{{progress}}% downloaded. You can close this window; it keeps downloading in the background.",
 		"readyTitle": "{{version}} Is Ready",
-		"readyMessage": "Version {{latestVersion}} has been downloaded (current {{currentVersion}}). Restart Vetta now to apply the update, or choose \"Later\" to be reminded next launch.",
+		"readyMessage": "Version {{latestVersion}} has been downloaded (current {{currentVersion}}). Restart Vetta to apply the update.",
 		"installingTitle": "Installing Update",
 		"errorTitle": "Couldn't Check for Updates",
 		"errorFallback": "Can't reach the update server right now. Please try again later.",
