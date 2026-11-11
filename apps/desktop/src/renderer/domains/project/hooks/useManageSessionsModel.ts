@@ -358,6 +358,14 @@ export function useManageSessionsModel(panel: ProjectsPanelModel): ManageSession
 		[backToList, close, deleteView, menuKind, openTagEditor, pinnedPaths, setPinned, tags, targetView],
 	);
 
+	const moreRow = useCallback(
+		(id: string): void => {
+			setSelectedId(id);
+			openMenuFor(id);
+		},
+		[openMenuFor],
+	);
+
 	const submitRename = useCallback((): void => {
 		const name = renameValue.trim();
 		if (!targetView || !name || name === targetView.label) {
@@ -490,10 +498,7 @@ export function useManageSessionsModel(panel: ProjectsPanelModel): ManageSession
 		selectedId: effectiveSelectedId,
 		onHoverRow: setSelectedId,
 		onOpenRow: openRow,
-		onMoreRow: (id) => {
-			setSelectedId(id);
-			openMenuFor(id);
-		},
+		onMoreRow: moreRow,
 		clearAllVisible: views.length > 0,
 		clearAllDisabled: runningInScope,
 		clearAllDisabledReason: t("contextMenu.clearConversationDisabled"),

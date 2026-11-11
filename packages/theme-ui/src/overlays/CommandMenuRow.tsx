@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import type { JSX } from "react";
+import { memo, type JSX } from "react";
 import { cn } from "@vetta-org/ui/utils";
 import { ConversationTagDotsView } from "../project/ConversationTagDotsView";
 import type { CommandMenuHighlightRange, CommandMenuItemView } from "./command-menu-types";
@@ -48,7 +48,7 @@ export interface CommandMenuRowProps {
 	readonly registerRef: (id: string, element: HTMLButtonElement | null) => void;
 }
 
-export function CommandMenuRow({
+export const CommandMenuRow = memo(function CommandMenuRow({
 	item,
 	active,
 	suppressSelectionAnimation,
@@ -145,4 +145,4 @@ export function CommandMenuRow({
 			)}
 		</button>
 	);
-}
+});

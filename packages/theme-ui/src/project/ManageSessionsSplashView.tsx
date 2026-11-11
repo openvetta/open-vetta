@@ -1,3 +1,4 @@
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useRef, type JSX, type ReactNode } from "react";
 import { cn } from "@vetta-org/ui/utils";
 import { CommandMenuRow } from "../overlays/CommandMenuRow";
@@ -113,6 +114,13 @@ function Hint({ keys, label }: { keys: readonly string[]; label: string }): JSX.
 	);
 }
 
+/** 行高固定为 h-9（36px），虚拟列表据此定位。 */
+const ROW_HEIGHT = 36;
+/** 会话不多时直接全量渲染（保留原生滚动与测试可见性），超过才开虚拟列表。 */
+const VIRTUALIZE_THRESHOLD = 80;
+const VIRTUAL_OVERSCAN = 8;
+const LIST_FALLBACK_HEIGHT = 420;
+
 const LIST_CLASS = "min-h-0 max-h-[min(420px,56vh)] overflow-y-auto overscroll-contain px-1.5 py-1.5";
 
 function MenuRow({
@@ -172,6 +180,70 @@ function MenuRow({
 	);
 }
 
+interface VirtualRowsProps {
+	readonly rows: readonly CommandMenuItemView[];
+	readonly scrollRef: { current: HTMLDivElement | null };
+	readonly selectedId: string | null;
+	readonly onHoverRow: (id: string) => void;
+	readonly onOpenRow: (id: string) => void;
+	readonly onMoreRow: (id: string) => void;
+	readonly moreLabel: string;
+	readonly registerRef: (id: string, element: HTMLButtonElement | null) => void;
+}
+
+/** 会话成百上千时，只挂载可视窗口里的几十行；悬停 / 方向键切换选中也只重渲染这几行。 */
+function VirtualRows({
+	rows,
+	scrollRef,
+	selectedId,
+	onHoverRow,
+	onOpenRow,
+	onMoreRow,
+	moreLabel,
+	registerRef,
+}: VirtualRowsProps): JSX.Element {
+	const virtualizer = useVirtualizer({
+		count: rows.length,
+		getScrollElement: () => scrollRef.current,
+		estimateSize: () => ROW_HEIGHT,
+		getItemKey: (index) => rows[index]?.id ?? index,
+		overscan: VIRTUAL_OVERSCAN,
+		initialRect: { width: 0, height: LIST_FALLBACK_HEIGHT },
+	});
+	useEffect(() => {
+		if (!selectedId) return;
+		const index = rows.findIndex((row) => row.id === selectedId);
+		if (index >= 0) virtualizer.scrollToIndex(index, { align: "auto" });
+	}, [selectedId, rows, virtualizer]);
+
+	return (
+		<div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+			{virtualizer.getVirtualItems().map((item) => {
+				const row = rows[item.index];
+				if (!row) return null;
+				return (
+					<div
+						key={item.key}
+						className="absolute left-0 top-0 w-full"
+						style={{ height: item.size, transform: `translateY(${item.start}px)` }}
+					>
+						<CommandMenuRow
+							item={row}
+							active={row.id === selectedId}
+							suppressSelectionAnimation={false}
+							onActivate={onOpenRow}
+							onHover={onHoverRow}
+							onMore={onMoreRow}
+							moreLabel={moreLabel}
+							registerRef={registerRef}
+						/>
+					</div>
+				);
+			})}
+		</div>
+	);
+}
+
 export function ManageSessionsSplashView(props: ManageSessionsSplashViewProps): JSX.Element {
 	const {
 		open,
@@ -209,12 +281,15 @@ export function ManageSessionsSplashView(props: ManageSessionsSplashViewProps): 
 		else rowRefs.current.delete(id);
 	}, []);
 
+	const listRef = useRef<HTMLDivElement | null>(null);
 	const followId = step === "menu" ? menuActiveId : step === "list" ? selectedId : null;
 	// 与命令面板同理：用 nearest 且不带 smooth，连续按方向键时平滑滚动会排队堆积。
+	// 虚拟列表里目标行可能没挂载，改由 VirtualRows 自己按下标滚动。
 	useEffect(() => {
 		if (!open || !followId) return;
+		if (step === "list" && rows.length > VIRTUALIZE_THRESHOLD) return;
 		rowRefs.current.get(followId)?.scrollIntoView?.({ block: "nearest" });
-	}, [open, followId]);
+	}, [open, followId, step, rows.length]);
 
 	const showTabs = step === "list" && tabs.length > 1;
 	const listHeader = (
@@ -312,20 +387,33 @@ export function ManageSessionsSplashView(props: ManageSessionsSplashViewProps): 
 		<SplashPanel open={open} onClose={onClose} label={labels.title} width="560px" header={header} footer={footer}>
 			<SplashStep stepKey={step}>
 				{step === "list" && (
-					<div role="listbox" aria-label={labels.title} className={LIST_CLASS}>
-						{rows.map((row) => (
-							<CommandMenuRow
-								key={row.id}
-								item={row}
-								active={row.id === selectedId}
-								suppressSelectionAnimation={false}
-								onActivate={onOpenRow}
-								onHover={onHoverRow}
-								onMore={onMoreRow}
+					<div ref={listRef} role="listbox" aria-label={labels.title} className={LIST_CLASS}>
+						{rows.length > VIRTUALIZE_THRESHOLD ? (
+							<VirtualRows
+								rows={rows}
+								scrollRef={listRef}
+								selectedId={selectedId}
+								onHoverRow={onHoverRow}
+								onOpenRow={onOpenRow}
+								onMoreRow={onMoreRow}
 								moreLabel={labels.hintMore}
 								registerRef={registerRef}
 							/>
-						))}
+						) : (
+							rows.map((row) => (
+								<CommandMenuRow
+									key={row.id}
+									item={row}
+									active={row.id === selectedId}
+									suppressSelectionAnimation={false}
+									onActivate={onOpenRow}
+									onHover={onHoverRow}
+									onMore={onMoreRow}
+									moreLabel={labels.hintMore}
+									registerRef={registerRef}
+								/>
+							))
+						)}
 						{rows.length === 0 && (
 							<div className="px-3 py-10 text-center text-[13px] text-muted-foreground">{labels.empty}</div>
 						)}
