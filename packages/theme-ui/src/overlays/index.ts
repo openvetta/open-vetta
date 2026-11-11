@@ -29,6 +29,14 @@ export type { SplashOptionRowProps } from "./SplashOptionRow";
 export { SplashOptionRow } from "./SplashOptionRow";
 export type { SplashPanelProps } from "./SplashPanel";
 export { SplashPanel } from "./SplashPanel";
+export type { SplashInputHeaderProps, SplashTitleHeaderProps } from "./SplashParts";
+export {
+	SplashFooter,
+	SplashInputHeader,
+	SplashNotice,
+	SplashStep,
+	SplashTitleHeader,
+} from "./SplashParts";
 export type {
 	ToasterItemView,
 	ToasterVariant,

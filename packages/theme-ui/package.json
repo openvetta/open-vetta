@@ -630,6 +630,10 @@
 			"types": "./src/overlays/SplashOptionRow.tsx",
 			"import": "./src/overlays/SplashOptionRow.tsx"
 		},
+		"./overlays/SplashParts": {
+			"types": "./src/overlays/SplashParts.tsx",
+			"import": "./src/overlays/SplashParts.tsx"
+		},
 		"./overlays/SplashPanel": {
 			"types": "./src/overlays/SplashPanel.tsx",
 			"import": "./src/overlays/SplashPanel.tsx"

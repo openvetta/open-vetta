@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, type JSX, type RefObject } from "react";
-import { cn } from "@vetta-org/ui/utils";
 import { CommandMenuRow } from "./CommandMenuRow";
 import type { CommandMenuGroupView, CommandMenuViewLabels } from "./command-menu-types";
+import { SplashFooter, SplashInputHeader } from "./SplashParts";
 import { SplashPanel } from "./SplashPanel";
 import "./command-menu.css";
 
@@ -63,40 +63,29 @@ export function CommandMenuView({
 			onClose={onClose}
 			label={labels.title}
 			header={
-				<div className="relative flex h-12 shrink-0 items-center gap-2.5 px-3.5">
-					<span aria-hidden="true" className="icon-[solar--magnifer-linear] size-4 shrink-0 text-muted-foreground" />
-					<input
-						ref={inputRef}
-						type="text"
-						role="combobox"
-						aria-expanded={hasResults}
-						aria-controls="command-menu-list"
-						aria-activedescendant={selectedId ? `command-menu-item-${selectedId}` : undefined}
-						aria-label={labels.title}
-						autoComplete="off"
-						spellCheck={false}
-						value={query}
-						placeholder={labels.placeholder}
-						onChange={(event) => onQueryChange(event.target.value)}
-						className="min-w-0 flex-1 bg-transparent text-[14px] text-foreground outline-none placeholder:text-muted-foreground/70"
-					/>
-					<span
-						aria-hidden="true"
-						className="command-menu-input-underline pointer-events-none absolute inset-x-3.5 bottom-0 h-px bg-border/70"
-					/>
-				</div>
+				<SplashInputHeader
+					icon="icon-[solar--magnifer-linear]"
+					inputRef={inputRef}
+					label={labels.title}
+					value={query}
+					placeholder={labels.placeholder}
+					onChange={onQueryChange}
+					// 打开后的聚焦由宿主在 open 变化时负责（见 desktop CommandMenu）。
+					autoFocus={false}
+					inputProps={{
+						role: "combobox",
+						"aria-expanded": hasResults,
+						"aria-controls": "command-menu-list",
+						"aria-activedescendant": selectedId ? `command-menu-item-${selectedId}` : undefined,
+					}}
+				/>
 			}
 			footer={
-				<div
-					className={cn(
-						"flex h-8 shrink-0 items-center gap-3 border-t border-border/60 px-3.5",
-						"text-[11px] text-muted-foreground/80",
-					)}
-				>
+				<SplashFooter>
 					<span>{labels.hintNavigate}</span>
 					<span>{labels.hintSelect}</span>
 					<span className="ml-auto">{labels.hintClose}</span>
-				</div>
+				</SplashFooter>
 			}
 		>
 			<div
