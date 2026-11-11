@@ -1083,10 +1083,6 @@
 	},
 	"updateDialog": {
 		"close": "Close",
-		"later": "Later",
-		"background": "Continue in Background",
-		"download": "Download Update",
-		"install": "Restart Now",
 		"installing": "Restarting…",
 		"retry": "Retry",
 		"viewCurrent": "What's New",
@@ -1106,6 +1102,7 @@
 		"errorFallback": "Can't reach the update server right now. Please try again later.",
 		"currentTitle": "What's New in Vetta {{version}}",
 		"currentSubtitle": "What this version brings",
-		"currentEmpty": "No release notes for this version."
+		"currentEmpty": "No release notes for this version.",
+		"updateNow": "Update Now"
 	}
 }

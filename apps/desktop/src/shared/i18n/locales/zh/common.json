@@ -1083,10 +1083,6 @@
 	},
 	"updateDialog": {
 		"close": "关闭",
-		"later": "稍后",
-		"background": "后台继续",
-		"download": "下载更新",
-		"install": "立即重启",
 		"installing": "正在重启…",
 		"retry": "重试",
 		"viewCurrent": "查看版本介绍",
@@ -1106,6 +1102,7 @@
 		"errorFallback": "暂时无法连接更新服务器，请稍后再试。",
 		"currentTitle": "Vetta {{version}} 版本介绍",
 		"currentSubtitle": "这一版带来了什么",
-		"currentEmpty": "暂无这个版本的介绍。"
+		"currentEmpty": "暂无这个版本的介绍。",
+		"updateNow": "立即更新"
 	}
 }

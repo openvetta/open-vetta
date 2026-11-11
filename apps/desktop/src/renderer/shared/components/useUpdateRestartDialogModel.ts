@@ -55,8 +55,7 @@ export function useUpdateRestartDialogModel(): UpdateRestartDialogModel {
 		bindings: [{ key: "escape", run: close }],
 	});
 
-	const base = { bannerSrc: BANNER_SRC, onClose: close, overlayRef, visible };
-	const closeAction = { label: t("updateDialog.close"), onClick: close };
+	const base = { bannerSrc: BANNER_SRC, closeLabel: t("updateDialog.close"), onClose: close, overlayRef, visible };
 
 	if (notesOpen) {
 		return {
@@ -64,20 +63,17 @@ export function useUpdateRestartDialogModel(): UpdateRestartDialogModel {
 			emptyText: t("updateDialog.currentEmpty"),
 			loading: currentNote === undefined,
 			releaseNote: currentNote ?? undefined,
-			secondary: closeAction,
 			subtitle: t("updateDialog.currentSubtitle"),
 			title: t("updateDialog.currentTitle", { version: state.currentVersion }),
 		};
 	}
 
 	const latest = state.latestVersion ?? "";
-	const laterAction = { label: t("updateDialog.later"), onClick: close };
 
 	switch (state.phase) {
 		case "checking":
 			return {
 				...base,
-				secondary: closeAction,
 				status: { kind: "checking", text: t("updateDialog.checking") },
 				subtitle: t("updateDialog.currentVersion", { version: state.currentVersion }),
 				title: t("updateDialog.checkingTitle"),
@@ -86,12 +82,11 @@ export function useUpdateRestartDialogModel(): UpdateRestartDialogModel {
 			return {
 				...base,
 				primary: {
-					label: t("updateDialog.download"),
+					label: t("updateDialog.updateNow"),
 					onClick: () => void window.vetta.updater.download(),
 				},
 				releaseNote: state.releaseNote,
 				releaseNoteTitle: t("updateDialog.releaseNoteTitle"),
-				secondary: laterAction,
 				subtitle: t("updateDialog.versionChange", { currentVersion: state.currentVersion, latestVersion: latest }),
 				title: t("updateDialog.availableTitle", { version: latest }),
 			};
@@ -101,7 +96,6 @@ export function useUpdateRestartDialogModel(): UpdateRestartDialogModel {
 				...base,
 				releaseNote: state.releaseNote,
 				releaseNoteTitle: t("updateDialog.releaseNoteTitle"),
-				secondary: { label: t("updateDialog.background"), onClick: close },
 				status: {
 					kind: "progress",
 					progress,
@@ -115,7 +109,7 @@ export function useUpdateRestartDialogModel(): UpdateRestartDialogModel {
 			return {
 				...base,
 				primary: {
-					label: t("updateDialog.install"),
+					label: t("updateDialog.updateNow"),
 					onClick: () => {
 						close();
 						void window.vetta.updater.install();
@@ -123,7 +117,6 @@ export function useUpdateRestartDialogModel(): UpdateRestartDialogModel {
 				},
 				releaseNote: state.releaseNote,
 				releaseNoteTitle: t("updateDialog.releaseNoteTitle"),
-				secondary: laterAction,
 				subtitle: t("updateDialog.readyMessage", { currentVersion: state.currentVersion, latestVersion: latest }),
 				title: t("updateDialog.readyTitle", { version: latest }),
 			};
@@ -131,14 +124,12 @@ export function useUpdateRestartDialogModel(): UpdateRestartDialogModel {
 			return {
 				...base,
 				primary: { disabled: true, label: t("updateDialog.installing"), onClick: close },
-				secondary: closeAction,
 				title: t("updateDialog.installingTitle"),
 			};
 		case "error":
 			return {
 				...base,
 				primary: { label: t("updateDialog.retry"), onClick: () => void window.vetta.updater.check() },
-				secondary: closeAction,
 				status: { kind: "error", text: state.error ?? t("updateDialog.errorFallback") },
 				subtitle: t("updateDialog.currentVersion", { version: state.currentVersion }),
 				title: t("updateDialog.errorTitle"),
@@ -153,7 +144,6 @@ export function useUpdateRestartDialogModel(): UpdateRestartDialogModel {
 						setNotesOpen(true);
 					},
 				},
-				secondary: closeAction,
 				subtitle: t("updateDialog.currentVersion", { version: state.currentVersion }),
 				title: t("updateDialog.latestTitle"),
 			};

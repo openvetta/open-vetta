@@ -23,14 +23,14 @@ export interface UpdateRestartDialogViewProps {
 	readonly bannerSrc: string;
 	/** 无正文时的占位文案（如「暂无版本介绍」）；有 releaseNote 时不显示。 */
 	readonly emptyText?: string;
+	readonly closeLabel: string;
 	readonly onClose: () => void;
 	readonly overlayRef: RefObject<HTMLDivElement | null>;
-	/** 主按钮；省略时只剩一个次要按钮。 */
+	/** 底部唯一的悬浮按钮；省略时不显示底栏，只能用右上角的关闭按钮离开。 */
 	readonly primary?: UpdateRestartDialogAction;
 	readonly releaseNote?: string;
 	/** 正文标题（如「更新内容」）；无正文时不显示。 */
 	readonly releaseNoteTitle?: string;
-	readonly secondary: UpdateRestartDialogAction;
 	readonly status?: UpdateRestartDialogStatus;
 	readonly subtitle?: string;
 	readonly title: string;
@@ -39,12 +39,13 @@ export interface UpdateRestartDialogViewProps {
 	readonly loading?: boolean;
 }
 
-// 胶囊按钮：与设计稿一致，次要按钮用柔和底色，主按钮用主色。
-const pillBase =
-	"inline-flex h-11 flex-1 items-center justify-center rounded-full px-5 text-[14px] font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/50 active:translate-y-px disabled:pointer-events-none disabled:opacity-50";
+// 底部主按钮：通栏胶囊，悬浮在正文之上。
+const pillClass =
+	"pointer-events-auto inline-flex h-11 w-full items-center justify-center rounded-full bg-primary px-5 text-[14px] font-medium whitespace-nowrap text-primary-foreground shadow-lg shadow-black/15 transition-all outline-none select-none hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring/50 active:translate-y-px disabled:pointer-events-none disabled:opacity-50";
 
 export function UpdateRestartDialogView({
 	bannerSrc,
+	closeLabel,
 	emptyText,
 	loading = false,
 	onClose,
@@ -52,7 +53,6 @@ export function UpdateRestartDialogView({
 	primary,
 	releaseNote,
 	releaseNoteTitle,
-	secondary,
 	status,
 	subtitle,
 	title,
@@ -95,9 +95,18 @@ export function UpdateRestartDialogView({
 					>
 						<ThemeSurface slot="root.updateRestartDialog.panel" />
 						<div className="relative z-10 flex min-h-0 flex-1 flex-col">
+							<button
+								type="button"
+								onClick={onClose}
+								aria-label={closeLabel}
+								// 纯白圆形：深浅色下都不随主题变色，靠双层投影从横幅和正文上浮起来。
+								className="absolute top-4 right-4 z-20 inline-flex size-8 items-center justify-center rounded-full bg-white text-neutral-900 shadow-[0_6px_18px_rgba(0,0,0,0.28),0_1px_3px_rgba(0,0,0,0.22)] transition-transform outline-none hover:scale-105 focus-visible:ring-2 focus-visible:ring-white/70 active:scale-95"
+							>
+								<span className="icon-[mdi--close] h-4 w-4" />
+							</button>
 							<div className="relative flex min-h-0 flex-1 flex-col">
 								<div
-									className="min-h-0 flex-1 overflow-y-auto"
+									className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 									onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}
 								>
 									<img
@@ -106,7 +115,7 @@ export function UpdateRestartDialogView({
 										draggable={false}
 										className="h-[148px] w-full object-cover select-none"
 									/>
-									<div className="px-7 pt-6">
+									<div className={cn("px-7 pt-6", primary ? "pb-28" : "pb-8")}>
 								<h3 className="text-[19px] leading-snug font-semibold tracking-tight text-foreground">{title}</h3>
 								{subtitle && <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">{subtitle}</p>}
 								{status && <StatusLine status={status} />}
@@ -135,25 +144,17 @@ export function UpdateRestartDialogView({
 										scrolled ? "opacity-100" : "opacity-0",
 									)}
 								/>
-							</div>
-							<div className="flex shrink-0 gap-3 px-7 pt-5 pb-7">
-								<button
-									type="button"
-									onClick={secondary.onClick}
-									disabled={secondary.disabled}
-									className={cn(pillBase, "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground")}
-								>
-									{secondary.label}
-								</button>
 								{primary && (
-									<button
-										type="button"
-										onClick={primary.onClick}
-										disabled={primary.disabled}
-										className={cn(pillBase, "bg-primary text-primary-foreground hover:bg-primary/90")}
-									>
-										{primary.label}
-									</button>
+									<div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-popover via-popover/90 to-transparent px-7 pt-12 pb-7">
+										<button
+											type="button"
+											onClick={primary.onClick}
+											disabled={primary.disabled}
+											className={pillClass}
+										>
+											{primary.label}
+										</button>
+									</div>
 								)}
 							</div>
 						</div>

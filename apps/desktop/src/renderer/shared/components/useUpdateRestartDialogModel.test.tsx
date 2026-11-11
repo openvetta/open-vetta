@@ -79,13 +79,13 @@ describe("useUpdateRestartDialogModel", () => {
 		await waitFor(() => expect(result.current.model.releaseNote).toBe("## 新增\n\n- A"));
 	});
 
-	it("有新版本：带更新内容，主按钮触发下载，次按钮稍后关闭", () => {
+	it("有新版本：带更新内容，主按钮触发下载，右上角关闭按钮关掉对话框", () => {
 		const { result } = setup();
 		open(result, { phase: "available", currentVersion: "1.0.0", latestVersion: "1.1.0", releaseNote: "- 新" });
 		expect(result.current.model.releaseNote).toBe("- 新");
 		act(() => result.current.model.primary?.onClick());
 		expect(updater.download).toHaveBeenCalledTimes(1);
-		act(() => result.current.model.secondary.onClick());
+		act(() => result.current.model.onClose());
 		expect(result.current.updateOpen).toBe(false);
 	});
 
@@ -122,7 +122,7 @@ describe("useUpdateRestartDialogModel", () => {
 		await waitFor(() => expect(result.current.model.loading).toBe(false));
 		expect(result.current.model.releaseNote).toBeUndefined();
 		expect(result.current.model.emptyText).toBe("updateDialog.currentEmpty");
-		act(() => result.current.model.secondary.onClick());
+		act(() => result.current.model.onClose());
 		expect(result.current.notesOpen).toBe(false);
 	});
 });
