@@ -28,8 +28,11 @@ export function AddProjectMenuPopoverView({
 				<PopoverContent
 					forceMount
 					asChild
-					side="bottom"
-					align={variant === "icon" ? "end" : "start"}
+					// icon 触发器贴在侧栏右缘，向下展开会跑到按钮内侧；改在按钮右侧展开，
+					// alignOffset 取按钮高度（p-1.5 + h-4 = 28px），让菜单顶部对齐按钮底部。
+					side={variant === "icon" ? "right" : "bottom"}
+					align="start"
+					alignOffset={variant === "icon" ? 28 : 0}
 					sideOffset={6}
 					// 按内容撑开而不是写死宽度：菜单项文案随语言变化，写死会把较长的项截断。
 					className="w-max min-w-[150px] gap-0 overflow-hidden rounded-lg border border-border p-1"
