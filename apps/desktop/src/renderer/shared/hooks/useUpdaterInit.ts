@@ -2,6 +2,7 @@ import type { UpdaterState } from "@preload/api";
 import { updaterStateAtom } from "@shared/store/atoms";
 import { useSetAtom } from "jotai";
 import { useEffect } from "react";
+import { stripReleaseNoteHeader } from "../../../shared/release-note-header";
 
 /**
  * 挂在 RootLayout：拉一次主进程当前 UpdaterState，并订阅状态变化。
@@ -42,7 +43,7 @@ function installDevUpdatePreview(setState: (state: UpdaterState) => void): () =>
 			import: "default",
 		}) as Record<string, () => Promise<string>>;
 		const entry = Object.entries(notes).find(([path]) => path.endsWith(`v${state.currentVersion}.md`));
-		const releaseNote = entry ? await entry[1]() : undefined;
+		const releaseNote = entry ? stripReleaseNoteHeader(await entry[1]()) : undefined;
 		setState({ ...state, phase: "ready", latestVersion: state.currentVersion, releaseNote });
 	};
 	return () => {

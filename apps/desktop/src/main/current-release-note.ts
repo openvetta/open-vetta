@@ -1,17 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripReleaseNoteHeader } from "../shared/release-note-header.js";
 
-/**
- * 去掉发布说明开头的「# Vetta x.y.z」标题和 release-status 标记：
- * 对话框已有自己的标题与版本号，正文只保留 `## 新增` 起的内容。
- */
-export function stripReleaseNoteHeader(markdown: string): string {
-	return markdown
-		.replace(/\r\n/g, "\n")
-		.replace(/<!--[\s\S]*?-->/g, "")
-		.replace(/^\s*# [^\n]*\n/, "")
-		.trim();
-}
+export { stripReleaseNoteHeader };
 
 /**
  * 当前版本的发布说明（Markdown，已去掉标题）。

@@ -183,6 +183,24 @@ describe("ElectronUpdaterEngine", () => {
 		await expect(download.promise).rejects.toThrow("native staging failed");
 	});
 
+	it("去掉更新源说明开头的版本标题，其余内容原样保留", async () => {
+		const updateInfo = {
+			version: "1.2.3",
+			files: [],
+			path: "x",
+			sha512: "x",
+			releaseDate: new Date().toISOString(),
+			releaseNotes: "<h1>Vetta 1.2.3</h1><h2>新增</h2><ul><li>功能 A</li></ul>",
+		} as unknown as UpdateInfo;
+		const updater = {
+			on: vi.fn(),
+			off: vi.fn(),
+			checkForUpdates: vi.fn().mockResolvedValue({ isUpdateAvailable: true, updateInfo }),
+		} as unknown as AppUpdater;
+		const result = await new ElectronUpdaterEngine(updater).checkForUpdates();
+		expect(result?.hasUpdate && result.info.releaseNote).toBe("## 新增\n\n- 功能 A");
+	});
+
 	it("passes provider-resolved asset URLs to the Inno updater", async () => {
 		const updateInfo: UpdateInfo = {
 			version: "1.2.3",
