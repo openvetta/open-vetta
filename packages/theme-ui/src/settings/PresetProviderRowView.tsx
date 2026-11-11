@@ -203,10 +203,10 @@ export function PresetProviderRowView({
 			{row.isExpanded && modelsList}
 
 			<Dialog open={keyDialogOpen} onOpenChange={(next) => !next && !saving && onToggleEditor()}>
-				<DialogContent className="gap-4 sm:max-w-[420px]">
+				<DialogContent className="sm:max-w-[420px]">
 					<DialogHeader>
-						<DialogTitle className="text-[15px]">{row.displayName}</DialogTitle>
-						<DialogDescription className="text-[12px]">{labels.apiKeyDirect(row.displayName)}</DialogDescription>
+						<DialogTitle>{row.displayName}</DialogTitle>
+						<DialogDescription>{labels.apiKeyDirect(row.displayName)}</DialogDescription>
 					</DialogHeader>
 					<div className="flex items-center gap-1.5">
 						<div className="min-w-0 flex-1">
@@ -252,10 +252,10 @@ export function PresetProviderRowView({
 			</Dialog>
 
 			<Dialog open={urlDialogOpen} onOpenChange={(next) => !next && !saving && setUrlDraft(null)}>
-				<DialogContent className="gap-4 sm:max-w-[420px]">
+				<DialogContent className="sm:max-w-[420px]">
 					<DialogHeader>
-						<DialogTitle className="text-[15px]">{row.displayName}</DialogTitle>
-						<DialogDescription className="text-[12px]">{labels.editBaseUrl}</DialogDescription>
+						<DialogTitle>{row.displayName}</DialogTitle>
+						<DialogDescription>{labels.editBaseUrl}</DialogDescription>
 					</DialogHeader>
 					<div className="flex items-center gap-2">
 						<span className="shrink-0 text-[13px] text-muted-foreground">{hostPrefix(row.baseUrl)}</span>

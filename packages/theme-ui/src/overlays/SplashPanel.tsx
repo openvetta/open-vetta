@@ -3,7 +3,7 @@ import { useRef, type JSX, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ThemeSurface } from "../appearance/ThemeSurface";
 import "./command-menu.css";
-import { cn, OVERLAY_BACKDROP_CLASS } from "@vetta-org/ui/utils";
+import { cn, OVERLAY_BACKDROP_CLASS, PANEL_SHADOW_CLASS } from "@vetta-org/ui/utils";
 
 /**
  * 居中偏上的 Splash 面板外壳：遮罩 + 入场动效 + 高光边 + 主题 surface 槽位。
@@ -67,8 +67,8 @@ export function SplashPanel({
 						exit={{ opacity: 0, scale: 0.96, y: -8 }}
 						transition={{ duration: 0.16, ease: [0.25, 0.1, 0.25, 1] }}
 						style={{ width: `min(${width}, calc(100vw - 32px))` }}
-						// 不用边框线，靠两层柔和的大半径投影把面板托起来：一层远而淡的环境影，一层近而更淡的接触影。
-						className="command-menu-sheen relative flex flex-col rounded-2xl bg-popover shadow-[0_24px_64px_-16px_rgb(0_0_0/0.16),0_6px_20px_-6px_rgb(0_0_0/0.08)]"
+						// 不用边框线，靠柔和的大半径投影把面板托起来（与 Dialog 共用 PANEL_SHADOW_CLASS）。
+						className={cn("command-menu-sheen relative flex flex-col rounded-2xl bg-popover", PANEL_SHADOW_CLASS)}
 					>
 						<ThemeSurface slot="root.commandMenu.panel" />
 						<div className="relative z-10 flex min-h-0 flex-col">

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { XIcon } from "lucide-react";
-import { cn, OVERLAY_BACKDROP_CLASS } from "./utils";
+import { cn, OVERLAY_BACKDROP_CLASS, PANEL_SHADOW_CLASS } from "./utils";
 import { Button } from "./button";
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
@@ -56,7 +56,9 @@ function DialogContent({
 				className={cn(
 					// Single max-width (not max-w + sm:max-w-sm): avoids twMerge leaving
 					// sm:max-w-sm that overrides consumer max-w-lg at the sm breakpoint.
-					"no-drag fixed top-1/2 left-1/2 z-50 grid w-full max-w-[min(24rem,calc(100%-2rem))] [transform:translate(-50%,-50%)] gap-4 rounded-xl border border-border bg-popover p-4 text-sm text-popover-foreground outline-none",
+					// 去线留白：不用边框，靠留白和柔和投影区分层次。
+					"no-drag fixed top-1/2 left-1/2 z-50 grid w-full max-w-[min(24rem,calc(100%-2rem))] [transform:translate(-50%,-50%)] gap-5 rounded-2xl bg-popover p-6 text-sm text-popover-foreground outline-none",
+					PANEL_SHADOW_CLASS,
 					className,
 				)}
 				{...props}
@@ -64,7 +66,7 @@ function DialogContent({
 				{children}
 				{showCloseButton && (
 					<DialogPrimitive.Close data-slot="dialog-close" asChild>
-						<Button variant="ghost" className="absolute top-2 right-2" size="icon-sm">
+						<Button variant="ghost" className="absolute top-4 right-4" size="icon-sm">
 							<XIcon />
 							<span className="sr-only">Close</span>
 						</Button>
@@ -76,7 +78,7 @@ function DialogContent({
 }
 
 function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
-	return <div data-slot="dialog-header" className={cn("flex flex-col gap-2", className)} {...props} />;
+	return <div data-slot="dialog-header" className={cn("flex flex-col gap-1.5", className)} {...props} />;
 }
 
 function DialogFooter({
@@ -91,7 +93,8 @@ function DialogFooter({
 		<div
 			data-slot="dialog-footer"
 			className={cn(
-				"-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t border-border bg-muted/50 p-4 sm:flex-row sm:justify-end",
+				// 无分隔线、无底色：操作区只靠上方留白与正文分开。
+				"flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end",
 				className,
 			)}
 			{...props}
@@ -110,7 +113,7 @@ function DialogTitle({ className, ...props }: React.ComponentProps<typeof Dialog
 	return (
 		<DialogPrimitive.Title
 			data-slot="dialog-title"
-			className={cn("text-base leading-none font-medium", className)}
+			className={cn("text-[17px] leading-snug font-semibold tracking-tight", className)}
 			{...props}
 		/>
 	);
@@ -124,7 +127,7 @@ function DialogDescription({
 		<DialogPrimitive.Description
 			data-slot="dialog-description"
 			className={cn(
-				"text-sm text-muted-foreground *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
+				"text-[13px] leading-relaxed text-muted-foreground *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
 				className,
 			)}
 			{...props}
