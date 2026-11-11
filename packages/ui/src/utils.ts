@@ -18,7 +18,7 @@ export function cn(...parts: ClassValue[]): string {
 export const OVERLAY_BACKDROP_CLASS = "overlay-backdrop bg-black/20 backdrop-blur-md";
 
 /**
- * 浮层面板（Dialog、Splash）统一的柔和外投影：用两层大半径低透明度的影子托起面板，
- * 代替边框线。远处一层环境影，近处一层更淡的接触影。
+ * 浮层面板（Dialog、Splash）统一的柔和外投影：用两层低透明度的影子托起面板，
+ * 代替边框线。一层小半径的近影加一层低透明度的环境影；影子越大越淡越容易发灰发脏，所以宁小勿大。
  */
-export const PANEL_SHADOW_CLASS = "shadow-[0_24px_64px_-16px_rgb(0_0_0/0.16),0_6px_20px_-6px_rgb(0_0_0/0.08)]";
+export const PANEL_SHADOW_CLASS = "shadow-[0_16px_40px_-12px_rgb(0_0_0/0.10),0_2px_8px_-2px_rgb(0_0_0/0.05)]";
