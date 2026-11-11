@@ -76,9 +76,24 @@ export function AbilitiesPageView({
 						<h1 className="bg-gradient-to-br from-foreground via-foreground to-foreground/70 bg-clip-text text-[26px] font-bold leading-tight tracking-tight text-transparent">
 							{t("page.title")}
 						</h1>
-						<p className="mt-1 text-[12px] text-muted-foreground/60">{t("page.subtitle")}</p>
 					</div>
 					<div className="flex min-h-8 shrink-0 items-center gap-2">
+						<Button variant="ghost" size="sm" onClick={() => setSourcesDialogOpen(true)}>
+							<span className="icon-[mdi--github] h-3.5 w-3.5" />
+							{t("sources.trigger")}
+						</Button>
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							disabled={model.refreshing}
+							onClick={model.refresh}
+							aria-label={t("actions.refresh")}
+							title={t("actions.refresh")}
+						>
+							<span
+								className={`icon-[solar--refresh-linear] h-3.5 w-3.5 ${model.refreshing ? "animate-spin" : ""}`}
+							/>
+						</Button>
 						<AbilityFilterPopover
 							filter={model.filter}
 							counts={model.typeCounts}
@@ -103,8 +118,8 @@ export function AbilitiesPageView({
 				<div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
 					{isPublic && <AbilitiesBanner icons={model.bannerIcons} />}
 
-					<div className="flex flex-wrap items-center justify-between gap-3">
-						<div data-tour="capabilities-search-add" className="flex min-w-0 flex-wrap items-center gap-2">
+					<div data-tour="capabilities-search-add" className="flex flex-wrap items-center justify-between gap-3">
+						<div className="flex min-w-0 flex-wrap items-center gap-2">
 							<div className="relative w-56 shrink-0">
 								<span className="icon-[solar--magnifer-linear] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
 								<Input
@@ -115,6 +130,8 @@ export function AbilitiesPageView({
 									className="border-transparent bg-secondary pl-8 pr-3 text-[12px] placeholder:text-muted-foreground/40 hover:border-transparent hover:bg-accent dark:bg-secondary md:text-[12px]"
 								/>
 							</div>
+						</div>
+						<div className="flex items-center gap-2">
 							<AddAbilityMenu
 								importing={model.importing}
 								onImportSkill={() => {
@@ -130,18 +147,6 @@ export function AbilitiesPageView({
 									model.startAddManualMcp();
 								}}
 							/>
-						</div>
-						<div className="flex items-center gap-2">
-							<Button variant="ghost" size="sm" onClick={() => setSourcesDialogOpen(true)}>
-								<span className="icon-[mdi--github] h-3.5 w-3.5" />
-								{t("sources.trigger")}
-							</Button>
-							<Button variant="ghost" size="sm" disabled={model.refreshing} onClick={model.refresh}>
-								<span
-									className={`icon-[solar--refresh-linear] h-3.5 w-3.5 ${model.refreshing ? "animate-spin" : ""}`}
-								/>
-								{t("actions.refresh")}
-							</Button>
 						</div>
 					</div>
 
@@ -201,7 +206,7 @@ export function AbilitiesPageView({
 													{group.items.length}
 												</span>
 											</div>
-											<div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+											<div className="grid grid-cols-1 gap-x-3 gap-y-0.5 min-[800px]:grid-cols-2">
 												{group.items.map((item) => (
 													<AbilityCard key={item.id} item={item} model={model} />
 												))}
@@ -209,7 +214,7 @@ export function AbilitiesPageView({
 										</section>
 									))
 								) : (
-									<div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+									<div className="grid grid-cols-1 gap-x-3 gap-y-0.5 min-[800px]:grid-cols-2">
 										{model.items.map((item) => (
 											<AbilityCard key={item.id} item={item} model={model} />
 										))}
