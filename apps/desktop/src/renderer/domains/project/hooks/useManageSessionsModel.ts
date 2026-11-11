@@ -125,6 +125,16 @@ export function useManageSessionsModel(panel: ProjectsPanelModel): ManageSession
 	const viewById = useMemo(() => new Map(views.map((view) => [view.id, view])), [views]);
 	const targetView = targetId ? viewById.get(targetId) : undefined;
 
+	const tagColorsOf = useCallback(
+		(path: string): readonly string[] | undefined => {
+			const colors = conversationTagIds(tags, path)
+				.map((id) => tags.tags.find((tag) => tag.id === id)?.color)
+				.filter((color): color is string => Boolean(color));
+			return colors.length > 0 ? colors : undefined;
+		},
+		[tags],
+	);
+
 	const rows = useMemo<CommandMenuItemView[]>(
 		() =>
 			matches.map(({ item, ranges }) => ({
@@ -138,9 +148,10 @@ export function useManageSessionsModel(panel: ProjectsPanelModel): ManageSession
 				icon: pinnedPaths.has(item.session.path)
 					? "icon-[solar--pin-bold]"
 					: (item.iconClassName ?? "icon-[solar--chat-round-line-linear]"),
+				tagColors: canTag ? tagColorsOf(item.session.path) : undefined,
 				badge: runningPaths.has(item.session.path) ? t("manageSessions.running") : undefined,
 			})),
-		[i18n.language, matches, pinnedPaths, runningPaths, t],
+		[canTag, i18n.language, matches, pinnedPaths, runningPaths, t, tagColorsOf],
 	);
 
 	const close = useCallback(() => setProject(null), [setProject]);

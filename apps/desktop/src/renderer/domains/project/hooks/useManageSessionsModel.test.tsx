@@ -209,6 +209,7 @@ describe("useManageSessionsModel", () => {
 		);
 		expect(result.current.tabs.map((tab) => tab.id)).toEqual(["all", "t1"]);
 
+		expect(result.current.rows.find((row) => row.title === "beta")?.tagColors).toEqual(["#f00"]);
 		press("Tab");
 		expect(result.current.activeTabId).toBe("t1");
 		expect(result.current.rows.map((row) => row.title)).toEqual(["beta"]);

@@ -109,6 +109,17 @@ export function CommandMenuRow({
 					</span>
 				)}
 			</span>
+			{item.tagColors && item.tagColors.length > 0 && (
+				<span aria-hidden="true" data-tag-dots="true" className="flex shrink-0 items-center -space-x-0.5">
+					{item.tagColors.map((color, index) => (
+						<span
+							key={`${color}-${index}`}
+							className="size-2 rounded-full ring-1 ring-popover"
+							style={{ backgroundColor: color }}
+						/>
+					))}
+				</span>
+			)}
 			{item.badge && (
 				<span className="shrink-0 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground">
 					{item.badge}

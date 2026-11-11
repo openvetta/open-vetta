@@ -20,6 +20,8 @@ export interface CommandMenuItemView {
 	/** iconify 类名，例如 `icon-[solar--folder-linear]`。 */
 	readonly icon: string;
 	readonly badge?: string;
+	/** 行尾的标签色点（管理会话用），按给定顺序排列。 */
+	readonly tagColors?: readonly string[];
 	/** 命中了但当前打不开（例如无权限的会话）：显示但禁用，不静默过滤。 */
 	readonly disabled?: boolean;
 	readonly disabledReason?: string;
