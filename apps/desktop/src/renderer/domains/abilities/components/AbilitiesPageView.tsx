@@ -79,6 +79,12 @@ export function AbilitiesPageView({
 						<p className="mt-1 text-[12px] text-muted-foreground/60">{t("page.subtitle")}</p>
 					</div>
 					<div className="flex min-h-8 shrink-0 items-center gap-2">
+						<AbilityFilterPopover
+							filter={model.filter}
+							counts={model.typeCounts}
+							showProvenance={isPublic}
+							onChange={model.setFilter}
+						/>
 						<div data-tour="capabilities-scope">
 							<SegmentedControl
 								items={[
@@ -109,12 +115,6 @@ export function AbilitiesPageView({
 									className="border-transparent bg-secondary pl-8 pr-3 text-[12px] placeholder:text-muted-foreground/40 hover:border-transparent hover:bg-accent dark:bg-secondary md:text-[12px]"
 								/>
 							</div>
-							<AbilityFilterPopover
-								filter={model.filter}
-								counts={model.typeCounts}
-								showProvenance={isPublic}
-								onChange={model.setFilter}
-							/>
 							<AddAbilityMenu
 								importing={model.importing}
 								onImportSkill={() => {
