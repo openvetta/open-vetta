@@ -86,6 +86,17 @@ export function useManageSessionsModel(panel: ProjectsPanelModel): ManageSession
 	const allowMutations = !isClaw;
 	const canTag = isDefault && !isClaw;
 	const sessionsCwd = shown ? (isDefault ? panel.defaultSessionsCwd || shown.cwd : shown.cwd) : "";
+	// 项目没展开过时 sessionsMap 里还没有它的会话，打开面板就主动加载。
+	const loadSessionsRef = useRef(panel.actions.loadSessions);
+	loadSessionsRef.current = panel.actions.loadSessions;
+	useEffect(() => {
+		if (open && sessionsCwd) loadSessionsRef.current(sessionsCwd);
+	}, [open, sessionsCwd]);
+	const sessionsLoading = shown
+		? isDefault
+			? panel.defaultSessionsLoading
+			: panel.projectSessionsLoading(shown.cwd)
+		: false;
 	const rawSessions = shown ? (isDefault ? panel.defaultSessions : panel.projectSessions(shown.cwd)) : [];
 
 	const views = useMemo<SessionView[]>(() => {
@@ -452,8 +463,9 @@ export function useManageSessionsModel(panel: ProjectsPanelModel): ManageSession
 			title: t("manageSessions.title"),
 			searchPlaceholder: t("manageSessions.searchPlaceholder"),
 			searchLabel: t("manageSessions.searchLabel"),
-			empty:
-				tabViews.length === 0 && !query.trim() && activeTabId === ALL_TAB_ID
+			empty: sessionsLoading
+				? t("manageSessions.loading")
+				: tabViews.length === 0 && !query.trim() && activeTabId === ALL_TAB_ID
 					? t("manageSessions.emptyAll")
 					: t("manageSessions.emptyQuery"),
 			back: t("addProjectSplash.back"),
@@ -478,6 +490,10 @@ export function useManageSessionsModel(panel: ProjectsPanelModel): ManageSession
 		selectedId: effectiveSelectedId,
 		onHoverRow: setSelectedId,
 		onOpenRow: openRow,
+		onMoreRow: (id) => {
+			setSelectedId(id);
+			openMenuFor(id);
+		},
 		clearAllVisible: views.length > 0,
 		clearAllDisabled: runningInScope,
 		clearAllDisabledReason: t("contextMenu.clearConversationDisabled"),

@@ -73,6 +73,7 @@ export interface ManageSessionsSplashViewProps {
 	readonly selectedId: string | null;
 	readonly onHoverRow: (id: string) => void;
 	readonly onOpenRow: (id: string) => void;
+	readonly onMoreRow: (id: string) => void;
 	readonly clearAllVisible: boolean;
 	readonly clearAllDisabled: boolean;
 	readonly clearAllDisabledReason?: string;
@@ -103,7 +104,7 @@ function Kbd({ children }: { children: ReactNode }): JSX.Element {
 
 function Hint({ keys, label }: { keys: readonly string[]; label: string }): JSX.Element {
 	return (
-		<span className="flex items-center gap-1">
+		<span className="flex items-center gap-1 whitespace-nowrap">
 			{keys.map((key) => (
 				<Kbd key={key}>{key}</Kbd>
 			))}
@@ -187,6 +188,7 @@ export function ManageSessionsSplashView(props: ManageSessionsSplashViewProps): 
 		selectedId,
 		onHoverRow,
 		onOpenRow,
+		onMoreRow,
 		clearAllVisible,
 		clearAllDisabled,
 		clearAllDisabledReason,
@@ -274,11 +276,12 @@ export function ManageSessionsSplashView(props: ManageSessionsSplashViewProps): 
 
 	const footer =
 		step === "list" ? (
-			<SplashFooter>
+			// 窄窗口下提示与按钮整组换行，而不是把每个提示挤成两三行。
+			<SplashFooter className="flex-wrap gap-x-3 gap-y-1 py-1.5">
 				<Hint keys={[modifierLabel, "X"]} label={labels.hintDelete} />
 				<Hint keys={[modifierLabel, "K"]} label={labels.hintMore} />
 				{showTabs && <Hint keys={["Tab"]} label={labels.hintTab} />}
-				<span className="ml-auto flex items-center gap-3">
+				<span className="ml-auto flex items-center gap-3 whitespace-nowrap">
 					{clearAllVisible && (
 						<button
 							type="button"
@@ -318,6 +321,8 @@ export function ManageSessionsSplashView(props: ManageSessionsSplashViewProps): 
 								suppressSelectionAnimation={false}
 								onActivate={onOpenRow}
 								onHover={onHoverRow}
+								onMore={onMoreRow}
+								moreLabel={labels.hintMore}
 								registerRef={registerRef}
 							/>
 						))}

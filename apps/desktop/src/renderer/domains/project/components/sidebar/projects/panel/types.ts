@@ -50,6 +50,8 @@ export interface ProjectsPanelModel {
 		expandBatchProject(cwd: string): void;
 		expandProject(cwd: string): void;
 		isProjectActive(cwd: string): boolean;
+		/** 拉取某个项目的会话；项目没展开时列表默认是空的，需要主动加载。 */
+		loadSessions(cwd: string): void;
 		navigateProject(cwd: string): void;
 		openClawSettings(): void;
 		removeProject(cwd: string): void;

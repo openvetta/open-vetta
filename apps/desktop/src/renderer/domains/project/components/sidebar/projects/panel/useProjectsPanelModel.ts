@@ -567,6 +567,9 @@ export function useProjectsPanelModel({
 			expandBatchProject,
 			expandProject,
 			isProjectActive,
+			loadSessions: (cwd) => {
+				void loadSessions(cwd);
+			},
 			navigateProject,
 			openClawSettings: () => {
 				void navigate({ to: "/settings/$tab", params: { tab: "im" } });

@@ -117,6 +117,7 @@
 		"title": "管理会话",
 		"searchPlaceholder": "搜索会话…",
 		"searchLabel": "搜索会话",
+		"loading": "加载中…",
 		"emptyAll": "还没有会话",
 		"emptyQuery": "没有匹配的会话",
 		"running": "运行中",

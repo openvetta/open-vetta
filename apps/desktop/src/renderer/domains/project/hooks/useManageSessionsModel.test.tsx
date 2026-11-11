@@ -54,12 +54,15 @@ function setup(options: { project?: unknown; filter?: string } = {}) {
 		renameSession: vi.fn(),
 		clearConversation: vi.fn(),
 		clearClaw: vi.fn(),
+		loadSessions: vi.fn(),
 	};
 	const panel = {
 		defaultConversationFilter: options.filter ?? "conversation",
 		defaultSessions: [alpha, beta, gamma],
 		defaultSessionsCwd: "/work/chat",
 		projectSessions: () => [alpha, beta, gamma],
+		projectSessionsLoading: () => false,
+		defaultSessionsLoading: false,
 		actions,
 	} as unknown as ProjectsPanelModel;
 	store.set(manageSessionsProjectAtom, (options.project ?? project) as never);
@@ -226,5 +229,22 @@ describe("useManageSessionsModel", () => {
 			store.set(conversationTagsAtom, { tags: [{ id: "t1", name: "Work", color: "#f00" }], assignments: {} } as never),
 		);
 		expect(result.current.tabs).toEqual([]);
+	});
+
+	it("opens the more-actions step for a specific row from its hover button", () => {
+		const { result } = setup();
+		act(() => result.current.onMoreRow(result.current.rows[2]?.id ?? ""));
+		expect(result.current.step).toBe("menu");
+		expect(result.current.menuTitle).toBe("gamma");
+	});
+
+	it("loads the project's sessions on open so a collapsed project is not empty", () => {
+		const { actions } = setup();
+		expect(actions.loadSessions).toHaveBeenCalledWith("/work/app");
+	});
+
+	it("loads the default conversation's own directory", () => {
+		const { actions } = setup({ project: defaultProject });
+		expect(actions.loadSessions).toHaveBeenCalledWith("/work/chat");
 	});
 });

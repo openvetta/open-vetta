@@ -117,6 +117,7 @@
 		"title": "Manage sessions",
 		"searchPlaceholder": "Search sessions…",
 		"searchLabel": "Search sessions",
+		"loading": "Loading…",
 		"emptyAll": "No sessions yet",
 		"emptyQuery": "No matching sessions",
 		"running": "Running",

@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import type { JSX } from "react";
 import { cn } from "@vetta-org/ui/utils";
+import { ConversationTagDotsView } from "../project/ConversationTagDotsView";
 import type { CommandMenuHighlightRange, CommandMenuItemView } from "./command-menu-types";
 
 /**
@@ -41,6 +42,9 @@ export interface CommandMenuRowProps {
 	readonly suppressSelectionAnimation: boolean;
 	readonly onActivate: (id: string) => void;
 	readonly onHover: (id: string) => void;
+	/** 给了就在悬停 / 选中时于行尾显示「更多」按钮，给不爱用键盘的人。 */
+	readonly onMore?: (id: string) => void;
+	readonly moreLabel?: string;
 	readonly registerRef: (id: string, element: HTMLButtonElement | null) => void;
 }
 
@@ -50,6 +54,8 @@ export function CommandMenuRow({
 	suppressSelectionAnimation,
 	onActivate,
 	onHover,
+	onMore,
+	moreLabel,
 	registerRef,
 }: CommandMenuRowProps): JSX.Element {
 	const disabled = Boolean(item.disabled);
@@ -70,7 +76,7 @@ export function CommandMenuRow({
 				if (!disabled) onActivate(item.id);
 			}}
 			className={cn(
-				"relative flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left outline-none transition-colors",
+				"group relative flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left outline-none transition-colors",
 				disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer",
 			)}
 			style={{
@@ -91,10 +97,15 @@ export function CommandMenuRow({
 					className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary"
 				/>
 			)}
-			<span
-				aria-hidden="true"
-				className={cn(item.icon, "size-4 shrink-0", active ? "text-foreground" : "text-muted-foreground")}
-			/>
+			{item.tagColors && item.tagColors.length > 0 ? (
+				// 与侧栏会话一致：标签色点占据行首图标的位置，多个标签就画多个。
+				<ConversationTagDotsView colors={item.tagColors} className="size-4" />
+			) : (
+				<span
+					aria-hidden="true"
+					className={cn(item.icon, "size-4 shrink-0", active ? "text-foreground" : "text-muted-foreground")}
+				/>
+			)}
 			<span className="flex min-w-0 flex-1 items-baseline gap-2">
 				{/*
 				 * 标题不参与收缩（shrink-0），只受 max-w 约束：标题和副标题都可收缩时，
@@ -109,20 +120,27 @@ export function CommandMenuRow({
 					</span>
 				)}
 			</span>
-			{item.tagColors && item.tagColors.length > 0 && (
-				<span aria-hidden="true" data-tag-dots="true" className="flex shrink-0 items-center -space-x-0.5">
-					{item.tagColors.map((color, index) => (
-						<span
-							key={`${color}-${index}`}
-							className="size-2 rounded-full ring-1 ring-popover"
-							style={{ backgroundColor: color }}
-						/>
-					))}
-				</span>
-			)}
 			{item.badge && (
 				<span className="shrink-0 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground">
 					{item.badge}
+				</span>
+			)}
+			{onMore && (
+				<span
+					role="button"
+					tabIndex={-1}
+					aria-label={moreLabel}
+					title={moreLabel}
+					onClick={(event) => {
+						event.stopPropagation();
+						onMore(item.id);
+					}}
+					className={cn(
+						"-mr-1 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground",
+						active ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+					)}
+				>
+					<span aria-hidden="true" className="icon-[solar--menu-dots-bold] size-4" />
 				</span>
 			)}
 		</button>
