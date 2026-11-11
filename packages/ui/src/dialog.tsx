@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { XIcon } from "lucide-react";
-import { cn } from "./utils";
+import { cn, OVERLAY_BACKDROP_CLASS } from "./utils";
 import { Button } from "./button";
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
@@ -28,7 +28,8 @@ function DialogOverlay({
 		<DialogPrimitive.Overlay
 			data-slot="dialog-overlay"
 			className={cn(
-				"no-drag fixed inset-0 isolate z-50 bg-black/20 supports-backdrop-filter:backdrop-blur-xs",
+				"no-drag fixed inset-0 isolate z-50",
+				OVERLAY_BACKDROP_CLASS,
 				className,
 			)}
 			{...props}

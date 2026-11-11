@@ -3,6 +3,7 @@ import { useRef, type JSX, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ThemeSurface } from "../appearance/ThemeSurface";
 import "./command-menu.css";
+import { cn, OVERLAY_BACKDROP_CLASS } from "@vetta-org/ui/utils";
 
 /**
  * 居中偏上的 Splash 面板外壳：遮罩 + 入场动效 + 高光边 + 主题 surface 槽位。
@@ -51,8 +52,8 @@ export function SplashPanel({
 					exit={{ opacity: 0 }}
 					transition={{ duration: 0.14 }}
 					// 与 ConfirmDialogView 同因：portal 到 body 后需显式恢复指针事件。
-					// 遮罩刻意不用 backdrop-filter——全屏模糊是低端机上最贵的一笔。
-					className="pointer-events-auto fixed inset-0 z-[100] flex items-start justify-center bg-background/70 pt-[12vh]"
+					// 蒙层与其他弹出层统一（OVERLAY_BACKDROP_CLASS：压暗 + 模糊背景）。
+					className={cn("pointer-events-auto fixed inset-0 z-[100] flex items-start justify-center pt-[12vh]", OVERLAY_BACKDROP_CLASS)}
 					onMouseDown={(event) => {
 						if (event.target === overlayRef.current) onClose();
 					}}

@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 import { Button, cn } from "@vetta-org/ui";
 import { SettingHeading, type SettingSectionMeta } from "./SettingChrome";
+import { OVERLAY_BACKDROP_CLASS } from "@vetta-org/ui/utils";
 
 export interface ImLogEventView {
 	readonly time: string;
@@ -37,7 +38,7 @@ export function ImLogDrawerView({
 	labels,
 }: ImLogDrawerViewProps): JSX.Element {
 	return (
-		<div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={onClose}>
+		<div className={cn("fixed inset-0 z-50 flex justify-end", OVERLAY_BACKDROP_CLASS)} onClick={onClose}>
 			<div
 				className="flex h-full w-[520px] flex-col border-l border-border bg-background shadow-xl"
 				onClick={(event) => event.stopPropagation()}
