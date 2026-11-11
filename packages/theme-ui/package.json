@@ -794,6 +794,10 @@
 			"types": "./src/sidebar/SettingsMenuQuotaSection.tsx",
 			"import": "./src/sidebar/SettingsMenuQuotaSection.tsx"
 		},
+		"./sidebar/SidebarNavMorePanel": {
+			"types": "./src/sidebar/SidebarNavMorePanel.tsx",
+			"import": "./src/sidebar/SidebarNavMorePanel.tsx"
+		},
 		"./sidebar/SettingsMenuSettingsItem": {
 			"types": "./src/sidebar/SettingsMenuSettingsItem.tsx",
 			"import": "./src/sidebar/SettingsMenuSettingsItem.tsx"
