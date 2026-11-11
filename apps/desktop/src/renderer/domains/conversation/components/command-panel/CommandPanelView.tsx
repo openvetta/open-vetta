@@ -69,14 +69,16 @@ export function CommandPanelView({
 					// 只在面板存在期间挂着：动画开始前就得就位才有用，收起时整块一起卸载。
 					style={{ willChange: "clip-path" }}
 					className={[
-						// -inset-x-px：定位父级是卡片的内容盒（已被卡片 1px 描边内缩），
-						// 不外扩这 1px 的话本区描边会比卡片描边窄一圈，接缝处看着像台阶。
+						// -inset-x-[--hairline]：定位父级是卡片的内容盒（已被卡片描边内缩），
+						// 不外扩一个描边宽的话本区描边会比卡片描边窄一圈，接缝处看着像台阶。
+						// 用 --hairline 而不是写死 1px：页面放大到非整数倍时描边会取整到整数设备像素，
+						// 写死的 1px 会和它差零点几个像素，接缝处错开一格（见 shared/lib/hairline.ts）。
 						// bottom 压过 100% 那 1px：底下正对着卡片的上描边（展开态置成透明，见
 						// InputBarView），那 1px 不被盖住时会在接缝上留一条贯穿全宽的细线，
 						// 两块面看着是被切开的。命令区自己的底边无描边，压下去正好补平。
 						// 不写描边色：缺省吃 base 层的 `* { border-border }`，聚焦态由 className
 						// 传 `border-primary/20` 覆盖，和输入卡片一起亮，否则接缝上下两截颜色不一样。
-						"absolute -inset-x-px bottom-[calc(100%-1px)] z-10 overflow-hidden rounded-t-[20px] border border-b-0 bg-input-bar-bg transition-[border-color] duration-200",
+						"absolute -inset-x-[var(--hairline,1px)] bottom-[calc(100%-var(--hairline,1px))] z-10 overflow-hidden rounded-t-[20px] border border-b-0 bg-input-bar-bg transition-[border-color] duration-200",
 						className,
 					]
 						.filter(Boolean)
