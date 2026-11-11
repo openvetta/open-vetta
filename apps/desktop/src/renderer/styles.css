@@ -569,6 +569,17 @@ textarea:disabled,
 	--sidebar-vibrancy-tint: 35%;
 }
 
+/* 有弹出层蒙层（.overlay-backdrop，见 @vetta-org/ui 的 OVERLAY_BACKDROP_CLASS）时把侧边栏换成实色。
+   侧边栏半透明是为了透出原生毛玻璃，但 backdrop-filter 模糊出的结果同样半透明，
+   盖不住底下仍然清晰的文字，会出现「主内容糊了、侧边栏字还是清楚的」。换成实色后蒙层
+   才能把整块都模糊掉。进入时不过渡（蒙层自己在淡入）；退出时按上面的 240ms 淡回半透明。 */
+:root[data-platform="mac"][data-sidebar-style="classic"]:has(.overlay-backdrop)
+	.sidebar-dock
+	.sidebar-surface {
+	background-color: var(--background);
+	transition: none;
+}
+
 /* 明暗切换期间先遮住原生 vibrancy（它由主进程翻转，动不了也不进 View Transition 快照，
    否则会比页面动画早一步瞬变）；属性移除后按上面的 240ms 淡回半透明。 */
 :root[data-platform="mac"][data-sidebar-style="classic"][data-theme-transition]
