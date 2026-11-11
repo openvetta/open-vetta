@@ -28,4 +28,6 @@ export const PANEL_SHADOW_CLASS = "shadow-[0_16px_40px_-12px_rgb(0_0_0/0.10),0_2
  * 无外边框、大圆角、共用柔和投影。三个基础组件都从这里取，调用方不要再自己写
  * `border` / `rounded-*` / `shadow-*`，否则会和全局风格分叉。
  */
-export const FLOATING_SURFACE_CLASS = `rounded-2xl bg-popover text-popover-foreground ${PANEL_SHADOW_CLASS}`;
+// 深色模式下投影几乎看不见，面板底色又与页面背景只差十几档灰阶，没有边框就会糊在一起，
+// 所以深色补一圈极淡的 1px 描边（浅色模式仍然无线）。
+export const FLOATING_SURFACE_CLASS = `rounded-2xl bg-popover text-popover-foreground dark:ring-1 dark:ring-white/10 ${PANEL_SHADOW_CLASS}`;

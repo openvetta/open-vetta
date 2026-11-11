@@ -26,6 +26,8 @@ describe("floating surface", () => {
 		expect(FLOATING_SURFACE_CLASS).toContain("rounded-2xl");
 		expect(FLOATING_SURFACE_CLASS).toContain("shadow-[");
 		expect(FLOATING_SURFACE_CLASS).not.toMatch(/\bborder\b/);
+		// 深色模式靠一圈极淡的描边把面板和页面背景分开。
+		expect(FLOATING_SURFACE_CLASS).toContain("dark:ring-1");
 	});
 
 	test("PopoverContent uses it without a border", async () => {
