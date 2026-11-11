@@ -1,4 +1,5 @@
 import { NewProjectDialog } from "@shared/components/NewProjectDialog";
+import { Popover, PopoverTrigger } from "@shared/components/ui/popover";
 import { cn } from "@shared/lib/utils";
 import { AddProjectMenuPopover } from "./AddProjectMenuPopover";
 import { RemoteProjectPickerDialog } from "./RemoteProjectPickerDialog";
@@ -11,17 +12,13 @@ export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuPr
 
 	return (
 		<>
-			<div className={cn("relative", className)} ref={model.menuRef}>
-				<AddProjectMenuTrigger
-					open={model.open}
-					onClick={model.toggleOpen}
-					variant={variant}
-				/>
-				<AddProjectMenuPopover
-					items={model.items}
-					open={model.open}
-					variant={variant}
-				/>
+			<div className={cn("relative", className)}>
+				<Popover open={model.open} onOpenChange={model.setOpen}>
+					<PopoverTrigger asChild>
+						<AddProjectMenuTrigger open={model.open} variant={variant} />
+					</PopoverTrigger>
+					<AddProjectMenuPopover items={model.items} open={model.open} variant={variant} />
+				</Popover>
 			</div>
 			{model.showNewProject && (
 				<NewProjectDialog

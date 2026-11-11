@@ -3,14 +3,13 @@ import { isDuplicateProjectName } from "@shared/lib/project-name";
 import { confirmDialogAtom, projectsAtom } from "@shared/store/atoms";
 import { useNavigate } from "@tanstack/react-router";
 import { getDefaultStore, useSetAtom } from "jotai";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useProjectActions } from "../../../hooks/useProjects";
 import type { AddProjectMenuItemModel } from "./types";
 
 export function useAddProjectMenuModel(): {
 	items: AddProjectMenuItemModel[];
-	menuRef: React.RefObject<HTMLDivElement | null>;
 	open: boolean;
 	showNewProject: boolean;
 	closeNewProjectDialog: () => void;
@@ -19,7 +18,7 @@ export function useAddProjectMenuModel(): {
 	closeRemotePicker: () => void;
 	confirmRemoteProject: (hostId: string, remotePath: string) => void;
 	isProjectNameTaken: (name: string) => boolean;
-	toggleOpen: () => void;
+	setOpen: (open: boolean) => void;
 } {
 	const { t } = useTranslation("project");
 	// 判重只在点确认时读一次项目列表：这里刻意不订阅 projectsAtom，保持菜单模型零订阅面。
@@ -31,7 +30,6 @@ export function useAddProjectMenuModel(): {
 	const [open, setOpen] = useState(false);
 	const [showNewProject, setShowNewProject] = useState(false);
 	const [showRemotePicker, setShowRemotePicker] = useState(false);
-	const menuRef = useRef<HTMLDivElement>(null);
 
 	const handleImport = async (): Promise<void> => {
 		setOpen(false);
@@ -82,17 +80,6 @@ export function useAddProjectMenuModel(): {
 		});
 	};
 
-	useEffect(() => {
-		if (!open) return;
-		function handleClick(e: MouseEvent): void {
-			if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-				setOpen(false);
-			}
-		}
-		document.addEventListener("mousedown", handleClick);
-		return () => document.removeEventListener("mousedown", handleClick);
-	}, [open]);
-
 	return {
 		items: [
 			{
@@ -131,7 +118,6 @@ export function useAddProjectMenuModel(): {
 				},
 			},
 		],
-		menuRef,
 		open,
 		showNewProject,
 		closeNewProjectDialog: () => setShowNewProject(false),
@@ -163,6 +149,6 @@ export function useAddProjectMenuModel(): {
 				});
 			});
 		},
-		toggleOpen: () => setOpen((value) => !value),
+		setOpen,
 	};
 }
