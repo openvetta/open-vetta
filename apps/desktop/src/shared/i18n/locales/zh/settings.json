@@ -1456,6 +1456,8 @@
   "apiKeyCopyFailed": "没有可复制的 API Key",
   "replaceApiKeyPlaceholder": "••••••••（已加密保存）",
   "apiKeyLabel": "API Key",
+  "removeProviderTitle": "移除 {{provider}}？",
+  "removeProviderConfirm": "将删除 {{provider}} 在本机保存的 API Key 和模型配置；如果它是当前默认模型的来源，默认模型也会被清除。此操作无法撤销。",
   "apiKeyDirect": "API Key（直连 {{provider}}，仅存本地）",
   "perMillionTokens": "/百万Tokens",
   "costInput": "输入",
