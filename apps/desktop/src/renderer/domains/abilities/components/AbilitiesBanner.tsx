@@ -25,12 +25,12 @@ const FALLBACK_ICONS: AbilityBannerIcon[] = [
  * [left%, top%, 尺寸px, 旋转角, 透明度]
  */
 const SLOT_LAYOUT = [
-	{ left: 30, top: 50, size: 84, rotate: -6, opacity: 1 },
-	{ left: 64, top: 24, size: 52, rotate: 8, opacity: 0.95 },
-	{ left: 74, top: 62, size: 60, rotate: -8, opacity: 0.95 },
-	{ left: 50, top: 84, size: 44, rotate: 10, opacity: 0.85 },
-	{ left: 10, top: 18, size: 40, rotate: -10, opacity: 0.8 },
-	{ left: 10, top: 80, size: 36, rotate: 6, opacity: 0.7 },
+	{ left: 30, top: 50, size: 120, rotate: -6, opacity: 1 },
+	{ left: 66, top: 24, size: 76, rotate: 8, opacity: 0.95 },
+	{ left: 76, top: 66, size: 88, rotate: -8, opacity: 0.95 },
+	{ left: 52, top: 86, size: 60, rotate: 10, opacity: 0.85 },
+	{ left: 9, top: 16, size: 56, rotate: -10, opacity: 0.8 },
+	{ left: 9, top: 84, size: 48, rotate: 6, opacity: 0.7 },
 ] as const;
 
 /** 每张幻灯片一组主色（色相），背景渐变随之切换。 */
@@ -105,7 +105,7 @@ export function AbilitiesBanner({ icons }: { icons: AbilityBannerIcon[] }): JSX.
 					/>
 				</AnimatePresence>
 				<div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,hsl(0_0%_100%/0.18),transparent_55%)]" />
-				{[150, 230, 320].map((size, index) => (
+				{[190, 290, 400].map((size, index) => (
 					<div
 						key={size}
 						className="absolute rounded-full border border-foreground/10"
@@ -142,16 +142,18 @@ export function AbilitiesBanner({ icons }: { icons: AbilityBannerIcon[] }): JSX.
 										opacity: layout.opacity,
 										transform: `translate(-50%, -50%) rotate(${layout.rotate}deg)`,
 									}}
-									className={`absolute flex items-center justify-center rounded-[26%] border bg-card/90 p-[14%] shadow-xl shadow-black/15 backdrop-blur-md ${
+									className={`absolute flex items-center justify-center rounded-[26%] border bg-card/90 shadow-xl shadow-black/15 backdrop-blur-md ${
 										isFeatured ? "z-10 border-foreground/20 ring-4 ring-foreground/10" : "border-foreground/10"
 									}`}
 								>
-									<AbilityIcon
-										icon={source.icon}
-										type={source.type}
-										className="h-full w-full rounded-lg border-0 bg-transparent text-foreground"
-										iconClassName="h-full w-full"
-									/>
+									<div style={{ width: layout.size * 0.76, height: layout.size * 0.76 }}>
+										<AbilityIcon
+											icon={source.icon}
+											type={source.type}
+											className="h-full w-full rounded-xl border-0 bg-transparent text-foreground"
+											iconClassName="h-3/4 w-3/4"
+										/>
+									</div>
 								</div>
 							);
 						})}
