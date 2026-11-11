@@ -89,7 +89,7 @@ export function UpdateRestartDialogView({
 						exit={{ opacity: 0, scale: 0.95 }}
 						transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
 						className={cn(
-							"relative flex max-h-[min(720px,calc(100vh-48px))] w-[min(520px,calc(100vw-32px))] flex-col overflow-hidden rounded-3xl bg-popover",
+							"relative flex max-h-[min(720px,calc(100vh-48px))] w-[min(600px,calc(100vw-32px))] flex-col overflow-hidden rounded-3xl bg-popover",
 							PANEL_SHADOW_CLASS,
 						)}
 					>
@@ -106,14 +106,15 @@ export function UpdateRestartDialogView({
 							</button>
 							<div className="relative flex min-h-0 flex-1 flex-col">
 								<div
-									className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+									// no-scrollbar：全局 overlay 滚动条规则无 layer，Tailwind 的隐藏写法压不过它。
+									className="no-scrollbar min-h-0 flex-1 overflow-y-auto"
 									onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}
 								>
 									<img
 										src={bannerSrc}
 										alt=""
 										draggable={false}
-										className="h-[148px] w-full object-cover select-none"
+										className="h-[176px] w-full object-cover select-none"
 									/>
 									<div className={cn("px-7 pt-6", primary ? "pb-32" : "pb-12")}>
 								<h3 className="text-[19px] leading-snug font-semibold tracking-tight text-foreground">{title}</h3>
