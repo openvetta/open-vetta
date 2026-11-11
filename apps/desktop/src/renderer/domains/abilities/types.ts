@@ -199,6 +199,8 @@ export interface AbilityBannerIcon {
 	/** 无图时按 type 落默认图。 */
 	type: AbilityType;
 	icon?: string;
+	title: string;
+	description: string;
 }
 
 export interface AbilitiesModel {

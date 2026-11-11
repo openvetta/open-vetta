@@ -134,14 +134,14 @@ export function AbilityCard({ item, model }: { item: AbilityItem; model: Abiliti
 			onPointerEnter={() => void loadAbilityDetailView().catch(() => undefined)}
 			onPointerDown={() => void loadAbilityDetailView().catch(() => undefined)}
 			className={cn(
-				"group relative flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 transition-colors duration-200 hover:bg-accent/60",
+				"group relative flex cursor-pointer items-center gap-3.5 rounded-xl px-3.5 py-3.5 transition-colors duration-200 hover:bg-accent/60",
 				!item.enabled && item.installed && "opacity-75",
 			)}
 		>
-			<AbilityIcon icon={item.icon} type={item.type} />
+			<AbilityIcon icon={item.icon} type={item.type} className="h-12 w-12 rounded-2xl" iconClassName="h-6 w-6" />
 			<div className="min-w-0 flex-1">
 				<div className="flex min-w-0 flex-wrap items-center gap-1.5">
-					<h3 className="truncate text-[13px] font-semibold text-foreground">{title}</h3>
+					<h3 className="truncate text-[14px] font-semibold text-foreground">{title}</h3>
 					<AbilityStatusBadges item={item} />
 				</div>
 				{item.busy ? (
@@ -153,7 +153,7 @@ export function AbilityCard({ item, model }: { item: AbilityItem; model: Abiliti
 						/>
 					</div>
 				) : (
-					<p className="mt-0.5 truncate text-[11px] leading-relaxed text-muted-foreground/70">
+					<p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-muted-foreground/70">
 						{description || t("card.noDescription")}
 					</p>
 				)}

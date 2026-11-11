@@ -5,7 +5,10 @@
 	},
 	"banner": {
 		"title": "发现更多能力",
-		"description": "选择想要实现的功能，添加后即可在对话中使用"
+		"description": "选择想要实现的功能，添加后即可在对话中使用",
+		"featured": "精选",
+		"details": "查看详情",
+		"goTo": "切换到第 {{n}} 项"
 	},
 	"loading": "加载中…",
 	"type": {

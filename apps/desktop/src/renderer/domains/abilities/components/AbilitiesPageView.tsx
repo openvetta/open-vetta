@@ -68,7 +68,7 @@ export function AbilitiesPageView({
 
 			<div className="relative shrink-0 px-8 pb-4">
 				<motion.div
-					className="mx-auto flex w-full max-w-5xl items-end justify-between gap-4"
+					className="mx-auto flex w-full max-w-4xl items-end justify-between gap-4"
 					initial={{ opacity: 0, y: -8 }}
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ duration: 0.5, ease: easeOut }}
@@ -86,7 +86,7 @@ export function AbilitiesPageView({
 			</div>
 
 			<div className="flex-1 overflow-y-auto px-8 pt-5 pb-8 [scrollbar-gutter:stable]">
-				<div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+				<div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
 					<AbilitiesBanner icons={model.bannerIcons} />
 
 					<div className="flex flex-wrap items-center justify-between gap-3">
@@ -203,7 +203,7 @@ export function AbilitiesPageView({
 													{group.items.length}
 												</span>
 											</div>
-											<div className="grid grid-cols-2 gap-x-3 gap-y-0.5 lg:grid-cols-3">
+											<div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
 												{group.items.map((item) => (
 													<AbilityCard key={item.id} item={item} model={model} />
 												))}
@@ -211,7 +211,7 @@ export function AbilitiesPageView({
 										</section>
 									))
 								) : (
-									<div className="grid grid-cols-2 gap-x-3 gap-y-0.5 lg:grid-cols-3">
+									<div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
 										{model.items.map((item) => (
 											<AbilityCard key={item.id} item={item} model={model} />
 										))}

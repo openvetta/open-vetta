@@ -5,7 +5,10 @@
 	},
 	"banner": {
 		"title": "Discover more abilities",
-		"description": "Pick what you want to do — add it and use it straight from chat"
+		"description": "Pick what you want to do — add it and use it straight from chat",
+		"featured": "Featured",
+		"details": "Details",
+		"goTo": "Go to item {{n}}"
 	},
 	"loading": "Loading…",
 	"type": {

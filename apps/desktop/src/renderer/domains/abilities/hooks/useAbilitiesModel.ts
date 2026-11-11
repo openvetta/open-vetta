@@ -157,7 +157,13 @@ export function useAbilitiesModel(options: UseAbilitiesModelOptions = {}): Abili
 		() =>
 			allItems
 				.filter((item) => item.fromMarket && isAbilityListedInDiscover(item))
-				.map((item) => ({ id: item.id, type: item.type, icon: item.icon })),
+				.map((item) => ({
+					id: item.id,
+					type: item.type,
+					icon: item.icon,
+					title: item.title,
+					description: item.description,
+				})),
 		[allItems],
 	);
 
