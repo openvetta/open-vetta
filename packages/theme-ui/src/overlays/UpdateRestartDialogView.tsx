@@ -95,9 +95,9 @@ export function UpdateRestartDialogView({
 					>
 						<ThemeSurface slot="root.updateRestartDialog.panel" />
 						<div className="relative z-10 flex min-h-0 flex-1 flex-col">
-							<div className="relative min-h-0 flex-1">
+							<div className="relative flex min-h-0 flex-1 flex-col">
 								<div
-									className="h-full overflow-y-auto"
+									className="min-h-0 flex-1 overflow-y-auto"
 									onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}
 								>
 									<img
