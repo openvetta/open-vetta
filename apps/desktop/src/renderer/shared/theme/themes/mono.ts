@@ -34,9 +34,10 @@ export const monoTheme: ThemeDef = {
 	},
 	light: {
 		...defaultTheme.light,
-		// 画布背景色；card 略压深以便与 bg 分层
+		// 画布背景色；card 明显压灰（原 248 与 bg 几乎同白），与 bg 拉开层次；
+		// 仍要比 accent(232) 浅，card 的 hover 才看得出来
 		background: "#faf9f9",
-		card: "rgb(248, 248, 248)",
+		card: "rgb(241, 241, 241)",
 		popover: "rgb(255, 255, 255)",
 		muted: "rgb(250, 250, 250)",
 		// secondary 略深于 muted，便于 bg-secondary 可辨
