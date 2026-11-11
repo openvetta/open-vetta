@@ -125,6 +125,8 @@
 		"clearAll": "清空全部",
 		"clearProjectTitle": "清空项目会话",
 		"clearProjectMessage": "将删除「{{name}}」下的全部 {{count}} 个会话，且无法恢复。",
+		"tabAll": "全部",
+		"hintTab": "切换标签",
 		"hintDelete": "删除",
 		"hintMore": "更多操作",
 		"hintRename": "回车 保存"

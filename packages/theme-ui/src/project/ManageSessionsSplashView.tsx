@@ -28,6 +28,12 @@ export interface ManageSessionsMenuItemView {
 	readonly shortcut?: string;
 }
 
+export interface ManageSessionsTabView {
+	readonly id: string;
+	readonly label: string;
+	readonly dotColor?: string;
+}
+
 export interface ManageSessionsSplashViewLabels {
 	readonly title: string;
 	readonly searchPlaceholder: string;
@@ -41,6 +47,7 @@ export interface ManageSessionsSplashViewLabels {
 	readonly hintDelete: string;
 	readonly hintMore: string;
 	readonly hintClose: string;
+	readonly hintTab: string;
 	readonly hintBack: string;
 	readonly hintSelect: string;
 	readonly hintRename: string;
@@ -53,6 +60,11 @@ export interface ManageSessionsSplashViewProps {
 	/** 快捷键修饰键的显示名，mac 为 Control，其余为 Ctrl。 */
 	readonly modifierLabel: string;
 	readonly onClose: () => void;
+
+	/** 置顶在列表上方的标签页；为空时不显示。按 Tab 在其间切换由宿主处理。 */
+	readonly tabs: readonly ManageSessionsTabView[];
+	readonly activeTabId: string;
+	readonly onSelectTab: (id: string) => void;
 
 	// list
 	readonly query: string;
@@ -166,6 +178,9 @@ export function ManageSessionsSplashView(props: ManageSessionsSplashViewProps): 
 		labels,
 		modifierLabel,
 		onClose,
+		tabs,
+		activeTabId,
+		onSelectTab,
 		query,
 		onQueryChange,
 		rows,
@@ -199,8 +214,9 @@ export function ManageSessionsSplashView(props: ManageSessionsSplashViewProps): 
 		rowRefs.current.get(followId)?.scrollIntoView?.({ block: "nearest" });
 	}, [open, followId]);
 
-	const header =
-		step === "list" ? (
+	const showTabs = step === "list" && tabs.length > 1;
+	const listHeader = (
+		<>
 			<SplashInputHeader
 				icon="icon-[solar--magnifer-linear]"
 				value={query}
@@ -211,6 +227,36 @@ export function ManageSessionsSplashView(props: ManageSessionsSplashViewProps): 
 					if (selectedId) onOpenRow(selectedId);
 				}}
 			/>
+			{showTabs && (
+				<div role="tablist" className="flex shrink-0 items-center gap-1 overflow-x-auto px-3 pb-2">
+					{tabs.map((tab) => (
+						<button
+							key={tab.id}
+							type="button"
+							role="tab"
+							tabIndex={-1}
+							aria-selected={tab.id === activeTabId}
+							onClick={() => onSelectTab(tab.id)}
+							className={cn(
+								"flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12px] outline-none transition-colors",
+								tab.id === activeTabId
+									? "bg-primary/10 text-foreground"
+									: "text-muted-foreground hover:bg-accent hover:text-foreground",
+							)}
+						>
+							{tab.dotColor && (
+								<span aria-hidden="true" className="size-2 rounded-full" style={{ backgroundColor: tab.dotColor }} />
+							)}
+							{tab.label}
+						</button>
+					))}
+				</div>
+			)}
+		</>
+	);
+	const header =
+		step === "list" ? (
+			listHeader
 		) : step === "rename" ? (
 			<SplashInputHeader
 				icon="icon-[solar--pen-2-linear]"
@@ -231,6 +277,7 @@ export function ManageSessionsSplashView(props: ManageSessionsSplashViewProps): 
 			<SplashFooter>
 				<Hint keys={[modifierLabel, "X"]} label={labels.hintDelete} />
 				<Hint keys={[modifierLabel, "K"]} label={labels.hintMore} />
+				{showTabs && <Hint keys={["Tab"]} label={labels.hintTab} />}
 				<span className="ml-auto flex items-center gap-3">
 					{clearAllVisible && (
 						<button

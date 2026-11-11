@@ -31,6 +31,7 @@ export type {
 	ManageSessionsSplashViewLabels,
 	ManageSessionsSplashViewProps,
 	ManageSessionsStep,
+	ManageSessionsTabView,
 } from "./ManageSessionsSplashView";
 export { ManageSessionsSplashView } from "./ManageSessionsSplashView";
 export type {

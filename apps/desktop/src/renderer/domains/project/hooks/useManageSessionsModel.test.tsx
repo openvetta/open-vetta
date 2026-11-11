@@ -3,6 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import {
 	automationSessionLinksAtom,
 	confirmDialogAtom,
+	conversationTagsAtom,
 	manageSessionsProjectAtom,
 	pinnedSessionPathsAtom,
 	runningSessionPathsAtom,
@@ -194,5 +195,35 @@ describe("useManageSessionsModel", () => {
 		expect(result.current.open).toBe(true);
 		expect(store.get(confirmDialogAtom)).toBeNull();
 		expect(actions.deleteSession).not.toHaveBeenCalled();
+	});
+
+	it("cycles tag tabs with Tab and narrows the list, only for the default conversation list", () => {
+		const { result, store } = setup({ project: defaultProject });
+		expect(result.current.tabs).toEqual([]);
+
+		act(() =>
+			store.set(conversationTagsAtom, {
+				tags: [{ id: "t1", name: "Work", color: "#f00" }],
+				assignments: { [beta.path]: ["t1"] },
+			} as never),
+		);
+		expect(result.current.tabs.map((tab) => tab.id)).toEqual(["all", "t1"]);
+
+		press("Tab");
+		expect(result.current.activeTabId).toBe("t1");
+		expect(result.current.rows.map((row) => row.title)).toEqual(["beta"]);
+
+		press("Tab");
+		expect(result.current.activeTabId).toBe("all");
+		press("Tab", { shiftKey: true });
+		expect(result.current.activeTabId).toBe("t1");
+	});
+
+	it("shows no tag tabs for a regular project", () => {
+		const { result, store } = setup();
+		act(() =>
+			store.set(conversationTagsAtom, { tags: [{ id: "t1", name: "Work", color: "#f00" }], assignments: {} } as never),
+		);
+		expect(result.current.tabs).toEqual([]);
 	});
 });

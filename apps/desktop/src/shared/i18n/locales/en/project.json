@@ -125,6 +125,8 @@
 		"clearAll": "Clear all",
 		"clearProjectTitle": "Clear project sessions",
 		"clearProjectMessage": "This deletes all {{count}} sessions in “{{name}}” and cannot be undone.",
+		"tabAll": "All",
+		"hintTab": "Switch tag",
 		"hintDelete": "Delete",
 		"hintMore": "More actions",
 		"hintRename": "Enter to save"

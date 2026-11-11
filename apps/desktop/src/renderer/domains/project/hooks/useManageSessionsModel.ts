@@ -12,7 +12,11 @@ import {
 } from "@shared/store/atoms";
 import { isSshProjectUri } from "@vetta/ssh-transport/project-uri";
 import type { CommandMenuItemView } from "@vetta-org/theme-ui/overlays";
-import type { ManageSessionsMenuItemView, ManageSessionsSplashViewProps } from "@vetta-org/theme-ui/project";
+import type {
+	ManageSessionsMenuItemView,
+	ManageSessionsSplashViewProps,
+	ManageSessionsTabView,
+} from "@vetta-org/theme-ui/project";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -26,6 +30,8 @@ const isMac = navigator.platform.toUpperCase().includes("MAC");
 const MODIFIER_LABEL = isMac ? "Control" : "Ctrl";
 
 type MenuKind = "actions" | "tags";
+
+const ALL_TAB_ID = "all";
 
 interface SessionView {
 	readonly id: string;
@@ -58,6 +64,7 @@ export function useManageSessionsModel(panel: ProjectsPanelModel): ManageSession
 	const [step, setStep] = useState<ManageSessionsSplashViewProps["step"]>("list");
 	const [menuKind, setMenuKind] = useState<MenuKind>("actions");
 	const [query, setQuery] = useState("");
+	const [tabId, setTabId] = useState(ALL_TAB_ID);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [targetId, setTargetId] = useState<string | null>(null);
 	const [menuActiveId, setMenuActiveId] = useState<string | null>(null);
@@ -69,6 +76,7 @@ export function useManageSessionsModel(panel: ProjectsPanelModel): ManageSession
 		setStep("list");
 		setMenuKind("actions");
 		setQuery("");
+		setTabId(ALL_TAB_ID);
 		setSelectedId(null);
 		setTargetId(null);
 	}, [open]);
@@ -92,7 +100,26 @@ export function useManageSessionsModel(panel: ProjectsPanelModel): ManageSession
 		});
 	}, [rawSessions, pinnedPaths, t, i18n.language]);
 
-	const matches = useMemo(() => filterManageSessions(views, query), [views, query]);
+	// 标签页只给「对话」：项目内会话没有标签，且至少有一个标签才有切换的意义。
+	const tabs = useMemo<ManageSessionsTabView[]>(
+		() =>
+			canTag && tags.tags.length > 0
+				? [
+						{ id: ALL_TAB_ID, label: t("manageSessions.tabAll") },
+						...tags.tags.map((tag) => ({ id: tag.id, label: tag.name, dotColor: tag.color })),
+					]
+				: [],
+		[canTag, t, tags.tags],
+	);
+	const activeTabId = tabs.some((tab) => tab.id === tabId) ? tabId : ALL_TAB_ID;
+	const tabViews = useMemo(
+		() =>
+			activeTabId === ALL_TAB_ID
+				? views
+				: views.filter((view) => conversationTagIds(tags, view.session.path).includes(activeTabId)),
+		[activeTabId, tags, views],
+	);
+	const matches = useMemo(() => filterManageSessions(tabViews, query), [tabViews, query]);
 	const rowIds = useMemo(() => matches.map((match) => match.item.id), [matches]);
 	const effectiveSelectedId = selectedId !== null && rowIds.includes(selectedId) ? selectedId : (rowIds[0] ?? null);
 	const viewById = useMemo(() => new Map(views.map((view) => [view.id, view])), [views]);
@@ -349,6 +376,13 @@ export function useManageSessionsModel(panel: ProjectsPanelModel): ManageSession
 				setSelectedId(moveSelection(rowIds, effectiveSelectedId, key === "arrowdown" ? 1 : -1));
 				return;
 			}
+			if (key === "tab" && tabs.length > 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+				// 标签页用 Tab / Shift+Tab 循环，焦点留在搜索框。
+				event.preventDefault();
+				const ids = tabs.map((tab) => tab.id);
+				setTabId(moveSelection(ids, activeTabId, event.shiftKey ? -1 : 1) ?? ALL_TAB_ID);
+				return;
+			}
 			if (ctrl && key === "x") {
 				event.preventDefault();
 				const view = effectiveSelectedId ? viewById.get(effectiveSelectedId) : undefined;
@@ -407,7 +441,10 @@ export function useManageSessionsModel(panel: ProjectsPanelModel): ManageSession
 			title: t("manageSessions.title"),
 			searchPlaceholder: t("manageSessions.searchPlaceholder"),
 			searchLabel: t("manageSessions.searchLabel"),
-			empty: views.length === 0 ? t("manageSessions.emptyAll") : t("manageSessions.emptyQuery"),
+			empty:
+				tabViews.length === 0 && !query.trim() && activeTabId === ALL_TAB_ID
+					? t("manageSessions.emptyAll")
+					: t("manageSessions.emptyQuery"),
 			back: t("addProjectSplash.back"),
 			renamePlaceholder: t("manageSessions.renamePlaceholder"),
 			renameLabel: t("contextMenu.rename"),
@@ -415,11 +452,15 @@ export function useManageSessionsModel(panel: ProjectsPanelModel): ManageSession
 			clearAllDisabled: t("contextMenu.clearConversationDisabled"),
 			hintDelete: t("manageSessions.hintDelete"),
 			hintMore: t("manageSessions.hintMore"),
+			hintTab: t("manageSessions.hintTab"),
 			hintClose: t("addProjectSplash.hintClose"),
 			hintBack: t("addProjectSplash.hintBack"),
 			hintSelect: t("addProjectSplash.hintSelect"),
 			hintRename: t("manageSessions.hintRename"),
 		},
+		tabs,
+		activeTabId,
+		onSelectTab: setTabId,
 		query,
 		onQueryChange: setQuery,
 		rows,
