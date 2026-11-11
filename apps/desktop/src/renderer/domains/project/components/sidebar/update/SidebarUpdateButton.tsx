@@ -15,9 +15,11 @@ export function SidebarUpdateButton(): JSX.Element | null {
 			onClick={model.onOpen}
 			title={model.label}
 			aria-label={model.label}
-			className="no-drag text-primary"
+			className="no-drag hover:bg-transparent hover:opacity-80"
 		>
-			<span className="icon-[solar--download-linear] h-4 w-4" />
+			<span className="inline-flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm ring-4 ring-primary/20">
+				<span className="icon-[solar--arrow-down-linear] h-3.5 w-3.5" />
+			</span>
 		</Button>
 	);
 }
