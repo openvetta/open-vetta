@@ -1092,7 +1092,6 @@
 		"latestTitle": "You're Up to Date",
 		"availableTitle": "Version {{version}} Is Available",
 		"versionChange": "Current {{currentVersion}} → New {{latestVersion}}",
-		"releaseNoteTitle": "What's New",
 		"downloadingTitle": "Downloading {{version}}",
 		"downloading": "{{progress}}% downloaded. You can close this window; it keeps downloading in the background.",
 		"readyTitle": "{{version}} Is Ready",

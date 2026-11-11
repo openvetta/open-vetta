@@ -29,8 +29,6 @@ export interface UpdateRestartDialogViewProps {
 	/** 底部唯一的悬浮按钮；省略时不显示底栏，只能用右上角的关闭按钮离开。 */
 	readonly primary?: UpdateRestartDialogAction;
 	readonly releaseNote?: string;
-	/** 正文标题（如「更新内容」）；无正文时不显示。 */
-	readonly releaseNoteTitle?: string;
 	readonly status?: UpdateRestartDialogStatus;
 	readonly subtitle?: string;
 	readonly title: string;
@@ -52,7 +50,6 @@ export function UpdateRestartDialogView({
 	overlayRef,
 	primary,
 	releaseNote,
-	releaseNoteTitle,
 	status,
 	subtitle,
 	title,
@@ -122,9 +119,6 @@ export function UpdateRestartDialogView({
 								{status && <StatusLine status={status} />}
 								{releaseNote && (
 									<div className="mt-5">
-										{releaseNoteTitle && (
-											<h4 className="mb-2 text-[14px] font-semibold text-foreground">{releaseNoteTitle}</h4>
-										)}
 										<div className="markdown-body text-[13px] leading-[1.6] break-words text-muted-foreground">
 											<ReleaseNoteMarkdown>{releaseNote}</ReleaseNoteMarkdown>
 										</div>

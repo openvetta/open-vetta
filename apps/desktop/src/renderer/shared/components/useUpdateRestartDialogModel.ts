@@ -86,7 +86,6 @@ export function useUpdateRestartDialogModel(): UpdateRestartDialogModel {
 					onClick: () => void window.vetta.updater.download(),
 				},
 				releaseNote: state.releaseNote,
-				releaseNoteTitle: t("updateDialog.releaseNoteTitle"),
 				subtitle: t("updateDialog.versionChange", { currentVersion: state.currentVersion, latestVersion: latest }),
 				title: t("updateDialog.availableTitle", { version: latest }),
 			};
@@ -95,7 +94,6 @@ export function useUpdateRestartDialogModel(): UpdateRestartDialogModel {
 			return {
 				...base,
 				releaseNote: state.releaseNote,
-				releaseNoteTitle: t("updateDialog.releaseNoteTitle"),
 				status: {
 					kind: "progress",
 					progress,
@@ -116,7 +114,6 @@ export function useUpdateRestartDialogModel(): UpdateRestartDialogModel {
 					},
 				},
 				releaseNote: state.releaseNote,
-				releaseNoteTitle: t("updateDialog.releaseNoteTitle"),
 				subtitle: t("updateDialog.readyMessage", { currentVersion: state.currentVersion, latestVersion: latest }),
 				title: t("updateDialog.readyTitle", { version: latest }),
 			};
