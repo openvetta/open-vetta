@@ -94,12 +94,6 @@ export function AbilitiesPageView({
 								className={`icon-[solar--refresh-linear] h-3.5 w-3.5 ${model.refreshing ? "animate-spin" : ""}`}
 							/>
 						</Button>
-						<AbilityFilterPopover
-							filter={model.filter}
-							counts={model.typeCounts}
-							showProvenance={isPublic}
-							onChange={model.setFilter}
-						/>
 						<div data-tour="capabilities-scope">
 							<SegmentedControl
 								items={[
@@ -132,6 +126,12 @@ export function AbilitiesPageView({
 							</div>
 						</div>
 						<div className="flex items-center gap-2">
+							<AbilityFilterPopover
+								filter={model.filter}
+								counts={model.typeCounts}
+								showProvenance={isPublic}
+								onChange={model.setFilter}
+							/>
 							<AddAbilityMenu
 								importing={model.importing}
 								onImportSkill={() => {
