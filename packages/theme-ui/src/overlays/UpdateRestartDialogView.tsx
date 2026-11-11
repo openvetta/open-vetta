@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import type { JSX, RefObject } from "react";
+import { type JSX, type RefObject, useEffect, useState } from "react";
 import { cn, OVERLAY_BACKDROP_CLASS, PANEL_SHADOW_CLASS } from "@vetta-org/ui/utils";
 import { ReleaseNoteMarkdown } from "./ReleaseNoteMarkdown";
 import { ThemeSurface } from "../appearance/ThemeSurface";
@@ -58,6 +58,12 @@ export function UpdateRestartDialogView({
 	title,
 	visible,
 }: UpdateRestartDialogViewProps): JSX.Element {
+	// 滚动后才显示顶部渐隐，初始位置横幅完整露出。
+	const [scrolled, setScrolled] = useState(false);
+	// 关闭后再打开，滚动位置回到顶部，渐隐也要复位。
+	useEffect(() => {
+		if (!visible) setScrolled(false);
+	}, [visible]);
 	const showEmpty = !loading && !releaseNote && !!emptyText;
 
 	return (
@@ -89,13 +95,18 @@ export function UpdateRestartDialogView({
 					>
 						<ThemeSurface slot="root.updateRestartDialog.panel" />
 						<div className="relative z-10 flex min-h-0 flex-1 flex-col">
-							<img
-								src={bannerSrc}
-								alt=""
-								draggable={false}
-								className="h-[148px] w-full shrink-0 object-cover select-none"
-							/>
-							<div className="min-h-0 flex-1 overflow-y-auto px-7 pt-6">
+							<div className="relative min-h-0 flex-1">
+								<div
+									className="h-full overflow-y-auto"
+									onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}
+								>
+									<img
+										src={bannerSrc}
+										alt=""
+										draggable={false}
+										className="h-[148px] w-full object-cover select-none"
+									/>
+									<div className="px-7 pt-6">
 								<h3 className="text-[19px] leading-snug font-semibold tracking-tight text-foreground">{title}</h3>
 								{subtitle && <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">{subtitle}</p>}
 								{status && <StatusLine status={status} />}
@@ -115,6 +126,15 @@ export function UpdateRestartDialogView({
 									</div>
 								)}
 								{showEmpty && <p className="mt-5 text-[13px] text-muted-foreground">{emptyText}</p>}
+									</div>
+								</div>
+								<div
+									aria-hidden
+									className={cn(
+										"pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-popover to-transparent transition-opacity duration-150",
+										scrolled ? "opacity-100" : "opacity-0",
+									)}
+								/>
 							</div>
 							<div className="flex shrink-0 gap-3 px-7 pt-5 pb-7">
 								<button
