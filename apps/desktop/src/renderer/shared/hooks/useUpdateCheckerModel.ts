@@ -3,12 +3,17 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { filePreviewAtom } from "../store/file-preview-atoms";
-import { updaterRestartDialogOpenAtom, updaterStateAtom } from "../store/updater-atoms";
+import {
+	updaterCurrentNotesDialogOpenAtom,
+	updaterRestartDialogOpenAtom,
+	updaterStateAtom,
+} from "../store/updater-atoms";
 
 export function useUpdateCheckerModel(): UpdateCheckerViewProps {
 	const { t } = useTranslation("settings");
 	const state = useAtomValue(updaterStateAtom);
 	const openRestartDialog = useSetAtom(updaterRestartDialogOpenAtom);
+	const openCurrentNotes = useSetAtom(updaterCurrentNotesDialogOpenAtom);
 	const setFilePreview = useSetAtom(filePreviewAtom);
 	const [busy, setBusy] = useState(false);
 
@@ -35,13 +40,17 @@ export function useUpdateCheckerModel(): UpdateCheckerViewProps {
 				idle: (version) => t("updaterIdle", { version }),
 				newVersion: (version) => t("updaterNewVersion", { version }),
 				restart: t("updaterRestart"),
+				viewCurrent: t("updaterViewCurrent"),
 				viewMore: t("updaterViewMore"),
 			},
 			latestVersion: state.latestVersion,
 			onCheck: () => {
+				// 结果（检查中 / 已是最新 / 新版本 / 出错）都在更新对话框里展示。
+				openRestartDialog(true);
 				setBusy(true);
 				void window.vetta.updater.check().finally(() => setBusy(false));
 			},
+			onViewCurrent: () => openCurrentNotes(true),
 			onPrimary: () => {
 				if (state.phase === "available") {
 					void window.vetta.updater.download();
@@ -66,6 +75,6 @@ export function useUpdateCheckerModel(): UpdateCheckerViewProps {
 			releaseNote: state.releaseNote,
 			statusText,
 		}),
-		[checking, openRestartDialog, setFilePreview, state, statusText, t],
+		[checking, openCurrentNotes, openRestartDialog, setFilePreview, state, statusText, t],
 	);
 }

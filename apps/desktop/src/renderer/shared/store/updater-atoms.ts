@@ -11,9 +11,11 @@ export const updaterStateAtom = atom<UpdaterState>({
 });
 
 /**
- * 控制"立即重启 / 稍后"确认对话框。
- * - phase === "ready" && !dismissed → 自动弹出（renderer 层用 effect 同步）
- * - 用户点"稍后"：关闭 Dialog，sidebar icon 退到"待重启"提示状态
- * - 用户重新点 sidebar icon："dismissed=false"，Dialog 再弹
+ * 更新对话框（检查更新 / 新版本 / 下载进度 / 立即重启）是否打开。
+ * 入口：侧栏更新图标、设置里的「检查更新」。对话框按 updaterStateAtom 的 phase 显示内容，
+ * 不再只在 ready 时才可见。
  */
 export const updaterRestartDialogOpenAtom = atom<boolean>(false);
+
+/** 「版本介绍」对话框（当前版本的发布说明）是否打开；与更新对话框复用同一个视图，优先显示。 */
+export const updaterCurrentNotesDialogOpenAtom = atom<boolean>(false);

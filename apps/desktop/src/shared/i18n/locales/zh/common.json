@@ -19,12 +19,6 @@
 		"languageTitle": "语言",
 		"languageHint": "默认跟随系统语言；可随时手动切换"
 	},
-	"updateRestart": {
-		"title": "更新已就绪",
-		"message": "新版本 {{latestVersion}} 已下载完成（当前 {{currentVersion}}）。立即重启 Vetta 以应用更新，或选择\"稍后\"，下次启动会再次提示。",
-		"later": "稍后",
-		"install": "立即重启"
-	},
 	"filePreview": {
 		"showInFolder": "在文件夹中显示",
 		"download": "下载",
@@ -1086,5 +1080,28 @@
 			"project": "项目",
 			"batch": "批量"
 		}
+	},
+	"updateDialog": {
+		"close": "关闭",
+		"installing": "正在重启…",
+		"retry": "重试",
+		"viewCurrent": "查看版本介绍",
+		"checkingTitle": "正在检查更新",
+		"checking": "正在连接更新服务器…",
+		"currentVersion": "当前版本 {{version}}",
+		"latestTitle": "已是最新版本",
+		"availableTitle": "发现新版本 {{version}}",
+		"versionChange": "当前 {{currentVersion}} → 新版本 {{latestVersion}}",
+		"downloadingTitle": "正在下载 {{version}}",
+		"downloading": "已下载 {{progress}}%，可关闭窗口，下载会在后台继续",
+		"readyTitle": "{{version}} 已准备好",
+		"readyMessage": "新版本 {{latestVersion}} 已下载完成（当前 {{currentVersion}}）。重启 Vetta 以应用更新。",
+		"installingTitle": "正在安装更新",
+		"errorTitle": "检查更新失败",
+		"errorFallback": "暂时无法连接更新服务器，请稍后再试。",
+		"currentTitle": "Vetta {{version}} 版本介绍",
+		"currentSubtitle": "这一版带来了什么",
+		"currentEmpty": "暂无这个版本的介绍。",
+		"updateNow": "立即更新"
 	}
 }

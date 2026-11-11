@@ -19,12 +19,6 @@
 		"languageTitle": "Language",
 		"languageHint": "Defaults to your system language; change anytime"
 	},
-	"updateRestart": {
-		"title": "Update Ready",
-		"message": "Version {{latestVersion}} has been downloaded (current {{currentVersion}}). Restart Vetta now to apply the update, or choose \"Later\" to be reminded next launch.",
-		"later": "Later",
-		"install": "Restart Now"
-	},
 	"filePreview": {
 		"showInFolder": "Show in Folder",
 		"download": "Download",
@@ -1086,5 +1080,28 @@
 			"project": "Project",
 			"batch": "Batch"
 		}
+	},
+	"updateDialog": {
+		"close": "Close",
+		"installing": "Restarting…",
+		"retry": "Retry",
+		"viewCurrent": "What's New",
+		"checkingTitle": "Checking for Updates",
+		"checking": "Contacting the update server…",
+		"currentVersion": "Current version {{version}}",
+		"latestTitle": "You're Up to Date",
+		"availableTitle": "Version {{version}} Is Available",
+		"versionChange": "Current {{currentVersion}} → New {{latestVersion}}",
+		"downloadingTitle": "Downloading {{version}}",
+		"downloading": "{{progress}}% downloaded. You can close this window; it keeps downloading in the background.",
+		"readyTitle": "{{version}} Is Ready",
+		"readyMessage": "Version {{latestVersion}} has been downloaded (current {{currentVersion}}). Restart Vetta to apply the update.",
+		"installingTitle": "Installing Update",
+		"errorTitle": "Couldn't Check for Updates",
+		"errorFallback": "Can't reach the update server right now. Please try again later.",
+		"currentTitle": "What's New in Vetta {{version}}",
+		"currentSubtitle": "What this version brings",
+		"currentEmpty": "No release notes for this version.",
+		"updateNow": "Update Now"
 	}
 }
