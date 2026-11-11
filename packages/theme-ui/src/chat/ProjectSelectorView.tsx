@@ -152,7 +152,7 @@ export function ProjectSelectorView({
 							align="start"
 							sideOffset={6}
 							className={cn(
-								"w-[228px] gap-0 overflow-visible rounded-lg border border-border p-0",
+								"w-[228px] gap-0 overflow-visible p-0",
 								classNames?.content,
 							)}
 							style={{ animation: "none" }}

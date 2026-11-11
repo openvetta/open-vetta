@@ -102,7 +102,7 @@ export function InputBarMention({
 					side="top"
 					align="start"
 					sideOffset={8}
-					className="w-[268px] gap-0 overflow-hidden rounded-xl border border-border p-0 shadow-lg"
+					className="w-[268px] gap-0 overflow-hidden p-0"
 				>
 					<div className="flex items-baseline justify-between gap-2 border-b border-border/60 px-3 py-2">
 						<span className="text-[12px] font-medium text-foreground">{model.labels.title}</span>

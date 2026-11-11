@@ -144,7 +144,7 @@ function ContentOptionMenu({ value, label, options, onValueChange }: ContentOpti
 					ref={contentRef}
 					data-vetta-plugin-root="content-creation"
 					align="start"
-					className="z-[100] min-w-36 rounded-lg p-1"
+					className="z-[100] min-w-36 p-1"
 				>
 					<DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
 						{options.map((option) => (

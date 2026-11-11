@@ -159,7 +159,7 @@ function GroupedCapsule({
 						align="start"
 						sideOffset={6}
 							// 宽度跟随触发胶囊：展开只是把收纳的几枚胶囊竖着摊开，不是另开一张面板。
-							className="w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-lg border border-border p-1"
+							className="w-[var(--radix-popover-trigger-width)] overflow-hidden p-1"
 						style={{ animation: "none" }}
 					>
 						<motion.div

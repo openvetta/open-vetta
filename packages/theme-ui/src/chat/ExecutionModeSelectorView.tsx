@@ -84,7 +84,7 @@ export function ExecutionModeSelectorView({
 							align={contentAlign}
 							sideOffset={6}
 							className={cn(
-								"w-[148px] gap-0 overflow-visible rounded-lg border border-border p-0",
+								"w-[148px] gap-0 overflow-visible p-0",
 								classNames?.content,
 							)}
 							style={{ animation: "none" }}

@@ -22,3 +22,10 @@ export const OVERLAY_BACKDROP_CLASS = "overlay-backdrop bg-black/20 backdrop-blu
  * 代替边框线。一层小半径的近影加一层低透明度的环境影；影子越大越淡越容易发灰发脏，所以宁小勿大。
  */
 export const PANEL_SHADOW_CLASS = "shadow-[0_16px_40px_-12px_rgb(0_0_0/0.10),0_2px_8px_-2px_rgb(0_0_0/0.05)]";
+
+/**
+ * 所有下拉 / 弹出面板（Popover、DropdownMenu、Select 的内容面）的统一外观：
+ * 无外边框、大圆角、共用柔和投影。三个基础组件都从这里取，调用方不要再自己写
+ * `border` / `rounded-*` / `shadow-*`，否则会和全局风格分叉。
+ */
+export const FLOATING_SURFACE_CLASS = `rounded-2xl bg-popover text-popover-foreground ${PANEL_SHADOW_CLASS}`;

@@ -81,7 +81,7 @@ export function InputBarGoalStatus({
 					side="top"
 					align="start"
 					sideOffset={8}
-					className="w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border p-0"
+					className="w-[min(22rem,calc(100vw-2rem))] overflow-hidden p-0"
 				>
 					<div className="px-3 pb-3 pt-2.5">
 						<div className="flex items-center gap-2">

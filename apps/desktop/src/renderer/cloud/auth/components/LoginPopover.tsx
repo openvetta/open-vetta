@@ -32,7 +32,7 @@ export function LoginPopover(): JSX.Element {
 						side="top"
 						align="start"
 						sideOffset={6}
-						className="w-[228px] overflow-hidden rounded-lg border border-border p-0"
+						className="w-[228px] overflow-hidden p-0"
 						style={{ animation: "none" }}
 					>
 						<motion.div

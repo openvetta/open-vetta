@@ -134,7 +134,7 @@ function AnnotationPanel({
 					side="bottom"
 					align="center"
 					collisionPadding={12}
-					className="z-[1100] w-[440px] max-w-[calc(100vw-24px)] max-h-[calc(100vh-32px)] gap-3 overflow-auto p-4 shadow-lg"
+					className="z-[1100] w-[440px] max-w-[calc(100vw-24px)] max-h-[calc(100vh-32px)] gap-3 overflow-auto p-4"
 					onEscapeKeyDown={(event) => event.preventDefault()}
 					onOpenAutoFocus={(event) => {
 						event.preventDefault();
