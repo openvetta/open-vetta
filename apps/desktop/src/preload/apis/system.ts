@@ -291,6 +291,7 @@ export function createSystemApi(
 			sync: () => ipc.invoke("vetta:updater:sync"),
 			getState: () => ipc.invoke("vetta:updater:get-state"),
 			getCurrentVersion: () => ipc.invoke("vetta:updater:get-current-version"),
+			getCurrentReleaseNote: () => ipc.invoke("vetta:updater:get-current-release-note"),
 			download: () => ipc.invoke("vetta:updater:download"),
 			install: () => ipc.invoke("vetta:updater:install"),
 			dismiss: () => ipc.invoke("vetta:updater:dismiss"),

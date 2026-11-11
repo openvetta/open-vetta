@@ -1408,6 +1408,7 @@
   "updaterDownload": "下载更新",
   "updaterDownloading": "下载中 {{progress}}%",
   "updaterRestart": "立即重启",
+  "updaterViewCurrent": "版本介绍",
   "updaterViewMore": "查看更多",
   "updaterReleaseNotes": "更新说明",
   "optional": "可选",
