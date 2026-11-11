@@ -30,6 +30,8 @@ export function AddProjectRemoteStep({ onConfirm, onBack }: AddProjectRemoteStep
 		<>
 			<SplashTitleHeader
 				title={inDirectory ? model.remotePath || t("remotePicker.loading") : t("remotePicker.title")}
+				// 目录浏览时标题位是当前路径，不是面板标题，保持常规字重。
+				variant={inDirectory ? "plain" : "title"}
 				backLabel={t("addProjectSplash.back")}
 				onBack={back}
 			/>

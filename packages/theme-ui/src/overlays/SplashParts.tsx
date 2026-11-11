@@ -129,14 +129,29 @@ export interface SplashTitleHeaderProps {
 	readonly backLabel?: string;
 	/** 标题右侧的附加内容，例如当前路径。 */
 	readonly trailing?: ReactNode;
+	/** title 是面板的标题（大而粗）；plain 用于路径之类的辅助信息，保持常规字重。 */
+	readonly variant?: "title" | "plain";
 }
 
 /** 没有输入框的步骤用它做头部：与输入头部同高同位，切步骤时外壳不跳。 */
-export function SplashTitleHeader({ title, onBack, backLabel, trailing }: SplashTitleHeaderProps): JSX.Element {
+export function SplashTitleHeader({
+	title,
+	onBack,
+	backLabel,
+	trailing,
+	variant = "title",
+}: SplashTitleHeaderProps): JSX.Element {
 	return (
 		<div className={HEADER_CLASS}>
 			{onBack && <BackButton label={backLabel ?? ""} onClick={onBack} />}
-			<span className="min-w-0 flex-1 truncate text-[14px] text-foreground">{title}</span>
+			<span
+				className={cn(
+					"min-w-0 flex-1 truncate text-foreground",
+					variant === "title" ? "text-[17px] font-semibold tracking-tight" : "text-[14px]",
+				)}
+			>
+				{title}
+			</span>
 			{trailing}
 		</div>
 	);
