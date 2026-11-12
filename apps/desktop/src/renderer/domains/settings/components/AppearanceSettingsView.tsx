@@ -10,7 +10,7 @@ import {
 } from "@shared/theme/new-session-texture";
 import type { OrnamentId } from "@shared/theme/ornament";
 import type { ThemeDef } from "@shared/theme/tokens";
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { SettingsAiAssist } from "../ai-assist";
 import themeLock from "../assets/theme-lock.webp";
@@ -91,7 +91,7 @@ const LanguageSelect = memo(function LanguageSelect({
 		<MotionSelect
 			value={language}
 			onValueChange={(next) => onSelect(next as AppearanceLanguageOption["value"])}
-			triggerClassName="w-[260px]"
+			triggerClassName="w-[150px]"
 			options={languages.map((option) => ({
 				value: option.value,
 				label: languageOptionLabel(option),
@@ -115,8 +115,11 @@ function SelectionCheckBadge(): JSX.Element {
 const SELECTION_ACTIVE = "border-primary/50 bg-primary/10";
 const SELECTION_IDLE = "border-border/60 hover:border-primary/40 hover:bg-accent/40";
 
-/** 外观模式：设置项右侧的分段按钮，点击坐标用于主题切换的扩散动画。 */
-function ModeSegmented({
+/**
+ * 外观模式：与语言同款下拉。主题切换的扩散动画需要点击坐标，下拉选项在浮层里、
+ * 选中回调不带事件，所以在窗口层记下最近一次按下的位置。
+ */
+function ModeSelect({
 	mode,
 	options,
 	onSelect,
@@ -125,30 +128,29 @@ function ModeSegmented({
 	options: AppearanceModeOption[];
 	onSelect: (value: ThemeMode, point: SelectionPoint) => void;
 }): JSX.Element {
+	const lastPoint = useRef<SelectionPoint>({ x: 0, y: 0 });
+	useEffect(() => {
+		const record = (event: PointerEvent) => {
+			lastPoint.current = { x: event.clientX, y: event.clientY };
+		};
+		window.addEventListener("pointerdown", record, true);
+		return () => window.removeEventListener("pointerdown", record, true);
+	}, []);
 	return (
-		<div className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
-			{options.map((option) => {
-				const active = mode === option.value;
-				return (
-					<button
-						key={option.value}
-						type="button"
-						title={option.hint}
-						aria-pressed={active}
-						onClick={(event) => onSelect(option.value, { x: event.clientX, y: event.clientY })}
-						className={cn(
-							"flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] transition-colors",
-							active
-								? "bg-background font-medium text-foreground shadow-sm"
-								: "text-muted-foreground hover:text-foreground",
-						)}
-					>
-						<span className={cn(option.icon, "h-3.5 w-3.5 shrink-0")} />
-						{option.label}
-					</button>
-				);
-			})}
-		</div>
+		<MotionSelect
+			value={mode}
+			onValueChange={(next) => onSelect(next as ThemeMode, lastPoint.current)}
+			triggerClassName="w-[150px]"
+			options={options.map((option) => ({
+				value: option.value,
+				label: (
+					<span className="flex min-w-0 items-center gap-1.5">
+						<span className={cn(option.icon, "h-4 w-4 shrink-0 text-muted-foreground")} />
+						<span className="truncate">{option.label}</span>
+					</span>
+				),
+			}))}
+		/>
 	);
 }
 
@@ -623,7 +625,7 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 					</SettingRow>
 					<div id={SETTINGS_SECTION["appearance-mode"].id} data-setting-section-id={SETTINGS_SECTION["appearance-mode"].id}>
 						<SettingRow title={model.labels.sections.mode}>
-							<ModeSegmented mode={model.mode} options={model.modeOptions} onSelect={model.actions.changeMode} />
+							<ModeSelect mode={model.mode} options={model.modeOptions} onSelect={model.actions.changeMode} />
 						</SettingRow>
 					</div>
 					<div id={SETTINGS_SECTION["appearance-ui-zoom"].id} data-setting-section-id={SETTINGS_SECTION["appearance-ui-zoom"].id}>
