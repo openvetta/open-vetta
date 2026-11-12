@@ -14,7 +14,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { ThemeSurface } from "../appearance/ThemeSurface";
 import { MultiplierTag } from "../shared/MultiplierTag";
 import { getProviderIcon, ProviderIcon } from "../shared/provider-icon";
-import { ModelSelectorTrigger } from "./ModelSelectorTrigger";
+import { ModelSelectorTrigger, type ModelSelectorTriggerVariant } from "./ModelSelectorTrigger";
+
+export type { ModelSelectorTriggerVariant } from "./ModelSelectorTrigger";
 
 /**
  * 模型选择器的视图层：三栏布局——供应商（含「收藏」）｜模型列表（可搜索）｜所选模型的推理档位，
@@ -126,6 +128,8 @@ export interface ModelSelectorViewProps {
 	labels: ModelSelectorLabels;
 	ariaLabel?: string;
 	disabled?: boolean;
+	/** 触发器形态：输入栏胶囊（默认）或表单选择框。 */
+	triggerVariant?: ModelSelectorTriggerVariant;
 	/** 可选的空值项，例如“不固定模型”或“跟随会话默认”。 */
 	emptyOption?: {
 		readonly label: string;
@@ -208,6 +212,7 @@ export function ModelSelectorView({
 	labels,
 	ariaLabel,
 	disabled = false,
+	triggerVariant = "inline",
 	emptyOption,
 	className,
 	classNames,
@@ -445,6 +450,7 @@ export function ModelSelectorView({
 					ref={triggerRef}
 					aria-label={ariaLabel}
 					disabled={disabled}
+					variant={triggerVariant}
 					label={selectedOption?.displayName ?? labels.placeholder}
 					icon={
 						selectedOption ? groups.find((group) => group.provider === selectedOption.provider)?.icon : undefined
