@@ -20,6 +20,7 @@ import {
 	buildStatCommand,
 	buildWriteFileCommand,
 	type ListFilesRecursiveOptions,
+	parseListFilesRecursiveOutput,
 	quoteShellArgument,
 	REMOTE_ENTRY_EXISTS_EXIT_CODE,
 	type RemoteStatFlavor,
@@ -343,15 +344,14 @@ export class SshConnection {
 				ignoredDirectories: options.ignoredDirectoryNames,
 				limit: options.limit,
 				names: options.names,
+				...(options.includeDirectories ? { includeDirectories: true } : {}),
 			}),
 		);
-		// 旧版 helper 不认识 `names`、会照常全列，所以这里总是再筛一遍。
+		// 旧版 helper 不认识 `names` 和 `includeDirectories`，会照常只回文件，所以这里再筛一遍。
+		// 带尾斜杠的是目录：按文件名筛选时必须留下，否则新 helper 返回的目录会被丢掉。
 		if (viaHelper) return keepNamedFiles(viaHelper.value.files, options.names);
 		const result = await this.runChecked(buildListFilesRecursiveCommand(remotePath, options), { signal });
-		return decode(result.stdout)
-			.split("\n")
-			.map((line) => line.replace(/^\.\//, ""))
-			.filter((line) => line.length > 0);
+		return parseListFilesRecursiveOutput(decode(result.stdout), options.includeDirectories === true);
 	}
 
 	async makeDirectory(remotePath: string, signal?: AbortSignal): Promise<void> {
@@ -856,5 +856,5 @@ function basename(remotePath: string): string {
 function keepNamedFiles(files: readonly string[], names: readonly string[] | undefined): string[] {
 	if (!names?.length) return [...files];
 	const wanted = new Set(names);
-	return files.filter((file) => wanted.has(basename(file)));
+	return files.filter((file) => file.endsWith("/") || wanted.has(basename(file)));
 }

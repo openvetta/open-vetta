@@ -266,6 +266,16 @@ func TestListRecursiveSkipsHiddenAndIgnoredTrees(t *testing.T) {
 	if len(result.Files) != 1 || !result.Truncated {
 		t.Fatalf("limit not applied: %+v", result)
 	}
+
+	c.mustCall("fs.listRecursive", map[string]any{
+		"path":               root,
+		"ignoredDirectories": []string{"node_modules"},
+		"includeDirectories": true,
+		"names":              []string{"README.md"},
+	}, &result)
+	if got := strings.Join(result.Files, ","); got != "README.md,src/,src/deep/" || result.Truncated {
+		t.Fatalf("directories must survive the name filter: %s truncated=%v", got, result.Truncated)
+	}
 }
 
 func TestListRecursiveNameFilterAppliesBeforeTheLimit(t *testing.T) {

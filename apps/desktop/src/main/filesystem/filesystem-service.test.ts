@@ -84,6 +84,20 @@ describe("listFilesystemFilesRecursive", () => {
 		await touch("src/b.ts");
 		const files = await listFilesystemFilesRecursive(projectRoot);
 		expect(files.map((file) => file.name).sort()).toEqual(["a.txt", "b.ts"]);
+		expect(files.every((file) => file.isDirectory !== true)).toBe(true);
+	});
+
+	it("lists directories only when asked, without dropping files or walking ignored trees", async () => {
+		await touch("README.md");
+		await touch("src/deep/a.ts");
+		await touch("node_modules/pkg/index.js");
+		await mkdir(join(projectRoot, "empty"), { recursive: true });
+
+		const withDirs = await listFilesystemFilesRecursive(projectRoot, { includeDirectories: true });
+		const labeled = withDirs
+			.map((file) => `${file.relPath.split("\\").join("/")}${file.isDirectory ? "/" : ""}`)
+			.sort();
+		expect(labeled).toEqual(["README.md", "empty/", "src/", "src/deep/", "src/deep/a.ts"]);
 	});
 });
 

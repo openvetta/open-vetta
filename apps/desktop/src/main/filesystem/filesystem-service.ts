@@ -464,6 +464,11 @@ export interface ListFilesRecursiveOptions {
 	readonly names?: readonly string[];
 	/** 在默认忽略目录之外再跳过的目录名。 */
 	readonly ignoredDirectories?: readonly string[];
+	/**
+	 * 为 true 时额外返回目录（`isDirectory: true`）。目录单独计数，不占用文件上限，
+	 * 因此打开这个选项不会把原先能搜到的文件挤出结果。
+	 */
+	readonly includeDirectories?: boolean;
 }
 
 export async function listFilesystemFilesRecursive(
@@ -472,18 +477,23 @@ export async function listFilesystemFilesRecursive(
 ): Promise<FsFileRef[]> {
 	const ignoredDirectories = new Set([...RECURSIVE_IGNORED_DIRS, ...(options.ignoredDirectories ?? [])]);
 	const wantedNames = options.names?.length ? new Set(options.names) : null;
+	const includeDirectories = options.includeDirectories === true;
 	if (isSshProjectUri(rootPath)) {
 		return listRemoteFilesRecursive(rootPath, {
 			ignoredDirectoryNames: [...ignoredDirectories],
 			limit: MAX_RECURSIVE_FILES,
 			names: wantedNames ? [...wantedNames] : undefined,
+			includeDirectories,
 		});
 	}
 	assertFilesystemPathWithinProject(rootPath);
 	const root = resolve(rootPath);
-	const results: FsFileRef[] = [];
+	const files: FsFileRef[] = [];
+	const directories: FsFileRef[] = [];
+	const filesFull = () => files.length >= MAX_RECURSIVE_FILES;
+	const directoriesFull = () => !includeDirectories || directories.length >= MAX_RECURSIVE_FILES;
 	async function walk(dir: string): Promise<void> {
-		if (results.length >= MAX_RECURSIVE_FILES) return;
+		if (filesFull() && directoriesFull()) return;
 		let entries: Dirent[];
 		try {
 			entries = await readdir(dir, { withFileTypes: true });
@@ -491,19 +501,28 @@ export async function listFilesystemFilesRecursive(
 			return;
 		}
 		for (const entry of entries) {
-			if (results.length >= MAX_RECURSIVE_FILES) return;
+			if (filesFull() && directoriesFull()) return;
 			if (entry.name.startsWith(".") || HIDDEN_FILES.has(entry.name)) continue;
 			const fullPath = join(dir, entry.name);
 			if (entry.isDirectory()) {
 				if (ignoredDirectories.has(entry.name)) continue;
 				if (isConversationWorkspaceDirEntry(dir, entry.name)) continue;
+				if (includeDirectories && directories.length < MAX_RECURSIVE_FILES) {
+					directories.push({
+						name: entry.name,
+						path: fullPath,
+						relPath: relative(root, fullPath),
+						isDirectory: true,
+					});
+				}
 				await walk(fullPath);
 			} else if (entry.isFile()) {
+				if (filesFull()) continue;
 				if (wantedNames && !wantedNames.has(entry.name)) continue;
-				results.push({ name: entry.name, path: fullPath, relPath: relative(root, fullPath) });
+				files.push({ name: entry.name, path: fullPath, relPath: relative(root, fullPath) });
 			}
 		}
 	}
 	await walk(root);
-	return results;
+	return includeDirectories ? [...directories, ...files] : files;
 }

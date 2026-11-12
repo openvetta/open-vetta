@@ -347,6 +347,10 @@ type listRecursiveParams struct {
 	// than on the client matters in large monorepos: the limit applies to the
 	// matches, so a manifest scan is not truncated by unrelated source files.
 	Names []string `json:"names"`
+	// IncludeDirectories also returns directories. Their paths end with a slash
+	// so an older client that only expects files can still tell them apart, and
+	// they have their own copy of Limit so they cannot push files out of the result.
+	IncludeDirectories bool `json:"includeDirectories"`
 }
 
 // fsListRecursive walks the tree on the machine that owns it. Doing this from
@@ -371,7 +375,12 @@ func fsListRecursive(p listRecursiveParams) (any, *protocol.Error) {
 		}
 	}
 	files := make([]string, 0, 256)
+	fileCount := 0
+	dirCount := 0
 	truncated := false
+	bothFull := func() bool {
+		return fileCount >= limit && (!p.IncludeDirectories || dirCount >= limit)
+	}
 	err := filepath.WalkDir(p.Path, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			if path == p.Path {
@@ -388,6 +397,18 @@ func fsListRecursive(p listRecursiveParams) (any, *protocol.Error) {
 			if _, skip := ignored[name]; skip || hidden {
 				return filepath.SkipDir
 			}
+			if p.IncludeDirectories {
+				if dirCount >= limit {
+					truncated = true
+				} else if relative, relErr := filepath.Rel(p.Path, path); relErr == nil {
+					files = append(files, filepath.ToSlash(relative)+"/")
+					dirCount++
+				}
+			}
+			if bothFull() {
+				truncated = true
+				return filepath.SkipAll
+			}
 			return nil
 		}
 		if hidden || !entry.Type().IsRegular() {
@@ -398,15 +419,19 @@ func fsListRecursive(p listRecursiveParams) (any, *protocol.Error) {
 				return nil
 			}
 		}
-		if len(files) >= limit {
+		if fileCount >= limit {
 			truncated = true
-			return filepath.SkipAll
+			if bothFull() {
+				return filepath.SkipAll
+			}
+			return nil
 		}
 		relative, err := filepath.Rel(p.Path, path)
 		if err != nil {
 			return nil
 		}
 		files = append(files, filepath.ToSlash(relative))
+		fileCount++
 		return nil
 	})
 	if err != nil {

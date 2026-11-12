@@ -1,4 +1,5 @@
 import type { FsEntry, FsFileRef } from "@preload/fs-types";
+import { formatShortcut } from "@shared/lib/platform";
 import { type ShortcutBinding, useShortcutScope } from "@shared/shortcuts";
 import type { RefObject } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -175,7 +176,7 @@ export function useAtPanelModel({
 			return;
 		}
 		let cancelled = false;
-		void window.vetta.fs.listFilesRecursive(directory).then(
+		void window.vetta.fs.listFilesRecursive(directory, { includeDirectories: true }).then(
 			(files) => {
 				if (!cancelled) setAllFiles(files);
 			},
@@ -220,7 +221,10 @@ export function useAtPanelModel({
 		for (const f of allFiles) {
 			const score = fuzzyScore(q, f.relPath, f.name);
 			if (score !== null) {
-				scored.push({ item: { path: f.path, name: f.name, isDirectory: false, relPath: f.relPath }, score });
+				scored.push({
+					item: { path: f.path, name: f.name, isDirectory: f.isDirectory === true, relPath: f.relPath },
+					score,
+				});
 			}
 		}
 		scored.sort((a, b) => b.score - a.score);
@@ -244,15 +248,24 @@ export function useAtPanelModel({
 
 	const handleEntrySelect = useCallback(
 		(item: DisplayItem) => {
-			if (item.isDirectory) {
-				setCurrentDir(item.path);
-				return;
-			}
 			if (item.item) {
 				onSelect(item.item satisfies AtPanelItem);
 				return;
 			}
-			onSelect({ path: item.path, name: item.name, isDirectory: false } satisfies SelectedFile);
+			// 浏览时点目录是进入；搜索结果里的目录已经是匹配项，点一下就引用。
+			if (item.isDirectory && !isSearching) {
+				setCurrentDir(item.path);
+				return;
+			}
+			onSelect({ path: item.path, name: item.name, isDirectory: item.isDirectory } satisfies SelectedFile);
+		},
+		[isSearching, onSelect],
+	);
+
+	const citeDirectory = useCallback(
+		(item: { path: string; name: string; isDirectory: boolean }) => {
+			if (!item.isDirectory) return;
+			onSelect({ path: item.path, name: item.name, isDirectory: true } satisfies SelectedFile);
 		},
 		[onSelect],
 	);
@@ -262,6 +275,17 @@ export function useAtPanelModel({
 	}, []);
 
 	const keyBindings = useMemo((): ShortcutBinding[] => {
+		const activeItem = allItems[canGoUp ? activeIndex - 1 : activeIndex];
+		// 只在当前行是目录时接管。否则 mod+enter 仍是「追加消息」，不能被面板吃掉。
+		const citeBinding: ShortcutBinding[] =
+			activeItem?.isDirectory && !activeItem.item
+				? [
+						{
+							key: "mod+enter",
+							run: () => citeDirectory(activeItem),
+						},
+					]
+				: [];
 		return [
 			{
 				key: "arrowdown",
@@ -298,12 +322,14 @@ export function useAtPanelModel({
 			{
 				key: "tab",
 				run: () => {
+					if (isSearching) return;
 					const item = allItems[canGoUp ? activeIndex - 1 : activeIndex];
 					if (item?.isDirectory) setCurrentDir(item.path);
 				},
 			},
+			...citeBinding,
 		];
-	}, [totalCount, canGoUp, activeIndex, allItems, handleEntrySelect, handleGoUp, onClose]);
+	}, [totalCount, canGoUp, activeIndex, allItems, handleEntrySelect, handleGoUp, onClose, isSearching, citeDirectory]);
 
 	useShortcutScope({
 		id: "overlay:at-panel",
@@ -354,6 +380,8 @@ export function useAtPanelModel({
 		emptyDirectory: t("atPanel.emptyDirectory"),
 		goUp: t("atPanel.goUp"),
 		enterDirectory: t("atPanel.enterDirectory"),
+		citeDirectory: t("atPanel.citeDirectory"),
+		citeDirectoryHint: t("atPanel.citeDirectoryHint", { shortcut: formatShortcut("mod+enter") }),
 	};
 
 	return {
@@ -372,6 +400,7 @@ export function useAtPanelModel({
 			onGoUp: handleGoUp,
 			onHoverIndex: setActiveIndex,
 			onEntryClick: handleEntrySelect,
+			onCiteDirectory: citeDirectory,
 		},
 	};
 }
