@@ -21,7 +21,9 @@ export function getAppIconId(): AppIconId {
 /** 出厂图标走打包默认（Dock 用 icon-dock.png，窗口用平台图标），返回 undefined 表示「用默认」。 */
 function appIconImage(id: AppIconId): NativeImage | undefined {
 	if (id === APP_ICON_DEFAULT) return undefined;
-	const image = nativeImage.createFromPath(join(buildDir, "app-icons", `${id}.png`));
+	// Dock 不会给 setIcon 的图片加遮罩，macOS 用自带 824 超椭圆与边距的 -mac 版本；其余平台用全幅方形。
+	const suffix = process.platform === "darwin" ? "-mac" : "";
+	const image = nativeImage.createFromPath(join(buildDir, "app-icons", `${id}${suffix}.png`));
 	return image.isEmpty() ? undefined : image;
 }
 
