@@ -155,13 +155,16 @@ describe("AppearanceSettingsView 的新会话页装饰区域", () => {
 		expect(setAppIcon).toHaveBeenCalledWith("coding");
 	});
 
-	it("界面大小显示当前百分比，恢复默认在默认值时不可点", () => {
+	it("界面大小行只显示当前百分比，点开 popover 后恢复默认在默认值时不可点", async () => {
 		const view = render(<AppearanceSettingsView model={model()} />);
 
-		expect((view.getByRole("button", { name: "恢复默认" }) as HTMLButtonElement).disabled).toBe(true);
+		expect(view.queryByRole("button", { name: "恢复默认" })).toBeNull();
+		await userEvent.click(view.getByText("100%"));
+
+		expect(((await view.findByRole("button", { name: "恢复默认" })) as HTMLButtonElement).disabled).toBe(true);
 	});
 
-	it("偏离默认值时可恢复默认", async () => {
+	it("偏离默认值时可在 popover 里恢复默认", async () => {
 		const resetUiZoom = vi.fn();
 		const view = render(
 			<AppearanceSettingsView
@@ -172,17 +175,18 @@ describe("AppearanceSettingsView 的新会话页装饰区域", () => {
 			/>,
 		);
 
-		await userEvent.click(view.getByRole("button", { name: "恢复默认" }));
+		await userEvent.click(view.getByText("125%"));
+		await userEvent.click(await view.findByRole("button", { name: "恢复默认" }));
 
 		expect(resetUiZoom).toHaveBeenCalledTimes(1);
 	});
 
-	it("点某一档的文字，按该档的比例设置界面大小，当前档带选中态", async () => {
+	it("在 popover 里点某一档的文字，按该档的比例设置界面大小", async () => {
 		const setUiZoom = vi.fn();
 		const view = render(<AppearanceSettingsView model={model({ actions: { setUiZoom } })} />);
 
-		expect(view.getByRole("button", { name: "100%" }).getAttribute("aria-pressed")).toBe("true");
-		await userEvent.click(view.getByRole("button", { name: "125%" }));
+		await userEvent.click(view.getByText("100%"));
+		await userEvent.click(await view.findByRole("button", { name: "125%" }));
 
 		expect(setUiZoom).toHaveBeenCalledWith(1.25);
 	});

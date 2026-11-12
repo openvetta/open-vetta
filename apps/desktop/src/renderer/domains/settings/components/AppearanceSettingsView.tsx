@@ -61,6 +61,38 @@ function UiZoomControl({ model }: { model: AppearanceSettingsModel }): JSX.Eleme
 	);
 }
 
+/** 界面大小：设置项右侧只放当前百分比，点开 popover 再拖滑块 / 恢复默认。 */
+function UiZoomPopover({ model }: { model: AppearanceSettingsModel }): JSX.Element {
+	const { factor, default: defaultFactor } = model.uiZoom;
+	return (
+		<Popover>
+			<PopoverTrigger asChild>
+				<button type="button" className="group flex items-center gap-1.5 rounded-lg outline-none">
+					<span className="text-[13px] tabular-nums text-foreground">{Math.round(factor * 100)}%</span>
+					<span className="icon-[mdi--chevron-down] h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
+				</button>
+			</PopoverTrigger>
+			<PopoverContent align="end" className="w-[340px] p-3">
+				<div className="flex items-center gap-2">
+					<div className="min-w-0 flex-1">
+						<UiZoomControl model={model} />
+					</div>
+					<Button
+						variant="ghost"
+						size="icon-xs"
+						title={model.labels.uiZoomReset}
+						aria-label={model.labels.uiZoomReset}
+						disabled={factor === defaultFactor}
+						onClick={model.actions.resetUiZoom}
+					>
+						<span aria-hidden className="icon-[solar--restart-linear] h-3.5 w-3.5" />
+					</Button>
+				</div>
+			</PopoverContent>
+		</Popover>
+	);
+}
+
 function languageOptionLabel(option: AppearanceLanguageOption): JSX.Element {
 	return (
 		<span className="flex min-w-0 items-center gap-1.5">
@@ -630,21 +662,7 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 					</div>
 					<div id={SETTINGS_SECTION["appearance-ui-zoom"].id} data-setting-section-id={SETTINGS_SECTION["appearance-ui-zoom"].id}>
 						<SettingRow title={model.labels.sections.uiZoom}>
-							<div className="flex items-center gap-2">
-								<div className="w-[300px]">
-									<UiZoomControl model={model} />
-								</div>
-								<Button
-									variant="ghost"
-									size="icon-xs"
-									title={model.labels.uiZoomReset}
-									aria-label={model.labels.uiZoomReset}
-									disabled={model.uiZoom.factor === model.uiZoom.default}
-									onClick={model.actions.resetUiZoom}
-								>
-									<span aria-hidden className="icon-[solar--restart-linear] h-3.5 w-3.5" />
-								</Button>
-							</div>
+							<UiZoomPopover model={model} />
 						</SettingRow>
 					</div>
 					<div id={SETTINGS_SECTION["appearance-app-icon"].id} data-setting-section-id={SETTINGS_SECTION["appearance-app-icon"].id}>
