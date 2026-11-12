@@ -3,7 +3,6 @@ import { useCursorStyle } from "@shared/hooks/useCustomCursor";
 import { useHeroOrnament } from "@shared/hooks/useHeroOrnament";
 import { useLanguage } from "@shared/hooks/useLanguage";
 import { useNewSessionTexture } from "@shared/hooks/useNewSessionTexture";
-import { useSidebarStyle } from "@shared/hooks/useSidebarStyle";
 import { useTheme } from "@shared/hooks/useTheme";
 import { useUiZoom } from "@shared/hooks/useUiZoom";
 import type { ThemeMode } from "@shared/store/atoms";
@@ -11,7 +10,6 @@ import { type CursorStyle, STOAT_CURSOR_PREVIEW_URL } from "@shared/theme/cursor
 import { NEW_SESSION_TEXTURE_CATALOG, type NewSessionTextureId } from "@shared/theme/new-session-texture";
 import { ORNAMENT_CATALOG, type OrnamentId } from "@shared/theme/ornament";
 import { useThemeRuntime } from "@shared/theme/runtime";
-import type { SidebarStyle } from "@shared/theme/sidebar-style";
 import { THEMES } from "@shared/theme/themes";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { useMemo } from "react";
@@ -97,13 +95,6 @@ export interface AppearanceAppIconOption {
 	preview: string;
 }
 
-export interface AppearanceSidebarStyleOption {
-	active: boolean;
-	hint: string;
-	id: SidebarStyle;
-	label: string;
-}
-
 export interface AppearanceSettingsModel {
 	actions: {
 		changeLanguage: (language: LanguagePreference) => void;
@@ -113,7 +104,6 @@ export interface AppearanceSettingsModel {
 		selectUiTheme: (id: string) => void;
 		setCursorStyle: (style: CursorStyle) => void;
 		setOrnament: (id: OrnamentId) => void;
-		setSidebarStyle: (style: SidebarStyle) => void;
 		setTexture: (id: NewSessionTextureId) => void;
 		setUiZoom: (factor: number) => void;
 		resetUiZoom: () => void;
@@ -133,7 +123,6 @@ export interface AppearanceSettingsModel {
 			language: string;
 			mode: string;
 			ornament: string;
-			sidebar: string;
 			texture: string;
 			theme: string;
 			uiTheme: string;
@@ -153,8 +142,6 @@ export interface AppearanceSettingsModel {
 	ornamentOptions: AppearanceOrnamentOption[];
 	/** 是否展示「界面主题」区段（`VETTA_SHOW_UI_THEME=true`） */
 	showUiTheme: boolean;
-	sidebarStyle: SidebarStyle;
-	sidebarStyleOptions: AppearanceSidebarStyleOption[];
 	textureId: NewSessionTextureId;
 	textureOptions: AppearanceTextureOption[];
 	themeName: string;
@@ -245,19 +232,6 @@ const CURSOR_OPTIONS = [
 	},
 ] as const;
 
-const SIDEBAR_STYLE_OPTIONS = [
-	{
-		id: "classic" as const,
-		labelKey: "sidebarStyleClassicTitle",
-		hintKey: "sidebarStyleClassicHint",
-	},
-	{
-		id: "floating" as const,
-		labelKey: "sidebarStyleFloatingTitle",
-		hintKey: "sidebarStyleFloatingHint",
-	},
-] as const;
-
 const COLOR_THEME_LABEL_KEYS = {
 	mono: "colorThemes.mono",
 	default: "colorThemes.default",
@@ -269,7 +243,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 	const { activeThemeId, availableThemes, selectTheme, status: themeRuntimeStatus } = useThemeRuntime();
 	const { languagePreference, setLanguage } = useLanguage();
 	const { style: cursorStyle, setStyle: setCursorStyle } = useCursorStyle();
-	const { style: sidebarStyle, setStyle: setSidebarStyle } = useSidebarStyle();
 	const { factor: uiZoomFactor, setFactor: setUiZoomFactor, reset: resetUiZoom } = useUiZoom();
 	const { ornamentId, setOrnament } = useHeroOrnament();
 	const { textureId, setTexture } = useNewSessionTexture();
@@ -366,17 +339,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 		[t, textureId],
 	);
 
-	const sidebarStyleOptions = useMemo<AppearanceSidebarStyleOption[]>(
-		() =>
-			SIDEBAR_STYLE_OPTIONS.map((option) => ({
-				id: option.id,
-				active: sidebarStyle === option.id,
-				label: t(option.labelKey),
-				hint: t(option.hintKey),
-			})),
-		[sidebarStyle, t],
-	);
-
 	const themes = useMemo(
 		() =>
 			THEMES.map((theme) => {
@@ -400,7 +362,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 				language: t(SETTINGS_SECTION["appearance-language"].titleKey),
 				mode: t(SETTINGS_SECTION["appearance-mode"].titleKey),
 				ornament: t(SETTINGS_SECTION["appearance-ornament"].titleKey),
-				sidebar: t(SETTINGS_SECTION["appearance-sidebar"].titleKey),
 				texture: t(SETTINGS_SECTION["appearance-texture"].titleKey),
 				theme: t(SETTINGS_SECTION["appearance-theme"].titleKey),
 				uiTheme: t(SETTINGS_SECTION["appearance-ui-theme"].titleKey),
@@ -459,15 +420,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 				resetUiZoom();
 				recordSettingsUsage({ tab: "appearance", action: "changed", target: "ui-zoom", value: "reset" });
 			},
-			setSidebarStyle: (style) => {
-				setSidebarStyle(style);
-				recordSettingsUsage({
-					tab: "appearance",
-					action: "changed",
-					target: "sidebar-style",
-					value: style,
-				});
-			},
 		}),
 		[
 			resetUiZoom,
@@ -477,7 +429,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 			setLanguage,
 			setMode,
 			setOrnament,
-			setSidebarStyle,
 			setTexture,
 			setThemeName,
 			setUiZoomFactor,
@@ -498,8 +449,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 		ornamentId,
 		ornamentOptions,
 		showUiTheme: isAppearanceUiThemeEnabled(),
-		sidebarStyle,
-		sidebarStyleOptions,
 		textureId,
 		textureOptions,
 		themeName,
