@@ -115,39 +115,42 @@ function SelectionCheckBadge(): JSX.Element {
 const SELECTION_ACTIVE = "border-primary/50 bg-primary/10";
 const SELECTION_IDLE = "border-border/60 hover:border-primary/40 hover:bg-accent/40";
 
-const ModeCard = memo(function ModeCard({
+/** 外观模式：设置项右侧的分段按钮，点击坐标用于主题切换的扩散动画。 */
+function ModeSegmented({
 	mode,
-	label,
-	icon,
-	hint,
-	active,
+	options,
 	onSelect,
 }: {
 	mode: ThemeMode;
-	label: string;
-	icon: string;
-	hint: string;
-	active: boolean;
+	options: AppearanceModeOption[];
 	onSelect: (value: ThemeMode, point: SelectionPoint) => void;
 }): JSX.Element {
 	return (
-		<button
-			type="button"
-			onClick={(event) => onSelect(mode, { x: event.clientX, y: event.clientY })}
-			className={cn(
-				"group relative flex items-center gap-2.5 rounded-lg border bg-card px-3 py-2 text-left transition-all",
-				active ? SELECTION_ACTIVE : SELECTION_IDLE,
-			)}
-		>
-			<span className={cn(icon, "h-4 w-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
-			<div className="min-w-0 flex-1 pr-5">
-				<div className="text-[12px] font-medium text-foreground">{label}</div>
-				<div className="truncate text-[11px] text-muted-foreground">{hint}</div>
-			</div>
-			{active && <SelectionCheckBadge />}
-		</button>
+		<div className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
+			{options.map((option) => {
+				const active = mode === option.value;
+				return (
+					<button
+						key={option.value}
+						type="button"
+						title={option.hint}
+						aria-pressed={active}
+						onClick={(event) => onSelect(option.value, { x: event.clientX, y: event.clientY })}
+						className={cn(
+							"flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] transition-colors",
+							active
+								? "bg-background font-medium text-foreground shadow-sm"
+								: "text-muted-foreground hover:text-foreground",
+						)}
+					>
+						<span className={cn(option.icon, "h-3.5 w-3.5 shrink-0")} />
+						{option.label}
+					</button>
+				);
+			})}
+		</div>
 	);
-});
+}
 
 const BLOB_LAYOUT: { left: string; top: string; w: string; h: string; rotate: number }[] = [
 	{ left: "-15%", top: "-20%", w: "75%", h: "75%", rotate: -8 },
@@ -613,26 +616,19 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 			</div>
 
 			<div className="mb-10">
-				<SettingHeading title={model.labels.sections.language} section={SETTINGS_SECTION["appearance-language"]} className="mb-1" />
-				<p className="mb-4 text-[12px] text-muted-foreground">{model.labels.languageHint}</p>
-				<LanguageSelect language={model.language} languages={model.languages} onSelect={model.actions.changeLanguage} />
+				<SettingSection title={model.labels.sections.language} section={SETTINGS_SECTION["appearance-language"]}>
+					<SettingRow title={model.labels.sections.language} description={model.labels.languageHint} border={false}>
+						<LanguageSelect language={model.language} languages={model.languages} onSelect={model.actions.changeLanguage} />
+					</SettingRow>
+				</SettingSection>
 			</div>
 
 			<div className="mb-10">
-				<SettingHeading title={model.labels.sections.mode} section={SETTINGS_SECTION["appearance-mode"]} className="mb-4" />
-				<div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
-					{model.modeOptions.map((mode) => (
-						<ModeCard
-							key={mode.value}
-							mode={mode.value}
-							label={mode.label}
-							icon={mode.icon}
-							hint={mode.hint}
-							active={model.mode === mode.value}
-							onSelect={model.actions.changeMode}
-						/>
-					))}
-				</div>
+				<SettingSection title={model.labels.sections.mode} section={SETTINGS_SECTION["appearance-mode"]}>
+					<SettingRow title={model.labels.sections.mode} border={false}>
+						<ModeSegmented mode={model.mode} options={model.modeOptions} onSelect={model.actions.changeMode} />
+					</SettingRow>
+				</SettingSection>
 			</div>
 
 			{model.showUiTheme && (
