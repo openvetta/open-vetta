@@ -10,6 +10,9 @@ vi.mock("../ai-assist", () => ({ SettingsAiAssist: () => null }));
 vi.mock("@vetta-org/theme-ui/settings", () => ({
 	SettingsPageShellView: ({ children }: { children: React.ReactNode }) => <main>{children}</main>,
 }));
+vi.mock("./ModelsDefaultModelSection", () => ({
+	ModelsDefaultModelSection: () => <section data-testid="model-settings-section">default-model</section>,
+}));
 vi.mock("./PresetProvidersSection", () => ({
 	PresetProvidersSection: () => <section data-testid="model-settings-section">preset-providers</section>,
 }));
@@ -21,7 +24,7 @@ vi.mock("./ModelTransportSettingsSection", () => ({
 }));
 
 describe("ModelsSettingsView", () => {
-	it("places the OpenAI Responses transport section after provider settings", () => {
+	it("places the default model first and the transport section after provider settings", () => {
 		const model = {
 			config: { providers: {} },
 			saveConfig: vi.fn(),
@@ -31,6 +34,7 @@ describe("ModelsSettingsView", () => {
 		render(<ModelsSettingsView model={model} transport={transport} />);
 
 		expect(screen.getAllByTestId("model-settings-section").map((section) => section.textContent)).toEqual([
+			"default-model",
 			"preset-providers",
 			"providers",
 			"transport",

@@ -77,6 +77,7 @@ export interface ModelsSettingsModel {
 	setProviderForm: React.Dispatch<React.SetStateAction<ProviderFormState>>;
 	setModelForm: React.Dispatch<React.SetStateAction<ModelFormState>>;
 	saveConfig: (newConfig: ModelsConfigData) => Promise<void>;
+	onChangeDefaultModel: (modelKey: string | null) => Promise<void>;
 	onStartAddProvider: () => void;
 	onCancelAddProvider: () => void;
 	onAddProvider: () => Promise<void>;
@@ -93,7 +94,6 @@ export interface ModelsSettingsModel {
 	onCancelEditModel: () => void;
 	onUpdateModel: (providerName: string, oldModelId: string) => Promise<void>;
 	onDeleteModel: (providerName: string, modelId: string) => Promise<void>;
-	onSetDefaultModel: (providerName: string, modelId: string) => Promise<void>;
 	/** 点击「从接口拉取」：先同步打开抽屉，再拉取，不在点击处等待网络。 */
 	onStartFetchProviderModels: (providerName: string) => void;
 	onRetryFetchProviderModels: () => void;
@@ -399,20 +399,21 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 		[config, saveConfig],
 	);
 
-	const handleSetDefaultModel = useCallback(
-		async (providerName: string, modelId: string) => {
+	const handleChangeDefaultModel = useCallback(
+		async (modelKey: string | null) => {
 			if (!config) return;
-			const modelKey = `${providerName}/${modelId}`;
-			const newDefault = config.defaultModel === modelKey ? undefined : modelKey;
-			await saveConfig({ ...config, defaultModel: newDefault });
-			if (newDefault) {
-				localStorage.setItem("vetta-selected-model", newDefault);
+			const next = modelKey ?? undefined;
+			if (config.defaultModel === next) return;
+			await saveConfig({ ...config, defaultModel: next });
+			// 新会话优先读本地记住的选择；设了默认就一并同步，否则改完不生效。
+			if (next) {
+				try {
+					localStorage.setItem("vetta-selected-model", next);
+				} catch {
+					// ignore persistence errors (private mode / quota)
+				}
 			}
-			recordSettingsUsage({
-				tab: "models",
-				action: newDefault ? "selected" : "reset",
-				target: "default-model",
-			});
+			recordSettingsUsage({ tab: "models", action: next ? "selected" : "reset", target: "default-model" });
 		},
 		[config, saveConfig],
 	);
@@ -574,9 +575,9 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 			setEditingModel(null);
 			setModelForm({ ...emptyModel });
 		},
+		onChangeDefaultModel: handleChangeDefaultModel,
 		onUpdateModel: handleUpdateModel,
 		onDeleteModel: handleDeleteModel,
-		onSetDefaultModel: handleSetDefaultModel,
 		onStartFetchProviderModels: handleStartFetchProviderModels,
 		onRetryFetchProviderModels: handleRetryFetchProviderModels,
 		onFetchedModelsSearchChange: (query: string) =>
