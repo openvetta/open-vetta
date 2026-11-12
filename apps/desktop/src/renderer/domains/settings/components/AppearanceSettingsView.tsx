@@ -67,9 +67,13 @@ function UiZoomPopover({ model }: { model: AppearanceSettingsModel }): JSX.Eleme
 	return (
 		<Popover>
 			<PopoverTrigger asChild>
-				<button type="button" className="group flex items-center gap-1.5 rounded-lg outline-none">
-					<span className="text-[13px] tabular-nums text-foreground">{Math.round(factor * 100)}%</span>
-					<span className="icon-[mdi--chevron-down] h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
+				<button
+					type="button"
+					// 与 MotionSelect（borderless）触发器同皮，只是弹出的是滑块 popover
+					className="flex h-8 w-[150px] items-center justify-between gap-1.5 rounded-lg border border-transparent bg-muted px-2.5 text-[12px] font-medium whitespace-nowrap text-foreground outline-none transition-colors hover:bg-accent focus-visible:border-primary/50 data-[state=open]:bg-accent"
+				>
+					<span className="min-w-0 flex-1 truncate text-left tabular-nums">{Math.round(factor * 100)}%</span>
+					<span className="icon-[mdi--chevron-down] ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
 				</button>
 			</PopoverTrigger>
 			<PopoverContent align="end" className="w-[340px] p-3">
