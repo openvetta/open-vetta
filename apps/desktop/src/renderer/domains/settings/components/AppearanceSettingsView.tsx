@@ -560,6 +560,42 @@ const TextureCard = memo(function TextureCard({
 	);
 });
 
+/** 设置项右侧的下拉式触发器：显示当前选项名，点开 popover 里是方格预览网格；选中后自动收起。 */
+function DecorPicker({
+	active,
+	ariaLabel,
+	children,
+}: {
+	active?: string;
+	ariaLabel: string;
+	children: ReactNode;
+}): JSX.Element {
+	const [open, setOpen] = useState(false);
+	return (
+		<Popover open={open} onOpenChange={setOpen}>
+			<PopoverTrigger asChild>
+				<button
+					type="button"
+					aria-label={ariaLabel}
+					className={cn(
+						"flex h-8 w-fit items-center justify-between gap-1.5 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap text-foreground outline-none transition-colors",
+						SELECT_TRIGGER_CLASS,
+					)}
+				>
+					<span className="min-w-0 flex-1 truncate text-left">{active}</span>
+					<span className="icon-[mdi--chevron-down] ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
+				</button>
+			</PopoverTrigger>
+			<PopoverContent align="end" className="w-[440px] p-3">
+				{/* 选项卡的 onSelect 保持稳定（卡片是 memo 的）；选中后靠点击冒泡到这里收起 popover。 */}
+				<div className="grid grid-cols-4 gap-3" onClick={() => setOpen(false)}>
+					{children}
+				</div>
+			</PopoverContent>
+		</Popover>
+	);
+}
+
 export function AppearanceSettingsView({ model }: { model: AppearanceSettingsModel }): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 pt-2 pb-4">
@@ -619,35 +655,36 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				</div>
 			)}
 
-			{/* 新会话页装饰：装饰件与纹理都只改这一页，连排在一起用户不必逐项猜它们作用在哪。
-			    不套卡片、不加边框——这一页其余分区都是平铺的，单独给它加一层壳反而把它拔高成了别的东西。 */}
+			{/* 新会话页装饰：装饰件与纹理两个设置项，点开 popover 挑选；两项都只影响新会话页。 */}
 			<div className="mb-10">
-				<div className="mb-5">
-					<h2 className="text-[15px] font-semibold text-foreground">{model.labels.newSessionDecorTitle}</h2>
-					<p className="mt-1 text-[12px] text-muted-foreground">{model.labels.newSessionDecorHint}</p>
-				</div>
-
-				{/* 装饰件：输入框上方那块挂饰位 */}
-				<div className="mb-8">
-					<SettingHeading title={model.labels.sections.ornament} section={SETTINGS_SECTION["appearance-ornament"]} className="mb-1 text-[13px]" />
-					<p className="mb-4 text-[12px] text-muted-foreground">{model.labels.ornamentHint}</p>
-					<div className="grid grid-cols-4 gap-4">
-						{model.ornamentOptions.map((option) => (
-							<OrnamentCard key={option.id} {...option} onSelect={model.actions.setOrnament} />
-						))}
+				<SettingSection
+					title={model.labels.newSessionDecorTitle}
+					section={SETTINGS_SECTION["appearance-ornament"]}
+					description={model.labels.newSessionDecorHint}
+				>
+					<SettingRow title={model.labels.sections.ornament} description={model.labels.ornamentHint}>
+						<DecorPicker
+							active={model.ornamentOptions.find((option) => option.active)?.label}
+							ariaLabel={model.labels.sections.ornament}
+						>
+							{model.ornamentOptions.map((option) => (
+								<OrnamentCard key={option.id} {...option} onSelect={model.actions.setOrnament} />
+							))}
+						</DecorPicker>
+					</SettingRow>
+					<div id={SETTINGS_SECTION["appearance-texture"].id} data-setting-section-id={SETTINGS_SECTION["appearance-texture"].id}>
+						<SettingRow title={model.labels.sections.texture} description={model.labels.textureHint} border={false}>
+							<DecorPicker
+								active={model.textureOptions.find((option) => option.active)?.label}
+								ariaLabel={model.labels.sections.texture}
+							>
+								{model.textureOptions.map((option) => (
+									<TextureCard key={option.id} {...option} onSelect={model.actions.setTexture} />
+								))}
+							</DecorPicker>
+						</SettingRow>
 					</div>
-				</div>
-
-				{/* 纹理：整页背后的底衬 */}
-				<div>
-					<SettingHeading title={model.labels.sections.texture} section={SETTINGS_SECTION["appearance-texture"]} className="mb-1 text-[13px]" />
-					<p className="mb-4 text-[12px] text-muted-foreground">{model.labels.textureHint}</p>
-					<div className="grid grid-cols-4 gap-4">
-						{model.textureOptions.map((option) => (
-							<TextureCard key={option.id} {...option} onSelect={model.actions.setTexture} />
-						))}
-					</div>
-				</div>
+				</SettingSection>
 			</div>
 		</div>
 	);
