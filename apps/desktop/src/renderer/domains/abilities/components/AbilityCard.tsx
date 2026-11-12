@@ -8,6 +8,7 @@ import {
 	DropdownMenuTrigger,
 } from "@vetta-org/ui";
 import { useNavigate } from "@tanstack/react-router";
+import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import { useAbilityText } from "../hooks/useAbilityText";
 import type { AbilitiesModel, AbilityItem, McpAbility } from "../types";
@@ -119,7 +120,14 @@ function InstalledMoreMenu({
 	);
 }
 
-export function AbilityCard({ item, model }: { item: AbilityItem; model: AbilitiesModel }): JSX.Element {
+/** 只比较 item：model 由页面以稳定代理传入，方法调用时总取最新值。 */
+export const AbilityCard = memo(function AbilityCard({
+	item,
+	model,
+}: {
+	item: AbilityItem;
+	model: AbilitiesModel;
+}): JSX.Element {
 	const { t } = useTranslation("abilities");
 	const navigate = useNavigate();
 	const { title, description } = useAbilityText()(item);
@@ -178,4 +186,4 @@ export function AbilityCard({ item, model }: { item: AbilityItem; model: Abiliti
 			)}
 		</div>
 	);
-}
+}, (prev, next) => prev.item === next.item);
