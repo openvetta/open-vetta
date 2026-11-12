@@ -799,6 +799,7 @@
   "agentSettings": {
     "title": "Agent 设置",
     "customInstructions": "自定义指令",
+    "customInstructionsEdit": "编辑",
     "customInstructionsPlaceholder": "例如：默认用中文回答；代码注释保持简洁……",
     "persona": "人设",
     "default": "默认",

@@ -799,6 +799,7 @@
   "agentSettings": {
     "title": "Agent Settings",
     "customInstructions": "Custom Instructions",
+    "customInstructionsEdit": "Edit",
     "customInstructionsPlaceholder": "e.g. Answer in Chinese by default; keep code comments concise…",
     "persona": "Persona",
     "default": "Default",
