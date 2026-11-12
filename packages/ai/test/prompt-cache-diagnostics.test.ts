@@ -199,6 +199,74 @@ describe("prompt cache diagnostics", () => {
 	});
 });
 
+// 指纹会随 usage 持久化，下一次调用拿它判断前缀是否延续；实现怎么优化都不能改变已发布的哈希值。
+describe("prompt cache fingerprint compatibility", () => {
+	it("keeps the published pc1 hashes for a conversation with images and tool calls", () => {
+		const tools: Context["tools"] = [
+			{
+				name: "read",
+				description: "Read",
+				parameters: Type.Object({ a: Type.String() }),
+			},
+		];
+		const messages: Context["messages"] = [
+			{
+				role: "user",
+				content: [
+					{ type: "text", text: "look" },
+					{ type: "image", mimeType: "image/png", data: "aW1hZ2UtYnl0ZXM=" },
+				],
+				timestamp: 1,
+			},
+			{
+				...assistantMessage(),
+				content: [
+					{ type: "text", text: "我看到了" },
+					{ type: "toolCall", id: "call-1", name: "read", arguments: { a: "x" } },
+				],
+				stopReason: "toolUse",
+			},
+			{
+				role: "toolResult",
+				toolCallId: "call-1",
+				toolName: "read",
+				content: [{ type: "text", text: "result" }],
+				isError: false,
+				timestamp: 3,
+			},
+		];
+		const systemPrompt = "Stable prefix\n\nvolatile tail";
+		const first = createPromptCacheDiagnostics({ systemPrompt, systemPromptStableLength: 13, messages, tools });
+		const assistant = messages[1] as AssistantMessage;
+		messages[1] = { ...assistant, usage: { ...assistant.usage, promptCache: first } };
+		messages.push(
+			{ ...assistantMessage(), content: [{ type: "text", text: "done" }], timestamp: 4 },
+			{ role: "user", content: "next", timestamp: 5 },
+		);
+		const second = createPromptCacheDiagnostics({ systemPrompt, systemPromptStableLength: 13, messages, tools });
+
+		expect(first).toMatchObject({
+			cachePrefixHash: "pc1:e883e138e77d59bc",
+			stableSystemPromptHash: "pc1:8241486c54615310",
+			volatileSystemPromptHash: "pc1:e6b2ca3da5b75699",
+			toolsHash: "pc1:aaa329f8019d26b4",
+			historyPrefixHash: "pc1:3c5018e0c4d3ec14",
+			requestMessagesHash: "pc1:b1a44a1aba33138e",
+			toolDefinitions: [{ name: "read", hash: "pc1:cfc3c078bae4169c" }],
+			prefixStatus: "initial",
+		});
+		expect(second).toMatchObject({
+			cachePrefixHash: "pc1:d1e98fa02bd8b1a4",
+			historyPrefixHash: "pc1:d2f87d8b56df88e7",
+			requestMessagesHash: "pc1:085e932c22208f98",
+			requestMessageCount: 5,
+			historyPrefixMessages: 4,
+			prefixStatus: "extended",
+			changedSegments: [],
+		});
+	});
+});
+
 function context(): Context {
 	return {
 		systemPrompt: "Stable prefix\n\nvolatile tail",
