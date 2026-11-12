@@ -123,6 +123,7 @@ const LanguageSelect = memo(function LanguageSelect({
 		<MotionSelect
 			value={language}
 			onValueChange={(next) => onSelect(next as AppearanceLanguageOption["value"])}
+			borderless
 			triggerClassName="w-[150px]"
 			options={languages.map((option) => ({
 				value: option.value,
@@ -172,6 +173,7 @@ function ModeSelect({
 		<MotionSelect
 			value={mode}
 			onValueChange={(next) => onSelect(next as ThemeMode, lastPoint.current)}
+			borderless
 			triggerClassName="w-[150px]"
 			options={options.map((option) => ({
 				value: option.value,

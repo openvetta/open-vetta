@@ -28,6 +28,8 @@ export interface MotionSelectProps {
 	readonly disabled?: boolean;
 	/** 触发器额外 class（宽高等） */
 	readonly triggerClassName?: string;
+	/** 无边框样式：触发器用 muted 底色，弹出面板也不画边框。 */
+	readonly borderless?: boolean;
 	readonly "aria-label"?: string;
 }
 
@@ -38,6 +40,7 @@ export function MotionSelect({
 	placeholder,
 	disabled,
 	triggerClassName,
+	borderless = false,
 	"aria-label": ariaLabel,
 }: MotionSelectProps): JSX.Element {
 	const [open, setOpen] = useState(false);
@@ -54,6 +57,7 @@ export function MotionSelect({
 					className={cn(
 						// 与 @vetta-org/ui SelectTrigger 同皮
 						"flex h-8 w-fit items-center justify-between gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors outline-none",
+						borderless ? "border-transparent bg-muted" : null,
 						"hover:bg-accent data-[state=open]:bg-accent",
 						"focus-visible:border-primary/50",
 						"disabled:cursor-not-allowed disabled:opacity-50",
@@ -76,7 +80,8 @@ export function MotionSelect({
 						// 勿用 bg-transparent（会盖掉 bg-popover，面板变「没背景」）
 						className={cn(
 							"z-50 w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)]",
-							"gap-0 overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md outline-hidden",
+							"gap-0 overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-md outline-hidden",
+							borderless ? "border-transparent ring-0" : "border-border",
 							"data-open:animate-none data-closed:animate-none",
 						)}
 						style={{ animation: "none" }}
