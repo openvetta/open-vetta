@@ -53,7 +53,6 @@ function model(
 		cursorOptions: [],
 		cursorStyle: "default",
 		labels: {
-			languageHint: "languageHint",
 			newSessionDecorHint: "newSessionDecorHint",
 			newSessionDecorTitle: "新会话页装饰",
 			ornamentHint: "ornamentHint",
@@ -71,7 +70,6 @@ function model(
 			},
 			textureHint: "textureHint",
 			title: "外观",
-			uiZoomHint: "uiZoomHint",
 			uiZoomReset: "恢复默认",
 			uiZoomSliderLabel: "界面大小滑块",
 		},

@@ -212,8 +212,7 @@
     "editorFontFamily": "编辑器字体系列",
     "systemDefault": "系统默认",
     "language": "语言",
-    "languageHint": "默认「跟随系统」；可固定为中文或 English，立即生效。",
-    "fontSizeValue": "{{value}}px"
+      "fontSizeValue": "{{value}}px"
   },
   "model": "模型",
   "mcp": "MCP",
@@ -276,7 +275,6 @@
   "executionModeChangeFailed": "执行模式切换失败：{{reason}}",
   "notificationsChangeFailed": "通知设置保存失败：{{reason}}",
   "appearanceDescription": "主题、密度、字体大小和编辑器字体系列。",
-  "languageHint": "默认「跟随系统」；可固定为中文或 English，立即生效。",
   "modelDescription": "模型提供商密钥、模型选择和速率限制。",
   "mcpDescription": "管理 MCP，给 AI 增加额外能力，例如浏览网页、使用外部工具。添加后可在对话中直接使用。",
   "pluginDescription": "管理插件设置和配置选项。",
@@ -1356,7 +1354,6 @@
   "appIcon_travel": "旅行",
   "appIcon_sleep": "睡眠",
   "section_appearance-ui-zoom": "界面大小",
-  "uiZoomHint": "调整页面的显示大小。",
   "uiZoomReset": "恢复默认",
   "uiZoomSliderLabel": "界面大小",
   "section_appearance-sidebar": "侧边栏样式",

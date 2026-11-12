@@ -123,7 +123,6 @@ export interface AppearanceSettingsModel {
 	cursorOptions: AppearanceCursorOption[];
 	cursorStyle: CursorStyle;
 	labels: {
-		languageHint: string;
 		/** 「新会话页装饰」这块合并区域的说明，点明装饰件与纹理只影响新会话页。 */
 		newSessionDecorHint: string;
 		newSessionDecorTitle: string;
@@ -141,7 +140,6 @@ export interface AppearanceSettingsModel {
 			uiZoom: string;
 		};
 		textureHint: string;
-		uiZoomHint: string;
 		uiZoomReset: string;
 		uiZoomSliderLabel: string;
 		title: string;
@@ -393,7 +391,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 
 	const labels = useMemo(
 		() => ({
-			languageHint: t("languageHint"),
 			newSessionDecorHint: t("newSessionDecorHint"),
 			newSessionDecorTitle: t("newSessionDecorTitle"),
 			ornamentHint: t("ornamentHint"),
@@ -410,7 +407,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 				uiZoom: t(SETTINGS_SECTION["appearance-ui-zoom"].titleKey),
 			},
 			textureHint: t("textureHint"),
-			uiZoomHint: t("uiZoomHint"),
 			uiZoomReset: t("uiZoomReset"),
 			uiZoomSliderLabel: t("uiZoomSliderLabel"),
 			title: t("appearanceTitle"),

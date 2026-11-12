@@ -615,19 +615,36 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				<SettingsAiAssist tabId="appearance" />
 			</div>
 
+			{/* 语言 / 外观模式 / 界面大小：同一张卡片里的三行；后两个分区锚点挂在各自行的包裹层上，供设置搜索定位。 */}
 			<div className="mb-10">
-				<SettingSection title={model.labels.sections.language} section={SETTINGS_SECTION["appearance-language"]}>
-					<SettingRow title={model.labels.sections.language} description={model.labels.languageHint} border={false}>
+				<SettingSection title="" section={SETTINGS_SECTION["appearance-language"]}>
+					<SettingRow title={model.labels.sections.language}>
 						<LanguageSelect language={model.language} languages={model.languages} onSelect={model.actions.changeLanguage} />
 					</SettingRow>
-				</SettingSection>
-			</div>
-
-			<div className="mb-10">
-				<SettingSection title={model.labels.sections.mode} section={SETTINGS_SECTION["appearance-mode"]}>
-					<SettingRow title={model.labels.sections.mode} border={false}>
-						<ModeSegmented mode={model.mode} options={model.modeOptions} onSelect={model.actions.changeMode} />
-					</SettingRow>
+					<div id={SETTINGS_SECTION["appearance-mode"].id} data-setting-section-id={SETTINGS_SECTION["appearance-mode"].id}>
+						<SettingRow title={model.labels.sections.mode}>
+							<ModeSegmented mode={model.mode} options={model.modeOptions} onSelect={model.actions.changeMode} />
+						</SettingRow>
+					</div>
+					<div id={SETTINGS_SECTION["appearance-ui-zoom"].id} data-setting-section-id={SETTINGS_SECTION["appearance-ui-zoom"].id}>
+						<SettingRow title={model.labels.sections.uiZoom} border={false}>
+							<div className="flex items-center gap-2">
+								<div className="w-[300px]">
+									<UiZoomControl model={model} />
+								</div>
+								<Button
+									variant="ghost"
+									size="icon-xs"
+									title={model.labels.uiZoomReset}
+									aria-label={model.labels.uiZoomReset}
+									disabled={model.uiZoom.factor === model.uiZoom.default}
+									onClick={model.actions.resetUiZoom}
+								>
+									<span aria-hidden className="icon-[solar--restart-linear] h-3.5 w-3.5" />
+								</Button>
+							</div>
+						</SettingRow>
+					</div>
 				</SettingSection>
 			</div>
 
@@ -657,24 +674,6 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 					</div>
 				</div>
 			)}
-
-			<div className="mb-10">
-				<div className="mb-1 flex items-center justify-between gap-2">
-					<SettingHeading title={model.labels.sections.uiZoom} section={SETTINGS_SECTION["appearance-ui-zoom"]} />
-					<Button
-						variant="ghost"
-						size="icon-xs"
-						title={model.labels.uiZoomReset}
-						aria-label={model.labels.uiZoomReset}
-						disabled={model.uiZoom.factor === model.uiZoom.default}
-						onClick={model.actions.resetUiZoom}
-					>
-						<span aria-hidden className="icon-[solar--restart-linear] h-3.5 w-3.5" />
-					</Button>
-				</div>
-				<p className="mb-4 text-[12px] text-muted-foreground">{model.labels.uiZoomHint}</p>
-				<UiZoomControl model={model} />
-			</div>
 
 			{/* 应用图标：左右排列的设置项卡片，右侧是当前图标 + popover 选择器 */}
 			<div className="mb-10">

@@ -212,8 +212,7 @@
     "editorFontFamily": "Editor font family",
     "systemDefault": "System default",
     "language": "Language",
-    "languageHint": "Defaults to System; pin Chinese or English anytime. Changes apply immediately.",
-    "fontSizeValue": "{{value}}px"
+      "fontSizeValue": "{{value}}px"
   },
   "model": "Model",
   "mcp": "MCP",
@@ -276,7 +275,6 @@
   "executionModeChangeFailed": "Failed to switch execution mode: {{reason}}",
   "notificationsChangeFailed": "Failed to save notification settings: {{reason}}",
   "appearanceDescription": "Theme, density, font size, and editor font family.",
-  "languageHint": "Defaults to System; pin Chinese or English anytime. Changes apply immediately.",
   "modelDescription": "Model provider keys, model selection, and rate limits.",
   "mcpDescription": "Manage MCP servers to give the AI extra capabilities, such as browsing the web or using external tools. Once added, they are available in chat.",
   "pluginDescription": "Manage plugin settings and configuration options.",
@@ -1356,7 +1354,6 @@
   "appIcon_travel": "Travel",
   "appIcon_sleep": "Sleep",
   "section_appearance-ui-zoom": "Interface Size",
-  "uiZoomHint": "Adjust how large the interface appears.",
   "uiZoomReset": "Reset",
   "uiZoomSliderLabel": "Interface size",
   "section_appearance-sidebar": "Sidebar Style",
