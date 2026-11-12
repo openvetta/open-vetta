@@ -1344,7 +1344,6 @@
   "newSessionDecorTitle": "新会话页装饰",
   "newSessionDecorHint": "以下两项只改新会话页的样子：装饰件挂在输入框上方，纹理是整页背后的底衬。",
   "section_appearance-app-icon": "应用图标",
-  "appIconHint": "换一个你喜欢的图标，会立即用在 Dock / 任务栏上。Finder 或桌面里的应用文件图标仍是默认样式。",
   "appIcon_default": "默认",
   "appIcon_coding": "编程",
   "appIcon_design": "设计",

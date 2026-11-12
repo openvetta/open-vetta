@@ -53,7 +53,6 @@ function model(
 		cursorOptions: [],
 		cursorStyle: "default",
 		labels: {
-			appIconHint: "appIconHint",
 			languageHint: "languageHint",
 			newSessionDecorHint: "newSessionDecorHint",
 			newSessionDecorTitle: "新会话页装饰",
@@ -150,7 +149,7 @@ describe("AppearanceSettingsView 的新会话页装饰区域", () => {
 		const setAppIcon = vi.fn();
 		const view = render(<AppearanceSettingsView model={model({ actions: { setAppIcon } })} />);
 
-		expect(view.getByText("应用图标")).toBeTruthy();
+		expect(view.getAllByText("应用图标").length).toBeGreaterThan(0);
 		expect(view.queryByTitle("编程")).toBeNull();
 		await userEvent.click(view.getByText("默认"));
 		await userEvent.click(await view.findByTitle("编程"));

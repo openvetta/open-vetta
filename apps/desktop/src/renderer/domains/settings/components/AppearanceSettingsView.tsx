@@ -15,7 +15,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { SettingsAiAssist } from "../ai-assist";
 import themeLock from "../assets/theme-lock.webp";
 import { SETTINGS_SECTION } from "../registry";
-import { MotionSelect, SettingHeading } from "@vetta-org/theme-ui/settings";
+import { MotionSelect, SettingHeading, SettingRow, SettingSection } from "@vetta-org/theme-ui/settings";
 import type { AppIconId } from "@/shared/app-icon";
 import type { SidebarStyle } from "@shared/theme/sidebar-style";
 import type {
@@ -370,14 +370,14 @@ function AppIconPicker({
 			<PopoverTrigger asChild>
 				<button
 					type="button"
-					className="group flex items-center gap-3 rounded-xl py-1 pr-2 text-left outline-none"
+					className="group flex items-center gap-2.5 rounded-lg outline-none"
 				>
-					<SquircleIcon src={current.preview} className="h-14 w-14 shrink-0" />
-					<span className="text-[13px] font-medium text-foreground">{current.label}</span>
+					<SquircleIcon src={current.preview} className="h-8 w-8 shrink-0" />
+					<span className="text-[13px] text-foreground">{current.label}</span>
 					<span className="icon-[mdi--chevron-down] h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
 				</button>
 			</PopoverTrigger>
-			<PopoverContent align="start" className="w-[320px] p-3">
+			<PopoverContent align="end" className="w-[320px] p-3">
 				<div className="grid grid-cols-4 gap-x-3 gap-y-3">
 					{options.map((option) => (
 						<button
@@ -680,6 +680,15 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				<UiZoomControl model={model} />
 			</div>
 
+			{/* 应用图标：左右排列的设置项卡片，右侧是当前图标 + popover 选择器 */}
+			<div className="mb-10">
+				<SettingSection title={model.labels.sections.appIcon} section={SETTINGS_SECTION["appearance-app-icon"]}>
+					<SettingRow title={model.labels.sections.appIcon} border={false}>
+						<AppIconPicker options={model.appIconOptions} onSelect={model.actions.setAppIcon} />
+					</SettingRow>
+				</SettingSection>
+			</div>
+
 			{/* 新会话页装饰：装饰件与纹理都只改这一页，连排在一起用户不必逐项猜它们作用在哪。
 			    不套卡片、不加边框——这一页其余分区都是平铺的，单独给它加一层壳反而把它拔高成了别的东西。 */}
 			<div className="mb-10">
@@ -718,13 +727,6 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 						<SidebarStyleCard key={option.id} {...option} onSelect={model.actions.setSidebarStyle} />
 					))}
 				</div>
-			</div>
-
-			{/* 应用图标：单个入口 + popover，点选即换 Dock / 任务栏图标 */}
-			<div className="mb-10">
-				<SettingHeading title={model.labels.sections.appIcon} section={SETTINGS_SECTION["appearance-app-icon"]} className="mb-1" />
-				<p className="mb-4 text-[12px] text-muted-foreground">{model.labels.appIconHint}</p>
-				<AppIconPicker options={model.appIconOptions} onSelect={model.actions.setAppIcon} />
 			</div>
 
 			{/* 鼠标指针：两列卡片，排在本页最末 */}

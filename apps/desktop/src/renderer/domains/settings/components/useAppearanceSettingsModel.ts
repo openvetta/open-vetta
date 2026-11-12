@@ -123,7 +123,6 @@ export interface AppearanceSettingsModel {
 	cursorOptions: AppearanceCursorOption[];
 	cursorStyle: CursorStyle;
 	labels: {
-		appIconHint: string;
 		languageHint: string;
 		/** 「新会话页装饰」这块合并区域的说明，点明装饰件与纹理只影响新会话页。 */
 		newSessionDecorHint: string;
@@ -394,7 +393,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 
 	const labels = useMemo(
 		() => ({
-			appIconHint: t("appIconHint"),
 			languageHint: t("languageHint"),
 			newSessionDecorHint: t("newSessionDecorHint"),
 			newSessionDecorTitle: t("newSessionDecorTitle"),
