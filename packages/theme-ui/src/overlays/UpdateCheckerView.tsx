@@ -48,7 +48,11 @@ export function UpdateCheckerAction({
 	onCheck,
 	onViewCurrent,
 	phase,
-}: Pick<UpdateCheckerViewProps, "checking" | "labels" | "onCheck" | "onViewCurrent" | "phase">): JSX.Element {
+	progress,
+}: Pick<UpdateCheckerViewProps, "checking" | "labels" | "onCheck" | "onViewCurrent" | "phase" | "progress">): JSX.Element {
+	// 下载中不能再点检查更新：按钮直接变成不可点的下载进度，重新进入设置页也一致。
+	const downloading = phase === "downloading";
+	const busy = checking || downloading;
 	return (
 		<div className="flex items-center gap-2">
 			{onViewCurrent && labels.viewCurrent && (
@@ -60,12 +64,16 @@ export function UpdateCheckerAction({
 			<Button
 				variant="field"
 				onClick={onCheck}
-				disabled={checking}
+				disabled={busy}
 				data-testid="updater-check"
 				data-updater-phase={phase}
 			>
-				<span className={`icon-[mdi--refresh] h-3.5 w-3.5 ${checking ? "animate-spin" : ""}`} />
-				{checking ? labels.checkingBtn : labels.check}
+				<span className={`icon-[mdi--refresh] h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
+				{downloading
+					? labels.downloading(Math.round((progress ?? 0) * 100))
+					: checking
+						? labels.checkingBtn
+						: labels.check}
 			</Button>
 		</div>
 	);

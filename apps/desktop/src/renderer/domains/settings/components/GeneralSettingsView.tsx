@@ -35,6 +35,7 @@ export function GeneralSettingsView({ model }: GeneralSettingsViewProps): JSX.El
 					onCheck={updates.onCheck}
 					onViewCurrent={updates.onViewCurrent}
 					phase={updates.phase}
+					progress={updates.progress}
 				/>
 			}
 			executionMode={model.executionMode}
