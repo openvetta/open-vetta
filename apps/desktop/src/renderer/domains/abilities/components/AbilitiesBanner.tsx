@@ -1,7 +1,7 @@
 import { Button } from "@vetta-org/ui";
 import { useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AbilityIcon } from "./AbilityIcon";
 import type { AbilityBannerIcon } from "../types";
@@ -62,7 +62,38 @@ export function AbilitiesBanner({ icons }: { icons: AbilityBannerIcon[] }): JSX.
 	const pool = useMemo(() => shuffleIcons(isFallback ? FALLBACK_ICONS : icons), [icons, isFallback]);
 	const slideCount = isFallback ? 1 : Math.min(MAX_SLIDES, pool.length);
 	const [active, setActive] = useState(0);
-	const [paused, setPaused] = useState(false);
+	const [hovered, setHovered] = useState(false);
+	const [offscreen, setOffscreen] = useState(false);
+	const rootRef = useRef<HTMLDivElement>(null);
+	const paused = hovered || offscreen;
+
+	// 窗口失焦、标签隐藏或 banner 滚出视口时停止轮播，避免在看不见的地方持续出帧。
+	useEffect(() => {
+		const node = rootRef.current;
+		let visible = true;
+		let focused = document.hasFocus() && !document.hidden;
+		const sync = (): void => setOffscreen(!visible || !focused);
+		const onState = (): void => {
+			focused = document.hasFocus() && !document.hidden;
+			sync();
+		};
+		const observer = node && typeof IntersectionObserver !== "undefined"
+			? new IntersectionObserver(([entry]) => {
+					visible = entry?.isIntersecting ?? true;
+					sync();
+				})
+			: null;
+		if (node) observer?.observe(node);
+		window.addEventListener("focus", onState);
+		window.addEventListener("blur", onState);
+		document.addEventListener("visibilitychange", onState);
+		return () => {
+			observer?.disconnect();
+			window.removeEventListener("focus", onState);
+			window.removeEventListener("blur", onState);
+			document.removeEventListener("visibilitychange", onState);
+		};
+	}, []);
 
 	useEffect(() => {
 		setActive(0);
@@ -88,8 +119,9 @@ export function AbilitiesBanner({ icons }: { icons: AbilityBannerIcon[] }): JSX.
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ duration: 0.45, ease: easeOut }}
 			data-tour="capabilities-banner"
-			onMouseEnter={() => setPaused(true)}
-			onMouseLeave={() => setPaused(false)}
+			ref={rootRef}
+			onMouseEnter={() => setHovered(true)}
+			onMouseLeave={() => setHovered(false)}
 			className="relative hidden h-[232px] min-[900px]:grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] overflow-hidden rounded-2xl border border-border/50 bg-card/40"
 		>
 			<div aria-hidden className="relative overflow-hidden">
@@ -100,7 +132,7 @@ export function AbilitiesBanner({ icons }: { icons: AbilityBannerIcon[] }): JSX.
 						animate={{ opacity: 1 }}
 						exit={{ opacity: 0 }}
 						transition={{ duration: 0.7, ease: "easeInOut" }}
-						className="absolute inset-0"
+						className="absolute inset-0 will-change-[opacity]"
 						style={{ background: slideGradient(hue) }}
 					/>
 				</AnimatePresence>
@@ -126,7 +158,7 @@ export function AbilitiesBanner({ icons }: { icons: AbilityBannerIcon[] }): JSX.
 						animate={{ opacity: 1, scale: 1 }}
 						exit={{ opacity: 0, scale: 1.04 }}
 						transition={{ duration: 0.4, ease: easeOut }}
-						className="absolute inset-0"
+						className="absolute inset-0 will-change-[transform,opacity]"
 					>
 						{group.map((source, index) => {
 							const layout = SLOT_LAYOUT[index]!;
@@ -142,7 +174,7 @@ export function AbilitiesBanner({ icons }: { icons: AbilityBannerIcon[] }): JSX.
 										opacity: layout.opacity,
 										transform: `translate(-50%, -50%) rotate(${layout.rotate}deg)`,
 									}}
-									className={`absolute flex items-center justify-center rounded-[26%] border bg-card/90 shadow-xl shadow-black/15 backdrop-blur-md ${
+									className={`absolute flex items-center justify-center rounded-[26%] border bg-card shadow-xl shadow-black/15 ${
 										isFeatured ? "z-10 border-foreground/20 ring-4 ring-foreground/10" : "border-foreground/10"
 									}`}
 								>
