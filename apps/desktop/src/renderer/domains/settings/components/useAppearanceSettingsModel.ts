@@ -1,7 +1,6 @@
 import { useCursorStyle } from "@shared/hooks/useCustomCursor";
 import { useHeroOrnament } from "@shared/hooks/useHeroOrnament";
 import { useLanguage } from "@shared/hooks/useLanguage";
-import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { useNewSessionTexture } from "@shared/hooks/useNewSessionTexture";
 import { useSidebarStyle } from "@shared/hooks/useSidebarStyle";
 import { useTheme } from "@shared/hooks/useTheme";
@@ -129,7 +128,6 @@ export interface AppearanceSettingsModel {
 	languages: AppearanceLanguageOption[];
 	mode: ThemeMode;
 	modeOptions: AppearanceModeOption[];
-	narrow: boolean;
 	ornamentId: OrnamentId;
 	ornamentOptions: AppearanceOrnamentOption[];
 	/** 是否展示「界面主题」区段（`VETTA_SHOW_UI_THEME=true`） */
@@ -241,7 +239,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 	const { ornamentId, setOrnament } = useHeroOrnament();
 	const { textureId, setTexture } = useNewSessionTexture();
 	const { t } = useTranslation("settings");
-	const narrow = useNarrowScreen();
 
 	const languages = useMemo<AppearanceLanguageOption[]>(
 		() => [
@@ -446,7 +443,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 		languages,
 		mode,
 		modeOptions,
-		narrow,
 		ornamentId,
 		ornamentOptions,
 		showUiTheme: isAppearanceUiThemeEnabled(),

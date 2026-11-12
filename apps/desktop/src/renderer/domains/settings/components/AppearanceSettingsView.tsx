@@ -12,7 +12,6 @@ import type { ThemeDef } from "@shared/theme/tokens";
 import { memo, useEffect, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { SettingsAiAssist } from "../ai-assist";
-import appearanceMascot from "../assets/appearance-mascot.webp";
 import themeLock from "../assets/theme-lock.webp";
 import { SETTINGS_SECTION } from "../registry";
 import { MotionSelect, SettingHeading } from "@vetta-org/theme-ui/settings";
@@ -522,24 +521,10 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				<SettingsAiAssist tabId="appearance" />
 			</div>
 
-			{/* 语言区 + 右侧外观吉祥物 */}
-			<div className="mb-10 flex items-center gap-4 pr-10">
-				<div className="min-w-0 flex-1">
-					<SettingHeading title={model.labels.sections.language} section={SETTINGS_SECTION["appearance-language"]} className="mb-1" />
-					<p className="mb-4 text-[12px] text-muted-foreground">{model.labels.languageHint}</p>
-					<LanguageSelect language={model.language} languages={model.languages} onSelect={model.actions.changeLanguage} />
-				</div>
-				{!model.narrow && (
-					<div className="flex h-[100px] w-[120px] shrink-0 items-center justify-center">
-						<img
-							aria-hidden="true"
-							alt=""
-							className="pointer-events-none h-[100px] w-auto select-none object-contain"
-							draggable={false}
-							src={appearanceMascot}
-						/>
-					</div>
-				)}
+			<div className="mb-10">
+				<SettingHeading title={model.labels.sections.language} section={SETTINGS_SECTION["appearance-language"]} className="mb-1" />
+				<p className="mb-4 text-[12px] text-muted-foreground">{model.labels.languageHint}</p>
+				<LanguageSelect language={model.language} languages={model.languages} onSelect={model.actions.changeLanguage} />
 			</div>
 
 			<div className="mb-10">

@@ -73,7 +73,6 @@ function model(
 		languages: [],
 		mode: "dark",
 		modeOptions: [],
-		narrow: true,
 		ornamentId: "none",
 		ornamentOptions: [{ active: true, hint: "ornamentNoneHint", id: "none", label: "无" }],
 		showUiTheme: false,
