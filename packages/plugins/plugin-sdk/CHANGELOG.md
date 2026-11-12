@@ -4,6 +4,8 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+## [0.3.12] — 2026-11-12
+
 - 新增 `ModelPicker` 组件：宿主渲染的模型选择器，与会话输入栏右下角、知识库设置等处是同一个组件、同一份模型清单（含登录后的云端目录、收藏、推理档位与主题定制）。插件只传受控的 `value` / `onChange`，可选 `reasoning`、`emptyOption`、`defaultModelKey`、`autoSelectDefault`、`variant`、`menuClassName`（选择器放在层级更高的浮层里时抬高菜单）。不需要权限，也不需要 `hostThemeUi`；此前插件只能自己调 `official.models.list()` / `ctx.ai.listModels()` 再拼 `ModelSelectorView` 或原生 `<select>`，字段不全且不会随宿主目录更新。需要 Desktop 0.5.76+，`PluginHostBridge` 相应新增 `ModelPicker`。
 
 ## [0.3.11] — 2026-11-11
