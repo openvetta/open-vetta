@@ -142,11 +142,11 @@ export const AbilityCard = memo(function AbilityCard({
 			onPointerEnter={() => void loadAbilityDetailView().catch(() => undefined)}
 			onPointerDown={() => void loadAbilityDetailView().catch(() => undefined)}
 			className={cn(
-				"group relative flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 transition-colors duration-200 hover:bg-accent/60 dark:hover:bg-accent/35",
+				"group relative flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition-colors duration-200 hover:bg-accent/60 dark:hover:bg-accent/35",
 				!item.enabled && item.installed && "opacity-75",
 			)}
 		>
-			<AbilityIcon icon={item.icon} type={item.type} className="h-10 w-10 rounded-xl" iconClassName="h-5 w-5" />
+			<AbilityIcon icon={item.icon} type={item.type} className="h-9 w-9 rounded-lg" iconClassName="h-[18px] w-[18px]" />
 			<div className="min-w-0 flex-1">
 				<div className="flex min-w-0 flex-wrap items-center gap-1.5">
 					<h3 className="truncate text-[13px] font-semibold text-foreground">{title}</h3>
@@ -161,7 +161,7 @@ export const AbilityCard = memo(function AbilityCard({
 						/>
 					</div>
 				) : (
-					<p className="mt-0.5 line-clamp-2 text-[11.5px] leading-relaxed text-muted-foreground/70">
+					<p className="mt-0.5 line-clamp-1 text-[11.5px] leading-relaxed text-muted-foreground/70">
 						{description || t("card.noDescription")}
 					</p>
 				)}

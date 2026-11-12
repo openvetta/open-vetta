@@ -25,12 +25,12 @@ const FALLBACK_ICONS: AbilityBannerIcon[] = [
  * [left%, top%, 尺寸px, 旋转角, 透明度]
  */
 const SLOT_LAYOUT = [
-	{ left: 30, top: 50, size: 120, rotate: -6, opacity: 1 },
-	{ left: 66, top: 24, size: 76, rotate: 8, opacity: 0.95 },
-	{ left: 76, top: 66, size: 88, rotate: -8, opacity: 0.95 },
-	{ left: 52, top: 86, size: 60, rotate: 10, opacity: 0.85 },
-	{ left: 9, top: 16, size: 56, rotate: -10, opacity: 0.8 },
-	{ left: 9, top: 84, size: 48, rotate: 6, opacity: 0.7 },
+	{ left: 30, top: 50, size: 100, rotate: -6, opacity: 1 },
+	{ left: 66, top: 24, size: 64, rotate: 8, opacity: 0.95 },
+	{ left: 76, top: 66, size: 74, rotate: -8, opacity: 0.95 },
+	{ left: 52, top: 86, size: 50, rotate: 10, opacity: 0.85 },
+	{ left: 9, top: 16, size: 46, rotate: -10, opacity: 0.8 },
+	{ left: 9, top: 84, size: 40, rotate: 6, opacity: 0.7 },
 ] as const;
 
 /** 每张幻灯片一组主色（色相），背景渐变随之切换。 */
@@ -122,7 +122,7 @@ export function AbilitiesBanner({ icons }: { icons: AbilityBannerIcon[] }): JSX.
 			ref={rootRef}
 			onMouseEnter={() => setHovered(true)}
 			onMouseLeave={() => setHovered(false)}
-			className="relative hidden h-[232px] min-[900px]:grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] overflow-hidden rounded-2xl border border-border/50 bg-card/40"
+			className="relative hidden h-[192px] min-[900px]:grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] overflow-hidden rounded-2xl border border-border/50 bg-card/40"
 		>
 			<div aria-hidden className="relative overflow-hidden">
 				<AnimatePresence initial={false}>
@@ -137,7 +137,7 @@ export function AbilitiesBanner({ icons }: { icons: AbilityBannerIcon[] }): JSX.
 					/>
 				</AnimatePresence>
 				<div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,hsl(0_0%_100%/0.18),transparent_55%)]" />
-				{[190, 290, 400].map((size, index) => (
+				{[160, 244, 336].map((size, index) => (
 					<div
 						key={size}
 						className="absolute rounded-full border border-foreground/10"
@@ -193,7 +193,7 @@ export function AbilitiesBanner({ icons }: { icons: AbilityBannerIcon[] }): JSX.
 				</AnimatePresence>
 			</div>
 
-			<div className="relative flex min-w-0 flex-col justify-center gap-1 px-7 py-6">
+			<div className="relative flex min-w-0 flex-col justify-center gap-1 px-6 py-5">
 				<AnimatePresence mode="wait" initial={false}>
 					<motion.div
 						key={featured.id}
@@ -213,13 +213,13 @@ export function AbilitiesBanner({ icons }: { icons: AbilityBannerIcon[] }): JSX.
 						) : (
 							<>
 								<p className="text-[12px] text-muted-foreground/60">{t("banner.featured")}</p>
-								<p className="mt-0.5 truncate text-[22px] font-semibold tracking-tight text-foreground">
+								<p className="mt-0.5 truncate text-[20px] font-semibold tracking-tight text-foreground">
 									{featured.title}
 								</p>
-								<p className="mt-2 line-clamp-3 text-[12.5px] leading-relaxed text-muted-foreground/70">
+								<p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-muted-foreground/70">
 									{featured.description}
 								</p>
-								<div className="mt-4">
+								<div className="mt-3">
 									<Button
 										variant="primary"
 										size="sm"
@@ -234,7 +234,7 @@ export function AbilitiesBanner({ icons }: { icons: AbilityBannerIcon[] }): JSX.
 				</AnimatePresence>
 
 				{slideCount > 1 && (
-					<div className="absolute bottom-4 left-7 flex items-center gap-1.5">
+					<div className="absolute bottom-4 left-6 flex items-center gap-1.5">
 						{Array.from({ length: slideCount }, (_, index) => (
 							<button
 								key={index}
