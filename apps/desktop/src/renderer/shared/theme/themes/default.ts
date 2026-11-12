@@ -73,7 +73,8 @@ export const defaultTheme: ThemeDef = {
 		// secondary 压深以与背景可辨（约 -17，深于 muted）
 		secondary: "rgb(235, 235, 235)",
 		secondaryForeground: "rgb(0, 0, 0)",
-		muted: "rgb(242, 242, 242)",
+		// 与 card(250) 拉开约 12，bg-muted 的控件（下拉、操作按钮）在 card 上才看得出
+		muted: "rgb(238, 238, 238)",
 		mutedForeground: "rgb(82, 82, 82)",
 		accent: "rgb(226, 232, 248)",
 		accentForeground: "rgb(0, 0, 0)",
