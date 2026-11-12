@@ -82,7 +82,9 @@ describe("ModelSelect", () => {
 		render(<ModelSelect value="provider/vision" onChange={onChange} ariaLabel="Model" />);
 
 		const trigger = screen.getByRole("button", { name: "Model" });
-		expect(trigger.className).toContain("border-input");
+		// 表单形态与设置页下拉同源：无边框 + 底色（SELECT_TRIGGER_CLASS）。
+		expect(trigger.className).toContain("bg-muted");
+		expect(trigger.className).not.toContain("border-input");
 		await user.click(trigger);
 		expect(catalog.revalidate).toHaveBeenCalled();
 

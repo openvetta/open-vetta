@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { cn } from "@vetta-org/ui";
+import { Button, cn } from "@vetta-org/ui";
 import { SettingRow, SettingSection, type SettingSectionMeta } from "./SettingChrome";
 
 export type PermissionStatusView = "granted" | "denied" | "unknown";
@@ -88,14 +88,10 @@ export function PermissionsSettingsView({
 						>
 							<div className="flex items-center gap-3">
 								{!item.hideStatus && <StatusBadge status={item.status} labels={labels.status} />}
-								<button
-									type="button"
-									onClick={() => onOpen(item.id)}
-									className="flex items-center gap-1.5 rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent"
-								>
+								<Button variant="field" onClick={() => onOpen(item.id)}>
 									<span className="icon-[mdi--open-in-new] h-3.5 w-3.5 text-muted-foreground" />
 									{buttonLabel}
-								</button>
+								</Button>
 							</div>
 						</SettingRow>
 					);

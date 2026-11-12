@@ -143,8 +143,7 @@ export function ModelsModelDialog({ model }: { model: ModelsSettingsModel }): JS
 					<div className="flex items-center justify-between gap-3">
 						<div className="flex items-center gap-1.5">
 							<Button
-								variant="outline"
-								size="sm"
+								variant="field"
 								disabled={!modelId || busy || model.saving}
 								onClick={() => void handleTest()}
 							>
@@ -160,8 +159,7 @@ export function ModelsModelDialog({ model }: { model: ModelsSettingsModel }): JS
 								{feedback?.status === "testing" ? t("testing") : t("testConnect")}
 							</Button>
 							<Button
-								variant="outline"
-								size="sm"
+								variant="field"
 								disabled={!modelId || busy || model.saving}
 								onClick={() => void handleSync()}
 							>

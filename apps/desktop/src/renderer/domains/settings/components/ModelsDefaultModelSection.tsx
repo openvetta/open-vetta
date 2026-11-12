@@ -37,7 +37,6 @@ export function ModelsDefaultModelSection({ model }: { model: ModelsSettingsMode
 					reasoning={reasoning}
 					clearLabel={t("defaultModelSection.unset")}
 					ariaLabel={t("defaultModelSection.rowTitle")}
-					triggerClassName="min-w-[220px]"
 				/>
 			</SettingRow>
 		</SettingSection>

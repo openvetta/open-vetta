@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { Switch } from "@vetta-org/ui";
+import { Button, Switch } from "@vetta-org/ui";
 import { cn } from "@vetta-org/ui";
 
 export interface WebhookEndpointRowView {
@@ -59,15 +59,14 @@ export function WebhookEndpointListView({
 							checked={endpoint.enabled}
 							onCheckedChange={(value) => onToggle(endpoint.id, value)}
 						/>
-						<button
-							type="button"
+						<Button
+							variant="field"
 							onClick={() => onTest(endpoint.id)}
 							disabled={testingId === endpoint.id}
-							className="whitespace-nowrap rounded-md border border-input bg-secondary px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 							title={labels.test}
 						>
 							{testingId === endpoint.id ? labels.testing : labels.test}
-						</button>
+						</Button>
 						<button
 							type="button"
 							onClick={() => onEdit(endpoint.id)}

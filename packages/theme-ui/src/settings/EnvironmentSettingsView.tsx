@@ -1,3 +1,4 @@
+import { Button } from "@vetta-org/ui";
 import type { JSX, ReactNode } from "react";
 import {
 	type EnvironmentGitRowViewProps,
@@ -106,11 +107,10 @@ function RuntimeCard({
 					<span className={`text-[12px] ${stateClass}`}>{stateText}</span>
 				</div>
 				{status.supported && (
-					<button
+					<Button variant="field"
 						type="button"
 						disabled={busy}
 						onClick={onReinstall}
-						className="flex items-center gap-1.5 rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 					>
 						{busy ? (
 							<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
@@ -118,7 +118,7 @@ function RuntimeCard({
 							<span className="icon-[mdi--download-outline] h-3.5 w-3.5 text-muted-foreground" />
 						)}
 						{status.ready ? labels.fetchAgain : labels.fetch}
-					</button>
+					</Button>
 				)}
 			</div>
 		</SettingRow>

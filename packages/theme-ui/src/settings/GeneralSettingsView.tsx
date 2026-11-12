@@ -96,15 +96,14 @@ export function GeneralSettingsView({
 			<SettingSection title={labels.sections.basics} section={sections.basics}>
 				<SettingRow title={labels.workspaceTitle} description={labels.workspaceDescription}>
 					<div className="flex items-center gap-2">
-						<button
+						<Button variant="field"
 							type="button"
 							onClick={onSelectWorkspace}
-							className="flex items-center gap-2 rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent"
 						>
 							<span className="icon-[mdi--folder-outline] h-3.5 w-3.5 shrink-0 text-muted-foreground" />
 							<span className="max-w-[180px] truncate">{workspacePath}</span>
 							<span className="icon-[mdi--chevron-down] h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-						</button>
+						</Button>
 						<button
 							type="button"
 							onClick={onResetWorkspace}

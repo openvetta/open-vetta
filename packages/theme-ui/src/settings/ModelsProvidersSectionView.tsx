@@ -36,7 +36,7 @@ export function ModelsProvidersSectionView({
 					{labels.localProviders}
 				</h2>
 				{showAddButton && (
-					<Button variant="ghost" size="sm" onClick={onStartAdd}>
+					<Button variant="field" onClick={onStartAdd}>
 						<span className="icon-[mdi--plus] h-3.5 w-3.5" />
 						{labels.addProvider}
 					</Button>

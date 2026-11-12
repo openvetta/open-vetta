@@ -1,3 +1,4 @@
+import { SELECT_TRIGGER_CLASS } from "@vetta-org/ui";
 import { cn } from "@vetta-org/ui/utils";
 import type { ComponentPropsWithoutRef } from "react";
 import { forwardRef } from "react";
@@ -21,8 +22,8 @@ const VARIANT_CLASS: Record<ModelSelectorTriggerVariant, string> = {
 	// The input bar is a CSS container: truncate the name before wrapping its toolbar.
 	inline:
 		"max-w-[5.5rem] gap-1 rounded-full border border-transparent px-1.5 py-0.5 text-[11px] text-foreground data-[state=open]:bg-accent/60 data-[state=open]:text-foreground @[22rem]:max-w-[9rem] @[28rem]:max-w-[13rem]",
-	field:
-		"max-w-full gap-1.5 rounded-md border border-input bg-transparent px-2 py-1 text-[12px] text-foreground hover:border-border/60 hover:bg-accent/50 disabled:cursor-not-allowed disabled:opacity-50 data-[state=open]:border-primary/30 data-[state=open]:bg-primary/10 data-[state=open]:text-primary",
+	// 表单里的选择框与设置页下拉同源（SELECT_TRIGGER_CLASS）：无边框 + 底色。
+	field: `h-8 max-w-full gap-1.5 rounded-lg px-2.5 text-[12px] font-medium text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${SELECT_TRIGGER_CLASS}`,
 };
 
 const REASONING_CLASS: Record<ModelSelectorTriggerVariant, string> = {

@@ -177,7 +177,6 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 							allowClear
 							disabled={model.saving}
 							placeholder={t("notSet")}
-							triggerClassName="h-8 min-w-[220px] rounded-lg border-border bg-card px-2.5 text-[12px] font-medium hover:bg-accent data-[state=open]:bg-accent"
 							reasoning={
 								config.agentModel
 									? {
