@@ -7,7 +7,42 @@
 - `ai.models.list`：调用 `ctx.ai.listModels()`。
 - `ai.complete`：调用 `ctx.ai.complete()`、`ctx.ai.stream()` 或 `ctx.ai.chat()`，可能产生模型费用或消耗用户额度。
 
-两项权限独立。只知道固定模型标识的插件可以仅声明 `ai.complete`；需要展示模型选择器时再同时声明 `ai.models.list`。
+两项权限独立。只知道固定模型标识的插件可以仅声明 `ai.complete`；需要自己拿到模型清单（如按能力筛选、做统计）时再同时声明 `ai.models.list`。只是让用户挑一个模型的话，直接用下面的 `ModelPicker`。
+
+## 让用户选模型：`ModelPicker`
+
+`@vetta-org/plugin-sdk` 导出的 `ModelPicker` 就是会话输入栏右下角那个模型选择器，由宿主渲染：模型清单（本地配置 + 登录后的云端目录）、服务商分栏、收藏、搜索、模型详情、推理档位以及主题定制都和宿主其它地方一致，宿主改了这里跟着变。插件只给受控的 `value` / `onChange`，决定选中的 `modelKey` 存到哪。
+
+```tsx
+import { ModelPicker } from "@vetta-org/plugin-sdk";
+
+function ModelField({ value, onChange }: { value: string | null; onChange(key: string | null): void }) {
+  return (
+    <ModelPicker
+      value={value}
+      onChange={onChange}
+      emptyOption={{ label: "跟随默认模型" }} // 可选：列表顶部的空值项，选中回调 null
+      ariaLabel="生成模型"
+      className="w-full"
+    />
+  );
+}
+```
+
+| prop | 说明 |
+|---|---|
+| `value` / `onChange` | 受控值，`provider/model` 格式；只有提供 `emptyOption` 时才会回调 `null` |
+| `reasoning` | `{ value, onChange }`，提供后出现推理档位一栏，选中带档位的模型时菜单保持打开 |
+| `emptyOption` | `{ label }`，「跟随默认」这类空值项 |
+| `placeholder` | 未选中时触发器上的文案 |
+| `defaultModelKey` | 打「默认」徽章的模型，缺省为用户在宿主里设置的默认模型 |
+| `autoSelectDefault` | 未选中时自动选上宿主默认模型 |
+| `variant` | `field`（默认，表单选择框）或 `inline`（输入栏式无边框胶囊） |
+| `className` | 追加到触发器上的类名 |
+
+- 不需要任何权限，也不需要开启 `hostThemeUi`：清单只展示给用户，插件代码只拿到用户选中的那一个 `modelKey`（类比文件选择器）。用这个 key 调模型仍需要 `ai.complete`，交给会话仍需要相应的会话权限。
+- 选择器列出的是宿主里所有可选的模型，与 `ctx.ai.listModels()` 的「当前可用文本模型」不完全相同：用户选了一个尚未配置凭据的模型时，`complete` 会照常报错，插件应把错误提示给用户。
+- 需要 Desktop 0.5.76 及以上；更早的宿主没有这个导出，插件会在加载时失败。
 
 ## 列出模型
 
