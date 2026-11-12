@@ -63,7 +63,6 @@ export function KnowledgeBaseSettingsView({ model }: { model: KnowledgeBaseSetti
 						onValueChange={model.actions.changeInterval}
 						options={intervalOptions}
 						disabled={!model.enabled}
-						triggerClassName="min-w-[120px]"
 					/>
 				</SettingRow>
 				<SettingRow title={model.labels.parallel} description={model.labels.parallelDescription}>
@@ -72,7 +71,6 @@ export function KnowledgeBaseSettingsView({ model }: { model: KnowledgeBaseSetti
 						onValueChange={model.actions.changeAgentConcurrency}
 						options={concurrencyOptions}
 						disabled={!model.enabled}
-						triggerClassName="min-w-[120px]"
 					/>
 				</SettingRow>
 				<SettingRow title={model.labels.model} description={model.labels.modelDescription} border={false}>

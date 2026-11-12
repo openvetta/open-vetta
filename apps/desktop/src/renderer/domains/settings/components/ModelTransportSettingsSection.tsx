@@ -15,7 +15,6 @@ export function ModelTransportSettingsSection({ model }: { model: ModelTransport
 					onValueChange={(value) => void model.actions.setTransport(value as ModelTransportSettingsModel["transport"])}
 					options={model.options}
 					disabled={model.loading || model.saving}
-					triggerClassName="min-w-[180px]"
 					aria-label={model.labels.rowTitle}
 				/>
 			</SettingRow>

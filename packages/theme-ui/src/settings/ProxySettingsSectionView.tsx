@@ -98,7 +98,6 @@ export function ProxySettingsSectionView({
 							value={protocol}
 							onValueChange={onProtocolChange}
 							options={[...protocolOptions]}
-							triggerClassName="min-w-[120px]"
 						/>
 					</SettingRow>
 

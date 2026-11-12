@@ -1,6 +1,6 @@
 import { useState, type JSX, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { cn, Popover, PopoverContent, PopoverTrigger } from "@vetta-org/ui";
+import { cn, Popover, PopoverContent, PopoverTrigger, SELECT_PANEL_CLASS, SELECT_TRIGGER_CLASS } from "@vetta-org/ui";
 
 /**
  * 设置页 motion 下拉（对齐原 Agent 人设）。
@@ -28,8 +28,6 @@ export interface MotionSelectProps {
 	readonly disabled?: boolean;
 	/** 触发器额外 class（宽高等） */
 	readonly triggerClassName?: string;
-	/** 无边框样式：触发器用 muted 底色，弹出面板也不画边框。 */
-	readonly borderless?: boolean;
 	readonly "aria-label"?: string;
 }
 
@@ -40,7 +38,6 @@ export function MotionSelect({
 	placeholder,
 	disabled,
 	triggerClassName,
-	borderless = false,
 	"aria-label": ariaLabel,
 }: MotionSelectProps): JSX.Element {
 	const [open, setOpen] = useState(false);
@@ -56,10 +53,8 @@ export function MotionSelect({
 					disabled={disabled}
 					className={cn(
 						// 与 @vetta-org/ui SelectTrigger 同皮
-						"flex h-8 w-fit items-center justify-between gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors outline-none",
-						borderless ? "border-transparent bg-muted" : null,
-						"hover:bg-accent data-[state=open]:bg-accent",
-						"focus-visible:border-primary/50",
+						"flex h-8 w-fit items-center justify-between gap-1.5 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors outline-none",
+						SELECT_TRIGGER_CLASS,
 						"disabled:cursor-not-allowed disabled:opacity-50",
 						!selected && placeholder ? "text-muted-foreground" : "text-foreground",
 						triggerClassName,
@@ -79,9 +74,11 @@ export function MotionSelect({
 						// asChild 时 className 会合并到 motion.div：背景/边框必须写在这里，
 						// 勿用 bg-transparent（会盖掉 bg-popover，面板变「没背景」）
 						className={cn(
-							"z-50 w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)]",
-							"gap-0 overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-md outline-hidden",
-							borderless ? "border-transparent ring-0" : "border-border",
+							// 面板宽度按选项内容撑开，只保证不窄于触发器：触发器按当前值自适应后可能很窄，
+							// 固定成触发器宽度会把别的选项截成省略号。
+							"z-50 w-max min-w-[var(--radix-popover-trigger-width)] max-w-[min(360px,var(--radix-popover-content-available-width))]",
+							"gap-0 overflow-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-md outline-hidden",
+							SELECT_PANEL_CLASS,
 							"data-open:animate-none data-closed:animate-none",
 						)}
 						style={{ animation: "none" }}
@@ -114,7 +111,7 @@ export function MotionSelect({
 												: "text-foreground hover:bg-accent",
 										)}
 									>
-										<span className="min-w-0 flex-1 truncate text-left">{option.label}</span>
+										<span className="min-w-0 flex-1 truncate whitespace-nowrap text-left">{option.label}</span>
 										{isSelected ? (
 											<span className="icon-[mdi--check] ml-auto h-3.5 w-3.5 shrink-0 text-primary" />
 										) : null}

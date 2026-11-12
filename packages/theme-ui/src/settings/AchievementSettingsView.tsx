@@ -32,7 +32,6 @@ export function AchievementSettingsView({
 						value={selectedSetId}
 						onValueChange={onSelectSetId}
 						options={setOptions.map((set) => ({ value: set.id, label: set.label }))}
-						triggerClassName="min-w-40"
 						aria-label={setSelectorLabel}
 					/>
 				</div>

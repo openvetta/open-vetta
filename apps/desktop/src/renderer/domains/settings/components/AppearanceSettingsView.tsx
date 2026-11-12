@@ -1,5 +1,6 @@
 import { Button } from "@shared/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
+import { SELECT_TRIGGER_CLASS } from "@vetta-org/ui";
 import { StepSlider } from "@shared/components/ui/step-slider";
 import { PixelMarioBlocks } from "@shared/components/mario/PixelMarioBlocks";
 import { cn } from "@shared/lib/utils";
@@ -65,8 +66,11 @@ function UiZoomPopover({ model }: { model: AppearanceSettingsModel }): JSX.Eleme
 			<PopoverTrigger asChild>
 				<button
 					type="button"
-					// 与 MotionSelect（borderless）触发器同皮，只是弹出的是滑块 popover
-					className="flex h-8 w-[150px] items-center justify-between gap-1.5 rounded-lg border border-transparent bg-muted px-2.5 text-[12px] font-medium whitespace-nowrap text-foreground outline-none transition-colors hover:bg-accent focus-visible:border-primary/50 data-[state=open]:bg-accent"
+					// 与 Select / MotionSelect 触发器同源（SELECT_TRIGGER_CLASS），只是弹出的是滑块 popover
+					className={cn(
+						"flex h-8 items-center justify-between gap-1.5 rounded-lg px-2.5 text-[12px] font-medium whitespace-nowrap text-foreground outline-none transition-colors",
+						SELECT_TRIGGER_CLASS,
+					)}
 				>
 					<span className="min-w-0 flex-1 truncate text-left tabular-nums">{Math.round(factor * 100)}%</span>
 					<span className="icon-[mdi--chevron-down] ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
@@ -123,8 +127,6 @@ const LanguageSelect = memo(function LanguageSelect({
 		<MotionSelect
 			value={language}
 			onValueChange={(next) => onSelect(next as AppearanceLanguageOption["value"])}
-			borderless
-			triggerClassName="w-[150px]"
 			options={languages.map((option) => ({
 				value: option.value,
 				label: languageOptionLabel(option),
@@ -173,8 +175,6 @@ function ModeSelect({
 		<MotionSelect
 			value={mode}
 			onValueChange={(next) => onSelect(next as ThemeMode, lastPoint.current)}
-			borderless
-			triggerClassName="w-[150px]"
 			options={options.map((option) => ({
 				value: option.value,
 				label: (
@@ -360,11 +360,14 @@ function AppIconPicker({
 			<PopoverTrigger asChild>
 				<button
 					type="button"
-					className="group flex items-center gap-2.5 rounded-lg outline-none"
+					className={cn(
+						"group flex h-10 items-center gap-2 rounded-lg px-2 text-[12px] font-medium outline-none transition-colors",
+						SELECT_TRIGGER_CLASS,
+					)}
 				>
-					<SquircleIcon src={current.preview} className="h-8 w-8 shrink-0" />
-					<span className="text-[13px] text-foreground">{current.label}</span>
-					<span className="icon-[mdi--chevron-down] h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
+					<SquircleIcon src={current.preview} className="h-6 w-6 shrink-0" />
+					<span className="min-w-0 flex-1 truncate text-left text-foreground">{current.label}</span>
+					<span className="icon-[mdi--chevron-down] ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
 				</button>
 			</PopoverTrigger>
 			<PopoverContent align="end" className="w-[320px] p-3">

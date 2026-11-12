@@ -168,7 +168,6 @@ export function ImageGenerationSettingsSection({ model }: { model: ImageGenerati
 								onValueChange={(value) => void model.actions.setTextToImageRoute(value)}
 								options={model.textToImageOptions}
 								disabled={!hasTextToImageOptions}
-								triggerClassName="min-w-[220px]"
 								aria-label={model.labels.textToImage}
 							/>
 						</SettingRow>
@@ -182,7 +181,6 @@ export function ImageGenerationSettingsSection({ model }: { model: ImageGenerati
 								onValueChange={(value) => void model.actions.setImageToImageRoute(value)}
 								options={model.imageToImageOptions}
 								disabled={!hasImageToImageOptions}
-								triggerClassName="min-w-[220px]"
 								aria-label={model.labels.imageToImage}
 							/>
 						</SettingRow>
