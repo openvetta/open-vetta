@@ -617,7 +617,7 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				<SettingsAiAssist tabId="appearance" />
 			</div>
 
-			{/* 语言 / 外观模式 / 界面大小：同一张卡片里的三行；后两个分区锚点挂在各自行的包裹层上，供设置搜索定位。 */}
+			{/* 语言 / 外观模式 / 界面大小 / 应用图标：同一张卡片里的四行；后三个分区锚点挂在各自行的包裹层上，供设置搜索定位。 */}
 			<div className="mb-10">
 				<SettingSection title="" section={SETTINGS_SECTION["appearance-language"]}>
 					<SettingRow title={model.labels.sections.language}>
@@ -629,7 +629,7 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 						</SettingRow>
 					</div>
 					<div id={SETTINGS_SECTION["appearance-ui-zoom"].id} data-setting-section-id={SETTINGS_SECTION["appearance-ui-zoom"].id}>
-						<SettingRow title={model.labels.sections.uiZoom} border={false}>
+						<SettingRow title={model.labels.sections.uiZoom}>
 							<div className="flex items-center gap-2">
 								<div className="w-[300px]">
 									<UiZoomControl model={model} />
@@ -645,6 +645,11 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 									<span aria-hidden className="icon-[solar--restart-linear] h-3.5 w-3.5" />
 								</Button>
 							</div>
+						</SettingRow>
+					</div>
+					<div id={SETTINGS_SECTION["appearance-app-icon"].id} data-setting-section-id={SETTINGS_SECTION["appearance-app-icon"].id}>
+						<SettingRow title={model.labels.sections.appIcon} border={false}>
+							<AppIconPicker options={model.appIconOptions} onSelect={model.actions.setAppIcon} />
 						</SettingRow>
 					</div>
 				</SettingSection>
@@ -676,15 +681,6 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 					</div>
 				</div>
 			)}
-
-			{/* 应用图标：左右排列的设置项卡片，右侧是当前图标 + popover 选择器 */}
-			<div className="mb-10">
-				<SettingSection title={model.labels.sections.appIcon} section={SETTINGS_SECTION["appearance-app-icon"]}>
-					<SettingRow title={model.labels.sections.appIcon} border={false}>
-						<AppIconPicker options={model.appIconOptions} onSelect={model.actions.setAppIcon} />
-					</SettingRow>
-				</SettingSection>
-			</div>
 
 			{/* 新会话页装饰：装饰件与纹理都只改这一页，连排在一起用户不必逐项猜它们作用在哪。
 			    不套卡片、不加边框——这一页其余分区都是平铺的，单独给它加一层壳反而把它拔高成了别的东西。 */}
