@@ -1,6 +1,5 @@
-import { useTranslation } from "@vetta-org/plugin-sdk";
+import { ModelPicker, useTranslation } from "@vetta-org/plugin-sdk";
 import { cn } from "@vetta-org/ui";
-import { ModelPicker } from "./ModelPicker";
 import { ProjectPicker } from "./ProjectPicker";
 import { PromptTextarea, type PromptTextareaHandle } from "./PromptTextarea";
 import { useCallback, useMemo, useRef, useState, type JSX, type KeyboardEvent } from "react";
@@ -77,6 +76,9 @@ export function Composer({
 		() => models.find((model) => model.key === hostDefaultModelKey) ?? null,
 		[models, hostDefaultModelKey],
 	);
+	const inheritLabel = hostDefaultModel
+		? t("composer.followHostModel", { name: hostDefaultModel.displayName })
+		: t("composer.defaultModel");
 
 	const submit = useCallback(
 		(dispatchNow: boolean) => {
@@ -154,21 +156,18 @@ export function Composer({
 							/>
 
 							{/*
-							  * 执行模型：与会话页输入栏是**同一个组件**（宿主 theme-ui 共享域）。
+							  * 执行模型：宿主渲染的模型选择器，与会话页输入栏是同一个。
 							  * 这里选的是「看板默认」，新卡片按当前值固化，单张卡可在编辑弹窗里改。
 							  */}
 							{models.length > 0 && (
 								<ModelPicker
-									models={models}
-									value={modelKey}
-									onChange={onModelKeyChange}
-									inheritLabel={
-										hostDefaultModel
-											? t("composer.followHostModel", { name: hostDefaultModel.displayName })
-											: t("composer.defaultModel")
-									}
-									defaultKey={hostDefaultModelKey || undefined}
-									triggerClassName="h-6 max-w-44 rounded-full border-border/60 px-2 text-muted-foreground hover:border-border hover:text-foreground"
+									value={modelKey || null}
+									onChange={(key) => onModelKeyChange(key ?? "")}
+									emptyOption={{ label: inheritLabel }}
+									placeholder={inheritLabel}
+									defaultModelKey={hostDefaultModelKey || undefined}
+									ariaLabel={t("composer.model")}
+									className="h-6 max-w-44 rounded-full border-border/60 px-2 text-[11px] text-muted-foreground hover:border-border hover:text-foreground"
 								/>
 							)}
 
