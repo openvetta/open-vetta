@@ -180,6 +180,15 @@ function assertNonEmptyString(value: unknown, fieldName: string): asserts value 
 	}
 }
 
+function readIncludeDirectories(options: unknown): boolean {
+	if (options === undefined || options === null) return false;
+	if (typeof options !== "object" || Array.isArray(options)) throw new Error("Invalid options");
+	const includeDirectories = (options as { includeDirectories?: unknown }).includeDirectories;
+	if (includeDirectories === undefined) return false;
+	if (typeof includeDirectories !== "boolean") throw new Error("Invalid includeDirectories");
+	return includeDirectories;
+}
+
 export { allowProjectRoot, assertPathReadableForPreview } from "../filesystem/filesystem-service.js";
 
 export function registerFsIpc(): () => void {
@@ -290,10 +299,13 @@ export function registerFsIpc(): () => void {
 		await createFilesystemDirectory(dirPath);
 	});
 
-	ipcMain.handle(CHANNELS.LIST_FILES_RECURSIVE, async (_event, rootPath: unknown): Promise<FsFileRef[]> => {
-		assertNonEmptyString(rootPath, "rootPath");
-		return listFilesystemFilesRecursive(rootPath);
-	});
+	ipcMain.handle(
+		CHANNELS.LIST_FILES_RECURSIVE,
+		async (_event, rootPath: unknown, options: unknown): Promise<FsFileRef[]> => {
+			assertNonEmptyString(rootPath, "rootPath");
+			return listFilesystemFilesRecursive(rootPath, { includeDirectories: readIncludeDirectories(options) });
+		},
+	);
 
 	ipcMain.handle(CHANNELS.LIST_SUB_DIRS, async (_event, dirPath: unknown): Promise<FsEntry[]> => {
 		assertNonEmptyString(dirPath, "dirPath");

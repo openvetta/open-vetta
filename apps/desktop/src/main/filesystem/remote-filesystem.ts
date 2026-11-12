@@ -244,16 +244,22 @@ export async function listRemoteFilesRecursive(
 		readonly ignoredDirectoryNames: readonly string[];
 		readonly limit: number;
 		readonly names?: readonly string[];
+		readonly includeDirectories?: boolean;
 	},
 ): Promise<FsFileRef[]> {
 	assertRemotePathWithinProject(rootUri);
 	const { hostId, remotePath } = split(rootUri);
 	const relativePaths = await getSshConnection(hostId).listFilesRecursive(remotePath, options);
-	return relativePaths.map((relPath) => ({
-		name: posix.basename(relPath),
-		path: formatSshProjectUri(hostId, posix.join(remotePath, relPath)),
-		relPath,
-	}));
+	return relativePaths.map((relPath) => {
+		const isDirectory = relPath.endsWith("/");
+		const normalized = isDirectory ? relPath.replace(/\/+$/, "") : relPath;
+		return {
+			name: posix.basename(normalized),
+			path: formatSshProjectUri(hostId, posix.join(remotePath, normalized)),
+			relPath: normalized,
+			...(isDirectory ? { isDirectory: true } : {}),
+		};
+	});
 }
 
 function assertSameHost(first: string, second: string): void {

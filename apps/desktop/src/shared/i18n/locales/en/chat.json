@@ -337,10 +337,12 @@
 		"selectPlaceholder": "Select an option"
 	},
 	"atPanel": {
+		"citeDirectory": "Attach folder",
+		"citeDirectoryHint": "Attach this folder ({{shortcut}})",
 		"emptyDirectory": "Empty directory",
 		"enterDirectory": "Tab to enter",
 		"goUp": "..",
-		"header": "Reference file",
+		"header": "Reference a file or folder",
 		"loading": "Loading...",
 		"noResults": "No matches found",
 		"searchResults": "{{count}} results"

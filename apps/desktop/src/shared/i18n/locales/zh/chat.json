@@ -337,10 +337,12 @@
 		"selectPlaceholder": "请选择"
 	},
 	"atPanel": {
+		"citeDirectory": "引用目录",
+		"citeDirectoryHint": "引用此目录（{{shortcut}}）",
 		"emptyDirectory": "空目录",
 		"enterDirectory": "Tab 进入",
 		"goUp": "..",
-		"header": "引用文件",
+		"header": "引用文件或目录",
 		"loading": "加载中...",
 		"noResults": "未找到匹配项",
 		"searchResults": "{{count}} 个结果"

@@ -11,6 +11,12 @@ export interface FsFileRef {
 	name: string;
 	path: string;
 	relPath: string;
+	/** 只在调用方要求把目录也列进结果时为 true；默认列举不含目录，也不带这个字段。 */
+	isDirectory?: boolean;
+}
+
+export interface ListFilesRecursiveRequest {
+	readonly includeDirectories?: boolean;
 }
 
 export interface FsStatResult {
@@ -121,8 +127,11 @@ export interface DesktopFsApi {
 	createEntry(parentDirectory: string, name: string, kind: FileExplorerEntryKind): Promise<FsEntry>;
 	createDirectory(dirPath: string): Promise<void>;
 	listSubDirs(dirPath: string): Promise<FsEntry[]>;
-	/** 递归列出 rootPath 下所有文件（跳过隐藏/重型目录，有数量上限），用于 @ 引用的全局模糊匹配。 */
-	listFilesRecursive(rootPath: string): Promise<FsFileRef[]>;
+	/**
+	 * 递归列出 rootPath 下的文件（跳过隐藏/重型目录，有数量上限），用于 @ 引用的全局模糊匹配。
+	 * `includeDirectories` 为 true 时额外返回目录，且不占用文件上限。
+	 */
+	listFilesRecursive(rootPath: string, options?: ListFilesRecursiveRequest): Promise<FsFileRef[]>;
 	watchDir(dirPath: string): Promise<void>;
 	unwatchDir(dirPath: string): Promise<void>;
 	onDirChanged(handler: (dirPath: string) => void): () => void;

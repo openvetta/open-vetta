@@ -157,7 +157,12 @@ export function createSystemApi(
 			createEntry: (parentDirectory, name, kind) => ipc.invoke("vetta:fs:create-entry", parentDirectory, name, kind),
 			createDirectory: (dirPath) => ipc.invoke("vetta:fs:create-directory", dirPath),
 			listSubDirs: (dirPath) => ipc.invoke("vetta:fs:list-sub-dirs", dirPath),
-			listFilesRecursive: (rootPath) => ipc.invoke("vetta:fs:list-files-recursive", rootPath),
+			listFilesRecursive: (rootPath, options) =>
+				ipc.invoke(
+					"vetta:fs:list-files-recursive",
+					rootPath,
+					options?.includeDirectories ? { includeDirectories: true } : undefined,
+				),
 			watchDir: (dirPath) => ipc.invoke("vetta:fs:watch-dir", dirPath),
 			unwatchDir: (dirPath) => ipc.invoke("vetta:fs:unwatch-dir", dirPath),
 			onDirChanged: (handler) => onIpcEvent(ipc, "vetta:fs:dir-changed", handler),

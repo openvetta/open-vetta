@@ -246,6 +246,11 @@ export interface ListFilesRecursiveOptions {
 	 * 先截断再筛会把排在后面的清单漏掉。
 	 */
 	readonly names?: readonly string[];
+	/**
+	 * 为 true 时目录和文件分开列出，各有一份上限。目录行以 `D\t` 开头，文件行以 `F\t` 开头。
+	 * 默认仍只输出文件，且不带前缀，已有调用方不用改解析。
+	 */
+	readonly includeDirectories?: boolean;
 }
 
 /**
@@ -253,6 +258,9 @@ export interface ListFilesRecursiveOptions {
  *
  * 一次 `find` 取回整棵树：逐层 readdir 在远端就是「目录数」次往返，稍大的仓库要几十秒。
  * `-mindepth 1` 是必须的——起点 `.` 本身也匹配 `.*`，不加的话整棵树在第一步就被剪掉。
+ *
+ * `includeDirectories` 再跑一次只找目录的 `find`。目录不和文件共用 `head` 的名额，
+ * 否则大目录会把原先能搜到的文件挤出结果。
  */
 export function buildListFilesRecursiveCommand(remotePath: string, options: ListFilesRecursiveOptions): string {
 	const pruned = [".*", ...options.ignoredDirectoryNames].map((name) => `-name ${quoteShellArgument(name)}`);
@@ -260,11 +268,35 @@ export function buildListFilesRecursiveCommand(remotePath: string, options: List
 	const names = options.names?.length
 		? ` \\( ${options.names.map((name) => `-name ${quoteShellArgument(name)}`).join(" -o ")} \\)`
 		: "";
+	const find = `find . -mindepth 1 \\( ${pruned.join(" -o ")} \\) -prune -o`;
 	const script = [
 		`cd ${quoteShellArgument(remotePath)} || exit 1`,
-		`find . -mindepth 1 \\( ${pruned.join(" -o ")} \\) -prune -o -type f${names} -print | head -n ${limit}`,
+		...(options.includeDirectories
+			? [
+					`${find} -type d -print | head -n ${limit} | sed 's|^\\./||; s|^|D\t|'`,
+					`${find} -type f${names} -print | head -n ${limit} | sed 's|^\\./||; s|^|F\t|'`,
+				]
+			: [`${find} -type f${names} -print | head -n ${limit}`]),
 	].join("\n");
 	return `/bin/sh -c ${quoteShellArgument(script)}`;
+}
+
+/** 把 {@link buildListFilesRecursiveCommand} 的标准输出还原成相对路径。目录以 `/` 结尾。 */
+export function parseListFilesRecursiveOutput(stdout: string, includeDirectories = false): string[] {
+	const results: string[] = [];
+	for (const raw of stdout.split("\n")) {
+		if (!includeDirectories) {
+			const line = raw.replace(/^\.\//, "");
+			if (line.length > 0) results.push(line);
+			continue;
+		}
+		const kind = raw.startsWith("D\t") ? "directory" : raw.startsWith("F\t") ? "file" : null;
+		if (!kind) continue;
+		const relative = raw.slice(2).replace(/^\.\//, "").replace(/\/+$/, "");
+		if (relative.length === 0 || relative === ".") continue;
+		results.push(kind === "directory" ? `${relative}/` : relative);
+	}
+	return results;
 }
 
 const ENV_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;

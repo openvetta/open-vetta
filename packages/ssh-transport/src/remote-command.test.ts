@@ -25,6 +25,7 @@ import {
 	buildRemoteScript,
 	buildStatCommand,
 	buildWriteFileCommand,
+	parseListFilesRecursiveOutput,
 	quoteShellArgument,
 	REMOTE_ENTRY_EXISTS_EXIT_CODE,
 } from "./remote-command.js";
@@ -331,5 +332,31 @@ describe("文件树操作（在真实 shell 上执行）", () => {
 			names: ["package.json", "Makefile"],
 		});
 		expect(run(command).stdout.trim().split("\n").sort()).toEqual(["./a/package.json", "./b/Makefile"]);
+	});
+
+	it("要求目录时分开列出目录和文件，忽略目录和点文件仍然不出现", () => {
+		const dir = mkdtempSync(join(tmpdir(), "vetta-walk-"));
+		for (const sub of ["src/deep", "empty", "node_modules/pkg", ".git"])
+			mkdirSync(join(dir, sub), { recursive: true });
+		writeFileSync(join(dir, "README.md"), "");
+		writeFileSync(join(dir, "src/deep/a b.ts"), "");
+		writeFileSync(join(dir, "node_modules/pkg/index.js"), "");
+		writeFileSync(join(dir, ".git/config"), "");
+		writeFileSync(join(dir, ".env"), "");
+
+		const command = buildListFilesRecursiveCommand(dir, {
+			ignoredDirectoryNames: ["node_modules"],
+			limit: 100,
+			includeDirectories: true,
+		});
+		const listed = parseListFilesRecursiveOutput(run(command).stdout, true).sort();
+		expect(listed).toEqual(["README.md", "empty/", "src/", "src/deep/", "src/deep/a b.ts"]);
+	});
+});
+
+describe("parseListFilesRecursiveOutput", () => {
+	it("默认去掉 ./ 前缀，打开目录选项时只认带标记的行", () => {
+		expect(parseListFilesRecursiveOutput("./README.md\n./src/a.ts\n", false)).toEqual(["README.md", "src/a.ts"]);
+		expect(parseListFilesRecursiveOutput("D\tsrc\nF\tREADME.md\nnoise\n", true)).toEqual(["src/", "README.md"]);
 	});
 });

@@ -25,7 +25,7 @@
 | 方法 | 说明 |
 | --- | --- |
 | `hello` | 握手：协议版本、平台、家目录 |
-| `fs.stat` `fs.readDir` `fs.readFile` `fs.realPath` `fs.listRecursive` | 读。`stat` 对不存在的路径返回 `entry: null`，不是错误；`listRecursive` 可带 `names` 只留这些文件名（上限按命中数算），旧版本会忽略这个字段、照常全列，客户端要自己再筛一次 |
+| `fs.stat` `fs.readDir` `fs.readFile` `fs.realPath` `fs.listRecursive` | 读。`stat` 对不存在的路径返回 `entry: null`，不是错误；`listRecursive` 可带 `names` 只留这些文件名（上限按命中数算），也可带 `includeDirectories` 把目录一并返回（路径以 `/` 结尾，和文件分开计数）。旧版本会忽略不认识的字段、只回文件，客户端要自己再筛一次 |
 | `fs.writeFile` | 原子写，保留权限位、穿透符号链接；`expectedRevision` 不符时返回 `ECONFLICT` |
 | `fs.mkdir` `fs.rename` `fs.remove` `fs.createEntry` | 写。`createEntry` 从不覆盖（`EEXIST`） |
 | `watch.subscribe` `watch.unsubscribe` | 订阅目录；变化时推送 `watch.changed` |

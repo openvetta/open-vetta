@@ -1,7 +1,7 @@
 import { SegmentedControl } from "@vetta-org/theme-ui/shared";
 import { Button, Input } from "@vetta-org/ui";
 import { motion } from "motion/react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CapabilitiesTour } from "@shared/tour";
 import { resolveCategoryLabel } from "../lib/ability-presentation";
@@ -34,6 +34,13 @@ export function AbilitiesPageView({
 	categorized = ENABLE_ABILITY_CATEGORIES,
 }: AbilitiesPageViewProps): JSX.Element {
 	const { t, i18n } = useTranslation("abilities");
+	// 卡片 memo 只看 item；model 每次渲染都是新对象，这里给卡片一个稳定代理，调用时转给最新 model。
+	const modelRef = useRef(model);
+	modelRef.current = model;
+	const cardModel = useMemo(
+		() => new Proxy({} as AbilitiesModel, { get: (_target, key) => modelRef.current[key as keyof AbilitiesModel] }),
+		[],
+	);
 	const skillFileInputRef = useRef<HTMLInputElement>(null);
 	const pluginFileInputRef = useRef<HTMLInputElement>(null);
 	const [sourcesDialogOpen, setSourcesDialogOpen] = useState(false);
@@ -208,7 +215,7 @@ export function AbilitiesPageView({
 											</div>
 											<div className="grid grid-cols-1 gap-x-3 gap-y-0.5 min-[800px]:grid-cols-2">
 												{group.items.map((item) => (
-													<AbilityCard key={item.id} item={item} model={model} />
+													<AbilityCard key={item.id} item={item} model={cardModel} />
 												))}
 											</div>
 										</section>
@@ -216,7 +223,7 @@ export function AbilitiesPageView({
 								) : (
 									<div className="grid grid-cols-1 gap-x-3 gap-y-0.5 min-[800px]:grid-cols-2">
 										{model.items.map((item) => (
-											<AbilityCard key={item.id} item={item} model={model} />
+											<AbilityCard key={item.id} item={item} model={cardModel} />
 										))}
 									</div>
 								)}

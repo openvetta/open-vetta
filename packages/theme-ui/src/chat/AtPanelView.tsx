@@ -32,6 +32,9 @@ export interface AtPanelLabels {
 	emptyDirectory: string;
 	goUp: string;
 	enterDirectory: string;
+	/** 浏览目录时的「引用此目录」。旧主题可以不提供，那时不显示按钮。 */
+	citeDirectory?: string;
+	citeDirectoryHint?: string;
 }
 
 export interface AtPanelViewProps {
@@ -48,6 +51,7 @@ export interface AtPanelViewProps {
 	onGoUp: () => void;
 	onHoverIndex: (index: number) => void;
 	onEntryClick: (entry: AtPanelEntryModel) => void;
+	onCiteDirectory?: (entry: AtPanelEntryModel) => void;
 }
 
 export function AtPanelView({
@@ -64,6 +68,7 @@ export function AtPanelView({
 	onGoUp,
 	onHoverIndex,
 	onEntryClick,
+	onCiteDirectory,
 }: AtPanelViewProps): JSX.Element {
 	return (
 		<AnimatePresence>
@@ -141,8 +146,11 @@ export function AtPanelView({
 											entry={entry}
 											className={classNames?.item}
 											enterDirectoryLabel={labels.enterDirectory}
+											citeDirectoryLabel={labels.citeDirectory}
+											citeDirectoryHint={labels.citeDirectoryHint}
 											onHover={() => onHoverIndex(entry.index)}
 											onClick={() => onEntryClick(entry)}
+											onCite={onCiteDirectory ? () => onCiteDirectory(entry) : undefined}
 										/>
 									))}
 								</div>
@@ -159,62 +167,79 @@ function AtPanelEntry({
 	entry,
 	className,
 	enterDirectoryLabel,
+	citeDirectoryLabel,
+	citeDirectoryHint,
 	onHover,
 	onClick,
+	onCite,
 }: {
 	entry: AtPanelEntryModel;
 	className?: string;
 	enterDirectoryLabel: string;
+	citeDirectoryLabel?: string;
+	citeDirectoryHint?: string;
 	onHover: () => void;
 	onClick: () => void;
+	onCite?: () => void;
 }): JSX.Element {
+	// 搜索结果带 relPath，整行点击就是引用；只有浏览中的目录才需要单独的引用按钮。
+	const browsingDirectory = entry.isDirectory && entry.relPath === undefined;
+	const citeLabel = browsingDirectory && onCite && citeDirectoryLabel ? citeDirectoryLabel : undefined;
 	return (
-		<button
-			type="button"
+		<div
 			data-index={entry.index}
 			onMouseEnter={onHover}
-			onClick={onClick}
-			className={["relative flex w-full items-center gap-3 px-4 py-1.5 text-left transition-colors", className]
-				.filter(Boolean)
-				.join(" ")}
+			className={["relative flex w-full items-center transition-colors", className].filter(Boolean).join(" ")}
 			style={{
 				background: entry.active ? "color-mix(in srgb, var(--primary) 9%, transparent)" : "transparent",
 			}}
 		>
-			{entry.active && (
-				<motion.span
-					layoutId="at-active-marker"
-					className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-primary"
-					transition={{ type: "spring", stiffness: 500, damping: 32 }}
-				/>
-			)}
-			{entry.avatar ? (
-				<img src={entry.avatar} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" />
-			) : (
+			<button type="button" onClick={onClick} className="flex min-w-0 flex-1 items-center gap-3 px-4 py-1.5 text-left">
+				{entry.active && (
+					<motion.span
+						layoutId="at-active-marker"
+						className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-primary"
+						transition={{ type: "spring", stiffness: 500, damping: 32 }}
+					/>
+				)}
+				{entry.avatar ? (
+					<img src={entry.avatar} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" />
+				) : (
+					<span
+						className={`${entry.icon} h-4 w-4 shrink-0 ${entry.isDirectory ? "text-muted-foreground" : "text-muted-foreground/50"}`}
+					/>
+				)}
 				<span
-					className={`${entry.icon} h-4 w-4 shrink-0 ${entry.isDirectory ? "text-muted-foreground" : "text-muted-foreground/50"}`}
-				/>
-			)}
-			<span
-				className={`shrink-0 truncate text-[12.5px] ${entry.isDirectory ? "font-medium text-foreground" : "text-foreground"}`}
-			>
-				{entry.name}
-			</span>
-			{entry.meta ? (
-				<span className="ml-auto truncate text-right text-[11px] text-muted-foreground/50" title={entry.meta}>
-					{entry.meta}
+					className={`shrink-0 truncate text-[12.5px] ${entry.isDirectory ? "font-medium text-foreground" : "text-foreground"}`}
+				>
+					{entry.name}
 				</span>
-			) : null}
-			{entry.relPath && entry.relPath !== entry.name && (
-				<span className="ml-auto truncate text-right font-mono text-[10px] text-muted-foreground/40">
-					{entry.relPath}
-				</span>
+				{entry.meta ? (
+					<span className="ml-auto truncate text-right text-[11px] text-muted-foreground/50" title={entry.meta}>
+						{entry.meta}
+					</span>
+				) : null}
+				{entry.relPath && entry.relPath !== entry.name && (
+					<span className="ml-auto truncate text-right font-mono text-[10px] text-muted-foreground/40">
+						{entry.relPath}
+					</span>
+				)}
+				{browsingDirectory && (
+					<span className="ml-auto text-[10px] text-muted-foreground/50" title={enterDirectoryLabel}>
+						{enterDirectoryLabel}
+					</span>
+				)}
+			</button>
+			{citeLabel && (
+				<button
+					type="button"
+					onClick={onCite}
+					title={citeDirectoryHint ?? citeLabel}
+					className="mr-3 shrink-0 rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground/70 hover:bg-primary/10 hover:text-foreground"
+				>
+					{citeLabel}
+				</button>
 			)}
-			{entry.isDirectory && (
-				<span className="ml-auto text-[10px] text-muted-foreground/50" title={enterDirectoryLabel}>
-					{enterDirectoryLabel}
-				</span>
-			)}
-		</button>
+		</div>
 	);
 }

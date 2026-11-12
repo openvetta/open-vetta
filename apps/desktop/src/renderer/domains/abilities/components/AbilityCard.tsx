@@ -8,6 +8,7 @@ import {
 	DropdownMenuTrigger,
 } from "@vetta-org/ui";
 import { useNavigate } from "@tanstack/react-router";
+import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import { useAbilityText } from "../hooks/useAbilityText";
 import type { AbilitiesModel, AbilityItem, McpAbility } from "../types";
@@ -119,7 +120,14 @@ function InstalledMoreMenu({
 	);
 }
 
-export function AbilityCard({ item, model }: { item: AbilityItem; model: AbilitiesModel }): JSX.Element {
+/** 只比较 item：model 由页面以稳定代理传入，方法调用时总取最新值。 */
+export const AbilityCard = memo(function AbilityCard({
+	item,
+	model,
+}: {
+	item: AbilityItem;
+	model: AbilitiesModel;
+}): JSX.Element {
 	const { t } = useTranslation("abilities");
 	const navigate = useNavigate();
 	const { title, description } = useAbilityText()(item);
@@ -134,14 +142,14 @@ export function AbilityCard({ item, model }: { item: AbilityItem; model: Abiliti
 			onPointerEnter={() => void loadAbilityDetailView().catch(() => undefined)}
 			onPointerDown={() => void loadAbilityDetailView().catch(() => undefined)}
 			className={cn(
-				"group relative flex cursor-pointer items-center gap-3.5 rounded-xl px-3.5 py-3.5 transition-colors duration-200 hover:bg-accent/60 dark:hover:bg-accent/35",
+				"group relative flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition-colors duration-200 hover:bg-accent/60 dark:hover:bg-accent/35",
 				!item.enabled && item.installed && "opacity-75",
 			)}
 		>
-			<AbilityIcon icon={item.icon} type={item.type} className="h-12 w-12 rounded-2xl" iconClassName="h-6 w-6" />
+			<AbilityIcon icon={item.icon} type={item.type} className="h-9 w-9 rounded-lg" iconClassName="h-[18px] w-[18px]" />
 			<div className="min-w-0 flex-1">
 				<div className="flex min-w-0 flex-wrap items-center gap-1.5">
-					<h3 className="truncate text-[14px] font-semibold text-foreground">{title}</h3>
+					<h3 className="truncate text-[13px] font-semibold text-foreground">{title}</h3>
 					<AbilityStatusBadges item={item} />
 				</div>
 				{item.busy ? (
@@ -153,7 +161,7 @@ export function AbilityCard({ item, model }: { item: AbilityItem; model: Abiliti
 						/>
 					</div>
 				) : (
-					<p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-muted-foreground/70">
+					<p className="mt-0.5 line-clamp-1 text-[11.5px] leading-relaxed text-muted-foreground/70">
 						{description || t("card.noDescription")}
 					</p>
 				)}
@@ -178,4 +186,4 @@ export function AbilityCard({ item, model }: { item: AbilityItem; model: Abiliti
 			)}
 		</div>
 	);
-}
+}, (prev, next) => prev.item === next.item);
