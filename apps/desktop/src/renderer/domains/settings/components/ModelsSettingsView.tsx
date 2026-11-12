@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { SettingsPageShellView } from "@vetta-org/theme-ui/settings";
 import { SettingsAiAssist } from "../ai-assist";
+import { ModelsDefaultModelSection } from "./ModelsDefaultModelSection";
 import { ModelTransportSettingsSection } from "./ModelTransportSettingsSection";
 import { ModelsProvidersSection } from "./ModelsProvidersSection";
 import { PresetProvidersSection } from "./PresetProvidersSection";
@@ -32,6 +33,7 @@ export function ModelsSettingsView({
 		>
 			{model.config && (
 				<>
+					<ModelsDefaultModelSection model={model} />
 					<PresetProvidersSection config={model.config} saveConfig={model.saveConfig} />
 					<ModelsProvidersSection model={model} />
 					<ModelTransportSettingsSection model={transport} />

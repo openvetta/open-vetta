@@ -43,6 +43,7 @@ node "<workbenchRoot>/agent/cli/vetta-plugin-cli.js" docs --json
 | `ui-slots.md` | **notify 全局 Toast/错误堆栈** / global / file-preview / activity-tab / input-action / **new-session-context** / **turn-card** / **tool-call 槽** / hardIsolation / **工作区视图与接管页头（immersive）** / **侧边栏状态 useSidebarState** |
 | `conversation-and-agent.md` | 对话、registerTool、**command.run**、fs、images、settings、**i18n** |
 | `message-cards.md` | 消息下方卡片、`details.cards`、registerCardRenderer |
+| `ai.md` | 调用用户模型（complete / stream / chat）、**让用户选模型用 `ModelPicker`**（与宿主输入栏同一个选择器，不要用 `listModels` 自拼下拉） |
 | `mcp.md` | **MCP 三源聚合**、插件内聚 MCP 清单与命名 |
 | `styling-and-pitfalls.md` | 样式、MF 顶层 JSX 陷阱、缓存与 version bump、Tailwind |
 | `system-plugins.md` | 系统插件 / 租户打包；用户插件一般不必深入 |

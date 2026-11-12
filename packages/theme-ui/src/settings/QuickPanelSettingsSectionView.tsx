@@ -46,7 +46,6 @@ export function QuickPanelSettingsSectionView({
 					value={trigger}
 					onValueChange={onTriggerChange}
 					options={triggerOptions}
-					triggerClassName="min-w-[150px]"
 				/>
 			</SettingRow>
 
@@ -56,7 +55,6 @@ export function QuickPanelSettingsSectionView({
 						value={behavior}
 						onValueChange={onBehaviorChange}
 						options={behaviorOptions}
-						triggerClassName="min-w-[120px]"
 						disabled={behaviorDisabled}
 					/>
 				</div>

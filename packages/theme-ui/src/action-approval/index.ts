@@ -1,7 +1,6 @@
 export type {
 	AppearanceActionPickerViewLabels,
 	AppearanceActionPickerViewProps,
-	AppearanceCursorOption,
 	AppearanceModeOption,
 	AppearanceThemeMode,
 	AppearanceThemePalettePreview,

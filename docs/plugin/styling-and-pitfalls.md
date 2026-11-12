@@ -195,6 +195,11 @@ vettaPluginFederation({
 打进插件 bundle。不要为了消除构建警告给未使用该入口的插件增加依赖；也不要把
 `@vetta-org/theme-ui` 的其它业务入口当作插件公共 API。
 
+只是要让用户选一个模型时，不要用这里的 `ModelSelectorView` 自己拼数据，直接用
+`@vetta-org/plugin-sdk` 的 `ModelPicker`（见 [ai](./ai.md#让用户选模型modelpicker)）：
+数据和行为都由宿主提供，与输入栏的模型选择器完全一致，也不需要开启 `hostThemeUi`。
+`ModelSelectorView` 只留给需要完全自定义清单的场景。
+
 ## 缓存刷新
 
 插件 bundle 经 `vetta-plugin://` 协议加载，**Chromium 会缓存 `remoteEntry.js`**——你改了代码重装，**重启 App 也未必清掉旧缓存**，表现为「改动不生效」。

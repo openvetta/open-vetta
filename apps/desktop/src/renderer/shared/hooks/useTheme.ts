@@ -2,7 +2,7 @@ import { i18n } from "@shared/i18n";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo } from "react";
 import type { DesktopThemeSnapshot } from "../../../preload/api-types/theme";
-import { cursorStyleAtom, resolvedThemeAtom, type ThemeMode, themeModeAtom, themeNameAtom } from "../store/atoms";
+import { resolvedThemeAtom, type ThemeMode, themeModeAtom, themeNameAtom } from "../store/atoms";
 import {
 	applyTheme,
 	MODE_STORAGE_KEY,
@@ -12,7 +12,6 @@ import {
 	type ThemeTransitionOptions,
 	withThemeTransition,
 } from "../theme/apply";
-import { getStoredCursorStyle, setStoredCursorStyle } from "../theme/cursor";
 import { DEFAULT_THEME_ID, resolveThemeId, THEMES } from "../theme/themes";
 
 const COLOR_THEME_LABEL_KEYS = {
@@ -31,7 +30,6 @@ function getThemeSnapshot(): DesktopThemeSnapshot {
 		themeId: resolveThemeId(storedThemeId && storedThemeId.length > 0 ? storedThemeId : DEFAULT_THEME_ID),
 		resolved: resolvedMode === "light" || resolvedMode === "dark" ? resolvedMode : null,
 		appliedThemeId: root.getAttribute("data-theme"),
-		cursorStyle: getStoredCursorStyle(),
 	};
 }
 
@@ -106,7 +104,6 @@ export function useThemeController(): void {
 	const mode = useAtomValue(themeModeAtom);
 	const setResolved = useSetAtom(resolvedThemeAtom);
 	const setThemeNameAtom = useSetAtom(themeNameAtom);
-	const setCursorStyleAtom = useSetAtom(cursorStyleAtom);
 	const { setMode, setThemeName } = useThemeActions();
 
 	// applyInitialTheme() 已在 React 挂载前完成页面着色。这里仅异步同步 nativeTheme，
@@ -159,11 +156,7 @@ export function useThemeController(): void {
 	}, [setMode]);
 
 	useEffect(() => {
-		return window.vetta.theme.onChangeRequested(async ({ mode: requestedMode, themeId, cursorStyle }) => {
-			if (cursorStyle !== undefined) {
-				setStoredCursorStyle(cursorStyle);
-				setCursorStyleAtom(cursorStyle);
-			}
+		return window.vetta.theme.onChangeRequested(async ({ mode: requestedMode, themeId }) => {
 			if (requestedMode !== undefined) {
 				if (typeof themeId === "string") {
 					const nextThemeId = resolveThemeId(themeId);
@@ -180,7 +173,7 @@ export function useThemeController(): void {
 			}
 			return getThemeSnapshot();
 		});
-	}, [setCursorStyleAtom, setMode, setThemeName, setThemeNameAtom]);
+	}, [setMode, setThemeName, setThemeNameAtom]);
 
 	useEffect(() => {
 		return window.vetta.theme.onStateRequested(getThemeSnapshot);

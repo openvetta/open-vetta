@@ -30,31 +30,19 @@ export interface AppearanceModeOption {
 	readonly hint: string;
 }
 
-export interface AppearanceCursorOption {
-	readonly value: string;
-	readonly label: string;
-	readonly hint: string;
-	readonly icon?: string;
-	readonly preview?: string;
-}
-
 export interface AppearanceActionPickerViewLabels {
 	readonly modeSection: string;
 	readonly themeSection: string;
-	readonly cursorSection: string;
 }
 
 export interface AppearanceActionPickerViewProps {
 	readonly mode: AppearanceThemeMode;
 	readonly themeId: string;
-	readonly cursorStyle: string;
 	readonly themes: readonly AppearanceThemePreview[];
 	readonly modes: readonly AppearanceModeOption[];
-	readonly cursors: readonly AppearanceCursorOption[];
 	readonly labels: AppearanceActionPickerViewLabels;
 	readonly onModeChange: (mode: AppearanceThemeMode) => void;
 	readonly onThemeChange: (themeId: string) => void;
-	readonly onCursorStyleChange: (style: string) => void;
 }
 
 const BLOB_LAYOUT: { left: string; top: string; w: string; h: string; rotate: number }[] = [
@@ -187,61 +175,14 @@ function BlockCard({
 	);
 }
 
-function CursorCard({
-	value,
-	label,
-	hint,
-	icon,
-	preview,
-	active,
-	onSelect,
-}: {
-	value: string;
-	label: string;
-	hint: string;
-	icon?: string;
-	preview?: string;
-	active: boolean;
-	onSelect: (value: string) => void;
-}): ReactNode {
-	return (
-		<button
-			type="button"
-			onClick={() => onSelect(value)}
-			className={cn(
-				"group relative flex flex-col items-start gap-2 rounded-xl border bg-card px-4 py-3 text-left transition-colors",
-				active
-					? "border-primary/70 ring-1 ring-inset ring-primary/30"
-					: "border-border hover:border-primary/40 hover:bg-accent/40",
-			)}
-		>
-			<div className="flex w-full items-center justify-between">
-				<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/80">
-					{preview ? (
-						<img src={preview} alt="" className="h-7 w-7 object-contain" draggable={false} />
-					) : (
-						<span className={cn(icon, "h-6 w-6", active ? "text-primary" : "text-muted-foreground")} />
-					)}
-				</div>
-				{active && <span className="icon-[mdi--check-circle] h-4 w-4 text-primary" />}
-			</div>
-			<div className="text-[13px] font-medium text-foreground">{label}</div>
-			<div className="text-[11px] text-muted-foreground">{hint}</div>
-		</button>
-	);
-}
-
 export function AppearanceActionPickerView({
 	mode,
 	themeId,
-	cursorStyle,
 	themes,
 	modes,
-	cursors,
 	labels,
 	onModeChange,
 	onThemeChange,
-	onCursorStyleChange,
 }: AppearanceActionPickerViewProps): JSX.Element {
 	return (
 		<div className="space-y-5">
@@ -266,23 +207,6 @@ export function AppearanceActionPickerView({
 				<div className="grid grid-cols-2 gap-x-3 gap-y-3">
 					{themes.map((t) => (
 						<BlockCard key={t.id} theme={t} active={themeId === t.id} onSelect={(id) => onThemeChange(id)} />
-					))}
-				</div>
-			</fieldset>
-			<fieldset>
-				<legend className="mb-2.5 text-[13px] font-medium text-foreground">{labels.cursorSection}</legend>
-				<div className="grid grid-cols-2 gap-2.5">
-					{cursors.map((c) => (
-						<CursorCard
-							key={c.value}
-							value={c.value}
-							label={c.label}
-							hint={c.hint}
-							icon={c.icon}
-							preview={c.preview}
-							active={cursorStyle === c.value}
-							onSelect={onCursorStyleChange}
-						/>
 					))}
 				</div>
 			</fieldset>

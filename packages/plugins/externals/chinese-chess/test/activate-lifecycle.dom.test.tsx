@@ -10,6 +10,7 @@ vi.mock("@vetta-org/plugin-sdk", async () => {
 	return {
 		...actual,
 		definePlugin: (definition: unknown) => definition,
+		ModelPicker: () => null,
 		useTranslation: () => ({ t: (key: string) => key }),
 	};
 });
@@ -33,7 +34,6 @@ function fakeContext(storage = new Map<string, string>()) {
 			},
 		},
 		ai: {
-			listModels: async () => ({ defaultModel: null, models: [] }),
 			chat: async (_request: PluginAiChatRequest): Promise<PluginAiChatResult> => ({
 				modelKey: "test/model",
 				text: "",

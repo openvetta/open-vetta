@@ -5,6 +5,7 @@ import type { DesktopApi } from "./api.js";
 import { createAbilitiesApi } from "./apis/abilities.js";
 import { createActionApprovalApi } from "./apis/action-approval.js";
 import { createAgentTeamsApi } from "./apis/agent-teams.js";
+import { createAppIconApi } from "./apis/app-icon.js";
 import { createAppLifecycleApi } from "./apis/app-lifecycle.js";
 import { createAppMonitorApi } from "./apis/app-monitor.js";
 import { createAppshotApi } from "./apis/appshot.js";
@@ -71,6 +72,7 @@ const rawApi: Omit<DesktopApi, "hostAccess"> = {
 	...createAppshotApi(ipcRenderer),
 	...createI18nApi(ipcRenderer),
 	...createUiZoomApi(ipcRenderer),
+	...createAppIconApi(ipcRenderer),
 	...createTelemetryApi(ipcRenderer),
 	...createSystemApi(ipcRenderer, webUtils),
 };

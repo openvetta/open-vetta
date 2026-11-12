@@ -43,6 +43,7 @@ import type {
 import { __setPluginHostBridge, PluginAppActionError } from "@vetta-org/plugin-sdk";
 import { getDefaultStore, useAtomValue } from "jotai";
 import { useMemo } from "react";
+import { PluginModelPicker } from "./PluginModelPicker";
 import { pluginHandlerGenerationKey as handlerKey } from "./plugin-handler-generation-key.js";
 import {
 	getPluginHostBridgeRuntimeState,
@@ -833,6 +834,7 @@ export const pluginHostBridge: PluginHostBridge = {
 	usePromptAttachment,
 	useLocale,
 	useSidebarState,
+	ModelPicker: PluginModelPicker,
 	conversation,
 };
 

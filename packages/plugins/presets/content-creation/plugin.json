@@ -23,7 +23,6 @@
 		"agent.skills.control",
 		"agent.tools.register",
 		"agent.toolHandler.execute",
-		"ai.models.list",
 		"ai.complete",
 		"media.generate",
 		"network.fetch",

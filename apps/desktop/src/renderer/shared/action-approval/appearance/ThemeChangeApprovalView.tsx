@@ -20,10 +20,8 @@ export function ThemeChangeApprovalView(model: ThemeChangeApprovalModel): JSX.El
 				<AppearanceActionPicker
 					mode={model.mode}
 					themeId={model.themeId}
-					cursorStyle={model.cursorStyle}
 					onModeChange={model.onModeChange}
 					onThemeChange={model.onThemeChange}
-					onCursorStyleChange={model.onCursorStyleChange}
 				/>
 			}
 		/>

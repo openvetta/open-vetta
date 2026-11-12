@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { MotionSelect, SettingRow, SettingSection } from "@vetta-org/theme-ui/settings";
-import { Switch } from "@vetta-org/ui";
+import { cn, INPUT_FILL_CLASS, Input, Switch } from "@vetta-org/ui";
 import { IMAGE_CUSTOM_PRESET, type ImageNumericPreset, imageNumericPresets } from "./image-numeric-presets";
 import type { RuntimeConfigurationFieldModel, RuntimeConfigurationModel } from "./useRuntimeConfigurationModel";
 import { SETTINGS_SECTION } from "../registry";
@@ -31,7 +31,6 @@ function RuntimeConfigurationControl({
 				value={typeof value === "string" ? value : ""}
 				onValueChange={onChange}
 				placeholder={pleaseSelect}
-				triggerClassName="min-w-[220px]"
 				options={field.options ?? []}
 				aria-label={field.title}
 			/>
@@ -46,7 +45,6 @@ function RuntimeConfigurationControl({
 				value={typeof value === "string" ? value : ""}
 				onValueChange={onChange}
 				placeholder={pleaseSelect}
-				triggerClassName="min-w-[160px]"
 				options={field.options ?? (schema.enum ?? []).map((option) => ({ value: option, label: option }))}
 				aria-label={field.title}
 			/>
@@ -54,13 +52,14 @@ function RuntimeConfigurationControl({
 	}
 	const numeric = schema.type === "number" || schema.type === "integer";
 	return (
-		<input
+		<Input
 			type={numeric ? "number" : "text"}
 			min={numeric ? schema.minimum : undefined}
 			max={numeric ? schema.maximum : undefined}
 			step={schema.type === "integer" ? 1 : undefined}
 			aria-label={field.title}
-			className="h-8 w-[200px] min-w-0 rounded-lg border border-border bg-transparent px-2.5 text-right text-[12px] tabular-nums outline-none transition-colors focus:border-primary/50"
+			// 数字框只需放下几位数，别撑到 200px；文本框保持较宽。
+			className={cn(INPUT_FILL_CLASS, numeric ? "w-28 text-right tabular-nums" : "w-[200px]")}
 			value={typeof value === "string" || typeof value === "number" ? String(value) : ""}
 			onChange={(event) => {
 				if (!numeric) {
@@ -121,7 +120,6 @@ function ImageNumericPresetControl({
 					setEditingCustom(false);
 					onChange(Number(next));
 				}}
-				triggerClassName="min-w-[140px]"
 				options={[
 					...presets.map((preset) => ({ value: String(preset.value), label: preset.label })),
 					{ value: IMAGE_CUSTOM_PRESET, label: customLabel },
@@ -129,13 +127,13 @@ function ImageNumericPresetControl({
 				aria-label={field.title}
 			/>
 			{custom ? (
-				<input
+				<Input
 					type="number"
 					min={field.schema.minimum}
 					max={field.schema.maximum}
 					step={field.schema.type === "integer" ? 1 : undefined}
 					aria-label={`${customLabel} ${field.title}`}
-					className="h-8 w-28 min-w-0 rounded-lg border border-border bg-transparent px-2.5 text-right text-[12px] tabular-nums outline-none transition-colors focus:border-primary/50"
+					className={cn(INPUT_FILL_CLASS, "w-28 text-right tabular-nums")}
 					value={draft}
 					onChange={(event) => setDraft(event.target.value)}
 					onBlur={commit}

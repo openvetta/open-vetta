@@ -30,13 +30,13 @@ export function ModelsProvidersSectionView({
 	rows,
 }: ModelsProvidersSectionViewProps): JSX.Element {
 	return (
-		<div className="mb-6 p-1.5" data-setting-section-highlight-target={section.id}>
+		<div className="mb-6 py-1.5" data-setting-section-highlight-target={section.id}>
 			<div className="mb-3 flex items-center justify-between gap-3 px-1">
 				<h2 id={section.id} className="text-[15px] font-semibold text-foreground">
 					{labels.localProviders}
 				</h2>
 				{showAddButton && (
-					<Button variant="ghost" size="sm" onClick={onStartAdd}>
+					<Button variant="field" onClick={onStartAdd}>
 						<span className="icon-[mdi--plus] h-3.5 w-3.5" />
 						{labels.addProvider}
 					</Button>

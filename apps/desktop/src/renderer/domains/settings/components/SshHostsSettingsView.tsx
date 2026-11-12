@@ -22,8 +22,7 @@ export function SshHostsSettingsView({ model }: { model: SshHostsSettingsModel }
 							<span>{labels.section}</span>
 							<div className="flex items-center gap-2">
 								<Button
-									variant="outline"
-									size="sm"
+									variant="field"
 									onClick={() => void actions.importFromConfig()}
 									disabled={model.importing}
 								>

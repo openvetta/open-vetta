@@ -14,7 +14,6 @@ type ThemeManageInput =
 			type: "set";
 			mode?: "light" | "dark" | "auto";
 			themeId?: string;
-			cursorStyle?: "default" | "stoat";
 			approvalUi?: string;
 	  }
 	| { type: "set-language"; language: "zh" | "en"; approvalUi?: string };
@@ -35,7 +34,6 @@ const manageSchema: PluginJsonSchema = {
 				type: { const: "set" },
 				mode: { enum: ["light", "dark", "auto"] },
 				themeId: { type: "string", minLength: 1 },
-				cursorStyle: { enum: ["default", "stoat"] },
 				approvalUi: {
 					enum: ["appearance.theme-change", "appearance.picker", "generic"],
 				},
@@ -71,10 +69,10 @@ export function registerAppearanceActions(ctx: PluginContext): void {
 		id: "appearance.query",
 		publicId: "appearance.query",
 		title: "查询外观",
-		summary: "读取当前显示模式、主题、指针样式与界面语言；查看可用主题列表。",
+		summary: "读取当前显示模式、主题与界面语言；查看可用主题列表。",
 		description:
 			'对象参数：{ "type": "help" } 或 { "type": "get" }。只读，不弹授权。变更外观请用 appearance.theme。',
-		keywords: ["theme", "主题", "外观", "深色", "浅色", "dark", "light", "语言", "language", "cursor", "鼠标"],
+		keywords: ["theme", "主题", "外观", "深色", "浅色", "dark", "light", "语言", "language"],
 		effect: "read",
 		inputSchema: querySchema,
 		examples: queryExamples,
@@ -88,9 +86,9 @@ export function registerAppearanceActions(ctx: PluginContext): void {
 		id: "appearance.theme",
 		publicId: "appearance.theme",
 		title: "设置外观",
-		summary: "对应设置 → 外观：切换显示模式、主题风格、鼠标指针，以及界面语言（zh/en）。",
+		summary: "对应设置 → 外观：切换显示模式、主题风格，以及界面语言（zh/en）。",
 		description:
-			'对象参数：{ "type": "set", "mode"?: ..., "themeId"?: ..., "cursorStyle"?: ... } 或 { "type": "set-language", "language": "zh" | "en" }。只读查询请用 appearance.query（help/get）。',
+			'对象参数：{ "type": "set", "mode"?: ..., "themeId"?: ... } 或 { "type": "set-language", "language": "zh" | "en" }。只读查询请用 appearance.query（help/get）。',
 		keywords: [
 			"theme",
 			"主题",
@@ -102,8 +100,6 @@ export function registerAppearanceActions(ctx: PluginContext): void {
 			"auto",
 			"语言",
 			"language",
-			"cursor",
-			"鼠标",
 		],
 		effect: "write",
 		approval: {
@@ -140,12 +136,11 @@ export function registerAppearanceActions(ctx: PluginContext): void {
 				input.type === "set" &&
 				input.mode === undefined &&
 				input.themeId === undefined &&
-				input.cursorStyle === undefined &&
 				input.approvalUi !== "appearance.picker"
 			) {
 				throw new PluginAppActionError(
 					"APPEARANCE_CHANGE_EMPTY",
-					"Appearance change requires mode, themeId, cursorStyle, or the appearance picker.",
+					"Appearance change requires mode, themeId, or the appearance picker.",
 				);
 			}
 			if (input.type !== "set" || input.themeId === undefined) return;
@@ -168,7 +163,6 @@ export function registerAppearanceActions(ctx: PluginContext): void {
 			return ctx.official.appearance.set({
 				mode: input.mode,
 				themeId: input.themeId,
-				cursorStyle: input.cursorStyle,
 			});
 		},
 	});

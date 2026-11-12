@@ -34,10 +34,9 @@ function model(
 				changeLanguage: vi.fn(),
 				changeMode: vi.fn(),
 				changeThemeName: vi.fn(),
+				setAppIcon: vi.fn(),
 				selectUiTheme: vi.fn(),
-				setCursorStyle: vi.fn(),
 				setOrnament: vi.fn(),
-				setSidebarStyle: vi.fn(),
 				setTexture: vi.fn(),
 				setUiZoom: vi.fn(),
 				resetUiZoom: vi.fn(),
@@ -45,19 +44,19 @@ function model(
 			overrides.actions,
 		),
 		activeUiThemeId: "default",
-		cursorOptions: [],
-		cursorStyle: "default",
+		appIconOptions: [
+			{ active: true, id: "default", label: "默认", preview: "default.png" },
+			{ active: false, id: "coding", label: "编程", preview: "coding.png" },
+		],
 		labels: {
-			languageHint: "languageHint",
 			newSessionDecorHint: "newSessionDecorHint",
 			newSessionDecorTitle: "新会话页装饰",
 			ornamentHint: "ornamentHint",
 			sections: {
-				cursor: "鼠标指针",
+				appIcon: "应用图标",
 				language: "语言",
 				mode: "外观模式",
 				ornament: "装饰件",
-				sidebar: "侧边栏样式",
 				texture: "纹理",
 				theme: "主题颜色",
 				uiTheme: "界面主题",
@@ -65,7 +64,6 @@ function model(
 			},
 			textureHint: "textureHint",
 			title: "外观",
-			uiZoomHint: "uiZoomHint",
 			uiZoomReset: "恢复默认",
 			uiZoomSliderLabel: "界面大小滑块",
 		},
@@ -73,12 +71,9 @@ function model(
 		languages: [],
 		mode: "dark",
 		modeOptions: [],
-		narrow: true,
 		ornamentId: "none",
 		ornamentOptions: [{ active: true, hint: "ornamentNoneHint", id: "none", label: "无" }],
 		showUiTheme: false,
-		sidebarStyle: "classic",
-		sidebarStyleOptions: [],
 		textureId: "grid",
 		textureOptions: [
 			{ active: false, hint: "textureNoneHint", id: "none", label: "无" },
@@ -93,60 +88,76 @@ function model(
 }
 
 describe("AppearanceSettingsView 的新会话页装饰区域", () => {
-	it("装饰件与纹理紧跟在「新会话页装饰」这条标题之下，不与其它分区混排", () => {
+	it("装饰件与纹理是「新会话页装饰」这一组里的两个设置项，选项收在 popover 里", () => {
 		const view = render(<AppearanceSettingsView model={model()} />);
 
-		// 断言的是分组关系本身（谁归在这条标题之下），不锁具体的盒子：
-		// 这块区域是套卡片还是平铺属于视觉选择，改版不该把测试一起打红。
 		const headings = Array.from(view.container.querySelectorAll("h2")).map((h) => h.textContent?.trim());
-		const groupIndex = headings.indexOf("新会话页装饰");
-
-		expect(groupIndex).toBeGreaterThanOrEqual(0);
-		expect(headings.slice(groupIndex + 1, groupIndex + 3)).toEqual(["装饰件", "纹理"]);
+		expect(headings).toContain("新会话页装饰");
 		expect(view.getByText("newSessionDecorHint")).toBeTruthy();
+		// 触发器只显示当前选中的那一档，别的档在 popover 打开前不渲染。
+		expect(view.getByRole("button", { name: "纹理" }).textContent).toContain("网格");
+		expect(view.queryByTitle("textureNoneHint")).toBeNull();
 	});
 
-	it("点「无」把纹理选择交回模型", async () => {
+	it("点开纹理 popover 选「无」，把纹理选择交回模型", async () => {
 		const setTexture = vi.fn();
 		const view = render(<AppearanceSettingsView model={model({ actions: { setTexture } })} />);
 
-		// 装饰件那组里也有一张「无」，按 hint 取这张才不会点错组。
-		await userEvent.click(view.getByTitle("textureNoneHint"));
+		await userEvent.click(view.getByRole("button", { name: "纹理" }));
+		await userEvent.click(await view.findByTitle("textureNoneHint"));
 
 		expect(setTexture).toHaveBeenCalledWith("none");
 	});
 
-	it("当前铺着的那档带选中态，另一档没有", () => {
+	it("popover 里当前铺着的那档带选中态，另一档没有", async () => {
 		const view = render(<AppearanceSettingsView model={model()} />);
 
-		const grid = view.getByTitle("textureGridHint");
-		const none = view.getByTitle("textureNoneHint");
+		await userEvent.click(view.getByRole("button", { name: "纹理" }));
+		const grid = await view.findByTitle("textureGridHint");
+		const none = await view.findByTitle("textureNoneHint");
 
 		expect(grid.querySelector('[class*="mdi--check"]')).not.toBeNull();
 		expect(none.querySelector('[class*="mdi--check"]')).toBeNull();
 	});
 
-	it("切换外观模式时不会重新渲染无关的装饰预览", () => {
+	it("切换外观模式时不会重新渲染无关的装饰预览", async () => {
 		const initial = model({
 			ornamentId: "mario",
 			ornamentOptions: [{ active: true, hint: "marioHint", id: "mario", label: "马里奥" }],
 		});
 		renderMarioPreview.mockClear();
 		const view = render(<AppearanceSettingsView model={initial} />);
-		expect(renderMarioPreview).toHaveBeenCalledTimes(1);
+		await userEvent.click(view.getByRole("button", { name: "装饰件" }));
+		await view.findByTitle("marioHint");
+		const rendered = renderMarioPreview.mock.calls.length;
 
 		view.rerender(<AppearanceSettingsView model={{ ...initial, mode: "light" }} />);
 
-		expect(renderMarioPreview).toHaveBeenCalledTimes(1);
+		expect(renderMarioPreview).toHaveBeenCalledTimes(rendered);
 	});
 
-	it("界面大小显示当前百分比，恢复默认在默认值时不可点", () => {
+	it("应用图标区：只显示当前图标，点开 popover 选另一个把 id 交回模型", async () => {
+		const setAppIcon = vi.fn();
+		const view = render(<AppearanceSettingsView model={model({ actions: { setAppIcon } })} />);
+
+		expect(view.getAllByText("应用图标").length).toBeGreaterThan(0);
+		expect(view.queryByTitle("编程")).toBeNull();
+		await userEvent.click(view.getByText("默认"));
+		await userEvent.click(await view.findByTitle("编程"));
+
+		expect(setAppIcon).toHaveBeenCalledWith("coding");
+	});
+
+	it("界面大小行只显示当前百分比，点开 popover 后恢复默认在默认值时不可点", async () => {
 		const view = render(<AppearanceSettingsView model={model()} />);
 
-		expect((view.getByRole("button", { name: "恢复默认" }) as HTMLButtonElement).disabled).toBe(true);
+		expect(view.queryByRole("button", { name: "恢复默认" })).toBeNull();
+		await userEvent.click(view.getByText("100%"));
+
+		expect(((await view.findByRole("button", { name: "恢复默认" })) as HTMLButtonElement).disabled).toBe(true);
 	});
 
-	it("偏离默认值时可恢复默认", async () => {
+	it("偏离默认值时可在 popover 里恢复默认", async () => {
 		const resetUiZoom = vi.fn();
 		const view = render(
 			<AppearanceSettingsView
@@ -157,17 +168,18 @@ describe("AppearanceSettingsView 的新会话页装饰区域", () => {
 			/>,
 		);
 
-		await userEvent.click(view.getByRole("button", { name: "恢复默认" }));
+		await userEvent.click(view.getByText("125%"));
+		await userEvent.click(await view.findByRole("button", { name: "恢复默认" }));
 
 		expect(resetUiZoom).toHaveBeenCalledTimes(1);
 	});
 
-	it("点某一档的文字，按该档的比例设置界面大小，当前档带选中态", async () => {
+	it("在 popover 里点某一档的文字，按该档的比例设置界面大小", async () => {
 		const setUiZoom = vi.fn();
 		const view = render(<AppearanceSettingsView model={model({ actions: { setUiZoom } })} />);
 
-		expect(view.getByRole("button", { name: "100%" }).getAttribute("aria-pressed")).toBe("true");
-		await userEvent.click(view.getByRole("button", { name: "125%" }));
+		await userEvent.click(view.getByText("100%"));
+		await userEvent.click(await view.findByRole("button", { name: "125%" }));
 
 		expect(setUiZoom).toHaveBeenCalledWith(1.25);
 	});

@@ -40,7 +40,7 @@ export {
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "./dropdown-menu";
-export { Input } from "./input";
+export { INPUT_FILL_CLASS, Input, TEXTAREA_FILL_CLASS } from "./input";
 export {
 	Popover,
 	PopoverAnchor,
@@ -52,6 +52,8 @@ export {
 	PopoverTrigger,
 } from "./popover";
 export {
+	SELECT_PANEL_CLASS,
+	SELECT_TRIGGER_CLASS,
 	Select,
 	SelectContent,
 	SelectGroup,

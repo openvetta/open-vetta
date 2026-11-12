@@ -177,7 +177,6 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 							allowClear
 							disabled={model.saving}
 							placeholder={t("notSet")}
-							triggerClassName="h-8 min-w-[220px] rounded-lg border-border bg-card px-2.5 text-[12px] font-medium hover:bg-accent data-[state=open]:bg-accent"
 							reasoning={
 								config.agentModel
 									? {
@@ -197,8 +196,7 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 							}
 						/>
 						<Button
-							variant="outline"
-							size="sm"
+							variant="field"
 							onClick={() => void model.onProbeModel()}
 							disabled={model.probing || !config.agentModel}
 						>
@@ -216,7 +214,7 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 			</SettingSection>
 
 			{/* 消息渠道：同时只有一个活动渠道，其余为待用配置 */}
-			<div className="mb-6 p-1.5" data-setting-section-highlight-target={SETTINGS_SECTION["imbridge-channels"].id}>
+			<div className="mb-6 py-1.5" data-setting-section-highlight-target={SETTINGS_SECTION["imbridge-channels"].id}>
 				<div className="mb-3 flex items-baseline gap-2">
 					<SettingHeading
 						section={SETTINGS_SECTION["imbridge-channels"]}
@@ -304,13 +302,12 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 						)}
 					</div>
 					<div className="flex items-center gap-2">
-						<Button variant="outline" size="sm" onClick={() => void model.onOpenLogs()}>
+						<Button variant="field" onClick={() => void model.onOpenLogs()}>
 							<span className="icon-[solar--document-text-linear] h-3.5 w-3.5" />
 							{t("viewLogs")}
 						</Button>
 						<Button
-							variant="outline"
-							size="sm"
+							variant="field"
 							onClick={() => void model.onRestart()}
 							disabled={!config.enabled}
 						>

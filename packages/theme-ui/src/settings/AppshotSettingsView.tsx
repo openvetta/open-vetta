@@ -94,7 +94,6 @@ export function AppshotSettingsView({
 						value={gestureValue}
 						onValueChange={onGestureChange}
 						options={gestureOptions}
-						triggerClassName="min-w-[150px]"
 					/>
 				</SettingRow>
 			</SettingSection>

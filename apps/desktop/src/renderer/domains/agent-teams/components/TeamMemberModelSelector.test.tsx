@@ -87,11 +87,16 @@ describe("TeamMemberModelSelector", () => {
 		await user.click(trigger);
 
 		const visionModel = await screen.findByRole("menuitem", { name: /Image Model/ });
-		expect(within(visionModel).getByRole("img", { name: "Supports image input" })).toBeTruthy();
+		// 与输入栏同源：识图、倍率等收进行尾的详情按钮，不在行上平铺文字。
+		expect(within(visionModel).getByRole("button", { name: "modelSelect.info.button" })).toBeTruthy();
 		expect(visionModel.textContent).not.toContain("Supports image input");
 		await user.click(visionModel);
 		expect(onChange).toHaveBeenCalledWith("provider/vision");
 		expect(catalog.revalidate).toHaveBeenCalled();
+		// 带推理档位的模型：和输入栏一样，选中后菜单留着让用户接着选档位。
+		expect(screen.getByRole("searchbox", { name: "Search models" })).toBeTruthy();
+		await user.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("searchbox", { name: "Search models" })).toBeNull());
 
 		rerender(
 			<TeamMemberModelSelector

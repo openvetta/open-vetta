@@ -1,5 +1,5 @@
 import { SegmentedControl } from "@vetta-org/theme-ui/shared";
-import { Button, Input } from "@vetta-org/ui";
+import { Button, cn, INPUT_FILL_CLASS, Input } from "@vetta-org/ui";
 import { motion } from "motion/react";
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -128,7 +128,7 @@ export function AbilitiesPageView({
 									placeholder={t("search.placeholder")}
 									value={model.searchQuery}
 									onChange={(event) => model.setSearchQuery(event.target.value)}
-									className="border-transparent bg-secondary pl-8 pr-3 text-[12px] placeholder:text-muted-foreground/40 hover:border-transparent hover:bg-accent dark:bg-secondary md:text-[12px]"
+									className={cn(INPUT_FILL_CLASS, "pl-8 pr-3")}
 								/>
 							</div>
 						</div>

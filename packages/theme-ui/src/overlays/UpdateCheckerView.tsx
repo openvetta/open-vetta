@@ -52,14 +52,13 @@ export function UpdateCheckerAction({
 	return (
 		<div className="flex items-center gap-2">
 			{onViewCurrent && labels.viewCurrent && (
-				<Button size="sm" variant="ghost" onClick={onViewCurrent} data-testid="updater-view-current">
+				<Button variant="field" onClick={onViewCurrent} data-testid="updater-view-current">
 					<span className="icon-[mdi--sparkles-outline] h-3.5 w-3.5" />
 					{labels.viewCurrent}
 				</Button>
 			)}
 			<Button
-				size="sm"
-				variant="outline"
+				variant="field"
 				onClick={onCheck}
 				disabled={checking}
 				data-testid="updater-check"

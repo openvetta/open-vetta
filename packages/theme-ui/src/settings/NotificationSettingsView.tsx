@@ -65,11 +65,10 @@ export function NotificationSettingsView({
 							value={soundScope}
 							onValueChange={(scope) => onSoundScopeChange(scope as NotificationScopeView)}
 							options={scopeOptions}
-							triggerClassName="min-w-[150px]"
 						/>
 					</SettingRow>
 					<SettingRow title={labels.preview} border={false}>
-						<Button size="sm" variant="outline" onClick={onPreview}>
+						<Button variant="field" onClick={onPreview}>
 							{labels.previewAction ?? labels.preview}
 						</Button>
 					</SettingRow>

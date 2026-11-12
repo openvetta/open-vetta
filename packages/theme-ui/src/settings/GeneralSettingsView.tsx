@@ -96,15 +96,14 @@ export function GeneralSettingsView({
 			<SettingSection title={labels.sections.basics} section={sections.basics}>
 				<SettingRow title={labels.workspaceTitle} description={labels.workspaceDescription}>
 					<div className="flex items-center gap-2">
-						<button
+						<Button variant="field"
 							type="button"
 							onClick={onSelectWorkspace}
-							className="flex items-center gap-2 rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent"
 						>
 							<span className="icon-[mdi--folder-outline] h-3.5 w-3.5 shrink-0 text-muted-foreground" />
 							<span className="max-w-[180px] truncate">{workspacePath}</span>
 							<span className="icon-[mdi--chevron-down] h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-						</button>
+						</Button>
 						<button
 							type="button"
 							onClick={onResetWorkspace}
@@ -119,7 +118,6 @@ export function GeneralSettingsView({
 					<MotionSelect
 						value={executionMode}
 						onValueChange={onExecutionModeChange}
-						triggerClassName="min-w-[120px]"
 						options={[
 							{ value: "full-access", label: labels.fullAccess },
 							{
@@ -148,7 +146,7 @@ export function GeneralSettingsView({
 				</SettingRow>
 				{updatesDetail ? <div className="border-b border-border px-5 pb-4">{updatesDetail}</div> : null}
 				<SettingRow title={labels.startAppGuide} description={labels.startAppGuideDescription} border={false}>
-					<Button size="sm" variant="outline" onClick={onStartAppGuide}>
+					<Button variant="field" onClick={onStartAppGuide}>
 						{labels.startAppGuideAction}
 					</Button>
 				</SettingRow>
@@ -163,7 +161,7 @@ export function GeneralSettingsView({
 					description={labels.exportDiagnosticsDescription}
 					border={false}
 				>
-					<Button size="sm" variant="outline" disabled={exportingDiagnostics} onClick={onExportDiagnostics}>
+					<Button variant="field" disabled={exportingDiagnostics} onClick={onExportDiagnostics}>
 						{exportingDiagnostics ? labels.exporting : labels.export}
 					</Button>
 				</SettingRow>

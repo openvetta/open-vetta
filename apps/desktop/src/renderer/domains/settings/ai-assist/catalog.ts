@@ -123,12 +123,7 @@ const CATALOG = [
 		contextLabelKey: "aiAssist.context.appearance",
 		defaultIntentKey: "aiAssist.defaultIntent.appearance",
 		placeholderKey: "aiAssist.placeholder.appearance",
-		exampleKeys: [
-			WHAT_CAN_YOU_CONFIGURE,
-			"aiAssist.examples.appearance.dark",
-			"aiAssist.examples.appearance.theme",
-			"aiAssist.examples.appearance.cursor",
-		],
+		exampleKeys: [WHAT_CAN_YOU_CONFIGURE, "aiAssist.examples.appearance.dark", "aiAssist.examples.appearance.theme"],
 	},
 	{
 		tabId: "pet",

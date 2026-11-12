@@ -9,10 +9,8 @@ import {
 	isSupportedLanguage,
 	type LanguagePreference,
 } from "@/shared/i18n/config";
-import { type CursorStyle, getStoredCursorStyle } from "../theme/cursor";
 import { getStoredNewSessionTextureId, type NewSessionTextureId } from "../theme/new-session-texture";
 import { getStoredOrnamentId, type OrnamentId } from "../theme/ornament";
-import { getStoredSidebarStyle, type SidebarStyle } from "../theme/sidebar-style";
 
 // ─── i18n ───
 // 初值取主进程同步暴露的语言状态（preference + 解析后 language）。
@@ -77,10 +75,6 @@ export const resolvedThemeAtom = atom<"light" | "dark">("dark");
 export const themeNameAtom = atom<string>(
 	resolveThemeId(localStorage.getItem("vetta-color-theme") || DEFAULT_THEME_ID),
 );
-export type { CursorStyle };
-export const cursorStyleAtom = atom<CursorStyle>(getStoredCursorStyle());
-export type { SidebarStyle };
-export const sidebarStyleAtom = atom<SidebarStyle>(getStoredSidebarStyle());
 export type { OrnamentId };
 /** 新会话页装饰件位当前挂着谁。 */
 export const heroOrnamentAtom = atom<OrnamentId>(getStoredOrnamentId());

@@ -7,6 +7,8 @@ import type { PluginAiChatRequest, PluginAiChatResult } from "@vetta-org/plugin-
 import { ChessStore, type GameStoragePort } from "../src/game/store";
 
 vi.mock("@vetta-org/plugin-sdk", () => ({
+	// 宿主渲染的模型选择器；这里只测棋局视图，选择器本身由宿主测试覆盖。
+	ModelPicker: () => null,
 	useTranslation: () => ({
 		t: (key: string, values?: Record<string, string | number>) =>
 			values ? `${key}:${JSON.stringify(values)}` : key,
@@ -16,30 +18,13 @@ vi.mock("@vetta-org/plugin-sdk", () => ({
 import { ChessView } from "../src/components/ChessView";
 import { ChessRuntimeProvider } from "../src/runtime-context";
 
-const listModels = async () => ({
-	defaultModel: "openai/gpt-5",
-	models: [
-		{
-			modelKey: "openai/gpt-5",
-			provider: "openai",
-			id: "gpt-5",
-			name: "GPT-5",
-			api: "openai",
-			reasoning: false,
-			input: ["text" as const],
-			contextWindow: 100_000,
-			maxTokens: 8_192,
-		},
-	],
-});
-
 let activeStore: ChessStore | null = null;
 
 /** Mount the view exactly like `activate()` does: runtime supplied through context. */
 function renderView() {
 	if (!activeStore) throw new Error("store not ready");
 	return render(
-		<ChessRuntimeProvider value={{ store: activeStore, listModels }}>
+		<ChessRuntimeProvider value={{ store: activeStore }}>
 			<ChessView />
 		</ChessRuntimeProvider>,
 	);

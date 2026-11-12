@@ -1,12 +1,10 @@
 import { WebhookEndpointListView } from "@vetta-org/theme-ui/settings";
-import {
-	Dialog,
+import { Button, Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
-	DialogTitle,
-} from "@vetta-org/ui";
+	DialogTitle, } from "@vetta-org/ui";
 import { Switch } from "@vetta-org/ui";
 import { cn } from "@shared/lib/utils";
 import { useState } from "react";
@@ -201,14 +199,9 @@ export function WebhookEditorDialog({ model }: { model: WebhookSettingsModel }):
 				</div>
 
 				<DialogFooter>
-					<button
-						type="button"
-						onClick={() => model.actions.closeEditor(false)}
-						disabled={model.saving}
-						className="rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-					>
+					<Button variant="field" onClick={() => model.actions.closeEditor(false)} disabled={model.saving}>
 						{model.labels.cancel}
-					</button>
+					</Button>
 					<button
 						type="button"
 						onClick={() => void model.actions.submit()}

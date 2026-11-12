@@ -299,6 +299,7 @@ export type {
 	ModelSelectorLabels,
 	ModelSelectorOptionView,
 	ModelSelectorProviderGroup,
+	ModelSelectorTriggerVariant,
 	ModelSelectorViewProps,
 } from "./ModelSelectorView";
 export { ModelSelectorView, ModelVisionIcon } from "./ModelSelectorView";

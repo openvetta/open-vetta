@@ -1,3 +1,4 @@
+import { Button } from "@vetta-org/ui";
 import { CheckboxField, InputField, MotionSelect, SettingRow, SettingSection } from "@vetta-org/theme-ui/settings";
 import { SETTINGS_SECTION } from "../registry";
 import type { ImageGenerationSettingsModel } from "./useImageGenerationSettingsModel";
@@ -74,20 +75,15 @@ function CustomProviderForm({ model }: { model: ImageGenerationSettingsModel["cu
 				</p>
 			)}
 			<div className="flex justify-end gap-2">
-				<button
+				<Button variant="field"
 					type="button"
 					onClick={model.cancel}
-					className="h-8 rounded-lg border border-border px-3 text-[12px] hover:bg-accent"
 				>
 					{labels.cancel}
-				</button>
-				<button
-					type="submit"
-					disabled={model.saving}
-					className="h-8 rounded-lg bg-primary px-3 text-[12px] font-medium text-primary-foreground disabled:opacity-50"
-				>
+				</Button>
+				<Button variant="primary" type="submit" disabled={model.saving}>
 					{labels.save}
-				</button>
+				</Button>
 			</div>
 		</form>
 	);
@@ -103,13 +99,12 @@ function CustomProviderList({ model }: { model: ImageGenerationSettingsModel["cu
 					<div className="mt-0.5 text-[12px] text-muted-foreground">{labels.description}</div>
 				</div>
 				{!model.draft && (
-					<button
+					<Button variant="field"
 						type="button"
 						onClick={model.startAdd}
-						className="h-8 shrink-0 rounded-lg border border-border px-3 text-[12px] hover:bg-accent"
 					>
 						{labels.add}
-					</button>
+					</Button>
 				)}
 			</div>
 			{model.providers.map((provider) => (
@@ -168,7 +163,6 @@ export function ImageGenerationSettingsSection({ model }: { model: ImageGenerati
 								onValueChange={(value) => void model.actions.setTextToImageRoute(value)}
 								options={model.textToImageOptions}
 								disabled={!hasTextToImageOptions}
-								triggerClassName="min-w-[220px]"
 								aria-label={model.labels.textToImage}
 							/>
 						</SettingRow>
@@ -182,7 +176,6 @@ export function ImageGenerationSettingsSection({ model }: { model: ImageGenerati
 								onValueChange={(value) => void model.actions.setImageToImageRoute(value)}
 								options={model.imageToImageOptions}
 								disabled={!hasImageToImageOptions}
-								triggerClassName="min-w-[220px]"
 								aria-label={model.labels.imageToImage}
 							/>
 						</SettingRow>

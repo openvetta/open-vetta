@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { URL } from "node:url";
 import { getVettaHomePath, VETTA_HOME_ENV } from "@vetta/action-rpc";
-import { app, type BrowserWindow, dialog, ipcMain, nativeImage, nativeTheme, protocol, session, shell } from "electron";
+import { app, type BrowserWindow, dialog, ipcMain, nativeTheme, protocol, session, shell } from "electron";
 import { APP_RUNTIME_NAME } from "../shared/app-identity.js";
 import { isCloudBuildEnabled } from "../shared/feature-flags.js";
 import { stopAllOpenMarketplaceMcpRuntimes } from "./abilities/open-marketplace/open-marketplace-mcp-runtime-host.js";
@@ -15,6 +15,7 @@ import { APP_ASSET_PROTOCOL_PRIVILEGE, registerAppAssetProtocol } from "./app-as
 import { createAppDebugRuntime } from "./app-debug/index.js";
 import { createDebugRpcRuntime } from "./app-debug/rpc.js";
 import { configureRendererCdp } from "./app-debug/ui/renderer-cdp.js";
+import { applyAppIcon } from "./app-icon/app-icon-service.js";
 import { registerAppLifecycleIpc } from "./app-lifecycle.js";
 import { installApplicationMenu } from "./app-menu.js";
 import { initializeAppMonitor, shutdownAppMonitor } from "./app-monitor/app-monitor-service.js";
@@ -38,6 +39,7 @@ import { FILE_PROTOCOL_PRIVILEGE, registerFileProtocolHandler } from "./file-pro
 import { fixPath } from "./fix-path.js";
 import { initAppLanguage } from "./i18n/index.js";
 import { getImHost } from "./im-host/index.js";
+import { registerAppIconIpc } from "./ipc/app-icon.js";
 import { syncAppshotGesture } from "./ipc/appshot.js";
 import { persistVettaCliPaths } from "./ipc/fs.js";
 import { registerI18nIpc } from "./ipc/i18n.js";
@@ -126,7 +128,6 @@ protocol.registerSchemesAsPrivileged([
 ]);
 const isMac = process.platform === "darwin";
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
-const buildDir = join(appRoot, "build");
 const devMainEntryPath = join(appRoot, "dist/main/index.js");
 const packagedCliBinaryName = process.platform === "win32" ? "vetta.exe" : "vetta";
 const packagedCliPlatformTag = `${process.platform}-${process.arch}`;
@@ -434,6 +435,7 @@ if (!gotSingleLock) {
 		// i18n IPC 与具体窗口无关（广播给全部窗口），故脱离 registerAllIpc 独立早注册、app 级常驻。
 		registerI18nIpc();
 		registerUiZoomIpc();
+		registerAppIconIpc();
 		const appLifecycle = registerAppLifecycleIpc();
 
 		// 必须放在 whenReady 之后：早于 ready 调用时主进程 bundle identity
@@ -652,9 +654,8 @@ if (!gotSingleLock) {
 			cloudMain = startCloudMain({ receiveProtocolUrl });
 		}
 
-		if (process.platform === "darwin") {
-			app.dock.setIcon(nativeImage.createFromPath(join(buildDir, "icon-dock.png")));
-		}
+		// Dock 图标按用户在「设置 → 外观 → 应用图标」里的选择套用（默认仍是 icon-dock.png）。
+		if (process.platform === "darwin") applyAppIcon();
 
 		// 默认「对话」项目目录：保证一直存在。
 		// 顺带把 in-tree session 目录（<cwd>/.vetta/sessions）也建好，

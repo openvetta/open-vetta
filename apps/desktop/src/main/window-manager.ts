@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { app, BrowserWindow, nativeTheme } from "electron";
 import { isSpeechInputBuildEnabled } from "../shared/feature-flags.js";
+import { getWindowIconOverride } from "./app-icon/app-icon-service.js";
 import { setAppMonitorWindowVisible } from "./app-monitor/app-monitor-service.js";
 import { type RendererConsoleLevel, shouldPersistRendererConsoleMessage } from "./logger/renderer-console-policy.js";
 import { getAppLogger } from "./logger.js";
@@ -58,7 +59,7 @@ export function createWindow(): BrowserWindow {
 		// 最小尺寸：低于此值会过度收缩导致布局不可用。窄屏响应式在此宽度下仍生效。
 		minWidth: 380,
 		minHeight: 600,
-		icon: iconPath[process.platform],
+		icon: getWindowIconOverride() ?? iconPath[process.platform],
 		// macOS 不开 transparent：vibrancy 不需要它，只要下面的 backgroundColor 全透明即可。
 		// 透明窗口无法被系统做遮挡剔除，旁边或背后的窗口一变化就要连带整窗重新合成，
 		// 实测窗口自己完全静止时 WindowServer 仍多占约 10% GPU。

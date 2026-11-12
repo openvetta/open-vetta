@@ -29,8 +29,8 @@ export const monoTheme: ThemeDef = {
 		primary: "rgb(228, 228, 228)",
 		primaryForeground: "rgb(8, 8, 10)",
 		ring: "rgb(228, 228, 228)",
-		// hover（card / popover item 的 hover:bg-accent）；须明显高于 popover(28)，色相偏蓝呼应主题蓝调
-		accent: "rgb(44, 46, 52)",
+		// hover（card / popover item 的 hover:bg-accent）；须明显高于 popover(28)；纯中性灰，不带蓝色相
+		accent: "rgb(46, 46, 46)",
 	},
 	light: {
 		...defaultTheme.light,
@@ -39,7 +39,8 @@ export const monoTheme: ThemeDef = {
 		background: "#faf9f9",
 		card: "rgb(245, 245, 245)",
 		popover: "rgb(255, 255, 255)",
-		muted: "rgb(250, 250, 250)",
+		// 比 card(245) 深约 9~10，bg-muted 的控件（下拉、操作按钮）在 card 上才看得出
+		muted: "rgb(236, 236, 236)",
 		// secondary 略深于 muted，便于 bg-secondary 可辨
 		secondary: "#f1f0f0",
 		// 边框适当加深以适配 #faf9f9 底色，层次清晰不发白
@@ -50,6 +51,6 @@ export const monoTheme: ThemeDef = {
 		primaryForeground: "rgb(255, 255, 255)",
 		ring: "rgb(0, 0, 0)",
 		// card hover；略深于 card，但不过重
-		accent: "rgb(231, 233, 238)",
+		accent: "rgb(224, 224, 224)",
 	},
 };

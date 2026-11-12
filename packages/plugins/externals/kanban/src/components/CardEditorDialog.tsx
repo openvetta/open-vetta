@@ -1,4 +1,4 @@
-import { useTranslation } from "@vetta-org/plugin-sdk";
+import { ModelPicker, useTranslation } from "@vetta-org/plugin-sdk";
 import {
 	Button,
 	cn,
@@ -10,7 +10,6 @@ import {
 	DialogTitle,
 } from "@vetta-org/ui";
 import { useEffect, useRef, useState, type JSX } from "react";
-import { ModelPicker } from "./ModelPicker";
 import { ProjectPicker } from "./ProjectPicker";
 import { PromptTextarea, type PromptTextareaHandle } from "./PromptTextarea";
 import type { KanbanModelOption, KanbanSkillOption } from "../board/board-controller";
@@ -85,6 +84,9 @@ export function CardEditorDialog({
 	const [tagText, setTagText] = useState("");
 	const detailRef = useRef<PromptTextareaHandle | null>(null);
 	const boardDefaultModel = models.find((model) => model.key === defaultModelKey) ?? null;
+	const inheritLabel = boardDefaultModel
+		? t("editor.modelDefaultNamed", { name: boardDefaultModel.displayName })
+		: t("editor.modelDefault");
 
 	useEffect(() => {
 		if (!open) return;
@@ -209,16 +211,13 @@ export function CardEditorDialog({
 								<span className={fieldLabelClass}>{t("editor.model")}</span>
 								{/* 与会话页输入栏同一个选择器；这里选的是「这张卡」的模型 */}
 								<ModelPicker
-									models={models}
-									value={draft.modelKey}
-									onChange={(modelKey) => setDraft((prev) => ({ ...prev, modelKey }))}
-									inheritLabel={
-										boardDefaultModel
-											? t("editor.modelDefaultNamed", { name: boardDefaultModel.displayName })
-											: t("editor.modelDefault")
-									}
-									defaultKey={defaultModelKey || undefined}
-									triggerClassName="h-[34px] w-full max-w-none justify-start rounded-lg border-border bg-background px-2.5 text-[12px]"
+									value={draft.modelKey || null}
+									onChange={(modelKey) => setDraft((prev) => ({ ...prev, modelKey: modelKey ?? "" }))}
+									emptyOption={{ label: inheritLabel }}
+									placeholder={inheritLabel}
+									defaultModelKey={defaultModelKey || undefined}
+									ariaLabel={t("editor.model")}
+									className="h-[34px] w-full rounded-lg border-border bg-background px-2.5"
 								/>
 							</div>
 						)}
