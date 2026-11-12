@@ -1,5 +1,5 @@
 export function resolveBuildResourceFilters(families) {
-	const filters = new Set(["pet/**/*"]);
+	const filters = new Set(["pet/**/*", "app-icons/*.png"]);
 	if (families.has("darwin")) {
 		filters.add("icon.icns");
 		filters.add("icon.png");

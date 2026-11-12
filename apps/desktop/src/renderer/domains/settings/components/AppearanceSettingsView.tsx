@@ -15,8 +15,10 @@ import { SettingsAiAssist } from "../ai-assist";
 import themeLock from "../assets/theme-lock.webp";
 import { SETTINGS_SECTION } from "../registry";
 import { MotionSelect, SettingHeading } from "@vetta-org/theme-ui/settings";
+import type { AppIconId } from "@/shared/app-icon";
 import type { SidebarStyle } from "@shared/theme/sidebar-style";
 import type {
+	AppearanceAppIconOption,
 	AppearanceCursorOption,
 	AppearanceOrnamentOption,
 	AppearanceLanguageOption,
@@ -329,6 +331,29 @@ const SidebarStyleCard = memo(function SidebarStyleCard({
 	);
 });
 
+const AppIconCard = memo(function AppIconCard({
+	active,
+	id,
+	label,
+	onSelect,
+	preview,
+}: AppearanceAppIconOption & {
+	onSelect: (id: AppIconId) => void;
+}): JSX.Element {
+	return (
+		<DecorCard active={active} hint={label} label={label} onSelect={() => onSelect(id)}>
+			<div className="flex h-full w-full items-center justify-center p-3">
+				<img
+					alt=""
+					className="pointer-events-none h-full w-full select-none object-contain"
+					draggable={false}
+					src={preview}
+				/>
+			</div>
+		</DecorCard>
+	);
+});
+
 const CursorStyleCard = memo(function CursorStyleCard({
 	active,
 	hint,
@@ -625,6 +650,17 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				<div className="grid grid-cols-2 gap-4">
 					{model.sidebarStyleOptions.map((option) => (
 						<SidebarStyleCard key={option.id} {...option} onSelect={model.actions.setSidebarStyle} />
+					))}
+				</div>
+			</div>
+
+			{/* 应用图标：方格卡，点选即换 Dock / 任务栏图标 */}
+			<div className="mb-10">
+				<SettingHeading title={model.labels.sections.appIcon} section={SETTINGS_SECTION["appearance-app-icon"]} className="mb-1" />
+				<p className="mb-4 text-[12px] text-muted-foreground">{model.labels.appIconHint}</p>
+				<div className="grid grid-cols-4 gap-4">
+					{model.appIconOptions.map((option) => (
+						<AppIconCard key={option.id} {...option} onSelect={model.actions.setAppIcon} />
 					))}
 				</div>
 			</div>

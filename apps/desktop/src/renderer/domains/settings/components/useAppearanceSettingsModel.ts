@@ -1,3 +1,4 @@
+import { useAppIcon } from "@shared/hooks/useAppIcon";
 import { useCursorStyle } from "@shared/hooks/useCustomCursor";
 import { useHeroOrnament } from "@shared/hooks/useHeroOrnament";
 import { useLanguage } from "@shared/hooks/useLanguage";
@@ -15,9 +16,21 @@ import { THEMES } from "@shared/theme/themes";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { APP_ICON_IDS, type AppIconId } from "@/shared/app-icon";
 import { isAppearanceUiThemeEnabled } from "@/shared/feature-flags";
 import type { LanguagePreference } from "@/shared/i18n/config";
 import { UI_ZOOM_DEFAULT, UI_ZOOM_STEPS, uiZoomStepIndex } from "@/shared/ui-zoom";
+import appIconCodingPreview from "../assets/app-icons/coding.png";
+import appIconCookPreview from "../assets/app-icons/cook.png";
+import appIconDefaultPreview from "../assets/app-icons/default.png";
+import appIconDesignPreview from "../assets/app-icons/design.png";
+import appIconGamePreview from "../assets/app-icons/game.png";
+import appIconReadPreview from "../assets/app-icons/read.png";
+import appIconSleepPreview from "../assets/app-icons/sleep.png";
+import appIconSportPreview from "../assets/app-icons/sport.png";
+import appIconStudyPreview from "../assets/app-icons/study.png";
+import appIconTravelPreview from "../assets/app-icons/travel.png";
+import appIconWorkPreview from "../assets/app-icons/work.png";
 import defaultThemePreview from "../assets/default.webp";
 import xianxiaThemePreview from "../assets/xianxia.webp";
 import { SETTINGS_SECTION } from "../registry";
@@ -77,6 +90,13 @@ export interface AppearanceTextureOption {
 	label: string;
 }
 
+export interface AppearanceAppIconOption {
+	active: boolean;
+	id: AppIconId;
+	label: string;
+	preview: string;
+}
+
 export interface AppearanceSidebarStyleOption {
 	active: boolean;
 	hint: string;
@@ -89,6 +109,7 @@ export interface AppearanceSettingsModel {
 		changeLanguage: (language: LanguagePreference) => void;
 		changeMode: (mode: ThemeMode, point: AppearancePoint) => void;
 		changeThemeName: (id: string, point: AppearancePoint) => void;
+		setAppIcon: (id: AppIconId) => void;
 		selectUiTheme: (id: string) => void;
 		setCursorStyle: (style: CursorStyle) => void;
 		setOrnament: (id: OrnamentId) => void;
@@ -98,15 +119,18 @@ export interface AppearanceSettingsModel {
 		resetUiZoom: () => void;
 	};
 	activeUiThemeId: string;
+	appIconOptions: AppearanceAppIconOption[];
 	cursorOptions: AppearanceCursorOption[];
 	cursorStyle: CursorStyle;
 	labels: {
+		appIconHint: string;
 		languageHint: string;
 		/** 「新会话页装饰」这块合并区域的说明，点明装饰件与纹理只影响新会话页。 */
 		newSessionDecorHint: string;
 		newSessionDecorTitle: string;
 		ornamentHint: string;
 		sections: {
+			appIcon: string;
 			cursor: string;
 			language: string;
 			mode: string;
@@ -195,6 +219,20 @@ const UI_THEME_OPTIONS = [
 	},
 ] as const;
 
+const APP_ICON_PREVIEWS: Record<AppIconId, string> = {
+	default: appIconDefaultPreview,
+	coding: appIconCodingPreview,
+	design: appIconDesignPreview,
+	work: appIconWorkPreview,
+	study: appIconStudyPreview,
+	read: appIconReadPreview,
+	game: appIconGamePreview,
+	sport: appIconSportPreview,
+	cook: appIconCookPreview,
+	travel: appIconTravelPreview,
+	sleep: appIconSleepPreview,
+};
+
 const CURSOR_OPTIONS = [
 	{
 		id: "default" as const,
@@ -238,6 +276,7 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 	const { factor: uiZoomFactor, setFactor: setUiZoomFactor, reset: resetUiZoom } = useUiZoom();
 	const { ornamentId, setOrnament } = useHeroOrnament();
 	const { textureId, setTexture } = useNewSessionTexture();
+	const { iconId: appIconId, setIcon: setAppIcon } = useAppIcon();
 	const { t } = useTranslation("settings");
 
 	const languages = useMemo<AppearanceLanguageOption[]>(
@@ -296,6 +335,17 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 		[cursorStyle, t],
 	);
 
+	const appIconOptions = useMemo<AppearanceAppIconOption[]>(
+		() =>
+			APP_ICON_IDS.map((id) => ({
+				id,
+				active: appIconId === id,
+				label: t(`appIcon_${id}`),
+				preview: APP_ICON_PREVIEWS[id],
+			})),
+		[appIconId, t],
+	);
+
 	const ornamentOptions = useMemo<AppearanceOrnamentOption[]>(
 		() =>
 			ORNAMENT_CATALOG.map((entry) => ({
@@ -344,11 +394,13 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 
 	const labels = useMemo(
 		() => ({
+			appIconHint: t("appIconHint"),
 			languageHint: t("languageHint"),
 			newSessionDecorHint: t("newSessionDecorHint"),
 			newSessionDecorTitle: t("newSessionDecorTitle"),
 			ornamentHint: t("ornamentHint"),
 			sections: {
+				appIcon: t(SETTINGS_SECTION["appearance-app-icon"].titleKey),
 				cursor: t(SETTINGS_SECTION["appearance-cursor"].titleKey),
 				language: t(SETTINGS_SECTION["appearance-language"].titleKey),
 				mode: t(SETTINGS_SECTION["appearance-mode"].titleKey),
@@ -380,6 +432,10 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 			changeThemeName: (id, point) => {
 				setThemeName(id, point);
 				recordSettingsUsage({ tab: "appearance", action: "changed", target: "color-theme", value: id });
+			},
+			setAppIcon: (id) => {
+				setAppIcon(id);
+				recordSettingsUsage({ tab: "appearance", action: "changed", target: "app-icon", value: id });
 			},
 			selectUiTheme: (id) => {
 				void selectTheme(id);
@@ -422,6 +478,7 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 		[
 			resetUiZoom,
 			selectTheme,
+			setAppIcon,
 			setCursorStyle,
 			setLanguage,
 			setMode,
@@ -436,6 +493,7 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 	return {
 		actions,
 		activeUiThemeId: activeThemeId,
+		appIconOptions,
 		cursorOptions,
 		cursorStyle,
 		labels,

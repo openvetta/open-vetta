@@ -34,6 +34,7 @@ function model(
 				changeLanguage: vi.fn(),
 				changeMode: vi.fn(),
 				changeThemeName: vi.fn(),
+				setAppIcon: vi.fn(),
 				selectUiTheme: vi.fn(),
 				setCursorStyle: vi.fn(),
 				setOrnament: vi.fn(),
@@ -45,14 +46,20 @@ function model(
 			overrides.actions,
 		),
 		activeUiThemeId: "default",
+		appIconOptions: [
+			{ active: true, id: "default", label: "默认", preview: "default.png" },
+			{ active: false, id: "coding", label: "编程", preview: "coding.png" },
+		],
 		cursorOptions: [],
 		cursorStyle: "default",
 		labels: {
+			appIconHint: "appIconHint",
 			languageHint: "languageHint",
 			newSessionDecorHint: "newSessionDecorHint",
 			newSessionDecorTitle: "新会话页装饰",
 			ornamentHint: "ornamentHint",
 			sections: {
+				appIcon: "应用图标",
 				cursor: "鼠标指针",
 				language: "语言",
 				mode: "外观模式",
@@ -137,6 +144,18 @@ describe("AppearanceSettingsView 的新会话页装饰区域", () => {
 		view.rerender(<AppearanceSettingsView model={{ ...initial, mode: "light" }} />);
 
 		expect(renderMarioPreview).toHaveBeenCalledTimes(1);
+	});
+
+	it("应用图标区：点某个图标把 id 交回模型，当前图标带选中态", async () => {
+		const setAppIcon = vi.fn();
+		const view = render(<AppearanceSettingsView model={model({ actions: { setAppIcon } })} />);
+
+		expect(view.getByText("应用图标")).toBeTruthy();
+		expect(view.getByTitle("默认").querySelector('[class*="mdi--check"]')).not.toBeNull();
+		expect(view.getByTitle("编程").querySelector('[class*="mdi--check"]')).toBeNull();
+		await userEvent.click(view.getByTitle("编程"));
+
+		expect(setAppIcon).toHaveBeenCalledWith("coding");
 	});
 
 	it("界面大小显示当前百分比，恢复默认在默认值时不可点", () => {
