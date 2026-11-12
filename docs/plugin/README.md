@@ -83,6 +83,7 @@
 | 宿主管理的浏览器自动化 | `ctx.browser.*` | `browser.*` | [browser](./browser.md) |
 | 插件私有持久化 | `ctx.storage.*` | `storage.read` / `storage.write` | [conversation-and-agent](./conversation-and-agent.md#插件私有存储-api) |
 | 调用用户 AI 模型（单轮/多轮+插件内部工具） | `ctx.ai.listModels/complete/chat` | `ai.models.list` / `ai.complete` | [ai](./ai.md) |
+| **让用户选模型**（宿主输入栏同一个选择器，勿自拼列表） | `<ModelPicker value onChange />` | 无 | [ai](./ai.md#让用户选模型modelpicker) |
 | 读写自身密钥 | `ctx.secrets.*` | `secrets.read` / `secrets.write` | [conversation-and-agent](./conversation-and-agent.md#密钥-api) |
 | 插件 i18n | `ctx.i18n` / `useTranslation` + `locales/` | 无（catalog 随包） | [conversation-and-agent](./conversation-and-agent.md#插件-i18n) / [manifest](./manifest.md#i18n) |
 | 新会话引导词 | `plugin.json` `guidingWords` | 无 | [manifest](./manifest.md#guidingwords引导词) |
