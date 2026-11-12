@@ -146,14 +146,14 @@ describe("AppearanceSettingsView 的新会话页装饰区域", () => {
 		expect(renderMarioPreview).toHaveBeenCalledTimes(1);
 	});
 
-	it("应用图标区：点某个图标把 id 交回模型，当前图标带选中态", async () => {
+	it("应用图标区：只显示当前图标，点开 popover 选另一个把 id 交回模型", async () => {
 		const setAppIcon = vi.fn();
 		const view = render(<AppearanceSettingsView model={model({ actions: { setAppIcon } })} />);
 
 		expect(view.getByText("应用图标")).toBeTruthy();
-		expect(view.getByTitle("默认").querySelector('[class*="mdi--check"]')).not.toBeNull();
-		expect(view.getByTitle("编程").querySelector('[class*="mdi--check"]')).toBeNull();
-		await userEvent.click(view.getByTitle("编程"));
+		expect(view.queryByTitle("编程")).toBeNull();
+		await userEvent.click(view.getByText("默认"));
+		await userEvent.click(await view.findByTitle("编程"));
 
 		expect(setAppIcon).toHaveBeenCalledWith("coding");
 	});

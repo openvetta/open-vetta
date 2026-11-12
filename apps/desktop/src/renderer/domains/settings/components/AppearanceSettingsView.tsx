@@ -1,4 +1,5 @@
 import { Button } from "@shared/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
 import { StepSlider } from "@shared/components/ui/step-slider";
 import { PixelMarioBlocks } from "@shared/components/mario/PixelMarioBlocks";
 import { cn } from "@shared/lib/utils";
@@ -331,28 +332,93 @@ const SidebarStyleCard = memo(function SidebarStyleCard({
 	);
 });
 
-const AppIconCard = memo(function AppIconCard({
-	active,
-	id,
-	label,
-	onSelect,
-	preview,
-}: AppearanceAppIconOption & {
-	onSelect: (id: AppIconId) => void;
-}): JSX.Element {
+/** 超椭圆（n=5）轮廓，与系统应用图标的形状一致；用 clip-path 裁，图片本身是满铺方形。 */
+const SQUIRCLE_CLIP = `polygon(${Array.from({ length: 72 }, (_, i) => {
+	const t = (i / 72) * Math.PI * 2;
+	const c = Math.cos(t);
+	const s = Math.sin(t);
+	const x = 50 + 50 * Math.sign(c) * Math.abs(c) ** (2 / 5);
+	const y = 50 + 50 * Math.sign(s) * Math.abs(s) ** (2 / 5);
+	return `${x.toFixed(2)}% ${y.toFixed(2)}%`;
+}).join(",")})`;
+
+function SquircleIcon({ className, src }: { className?: string; src: string }): JSX.Element {
 	return (
-		<DecorCard active={active} hint={label} label={label} onSelect={() => onSelect(id)}>
-			<div className="flex h-full w-full items-center justify-center p-3">
-				<img
-					alt=""
-					className="pointer-events-none h-full w-full select-none object-contain"
-					draggable={false}
-					src={preview}
-				/>
-			</div>
-		</DecorCard>
+		<img
+			alt=""
+			className={cn("pointer-events-none select-none object-cover", className)}
+			draggable={false}
+			src={src}
+			style={{ clipPath: SQUIRCLE_CLIP }}
+		/>
 	);
-});
+}
+
+/** 单个入口：显示当前图标与名字，点开 popover 在里面挑。无背景卡片。 */
+function AppIconPicker({
+	onSelect,
+	options,
+}: {
+	onSelect: (id: AppIconId) => void;
+	options: AppearanceAppIconOption[];
+}): JSX.Element | null {
+	const [open, setOpen] = useState(false);
+	const current = options.find((option) => option.active) ?? options[0];
+	if (!current) return null;
+	return (
+		<Popover open={open} onOpenChange={setOpen}>
+			<PopoverTrigger asChild>
+				<button
+					type="button"
+					className="group flex items-center gap-3 rounded-xl py-1 pr-2 text-left outline-none"
+				>
+					<SquircleIcon src={current.preview} className="h-14 w-14 shrink-0" />
+					<span className="text-[13px] font-medium text-foreground">{current.label}</span>
+					<span className="icon-[mdi--chevron-down] h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
+				</button>
+			</PopoverTrigger>
+			<PopoverContent align="start" className="w-[320px] p-3">
+				<div className="grid grid-cols-4 gap-x-3 gap-y-3">
+					{options.map((option) => (
+						<button
+							key={option.id}
+							type="button"
+							title={option.label}
+							onClick={() => {
+								onSelect(option.id);
+								setOpen(false);
+							}}
+							className="group flex flex-col items-center gap-1.5 outline-none"
+						>
+							<span className="relative">
+								<SquircleIcon
+									src={option.preview}
+									className={cn(
+										"h-14 w-14 transition-transform group-hover:scale-105",
+										option.active ? "" : "opacity-90 group-hover:opacity-100",
+									)}
+								/>
+								{option.active && (
+									<span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+										<span className="icon-[mdi--check] h-3 w-3 text-primary-foreground" />
+									</span>
+								)}
+							</span>
+							<span
+								className={cn(
+									"text-[11px]",
+									option.active ? "font-medium text-foreground" : "text-muted-foreground",
+								)}
+							>
+								{option.label}
+							</span>
+						</button>
+					))}
+				</div>
+			</PopoverContent>
+		</Popover>
+	);
+}
 
 const CursorStyleCard = memo(function CursorStyleCard({
 	active,
@@ -654,15 +720,11 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				</div>
 			</div>
 
-			{/* 应用图标：方格卡，点选即换 Dock / 任务栏图标 */}
+			{/* 应用图标：单个入口 + popover，点选即换 Dock / 任务栏图标 */}
 			<div className="mb-10">
 				<SettingHeading title={model.labels.sections.appIcon} section={SETTINGS_SECTION["appearance-app-icon"]} className="mb-1" />
 				<p className="mb-4 text-[12px] text-muted-foreground">{model.labels.appIconHint}</p>
-				<div className="grid grid-cols-4 gap-4">
-					{model.appIconOptions.map((option) => (
-						<AppIconCard key={option.id} {...option} onSelect={model.actions.setAppIcon} />
-					))}
-				</div>
+				<AppIconPicker options={model.appIconOptions} onSelect={model.actions.setAppIcon} />
 			</div>
 
 			{/* 鼠标指针：两列卡片，排在本页最末 */}
