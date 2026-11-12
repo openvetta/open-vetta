@@ -22,6 +22,8 @@ export interface ModelSelectProps {
 	placeholder?: string;
 	/** Extra classes for the trigger button (sizing/shape per call site) */
 	triggerClassName?: string;
+	/** Extra classes for the popup menu (e.g. a higher z-index inside a raised overlay) */
+	menuClassName?: string;
 	/** 触发器形态；表单里默认 `field`（带边框的选择框）。 */
 	variant?: ModelSelectorTriggerVariant;
 	/** 打「默认」徽章的模型；缺省为全局默认模型。 */
@@ -49,6 +51,7 @@ export function ModelSelect({
 	disabled = false,
 	placeholder,
 	triggerClassName,
+	menuClassName,
 	variant = "field",
 	defaultKey,
 	autoSelectDefault = false,
@@ -85,7 +88,7 @@ export function ModelSelect({
 			ariaLabel={ariaLabel}
 			disabled={disabled}
 			triggerVariant={variant}
-			classNames={{ trigger: triggerClassName }}
+			classNames={{ trigger: triggerClassName, content: menuClassName }}
 		/>
 	);
 }

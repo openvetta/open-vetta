@@ -20,6 +20,7 @@ export function PluginModelPicker({
 	ariaLabel,
 	variant,
 	className,
+	menuClassName,
 }: PluginModelPickerProps): JSX.Element {
 	return (
 		<ModelSelect
@@ -35,6 +36,7 @@ export function PluginModelPicker({
 			ariaLabel={ariaLabel}
 			variant={variant}
 			triggerClassName={className}
+			menuClassName={menuClassName}
 		/>
 	);
 }

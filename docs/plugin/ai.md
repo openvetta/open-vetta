@@ -39,6 +39,7 @@ function ModelField({ value, onChange }: { value: string | null; onChange(key: s
 | `autoSelectDefault` | 未选中时自动选上宿主默认模型 |
 | `variant` | `field`（默认，表单选择框）或 `inline`（输入栏式无边框胶囊） |
 | `className` | 追加到触发器上的类名 |
+| `menuClassName` | 追加到弹出菜单上的类名；选择器放在 `z-50` 以上的浮层里时用它抬高菜单层级 |
 
 - 不需要任何权限，也不需要开启 `hostThemeUi`：清单只展示给用户，插件代码只拿到用户选中的那一个 `modelKey`（类比文件选择器）。用这个 key 调模型仍需要 `ai.complete`，交给会话仍需要相应的会话权限。
 - 选择器列出的是宿主里所有可选的模型，与 `ctx.ai.listModels()` 的「当前可用文本模型」不完全相同：用户选了一个尚未配置凭据的模型时，`complete` 会照常报错，插件应把错误提示给用户。

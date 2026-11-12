@@ -37,6 +37,11 @@ export interface PluginModelPickerProps {
 	variant?: "field" | "inline";
 	/** 追加到触发器上的类名（尺寸、圆角等）。 */
 	className?: string;
+	/**
+	 * 追加到弹出菜单上的类名。菜单挂在 body 上、默认 `z-50`；选择器放在层级更高的浮层里
+	 * （如画布上 `z-[100]` 的节点编辑器）时，用它把菜单抬到浮层之上。
+	 */
+	menuClassName?: string;
 }
 
 /**

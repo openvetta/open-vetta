@@ -70,6 +70,7 @@ describe("PluginModelPicker", () => {
 				defaultModelKey="acme/deep"
 				ariaLabel="Card model"
 				className="plugin-trigger"
+				menuClassName="plugin-menu"
 			/>,
 		);
 
@@ -77,6 +78,7 @@ describe("PluginModelPicker", () => {
 		expect(trigger.className).toContain("plugin-trigger");
 		expect(trigger.textContent).toContain("Board default");
 		await user.click(trigger);
+		expect(screen.getByRole("menu").className).toContain("plugin-menu");
 
 		await user.click(await screen.findByRole("menuitem", { name: /Fast/ }));
 		expect(onChange).toHaveBeenLastCalledWith("acme/fast");
