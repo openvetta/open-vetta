@@ -3,7 +3,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/p
 import { StepSlider } from "@shared/components/ui/step-slider";
 import { PixelMarioBlocks } from "@shared/components/mario/PixelMarioBlocks";
 import { cn } from "@shared/lib/utils";
-import type { CursorStyle } from "@shared/theme/cursor";
 import {
 	NEW_SESSION_TEXTURE_COMPONENTS,
 	type NewSessionTextureId,
@@ -19,7 +18,6 @@ import { MotionSelect, SettingHeading, SettingRow, SettingSection } from "@vetta
 import type { AppIconId } from "@/shared/app-icon";
 import type {
 	AppearanceAppIconOption,
-	AppearanceCursorOption,
 	AppearanceOrnamentOption,
 	AppearanceLanguageOption,
 	AppearanceModeOption,
@@ -412,43 +410,6 @@ function AppIconPicker({
 	);
 }
 
-const CursorStyleCard = memo(function CursorStyleCard({
-	active,
-	hint,
-	icon,
-	id,
-	label,
-	onSelect,
-	preview,
-}: AppearanceCursorOption & {
-	onSelect: (style: CursorStyle) => void;
-}): JSX.Element {
-	return (
-		<button
-			type="button"
-			onClick={() => onSelect(id)}
-			className={cn(
-				// 两列宽卡：略增高预览区，与上方主题卡节奏一致
-				"group relative flex min-h-[72px] items-center gap-3 rounded-xl border bg-card px-3.5 py-3 text-left transition-all",
-				active ? SELECTION_ACTIVE : SELECTION_IDLE,
-			)}
-		>
-			<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-muted/80">
-				{preview ? (
-					<img src={preview} alt="" className="h-7 w-7 object-contain" draggable={false} />
-				) : (
-					<span className={cn(icon, "h-5 w-5", active ? "text-primary" : "text-muted-foreground")} />
-				)}
-			</div>
-			<div className="min-w-0 flex-1 pr-5">
-				<div className="text-[13px] font-medium text-foreground">{label}</div>
-				<div className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground">{hint}</div>
-			</div>
-			{active && <SelectionCheckBadge />}
-		</button>
-	);
-});
-
 /**
  * 装饰件预览：一枚 1:1 的方格，装饰件居中摆着，别的什么都不画。
  *
@@ -683,20 +644,6 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 							<TextureCard key={option.id} {...option} onSelect={model.actions.setTexture} />
 						))}
 					</div>
-				</div>
-			</div>
-
-			{/* 鼠标指针：两列卡片，排在本页最末 */}
-			<div className="mb-10">
-				<SettingHeading title={model.labels.sections.cursor} section={SETTINGS_SECTION["appearance-cursor"]} className="mb-4" />
-				<div className="grid grid-cols-2 gap-4">
-					{model.cursorOptions.map((option) => (
-						<CursorStyleCard
-							key={option.id}
-							{...option}
-							onSelect={model.actions.setCursorStyle}
-						/>
-					))}
 				</div>
 			</div>
 		</div>

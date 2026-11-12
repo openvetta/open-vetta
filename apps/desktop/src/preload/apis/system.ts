@@ -72,7 +72,6 @@ export function createSystemApi(
 						requestId?: unknown;
 						mode?: unknown;
 						themeId?: unknown;
-						cursorStyle?: unknown;
 					};
 					if (typeof request.requestId !== "string") return;
 					const changeRequest: DesktopThemeChangeRequest = {};
@@ -81,9 +80,6 @@ export function createSystemApi(
 					}
 					if (typeof request.themeId === "string") {
 						changeRequest.themeId = request.themeId;
-					}
-					if (request.cursorStyle === "default" || request.cursorStyle === "stoat") {
-						changeRequest.cursorStyle = request.cursorStyle;
 					}
 					void Promise.resolve(handler(changeRequest)).then(
 						(state) => ipc.send("vetta:theme:change-response", { requestId: request.requestId, state }),

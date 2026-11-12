@@ -1,6 +1,6 @@
 import type { DesktopActionApprovalRequest } from "@preload/api.js";
-import type { CursorStyle, ThemeMode } from "@shared/store/atoms";
-import { cursorStyleAtom, themeModeAtom, themeNameAtom } from "@shared/store/atoms";
+import type { ThemeMode } from "@shared/store/atoms";
+import { themeModeAtom, themeNameAtom } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,7 +12,6 @@ function isThemeSetInput(input: DesktopActionApprovalRequest["input"]): input is
 	type: "set";
 	mode?: ThemeMode;
 	themeId?: string;
-	cursorStyle?: CursorStyle;
 	approvalUi?: string;
 } {
 	if (typeof input !== "object" || input === null || Array.isArray(input)) return false;
@@ -20,8 +19,7 @@ function isThemeSetInput(input: DesktopActionApprovalRequest["input"]): input is
 	return (
 		value.type === "set" &&
 		(value.mode === undefined || value.mode === "light" || value.mode === "dark" || value.mode === "auto") &&
-		(value.themeId === undefined || typeof value.themeId === "string") &&
-		(value.cursorStyle === undefined || value.cursorStyle === "default" || value.cursorStyle === "stoat")
+		(value.themeId === undefined || typeof value.themeId === "string")
 	);
 }
 
@@ -31,12 +29,10 @@ export interface ThemeChangeApprovalModel {
 	readonly hasInput: boolean;
 	readonly mode: ThemeMode;
 	readonly themeId: string;
-	readonly cursorStyle: CursorStyle;
 	readonly rawInput: unknown;
 	readonly approvalUi: string | undefined;
 	readonly onModeChange: (mode: ThemeMode) => void;
 	readonly onThemeChange: (themeId: string) => void;
-	readonly onCursorStyleChange: (cursorStyle: CursorStyle) => void;
 }
 
 export function useThemeChangeApprovalModel(): ThemeChangeApprovalModel | null {
@@ -44,11 +40,9 @@ export function useThemeChangeApprovalModel(): ThemeChangeApprovalModel | null {
 	const { t } = useTranslation("common");
 	const currentMode = useAtomValue(themeModeAtom);
 	const currentThemeId = useAtomValue(themeNameAtom);
-	const currentCursorStyle = useAtomValue(cursorStyleAtom);
 	const input = approval && isThemeSetInput(approval.request.input) ? approval.request.input : null;
 	const [mode, setMode] = useState<ThemeMode>(input?.mode ?? currentMode);
 	const [themeId, setThemeId] = useState(input?.themeId ?? currentThemeId);
-	const [cursorStyle, setCursorStyle] = useState<CursorStyle>(input?.cursorStyle ?? currentCursorStyle);
 
 	if (!approval) return null;
 
@@ -70,7 +64,6 @@ export function useThemeChangeApprovalModel(): ThemeChangeApprovalModel | null {
 					type: "set",
 					mode,
 					themeId,
-					cursorStyle,
 					approvalUi: input?.approvalUi ?? "appearance.theme-change",
 				}),
 			onReject: reject,
@@ -81,11 +74,9 @@ export function useThemeChangeApprovalModel(): ThemeChangeApprovalModel | null {
 		hasInput: !!input,
 		mode,
 		themeId,
-		cursorStyle,
 		rawInput: request.input,
 		approvalUi: input?.approvalUi,
 		onModeChange: setMode,
 		onThemeChange: setThemeId,
-		onCursorStyleChange: setCursorStyle,
 	};
 }

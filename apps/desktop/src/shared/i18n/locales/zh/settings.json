@@ -1316,11 +1316,6 @@
   "section_appearance-ui-theme": "界面主题",
   "section_appearance-theme": "主题颜色",
   "section_appearance-language": "语言",
-  "section_appearance-cursor": "鼠标指针",
-  "cursorDefaultTitle": "默认指针",
-  "cursorDefaultHint": "使用系统原生鼠标指针。",
-  "cursorStoatTitle": "白鼬",
-  "cursorStoatHint": "使用应用内置的白鼬鼠标指针样式。",
   "section_appearance-ornament": "装饰件",
   "ornamentHint": "新会话页输入框上方那块挂饰位",
   "ornamentNoneTitle": "无",
@@ -1625,8 +1620,7 @@
       },
       "appearance": {
         "dark": "切换到深色模式",
-        "theme": "换一个界面主题",
-        "cursor": "把鼠标指针改成白鼬样式"
+        "theme": "换一个界面主题"
       },
       "pet": {
         "show": "显示桌宠",

@@ -1,9 +1,8 @@
 import { i18n } from "@shared/i18n";
 import type { PluginOfficialApi } from "@vetta-org/plugin-sdk";
 import { getDefaultStore } from "jotai";
-import { cursorStyleAtom, resolvedThemeAtom, themeModeAtom, themeNameAtom } from "../../../shared/store/ui-atoms";
+import { resolvedThemeAtom, themeModeAtom, themeNameAtom } from "../../../shared/store/ui-atoms";
 import { applyTheme, MODE_STORAGE_KEY, type ResolvedMode, THEME_STORAGE_KEY } from "../../../shared/theme/apply";
-import { type CursorStyle, getStoredCursorStyle, setStoredCursorStyle } from "../../../shared/theme/cursor";
 import { DEFAULT_THEME_ID, resolveThemeId, THEME_MAP, THEMES } from "../../../shared/theme/themes";
 import { pluginRendererCapabilityHost } from "./plugin-renderer-capability-host";
 
@@ -25,7 +24,6 @@ function getThemeSnapshot() {
 		themeId: resolveThemeId(storedThemeId && storedThemeId.length > 0 ? storedThemeId : DEFAULT_THEME_ID),
 		resolved: resolvedMode === "light" || resolvedMode === "dark" ? resolvedMode : null,
 		appliedThemeId: root.getAttribute("data-theme"),
-		cursorStyle: getStoredCursorStyle(),
 	};
 }
 
@@ -53,7 +51,7 @@ export async function getOfficialAppearanceHelp(): Promise<unknown> {
 		language: currentLanguage(),
 		native,
 		guidance:
-			"只读：appearance.query help|get。写操作：appearance.theme type=set（mode/themeId/cursorStyle）或 type=set-language。",
+			"只读：appearance.query help|get。写操作：appearance.theme type=set（mode/themeId）或 type=set-language。",
 	};
 }
 
@@ -72,21 +70,15 @@ export async function getOfficialAppearanceState(): Promise<unknown> {
 export async function setOfficialAppearance(input: {
 	mode?: "light" | "dark" | "auto";
 	themeId?: string;
-	cursorStyle?: CursorStyle;
 }): Promise<unknown> {
-	if (input.mode === undefined && input.themeId === undefined && input.cursorStyle === undefined) {
-		throw new Error("Appearance set requires mode, themeId, or cursorStyle after approval.");
+	if (input.mode === undefined && input.themeId === undefined) {
+		throw new Error("Appearance set requires mode or themeId after approval.");
 	}
 	if (input.themeId !== undefined && !THEME_MAP[input.themeId]) {
 		throw new Error(`Unknown color theme: ${input.themeId}`);
 	}
 
 	const store = getDefaultStore();
-	if (input.cursorStyle !== undefined) {
-		setStoredCursorStyle(input.cursorStyle);
-		store.set(cursorStyleAtom, input.cursorStyle);
-	}
-
 	const nextThemeId =
 		input.themeId !== undefined
 			? resolveThemeId(input.themeId)

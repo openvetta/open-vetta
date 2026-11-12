@@ -289,8 +289,7 @@
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 
-	/* 默认使用系统原生光标。仅当 html.custom-cursor（白鼬样式）时覆盖为内置素材，
-	   入口见「外观设置 → 鼠标指针」。 */
+	/* 一律使用系统原生光标。 */
 	--cursor-default: default;
 	--cursor-click: pointer;
 	--cursor-help: help;
@@ -304,25 +303,6 @@
 	--cursor-vertical-resize: ns-resize;
 	--cursor-diagonal-resize: nwse-resize;
 	--cursor-diagonal-resize-flipped: nesw-resize;
-}
-
-html.custom-cursor {
-	--cursor-default: url("/cursors/default.png") 3 3, default;
-	--cursor-click: url("/cursors/click.png") 3 3, pointer;
-	--cursor-help: url("/cursors/help.png") 3 2, help;
-	--cursor-hover: url("/cursors/hover.png") 3 3, pointer;
-	--cursor-horizontal-resize: url("/cursors/horizontal_resize.png") 15 13,
-		ew-resize;
-	--cursor-loading: url("/cursors/loading.png") 14 15, wait;
-	--cursor-move: url("/cursors/move.png") 15 14, move;
-	--cursor-not-allowed: url("/cursors/not_allowed.png") 15 15, not-allowed;
-	--cursor-pointer: url("/cursors/pointer.png") 3 2, pointer;
-	--cursor-text: url("/cursors/text.png") 13 15, text;
-	--cursor-vertical-resize: url("/cursors/vertical_resize.png") 12 15, ns-resize;
-	--cursor-diagonal-resize: url("/cursors/diagonal_resize.png") 14 15,
-		nwse-resize;
-	--cursor-diagonal-resize-flipped: url("/cursors/diagonal_resize_flipped.png")
-		12 15, nesw-resize;
 }
 
 * {

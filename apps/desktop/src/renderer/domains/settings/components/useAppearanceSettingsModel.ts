@@ -1,12 +1,10 @@
 import { useAppIcon } from "@shared/hooks/useAppIcon";
-import { useCursorStyle } from "@shared/hooks/useCustomCursor";
 import { useHeroOrnament } from "@shared/hooks/useHeroOrnament";
 import { useLanguage } from "@shared/hooks/useLanguage";
 import { useNewSessionTexture } from "@shared/hooks/useNewSessionTexture";
 import { useTheme } from "@shared/hooks/useTheme";
 import { useUiZoom } from "@shared/hooks/useUiZoom";
 import type { ThemeMode } from "@shared/store/atoms";
-import { type CursorStyle, STOAT_CURSOR_PREVIEW_URL } from "@shared/theme/cursor";
 import { NEW_SESSION_TEXTURE_CATALOG, type NewSessionTextureId } from "@shared/theme/new-session-texture";
 import { ORNAMENT_CATALOG, type OrnamentId } from "@shared/theme/ornament";
 import { useThemeRuntime } from "@shared/theme/runtime";
@@ -62,16 +60,6 @@ export interface AppearanceUiThemeOption {
 	unavailable: boolean;
 }
 
-export interface AppearanceCursorOption {
-	active: boolean;
-	hint: string;
-	id: CursorStyle;
-	label: string;
-	/** 预览图 URL；缺省时用 icon */
-	preview?: string;
-	icon?: string;
-}
-
 export interface AppearanceOrnamentOption {
 	active: boolean;
 	hint: string;
@@ -102,7 +90,6 @@ export interface AppearanceSettingsModel {
 		changeThemeName: (id: string, point: AppearancePoint) => void;
 		setAppIcon: (id: AppIconId) => void;
 		selectUiTheme: (id: string) => void;
-		setCursorStyle: (style: CursorStyle) => void;
 		setOrnament: (id: OrnamentId) => void;
 		setTexture: (id: NewSessionTextureId) => void;
 		setUiZoom: (factor: number) => void;
@@ -110,8 +97,6 @@ export interface AppearanceSettingsModel {
 	};
 	activeUiThemeId: string;
 	appIconOptions: AppearanceAppIconOption[];
-	cursorOptions: AppearanceCursorOption[];
-	cursorStyle: CursorStyle;
 	labels: {
 		/** 「新会话页装饰」这块合并区域的说明，点明装饰件与纹理只影响新会话页。 */
 		newSessionDecorHint: string;
@@ -119,7 +104,6 @@ export interface AppearanceSettingsModel {
 		ornamentHint: string;
 		sections: {
 			appIcon: string;
-			cursor: string;
 			language: string;
 			mode: string;
 			ornament: string;
@@ -217,21 +201,6 @@ const APP_ICON_PREVIEWS: Record<AppIconId, string> = {
 	sleep: appIconSleepPreview,
 };
 
-const CURSOR_OPTIONS = [
-	{
-		id: "default" as const,
-		labelKey: "cursorDefaultTitle",
-		hintKey: "cursorDefaultHint",
-		icon: "icon-[mdi--cursor-default-outline]",
-	},
-	{
-		id: "stoat" as const,
-		labelKey: "cursorStoatTitle",
-		hintKey: "cursorStoatHint",
-		preview: STOAT_CURSOR_PREVIEW_URL,
-	},
-] as const;
-
 const COLOR_THEME_LABEL_KEYS = {
 	mono: "colorThemes.mono",
 	default: "colorThemes.default",
@@ -242,7 +211,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 	const { mode, themeName, setMode, setThemeName } = useTheme();
 	const { activeThemeId, availableThemes, selectTheme, status: themeRuntimeStatus } = useThemeRuntime();
 	const { languagePreference, setLanguage } = useLanguage();
-	const { style: cursorStyle, setStyle: setCursorStyle } = useCursorStyle();
 	const { factor: uiZoomFactor, setFactor: setUiZoomFactor, reset: resetUiZoom } = useUiZoom();
 	const { ornamentId, setOrnament } = useHeroOrnament();
 	const { textureId, setTexture } = useNewSessionTexture();
@@ -290,19 +258,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 				};
 			}),
 		[activeThemeId, availableThemes, t, themeRuntimeStatus],
-	);
-
-	const cursorOptions = useMemo<AppearanceCursorOption[]>(
-		() =>
-			CURSOR_OPTIONS.map((option) => ({
-				id: option.id,
-				active: cursorStyle === option.id,
-				label: t(option.labelKey),
-				hint: t(option.hintKey),
-				preview: "preview" in option ? option.preview : undefined,
-				icon: "icon" in option ? option.icon : undefined,
-			})),
-		[cursorStyle, t],
 	);
 
 	const appIconOptions = useMemo<AppearanceAppIconOption[]>(
@@ -358,7 +313,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 			ornamentHint: t("ornamentHint"),
 			sections: {
 				appIcon: t(SETTINGS_SECTION["appearance-app-icon"].titleKey),
-				cursor: t(SETTINGS_SECTION["appearance-cursor"].titleKey),
 				language: t(SETTINGS_SECTION["appearance-language"].titleKey),
 				mode: t(SETTINGS_SECTION["appearance-mode"].titleKey),
 				ornament: t(SETTINGS_SECTION["appearance-ornament"].titleKey),
@@ -396,15 +350,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 				void selectTheme(id);
 				recordSettingsUsage({ tab: "appearance", action: "selected", target: "ui-theme", value: id });
 			},
-			setCursorStyle: (style) => {
-				setCursorStyle(style);
-				recordSettingsUsage({
-					tab: "appearance",
-					action: "changed",
-					target: "cursor-style",
-					value: style,
-				});
-			},
 			setOrnament: (id) => {
 				setOrnament(id);
 				recordSettingsUsage({ tab: "appearance", action: "changed", target: "ornament", value: id });
@@ -425,7 +370,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 			resetUiZoom,
 			selectTheme,
 			setAppIcon,
-			setCursorStyle,
 			setLanguage,
 			setMode,
 			setOrnament,
@@ -439,8 +383,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 		actions,
 		activeUiThemeId: activeThemeId,
 		appIconOptions,
-		cursorOptions,
-		cursorStyle,
 		labels,
 		language: languagePreference,
 		languages,

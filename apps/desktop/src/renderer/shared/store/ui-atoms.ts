@@ -9,7 +9,6 @@ import {
 	isSupportedLanguage,
 	type LanguagePreference,
 } from "@/shared/i18n/config";
-import { type CursorStyle, getStoredCursorStyle } from "../theme/cursor";
 import { getStoredNewSessionTextureId, type NewSessionTextureId } from "../theme/new-session-texture";
 import { getStoredOrnamentId, type OrnamentId } from "../theme/ornament";
 
@@ -76,8 +75,6 @@ export const resolvedThemeAtom = atom<"light" | "dark">("dark");
 export const themeNameAtom = atom<string>(
 	resolveThemeId(localStorage.getItem("vetta-color-theme") || DEFAULT_THEME_ID),
 );
-export type { CursorStyle };
-export const cursorStyleAtom = atom<CursorStyle>(getStoredCursorStyle());
 export type { OrnamentId };
 /** 新会话页装饰件位当前挂着谁。 */
 export const heroOrnamentAtom = atom<OrnamentId>(getStoredOrnamentId());

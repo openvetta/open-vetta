@@ -728,7 +728,6 @@ export interface PluginOfficialApi {
 		set(input: {
 			mode?: "light" | "dark" | "auto";
 			themeId?: string;
-			cursorStyle?: "default" | "stoat";
 		}): Promise<unknown>;
 		setLanguage(language: "zh" | "en"): Promise<unknown>;
 		listThemeIds(): string[];

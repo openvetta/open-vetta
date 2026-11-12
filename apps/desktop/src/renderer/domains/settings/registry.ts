@@ -100,7 +100,6 @@ export const SETTINGS_SECTIONS = [
 	{ tab: "sshHosts", id: "ssh-hosts-list", title: "主机列表", titleKey: "section_ssh-hosts-list" },
 	{ tab: "appearance", id: "appearance-mode", title: "外观模式", titleKey: "section_appearance-mode" },
 	{ tab: "appearance", id: "appearance-ui-theme", title: "界面主题", titleKey: "section_appearance-ui-theme" },
-	{ tab: "appearance", id: "appearance-cursor", title: "鼠标指针", titleKey: "section_appearance-cursor" },
 	{ tab: "appearance", id: "appearance-theme", title: "主题", titleKey: "section_appearance-theme" },
 	{ tab: "appearance", id: "appearance-ui-zoom", title: "界面大小", titleKey: "section_appearance-ui-zoom" },
 	{ tab: "appearance", id: "appearance-ornament", title: "装饰件", titleKey: "section_appearance-ornament" },

@@ -36,7 +36,6 @@ function model(
 				changeThemeName: vi.fn(),
 				setAppIcon: vi.fn(),
 				selectUiTheme: vi.fn(),
-				setCursorStyle: vi.fn(),
 				setOrnament: vi.fn(),
 				setTexture: vi.fn(),
 				setUiZoom: vi.fn(),
@@ -49,15 +48,12 @@ function model(
 			{ active: true, id: "default", label: "默认", preview: "default.png" },
 			{ active: false, id: "coding", label: "编程", preview: "coding.png" },
 		],
-		cursorOptions: [],
-		cursorStyle: "default",
 		labels: {
 			newSessionDecorHint: "newSessionDecorHint",
 			newSessionDecorTitle: "新会话页装饰",
 			ornamentHint: "ornamentHint",
 			sections: {
 				appIcon: "应用图标",
-				cursor: "鼠标指针",
 				language: "语言",
 				mode: "外观模式",
 				ornament: "装饰件",
