@@ -34,7 +34,7 @@ import {
 	readConversationEventRecord,
 } from "@vetta/runtime-storage/conversation";
 
-type ConversationBodyRecord = NormalizedReadConversationEventRecord | ConversationDocumentOperationRecord;
+export type ConversationBodyRecord = NormalizedReadConversationEventRecord | ConversationDocumentOperationRecord;
 
 export interface ParsedConversationFile {
 	readonly header: ReadConversationFileHeader;
@@ -274,25 +274,46 @@ export function documentFromFile(sessionId: string, file: ParsedConversationFile
 		if (seedName !== undefined) {
 			document = { ...document, name: seedName };
 		}
-		for (const record of file.records) {
-			if (record.recordType === "conversation.event") {
-				const reference = record.schemaVersion === CONVERSATION_SCHEMA_VERSION ? record.documentEntry : undefined;
-				document = applyStoredEventToConversationDocument(
-					document,
-					record.event,
-					record.sequence,
-					reference ?? undefined,
-				);
-				continue;
-			}
-			const result = applyConversationDocumentCommand(document, record.command, record.revision);
-			if (!result.changed) throw new Error(`Document operation ${record.revision} is a persisted no-op`);
-			document = result.document;
-		}
-		return document;
+		return replayConversationRecords(document, file.records);
 	} catch (error) {
 		throw corruptConversation(sessionId, "invalid conversation document projection", error);
 	}
+}
+
+/** 在已有文档投影上按读盘规则重放记录；增量追加与整份投影共用，保证两条路径结果一致。 */
+export function extendDocumentWithRecords(
+	sessionId: string,
+	document: ConversationDocument,
+	records: readonly ConversationBodyRecord[],
+): ConversationDocument {
+	try {
+		return replayConversationRecords(document, records);
+	} catch (error) {
+		throw corruptConversation(sessionId, "invalid conversation document projection", error);
+	}
+}
+
+function replayConversationRecords(
+	initial: ConversationDocument,
+	records: readonly ConversationBodyRecord[],
+): ConversationDocument {
+	let document = initial;
+	for (const record of records) {
+		if (record.recordType === "conversation.event") {
+			const reference = record.schemaVersion === CONVERSATION_SCHEMA_VERSION ? record.documentEntry : undefined;
+			document = applyStoredEventToConversationDocument(
+				document,
+				record.event,
+				record.sequence,
+				reference ?? undefined,
+			);
+			continue;
+		}
+		const result = applyConversationDocumentCommand(document, record.command, record.revision);
+		if (!result.changed) throw new Error(`Document operation ${record.revision} is a persisted no-op`);
+		document = result.document;
+	}
+	return document;
 }
 
 export function createDocumentEntryReference(
