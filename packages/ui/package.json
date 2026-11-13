@@ -17,6 +17,10 @@
 			"types": "./src/button.tsx",
 			"import": "./src/button.tsx"
 		},
+		"./button-group": {
+			"types": "./src/button-group.tsx",
+			"import": "./src/button-group.tsx"
+		},
 		"./dialog": {
 			"types": "./src/dialog.tsx",
 			"import": "./src/dialog.tsx"
