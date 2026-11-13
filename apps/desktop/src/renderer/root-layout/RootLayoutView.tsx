@@ -22,6 +22,7 @@ import { SidebarTour } from "../shared/tour";
 import { AppBackground } from "./app-background/AppBackground";
 import { RootGlobalOverlays } from "./RootGlobalOverlays";
 import type { RootLayoutModel } from "./types";
+import { useTitlebarAnchor } from "./useTitlebarAnchor";
 
 /**
  * 路由内容独立成 memo：侧边栏折叠状态就在本文件的 model 里，不隔离的话每次展开/收起都会
@@ -70,6 +71,8 @@ export function RootLayoutView({ model }: RootLayoutViewProps): JSX.Element {
 		sidebarWidth,
 	} = model;
 	const showSidebar = pageLayout !== "app";
+	const headerOverlay = workspaceViewHeader?.immersive === true || pageImmersive;
+	useTitlebarAnchor(`${pageLayout}:${narrow}:${sidebarCollapsed}:${headerOverlay}`);
 	const ensureSidebarVisible = useCallback(() => {
 		if (narrow) actions.openOverlay();
 	}, [actions.openOverlay, narrow]);
@@ -133,7 +136,7 @@ export function RootLayoutView({ model }: RootLayoutViewProps): JSX.Element {
 					<MainContentFrame
 						className="app-main-frame"
 						header={pageHeader}
-						headerOverlay={workspaceViewHeader?.immersive === true || pageImmersive}
+						headerOverlay={headerOverlay}
 					>
 						<RouteContent routePending={routePending} onOpenSession={onOpenSession} />
 					</MainContentFrame>

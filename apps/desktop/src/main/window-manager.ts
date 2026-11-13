@@ -7,7 +7,7 @@ import { type RendererConsoleLevel, shouldPersistRendererConsoleMessage } from "
 import { getAppLogger } from "./logger.js";
 import { openExternalUrl } from "./open-external.js";
 import { configureMainWindowMediaPermissions } from "./speech-input/media-permissions.js";
-import { attachUiZoom } from "./ui-zoom/ui-zoom-service.js";
+import { attachUiZoom, getInitialTrafficLightPosition } from "./ui-zoom/ui-zoom-service.js";
 
 const isMac = process.platform === "darwin";
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
@@ -66,9 +66,9 @@ export function createWindow(): BrowserWindow {
 		transparent: false,
 		frame: isMac,
 		titleBarStyle: isMac ? "hiddenInset" : undefined,
-		// 红绿灯直径 12px，要与页头图标垂直居中：AppFrame 内边距 8px + 页头高 44px 的中线在 y=30，
-		// 所以顶边取 30 - 6 = 24。改页头高度或 AppFrame 内边距时这里要一起改。
-		trafficLightPosition: isMac ? { x: 16, y: 24 } : undefined,
+		// 红绿灯位置由渲染进程实测页头图标中线后上报，ui-zoom-service 持续维护（含缩放、全屏进出）；
+		// 这里只给首帧的初始值，不再写死页头相关的数字。
+		trafficLightPosition: isMac ? getInitialTrafficLightPosition() : undefined,
 		vibrancy: isMac ? "sidebar" : undefined,
 		visualEffectState: isMac ? "active" : undefined,
 		backgroundColor: isMac ? "#00000000" : nativeTheme.shouldUseDarkColors ? "#161616" : "#f5f5f7",

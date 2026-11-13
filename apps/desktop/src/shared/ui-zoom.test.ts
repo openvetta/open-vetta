@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { normalizeUiZoomFactor, stepUiZoomFactor, UI_ZOOM_DEFAULT, UI_ZOOM_STEPS } from "./ui-zoom";
+import {
+	normalizeUiZoomFactor,
+	parseTitlebarCenter,
+	stepUiZoomFactor,
+	trafficLightPositionFor,
+	UI_ZOOM_DEFAULT,
+	UI_ZOOM_STEPS,
+} from "./ui-zoom";
 
 describe("normalizeUiZoomFactor", () => {
 	it("非数字或非有限数回落默认值", () => {
@@ -30,5 +37,26 @@ describe("stepUiZoomFactor", () => {
 	it("到头不越界", () => {
 		expect(stepUiZoomFactor(1.5, 1)).toBe(1.5);
 		expect(stepUiZoomFactor(0.75, -1)).toBe(0.75);
+	});
+});
+
+describe("trafficLightPositionFor", () => {
+	it("100% 时保持原标定，其它档位按实测中线 × 比例换算", () => {
+		expect(trafficLightPositionFor(28, 1)).toEqual({ x: 16, y: 24 });
+		expect(trafficLightPositionFor(28, 0.75)).toEqual({ x: 16, y: 17 });
+		expect(trafficLightPositionFor(28, 1.5)).toEqual({ x: 16, y: 38 });
+	});
+
+	it("页头中线变了，红绿灯跟着变，不依赖任何写死的页头数字", () => {
+		expect(trafficLightPositionFor(30, 1)).toEqual({ x: 16, y: 26 });
+	});
+});
+
+describe("parseTitlebarCenter", () => {
+	it("只接受合理范围内的有限数", () => {
+		expect(parseTitlebarCenter(28)).toBe(28);
+		for (const bad of [undefined, "28", Number.NaN, -1, 9999, Number.POSITIVE_INFINITY]) {
+			expect(parseTitlebarCenter(bad)).toBeUndefined();
+		}
 	});
 });

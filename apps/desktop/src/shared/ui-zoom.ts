@@ -23,3 +23,30 @@ export function stepUiZoomFactor(current: number, direction: 1 | -1): number {
 	const next = Math.min(UI_ZOOM_STEPS.length - 1, Math.max(0, uiZoomStepIndex(current) + direction));
 	return UI_ZOOM_STEPS[next] ?? UI_ZOOM_DEFAULT;
 }
+
+/** 红绿灯左缘距窗口的屏幕像素。 */
+const TRAFFIC_LIGHT_X = 16;
+/**
+ * 原生按钮顶边 y 与其视觉中线的距离（屏幕 px）。由「页头中线 28、顶边 24」标定得到，
+ * 与页头 CSS 无关：页头怎么排由渲染进程实测后上报，这里只描述按钮自身。
+ */
+const TRAFFIC_LIGHT_CENTER_OFFSET = 4;
+/** 渲染进程还没上报实测中线时的兜底（CSS px），等于 100% 缩放下页头的标定中线。 */
+export const TITLEBAR_CENTER_FALLBACK = 28;
+
+/** 校验渲染进程上报的页头中线（CSS px）：非有限数或越界一律丢弃。 */
+export function parseTitlebarCenter(value: unknown): number | undefined {
+	if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+	return value >= 0 && value <= 200 ? value : undefined;
+}
+
+/**
+ * 红绿灯是原生控件，不随网页缩放；页头中线是 CSS px，换算成屏幕 px 要乘缩放比。
+ * 中线由渲染进程实测上报，所以页头高度、内边距、沉浸式页头怎么变，这里都不需要改数字。
+ */
+export function trafficLightPositionFor(centerCssPx: number, factor: number): { x: number; y: number } {
+	return {
+		x: TRAFFIC_LIGHT_X,
+		y: Math.round(centerCssPx * normalizeUiZoomFactor(factor) - TRAFFIC_LIGHT_CENTER_OFFSET),
+	};
+}

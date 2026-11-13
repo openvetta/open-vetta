@@ -498,11 +498,12 @@ textarea:disabled,
 	border-right-width: 1px;
 }
 
-/* 顶栏内容与 macOS 红绿灯对齐。h-11 自身居中：顶栏从 y=0 起算、中线 22 偏上，
-   补一侧内边距把中线挪到实测位置（29）。padding 记在 h-11 元素自身（border-box，总高不变），
-   drag-region 仍覆盖整条顶栏。数值是照实机目测调的，要挪就改这两个。 */
+/* 侧边栏顶栏内容与主页头对齐。h-11 自身居中：顶栏从 y=0 起算、中线 22 偏上，
+   补顶部内边距把图标中线挪到与主页头一致的 28（含 relative top-[-2px]）。
+   padding 记在 h-11 元素自身（border-box，总高不变），drag-region 仍覆盖整条顶栏。
+   红绿灯位置不依赖这里的数字：renderer 会实测 [data-titlebar-anchor] 的中线并上报主进程。 */
 :root[data-platform="mac"] .sidebar-dock .sidebar-top-bar {
-	padding-top: 0.875rem;
+	padding-top: 1rem;
 	padding-bottom: 0;
 }
 
