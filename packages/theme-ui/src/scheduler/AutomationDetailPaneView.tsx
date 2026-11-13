@@ -50,7 +50,7 @@ export function AutomationDetailPaneView({
 						title={closeLabel}
 						aria-label={closeLabel}
 						onClick={onClose}
-						icon={<span className="icon-[mdi--close] size-4" />}
+						icon={<span className="icon-[solar--close-linear] size-4" />}
 					/>
 				</ButtonGroup>
 			</header>
