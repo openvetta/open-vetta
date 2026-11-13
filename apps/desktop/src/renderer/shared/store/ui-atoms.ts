@@ -43,6 +43,11 @@ export const pageHeaderLeftSlotAtom = atom<ReactNode | null>(null);
 export const pageHeaderTitleBadgeAtom = atom<ReactNode | null>(null);
 // 设为 true 时彻底隐藏顶栏标题（连路由兜底标题也不显示），用于 NewSessionPage 等。
 export const pageHeaderTitleHiddenAtom = atom<boolean>(false);
+/**
+ * 设为 true 时顶栏浮在页面内容之上（沉浸式 / soft titlebar）：内容占满全高，
+ * 自己负责顶部留白与滚动时的渐隐。由会话页挂载期间置位，卸载时复位。
+ */
+export const pageHeaderImmersiveAtom = atom<boolean>(false);
 
 // ─── Settings page ───
 

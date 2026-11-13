@@ -1,7 +1,7 @@
 import { useSetAtom } from "jotai";
 import { memo, useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { pageHeaderLeftSlotAtom, pageHeaderRightSlotAtom } from "@shared/store/atoms";
+import { pageHeaderImmersiveAtom, pageHeaderLeftSlotAtom, pageHeaderRightSlotAtom } from "@shared/store/atoms";
 import { useActiveSessionRuntimeIds } from "@shared/workspace/active-session-runtime";
 import { createActivityWorkspace } from "@shared/workspace/activity-workspace";
 import type { WorkSurfaceScope } from "@shared/workspace/work-surface";
@@ -52,6 +52,7 @@ export function ChatView(props: ChatViewProps): JSX.Element {
 	const bottomPanel = useBottomPanelToggle(model.workSurface);
 	const setHeaderRightSlot = useSetAtom(pageHeaderRightSlotAtom);
 	const setHeaderLeftSlot = useSetAtom(pageHeaderLeftSlotAtom);
+	const setHeaderImmersive = useSetAtom(pageHeaderImmersiveAtom);
 	const workspace = useMemo(
 		() =>
 			createActivityWorkspace(
@@ -117,6 +118,12 @@ export function ChatView(props: ChatViewProps): JSX.Element {
 		setHeaderRightSlot(headerActions);
 		return () => setHeaderRightSlot(null);
 	}, [headerActions, setHeaderRightSlot]);
+
+	// 沉浸式顶栏：消息流滚到顶栏下面，由 MessageFeedLayoutVirtualizer 负责留白与渐隐。
+	useEffect(() => {
+		setHeaderImmersive(true);
+		return () => setHeaderImmersive(false);
+	}, [setHeaderImmersive]);
 
 	useEffect(() => {
 		setHeaderLeftSlot(<ChatHeaderNewSessionButton />);

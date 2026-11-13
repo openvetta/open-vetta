@@ -23,7 +23,11 @@ export const MessageFeedLayoutViewport = createFeedLayoutPart(
 );
 export const MessageFeedLayoutVirtualizer = createFeedLayoutPart(
 	"Virtualizer",
-	"min-h-0 flex-1 pt-4",
+	// 沉浸式顶栏（main[data-header-overlay]）下，顶栏浮在消息流上：静止时顶部留出顶栏加渐隐区的高度，
+	// 滚动时内容在顶栏那一段（28px）内完全隐去，再沿一条缓入缓出的曲线在约 70px 内渐显
+	// （多段色标近似 ease-in-out，线性渐变会在两端出现可见的「硬边」），标题不会与正文叠在一起，像 iOS 的 soft titlebar。用 mask 而不是盖一层底色，
+	// 毛玻璃 / 自定义背景下也成立，且不需要背景模糊。
+	"min-h-0 flex-1 pt-4 [[data-header-overlay=true]_&]:pt-24 [[data-header-overlay=true]_&]:[mask-image:linear-gradient(to_bottom,transparent_0,transparent_28px,rgb(0_0_0/0.04)_36px,rgb(0_0_0/0.14)_46px,rgb(0_0_0/0.33)_58px,rgb(0_0_0/0.58)_70px,rgb(0_0_0/0.8)_82px,rgb(0_0_0/0.94)_92px,black_100px)]",
 	{ overflowX: "hidden" },
 );
 export const MessageFeedLayoutLeftRail = createFeedLayoutPart(
