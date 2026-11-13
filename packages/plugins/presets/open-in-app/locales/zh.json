@@ -1,0 +1,12 @@
+{
+	"plugin.name": "从外部应用打开",
+	"plugin.description": "在会话页顶栏加一个按钮，把当前项目目录交给 Finder、VS Code、Cursor、Zed、Xcode 或终端打开（仅 macOS 本地项目）。",
+	"action.title": "用外部应用打开",
+	"app.finder": "在 Finder 中显示",
+	"app.vscode": "VS Code",
+	"app.cursor": "Cursor",
+	"app.zed": "Zed",
+	"app.xcode": "Xcode",
+	"app.terminal": "终端",
+	"error.failed": "无法用 {{app}} 打开项目目录"
+}
