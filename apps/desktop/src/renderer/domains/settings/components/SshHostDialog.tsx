@@ -70,6 +70,7 @@ export function SshHostDialog({ model }: { model: SshHostsSettingsModel }): JSX.
 					</Field>
 
 					<SegmentedControl
+						className="self-start"
 						items={[
 							{ key: "key", label: labels.authKey },
 							{ key: "password", label: labels.authPassword },
