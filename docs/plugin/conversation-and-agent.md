@@ -393,6 +393,10 @@ const { stdout, exitCode } = await ctx.command.run("git", ["status", "--porcelai
 
 示例：`packages/plugins/presets/git`。
 
+### 应用图标 command.appIcon
+
+`ctx.command.appIcon(appName)`（macOS）返回某个已安装应用的图标，PNG data URL，没装返回 `null`，用来在菜单里展示应用自己的图标、并据此灰掉没装的应用。`appName` 是 `.app` 的文件名（不含扩展名），如 `"Visual Studio Code"`。需要 `agent.command.run`（它和 `open -Ra` 探测一样能得知本机装了什么）；**不需要**在清单 `commands` 里声明任何东西。只在 `/Applications`、`/System/Applications`（含 `Utilities`）、`/System/Library/CoreServices`、`~/Applications` 里找，名字不能带路径分隔符，所以不能借它读任意文件的图标。示例：`packages/plugins/presets/open-in-app`。
+
 ## 长驻进程 command.spawn
 
 `ctx.command.spawn` 启动**长驻**进程（如本地 dev server，ADR-0054）。治理与 `run` 同模式：清单 `commands` 声明二进制 + 用户可关；但权限是独立的 `agent.command.spawn`。

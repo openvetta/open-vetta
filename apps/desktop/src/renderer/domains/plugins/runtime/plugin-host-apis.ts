@@ -632,6 +632,11 @@ export function createCommandApi(
 		return file;
 	};
 	return {
+		appIcon: async (appName) => {
+			permissions.require("agent.command.run");
+			if (typeof appName !== "string" || appName.trim().length === 0) return null;
+			return window.vetta.plugins.getAppIcon(capabilitySessionId, appName);
+		},
 		run: (file, args, options) => {
 			permissions.require("agent.command.run");
 			const allowed = assertCommandAllowed(file);

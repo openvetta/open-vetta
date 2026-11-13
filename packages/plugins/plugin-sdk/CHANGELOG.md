@@ -6,6 +6,8 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [0.3.13] — 2026-11-13
 
+- `ctx.command` 新增 `appIcon(appName)`（macOS）：返回已安装应用的图标（PNG data URL），没装返回 `null`，用于在菜单里展示应用自己的图标并灰掉没装的应用。需要 `agent.command.run`，只在标准应用目录里查找，应用名不能带路径分隔符。旧宿主没有该方法，调用前请判断是否存在。
+
 - 新增会话页顶栏贡献点 `ctx.ui.registerHeaderAction({ id, order?, useAction })` 与权限 `ui.slot.header-action`，要求 Plugin API `^2.9.0`。它是**声明式**的：`useAction` 是一个 hook，返回 `{ title, icon, badge?, active?, disabled?, onClick | menuItems | popover }`（或 `null` 表示不适用），由宿主把它渲染成顶栏统一按钮组里的一格，插件不能自定义样式，按钮上也没有文字（名称走悬浮提示）。顶栏最多显示 7 格（内置与插件共用），其余进入「收纳」；用户可在收纳托盘里拖动调整哪些上栏、顺序如何，布局按 `${插件 id}:${贡献 id}` 记在本机，新装插件的动作只会占空位、不会挤走已有布局。新增类型 `PluginHeaderActionState` / `PluginHeaderActionMenuItem` / `PluginHeaderActionPopoverProps`；`menuItems` ≤ 20 项、`title` ≤ 40 字等限制见 `docs/plugin/ui-slots.md`。旧宿主没有该方法，调用会得到 `undefined`，需要兼容旧宿主的插件请把 `pluginApiVersion` 写成 `^2.9.0`。
 
 - 文档：补全宿主 UI 组件速查。`@vetta-org/ui` 新增 `ButtonGroup` / `ButtonGroupItem`（玻璃胶囊按钮组，支持图标、文字、角标与选中态，`shape` 可选胶囊或方形），`Button` 的 `field` 变体（设置页同款操作按钮）；`@vetta-org/theme-ui/plugin-ui` 新增 `MotionSelect`（设置页下拉）与 `SettingSection` / `SettingRow` / `SettingHeading`（设置分组卡片与设置项行）。这些组件随宿主发布，需要 Desktop 0.5.79+，旧宿主上缺少对应导出，请在文档里的最低版本之上使用；SDK 自身接口没有变化。
