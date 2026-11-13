@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "./utils";
 
 /**
- * 通用按钮组：一颗半透明的玻璃胶囊，里面并排若干个操作按钮，按钮之间用一条细竖线分隔。
+ * 通用按钮组：一颗半透明的胶囊，里面并排若干个操作按钮，按钮之间用一条细竖线分隔。
  * 用于悬浮在内容之上的工具条（如详情页右上角的操作区），不要拿它做表单里的普通按钮。
  *
  * 用法：`<ButtonGroup><ButtonGroupItem icon={…} title="运行" /><ButtonGroupItem icon={…} label="提交" badge={3} /></ButtonGroup>`。
@@ -24,8 +24,8 @@ function ButtonGroup({ className, blur = true, children, ...props }: ButtonGroup
 			data-slot="button-group"
 			className={cn(
 				"inline-flex items-center rounded-full p-0.5",
-				"bg-foreground/[0.06] shadow-[inset_0_0_0_1px_rgb(255_255_255/0.28),0_1px_2px_rgb(0_0_0/0.06)]",
-				"dark:bg-white/[0.08] dark:shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12),0_1px_2px_rgb(0_0_0/0.3)]",
+				"bg-foreground/[0.06]",
+				"dark:bg-white/[0.08]",
 				blur && "backdrop-blur-md backdrop-saturate-150",
 				className,
 			)}
