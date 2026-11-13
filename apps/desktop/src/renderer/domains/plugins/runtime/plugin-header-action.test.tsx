@@ -87,7 +87,12 @@ describe("ConversationHeaderActions", () => {
 		behavior: { type: "click" as const, onClick: () => {} },
 	});
 
-	async function render(actions: unknown[], builtins = [builtin("export"), builtin("pin")], saved: unknown = null) {
+	// 默认给一份空的已存布局：既有用例验证的是「有存档时」的排布规则；「从没调整过」的默认见下方专门的用例。
+	async function render(
+		actions: unknown[],
+		builtins = [builtin("export"), builtin("pin")],
+		saved: unknown = { top: [], tray: [] },
+	) {
 		const store = createStore();
 		store.set(pluginHeaderActionsAtom, actions as never);
 		store.set(headerActionLayoutAtom, saved as never);
@@ -169,6 +174,18 @@ describe("ConversationHeaderActions", () => {
 		// 6 个插件 + 2 个内置 = 8，只显示 7；最后一个内置（pin）被收纳。
 		expect(titles(app).filter((title) => title !== "customize")).toHaveLength(7);
 		expect(titles(app)).not.toContain("pin");
+	});
+
+	it("for a user who never customised, shows only open-in-app, bottom panel and export, in that order", async () => {
+		const { app } = await render(
+			[
+				{ pluginId: "open-in-app", pluginName: "O", actionId: "open-in-app:open-in-app", useAction: () => ({ title: "open", icon: <i />, onClick: () => {} }) },
+				action("other", () => ({ title: "other", icon: <i />, onClick: () => {} })),
+			],
+			["export", "pin", "terminal", "bottom-panel"].map(builtin),
+			null,
+		);
+		expect(titles(app)).toEqual(["open", "bottom-panel", "export"]);
 	});
 
 	it("honours the saved layout over the default order", async () => {

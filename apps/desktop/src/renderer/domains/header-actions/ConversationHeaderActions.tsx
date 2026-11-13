@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { type HeaderActionBarItem, HeaderActionBarView, type HeaderActionZone } from "@vetta-org/theme-ui/chat";
 import { HeaderSlot } from "@domains/plugins/components/WorkspaceViewHeaderSlot";
 import { type RegisteredHeaderAction, pluginHeaderActionsAtom } from "@shared/store/plugin-atoms";
-import { MAX_TOP_ACTIONS, moveHeaderAction, resolveHeaderLayout } from "./layout";
+import { DEFAULT_TOP_ACTIONS, MAX_TOP_ACTIONS, moveHeaderAction, resolveHeaderLayout } from "./layout";
 import { headerActionLayoutAtom } from "./layout-store";
 import { type NormalizedHeaderAction, normalizeHeaderAction } from "./normalize";
 
@@ -185,7 +185,7 @@ function HeaderActionBar({
 		return { items: byKey, defaultOrder: order };
 	}, [builtins, pluginItems, registered]);
 
-	const layout = useMemo(() => resolveHeaderLayout(defaultOrder, saved), [defaultOrder, saved]);
+	const layout = useMemo(() => resolveHeaderLayout(defaultOrder, saved, MAX_TOP_ACTIONS, DEFAULT_TOP_ACTIONS), [defaultOrder, saved]);
 
 	const onMove = useCallback(
 		(key: string, zone: HeaderActionZone, index: number) => {

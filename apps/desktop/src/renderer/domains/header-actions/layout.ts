@@ -10,6 +10,17 @@
 
 export const MAX_TOP_ACTIONS = 7;
 
+/**
+ * 用户从没调整过布局时，顶栏默认显示的动作，按这个顺序从左到右；其余动作（含其它插件的）一律收纳。
+ * 「从外部应用打开」是系统插件 `open-in-app` 的动作，它不适用（非 macOS、远程项目……）时自然缺席。
+ * 用户一旦调整过，就以他存下来的布局为准，不再看这份默认。
+ */
+export const DEFAULT_TOP_ACTIONS: readonly string[] = [
+	"open-in-app:open-in-app",
+	"builtin:bottom-panel",
+	"builtin:export",
+];
+
 export interface HeaderLayout {
 	readonly top: readonly string[];
 	readonly tray: readonly string[];
@@ -26,13 +37,22 @@ function unique(keys: readonly string[]): string[] {
  *
  * @param defaultOrder 当前所有可用动作的 key，按默认顺序排好（插件按 `order` 在前，内置在后）。
  * @param saved 用户存下来的布局；从没调整过传 `null`。
+ * @param defaultTop 从没调整过（`saved` 为 `null`）时顶栏显示哪些、什么顺序；省略则按 `defaultOrder` 尽量排满顶栏。
  */
 export function resolveHeaderLayout(
 	defaultOrder: readonly string[],
 	saved: HeaderLayout | null,
 	max: number = MAX_TOP_ACTIONS,
+	defaultTop?: readonly string[],
 ): { top: string[]; tray: string[] } {
 	const available = new Set(defaultOrder);
+	if (saved === null && defaultTop) {
+		const top = unique(defaultTop)
+			.filter((key) => available.has(key))
+			.slice(0, max);
+		const topSet = new Set(top);
+		return { top, tray: defaultOrder.filter((key) => !topSet.has(key)) };
+	}
 	const top = unique(saved?.top ?? []).filter((key) => available.has(key));
 	const topSet = new Set(top);
 	const tray = unique(saved?.tray ?? []).filter((key) => available.has(key) && !topSet.has(key));

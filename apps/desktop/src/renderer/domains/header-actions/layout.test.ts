@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_TOP_ACTIONS, moveHeaderAction, resolveHeaderLayout } from "./layout";
+import { DEFAULT_TOP_ACTIONS, MAX_TOP_ACTIONS, moveHeaderAction, resolveHeaderLayout } from "./layout";
 
 const keys = (count: number, prefix = "k") => Array.from({ length: count }, (_, index) => `${prefix}${index}`);
 
@@ -37,6 +37,40 @@ describe("resolveHeaderLayout", () => {
 		const layout = resolveHeaderLayout(keys(9), { top: keys(9), tray: [] });
 		expect(layout.top).toEqual(keys(7));
 		expect(layout.tray).toEqual(["k7", "k8"]);
+	});
+});
+
+describe("resolveHeaderLayout defaults for a user who never customised", () => {
+	const all = [
+		"p:other",
+		"open-in-app:open-in-app",
+		"builtin:export",
+		"builtin:pin",
+		"builtin:terminal",
+		"builtin:bottom-panel",
+	];
+
+	it("shows only the default actions, in the default order, and stows the rest", () => {
+		const layout = resolveHeaderLayout(all, null, MAX_TOP_ACTIONS, DEFAULT_TOP_ACTIONS);
+		expect(layout.top).toEqual(["open-in-app:open-in-app", "builtin:bottom-panel", "builtin:export"]);
+		expect(layout.tray).toEqual(["p:other", "builtin:pin", "builtin:terminal"]);
+	});
+
+	it("skips a default action that is not available, e.g. open-in-app on a remote project", () => {
+		const layout = resolveHeaderLayout(
+			all.filter((key) => key !== "open-in-app:open-in-app"),
+			null,
+			MAX_TOP_ACTIONS,
+			DEFAULT_TOP_ACTIONS,
+		);
+		expect(layout.top).toEqual(["builtin:bottom-panel", "builtin:export"]);
+	});
+
+	it("ignores the defaults once the user has a saved layout", () => {
+		const layout = resolveHeaderLayout(all, { top: ["builtin:pin"], tray: [] }, MAX_TOP_ACTIONS, DEFAULT_TOP_ACTIONS);
+		// 以存下来的为准：pin 在顶栏，没存过的新动作按「还有空位就上栏」处理，而不是套默认的三个。
+		expect(layout.top).toContain("builtin:pin");
+		expect(layout.tray).toEqual([]);
 	});
 });
 
