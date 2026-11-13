@@ -309,6 +309,7 @@
 		"download": "Download file",
 		"showTree": "Show file tree",
 		"hideTree": "Hide file tree",
+		"locate": "Locate in file tree",
 		"previous": "Previous (←)",
 		"next": "Next (→)",
 		"downloadShort": "Download",

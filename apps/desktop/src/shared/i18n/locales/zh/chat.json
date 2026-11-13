@@ -309,6 +309,7 @@
 		"download": "下载文件",
 		"showTree": "显示文件树",
 		"hideTree": "隐藏文件树",
+		"locate": "在文件树中定位",
 		"previous": "上一个 (←)",
 		"next": "下一个 (→)",
 		"downloadShort": "下载",
