@@ -24,6 +24,7 @@ Every `ctx.ui` registration maps to its own permission:
 | Activity panel tab | `registerActivityTab`, `openActivityTab`, `setActivityTabVisible` | `ui.slot.activity-tab` |
 | Composer action and attachment | `registerInputAction`, `setPromptAttachment` | `ui.slot.input-action` |
 | New-session context block | `registerNewSessionContext` | `ui.slot.new-session-context` |
+| Conversation header action (declarative; users can stow and drag) | `registerHeaderAction` | `ui.slot.header-action` |
 | Message card renderer | `registerCardRenderer` | `ui.slot.message` |
 | Inline tool-call rendering | `registerToolCallSlot` | `ui.slot.tool-call` |
 | Turn card | `registerTurnCard` | `ui.slot.turn-card` |
@@ -120,7 +121,7 @@ Registration points differ in how they treat "declared but not granted", and the
 | Behaviour | Registration points |
 | --- | --- |
 | Throws `Plugin permission denied` and aborts the call | `registerInputAction`, `registerCardRenderer`, `registerToolCallSlot`, `registerTurnCard`, `registerShortcutScope`, `openActivityTab`, `setActivityTabVisible`, `setPromptAttachment`, `fileExplorer.*`, `registerSystemPromptProvider`, `registerContinuationProvider`, `conversation.*`, `fs.*`, `network.*`, `storage.*`, `media.*`, `ai.*`, `command.run` |
-| Skips the contribution with a console warning, leaving other capabilities intact | `registerGlobalSlot`, `registerFilePreview`, `registerActivityTab`, `registerNewSessionContext`, `agent.registerTool`, `agent.registerHook`, `appActions.register` |
+| Skips the contribution with a console warning, leaving other capabilities intact | `registerGlobalSlot`, `registerFilePreview`, `registerActivityTab`, `registerNewSessionContext`, `registerHeaderAction`, `agent.registerTool`, `agent.registerHook`, `appActions.register` |
 
 <Callout title="Keep optional registrations independent" type="info">
   One missing permission should not take down the rest of the plugin. Keep each registration in `activate()` independent so a single throw does not abort the whole initialisation, and use `ctx.permissions.has()` to check before registering optional surfaces.

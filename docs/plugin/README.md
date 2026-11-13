@@ -66,6 +66,7 @@
 | 会话底部面板 | `ctx.ui.registerBottomPanel` | `ui.slot.bottom-panel` | [ui-slots](./ui-slots.md#会话底部面板-registerbottompanel) |
 | 输入栏动作（toggle） | `ctx.ui.registerInputAction` | `ui.slot.input-action` | [ui-slots](./ui-slots.md#输入栏动作-registerinputaction) |
 | **新会话上下文区**（输入框下方的素材区） | `ctx.ui.registerNewSessionContext` | `ui.slot.new-session-context` | [ui-slots](./ui-slots.md#新会话上下文区-registernewsessioncontext) |
+| **会话页顶栏动作**（宿主统一按钮组里的一格，声明式、用户可收纳与拖动，如「用外部应用打开」） | `ctx.ui.registerHeaderAction` | `ui.slot.header-action` | [ui-slots](./ui-slots.md#会话页顶栏动作-registerheaderaction) |
 | 消息卡片渲染器 | `ctx.ui.registerCardRenderer` | `ui.slot.message` | [message-cards](./message-cards.md) |
 | 工具行内渲染替换 | `ctx.ui.registerToolCallSlot` | `ui.slot.tool-call` | [ui-slots](./ui-slots.md#工具行内渲染-registertoolcallslot) |
 | 本轮 Turn 卡 | `ctx.ui.registerTurnCard` | `ui.slot.turn-card` | [ui-slots](./ui-slots.md#本轮-turn-卡-registerturncard) |

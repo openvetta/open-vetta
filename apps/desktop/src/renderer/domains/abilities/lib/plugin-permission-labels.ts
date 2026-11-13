@@ -17,6 +17,7 @@ export const PLUGIN_PERMISSION_LABEL_KEYS = {
 	"ui.slot.turn-card": "permission.uiSlotTurnCard",
 	"ui.slot.workspace-view": "permission.uiSlotWorkspaceView",
 	"ui.slot.new-session-context": "permission.uiSlotNewSessionContext",
+	"ui.slot.header-action": "permission.uiSlotHeaderAction",
 	"ui.shortcuts.register": "permission.uiShortcutsRegister",
 	"conversation.draft.read": "permission.conversationDraftRead",
 	"ui.file-explorer.decorations": "permission.uiFileExplorerDecorations",
@@ -178,6 +179,13 @@ export const PLUGIN_PERMISSION_PRESENTATIONS = {
 	},
 	"ui.slot.new-session-context": {
 		descriptionKey: "permission.description.uiSlotNewSessionContext",
+		group: "interface",
+		risk: "low",
+		visual: "interface",
+		uiPreview: "workspaceView",
+	},
+	"ui.slot.header-action": {
+		descriptionKey: "permission.description.uiSlotHeaderAction",
 		group: "interface",
 		risk: "low",
 		visual: "interface",

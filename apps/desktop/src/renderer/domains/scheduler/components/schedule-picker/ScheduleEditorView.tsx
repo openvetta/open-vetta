@@ -289,7 +289,7 @@ function CronFieldPicker({
 					type="button"
 					disabled={parsed === undefined}
 					title={parsed === undefined ? t("form.cronTextOnly") : undefined}
-					className="flex h-7 items-center gap-1.5 rounded-md border border-border/50 bg-background/60 px-2 text-[12px] text-muted-foreground hover:text-foreground disabled:opacity-60"
+					className="flex h-8 items-center gap-1.5 rounded-lg bg-muted px-2.5 text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
 				>
 					<span>{t(`form.cronField.${spec.key}`)}</span>
 					<span className="max-w-[90px] truncate font-mono text-foreground">{summary}</span>

@@ -56,7 +56,7 @@ vettaPluginFederation({
 
 ## 按需共享宿主 Theme UI
 
-`@vetta-org/theme-ui/plugin-ui` 是宿主成品 UI 的窄公共入口，不是所有插件的基础依赖。
+`@vetta-org/theme-ui/plugin-ui` 是宿主成品 UI 的窄公共入口（模型选择器视图、设置页同款的 `MotionSelect` 与 `SettingSection` / `SettingRow` / `SettingHeading` 等），不是所有插件的基础依赖。按钮组 `ButtonGroup` 与 `Button variant="field"` 属于 `@vetta-org/ui`，走 `hostUi`。
 只有实际导入该入口的插件才应同时完成两项声明：
 
 ```ts

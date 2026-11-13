@@ -20,6 +20,7 @@ export const PLUGIN_MANAGEMENT_CHANNELS = {
 
 export const PLUGIN_EXECUTION_CHANNELS = {
 	COMMAND_RUN: "vetta:plugins:command-run",
+	APP_ICON: "vetta:plugins:app-icon",
 	COMMAND_SPAWN: "vetta:plugins:command-spawn",
 	COMMAND_SPAWN_STOP: "vetta:plugins:command-spawn-stop",
 	COMMAND_SPAWN_STATUS: "vetta:plugins:command-spawn-status",

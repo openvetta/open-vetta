@@ -41,6 +41,7 @@ ctx.permissions.require("fs.read");  // 缺则抛 Plugin permission denied: fs.r
 | `terminal.run` | 底部面板里的 `useBottomPanel().openTerminal()`（开终端并替用户敲命令） | [ui-slots](./ui-slots.md#替用户开终端跑命令-openterminal) |
 | `ui.slot.input-action` | `registerInputAction` / `setPromptAttachment` | [ui-slots](./ui-slots.md#输入栏动作-registerinputaction) |
 | `ui.slot.new-session-context` | `ctx.ui.registerNewSessionContext()` | [ui-slots](./ui-slots.md#新会话上下文区-registernewsessioncontext) |
+| `ui.slot.header-action` | `ctx.ui.registerHeaderAction()` | [ui-slots](./ui-slots.md#会话页顶栏动作-registerheaderaction) |
 | `conversation.draft.read` | 新会话上下文区的 `context.draft`（未授予恒为空串） | 同上 |
 | `ui.slot.message` | `ctx.ui.registerCardRenderer()` | [message-cards](./message-cards.md) |
 | `ui.slot.tool-call` | `ctx.ui.registerToolCallSlot()` | [ui-slots](./ui-slots.md#工具行内渲染-registertoolcallslot) |

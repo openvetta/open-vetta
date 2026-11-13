@@ -1,42 +1,28 @@
-import { Button } from "@shared/components/ui/button";
-import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
-import { sidebarCollapsedAtom } from "@shared/store/atoms";
-import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
+import { ButtonGroupItem } from "@vetta-org/ui/button-group";
 import { useNewChatNavigation } from "../../../project/hooks/useNewChatNavigation";
 
 /**
- * 会话页顶栏「新会话」入口。仅在侧边栏不可见（收起或窄屏浮层）时出现，
- * 与展开侧边栏按钮同处标题左侧；行为等同侧边栏导航的「新会话」。
+ * 会话页顶栏「新会话」入口。作为 `pageHeaderLeftActionsAtom` 的内容，与「展开侧边栏」
+ * 合成同一个按钮组；顶栏只在侧边栏不可见（收起或窄屏浮层）时才渲染这个组，
+ * 行为等同侧边栏导航的「新会话」。
  */
 export function ChatHeaderNewSessionButton({
 	onClick,
 	title: titleOverride,
-	alwaysVisible = false,
 }: {
 	readonly onClick?: () => void;
 	readonly title?: string;
-	readonly alwaysVisible?: boolean;
-} = {}): JSX.Element | null {
+} = {}): JSX.Element {
 	const { t } = useTranslation("chat");
-	const sidebarCollapsed = useAtomValue(sidebarCollapsedAtom);
-	const narrow = useNarrowScreen();
 	const onNewChat = useNewChatNavigation();
-
-	if (!alwaysVisible && !sidebarCollapsed && !narrow) return null;
-
 	const title = titleOverride ?? t("chatView.newSessionButton.title");
 	return (
-		<Button
-			variant="ghost"
-			size="icon-sm"
-			// 与展开侧边栏按钮保持 4px 紧邻，到标题再多让出 4px，让两枚图标读作一组。
-			className="mr-1"
+		<ButtonGroupItem
 			title={title}
 			aria-label={title}
 			onClick={onClick ?? onNewChat}
-		>
-			<span className="icon-[solar--pen-new-square-linear] h-4 w-4" />
-		</Button>
+			icon={<span className="icon-[solar--pen-new-square-linear] h-4 w-4" />}
+		/>
 	);
 }

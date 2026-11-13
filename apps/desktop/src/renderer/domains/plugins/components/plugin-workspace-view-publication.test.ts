@@ -20,6 +20,7 @@ function loadedPlugin(): LoadedPlugin {
 		bottomPanels: [],
 		inputActions: [],
 		newSessionContexts: [],
+		headerActions: [],
 		cardRenderers: [],
 		toolCallSlots: [],
 		turnCards: [],

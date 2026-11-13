@@ -406,6 +406,7 @@ export function createPluginsApi(ipc: IpcRenderer, webUtils: WebUtils): Pick<Des
 			reportServiceReady: (sessionId, serviceId, ready) =>
 				ipc.invoke(PLUGIN_EXECUTION_CHANNELS.SERVICE_READY_REPORT, sessionId, serviceId, ready),
 			onServiceStatusChanged: (handler) => onIpcEvent(ipc, PLUGIN_EXECUTION_CHANNELS.SERVICE_STATUS, handler),
+			getAppIcon: (sessionId, appName) => ipc.invoke(PLUGIN_EXECUTION_CHANNELS.APP_ICON, sessionId, appName),
 			runCommand: (sessionId, file, args, options) =>
 				ipc.invoke(PLUGIN_EXECUTION_CHANNELS.COMMAND_RUN, sessionId, file, args, options),
 			spawnCommand: (sessionId, file, args, options) =>

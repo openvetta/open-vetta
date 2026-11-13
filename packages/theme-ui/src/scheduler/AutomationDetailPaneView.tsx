@@ -1,4 +1,4 @@
-import { cn } from "@vetta-org/ui";
+import { ButtonGroup, ButtonGroupItem, cn } from "@vetta-org/ui";
 import type { JSX, ReactNode } from "react";
 
 export type AutomationDetailStatusTone = "active" | "running" | "paused" | "suspended" | "done" | "draft";
@@ -40,20 +40,19 @@ export function AutomationDetailPaneView({
 }: AutomationDetailPaneViewProps): JSX.Element {
 	return (
 		<div className="flex h-full min-h-0 flex-col">
-			<header className="flex h-12 shrink-0 items-center gap-1 px-6">
+			<header className="flex h-12 shrink-0 items-center gap-2 px-6">
 				<span className={cn("flex-1 truncate text-[13px] font-medium", STATUS_CLASS[statusTone])}>
 					{statusLabel}
 				</span>
 				{headerActions}
-				<button
-					type="button"
-					title={closeLabel}
-					aria-label={closeLabel}
-					onClick={onClose}
-					className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-				>
-					<span className="icon-[mdi--close] h-4 w-4" />
-				</button>
+				<ButtonGroup>
+					<ButtonGroupItem
+						title={closeLabel}
+						aria-label={closeLabel}
+						onClick={onClose}
+						icon={<span className="icon-[solar--close-linear] size-4" />}
+					/>
+				</ButtonGroup>
 			</header>
 			<div className="min-h-0 flex-1 overflow-y-auto px-6 pt-3 pb-6">
 				{body}
@@ -65,31 +64,5 @@ export function AutomationDetailPaneView({
 				</footer>
 			) : null}
 		</div>
-	);
-}
-
-/** 顶栏里的图标按钮，与关闭按钮同一套尺寸。 */
-export function AutomationPaneIconButton({
-	icon,
-	label,
-	disabled,
-	onClick,
-}: {
-	readonly icon: string;
-	readonly label: string;
-	readonly disabled?: boolean;
-	readonly onClick: () => void;
-}): JSX.Element {
-	return (
-		<button
-			type="button"
-			title={label}
-			aria-label={label}
-			disabled={disabled}
-			onClick={onClick}
-			className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
-		>
-			<span className={cn(icon, "h-4 w-4")} />
-		</button>
 	);
 }

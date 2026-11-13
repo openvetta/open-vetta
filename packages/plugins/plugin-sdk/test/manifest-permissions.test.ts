@@ -16,6 +16,16 @@ describe("plugin manifest permissions", () => {
 		expect(manifest.permissions).toEqual(["ui.slot.bottom-panel", "terminal.run"]);
 	});
 
+	it("accepts the conversation header action slot at Plugin API 2.9", () => {
+		const manifest = parsePluginManifest({
+			...baseManifest,
+			pluginApiVersion: "^2.9.0",
+			permissions: ["ui.slot.header-action", "agent.command.run"],
+			commands: ["open"],
+		});
+		expect(manifest.permissions).toEqual(["ui.slot.header-action", "agent.command.run"]);
+	});
+
 	it("rejects permission strings the host does not know", () => {
 		expect(() => parsePluginManifest({ ...baseManifest, permissions: ["terminal.exec"] })).toThrow();
 	});

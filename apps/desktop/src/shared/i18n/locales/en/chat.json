@@ -238,6 +238,7 @@
 		"refresh": "Refresh",
 		"newFile": "New file",
 		"newFolder": "New folder",
+		"newMenu": "New",
 		"collapseAll": "Collapse all",
 		"newFileInputLabel": "Enter a new file name",
 		"newFolderInputLabel": "Enter a new folder name",
@@ -309,6 +310,7 @@
 		"download": "Download file",
 		"showTree": "Show file tree",
 		"hideTree": "Hide file tree",
+		"locate": "Locate in file tree",
 		"previous": "Previous (←)",
 		"next": "Next (→)",
 		"downloadShort": "Download",
@@ -448,7 +450,15 @@
 			"pinned": "Unpin window",
 			"unpinned": "Pin window (keep on top)"
 		},
-		"remoteBadge": "Remote"
+		"remoteBadge": "Remote",
+		"headerActions": {
+			"customize": "Customize header",
+			"topFull": "Header is full",
+			"moveToTop": "Add to header",
+			"moveToTray": "Stow",
+			"adjust": "Rearrange",
+			"done": "Done"
+		}
 	},
 	"contextRing": {
 		"tooltip": {

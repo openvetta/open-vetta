@@ -857,6 +857,8 @@ export interface DesktopPluginsApi {
 	): Promise<void>;
 	reportServiceReady(sessionId: string, serviceId: string, ready: boolean): Promise<PluginServiceStatus>;
 	onServiceStatusChanged(handler: (event: { pluginId: string; status: PluginServiceStatus }) => void): () => void;
+	/** PNG data URL of an installed macOS app's icon (standard app folders only); `null` when not installed. */
+	getAppIcon(sessionId: string, appName: string): Promise<string | null>;
 	/** Run an allowed command for a plugin via the main process (execFile, no shell). */
 	runCommand(
 		sessionId: string,

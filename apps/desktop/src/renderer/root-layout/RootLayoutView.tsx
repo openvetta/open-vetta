@@ -8,10 +8,12 @@ import { MainContentFrame } from "@vetta-org/theme-ui/layout/MainContentFrame";
 import { SidebarDock } from "@vetta-org/theme-ui/layout/SidebarDock";
 import { SidebarOverlay } from "@vetta-org/theme-ui/layout/SidebarOverlay";
 import { useThemeComponent, useThemeSurface } from "@vetta-org/theme-sdk";
+import { useAtomValue } from "jotai";
 import { memo, useCallback } from "react";
 import { CommandMenu } from "../domains/command-menu/components/CommandMenu";
 import { useActiveWorkspaceViewHeader } from "../domains/plugins/components/WorkspaceViewHeaderSlot";
 import { Sidebar } from "../domains/project/components/sidebar/Sidebar";
+import { pageHeaderImmersiveAtom } from "../shared/store/atoms";
 import { PageHeader } from "../shared/app-shell/page-header";
 import { SessionOpenProvider } from "../shared/app-shell/session-open-context";
 import { TooltipProvider } from "../shared/components/ui/tooltip";
@@ -57,6 +59,7 @@ export function RootLayoutView({ model }: RootLayoutViewProps): JSX.Element {
 	// 插件工作区视图可声明沉浸式页头：页头浮在内容之上（拖拽区/触发器照常在最上层），
 	// 内容占满全高，视图自己的门面从窗口第一像素开始，不再被 44px 页头推出一条空带。
 	const workspaceViewHeader = useActiveWorkspaceViewHeader();
+	const pageImmersive = useAtomValue(pageHeaderImmersiveAtom);
 	const {
 		actions,
 		narrow,
@@ -130,7 +133,7 @@ export function RootLayoutView({ model }: RootLayoutViewProps): JSX.Element {
 					<MainContentFrame
 						className="app-main-frame"
 						header={pageHeader}
-						headerOverlay={workspaceViewHeader?.immersive === true}
+						headerOverlay={workspaceViewHeader?.immersive === true || pageImmersive}
 					>
 						<RouteContent routePending={routePending} onOpenSession={onOpenSession} />
 					</MainContentFrame>

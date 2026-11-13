@@ -7,6 +7,7 @@ import type {
 } from "../../preload/api-types/plugins.js";
 import { PLUGIN_EXECUTION_CHANNELS } from "../../shared/plugin-ipc.js";
 import { getDesktopCapabilityHost } from "../capabilities/capability-host.js";
+import { getAppIconDataUrl } from "../plugins/app-icon.js";
 import { runPluginCommand } from "../plugins/command-runner.js";
 import {
 	getPluginCommandSpawnStatus,
@@ -71,6 +72,11 @@ export function registerPluginExecutionIpc(): () => void {
 				(options ?? undefined) as PluginCommandRunOptions | undefined,
 			),
 	);
+	ipcMain.handle(PLUGIN_EXECUTION_CHANNELS.APP_ICON, (_event, sessionId: unknown, appName: unknown) => {
+		// 与 command.run 同一档敏感度（能探测本机装了什么应用），所以同样要求 agent.command.run。
+		capabilityAdapter.pluginIdForSession(asPluginId(sessionId), { permission: "agent.command.run" });
+		return getAppIconDataUrl(typeof appName === "string" ? appName : "");
+	});
 	ipcMain.handle(
 		PLUGIN_EXECUTION_CHANNELS.COMMAND_SPAWN,
 		(_event, sessionId: unknown, file: unknown, args: unknown, options: unknown) =>

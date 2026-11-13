@@ -176,11 +176,39 @@ vettaPluginFederation({
 
 默认路径仍是：自写 JSX + 语义 class（`bg-background` / `text-foreground`…）。`@vetta-org/ui` 适合按钮、开关、对话框等控件统一，不是强制。未导入它的插件不要开启 `hostUi`，也不要声明该依赖。
 
+### 可用组件速查
+
+| 组件 | 用途 |
+| --- | --- |
+| `Button` | 按钮。`variant`：`default` / `primary` / `outline` / `secondary` / `ghost` / `destructive` / `link`，以及 **`field`**（设置页里设置项右侧的操作按钮：muted 底、无边框、12px，与下拉 / 输入框同皮）；`size`：`xs` / `sm` / `default` / `lg` / `icon-xs` / `icon-sm` / `icon` / `icon-lg` |
+| `ButtonGroup` + `ButtonGroupItem` | **按钮组**：半透明胶囊里并排若干操作按钮，用于悬浮在内容之上的工具条（如页头右上角）。`ButtonGroup` 属性：`shape`（`"pill"` 胶囊，默认 / `"square"` 圆角方形）、`blur`（背景模糊，默认开；贴在纯色背景上可关）。`ButtonGroupItem` 属性：`icon`、`label`（不传即纯图标按钮，须配 `title` / `aria-label`）、`badge`（数字计数，超过 99 显示 `99+`；`true` 为小红点；也可传节点）、`active`（选中态，同时设 `aria-pressed`），其余同原生 `button`。选中项两侧的分隔线会自动隐藏 |
+| `SessionTopItem` / `SessionTopGroup` | 宿主内部用的顶栏按钮：`ButtonGroupItem` 外观，点击向下弹出气泡（`popoverContent`）或下拉菜单（`menuItems`）。插件**不用**它来做顶栏动作——`registerHeaderAction` 是声明式的，宿主统一渲染并管理收纳与排序，详见 [ui-slots](./ui-slots.md#会话页顶栏动作-registerheaderaction)；它仍可用于你自己页面里的同款按钮 |
+| `DropdownMenu*` | 菜单（`DropdownMenuTrigger` / `Content` / `Item` / `Separator` / `RadioGroup` / `Sub` …） |
+| `Select*`、`SELECT_TRIGGER_CLASS`、`SELECT_PANEL_CLASS` | 下拉选择（Radix）；后两个常量是设置页下拉的触发器 / 面板皮肤，自拼触发器时用 |
+| `Popover*` / `Dialog*` / `Drawer*` / `Switch` / `Slider` / `StepSlider` / `Input` / `Calendar` / `DatePicker` / `Spin` / `cn` | 其余基础控件 |
+
+```tsx
+import { Button, ButtonGroup, ButtonGroupItem } from "@vetta-org/ui";
+
+function Toolbar({ unread, panelOpen, onRun, onTogglePanel }: Props) {
+  return (
+    <ButtonGroup>
+      <ButtonGroupItem icon={<PlayIcon />} title="运行" onClick={onRun} />
+      <ButtonGroupItem icon={<BellIcon />} label="通知" badge={unread} />
+      <ButtonGroupItem icon={<SidebarIcon />} title="面板" active={panelOpen} onClick={onTogglePanel} />
+    </ButtonGroup>
+  );
+}
+
+// 设置项右侧的操作按钮
+<Button variant="field" onClick={onExport}>导出</Button>
+```
+
 顶层不要对 `@vetta-org/ui` 做立即求值（与 React 相同，见上文「MF 顶层 JSX 陷阱」）——在组件函数内使用即可。
 
 ## 按需：`@vetta-org/theme-ui/plugin-ui` 宿主成品 UI
 
-少量经过明确审核的宿主成品组件会从窄入口 `@vetta-org/theme-ui/plugin-ui` 开放。
+少量经过明确审核的宿主成品组件（模型选择器视图、`MotionSelect`、`SettingSection` / `SettingRow` / `SettingHeading`、供应商图标等）会从窄入口 `@vetta-org/theme-ui/plugin-ui` 开放。
 它不是默认共享依赖；只有实际使用这些组件的插件才应开启：
 
 ```ts
@@ -194,6 +222,39 @@ vettaPluginFederation({
 `workspace:*`）。`hostThemeUi` 只让运行时从宿主共享域取组件，不会把 Theme UI
 打进插件 bundle。不要为了消除构建警告给未使用该入口的插件增加依赖；也不要把
 `@vetta-org/theme-ui` 的其它业务入口当作插件公共 API。
+
+### 设置页同款组件
+
+下列组件与桌面端设置页是同一份，用来在插件的设置面板里做出一致的外观。全部是纯展示组件，
+文案与数据都由调用方经 props 传入：
+
+| 组件 | 用途 |
+| --- | --- |
+| `MotionSelect` | 设置页下拉：`value` / `onValueChange` / `options`（`{ value, label, disabled?, title? }`）/ `placeholder` / `disabled` / `triggerClassName`。面板宽度随选项内容撑开，有轻量淡入；视觉与 `@vetta-org/ui` 的 `Select` 一致，但关闭后触发器文案不会丢 |
+| `SettingSection` | 设置分组卡片：可选标题 / 说明 + 圆角边框容器。`section` 传 `{ id, title? }`，`id` 用作锚点 |
+| `SettingRow` | 分组卡片里的一行设置项卡片：左侧 `title` / `description`，右侧放控件（`children`）；`border={false}` 去掉底部分隔线（最后一行） |
+| `SettingHeading` | 与分组同款的 15px 小节标题 |
+
+```tsx
+import { Button } from "@vetta-org/ui";
+import { MotionSelect, SettingRow, SettingSection } from "@vetta-org/theme-ui/plugin-ui";
+
+<SettingSection section={{ id: "my-plugin-general", title: "常规" }}>
+  <SettingRow title="输出格式" description="导出时使用的默认格式">
+    <MotionSelect
+      value={format}
+      onValueChange={setFormat}
+      options={[
+        { value: "md", label: "Markdown" },
+        { value: "pdf", label: "PDF" },
+      ]}
+    />
+  </SettingRow>
+  <SettingRow title="立即导出" border={false}>
+    <Button variant="field" onClick={onExport}>导出</Button>
+  </SettingRow>
+</SettingSection>
+```
 
 只是要让用户选一个模型时，不要用这里的 `ModelSelectorView` 自己拼数据，直接用
 `@vetta-org/plugin-sdk` 的 `ModelPicker`（见 [ai](./ai.md#让用户选模型modelpicker)）：

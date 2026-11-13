@@ -47,4 +47,15 @@ describe("installPluginHostShim", () => {
 		installPluginHostShim();
 		expect(globalThis.__VETTA_PLUGIN_HOST__?.themeUiPlugin.ModelSelectorView).toBeDefined();
 	});
+
+	it("设置页同款的下拉与设置项卡片、按钮组可达", () => {
+		installPluginHostShim();
+		const host = globalThis.__VETTA_PLUGIN_HOST__;
+		for (const name of ["MotionSelect", "SettingRow", "SettingSection", "SettingHeading"]) {
+			expect(host?.themeUiPlugin[name as keyof typeof host.themeUiPlugin], name).toBeDefined();
+		}
+		for (const name of ["ButtonGroup", "ButtonGroupItem", "Button", "DropdownMenu", "Select"]) {
+			expect(host?.vettaUi[name as keyof typeof host.vettaUi], name).toBeDefined();
+		}
+	});
 });

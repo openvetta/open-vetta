@@ -31,6 +31,8 @@ export function PageHeaderFrame({
 		<div
 			className={cn(
 				"drag-region relative flex h-11 shrink-0 items-center justify-between gap-2 overflow-visible",
+				// macOS：内容整体上提 2px，与红绿灯的视觉中线对齐（红绿灯位置见主进程 window-manager）。
+				macChrome && "top-[-2px]",
 				!macChrome && "h-8",
 				className,
 			)}

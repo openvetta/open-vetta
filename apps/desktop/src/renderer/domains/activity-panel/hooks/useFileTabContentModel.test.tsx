@@ -5,6 +5,7 @@ import { act, cleanup, render, renderHook } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import type { PropsWithChildren } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import * as explorerHost from "@domains/plugins/runtime/plugin-file-explorer-host";
 import { useFileTabContentModel } from "./useFileTabContentModel";
 
 let frames: FrameRequestCallback[];
@@ -99,4 +100,24 @@ it("keeps a preview opened before the file tab mounts when the tab remounts imme
 	view.unmount();
 	await act(async () => {});
 	expect(store.get(inlineFilePreviewAtom)).toBeNull();
+});
+
+it("locate reveals the open file in the tree, expanding a collapsed tree first", async () => {
+	const reveal = vi.spyOn(explorerHost, "revealPluginFileExplorerPath").mockResolvedValue();
+	const { store, result } = setup();
+	act(() => store.set(openInlineFilePreviewAtom, { items: [{ name: "a.ts", path: "/a.ts" }], index: 0 }));
+	act(() => result.current.locate({ name: "a.ts", path: "/a.ts" }));
+	expect(reveal).toHaveBeenCalledWith("/a.ts", { select: true, focus: true });
+
+	reveal.mockClear();
+	act(() => result.current.toggleTree());
+	expect(result.current.treeCollapsed).toBe(true);
+	act(() => result.current.locate({ name: "a.ts", path: "/a.ts" }));
+	expect(result.current.treeCollapsed).toBe(false);
+	await paintFrame();
+	await paintFrame();
+	await act(async () => {
+		await vi.runAllTimersAsync();
+	});
+	expect(reveal).toHaveBeenCalledWith("/a.ts", { select: true, focus: true });
 });

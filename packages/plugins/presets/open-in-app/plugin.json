@@ -1,0 +1,18 @@
+{
+	"id": "open-in-app",
+	"name": "%plugin.name%",
+	"icon": "solar:square-arrow-right-up-linear",
+	"version": "0.1.0",
+	"defaultLocale": "zh",
+	"pluginApiVersion": "^2.9.0",
+	"entry": "dist/mf-manifest.json",
+	"moduleFederation": {
+		"remoteName": "open_in_app",
+		"expose": "./plugin"
+	},
+	"styles": ["dist/style.css"],
+	"permissions": ["ui.slot.header-action", "agent.command.run"],
+	"commands": ["open"],
+	"description": "%plugin.description%",
+	"author": "Vetta"
+}

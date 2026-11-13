@@ -24,6 +24,7 @@ function loadedPlugin(id: string, dispose: () => Promise<void>): LoadedPlugin {
 		bottomPanels: [],
 		inputActions: [],
 		newSessionContexts: [],
+		headerActions: [],
 		cardRenderers: [],
 		toolCallSlots: [],
 		turnCards: [],

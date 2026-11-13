@@ -22,6 +22,10 @@ export type {
 	ModelSelectorViewProps,
 } from "../chat/ModelSelectorView";
 export { ModelSelectorView } from "../chat/ModelSelectorView";
+export type { MotionSelectOption, MotionSelectProps } from "../settings/MotionSelect";
+export { MotionSelect } from "../settings/MotionSelect";
+export type { SettingSectionMeta } from "../settings/SettingChrome";
+export { SettingHeading, SettingRow, SettingSection } from "../settings/SettingChrome";
 export type { MultiplierTagProps } from "../shared/MultiplierTag";
 export { fmtMultiplier, MultiplierTag } from "../shared/MultiplierTag";
 export { getProviderIcon, PROVIDER_ICONS, ProviderIcon } from "../shared/provider-icon";

@@ -238,6 +238,7 @@
 		"refresh": "刷新",
 		"newFile": "新建文件",
 		"newFolder": "新建文件夹",
+		"newMenu": "新建",
 		"collapseAll": "全部折叠",
 		"newFileInputLabel": "输入新文件名称",
 		"newFolderInputLabel": "输入新文件夹名称",
@@ -309,6 +310,7 @@
 		"download": "下载文件",
 		"showTree": "显示文件树",
 		"hideTree": "隐藏文件树",
+		"locate": "在文件树中定位",
 		"previous": "上一个 (←)",
 		"next": "下一个 (→)",
 		"downloadShort": "下载",
@@ -448,7 +450,15 @@
 			"pinned": "取消窗口置顶",
 			"unpinned": "窗口置顶（钉在屏幕上）"
 		},
-		"remoteBadge": "远程"
+		"remoteBadge": "远程",
+		"headerActions": {
+			"customize": "自定义顶栏",
+			"topFull": "顶栏已满",
+			"moveToTop": "放到顶栏",
+			"moveToTray": "收纳",
+			"adjust": "调整",
+			"done": "完成"
+		}
 	},
 	"contextRing": {
 		"tooltip": {

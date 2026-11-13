@@ -45,6 +45,8 @@ export function SidebarTopBar({
 		<div
 			className={cn(
 				"flex h-11 min-w-0 shrink-0 items-center justify-between gap-1",
+				// macOS：内容整体上提 2px，与红绿灯的视觉中线对齐（同 PageHeaderFrame）。
+				isMac && "relative top-[-2px]",
 				!floating && "drag-region",
 				className,
 			)}

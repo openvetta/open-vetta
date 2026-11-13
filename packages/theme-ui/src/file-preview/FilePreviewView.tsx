@@ -5,6 +5,7 @@ import type { FilePreviewContext, FilePreviewItem } from "./types";
 export interface FilePreviewViewLabels {
 	showTree: string;
 	hideTree: string;
+	locate?: string;
 	prev: string;
 	next: string;
 	download: string;
@@ -22,6 +23,8 @@ export interface FilePreviewViewProps {
 	canNext: boolean;
 	onToggleSidebar?: () => void;
 	sidebarCollapsed?: boolean;
+	/** 在文件树中定位当前文件。 */
+	onLocate?: (item: FilePreviewItem) => void;
 	onDownload?: (item: FilePreviewItem) => void;
 	/** Host builds body; refreshNonce increments on toolbar refresh. */
 	renderBody: (item: FilePreviewItem, refreshNonce: number) => ReactNode;
@@ -41,6 +44,7 @@ export function FilePreviewView({
 	canNext,
 	onToggleSidebar,
 	sidebarCollapsed,
+	onLocate,
 	onDownload,
 	renderBody,
 }: FilePreviewViewProps): JSX.Element | null {
@@ -67,6 +71,7 @@ export function FilePreviewView({
 				canNext={canNavigate && canNext}
 				onToggleSidebar={onToggleSidebar}
 				sidebarCollapsed={sidebarCollapsed}
+				onLocate={onLocate}
 				onDownload={onDownload}
 			/>
 			{renderBody(item, refreshNonce)}
@@ -86,6 +91,7 @@ function Header({
 	canNext,
 	onToggleSidebar,
 	sidebarCollapsed,
+	onLocate,
 	onDownload,
 }: {
 	item: FilePreviewItem;
@@ -99,6 +105,7 @@ function Header({
 	canNext: boolean;
 	onToggleSidebar?: () => void;
 	sidebarCollapsed?: boolean;
+	onLocate?: (item: FilePreviewItem) => void;
 	onDownload?: (item: FilePreviewItem) => void;
 }): JSX.Element {
 	const downloadable = !!item.url;
@@ -106,7 +113,7 @@ function Header({
 		<div className="flex shrink-0 items-center gap-1.5 border-b border-border/40 py-1.5 pl-2 pr-3">
 			{onToggleSidebar && (
 				<HeaderButton
-					icon="icon-[mdi--dock-left]"
+					icon="icon-[solar--sidebar-minimalistic-linear]"
 					title={sidebarCollapsed ? labels.showTree : labels.hideTree}
 					onClick={onToggleSidebar}
 				/>
@@ -114,6 +121,9 @@ function Header({
 			<h2 className="-ml-0.5 min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">
 				{item.name}
 			</h2>
+			{onLocate && item.path && labels.locate && (
+				<HeaderButton icon="icon-[solar--gps-linear]" title={labels.locate} onClick={() => onLocate(item)} />
+			)}
 			{position && (
 				<span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/70">{position}</span>
 			)}

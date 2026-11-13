@@ -1,0 +1,12 @@
+{
+	"plugin.name": "Open in External App",
+	"plugin.description": "Adds a button to the conversation header that hands the project folder to Finder, VS Code, Cursor, Zed, Xcode or Terminal (macOS, local projects only).",
+	"action.title": "Open in external app",
+	"app.finder": "Reveal in Finder",
+	"app.vscode": "VS Code",
+	"app.cursor": "Cursor",
+	"app.zed": "Zed",
+	"app.xcode": "Xcode",
+	"app.terminal": "Terminal",
+	"error.failed": "Couldn't open the project folder in {{app}}"
+}
