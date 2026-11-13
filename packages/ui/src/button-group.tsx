@@ -15,6 +15,12 @@ import { cn } from "./utils";
 export type ButtonGroupShape = "pill" | "square";
 
 const ShapeContext = React.createContext<ButtonGroupShape>("pill");
+const InGroupContext = React.createContext(false);
+
+/** 当前是否已在某个 `ButtonGroup` 里：`SessionTopItem` 据此决定要不要自己包一层胶囊。 */
+function useInButtonGroup(): boolean {
+	return React.useContext(InGroupContext);
+}
 
 export interface ButtonGroupProps extends React.ComponentProps<"div"> {
 	/** 外观：`pill` 胶囊（默认）或 `square` 圆角方形。 */
@@ -26,6 +32,7 @@ export interface ButtonGroupProps extends React.ComponentProps<"div"> {
 function ButtonGroup({ className, blur = true, shape = "pill", children, ...props }: ButtonGroupProps) {
 	return (
 		<ShapeContext.Provider value={shape}>
+			<InGroupContext.Provider value={true}>
 			<div
 				role="group"
 				data-slot="button-group"
@@ -41,6 +48,7 @@ function ButtonGroup({ className, blur = true, shape = "pill", children, ...prop
 			>
 				{children}
 			</div>
+			</InGroupContext.Provider>
 		</ShapeContext.Provider>
 	);
 }
@@ -121,4 +129,4 @@ function ButtonGroupItem({
 	);
 }
 
-export { ButtonGroup, ButtonGroupItem };
+export { ButtonGroup, ButtonGroupItem, useInButtonGroup };

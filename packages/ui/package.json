@@ -21,6 +21,10 @@
 			"types": "./src/button-group.tsx",
 			"import": "./src/button-group.tsx"
 		},
+		"./session-top-item": {
+			"types": "./src/session-top-item.tsx",
+			"import": "./src/session-top-item.tsx"
+		},
 		"./dialog": {
 			"types": "./src/dialog.tsx",
 			"import": "./src/dialog.tsx"
