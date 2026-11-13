@@ -1,5 +1,6 @@
 import { SkillPromptArea } from "@domains/conversation/components/SkillPromptArea";
 import { ModelSelect } from "@shared/components/ModelSelect";
+import { TEXTAREA_FILL_CLASS } from "@vetta-org/ui";
 import { cn } from "@vetta-org/ui/utils";
 import { Switch } from "@vetta-org/ui/switch";
 import { useRef } from "react";
@@ -129,7 +130,7 @@ export function SchedulerTaskFieldsView({
 									}
 								: undefined
 						}
-						triggerClassName="h-7 border-transparent bg-transparent px-2 text-muted-foreground hover:bg-accent"
+						triggerClassName="h-8 bg-muted text-[12px] text-foreground hover:bg-accent"
 					/>
 				</FieldRow>
 				{showEnabled && (
@@ -190,10 +191,10 @@ export function SchedulerTaskFieldsView({
 													})
 												}
 												className={cn(
-													"flex h-7 items-center gap-1 rounded-md border px-2 text-[12px] transition-colors",
+													"flex h-8 items-center gap-1 rounded-lg px-2.5 text-[12px] transition-colors",
 													selected
-														? "border-primary/40 bg-primary/10 text-primary"
-														: "border-border/50 text-muted-foreground hover:text-foreground",
+														? "bg-primary/15 text-primary"
+														: "bg-muted text-foreground hover:bg-accent",
 													!webhook.enabled && "opacity-50",
 												)}
 											>
@@ -221,7 +222,7 @@ export function SchedulerTaskFieldsView({
 											key={variable.key}
 											type="button"
 											onClick={() => insertVariable(variable.key)}
-											className="h-6 rounded-md bg-accent/50 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+											className="h-6 rounded-md bg-muted px-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
 										>
 											{variable.label}
 										</button>
@@ -233,7 +234,7 @@ export function SchedulerTaskFieldsView({
 									rows={4}
 									aria-label={t("form.notifyTemplate")}
 									onChange={(event) => onChange({ template: event.target.value })}
-									className="w-full resize-y rounded-md border border-border/50 bg-background/60 px-2.5 py-2 font-mono text-[12px] text-foreground focus:outline-none"
+									className={cn(TEXTAREA_FILL_CLASS, "w-full resize-y font-mono")}
 								/>
 							</div>
 						</FieldRow>

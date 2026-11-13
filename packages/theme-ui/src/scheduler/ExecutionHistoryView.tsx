@@ -102,7 +102,7 @@ export function ExecutionHistoryView({
 	}
 
 	return (
-		<div className="overflow-hidden rounded-xl border border-border">
+		<div className="overflow-hidden rounded-xl border border-border bg-card">
 			<ExecutionHistoryHeader labels={labels} onRefresh={onRefresh} />
 			<div className="max-h-72 overflow-y-auto">{body}</div>
 		</div>

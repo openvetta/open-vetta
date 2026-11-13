@@ -82,13 +82,13 @@ export function AutomationDetailPane({ pane, onClose, onCreated }: AutomationDet
 						</p>
 					) : null}
 					{editing && !model.dirty ? (
-						<Button type="button" variant="outline" disabled={!model.canOpenChat} onClick={model.onOpenChat}>
+						<Button type="button" variant="field" disabled={!model.canOpenChat} onClick={model.onOpenChat}>
 							{t("detail.openChat")}
 							<span className="icon-[mdi--arrow-top-right] h-3.5 w-3.5" />
 						</Button>
 					) : null}
 					{editing && model.dirty ? (
-						<Button type="button" variant="ghost" onClick={model.onDiscard}>
+						<Button type="button" variant="field" onClick={model.onDiscard}>
 							{t("detail.discard")}
 						</Button>
 					) : null}
