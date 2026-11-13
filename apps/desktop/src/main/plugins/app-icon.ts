@@ -1,7 +1,11 @@
+import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { app } from "electron";
+import { promisify } from "node:util";
+import { nativeImage } from "electron";
+
+const execFileAsync = promisify(execFile);
 
 /**
  * 取 macOS 应用的图标（PNG data URL），给插件在菜单 / 列表里展示「这个应用」用。
@@ -38,15 +42,33 @@ export function resolveAppBundlePath(
 
 const cache = new Map<string, string>();
 
+/**
+ * 读 Info.plist 的 CFBundleIconFile，定位 Resources 里的 .icns。
+ * 不用 app.getFileIcon：它在 Electron 线程池里调 NSImage，macOS 新版本上会让主进程直接崩溃。
+ */
+async function resolveIconFile(bundlePath: string): Promise<string | null> {
+	const { stdout } = await execFileAsync(
+		"/usr/bin/plutil",
+		["-extract", "CFBundleIconFile", "raw", "-o", "-", join(bundlePath, "Contents", "Info.plist")],
+		{ timeout: 3000 },
+	);
+	const name = stdout.trim();
+	if (!name || name.includes("/") || name.includes("\\")) return null;
+	const file = join(bundlePath, "Contents", "Resources", name.endsWith(".icns") ? name : `${name}.icns`);
+	return existsSync(file) ? file : null;
+}
+
 export async function getAppIconDataUrl(appName: string): Promise<string | null> {
 	const cached = cache.get(appName);
 	if (cached) return cached;
 	const bundlePath = resolveAppBundlePath(appName);
 	if (!bundlePath) return null;
 	try {
-		const image = await app.getFileIcon(bundlePath, { size: "large" });
+		const iconFile = await resolveIconFile(bundlePath);
+		if (!iconFile) return null;
+		const image = nativeImage.createFromPath(iconFile);
 		if (image.isEmpty()) return null;
-		const dataUrl = image.toDataURL();
+		const dataUrl = image.resize({ width: 64, height: 64, quality: "best" }).toDataURL();
 		cache.set(appName, dataUrl);
 		return dataUrl;
 	} catch {

@@ -1,7 +1,7 @@
 // 不引 electron：只测路径解析。
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("electron", () => ({ app: { getFileIcon: vi.fn() } }));
+vi.mock("electron", () => ({ nativeImage: { createFromPath: vi.fn() } }));
 
 import { resolveAppBundlePath } from "./app-icon";
 
