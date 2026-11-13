@@ -4,6 +4,8 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+- 文档：补全宿主 UI 组件速查。`@vetta-org/ui` 新增 `ButtonGroup` / `ButtonGroupItem`（玻璃胶囊按钮组，支持图标、文字、角标与选中态，`shape` 可选胶囊或方形），`Button` 的 `field` 变体（设置页同款操作按钮）；`@vetta-org/theme-ui/plugin-ui` 新增 `MotionSelect`（设置页下拉）与 `SettingSection` / `SettingRow` / `SettingHeading`（设置分组卡片与设置项行）。这些组件随宿主发布，需要 Desktop 0.5.79+，旧宿主上缺少对应导出，请在文档里的最低版本之上使用；SDK 自身接口没有变化。
+
 ## [0.3.12] — 2026-11-12
 
 - 新增 `ModelPicker` 组件：宿主渲染的模型选择器，与会话输入栏右下角、知识库设置等处是同一个组件、同一份模型清单（含登录后的云端目录、收藏、推理档位与主题定制）。插件只传受控的 `value` / `onChange`，可选 `reasoning`、`emptyOption`、`defaultModelKey`、`autoSelectDefault`、`variant`、`menuClassName`（选择器放在层级更高的浮层里时抬高菜单）。不需要权限，也不需要 `hostThemeUi`；此前插件只能自己调 `official.models.list()` / `ctx.ai.listModels()` 再拼 `ModelSelectorView` 或原生 `<select>`，字段不全且不会随宿主目录更新。需要 Desktop 0.5.76+，`PluginHostBridge` 相应新增 `ModelPicker`。

@@ -2,6 +2,12 @@
 
 All notable changes to `@vetta-org/ui` are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- 新增 `ButtonGroup` / `ButtonGroupItem`（`./button-group` 入口，根入口同时导出）：半透明胶囊按钮组，支持图标、文字、数字 / 红点角标、选中态，`shape` 可选 `pill`（默认）或 `square`。
+
 ## [0.1.0] — 2026-09-14
 
 首次发布到 npm。此前它只作为 workspace 包在仓库内被引用，但官方能力市场里的 feishu 与 shimo
