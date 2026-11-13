@@ -97,6 +97,8 @@ function ButtonGroupItem({
 				hasLabel ? "px-3" : "w-8",
 				// 相邻两项之间的细分隔线；画在后一项的左缘，不占布局宽度。
 				"not-first:before:pointer-events-none not-first:before:absolute not-first:before:top-1/2 not-first:before:-left-px not-first:before:h-3.5 not-first:before:w-px not-first:before:-translate-y-1/2 not-first:before:bg-foreground/15",
+				// 选中项的底色会贴着分隔线：它自己的左线和右邻项的左线一起隐藏，避免线与底色连成一片。
+				"data-[active]:before:opacity-0 [[data-active]+&]:before:opacity-0",
 				className,
 			)}
 			{...props}

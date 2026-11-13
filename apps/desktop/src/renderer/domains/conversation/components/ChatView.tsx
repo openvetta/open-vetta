@@ -66,43 +66,45 @@ export function ChatView(props: ChatViewProps): JSX.Element {
 			<>
 				<BackgroundTasksBadge runtimeIds={runtimeIds} activityWorkspaceId={workspace.id} />
 				<SandboxGrantsBadge runtimeIds={runtimeIds} />
-				<ChatHeaderActions.Export
-					title={model.header.exportTitle}
-					disabled={model.header.exportDisabled}
-					exporting={model.header.exporting}
-					onClick={actions.openExport}
-				/>
-				<ChatHeaderActions.Pin
-					title={pin.pinned ? t("chatView.pinButton.pinned") : t("chatView.pinButton.unpinned")}
-					pinned={pin.pinned}
-					onClick={pin.toggle}
-				/>
-				<ChatHeaderActions.Terminal
-					title={
-						!terminal.available
-							? t("chatView.terminalButton.unavailable")
-							: terminal.focused
-								? t("chatView.terminalButton.focused")
-								: t("chatView.terminalButton.open")
-					}
-					focused={terminal.focused}
-					disabled={!terminal.available}
-					onClick={terminal.open}
-				/>
-				<ChatHeaderActions.BottomPanel
-					title={
-						bottomPanel.open
-							? t("chatView.bottomPanelButton.open")
-							: t("chatView.bottomPanelButton.closed")
-					}
-					open={bottomPanel.open}
-					onClick={bottomPanel.toggle}
-				/>
-				<ChatHeaderActions.Panel
-					title={model.header.panelTitle}
-					open={model.header.panelOpen}
-					onClick={actions.togglePanel}
-				/>
+				<ChatHeaderActions.Group>
+					<ChatHeaderActions.Export
+						title={model.header.exportTitle}
+						disabled={model.header.exportDisabled}
+						exporting={model.header.exporting}
+						onClick={actions.openExport}
+					/>
+					<ChatHeaderActions.Pin
+						title={pin.pinned ? t("chatView.pinButton.pinned") : t("chatView.pinButton.unpinned")}
+						pinned={pin.pinned}
+						onClick={pin.toggle}
+					/>
+					<ChatHeaderActions.Terminal
+						title={
+							!terminal.available
+								? t("chatView.terminalButton.unavailable")
+								: terminal.focused
+									? t("chatView.terminalButton.focused")
+									: t("chatView.terminalButton.open")
+						}
+						focused={terminal.focused}
+						disabled={!terminal.available}
+						onClick={terminal.open}
+					/>
+					<ChatHeaderActions.BottomPanel
+						title={
+							bottomPanel.open
+								? t("chatView.bottomPanelButton.open")
+								: t("chatView.bottomPanelButton.closed")
+						}
+						open={bottomPanel.open}
+						onClick={bottomPanel.toggle}
+					/>
+					<ChatHeaderActions.Panel
+						title={model.header.panelTitle}
+						open={model.header.panelOpen}
+						onClick={actions.togglePanel}
+					/>
+				</ChatHeaderActions.Group>
 			</>
 		),
 		[actions, bottomPanel, model.header, pin, runtimeIds, t, terminal, workspace.id],
