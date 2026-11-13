@@ -5,6 +5,8 @@ export interface ExternalApp {
 	readonly labelKey: string;
 	/** `open -a` 用的应用名；Finder 直接 `open <dir>`，所以留空。 */
 	readonly appName?: string;
+	/** 取应用图标用的 `.app` 名；与 `appName` 相同，Finder 虽不用 `open -a` 也要有（它在 CoreServices 里）。 */
+	readonly iconAppName: string;
 	/** Iconify 类名（`icon-[solar--…]`）。 */
 	readonly icon: string;
 	/** 始终可用，不做安装检测（Finder 随系统）。 */
@@ -12,12 +14,12 @@ export interface ExternalApp {
 }
 
 export const EXTERNAL_APPS: readonly ExternalApp[] = [
-	{ id: "finder", labelKey: "app.finder", icon: "icon-[solar--folder-open-linear]", alwaysAvailable: true },
-	{ id: "vscode", labelKey: "app.vscode", appName: "Visual Studio Code", icon: "icon-[solar--code-square-linear]" },
-	{ id: "cursor", labelKey: "app.cursor", appName: "Cursor", icon: "icon-[solar--code-square-linear]" },
-	{ id: "zed", labelKey: "app.zed", appName: "Zed", icon: "icon-[solar--code-square-linear]" },
-	{ id: "xcode", labelKey: "app.xcode", appName: "Xcode", icon: "icon-[solar--code-square-linear]" },
-	{ id: "terminal", labelKey: "app.terminal", appName: "Terminal", icon: "icon-[solar--programming-linear]" },
+	{ id: "finder", labelKey: "app.finder", iconAppName: "Finder", icon: "icon-[solar--folder-open-linear]", alwaysAvailable: true },
+	{ id: "vscode", labelKey: "app.vscode", appName: "Visual Studio Code", iconAppName: "Visual Studio Code", icon: "icon-[solar--code-square-linear]" },
+	{ id: "cursor", labelKey: "app.cursor", appName: "Cursor", iconAppName: "Cursor", icon: "icon-[solar--code-square-linear]" },
+	{ id: "zed", labelKey: "app.zed", appName: "Zed", iconAppName: "Zed", icon: "icon-[solar--code-square-linear]" },
+	{ id: "xcode", labelKey: "app.xcode", appName: "Xcode", iconAppName: "Xcode", icon: "icon-[solar--code-square-linear]" },
+	{ id: "terminal", labelKey: "app.terminal", appName: "Terminal", iconAppName: "Terminal", icon: "icon-[solar--programming-linear]" },
 ];
 
 /** `open` 的参数：Finder 打开目录本身，其余用 `-a` 指定应用。 */

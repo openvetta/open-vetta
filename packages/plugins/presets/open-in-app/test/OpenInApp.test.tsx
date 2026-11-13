@@ -16,6 +16,8 @@ import { releaseHostApis, setHostApis, useOpenInAppAction } from "../src/OpenInA
 
 function createCommand(installed: string[]) {
 	return {
+		// 装了的应用返回一个假图标，没装返回 null（与宿主行为一致）。
+		appIcon: vi.fn(async (name: string) => (installed.includes(name) || name === "Finder" ? `data:image/png;base64,${name}` : null)),
 		run: vi.fn(async (_file: string, args: string[] = []) => {
 			// open -Ra <App>：装了返回 0，没装返回 1。
 			if (args[0] === "-Ra") return { exitCode: installed.includes(args[1] ?? "") ? 0 : 1, stdout: "", stderr: "" };
@@ -54,19 +56,31 @@ afterEach(() => {
 });
 
 describe("useOpenInAppAction", () => {
-	it("declares a menu action listing only the installed apps", async () => {
+	it("lists every app; the ones not installed are disabled", async () => {
 		const command = createCommand(["Zed"]);
 		setHostApis(command as never, vi.fn());
 		const state = (await declare()).current;
 		expect(state?.title).toBe("action.title");
 		expect(state?.onClick).toBeUndefined();
-		const ids = (state?.menuItems ?? []).map((item) => item.id);
-		// Finder / 终端免探测；没装的 VS Code 等不出现。
-		expect(ids).toContain("finder");
-		expect(ids).toContain("zed");
-		expect(ids).not.toContain("vscode");
+		const items = state?.menuItems ?? [];
+		expect(items.map((item) => item.id)).toEqual(["finder", "vscode", "cursor", "zed", "xcode", "terminal"]);
+		const disabled = (id: string) => items.find((item) => item.id === id)?.disabled;
+		// Finder / 终端免探测；Zed 装了；其余没装 → 置灰。
+		expect(disabled("finder")).toBe(false);
+		expect(disabled("zed")).toBe(false);
+		expect(disabled("vscode")).toBe(true);
+		expect(disabled("cursor")).toBe(true);
+		expect(disabled("xcode")).toBe(true);
 		const probed = command.run.mock.calls.filter(([, args]) => args?.[0] === "-Ra").map(([, args]) => args?.[1]);
 		expect(probed).toContain("Zed");
+	});
+
+	it("asks the host for each app's own icon by its .app name", async () => {
+		const command = createCommand(["Zed"]);
+		setHostApis(command as never, vi.fn());
+		await declare();
+		const asked = command.appIcon.mock.calls.map(([name]) => name).sort();
+		expect(asked).toEqual(["Cursor", "Finder", "Terminal", "Visual Studio Code", "Xcode", "Zed"]);
 	});
 
 	it("opens the chosen app on the project directory", async () => {
