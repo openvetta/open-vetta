@@ -1,7 +1,7 @@
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from "@vetta-org/ui";
 import { SegmentedControl } from "@vetta-org/theme-ui/shared";
 import { InputField } from "./SettingsFormFields";
-import type { SshHostsSettingsModel } from "./useSshHostsSettingsModel";
+import { composeTarget, splitTarget, type SshHostsSettingsModel } from "./useSshHostsSettingsModel";
 
 /**
  * 新增/编辑主机的对话框。
@@ -19,7 +19,7 @@ export function SshHostDialog({ model }: { model: SshHostsSettingsModel }): JSX.
 	const editedHost = editing ? model.hosts.find((host) => host.id === model.editingId) : undefined;
 	const passwordSaved = editedHost?.authMethod === "password";
 	const usingPassword = form.authMethod === "password";
-	const canSubmit = form.target.trim().length > 0 && !model.saving;
+	const canSubmit = form.host.trim().length > 0 && !model.saving;
 
 	return (
 		<Dialog
@@ -41,31 +41,40 @@ export function SshHostDialog({ model }: { model: SshHostsSettingsModel }): JSX.
 						if (canSubmit) void actions.submit();
 					}}
 				>
-					<Field label={labels.fieldTarget} hint={labels.fieldTargetHint}>
-						<InputField
-							value={form.target}
-							onChange={(value) => actions.setForm({ target: value })}
-							placeholder="build-01"
-							aria-label={labels.fieldTarget}
-							autoFocus
-						/>
-					</Field>
+					<div className="flex gap-3">
+						<div className="min-w-0 flex-1">
+							<Field label={labels.fieldHost} hint={labels.fieldHostHint}>
+								<InputField
+									value={form.host}
+									onChange={(value) => {
+										// 直接粘贴 user@host 时自动拆到用户名里，省得用户再手动挪。
+										const pasted = value.includes("@") && form.username === "";
+										actions.setForm(pasted ? splitTarget(value) : { host: value });
+									}}
+									placeholder="192.168.1.10"
+									aria-label={labels.fieldHost}
+									autoFocus
+								/>
+							</Field>
+						</div>
+						<div className="w-24 shrink-0">
+							<Field label={labels.fieldPort}>
+								<InputField
+									value={form.port}
+									onChange={(value) => actions.setForm({ port: value.replace(/\D/g, "") })}
+									placeholder="22"
+									aria-label={labels.fieldPort}
+								/>
+							</Field>
+						</div>
+					</div>
 
-					<Field label={labels.fieldLabel} hint={labels.fieldLabelHint}>
+					<Field label={labels.fieldUsername} hint={labels.fieldUsernameHint}>
 						<InputField
-							value={form.label}
-							onChange={(value) => actions.setForm({ label: value })}
-							placeholder={form.target}
-							aria-label={labels.fieldLabel}
-						/>
-					</Field>
-
-					<Field label={labels.fieldPort}>
-						<InputField
-							value={form.port}
-							onChange={(value) => actions.setForm({ port: value.replace(/\D/g, "") })}
-							placeholder="22"
-							aria-label={labels.fieldPort}
+							value={form.username}
+							onChange={(value) => actions.setForm({ username: value })}
+							placeholder="root"
+							aria-label={labels.fieldUsername}
 						/>
 					</Field>
 
@@ -82,7 +91,7 @@ export function SshHostDialog({ model }: { model: SshHostsSettingsModel }): JSX.
 					{usingPassword ? (
 						<Field
 							label={labels.fieldPassword}
-							hint={passwordSaved ? labels.fieldPasswordSavedHint : labels.fieldPasswordHint}
+							hint={`${passwordSaved ? labels.fieldPasswordSavedHint : labels.fieldPasswordHint} ${labels.passwordIgnoresConfigKey}`}
 						>
 							<InputField
 								type="password"
@@ -102,6 +111,15 @@ export function SshHostDialog({ model }: { model: SshHostsSettingsModel }): JSX.
 							/>
 						</Field>
 					)}
+
+					<Field label={labels.fieldLabel} hint={labels.fieldLabelHint}>
+						<InputField
+							value={form.label}
+							onChange={(value) => actions.setForm({ label: value })}
+							placeholder={composeTarget(form.username, form.host)}
+							aria-label={labels.fieldLabel}
+						/>
+					</Field>
 
 					{model.formError !== null && (
 						<p role="alert" className="text-[12px] text-destructive">

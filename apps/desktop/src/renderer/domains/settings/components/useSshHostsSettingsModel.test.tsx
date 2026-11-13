@@ -42,7 +42,7 @@ describe("SSH 主机设置", () => {
 		await waitFor(() => expect(result.current.loading).toBe(false));
 
 		act(() => result.current.actions.startAdd());
-		act(() => result.current.actions.setForm({ target: "build-01" }));
+		act(() => result.current.actions.setForm({ host: "build-01" }));
 		await act(async () => {
 			await result.current.actions.submit();
 		});
@@ -58,7 +58,7 @@ describe("SSH 主机设置", () => {
 
 		act(() => result.current.actions.startAdd());
 		act(() =>
-			result.current.actions.setForm({ target: "root@box", authMethod: "password", password: "s3cret", identityFile: "~/k" }),
+			result.current.actions.setForm({ host: "box", username: "root", authMethod: "password", password: "s3cret", identityFile: "~/k" }),
 		);
 		await act(async () => {
 			await result.current.actions.submit();
@@ -79,7 +79,7 @@ describe("SSH 主机设置", () => {
 		await waitFor(() => expect(result.current.loading).toBe(false));
 
 		act(() => result.current.actions.startAdd());
-		act(() => result.current.actions.setForm({ target: "build-01", label: "我的构建机" }));
+		act(() => result.current.actions.setForm({ host: "build-01", label: "我的构建机" }));
 		await act(async () => {
 			await result.current.actions.submit();
 		});
@@ -95,13 +95,13 @@ describe("SSH 主机设置", () => {
 		await waitFor(() => expect(result.current.loading).toBe(false));
 
 		act(() => result.current.actions.startAdd());
-		act(() => result.current.actions.setForm({ target: "x" }));
+		act(() => result.current.actions.setForm({ host: "x" }));
 		await act(async () => {
 			await result.current.actions.submit();
 		});
 		expect(result.current.formError).not.toBeNull();
 
-		act(() => result.current.actions.setForm({ target: "y" }));
+		act(() => result.current.actions.setForm({ host: "y" }));
 		expect(result.current.formError).toBeNull();
 	});
 
@@ -184,5 +184,14 @@ describe("连接探测结果分类", () => {
 			platform: "Linux x86_64",
 			tools: "git",
 		});
+	});
+});
+
+describe("主机地址与用户名", () => {
+	it("拆分与拼回 user@host，别名没有用户名", () => {
+		expect(splitTarget("root@box")).toEqual({ username: "root", host: "box" });
+		expect(splitTarget("relay")).toEqual({ username: "", host: "relay" });
+		expect(composeTarget("root", "box")).toBe("root@box");
+		expect(composeTarget(" ", "relay")).toBe("relay");
 	});
 });
