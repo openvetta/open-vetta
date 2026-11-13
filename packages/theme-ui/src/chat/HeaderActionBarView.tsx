@@ -1,4 +1,4 @@
-import { type ComponentProps, type DragEvent, Fragment, type JSX, type ReactNode, useState } from "react";
+import { type ComponentProps, type DragEvent, Fragment, type JSX, type ReactNode, useEffect, useRef, useState } from "react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -129,7 +129,7 @@ function TileFace({ item, onClick }: { readonly item: HeaderActionBarItem; reado
 			aria-label={item.title}
 			disabled={item.disabled}
 			onClick={onClick}
-			className="relative flex h-7 w-8 items-center justify-center rounded-full text-foreground outline-none transition-colors hover:bg-foreground/[0.07] focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40"
+			className="relative flex h-7 w-8 items-center justify-center rounded-full bg-foreground/[0.08] text-foreground outline-none transition-colors hover:bg-foreground/[0.14] focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40"
 		>
 			<IconBox>{item.icon}</IconBox>
 			<TileBadge badge={item.badge} />
@@ -262,7 +262,7 @@ function TileFaceTrigger({ item, ...props }: { readonly item: HeaderActionBarIte
 			aria-label={item.title}
 			{...props}
 			disabled={item.disabled}
-			className="relative flex h-7 w-8 items-center justify-center rounded-full text-foreground outline-none transition-colors hover:bg-foreground/[0.07] focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40 data-[state=open]:bg-foreground/[0.1]"
+			className="relative flex h-7 w-8 items-center justify-center rounded-full bg-foreground/[0.08] text-foreground outline-none transition-colors hover:bg-foreground/[0.14] focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40 data-[state=open]:bg-foreground/[0.1]"
 		>
 			<IconBox>{item.icon}</IconBox>
 			<TileBadge badge={item.badge} />
@@ -289,8 +289,31 @@ function setGhost(event: DragEvent): void {
 
 export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove }: HeaderActionBarViewProps): JSX.Element {
 	const [open, setOpen] = useState(false);
+	const rootRef = useRef<HTMLDivElement>(null);
 	const [dragKey, setDragKey] = useState<string | null>(null);
 	const [drop, setDrop] = useState<DropTarget | null>(null);
+
+	// 展开期间：点到别处或按 Esc 收起。菜单 / 气泡的浮层在 body 下，点它们不算「点了外面」。
+	useEffect(() => {
+		if (!open) return;
+		const onPointerDown = (event: PointerEvent) => {
+			const target = event.target as HTMLElement | null;
+			if (!target || rootRef.current?.contains(target)) return;
+			if (target.closest("[data-radix-popper-content-wrapper], [role='menu']")) return;
+			setOpen(false);
+			setDragKey(null);
+			setDrop(null);
+		};
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") setOpen(false);
+		};
+		document.addEventListener("pointerdown", onPointerDown, true);
+		document.addEventListener("keydown", onKeyDown);
+		return () => {
+			document.removeEventListener("pointerdown", onPointerDown, true);
+			document.removeEventListener("keydown", onKeyDown);
+		};
+	}, [open]);
 
 	const topFull = top.length >= maxTop;
 	// 收纳里的角标不能被藏起来：汇总到小白条上（红色）。
@@ -345,7 +368,7 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 
 	return (
 		<div className="flex shrink-0 items-center gap-2">
-		<div data-header-action-bar="true" className="group/header-actions relative shrink-0">
+		<div ref={rootRef} data-header-action-bar="true" className="group/header-actions relative shrink-0">
 			<ButtonGroup onDragOver={overZone("top")} onDrop={dropOn("top")}>
 				{/* 还有空位就在最左边留一个虚线席位（只一个，不把剩余席位都摆出来）。 */}
 				{hasFreeSeat && (
@@ -389,54 +412,47 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 					/>
 				))}
 			</ButtonGroup>
-			<Popover
-				open={open}
-				onOpenChange={(next) => {
-					setOpen(next);
-					if (!next) endDrag();
-				}}
+			<button
+				type="button"
+				title={labels.customize}
+				aria-label={labels.customize}
+				aria-expanded={open}
+				data-header-action-tray-handle="true"
+				onClick={() => setOpen(true)}
+				className={cn(
+					// 紧贴按钮组下沿的一条热区，始终接收指针：鼠标从按钮组往下挪的路上它还在，
+					// 悬浮状态不会断；只有「看得见」是渐隐的，且消失前留 500ms 的余地。
+					"no-drag absolute top-full left-1/2 z-10 flex h-4 w-14 -translate-x-1/2 items-center justify-center outline-none",
+					"opacity-0 transition-opacity delay-500 duration-200",
+					"group-hover/header-actions:opacity-100 group-hover/header-actions:delay-0",
+					"group-focus-within/header-actions:opacity-100 group-focus-within/header-actions:delay-0",
+					"hover:opacity-100 hover:delay-0 focus-visible:opacity-100",
+					trayAlert && "opacity-100",
+					// 托盘展开后小白条就完成了使命，收起来。
+					open && "pointer-events-none opacity-0 delay-0",
+				)}
 			>
-				<PopoverTrigger asChild>
-					<button
-						type="button"
-						title={labels.customize}
-						aria-label={labels.customize}
-						data-header-action-tray-handle="true"
-						className={cn(
-							// 紧贴按钮组下沿的一条热区，始终接收指针：鼠标从按钮组往下挪的路上它还在，
-							// 悬浮状态不会断；只有「看得见」是渐隐的，且消失前留 500ms 的余地。
-							"no-drag absolute top-full left-1/2 z-10 flex h-4 w-14 -translate-x-1/2 items-center justify-center outline-none",
-							"opacity-0 transition-opacity delay-500 duration-200",
-							"group-hover/header-actions:opacity-100 group-hover/header-actions:delay-0",
-							"group-focus-within/header-actions:opacity-100 group-focus-within/header-actions:delay-0",
-							"hover:opacity-100 hover:delay-0 focus-visible:opacity-100 data-[state=open]:opacity-100 data-[state=open]:delay-0",
-							trayAlert && "opacity-100",
-						)}
-					>
-						<span
-							className={cn(
-								"h-1 w-8 rounded-full transition-colors",
-								trayAlert ? "bg-red-500" : "bg-foreground/35 group-hover/header-actions:bg-foreground/50",
-							)}
-						/>
-					</button>
-				</PopoverTrigger>
-				<PopoverContent
-					align="end"
-					sideOffset={8}
-					className="w-auto gap-0 p-1.5"
-					// 编辑状态下要在按钮组里拖拽、点按钮：落在按钮组上的按下不算「点了外面」，不关托盘。
-					onInteractOutside={(event) => {
-						if ((event.target as HTMLElement | null)?.closest("[data-header-action-bar]")) event.preventDefault();
-					}}
-					onOpenAutoFocus={(event) => event.preventDefault()}
+				<span
+					className={cn(
+						"h-1 w-8 rounded-full transition-colors",
+						trayAlert ? "bg-red-500" : "bg-foreground/35 group-hover/header-actions:bg-foreground/50",
+					)}
+				/>
+			</button>
+			{open && (
+				// 收纳是按钮组正下方的第二个胶囊（同样的玻璃质感，留一点间隙），不是浮层。
+				<div
+					data-header-action-tray="true"
+					className={cn(
+						"no-drag absolute top-full right-0 z-30 mt-1.5 origin-top-right rounded-[18px] bg-foreground/[0.06] p-1 backdrop-blur-md backdrop-saturate-150 dark:bg-white/[0.08]",
+						"animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 duration-200",
+					)}
 				>
 					<ul
-						data-header-action-tray="true"
 						onDragOver={overZone("tray")}
 						onDrop={dropOn("tray")}
 						className={cn(
-							"grid grid-cols-[repeat(4,2rem)] gap-0.5",
+							"grid grid-cols-[repeat(4,2rem)] gap-1",
 							tray.length === 0 && "h-7 w-32 grid-cols-1 rounded-full border border-dashed border-foreground/30",
 							tray.length === 0 && dragKey !== null && draggingFromTop && "border-primary",
 						)}
@@ -459,8 +475,8 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 							/>
 						))}
 					</ul>
-				</PopoverContent>
-			</Popover>
+				</div>
+			)}
 		</div>
 		{/* 活动面板开关是个独立的小组，固定在最右，不参与排序与收纳。 */}
 		{pinned ? <ButtonGroup>{pinned}</ButtonGroup> : null}
