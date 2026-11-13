@@ -75,6 +75,13 @@ export interface HeaderActionBarViewProps {
 }
 
 /**
+ * 收纳与「调整」按钮的底：不透明底色 + 与按钮组同样的玻璃色叠加。
+ * 它们会盖在活动面板、消息流这类有内容的区域上，按钮组那种纯半透明底会把下面的文字和图标透出来。
+ */
+const OPAQUE_GLASS =
+	"bg-background dark:bg-background bg-[image:linear-gradient(color-mix(in_srgb,var(--foreground)_6%,transparent),color-mix(in_srgb,var(--foreground)_6%,transparent))] dark:bg-[image:linear-gradient(rgb(255_255_255/0.08),rgb(255_255_255/0.08))]";
+
+/**
  * 图标统一放进固定方框：插件传来的图标大小各异，不能撑开按钮，也不接收指针事件。
  * `jiggle` 不为空时图标像 iOS 编辑主屏幕那样循环轻微抖动；数值用来错开各图标的节奏，免得齐刷刷同步。
  */
@@ -556,7 +563,10 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 				{/* 「调整」按钮：独立在收纳胶囊右侧、面板开关正下方（同样的玻璃胶囊）。点它才进入拖拽调整，平时点图标只触发图标自己的功能。 */}
 				<ButtonGroup
 					blur={false}
-					className="no-drag absolute top-full left-full z-30 mt-1.5 ml-2 origin-top-right animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 duration-200"
+					className={cn(
+						"no-drag absolute top-full left-full z-30 mt-1.5 ml-2 origin-top-right animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 duration-200",
+						OPAQUE_GLASS,
+					)}
 				>
 					<ButtonGroupItem
 						title={editing ? labels.done : labels.adjust}
@@ -585,7 +595,8 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 				<div
 					data-header-action-tray="true"
 					className={cn(
-						"no-drag absolute top-full right-0 z-30 mt-1.5 origin-top-right rounded-[18px] bg-foreground/[0.06] p-1 backdrop-blur-md backdrop-saturate-150 dark:bg-white/[0.08]",
+						"no-drag absolute top-full right-0 z-30 mt-1.5 origin-top-right rounded-[18px] p-1",
+						OPAQUE_GLASS,
 						"animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 duration-200",
 					)}
 				>
