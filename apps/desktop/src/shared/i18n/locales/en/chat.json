@@ -238,6 +238,7 @@
 		"refresh": "Refresh",
 		"newFile": "New file",
 		"newFolder": "New folder",
+		"newMenu": "New",
 		"collapseAll": "Collapse all",
 		"newFileInputLabel": "Enter a new file name",
 		"newFolderInputLabel": "Enter a new folder name",

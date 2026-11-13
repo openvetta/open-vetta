@@ -238,6 +238,7 @@
 		"refresh": "刷新",
 		"newFile": "新建文件",
 		"newFolder": "新建文件夹",
+		"newMenu": "新建",
 		"collapseAll": "全部折叠",
 		"newFileInputLabel": "输入新文件名称",
 		"newFolderInputLabel": "输入新文件夹名称",
