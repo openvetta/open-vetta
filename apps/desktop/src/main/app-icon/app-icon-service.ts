@@ -18,7 +18,7 @@ export function getAppIconId(): AppIconId {
 	return currentId;
 }
 
-/** 出厂图标走打包默认（Dock 用 icon-dock.png，窗口用平台图标），返回 undefined 表示「用默认」。 */
+/** 出厂图标走打包默认（Dock 用 icon-dock.png，已自带 824 本体与边距；窗口用平台图标），返回 undefined 表示「用默认」。 */
 function appIconImage(id: AppIconId): NativeImage | undefined {
 	if (id === APP_ICON_DEFAULT) return undefined;
 	// Dock 不会给 setIcon 的图片加遮罩，macOS 用自带 824 超椭圆与边距的 -mac 版本；其余平台用全幅方形。
