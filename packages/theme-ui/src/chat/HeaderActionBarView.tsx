@@ -70,16 +70,9 @@ export interface HeaderActionBarViewProps {
 }
 
 /** 图标统一放进固定方框：插件传来的图标大小各异，不能撑开按钮，也不接收指针事件。 */
-function IconBox({ children, large = false }: { readonly children: ReactNode; readonly large?: boolean }): JSX.Element {
+function IconBox({ children }: { readonly children: ReactNode }): JSX.Element {
 	return (
-		<span
-			className={cn(
-				"pointer-events-none flex shrink-0 items-center justify-center overflow-hidden",
-				large
-					? "size-5 text-[18px] [&>*]:max-h-5 [&>*]:max-w-5"
-					: "size-4 text-[14px] [&>*]:max-h-4 [&>*]:max-w-4",
-			)}
-		>
+		<span className="pointer-events-none flex size-4 shrink-0 items-center justify-center overflow-hidden text-[14px] [&>*]:max-h-4 [&>*]:max-w-4">
 			{children}
 		</span>
 	);
@@ -119,9 +112,9 @@ interface DropTarget {
 
 function TileBadge({ badge }: { readonly badge: HeaderActionBarItem["badge"] }): JSX.Element | null {
 	if (badge === undefined) return null;
-	if (badge === true) return <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-red-500" />;
+	if (badge === true) return <span className="absolute top-1 right-1 size-1.5 rounded-full bg-red-500" />;
 	return (
-		<span className="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] leading-none font-semibold text-white tabular-nums">
+		<span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] leading-none font-semibold text-white tabular-nums">
 			{badge > 99 ? "99+" : badge}
 		</span>
 	);
@@ -136,9 +129,9 @@ function TileFace({ item, onClick }: { readonly item: HeaderActionBarItem; reado
 			aria-label={item.title}
 			disabled={item.disabled}
 			onClick={onClick}
-			className="relative flex h-12 w-full items-center justify-center rounded-2xl bg-foreground/[0.06] text-foreground outline-none transition-colors hover:bg-foreground/[0.1] focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40"
+			className="relative flex h-7 w-8 items-center justify-center rounded-full text-foreground outline-none transition-colors hover:bg-foreground/[0.07] focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40"
 		>
-			<IconBox large>{item.icon}</IconBox>
+			<IconBox>{item.icon}</IconBox>
 			<TileBadge badge={item.badge} />
 		</button>
 	);
@@ -252,9 +245,9 @@ function Tile({
 				aria-label={`${moveLabel}: ${item.title}`}
 				disabled={moveDisabled}
 				onClick={onMoveClick}
-				className="absolute -top-1 -left-1 flex size-4 items-center justify-center rounded-full bg-foreground/80 text-background opacity-0 outline-none transition-opacity group-hover/tile:opacity-100 focus-visible:opacity-100 disabled:hidden"
+				className="absolute -top-1.5 -left-1.5 flex size-3.5 items-center justify-center rounded-full bg-foreground/80 text-background opacity-0 outline-none transition-opacity group-hover/tile:opacity-100 focus-visible:opacity-100 disabled:hidden"
 			>
-				<span className="icon-[solar--add-linear] size-3" />
+				<span className="icon-[solar--add-linear] size-2.5" />
 			</button>
 		</li>
 	);
@@ -269,12 +262,29 @@ function TileFaceTrigger({ item, ...props }: { readonly item: HeaderActionBarIte
 			aria-label={item.title}
 			{...props}
 			disabled={item.disabled}
-			className="relative flex h-12 w-full flex-col items-center justify-center rounded-2xl bg-foreground/[0.06] px-1 text-foreground outline-none transition-colors hover:bg-foreground/[0.1] focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40 data-[state=open]:bg-foreground/[0.14]"
+			className="relative flex h-7 w-8 items-center justify-center rounded-full text-foreground outline-none transition-colors hover:bg-foreground/[0.07] focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40 data-[state=open]:bg-foreground/[0.1]"
 		>
-			<IconBox large>{item.icon}</IconBox>
+			<IconBox>{item.icon}</IconBox>
 			<TileBadge badge={item.badge} />
 		</button>
 	);
+}
+
+/**
+ * 拖动时跟手的那张图：浏览器默认拿元素本身截图，会带上半透明的玻璃底和描边，看起来像一团光斑。
+ * 这里换成只有图标的一个小圆片。
+ */
+function setGhost(event: DragEvent): void {
+	const source = event.currentTarget as HTMLElement;
+	const icon = source.querySelector("svg, [class*='icon-']");
+	const ghost = document.createElement("div");
+	ghost.style.cssText =
+		"position:fixed;top:-100px;left:-100px;width:32px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:9999px;background:rgba(128,128,128,0.35);";
+	ghost.style.color = getComputedStyle(source).color;
+	if (icon) ghost.append(icon.cloneNode(true));
+	document.body.append(ghost);
+	event.dataTransfer.setDragImage(ghost, 16, 14);
+	setTimeout(() => ghost.remove(), 0);
 }
 
 export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove }: HeaderActionBarViewProps): JSX.Element {
@@ -286,7 +296,8 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 	// 收纳里的角标不能被藏起来：汇总到小白条上（红色）。
 	const trayAlert = tray.some((item) => item.badge !== undefined && item.badge !== 0);
 	const draggingFromTop = dragKey !== null && top.some((item) => item.key === dragKey);
-	const emptySeats = open ? Math.max(0, maxTop - top.length) : 0;
+	// 托盘打开时显示空位；顶栏一个都没有时也留着，否则没有东西可以悬浮、点开托盘。
+	const hasFreeSeat = (open || top.length === 0) && top.length < maxTop;
 
 	const canDropIn = (zone: HeaderActionZone): boolean => zone === "tray" || draggingFromTop || !topFull;
 
@@ -299,6 +310,7 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 		event.dataTransfer.effectAllowed = "move";
 		event.dataTransfer.setData("text/plain", key);
 		setDragKey(key);
+		setGhost(event);
 	};
 
 	/** 悬在某个元素上：按左右半边决定插在它前面还是后面。 */
@@ -327,12 +339,32 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 		setDrop((current) => (current?.zone === zone ? current : { zone, index: zone === "top" ? top.length : tray.length }));
 	};
 
-	const lineBefore = "shadow-[inset_2px_0_0_0_var(--primary)]";
-	const lineAfter = "shadow-[inset_-2px_0_0_0_var(--primary)]";
+	// 直线指示插入位置；圆角按钮上画内阴影会变成一段弧，所以用伪元素。
+	const lineBefore = "after:absolute after:inset-y-1 after:left-0 after:w-0.5 after:rounded-full after:bg-primary";
+	const lineAfter = "after:absolute after:inset-y-1 after:right-0 after:w-0.5 after:rounded-full after:bg-primary";
 
 	return (
+		<div className="flex shrink-0 items-center gap-2">
 		<div data-header-action-bar="true" className="group/header-actions relative shrink-0">
 			<ButtonGroup onDragOver={overZone("top")} onDrop={dropOn("top")}>
+				{/* 还有空位就在最左边留一个虚线席位（只一个，不把剩余席位都摆出来）。 */}
+				{hasFreeSeat && (
+					<span
+						data-header-action-seat="true"
+						aria-hidden="true"
+						onDragOver={(event) => {
+							if (dragKey === null || !canDropIn("top")) return;
+							event.preventDefault();
+							event.stopPropagation();
+							setDrop({ zone: "top", index: 0 });
+						}}
+						onDrop={dropOn("top")}
+						className={cn(
+							"mr-0.5 h-7 w-8 shrink-0 rounded-full border border-dashed border-foreground/30 transition-colors",
+							dragKey !== null && drop?.zone === "top" && drop.index === 0 && !draggingFromTop && "border-primary",
+						)}
+					/>
+				)}
 				{top.map((item, index) => (
 					<BarItem
 						key={item.key}
@@ -356,19 +388,6 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 						)}
 					/>
 				))}
-				{Array.from({ length: emptySeats }, (_, seat) => (
-					<span
-						// biome-ignore lint/suspicious/noArrayIndexKey: 席位只是占位，没有身份
-						key={`seat-${seat}`}
-						data-header-action-seat="true"
-						aria-hidden="true"
-						className={cn(
-							"mx-0.5 h-7 w-7 shrink-0 rounded-full border border-dashed border-foreground/30",
-							dragKey !== null && drop?.zone === "top" && !draggingFromTop && seat === 0 && "border-primary",
-						)}
-					/>
-				))}
-				{pinned}
 			</ButtonGroup>
 			<Popover
 				open={open}
@@ -405,7 +424,7 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 				<PopoverContent
 					align="end"
 					sideOffset={8}
-					className="w-[15rem] gap-0 p-2"
+					className="w-auto gap-0 p-1.5"
 					// 编辑状态下要在按钮组里拖拽、点按钮：落在按钮组上的按下不算「点了外面」，不关托盘。
 					onInteractOutside={(event) => {
 						if ((event.target as HTMLElement | null)?.closest("[data-header-action-bar]")) event.preventDefault();
@@ -417,8 +436,8 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 						onDragOver={overZone("tray")}
 						onDrop={dropOn("tray")}
 						className={cn(
-							"grid min-h-12 grid-cols-4 gap-2 rounded-2xl p-0.5",
-							tray.length === 0 && "rounded-2xl border border-dashed border-foreground/30",
+							"grid grid-cols-[repeat(4,2rem)] gap-0.5",
+							tray.length === 0 && "h-7 w-32 grid-cols-1 rounded-full border border-dashed border-foreground/30",
 							tray.length === 0 && dragKey !== null && draggingFromTop && "border-primary",
 						)}
 					>
@@ -442,6 +461,9 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 					</ul>
 				</PopoverContent>
 			</Popover>
+		</div>
+		{/* 活动面板开关是个独立的小组，固定在最右，不参与排序与收纳。 */}
+		{pinned ? <ButtonGroup>{pinned}</ButtonGroup> : null}
 		</div>
 	);
 }

@@ -129,8 +129,11 @@ describe("ConversationHeaderActions", () => {
 	it("puts plugin actions ahead of the built-ins and keeps the pinned item last", async () => {
 		const { app } = await render([action("one", () => ({ title: "one", icon: <i />, onClick: () => {} }))]);
 		expect(titles(app)).toEqual(["one", "export", "pin"]);
-		const buttons = [...app.querySelectorAll("[data-slot=button-group] > *")];
-		expect(buttons.at(-1)?.getAttribute("data-testid")).toBe("pinned");
+		// 活动面板开关是独立的一组，在按钮组之外、最右侧。
+		const pinned = app.querySelector("[data-testid=pinned]");
+		expect(pinned).not.toBeNull();
+		expect(pinned?.closest("[data-header-action-bar]")).toBeNull();
+		expect(pinned?.closest("[data-slot=button-group]")).not.toBeNull();
 	});
 
 	it("an action whose hook returns null takes no slot", async () => {
