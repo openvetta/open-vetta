@@ -66,7 +66,9 @@ export function createWindow(): BrowserWindow {
 		transparent: false,
 		frame: isMac,
 		titleBarStyle: isMac ? "hiddenInset" : undefined,
-		trafficLightPosition: isMac ? { x: 16, y: 20 } : undefined,
+		// 红绿灯直径 12px，要与页头图标垂直居中：AppFrame 内边距 8px + 页头高 44px 的中线在 y=30，
+		// 所以顶边取 30 - 6 = 24。改页头高度或 AppFrame 内边距时这里要一起改。
+		trafficLightPosition: isMac ? { x: 16, y: 24 } : undefined,
 		vibrancy: isMac ? "sidebar" : undefined,
 		visualEffectState: isMac ? "active" : undefined,
 		backgroundColor: isMac ? "#00000000" : nativeTheme.shouldUseDarkColors ? "#161616" : "#f5f5f7",
