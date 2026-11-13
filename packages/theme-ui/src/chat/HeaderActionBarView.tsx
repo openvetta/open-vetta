@@ -1,5 +1,15 @@
 import { motion, useReducedMotion } from "motion/react";
-import { type ComponentProps, type DragEvent, Fragment, type JSX, type ReactNode, useEffect, useRef, useState } from "react";
+import {
+	type ComponentProps,
+	type DragEvent,
+	Fragment,
+	type JSX,
+	type ReactNode,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -13,11 +23,16 @@ import {
 import { ButtonGroup, ButtonGroupItem } from "@vetta-org/ui/button-group";
 import { SessionTopItem, type SessionTopMenuItem } from "@vetta-org/ui/session-top-item";
 import { cn } from "@vetta-org/ui/utils";
+import { useHeaderCrowded } from "../app-shell/header-crowding";
+import { partitionHeaderActionsForNarrow } from "./header-action-narrow";
+import { HeaderActionOverflowMenu } from "./HeaderActionOverflowMenu";
 
 /**
  * 会话页顶栏右侧的「统一按钮组」：内置按钮与插件动作按同一套数据渲染，外观完全由宿主决定。
  *
  * 顶栏只显示 `top`；`tray` 里的收进托盘（悬浮在按钮组上时，组下方出现的小白条，点开即是）。
+ * 页头左右两簇挤在一起时（会话窗口极窄），除了 `retainWhenNarrow` 的项和活动面板开关，
+ * 其余动作收进一个「更多」下拉菜单，避免两侧按钮撞在一起。
  * 托盘打开期间进入「编辑」状态：
  * - 托盘里只放没上栏的图标（无文字，名称在悬浮提示里），点一下直接使用；
  * - 把托盘里的图标拖进按钮组就上栏，把按钮组里的按钮拖进托盘就收纳，组内也能拖动换序；
@@ -49,6 +64,11 @@ export interface HeaderActionBarItem {
 	 * 仅宿主内置动作使用，插件声明里没有这个字段。
 	 */
 	readonly promoteWhenActive?: boolean;
+	/**
+	 * 页头被挤窄、其余动作收进下拉菜单时，这一项仍留在活动面板开关旁边。
+	 * 仅宿主内置动作使用（窗口置顶）。
+	 */
+	readonly retainWhenNarrow?: boolean;
 }
 
 export type HeaderActionZone = "top" | "tray";
@@ -66,6 +86,8 @@ export interface HeaderActionBarLabels {
 	readonly adjust: string;
 	/** 调整状态下该按钮的提示（点了退出调整）。 */
 	readonly done: string;
+	/** 页头挤窄时，把其余动作收进去的那个下拉按钮的名称。 */
+	readonly more: string;
 }
 
 export interface HeaderActionBarViewProps {
@@ -77,6 +99,10 @@ export interface HeaderActionBarViewProps {
 	readonly labels: HeaderActionBarLabels;
 	/** `index` 是目标区里的插入位置（拖动时按「拖动前」的列表计，由调用方负责修正同区移动）。 */
 	readonly onMove: (key: string, zone: HeaderActionZone, index: number) => void;
+	/**
+	 * 顶栏左右两侧已经挤在一起。为 true 时收进下拉菜单；不传则跟随页头自己的测量。
+	 */
+	readonly crowded?: boolean;
 }
 
 /**
@@ -380,12 +406,32 @@ function setGhost(event: DragEvent): void {
 	setTimeout(() => ghost.remove(), 0);
 }
 
-export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove }: HeaderActionBarViewProps): JSX.Element {
+
+export function HeaderActionBarView({
+	top,
+	tray,
+	pinned,
+	maxTop,
+	labels,
+	onMove,
+	crowded: crowdedProp,
+}: HeaderActionBarViewProps): JSX.Element {
+	const contextCrowded = useHeaderCrowded();
+	const crowded = crowdedProp ?? contextCrowded;
 	const [open, setOpen] = useState(false);
 	const [editing, setEditing] = useState(false);
 	const rootRef = useRef<HTMLDivElement>(null);
 	const [dragKey, setDragKey] = useState<string | null>(null);
 	const [drop, setDrop] = useState<DropTarget | null>(null);
+
+	// 挤窄后托盘的拖拽调整用不上，先收起来，避免和「更多」菜单叠在一起。
+	useLayoutEffect(() => {
+		if (!crowded) return;
+		setOpen(false);
+		setEditing(false);
+		setDragKey(null);
+		setDrop(null);
+	}, [crowded]);
 
 	const closeTray = (): void => {
 		setOpen(false);
@@ -422,8 +468,10 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 	const hasFreeSeat = editing && top.length < maxTop;
 	// 顶栏一个都没有（全收纳了）：不留空胶囊也不出小白条；悬浮到面板开关或它左边那一块时，
 	// 开关左侧浮出一个虚线加号胶囊，点它呼出收纳。调整状态下仍要有按钮组接收拖放，所以照常显示。
-	const emptyBar = top.length === 0 && !editing;
-	const promoted = editing ? [] : tray.filter((item) => item.promoteWhenActive && item.active);
+	const narrow = crowded ? partitionHeaderActionsForNarrow(top, tray) : null;
+	const emptyBar = narrow === null && top.length === 0 && !editing;
+	const promoted = narrow !== null || editing ? [] : tray.filter((item) => item.promoteWhenActive && item.active);
+	const beside = narrow ? narrow.retained : promoted;
 
 	const canDropIn = (zone: HeaderActionZone): boolean => zone === "tray" || draggingFromTop || !topFull;
 
@@ -471,8 +519,17 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 
 	return (
 		<div className="group/bar flex shrink-0 items-center gap-2">
-		<div ref={rootRef} data-header-action-bar="true" className="group/header-actions relative flex shrink-0">
-			{emptyBar ? (
+		<div
+			ref={rootRef}
+			data-header-action-bar="true"
+			data-header-action-narrow={narrow ? "true" : undefined}
+			className="group/header-actions relative flex shrink-0"
+		>
+			{narrow ? (
+				narrow.overflow.length > 0 ? (
+					<HeaderActionOverflowMenu items={narrow.overflow} label={labels.more} />
+				) : null
+			) : emptyBar ? (
 				// 与右边面板开关同一套尺寸与形状（同样的 ButtonGroup，只是描边换成虚线、去掉底色）。
 				<ButtonGroup
 					blur={false}
@@ -541,7 +598,7 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 			</ButtonGroup>
 			)}
 			{/* 收纳展开时小白条不渲染：否则悬浮态会让它透在托盘后面；顶栏为空时本来就没有小白条。 */}
-			{!emptyBar && !open && (
+			{narrow === null && !emptyBar && !open && (
 			<button
 				type="button"
 				title={labels.customize}
@@ -568,7 +625,7 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 				/>
 			</button>
 			)}
-			{open && (
+			{narrow === null && open && (
 				<>
 				{/* 「调整」按钮：独立在收纳胶囊右侧、面板开关正下方（同样的玻璃胶囊）。点它才进入拖拽调整，平时点图标只触发图标自己的功能。 */}
 				<ButtonGroup
@@ -661,9 +718,9 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 		</div>
 		{/* 活动面板开关是个独立的小组，固定在最右，不参与排序与收纳。 */}
 		{/* 活动面板开关所在的小组；被收纳却处于选中态的动作（如窗口置顶）在它左边露出来，调整状态下不露（那时所有按钮都不可点）。 */}
-		{pinned || promoted.length > 0 ? (
+		{pinned || beside.length > 0 ? (
 			<ButtonGroup blur={false}>
-				{promoted.map((item) => (
+				{beside.map((item) => (
 					<BarItem key={item.key} item={item} />
 				))}
 				{pinned}

@@ -88,6 +88,8 @@ export function ChatView(props: ChatViewProps): JSX.Element {
 				active: pin.pinned,
 				// 窗口置顶开着时，即使被收纳也要在面板开关旁露出来，否则用户找不到取消的入口。
 				promoteWhenActive: true,
+				// 顶栏被挤窄、其余按钮收进「更多」时，置顶仍留在活动面板开关旁边。
+				retainWhenNarrow: true,
 				icon: <span className={pin.pinned ? "icon-[solar--pin-bold]" : "icon-[solar--pin-linear]"} />,
 				behavior: { type: "click", onClick: pin.toggle },
 			},
