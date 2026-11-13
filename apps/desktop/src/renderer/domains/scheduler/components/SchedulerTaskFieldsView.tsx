@@ -1,4 +1,3 @@
-import { SkillPromptArea } from "@domains/conversation/components/SkillPromptArea";
 import { ModelSelect } from "@shared/components/ModelSelect";
 import { TEXTAREA_FILL_CLASS } from "@vetta-org/ui";
 import { cn } from "@vetta-org/ui/utils";
@@ -7,6 +6,7 @@ import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { AutomationNotifyWhen, AutomationRunTargetMode } from "../../../../shared/automation";
 import { NEW_SESSION_OPTION, type SchedulerTaskFieldsModel } from "../hooks/useSchedulerTaskFieldsModel";
+import { AutomationPromptField } from "./AutomationPromptField";
 import { FieldGroup, FieldRow, RowSelect } from "./AutomationFieldRows";
 import { ScheduleEditorView } from "./schedule-picker/ScheduleEditorView";
 
@@ -63,14 +63,13 @@ export function SchedulerTaskFieldsView({
 				placeholder={namePlaceholder}
 			/>
 
-			<SkillPromptArea
+			<AutomationPromptField
 				prompt={promptBody}
-				onPromptChange={(body) => onPromptChange(body, promptSkill)}
 				skill={promptSkill}
-				onSkillChange={(skill) => onPromptChange(promptBody, skill)}
 				placeholder={t("form.promptPlaceholder")}
-				minHeight={promptMinHeight}
 				cwd={draft.projectCwd}
+				dialogMinHeight={Math.max(promptMinHeight, 240)}
+				onChange={onPromptChange}
 			/>
 
 			<FieldGroup title={t("form.sectionDetails")}>
