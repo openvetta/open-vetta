@@ -173,7 +173,8 @@ export function ProjectDetailPageView({
 									</button>
 								</div>
 
-								<div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+								<div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+									<div role="group" className="flex items-center divide-x divide-border/60 overflow-hidden rounded-lg border border-border/60 bg-accent/30 [&>*]:rounded-none [&>*]:border-0 [&>*]:shadow-none">
 									<Button
 										type="button"
 										variant="ghost"
@@ -187,7 +188,7 @@ export function ProjectDetailPageView({
 									{exportable && (
 										<Button
 											type="button"
-											variant="outline"
+											variant="ghost"
 											size="icon-sm"
 											onClick={onExport}
 											title={labels.exportTitle}
@@ -198,7 +199,7 @@ export function ProjectDetailPageView({
 									)}
 									<Button
 										type="button"
-										variant="primary"
+										variant="ghost"
 										size="sm"
 										onClick={onNewSession}
 										title={labels.newSession}
@@ -209,6 +210,7 @@ export function ProjectDetailPageView({
 											{labels.newSession}
 										</span>
 									</Button>
+									</div>
 									<Button
 										type="button"
 										variant={activityOpen ? "secondary" : "ghost"}
