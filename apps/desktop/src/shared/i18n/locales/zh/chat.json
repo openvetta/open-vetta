@@ -448,7 +448,13 @@
 			"pinned": "取消窗口置顶",
 			"unpinned": "窗口置顶（钉在屏幕上）"
 		},
-		"remoteBadge": "远程"
+		"remoteBadge": "远程",
+		"headerActions": {
+			"customize": "自定义顶栏",
+			"topFull": "顶栏已满",
+			"moveToTop": "放到顶栏",
+			"moveToTray": "收纳"
+		}
 	},
 	"contextRing": {
 		"tooltip": {

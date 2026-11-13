@@ -11,7 +11,8 @@ import { useWindowPinAction } from "../hooks/useWindowPinAction";
 import { useBottomPanelToggle } from "@domains/bottom-panel/hooks/useBottomPanelToggle";
 import { useOpenTerminal } from "@domains/bottom-panel/hooks/useOpenTerminal";
 import { ChatHeaderActions } from "@vetta-org/theme-ui/chat";
-import { PluginHeaderActions } from "@domains/plugins/components/PluginHeaderActions";
+import { ConversationHeaderActions } from "@domains/header-actions/ConversationHeaderActions";
+import type { HeaderActionBarItem } from "@vetta-org/theme-ui/chat";
 import { BackgroundTasksBadge } from "./BackgroundTasksBadge";
 import { SandboxGrantsBadge } from "./SandboxGrantsBadge";
 import { ChatHeaderNewSessionButton } from "./chat-view/ChatHeaderNewSessionButton";
@@ -63,54 +64,71 @@ export function ChatView(props: ChatViewProps): JSX.Element {
 			),
 		[model.cwd, model.sessionId, runtimeIds],
 	);
+	// 内置动作与插件动作同属一个按钮组（顶栏最多 7 格，可收纳、可拖动）；这里只给数据，渲染与布局在宿主按钮组里。
+	const builtinHeaderActions = useMemo<HeaderActionBarItem[]>(
+		() => [
+			{
+				key: "builtin:export",
+				title: model.header.exportTitle,
+				disabled: model.header.exportDisabled,
+				icon: (
+					<span
+						className={
+							model.header.exporting
+								? "icon-[mdi--loading] animate-spin"
+								: "icon-[solar--square-share-line-linear]"
+						}
+					/>
+				),
+				behavior: { type: "click", onClick: actions.openExport },
+			},
+			{
+				key: "builtin:pin",
+				title: pin.pinned ? t("chatView.pinButton.pinned") : t("chatView.pinButton.unpinned"),
+				active: pin.pinned,
+				icon: <span className={pin.pinned ? "icon-[solar--pin-bold]" : "icon-[solar--pin-linear]"} />,
+				behavior: { type: "click", onClick: pin.toggle },
+			},
+			{
+				key: "builtin:terminal",
+				title: !terminal.available
+					? t("chatView.terminalButton.unavailable")
+					: terminal.focused
+						? t("chatView.terminalButton.focused")
+						: t("chatView.terminalButton.open"),
+				active: terminal.focused,
+				disabled: !terminal.available,
+				icon: <span className="icon-[solar--programming-linear]" />,
+				behavior: { type: "click", onClick: terminal.open },
+			},
+			{
+				key: "builtin:bottom-panel",
+				title: bottomPanel.open ? t("chatView.bottomPanelButton.open") : t("chatView.bottomPanelButton.closed"),
+				active: bottomPanel.open,
+				icon: <span className="icon-[solar--window-frame-linear]" />,
+				behavior: { type: "click", onClick: bottomPanel.toggle },
+			},
+		],
+		[actions.openExport, bottomPanel, model.header, pin, t, terminal],
+	);
 	const headerActions = useMemo(
 		() => (
 			<>
 				<BackgroundTasksBadge runtimeIds={runtimeIds} activityWorkspaceId={workspace.id} />
 				<SandboxGrantsBadge runtimeIds={runtimeIds} />
-				<PluginHeaderActions />
-				<ChatHeaderActions.Group>
-					<ChatHeaderActions.Export
-						title={model.header.exportTitle}
-						disabled={model.header.exportDisabled}
-						exporting={model.header.exporting}
-						onClick={actions.openExport}
-					/>
-					<ChatHeaderActions.Pin
-						title={pin.pinned ? t("chatView.pinButton.pinned") : t("chatView.pinButton.unpinned")}
-						pinned={pin.pinned}
-						onClick={pin.toggle}
-					/>
-					<ChatHeaderActions.Terminal
-						title={
-							!terminal.available
-								? t("chatView.terminalButton.unavailable")
-								: terminal.focused
-									? t("chatView.terminalButton.focused")
-									: t("chatView.terminalButton.open")
-						}
-						focused={terminal.focused}
-						disabled={!terminal.available}
-						onClick={terminal.open}
-					/>
-					<ChatHeaderActions.BottomPanel
-						title={
-							bottomPanel.open
-								? t("chatView.bottomPanelButton.open")
-								: t("chatView.bottomPanelButton.closed")
-						}
-						open={bottomPanel.open}
-						onClick={bottomPanel.toggle}
-					/>
-					<ChatHeaderActions.Panel
-						title={model.header.panelTitle}
-						open={model.header.panelOpen}
-						onClick={actions.togglePanel}
-					/>
-				</ChatHeaderActions.Group>
+				<ConversationHeaderActions
+					builtins={builtinHeaderActions}
+					pinned={
+						<ChatHeaderActions.Panel
+							title={model.header.panelTitle}
+							open={model.header.panelOpen}
+							onClick={actions.togglePanel}
+						/>
+					}
+				/>
 			</>
 		),
-		[actions, bottomPanel, model.header, pin, runtimeIds, t, terminal, workspace.id],
+		[actions.togglePanel, builtinHeaderActions, model.header.panelOpen, model.header.panelTitle, runtimeIds, workspace.id],
 	);
 	const onAbort = useCallback(() => {
 		void props.onAbort();

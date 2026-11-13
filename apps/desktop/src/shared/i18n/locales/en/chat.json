@@ -448,7 +448,13 @@
 			"pinned": "Unpin window",
 			"unpinned": "Pin window (keep on top)"
 		},
-		"remoteBadge": "Remote"
+		"remoteBadge": "Remote",
+		"headerActions": {
+			"customize": "Customize header",
+			"topFull": "Header is full",
+			"moveToTop": "Add to header",
+			"moveToTray": "Stow"
+		}
 	},
 	"contextRing": {
 		"tooltip": {

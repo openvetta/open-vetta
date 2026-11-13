@@ -483,8 +483,14 @@ export function createPluginUiApi({
 		if (typeof contribution.id !== "string" || contribution.id.trim().length === 0) {
 			throw new Error("Header action id is required");
 		}
-		if (typeof contribution.component !== "function" && typeof contribution.component !== "object") {
-			throw new Error("Header action component is invalid");
+		if (contribution.id.length > 64) {
+			throw new Error("Header action id must be at most 64 characters");
+		}
+		if (headerActions.some((existing) => existing.id === contribution.id)) {
+			throw new Error(`Header action id already registered: ${contribution.id}`);
+		}
+		if (typeof contribution.useAction !== "function") {
+			throw new Error("Header action `useAction` must be a function (a React hook returning the action state)");
 		}
 		if (contribution.order !== undefined && !Number.isFinite(contribution.order)) {
 			throw new Error("Header action order must be a finite number");
@@ -492,7 +498,7 @@ export function createPluginUiApi({
 		const normalized: PluginHeaderActionContribution = {
 			id: contribution.id,
 			order: contribution.order,
-			component: contribution.component,
+			useAction: contribution.useAction,
 		};
 		headerActions.push(normalized);
 		onChanged();

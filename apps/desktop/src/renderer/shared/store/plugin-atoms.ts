@@ -232,13 +232,13 @@ export interface RegisteredNewSessionContext {
 /** 新会话页输入框下方的插件上下文区贡献，由 PluginGlobalSlotHost 发布。 */
 export const pluginNewSessionContextsAtom = atom<RegisteredNewSessionContext[]>([]);
 
-/** 会话页顶栏的一个插件动作。已按 `order`、插件 id、贡献 id 排好序，宿主直接渲染。 */
+/** 会话页顶栏的一个插件动作。已按 `order`、插件 id、贡献 id 排好默认顺序；最终位置还要看用户的布局。 */
 export interface RegisteredHeaderAction {
 	pluginId: string;
 	pluginName: string;
 	/** Namespaced id (`${pluginId}:${contributionId}`). */
 	actionId: string;
-	component: PluginHeaderActionContribution["component"];
+	useAction: PluginHeaderActionContribution["useAction"];
 }
 
 /** 会话页顶栏的插件动作，由 PluginGlobalSlotHost 发布。 */

@@ -1,6 +1,11 @@
-import { type PluginContext, useActiveConversation, useTranslation } from "@vetta-org/plugin-sdk";
-import { SessionTopItem, type SessionTopMenuItem } from "@vetta-org/ui";
-import { type JSX, useEffect, useMemo, useState } from "react";
+import {
+	type PluginContext,
+	type PluginHeaderActionMenuItem,
+	type PluginHeaderActionState,
+	useActiveConversation,
+	useTranslation,
+} from "@vetta-org/plugin-sdk";
+import { useEffect, useMemo, useState } from "react";
 import { buildOpenArgs, buildProbeArgs, EXTERNAL_APPS, type ExternalApp, isMacPlatform, isOpenableCwd } from "./apps";
 
 type CommandApi = PluginContext["command"];
@@ -50,7 +55,11 @@ function detectInstalledApps(): Promise<ReadonlySet<string>> {
 	return installedApps;
 }
 
-export function OpenInApp(): JSX.Element | null {
+/**
+ * 顶栏动作的声明 hook（`registerHeaderAction({ useAction })`）：返回 `null` 表示此刻不适用
+ * （非 macOS / 远程项目 / 没有目录 / 还没探测完 / 一个都没装），宿主不显示也不占位。
+ */
+export function useOpenInAppAction(): PluginHeaderActionState | null {
 	const { t } = useTranslation();
 	const { cwd } = useActiveConversation();
 	const [installed, setInstalled] = useState<ReadonlySet<string> | null>(null);
@@ -67,8 +76,8 @@ export function OpenInApp(): JSX.Element | null {
 		};
 	}, [supported]);
 
-	const menuItems = useMemo<SessionTopMenuItem[]>(() => {
-		if (!supported || !installed || !cwd) return [];
+	return useMemo(() => {
+		if (!supported || !installed || !cwd) return null;
 		const open = async (app: ExternalApp): Promise<void> => {
 			try {
 				const result = await commandApi?.run("open", buildOpenArgs(app, cwd), { timeoutMs: 10_000 });
@@ -77,24 +86,20 @@ export function OpenInApp(): JSX.Element | null {
 				notifyApi?.({ message: t("error.failed", { app: t(app.labelKey) }), variant: "error", error });
 			}
 		};
-		return EXTERNAL_APPS.filter((app) => installed.has(app.id)).map((app, index) => ({
-			id: app.id,
-			label: t(app.labelKey),
-			icon: <span className={`${app.icon} size-4`} />,
-			onSelect: () => void open(app),
-			separatorBefore: index > 0 && app.id === "terminal",
-		}));
+		const menuItems: PluginHeaderActionMenuItem[] = EXTERNAL_APPS.filter((app) => installed.has(app.id)).map(
+			(app, index) => ({
+				id: app.id,
+				label: t(app.labelKey),
+				icon: <span className={`${app.icon} size-4`} />,
+				onSelect: () => void open(app),
+				separatorBefore: index > 0 && app.id === "terminal",
+			}),
+		);
+		if (menuItems.length === 0) return null;
+		return {
+			title: t("action.title"),
+			icon: <span className="icon-[solar--square-arrow-right-up-linear]" />,
+			menuItems,
+		};
 	}, [cwd, installed, supported, t]);
-
-	// 不适用（非 macOS / 远程项目 / 还没探测完 / 一个都没有）时返回 null：宿主会连同间距一起收起。
-	if (menuItems.length === 0) return null;
-
-	return (
-		<SessionTopItem
-			title={t("action.title")}
-			aria-label={t("action.title")}
-			icon={<span className="icon-[solar--square-arrow-right-up-linear] size-4" />}
-			menuItems={menuItems}
-		/>
-	);
 }
