@@ -563,7 +563,8 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 						aria-label={editing ? labels.done : labels.adjust}
 						aria-pressed={editing}
 						data-header-action-adjust="true"
-						active={editing}
+						// 调整中（打勾）用主色底，提示「正在编辑、点它完成」；未调整时保持普通外观。
+						className={editing ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : undefined}
 						onClick={() => {
 							setEditing((current) => !current);
 							setDragKey(null);
