@@ -89,7 +89,7 @@ function ButtonGroupItem({
 			aria-pressed={props["aria-pressed"] ?? (active ? true : undefined)}
 			className={cn(
 				"relative inline-flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-full text-[13px] font-medium whitespace-nowrap",
-				"text-muted-foreground transition-colors outline-none select-none",
+				"text-foreground transition-colors outline-none select-none",
 				"hover:bg-foreground/[0.07] hover:text-foreground active:translate-y-px",
 				"focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-40",
 				"data-[active]:bg-foreground/[0.1] data-[active]:text-foreground",
