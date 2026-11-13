@@ -24,6 +24,7 @@ description: 按产品目标选择界面、文件、Agent、Provider 或 App Act
 | 活动面板 Tab | `registerActivityTab`、`openActivityTab`、`setActivityTabVisible` | `ui.slot.activity-tab` |
 | 输入栏动作与附件 | `registerInputAction`、`setPromptAttachment` | `ui.slot.input-action` |
 | 新会话上下文区 | `registerNewSessionContext` | `ui.slot.new-session-context` |
+| 会话页顶栏动作 | `registerHeaderAction` | `ui.slot.header-action` |
 | 消息卡片渲染器 | `registerCardRenderer` | `ui.slot.message` |
 | 工具调用行内渲染 | `registerToolCallSlot` | `ui.slot.tool-call` |
 | 本轮 Turn 卡 | `registerTurnCard` | `ui.slot.turn-card` |
@@ -120,7 +121,7 @@ App Action 让插件通过宿主动作系统暴露可发现命令，适合导航
 | 行为 | 涉及的注册点 |
 | --- | --- |
 | 抛出 `Plugin permission denied` 并中断调用 | `registerInputAction`、`registerCardRenderer`、`registerToolCallSlot`、`registerTurnCard`、`registerShortcutScope`、`openActivityTab`、`setActivityTabVisible`、`setPromptAttachment`、`fileExplorer.*`、`registerSystemPromptProvider`、`registerContinuationProvider`、`conversation.*`、`fs.*`、`network.*`、`storage.*`、`media.*`、`ai.*`、`command.run` |
-| 跳过该贡献并打印警告，不影响其它能力 | `registerGlobalSlot`、`registerFilePreview`、`registerActivityTab`、`registerNewSessionContext`、`agent.registerTool`、`agent.registerHook`、`appActions.register` |
+| 跳过该贡献并打印警告，不影响其它能力 | `registerGlobalSlot`、`registerFilePreview`、`registerActivityTab`、`registerNewSessionContext`、`registerHeaderAction`、`agent.registerTool`、`agent.registerHook`、`appActions.register` |
 
 <Callout title="把可选能力的注册拆开" type="info">
   一个缺失权限不应拖垮插件的其它能力。在 `activate()` 里让各项注册互相独立，避免一处抛错中断整段初始化。运行时也可以用 `ctx.permissions.has()` 自查后再决定是否注册。

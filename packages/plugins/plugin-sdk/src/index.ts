@@ -81,6 +81,7 @@ export type {
 	PluginOpenActivityTabOptions,
 	PluginPromptDecoration,
 	PluginInputActionContribution,
+	PluginHeaderActionContribution,
 	PluginNewSessionContext,
 	PluginNewSessionContextActivation,
 	PluginNewSessionContextContribution,

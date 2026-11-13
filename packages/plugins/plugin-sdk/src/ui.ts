@@ -620,6 +620,32 @@ export interface PluginNewSessionContextContribution {
 }
 
 /**
+ * 会话页顶栏右侧的一个自定义动作（`ui.slot.header-action`）。
+ *
+ * 宿主把所有贡献排成一排，放在内置按钮组（导出 / 置顶 / 终端 / 面板……）的**左侧**，
+ * 并由宿主固定每一项之间、以及这一排与内置按钮组之间的间距——插件不需要也不能自己
+ * 留边距。每一项外面都有宿主容器：某个插件抛错只会让它自己消失，不会拖垮整条顶栏；
+ * 组件返回 `null`（例如当前会话不适用）时，该项连同它的间距一起收起。
+ *
+ * 画什么由插件决定：可以用 `@vetta-org/ui` 的 `ButtonGroup` / `ButtonGroupItem` /
+ * `DropdownMenu` 做出与内置按钮一致的外观，也可以完全自定义。组件里用
+ * `useActiveConversation()` 取当前会话的 `cwd`。
+ */
+export interface PluginHeaderActionContribution {
+	id: string;
+	/**
+	 * 排序权重，小的靠左（离内置按钮组更远）。省略按注册顺序排在最后；同值按插件 id、
+	 * 贡献 id 稳定排序。
+	 */
+	order?: number;
+	/**
+	 * 顶栏里渲染的组件，高度请控制在顶栏之内（按钮组的 28px 一行即可）。组件内可以
+	 * 使用任意 hook。当前仅出现在会话页顶栏。
+	 */
+	component: ComponentType;
+}
+
+/**
  * 宿主左侧侧边栏此刻的形态。给插件自适应布局用——尤其是沉浸式工作区视图：
  * 侧边栏收起时宿主页头会长出「展开侧边栏」按钮并占住左上角，视图自己画在那一带的
  * 东西需要让位。
@@ -654,6 +680,14 @@ export interface PluginUiApi {
 	 * `ui.slot.new-session-context` permission (missing permission = **warn+noop**).
 	 */
 	registerNewSessionContext(contribution: PluginNewSessionContextContribution): Disposable;
+	/**
+	 * Register a **header action** — a custom control shown on the conversation
+	 * page header, in a row to the left of the host's built-in button group. The
+	 * host owns the spacing and isolates each contribution (see
+	 * {@link PluginHeaderActionContribution}). Needs the `ui.slot.header-action`
+	 * permission (missing permission = **warn+noop**) and Plugin API `^2.9.0`.
+	 */
+	registerHeaderAction(contribution: PluginHeaderActionContribution): Disposable;
 	/**
 	 * Navigate to one of this plugin's own workspace views. `viewId` is the
 	 * contribution id passed to {@link PluginUiApi.registerWorkspaceView}. No-op

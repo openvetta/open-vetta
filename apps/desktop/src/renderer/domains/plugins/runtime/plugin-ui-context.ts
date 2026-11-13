@@ -31,6 +31,7 @@ import type {
 	PluginContext,
 	PluginFilePreviewContribution,
 	PluginGlobalSlotContribution,
+	PluginHeaderActionContribution,
 	PluginImageRef,
 	PluginInputActionContribution,
 	PluginNavBadge,
@@ -251,6 +252,7 @@ export function createPluginUiApi({
 		bottomPanels,
 		inputActions,
 		newSessionContexts,
+		headerActions,
 		cardRenderers,
 		toolCallSlots,
 		turnCards,
@@ -468,6 +470,36 @@ export function createPluginUiApi({
 			dispose: () => {
 				const index = newSessionContexts.findIndex((entry) => entry.id === normalized.id);
 				if (index >= 0) newSessionContexts.splice(index, 1);
+				onChanged();
+			},
+		};
+	};
+
+	const registerHeaderAction = (contribution: PluginHeaderActionContribution): Disposable => {
+		if (!hasPluginPermission(plugin, "ui.slot.header-action")) {
+			warnSkippedPluginContribution(plugin, "ui.slot.header-action", "header action");
+			return noopDisposable;
+		}
+		if (typeof contribution.id !== "string" || contribution.id.trim().length === 0) {
+			throw new Error("Header action id is required");
+		}
+		if (typeof contribution.component !== "function" && typeof contribution.component !== "object") {
+			throw new Error("Header action component is invalid");
+		}
+		if (contribution.order !== undefined && !Number.isFinite(contribution.order)) {
+			throw new Error("Header action order must be a finite number");
+		}
+		const normalized: PluginHeaderActionContribution = {
+			id: contribution.id,
+			order: contribution.order,
+			component: contribution.component,
+		};
+		headerActions.push(normalized);
+		onChanged();
+		return {
+			dispose: () => {
+				const index = headerActions.indexOf(normalized);
+				if (index >= 0) headerActions.splice(index, 1);
 				onChanged();
 			},
 		};
@@ -1001,6 +1033,7 @@ export function createPluginUiApi({
 		registerBottomPanel,
 		registerInputAction,
 		registerNewSessionContext,
+		registerHeaderAction,
 		registerCardRenderer,
 		registerToolCallSlot,
 		registerTurnCard,

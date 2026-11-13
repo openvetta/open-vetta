@@ -676,6 +676,80 @@ interface PluginNewSessionContext {
 
 团队会话与单智能体会话一样会把**工作区**与**轮次开始**报给插件，因此本区里挂的东西（附件、插入的文本）在团队会话里同样有去处。
 
+## 会话页顶栏动作 registerHeaderAction
+
+在会话页顶栏右侧、内置按钮组（导出 / 置顶 / 终端 / 面板……）的**左边**放一个自己的控件，例如「用外部应用打开」。
+
+- 权限：`ui.slot.header-action`（缺权限 = warn + noop）
+- 需要 Plugin API `^2.9.0`
+- 当前只出现在会话页顶栏
+- **间距由宿主统一决定**：项与项之间、这一排与内置按钮组之间都是固定间距，插件不需要也无法自己留边距
+- **互相隔离**：每一项外面有宿主容器和错误边界，某个插件抛错只会让它自己消失；组件返回 `null`（比如当前会话不适用）时，该项连同它的间距一起收起
+
+```ts
+interface PluginHeaderActionContribution {
+  id: string;
+  order?: number;          // 小的靠左；省略则排在最后，同值按插件 id 稳定排序
+  component: ComponentType; // 组件内可用任意 hook，如 useActiveConversation()
+}
+```
+
+### 用 `SessionTopItem`（推荐）
+
+`@vetta-org/ui` 的 `SessionTopItem` 就是为这个槽位准备的：外观与内置按钮组一致，点击后可以向下弹出**气泡**（内容自定义）或**下拉菜单**，宿主内置按钮用的也是它。需要在 `vite.config` 里开启 `hostUi: true`，见 [styling-and-pitfalls](./styling-and-pitfalls.md#可选vetta-orgui-宿主-primitives)。
+
+| 属性 | 说明 |
+| --- | --- |
+| `icon` / `label` / `badge` / `active` / `title` | 与 `ButtonGroupItem` 相同；纯图标按钮须配 `title` 或 `aria-label` |
+| `menuItems` | 下拉菜单：`{ id, label, icon?, onSelect, disabled?, destructive?, separatorBefore? }[]` |
+| `popoverContent` | 气泡内容（节点，或 `({ close }) => 节点`）。背景、圆角、投影固定为宿主浮层皮肤；宽高随内容自适应，超出最大值后滚动。可配 `popoverClassName` 微调内边距 |
+| `open` / `onOpenChange` | 受控气泡 |
+| `align` | 弹层对齐，默认 `end`（与按钮右缘对齐） |
+| `shape` | 单独使用时的外观：`"pill"` 胶囊（默认）/ `"square"` |
+| `onClick` | 既无 `menuItems` 也无 `popoverContent` 时的普通按钮回调 |
+
+三种点击行为互斥，`menuItems` 优先于 `popoverContent`。单独使用时 `SessionTopItem` 自己带一层胶囊；放进 `SessionTopGroup`（即 `ButtonGroup`）里就是组内的一格，想把自己的几个按钮合成一组就这样写。
+
+```tsx
+import { SessionTopItem } from "@vetta-org/ui";
+import { useActiveConversation } from "@vetta-org/plugin-sdk";
+
+function OpenInApp() {
+  const { cwd } = useActiveConversation();
+  if (!cwd) return null; // 返回 null：宿主连同间距一起收起
+  return (
+    <SessionTopItem
+      icon={<span className="icon-[solar--square-share-line-linear] size-4" />}
+      title="用外部应用打开"
+      menuItems={[
+        { id: "finder", label: "Finder", onSelect: () => openIn("Finder", cwd) },
+        { id: "vscode", label: "VS Code", onSelect: () => openIn("Visual Studio Code", cwd) },
+      ]}
+    />
+  );
+}
+
+// activate 里注册
+ctx.ui.registerHeaderAction({ id: "open-in-app", order: 10, component: OpenInApp });
+```
+
+气泡内容完全自定义：
+
+```tsx
+<SessionTopItem
+  icon={<ClockIcon />}
+  title="历史"
+  badge={unread}
+  popoverContent={({ close }) => (
+    <div className="flex flex-col gap-2">
+      <HistoryList onPick={close} />
+    </div>
+  )}
+/>
+```
+
+也可以完全不用 `SessionTopItem`，自己渲染任意 React 节点；此时建议至少沿用 28px 的高度，并自行用 `ButtonGroup` 做出同款外观。
+
 ## 工具行内渲染 registerToolCallSlot
 
 按 **toolName** 替换宿主默认的工具调用行内 UI（transcript 内嵌渲染）。**首个注册胜**。

@@ -4,6 +4,8 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+- 新增会话页顶栏贡献点 `ctx.ui.registerHeaderAction({ id, order?, component })` 与权限 `ui.slot.header-action`，要求 Plugin API `^2.9.0`。贡献显示在会话页顶栏、内置按钮组的左侧；项与项之间、与内置按钮组之间的间距由宿主固定，每一项由宿主容器与错误边界包住，组件返回 `null` 时连同间距一起收起。配套 `@vetta-org/ui` 新增 `SessionTopItem` / `SessionTopGroup`：按钮组外观，点击可向下弹出自定义气泡（`popoverContent`）或下拉菜单（`menuItems`）。旧宿主没有该方法，调用会得到 `undefined`，需要兼容旧宿主的插件请把 `pluginApiVersion` 写成 `^2.9.0`。
+
 - 文档：补全宿主 UI 组件速查。`@vetta-org/ui` 新增 `ButtonGroup` / `ButtonGroupItem`（玻璃胶囊按钮组，支持图标、文字、角标与选中态，`shape` 可选胶囊或方形），`Button` 的 `field` 变体（设置页同款操作按钮）；`@vetta-org/theme-ui/plugin-ui` 新增 `MotionSelect`（设置页下拉）与 `SettingSection` / `SettingRow` / `SettingHeading`（设置分组卡片与设置项行）。这些组件随宿主发布，需要 Desktop 0.5.79+，旧宿主上缺少对应导出，请在文档里的最低版本之上使用；SDK 自身接口没有变化。
 
 ## [0.3.12] — 2026-11-12

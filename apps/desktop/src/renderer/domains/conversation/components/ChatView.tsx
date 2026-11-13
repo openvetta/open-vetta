@@ -11,6 +11,7 @@ import { useWindowPinAction } from "../hooks/useWindowPinAction";
 import { useBottomPanelToggle } from "@domains/bottom-panel/hooks/useBottomPanelToggle";
 import { useOpenTerminal } from "@domains/bottom-panel/hooks/useOpenTerminal";
 import { ChatHeaderActions } from "@vetta-org/theme-ui/chat";
+import { PluginHeaderActions } from "@domains/plugins/components/PluginHeaderActions";
 import { BackgroundTasksBadge } from "./BackgroundTasksBadge";
 import { SandboxGrantsBadge } from "./SandboxGrantsBadge";
 import { ChatHeaderNewSessionButton } from "./chat-view/ChatHeaderNewSessionButton";
@@ -67,6 +68,7 @@ export function ChatView(props: ChatViewProps): JSX.Element {
 			<>
 				<BackgroundTasksBadge runtimeIds={runtimeIds} activityWorkspaceId={workspace.id} />
 				<SandboxGrantsBadge runtimeIds={runtimeIds} />
+				<PluginHeaderActions />
 				<ChatHeaderActions.Group>
 					<ChatHeaderActions.Export
 						title={model.header.exportTitle}
