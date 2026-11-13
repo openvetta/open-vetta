@@ -115,6 +115,7 @@
 		"lastDay": "最后一天",
 		"custom": "自定义",
 		"weekdayJoin": "、",
+		"weekdayShortNames": ["日", "一", "二", "三", "四", "五", "六"],
 		"weekdayNames": [
 			"周日",
 			"周一",
