@@ -115,6 +115,7 @@
 		"lastDay": "Last day",
 		"custom": "Custom",
 		"weekdayJoin": ", ",
+		"weekdayShortNames": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
 		"weekdayNames": [
 			"Sun",
 			"Mon",
