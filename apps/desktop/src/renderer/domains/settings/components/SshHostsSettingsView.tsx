@@ -1,7 +1,7 @@
 import { Button } from "@shared/components/ui/button";
 import { SettingsPageShellView, SettingSection } from "@vetta-org/theme-ui/settings";
 import { SETTINGS_SECTION } from "../registry";
-import { SshHostForm } from "./SshHostForm";
+import { SshHostDialog } from "./SshHostDialog";
 import { SshHostList } from "./SshHostList";
 import type { SshHostsSettingsModel } from "./useSshHostsSettingsModel";
 
@@ -33,7 +33,6 @@ export function SshHostsSettingsView({ model }: { model: SshHostsSettingsModel }
 									variant="primary"
 									size="sm"
 									onClick={actions.startAdd}
-									disabled={model.editingId === "new"}
 								>
 									<span className="icon-[solar--add-circle-linear] h-3.5 w-3.5" />
 									{labels.add}
@@ -42,8 +41,8 @@ export function SshHostsSettingsView({ model }: { model: SshHostsSettingsModel }
 						</div>
 					}
 				>
-					{model.editingId === "new" && <SshHostForm model={model} heading={labels.addTitle} />}
-					{model.hosts.length === 0 && model.editingId !== "new" ? (
+					<SshHostDialog model={model} />
+					{model.hosts.length === 0 ? (
 						<div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
 							<span className="icon-[solar--server-linear] h-8 w-8 text-muted-foreground" />
 							<p className="text-[13px] text-foreground">{labels.empty}</p>

@@ -9,6 +9,8 @@ export interface SshHostFormState {
 	target: string;
 	port: string;
 	identityFile: string;
+	authMethod: "key" | "password";
+	password: string;
 }
 
 /** 某一行的探测结果。成功与失败都留在行内，不打断用户去看别处。 */
@@ -41,6 +43,11 @@ export interface SshHostsSettingsLabels {
 	fieldPort: string;
 	fieldIdentityFile: string;
 	fieldIdentityFileHint: string;
+	authKey: string;
+	authPassword: string;
+	fieldPassword: string;
+	fieldPasswordHint: string;
+	fieldPasswordSavedHint: string;
 	test: string;
 	testing: string;
 	testDetails: string;
@@ -78,7 +85,14 @@ export interface SshHostsSettingsModel {
 	};
 }
 
-const EMPTY_FORM: SshHostFormState = { label: "", target: "", port: "", identityFile: "" };
+const EMPTY_FORM: SshHostFormState = {
+	label: "",
+	target: "",
+	port: "",
+	identityFile: "",
+	authMethod: "key",
+	password: "",
+};
 
 export function useSshHostsSettingsModel(): SshHostsSettingsModel {
 	const { t } = useTranslation("settings");
@@ -129,6 +143,8 @@ export function useSshHostsSettingsModel(): SshHostsSettingsModel {
 			target: host.target,
 			port: host.port === undefined ? "" : String(host.port),
 			identityFile: host.identityFile ?? "",
+			authMethod: host.authMethod ?? "key",
+			password: "",
 		});
 		setFormError(null);
 		setEditingId(host.id);
@@ -146,7 +162,11 @@ export function useSshHostsSettingsModel(): SshHostsSettingsModel {
 			label: form.label.trim() || form.target.trim(),
 			target: form.target.trim(),
 			...(port ? { port: Number(port) } : {}),
-			...(form.identityFile.trim() ? { identityFile: form.identityFile.trim() } : {}),
+			...(form.authMethod === "password"
+				? { authMethod: "password" as const, ...(form.password ? { password: form.password } : {}) }
+				: form.identityFile.trim()
+					? { identityFile: form.identityFile.trim() }
+					: {}),
 		};
 		setSaving(true);
 		setFormError(null);
@@ -256,6 +276,11 @@ export function useSshHostsSettingsModel(): SshHostsSettingsModel {
 			fieldPort: t("sshFieldPort"),
 			fieldIdentityFile: t("sshFieldIdentityFile"),
 			fieldIdentityFileHint: t("sshFieldIdentityFileHint"),
+			authKey: t("sshAuthKey"),
+			authPassword: t("sshAuthPassword"),
+			fieldPassword: t("sshFieldPassword"),
+			fieldPasswordHint: t("sshFieldPasswordHint"),
+			fieldPasswordSavedHint: t("sshFieldPasswordSavedHint"),
 			test: t("sshTest"),
 			testing: t("sshTesting"),
 			testDetails: t("sshTestDetails"),

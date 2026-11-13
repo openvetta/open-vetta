@@ -492,6 +492,7 @@ function normalizeSshHosts(value: unknown): SshHost[] | undefined {
 				? { identityFile: input.identityFile.trim() }
 				: {}),
 			source: input.source === "ssh-config" ? "ssh-config" : "manual",
+			...(input.authMethod === "password" ? { authMethod: "password" as const } : {}),
 			...(typeof input.credentialRef === "string" && input.credentialRef.length > 0
 				? { credentialRef: input.credentialRef }
 				: {}),

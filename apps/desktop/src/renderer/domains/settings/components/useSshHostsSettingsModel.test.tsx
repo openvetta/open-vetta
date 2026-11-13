@@ -52,6 +52,26 @@ describe("SSH 主机设置", () => {
 		expect(result.current.editingId).toBeNull();
 	});
 
+	it("密码登录：口令随提交传出，不带私钥路径", async () => {
+		const { result } = renderModel();
+		await waitFor(() => expect(result.current.loading).toBe(false));
+
+		act(() => result.current.actions.startAdd());
+		act(() =>
+			result.current.actions.setForm({ target: "root@box", authMethod: "password", password: "s3cret", identityFile: "~/k" }),
+		);
+		await act(async () => {
+			await result.current.actions.submit();
+		});
+
+		expect(ssh.createHost).toHaveBeenCalledWith({
+			label: "root@box",
+			target: "root@box",
+			authMethod: "password",
+			password: "s3cret",
+		});
+	});
+
 	it("保存失败时表单保持打开并保留已填内容，错误就地显示", async () => {
 		// 让用户在原地改，而不是把输入清掉让他重填一遍。
 		ssh.createHost.mockRejectedValueOnce(new Error("An SSH host for \"build-01\" already exists."));
