@@ -141,7 +141,7 @@ export function ChatView(props: ChatViewProps): JSX.Element {
 		return () => setHeaderRightSlot(null);
 	}, [headerActions, setHeaderRightSlot]);
 
-	// 沉浸式顶栏：消息流滚到顶栏下面，由 MessageFeedLayoutVirtualizer 负责留白与渐隐。
+	// 沉浸式顶栏：消息流滚到顶栏下面。渐隐在 Virtualizer 上，顶部留白在列表 Header 里（见 MessageFeedLayoutTopInset）。
 	useEffect(() => {
 		setHeaderImmersive(true);
 		return () => setHeaderImmersive(false);
