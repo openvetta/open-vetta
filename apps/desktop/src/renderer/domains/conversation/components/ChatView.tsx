@@ -1,7 +1,7 @@
 import { useSetAtom } from "jotai";
 import { memo, useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { pageHeaderImmersiveAtom, pageHeaderLeftSlotAtom, pageHeaderRightSlotAtom } from "@shared/store/atoms";
+import { pageHeaderImmersiveAtom, pageHeaderLeftActionsAtom, pageHeaderRightSlotAtom } from "@shared/store/atoms";
 import { useActiveSessionRuntimeIds } from "@shared/workspace/active-session-runtime";
 import { createActivityWorkspace } from "@shared/workspace/activity-workspace";
 import type { WorkSurfaceScope } from "@shared/workspace/work-surface";
@@ -51,7 +51,7 @@ export function ChatView(props: ChatViewProps): JSX.Element {
 	const terminal = useOpenTerminal(model.workSurface);
 	const bottomPanel = useBottomPanelToggle(model.workSurface);
 	const setHeaderRightSlot = useSetAtom(pageHeaderRightSlotAtom);
-	const setHeaderLeftSlot = useSetAtom(pageHeaderLeftSlotAtom);
+	const setHeaderLeftActions = useSetAtom(pageHeaderLeftActionsAtom);
 	const setHeaderImmersive = useSetAtom(pageHeaderImmersiveAtom);
 	const workspace = useMemo(
 		() =>
@@ -126,9 +126,9 @@ export function ChatView(props: ChatViewProps): JSX.Element {
 	}, [setHeaderImmersive]);
 
 	useEffect(() => {
-		setHeaderLeftSlot(<ChatHeaderNewSessionButton />);
-		return () => setHeaderLeftSlot(null);
-	}, [setHeaderLeftSlot]);
+		setHeaderLeftActions(<ChatHeaderNewSessionButton />);
+		return () => setHeaderLeftActions(null);
+	}, [setHeaderLeftActions]);
 
 	return (
 		<DefaultChatView

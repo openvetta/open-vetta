@@ -1,5 +1,6 @@
 import { useActiveWorkspaceViewHeader } from "@domains/plugins/components/WorkspaceViewHeaderSlot";
 import {
+	pageHeaderLeftActionsAtom,
 	pageHeaderLeftSlotAtom,
 	pageHeaderRightSlotAtom,
 	pageHeaderTitleAtom,
@@ -39,6 +40,7 @@ export function usePageHeaderModel({
 	const titleBadge = useAtomValue(pageHeaderTitleBadgeAtom);
 	const rightSlot = useAtomValue(pageHeaderRightSlotAtom);
 	const leftSlot = useAtomValue(pageHeaderLeftSlotAtom);
+	const leftActions = useAtomValue(pageHeaderLeftActionsAtom);
 	const fallbackTitleKey = ROUTE_TITLE_KEYS.find((route) => route.match.test(path))?.titleKey;
 	const themePageTitle = themePageRoute?.page
 		? resolveThemePageTitle(themePageRoute.page.title, i18n.language)
@@ -51,6 +53,7 @@ export function usePageHeaderModel({
 
 	return {
 		fallbackTitleKey,
+		leftActions,
 		leftSlot: workspaceViewHeader?.left ?? leftSlot,
 		path,
 		rightSlot: workspaceViewHeader?.right ?? rightSlot,
