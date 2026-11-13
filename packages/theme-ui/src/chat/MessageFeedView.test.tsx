@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 import { MessageFeedRoot, MessageFeedVirtualList } from "./MessageFeedView";
+import { MessageFeedLayoutTopInset } from "./MessageFeedLayoutView";
 
 const captured = vi.hoisted(() => ({ props: undefined as Record<string, unknown> | undefined }));
 
@@ -61,4 +62,20 @@ it("keeps real item content mounted while the user scrolls", () => {
 	);
 
 	expect(captured.props?.scrollSeekConfiguration).toBeUndefined();
+});
+
+it("keeps the first message below an immersive header by insetting the scrolled list, not the scroller padding", () => {
+	renderToStaticMarkup(
+		<MessageFeedRoot>
+			<MessageFeedVirtualList items={["hello"]}>{(item) => item}</MessageFeedVirtualList>
+		</MessageFeedRoot>,
+	);
+
+	const Header = (captured.props?.components as { Header?: () => ReturnType<typeof MessageFeedLayoutTopInset> } | undefined)
+		?.Header;
+	const header = Header ? renderToStaticMarkup(<Header />) : "";
+	expect(header).toContain('data-message-feed-layout-part="top-inset"');
+	expect(header).toContain("h-0");
+	expect(header).toContain("data-header-overlay=true");
+	expect(header).toContain("h-[80px]");
 });

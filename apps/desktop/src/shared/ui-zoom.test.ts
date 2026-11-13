@@ -41,14 +41,14 @@ describe("stepUiZoomFactor", () => {
 });
 
 describe("trafficLightPositionFor", () => {
-	it("100% 时保持原标定，其它档位按实测中线 × 比例换算", () => {
-		expect(trafficLightPositionFor(28, 1)).toEqual({ x: 16, y: 24 });
-		expect(trafficLightPositionFor(28, 0.75)).toEqual({ x: 16, y: 17 });
-		expect(trafficLightPositionFor(28, 1.5)).toEqual({ x: 16, y: 38 });
+	it("圆心落在实测中线上：顶边比中线少 9px，其它档位按中线 × 比例换算", () => {
+		expect(trafficLightPositionFor(28, 1)).toEqual({ x: 16, y: 19 });
+		expect(trafficLightPositionFor(28, 0.75)).toEqual({ x: 16, y: 12 });
+		expect(trafficLightPositionFor(28, 1.5)).toEqual({ x: 16, y: 33 });
 	});
 
 	it("页头中线变了，红绿灯跟着变，不依赖任何写死的页头数字", () => {
-		expect(trafficLightPositionFor(30, 1)).toEqual({ x: 16, y: 26 });
+		expect(trafficLightPositionFor(30, 1)).toEqual({ x: 16, y: 21 });
 	});
 });
 

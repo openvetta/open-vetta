@@ -249,6 +249,7 @@ function HeaderActionBar({
 		moveToTray: t("chatView.headerActions.moveToTray"),
 		adjust: t("chatView.headerActions.adjust"),
 		done: t("chatView.headerActions.done"),
+		more: t("chatView.headerActions.more"),
 	};
 
 	return (

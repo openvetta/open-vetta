@@ -7,6 +7,7 @@ import { cn } from "@vetta-org/ui/utils";
 import { PageHeaderSidebarTrigger } from "./PageHeaderSidebarTrigger";
 import { PageHeaderTitle } from "./PageHeaderTitle";
 import { PageHeaderWindowActions } from "./PageHeaderWindowActions";
+import { HeaderCrowdingProvider, useHeaderCrowding } from "./header-crowding";
 
 export interface PageHeaderContentProps extends SdkPageHeaderContentProps {
 	/** Host-provided window chrome (connected WindowControls). */
@@ -20,6 +21,7 @@ export function PageHeaderContent({
 	narrow,
 	windowControls,
 }: PageHeaderContentProps): JSX.Element {
+	const crowding = useHeaderCrowding();
 	const ThemeSidebarTrigger = useThemeComponent("app.pageHeaderSidebarTrigger", PageHeaderSidebarTrigger);
 	const ThemePageHeaderTitle = useThemeComponent("app.pageHeaderTitle", PageHeaderTitle);
 	const ThemePageHeaderWindowActions = useThemeComponent(
@@ -29,7 +31,7 @@ export function PageHeaderContent({
 
 	return (
 		<>
-			<div className={cn("no-drag flex min-w-0 items-center gap-2", classNames?.left)}>
+			<div ref={crowding.leftRef} className={cn("no-drag flex min-w-0 items-center gap-2", classNames?.left)}>
 				<AnimatePresence initial={false}>
 					{model.triggerVisible && model.leftActions ? (
 						// 触发器与动作合成一个按钮组（会话页：展开侧边栏 + 新会话）。
@@ -87,9 +89,11 @@ export function PageHeaderContent({
 					model.titleBadge
 				)}
 			</div>
-			<ThemePageHeaderWindowActions className={classNames?.actions} trailing={windowControls}>
-				{model.rightSlot}
-			</ThemePageHeaderWindowActions>
+			<div ref={crowding.rightRef} className="flex shrink-0">
+				<ThemePageHeaderWindowActions className={classNames?.actions} trailing={windowControls}>
+					<HeaderCrowdingProvider crowded={crowding.crowded}>{model.rightSlot}</HeaderCrowdingProvider>
+				</ThemePageHeaderWindowActions>
+			</div>
 		</>
 	);
 }

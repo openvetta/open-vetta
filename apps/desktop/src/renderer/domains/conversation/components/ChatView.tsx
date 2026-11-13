@@ -88,6 +88,8 @@ export function ChatView(props: ChatViewProps): JSX.Element {
 				active: pin.pinned,
 				// 窗口置顶开着时，即使被收纳也要在面板开关旁露出来，否则用户找不到取消的入口。
 				promoteWhenActive: true,
+				// 顶栏被挤窄、其余按钮收进「更多」时，置顶仍留在活动面板开关旁边。
+				retainWhenNarrow: true,
 				icon: <span className={pin.pinned ? "icon-[solar--pin-bold]" : "icon-[solar--pin-linear]"} />,
 				behavior: { type: "click", onClick: pin.toggle },
 			},
@@ -141,7 +143,7 @@ export function ChatView(props: ChatViewProps): JSX.Element {
 		return () => setHeaderRightSlot(null);
 	}, [headerActions, setHeaderRightSlot]);
 
-	// 沉浸式顶栏：消息流滚到顶栏下面，由 MessageFeedLayoutVirtualizer 负责留白与渐隐。
+	// 沉浸式顶栏：消息流滚到顶栏下面。渐隐在 Virtualizer 上，顶部留白在列表 Header 里（见 MessageFeedLayoutTopInset）。
 	useEffect(() => {
 		setHeaderImmersive(true);
 		return () => setHeaderImmersive(false);

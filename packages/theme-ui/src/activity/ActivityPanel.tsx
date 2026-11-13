@@ -167,7 +167,7 @@ export const ActivityPanelHeader = forwardRef<HTMLDivElement, ActivityPanelHeade
 			<div
 				ref={forwardedRef}
 				className={cn(
-					"group/activity-tabs relative z-20 flex shrink-0 items-end pt-1",
+					"group/activity-tabs relative z-20 flex shrink-0 items-end pt-3",
 					className,
 				)}
 				{...props}

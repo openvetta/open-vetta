@@ -457,7 +457,8 @@
 			"moveToTop": "Add to header",
 			"moveToTray": "Stow",
 			"adjust": "Rearrange",
-			"done": "Done"
+			"done": "Done",
+			"more": "More actions"
 		}
 	},
 	"contextRing": {
