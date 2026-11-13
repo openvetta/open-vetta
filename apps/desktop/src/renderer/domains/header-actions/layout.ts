@@ -12,14 +12,10 @@ export const MAX_TOP_ACTIONS = 7;
 
 /**
  * 用户从没调整过布局时，顶栏默认显示的动作，按这个顺序从左到右；其余动作（含其它插件的）一律收纳。
- * 「从外部应用打开」是系统插件 `open-in-app` 的动作，它不适用（非 macOS、远程项目……）时自然缺席。
+ * 默认外的动作（含「从外部应用打开」这类插件动作）都进收纳；某个默认动作此刻不可用时自然缺席。
  * 用户一旦调整过，就以他存下来的布局为准，不再看这份默认。
  */
-export const DEFAULT_TOP_ACTIONS: readonly string[] = [
-	"open-in-app:open-in-app",
-	"builtin:bottom-panel",
-	"builtin:export",
-];
+export const DEFAULT_TOP_ACTIONS: readonly string[] = ["builtin:terminal", "builtin:bottom-panel", "builtin:export"];
 
 export interface HeaderLayout {
 	readonly top: readonly string[];

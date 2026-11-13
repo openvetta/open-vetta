@@ -195,7 +195,7 @@ describe("ConversationHeaderActions", () => {
 		expect(titles(app)).not.toContain("pin");
 	});
 
-	it("for a user who never customised, shows only open-in-app, bottom panel and export, in that order", async () => {
+	it("for a user who never customised, shows only terminal, bottom panel and export, in that order", async () => {
 		const { app } = await render(
 			[
 				{ pluginId: "open-in-app", pluginName: "O", actionId: "open-in-app:open-in-app", useAction: () => ({ title: "open", icon: <i />, onClick: () => {} }) },
@@ -204,7 +204,28 @@ describe("ConversationHeaderActions", () => {
 			["export", "pin", "terminal", "bottom-panel"].map(builtin),
 			null,
 		);
-		expect(titles(app)).toEqual(["open", "bottom-panel", "export"]);
+		expect(titles(app)).toEqual(["terminal", "bottom-panel", "export"]);
+	});
+
+	it("a stowed action that promotes itself while active shows next to the panel toggle", async () => {
+		const pin = { ...builtin("pin"), active: true, promoteWhenActive: true };
+		const { app } = await render([], [builtin("export"), pin], { top: ["builtin:export"], tray: ["builtin:pin"] });
+		// 顶栏里只有 export；收纳里的 pin 因为选中并要求露出，出现在面板开关所在的那一组里，且在开关左边。
+		const barTitles = [...app.querySelectorAll("[data-header-action-bar] button[title]")].map((button) =>
+			button.getAttribute("title"),
+		);
+		expect(barTitles).not.toContain("pin");
+		expect(barTitles).toContain("export");
+		const group = app.querySelector("[data-testid=pinned]")?.closest("[data-slot=button-group]");
+		const buttons = [...(group?.querySelectorAll("button") ?? [])];
+		expect(buttons.map((button) => button.getAttribute("title") ?? "pinned-toggle")).toEqual(["pin", "pinned-toggle"]);
+	});
+
+	it("an inactive promotable action stays stowed", async () => {
+		const pin = { ...builtin("pin"), active: false, promoteWhenActive: true };
+		const { app } = await render([], [builtin("export"), pin], { top: ["builtin:export"], tray: ["builtin:pin"] });
+		const group = app.querySelector("[data-testid=pinned]")?.closest("[data-slot=button-group]");
+		expect(group?.querySelectorAll("button")).toHaveLength(1);
 	});
 
 	it("honours the saved layout over the default order", async () => {

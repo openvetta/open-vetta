@@ -52,13 +52,13 @@ describe("resolveHeaderLayout defaults for a user who never customised", () => {
 
 	it("shows only the default actions, in the default order, and stows the rest", () => {
 		const layout = resolveHeaderLayout(all, null, MAX_TOP_ACTIONS, DEFAULT_TOP_ACTIONS);
-		expect(layout.top).toEqual(["open-in-app:open-in-app", "builtin:bottom-panel", "builtin:export"]);
-		expect(layout.tray).toEqual(["p:other", "builtin:pin", "builtin:terminal"]);
+		expect(layout.top).toEqual(["builtin:terminal", "builtin:bottom-panel", "builtin:export"]);
+		expect(layout.tray).toEqual(["p:other", "open-in-app:open-in-app", "builtin:pin"]);
 	});
 
-	it("skips a default action that is not available, e.g. open-in-app on a remote project", () => {
+	it("skips a default action that is not available", () => {
 		const layout = resolveHeaderLayout(
-			all.filter((key) => key !== "open-in-app:open-in-app"),
+			all.filter((key) => key !== "builtin:terminal"),
 			null,
 			MAX_TOP_ACTIONS,
 			DEFAULT_TOP_ACTIONS,

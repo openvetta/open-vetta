@@ -44,6 +44,11 @@ export interface HeaderActionBarItem {
 	readonly active?: boolean;
 	readonly disabled?: boolean;
 	readonly behavior: HeaderActionBehavior;
+	/**
+	 * 处于选中态时，即使被收纳也要在活动面板开关左侧露出一个按钮（如「窗口置顶」：开着却看不到入口很奇怪）。
+	 * 仅宿主内置动作使用，插件声明里没有这个字段。
+	 */
+	readonly promoteWhenActive?: boolean;
 }
 
 export type HeaderActionZone = "top" | "tray";
@@ -204,8 +209,10 @@ function TileFace({
 			title={item.title}
 			aria-label={item.title}
 			disabled={item.disabled}
+			data-active={item.active || undefined}
+			aria-pressed={item.active ? true : undefined}
 			onClick={onClick}
-			className="relative flex h-7 w-8 items-center justify-center rounded-full bg-foreground/[0.08] text-foreground outline-none transition-colors hover:bg-foreground/[0.14] focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40"
+			className="relative flex h-7 w-8 items-center justify-center rounded-full bg-foreground/[0.08] text-foreground outline-none transition-colors hover:bg-foreground/[0.14] focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40 data-[active]:bg-foreground/[0.22]"
 		>
 			<IconBox jiggle={jiggle}>{item.icon}</IconBox>
 			{jiggle === undefined && <TileBadge badge={item.badge} />}
@@ -346,7 +353,9 @@ function TileFaceTrigger({ item, ...props }: { readonly item: HeaderActionBarIte
 			aria-label={item.title}
 			{...props}
 			disabled={item.disabled}
-			className="relative flex h-7 w-8 items-center justify-center rounded-full bg-foreground/[0.08] text-foreground outline-none transition-colors hover:bg-foreground/[0.14] focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40 data-[state=open]:bg-foreground/[0.1]"
+			data-active={item.active || undefined}
+			aria-pressed={item.active ? true : undefined}
+			className="relative flex h-7 w-8 items-center justify-center rounded-full bg-foreground/[0.08] text-foreground outline-none transition-colors hover:bg-foreground/[0.14] focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40 data-[active]:bg-foreground/[0.22] data-[state=open]:bg-foreground/[0.1]"
 		>
 			<IconBox>{item.icon}</IconBox>
 			<TileBadge badge={item.badge} />
@@ -414,6 +423,7 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 	// 顶栏一个都没有（全收纳了）：不留空胶囊也不出小白条；悬浮到面板开关或它左边那一块时，
 	// 开关左侧浮出一个虚线加号胶囊，点它呼出收纳。调整状态下仍要有按钮组接收拖放，所以照常显示。
 	const emptyBar = top.length === 0 && !editing;
+	const promoted = editing ? [] : tray.filter((item) => item.promoteWhenActive && item.active);
 
 	const canDropIn = (zone: HeaderActionZone): boolean => zone === "tray" || draggingFromTop || !topFull;
 
@@ -650,7 +660,15 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 			)}
 		</div>
 		{/* 活动面板开关是个独立的小组，固定在最右，不参与排序与收纳。 */}
-		{pinned ? <ButtonGroup>{pinned}</ButtonGroup> : null}
+		{/* 活动面板开关所在的小组；被收纳却处于选中态的动作（如窗口置顶）在它左边露出来，调整状态下不露（那时所有按钮都不可点）。 */}
+		{pinned || promoted.length > 0 ? (
+			<ButtonGroup>
+				{promoted.map((item) => (
+					<BarItem key={item.key} item={item} />
+				))}
+				{pinned}
+			</ButtonGroup>
+		) : null}
 		</div>
 	);
 }

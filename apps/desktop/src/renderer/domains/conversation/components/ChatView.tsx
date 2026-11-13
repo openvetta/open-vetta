@@ -86,6 +86,8 @@ export function ChatView(props: ChatViewProps): JSX.Element {
 				key: "builtin:pin",
 				title: pin.pinned ? t("chatView.pinButton.pinned") : t("chatView.pinButton.unpinned"),
 				active: pin.pinned,
+				// 窗口置顶开着时，即使被收纳也要在面板开关旁露出来，否则用户找不到取消的入口。
+				promoteWhenActive: true,
 				icon: <span className={pin.pinned ? "icon-[solar--pin-bold]" : "icon-[solar--pin-linear]"} />,
 				behavior: { type: "click", onClick: pin.toggle },
 			},
