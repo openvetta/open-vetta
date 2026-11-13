@@ -182,7 +182,7 @@ vettaPluginFederation({
 | --- | --- |
 | `Button` | 按钮。`variant`：`default` / `primary` / `outline` / `secondary` / `ghost` / `destructive` / `link`，以及 **`field`**（设置页里设置项右侧的操作按钮：muted 底、无边框、12px，与下拉 / 输入框同皮）；`size`：`xs` / `sm` / `default` / `lg` / `icon-xs` / `icon-sm` / `icon` / `icon-lg` |
 | `ButtonGroup` + `ButtonGroupItem` | **按钮组**：半透明胶囊里并排若干操作按钮，用于悬浮在内容之上的工具条（如页头右上角）。`ButtonGroup` 属性：`shape`（`"pill"` 胶囊，默认 / `"square"` 圆角方形）、`blur`（背景模糊，默认开；贴在纯色背景上可关）。`ButtonGroupItem` 属性：`icon`、`label`（不传即纯图标按钮，须配 `title` / `aria-label`）、`badge`（数字计数，超过 99 显示 `99+`；`true` 为小红点；也可传节点）、`active`（选中态，同时设 `aria-pressed`），其余同原生 `button`。选中项两侧的分隔线会自动隐藏 |
-| `SessionTopItem` / `SessionTopGroup` | **会话页顶栏的一项**：`ButtonGroupItem` 外观，点击后向下弹出自定义气泡（`popoverContent`）或下拉菜单（`menuItems`）；单独使用自带胶囊，放进 `SessionTopGroup` 是组内一格。配合 `registerHeaderAction` 使用，详见 [ui-slots](./ui-slots.md#会话页顶栏动作-registerheaderaction) |
+| `SessionTopItem` / `SessionTopGroup` | 宿主内部用的顶栏按钮：`ButtonGroupItem` 外观，点击向下弹出气泡（`popoverContent`）或下拉菜单（`menuItems`）。插件**不用**它来做顶栏动作——`registerHeaderAction` 是声明式的，宿主统一渲染并管理收纳与排序，详见 [ui-slots](./ui-slots.md#会话页顶栏动作-registerheaderaction)；它仍可用于你自己页面里的同款按钮 |
 | `DropdownMenu*` | 菜单（`DropdownMenuTrigger` / `Content` / `Item` / `Separator` / `RadioGroup` / `Sub` …） |
 | `Select*`、`SELECT_TRIGGER_CLASS`、`SELECT_PANEL_CLASS` | 下拉选择（Radix）；后两个常量是设置页下拉的触发器 / 面板皮肤，自拼触发器时用 |
 | `Popover*` / `Dialog*` / `Drawer*` / `Switch` / `Slider` / `StepSlider` / `Input` / `Calendar` / `DatePicker` / `Spin` / `cn` | 其余基础控件 |
