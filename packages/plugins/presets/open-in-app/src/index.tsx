@@ -1,6 +1,6 @@
 import { definePlugin } from "@vetta-org/plugin-sdk";
 import "./style.css";
-import { OpenInApp, setHostApis } from "./OpenInApp";
+import { OpenInApp, releaseHostApis, setHostApis } from "./OpenInApp";
 
 export default definePlugin({
 	activate(ctx) {
@@ -11,8 +11,8 @@ export default definePlugin({
 			order: 100,
 			component: OpenInApp,
 		});
-	},
-	deactivate() {
-		setHostApis(undefined, undefined);
+		// 用本次激活的清理函数释放，而不是 deactivate()：宿主重试/热重载时新一次激活可能先于旧一次的清理，
+		// 清理只认自己登记的那份接口，不会误抹新的。
+		return () => releaseHostApis(ctx.command);
 	},
 });

@@ -79,3 +79,16 @@ describe("OpenInApp", () => {
 		expect(app.innerHTML).toBe("");
 	});
 });
+
+describe("releaseHostApis", () => {
+	it("does not wipe the apis of a newer activation", async () => {
+		const { releaseHostApis } = await import("../src/OpenInApp");
+		const older = createCommand([]);
+		const newer = createCommand(["Zed"]);
+		setHostApis(older as never, vi.fn());
+		setHostApis(newer as never, vi.fn());
+		releaseHostApis(older as never);
+		const app = await mount();
+		expect(app.querySelector("[data-slot=button-group]")).not.toBeNull();
+	});
+});

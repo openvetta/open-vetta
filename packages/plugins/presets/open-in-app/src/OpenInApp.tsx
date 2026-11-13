@@ -16,6 +16,15 @@ export function setHostApis(command: CommandApi | undefined, notify: NotifyApi |
 	installedApps = undefined;
 }
 
+/**
+ * 只释放自己那一次激活登记的接口。
+ * 宿主热重载/重试时，新一次激活可能先于旧一次的 deactivate 完成；无条件清空会把新接口一并抹掉，按钮就永远是空的。
+ */
+export function releaseHostApis(command: CommandApi | undefined): void {
+	if (commandApi !== command) return;
+	setHostApis(undefined, undefined);
+}
+
 /** 探测一次并缓存：安装状态在一次运行里基本不变，菜单每次展开都重测只会白白起子进程。 */
 function detectInstalledApps(): Promise<ReadonlySet<string>> {
 	installedApps ??= (async () => {
