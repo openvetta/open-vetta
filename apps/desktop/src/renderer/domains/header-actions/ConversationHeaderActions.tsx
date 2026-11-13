@@ -6,7 +6,7 @@ import { HeaderSlot } from "@domains/plugins/components/WorkspaceViewHeaderSlot"
 import { type RegisteredHeaderAction, pluginHeaderActionsAtom } from "@shared/store/plugin-atoms";
 import { DEFAULT_TOP_ACTIONS, MAX_TOP_ACTIONS, moveHeaderAction, resolveHeaderLayout } from "./layout";
 import { headerActionLayoutAtom } from "./layout-store";
-import { type NormalizedHeaderAction, normalizeHeaderAction } from "./normalize";
+import { type NormalizedHeaderAction, headerActionSignature, normalizeHeaderAction } from "./normalize";
 
 /** 插件回调抛错（含异步）只记日志，不能冒到宿主的事件处理里去。 */
 function guarded(pluginId: string, fn: () => unknown): () => void {
@@ -20,7 +20,15 @@ function guarded(pluginId: string, fn: () => unknown): () => void {
 	};
 }
 
-function toBarItem(action: RegisteredHeaderAction, value: NormalizedHeaderAction): HeaderActionBarItem {
+/**
+ * 把规范化后的声明变成按钮组的一项。回调不直接捕获某一次渲染的函数，而是通过 `latest` 读最新一次声明：
+ * 声明内容没变时探针不会重新发布（见 `headerActionSignature`），已经发布出去的项点击时仍要调到最新的回调。
+ */
+function toBarItem(
+	action: RegisteredHeaderAction,
+	value: NormalizedHeaderAction,
+	latest: { current: NormalizedHeaderAction },
+): HeaderActionBarItem {
 	const { behavior } = value;
 	const common = {
 		key: action.actionId,
@@ -35,26 +43,44 @@ function toBarItem(action: RegisteredHeaderAction, value: NormalizedHeaderAction
 			...common,
 			behavior: {
 				type: "menu",
-				items: behavior.items.map((item) => ({ ...item, onSelect: guarded(action.pluginId, item.onSelect) })),
+				items: behavior.items.map((item) => ({
+					...item,
+					onSelect: guarded(action.pluginId, () => {
+						const current = latest.current.behavior;
+						if (current.type === "menu") current.items.find((entry) => entry.id === item.id)?.onSelect();
+					}),
+				})),
 			},
 		};
 	}
 	if (behavior.type === "popover") {
-		const component = behavior.component;
 		return {
 			...common,
 			behavior: {
 				type: "popover",
 				// 气泡内容在宿主浮层里渲染，要放回插件自己的 i18n 目录与 CSS 作用域，并隔离它的错误。
-				render: (api) => (
-					<HeaderSlot pluginId={action.pluginId} slotKey={`${action.actionId}:popover`}>
-						{createElement(component, { close: api.close })}
-					</HeaderSlot>
-				),
+				render: (api) => {
+					const current = latest.current.behavior;
+					if (current.type !== "popover") return null;
+					return (
+						<HeaderSlot pluginId={action.pluginId} slotKey={`${action.actionId}:popover`}>
+							{createElement(current.component, { close: api.close })}
+						</HeaderSlot>
+					);
+				},
 			},
 		};
 	}
-	return { ...common, behavior: { type: "click", onClick: guarded(action.pluginId, behavior.onClick) } };
+	return {
+		...common,
+		behavior: {
+			type: "click",
+			onClick: guarded(action.pluginId, () => {
+				const current = latest.current.behavior;
+				if (current.type === "click") current.onClick();
+			}),
+		},
+	};
 }
 
 // 同一个贡献被重新注册（插件热重载）时 hook 函数会变：用它换 key，让 React 重建探针，
@@ -89,11 +115,24 @@ const ActionProbe = memo(function ActionProbe({
 		warned.current = problem;
 		console.warn(`Plugin header action ignored: ${action.actionId} — ${problem}`);
 	}
-	const item = value ? toBarItem(action, value) : null;
+	const latest = useRef(value);
+	if (value) latest.current = value;
+	const signature = value ? headerActionSignature(value, hookId) : null;
+	const published = useRef<string | null | undefined>(undefined);
 	useLayoutEffect(() => {
-		onItem(action.actionId, item);
+		// 声明没变就不通知按钮组：插件每次重渲染（比如流式期间）都会走到这里，不去重的话每次都会让整排按钮重渲。
+		if (published.current === signature) return;
+		published.current = signature;
+		onItem(action.actionId, value ? toBarItem(action, value, latest as { current: NormalizedHeaderAction }) : null);
 	});
-	useLayoutEffect(() => () => onItem(action.actionId, null), [action.actionId, onItem]);
+	useLayoutEffect(
+		() => () => {
+			onItem(action.actionId, null);
+			// 卸载后（含 StrictMode 的卸载再挂载）要能重新发布。
+			published.current = undefined;
+		},
+		[action.actionId, onItem],
+	);
 	return null;
 });
 

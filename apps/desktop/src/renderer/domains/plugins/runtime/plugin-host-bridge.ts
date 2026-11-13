@@ -1,6 +1,9 @@
 import { useSidebarState } from "@shared/app-shell/sidebar-state";
 import {
 	activeSessionAtom,
+	activeSessionCwdAtom,
+	activeSessionPathAtom,
+	activeSessionRuntimeIdAtom,
 	chatMessagesAtom,
 	inputValueAtom,
 	isStreamingAtom,
@@ -791,19 +794,14 @@ const conversation: PluginConversationApi = {
 // ─── Hooks ───
 
 function useActiveConversation(): ConversationState {
-	const active = useAtomValue(activeSessionAtom);
+	// 只订阅用得到的字段：订阅整个 activeSession 会让每个插件在流式期间每条消息都重渲一次
+	// （顶栏动作的探针是常驻的，代价会乘上插件数）。
+	const id = useAtomValue(activeSessionRuntimeIdAtom);
+	const cwd = useAtomValue(activeSessionCwdAtom);
+	const sessionPath = useAtomValue(activeSessionPathAtom);
 	const isStreaming = useAtomValue(isStreamingAtom);
 	const model = useAtomValue(selectedModelAtom);
-	return useMemo(
-		() => ({
-			id: active?.runtimeId ?? null,
-			cwd: active?.cwd ?? null,
-			sessionPath: active?.sessionPath ?? null,
-			model,
-			isStreaming,
-		}),
-		[active, model, isStreaming],
-	);
+	return useMemo(() => ({ id, cwd, sessionPath, model, isStreaming }), [id, cwd, sessionPath, model, isStreaming]);
 }
 
 function useConversationMessages(): ConversationMessage[] {

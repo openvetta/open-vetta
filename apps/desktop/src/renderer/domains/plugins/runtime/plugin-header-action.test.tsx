@@ -150,6 +150,37 @@ describe("ConversationHeaderActions", () => {
 		error.mockRestore();
 	});
 
+	it("plugin re-renders with an unchanged declaration do not re-render the button group, yet clicks reach the latest callback", async () => {
+		const clicks: number[] = [];
+		let renders = 0;
+		const hook = () => {
+			// 每次重渲染都换新的对象、新的回调（插件常见写法）；内容不变。
+			const context = useContext(UnstableContext.current as React.Context<object>);
+			renders += 1;
+			const version = renders;
+			void context;
+			return { title: "same", icon: <i className="x" />, onClick: () => clicks.push(version) };
+		};
+		const registered = action("stable", hook);
+		const { app, store } = await render([registered]);
+		const button = app.querySelector("[data-header-action-bar] button[title=same]") as HTMLButtonElement;
+		const before = button;
+		const rendersBefore = renders;
+		// 触发探针重渲染：换一个新数组重新发布同一个动作，父级重渲染，i18n 作用域给的 context 是新值，探针跟着重渲染。
+		await act(async () => {
+			store.set(pluginHeaderActionsAtom, [registered] as never);
+		});
+		expect(renders).toBeGreaterThan(rendersBefore);
+		// 同一个 DOM 节点：按钮没有被重建。
+		expect(app.querySelector("[data-header-action-bar] button[title=same]")).toBe(before);
+		act(() => {
+			before.click();
+		});
+		// 点击调用的是探针最近一次渲染里的回调，而不是发布时那一次。
+		expect(clicks).toHaveLength(1);
+		expect(clicks[0]).toBe(renders);
+	});
+
 	it("puts plugin actions ahead of the built-ins and keeps the pinned item last", async () => {
 		const { app } = await render([action("one", () => ({ title: "one", icon: <i />, onClick: () => {} }))]);
 		expect(titles(app)).toEqual(["one", "export", "pin"]);

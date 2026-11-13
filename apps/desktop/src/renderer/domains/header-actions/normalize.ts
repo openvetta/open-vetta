@@ -101,3 +101,52 @@ export function normalizeHeaderAction(raw: unknown): { value: NormalizedHeaderAc
 		},
 	};
 }
+
+/** 图标节点的签名：同类型、同属性视为同一个图标；序列化失败时每次都当成「变了」，宁可多发布也不漏。 */
+function iconSignature(icon: ReactNode, fallback: () => string): string {
+	if (icon === null || icon === undefined || icon === false) return "";
+	if (typeof icon === "string" || typeof icon === "number") return `t:${icon}`;
+	if (icon !== null && typeof icon === "object" && "type" in icon && "props" in icon) {
+		const element = icon as { type: unknown; props: unknown };
+		const type =
+			typeof element.type === "string"
+				? element.type
+				: typeof element.type === "function"
+					? element.type.name || "fn"
+					: "?";
+		try {
+			return `e:${type}:${JSON.stringify(element.props)}`;
+		} catch {
+			return fallback();
+		}
+	}
+	return fallback();
+}
+
+let fallbackCounter = 0;
+
+/**
+ * 一次声明里「会改变屏幕上画面」的那部分内容的签名：标题、图标、角标、选中 / 禁用、点击行为的种类与菜单项文案。
+ * 回调（`onClick` / `onSelect`）不在其中——它们由调用方通过 ref 始终指向最新的，不需要为此重新发布。
+ * 探针据此判断「声明没变」就不再通知按钮组，避免插件每次重渲染（流式期间很频繁）都带动整个按钮组重渲。
+ */
+export function headerActionSignature(
+	action: NormalizedHeaderAction,
+	popoverId: (component: object) => number,
+): string {
+	const { behavior } = action;
+	const behaviorPart =
+		behavior.type === "menu"
+			? `menu:${behavior.items.map((item) => `${item.id}|${item.label}|${item.disabled ? 1 : 0}${item.destructive ? 1 : 0}${item.separatorBefore ? 1 : 0}|${iconSignature(item.icon, () => `m${fallbackCounter++}`)}`).join(";")}`
+			: behavior.type === "popover"
+				? `popover:${popoverId(behavior.component)}`
+				: "click";
+	return [
+		action.title,
+		iconSignature(action.icon, () => `i${fallbackCounter++}`),
+		action.badge ?? "",
+		action.active ? 1 : 0,
+		action.disabled ? 1 : 0,
+		behaviorPart,
+	].join("\u0001");
+}

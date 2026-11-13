@@ -493,7 +493,7 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 					/>
 				</ButtonGroup>
 			) : (
-			<ButtonGroup onDragOver={overZone("top")} onDrop={dropOn("top")}>
+			<ButtonGroup blur={false} onDragOver={overZone("top")} onDrop={dropOn("top")}>
 				{/* 还有空位就在最左边留一个虚线席位（只一个，不把剩余席位都摆出来）。 */}
 				{hasFreeSeat && (
 					<span
@@ -662,7 +662,7 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 		{/* 活动面板开关是个独立的小组，固定在最右，不参与排序与收纳。 */}
 		{/* 活动面板开关所在的小组；被收纳却处于选中态的动作（如窗口置顶）在它左边露出来，调整状态下不露（那时所有按钮都不可点）。 */}
 		{pinned || promoted.length > 0 ? (
-			<ButtonGroup>
+			<ButtonGroup blur={false}>
 				{promoted.map((item) => (
 					<BarItem key={item.key} item={item} />
 				))}

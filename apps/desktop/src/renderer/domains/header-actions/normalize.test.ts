@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HEADER_ACTION_LIMITS, normalizeHeaderAction } from "./normalize";
+import { HEADER_ACTION_LIMITS, headerActionSignature, normalizeHeaderAction } from "./normalize";
 
 const icon = "icon";
 
@@ -55,5 +55,38 @@ describe("normalizeHeaderAction", () => {
 		expect(normalizeHeaderAction({ ...base, badge: 0 }).value?.badge).toBeUndefined();
 		expect(normalizeHeaderAction({ ...base, badge: "9" }).value?.badge).toBeUndefined();
 		expect(normalizeHeaderAction({ ...base, badge: Number.NaN }).value?.badge).toBeUndefined();
+	});
+});
+
+describe("headerActionSignature", () => {
+	const ids = (component: object) => (component as { id?: number }).id ?? 0;
+	const base = () => ({ title: "t", icon: { type: "span", props: { className: "a" } }, onClick: () => {} });
+	const sig = (raw: object) => {
+		const { value } = normalizeHeaderAction(raw);
+		if (!value) throw new Error("invalid");
+		return headerActionSignature(value, ids);
+	};
+
+	it("is stable across re-renders that only produce new callbacks and element objects", () => {
+		expect(sig(base())).toBe(sig(base()));
+	});
+
+	it("changes when something visible changes", () => {
+		const original = sig(base());
+		expect(sig({ ...base(), title: "u" })).not.toBe(original);
+		expect(sig({ ...base(), badge: 2 })).not.toBe(original);
+		expect(sig({ ...base(), active: true })).not.toBe(original);
+		expect(sig({ ...base(), disabled: true })).not.toBe(original);
+		expect(sig({ ...base(), icon: { type: "span", props: { className: "b" } } })).not.toBe(original);
+	});
+
+	it("tracks menu labels and disabled flags but not the select callbacks", () => {
+		const menu = (disabled: boolean) => ({
+			...base(),
+			onClick: undefined,
+			menuItems: [{ id: "a", label: "A", disabled, onSelect: () => {} }],
+		});
+		expect(sig(menu(false))).toBe(sig(menu(false)));
+		expect(sig(menu(false))).not.toBe(sig(menu(true)));
 	});
 });

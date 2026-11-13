@@ -257,6 +257,9 @@ export const activeSessionAtom = atom<ActiveSession | null>(null);
  * 每条消息都触发一次重渲。
  */
 export const activeSessionCwdAtom = selectAtom(activeSessionAtom, (session) => session?.cwd ?? null);
+/** 同上：只在 runtimeId / sessionPath 变化时通知，供 `useActiveConversation()` 这类高频订阅方使用。 */
+export const activeSessionRuntimeIdAtom = selectAtom(activeSessionAtom, (session) => session?.runtimeId ?? null);
+export const activeSessionPathAtom = selectAtom(activeSessionAtom, (session) => session?.sessionPath ?? null);
 export const pendingSessionCreationAtom = atom<PendingSessionCreation | null>(null);
 export const pendingSessionOpenAtom = atom<PendingSessionOpen | null>(null);
 /** 已接受发送、但新会话/runtime 尚未准备好的 UI 过渡态。 */
