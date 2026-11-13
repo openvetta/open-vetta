@@ -403,7 +403,10 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 	const trayAlert = tray.some((item) => item.badge !== undefined && item.badge !== 0);
 	const draggingFromTop = dragKey !== null && top.some((item) => item.key === dragKey);
 	// 托盘打开时显示空位；顶栏一个都没有时也留着，否则没有东西可以悬浮、点开托盘。
-	const hasFreeSeat = (editing || top.length === 0) && top.length < maxTop;
+	const hasFreeSeat = editing && top.length < maxTop;
+	// 顶栏一个都没有（全收纳了）：不留空胶囊也不出小白条；悬浮到面板开关或它左边那一块时，
+	// 开关左侧浮出一个虚线加号胶囊，点它呼出收纳。调整状态下仍要有按钮组接收拖放，所以照常显示。
+	const emptyBar = top.length === 0 && !editing;
 
 	const canDropIn = (zone: HeaderActionZone): boolean => zone === "tray" || draggingFromTop || !topFull;
 
@@ -450,8 +453,29 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 	const lineAfter = "after:absolute after:inset-y-1 after:right-0 after:w-0.5 after:rounded-full after:bg-primary";
 
 	return (
-		<div className="flex shrink-0 items-center gap-2">
+		<div className="group/bar flex shrink-0 items-center gap-2">
 		<div ref={rootRef} data-header-action-bar="true" className="group/header-actions relative flex shrink-0">
+			{emptyBar ? (
+				// 与右边面板开关同一套尺寸与形状（同样的 ButtonGroup，只是描边换成虚线、去掉底色）。
+				<ButtonGroup
+					blur={false}
+					className={cn(
+						"no-drag border border-dashed border-foreground/30 bg-transparent p-px transition-opacity duration-150 dark:bg-transparent",
+						// 平时看不见但占着位置，所以悬浮在面板开关左边那一块也能出现；展开收纳后保持可见。
+						open ? "opacity-100" : "opacity-0 group-hover/bar:opacity-100 has-[:focus-visible]:opacity-100",
+					)}
+				>
+					<ButtonGroupItem
+						title={labels.customize}
+						aria-label={labels.customize}
+						aria-expanded={open}
+						data-header-action-add="true"
+						onClick={() => setOpen((current) => !current)}
+						className="text-muted-foreground hover:text-foreground"
+						icon={<span className="icon-[solar--add-linear] pointer-events-none size-4" />}
+					/>
+				</ButtonGroup>
+			) : (
 			<ButtonGroup onDragOver={overZone("top")} onDrop={dropOn("top")}>
 				{/* 还有空位就在最左边留一个虚线席位（只一个，不把剩余席位都摆出来）。 */}
 				{hasFreeSeat && (
@@ -498,6 +522,9 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 					/>
 				))}
 			</ButtonGroup>
+			)}
+			{/* 收纳展开时小白条不渲染：否则悬浮态会让它透在托盘后面；顶栏为空时本来就没有小白条。 */}
+			{!emptyBar && !open && (
 			<button
 				type="button"
 				title={labels.customize}
@@ -514,8 +541,6 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 					"group-focus-within/header-actions:opacity-100 group-focus-within/header-actions:delay-0",
 					"hover:opacity-100 hover:delay-0 focus-visible:opacity-100",
 					trayAlert && "opacity-100",
-					// 托盘展开后小白条就完成了使命，收起来。
-					open && "pointer-events-none opacity-0 delay-0",
 				)}
 			>
 				<span
@@ -525,8 +550,37 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 					)}
 				/>
 			</button>
+			)}
 			{open && (
-				// 收纳是按钮组正下方的第二个胶囊（同样的玻璃质感，留一点间隙），不是浮层。
+				<>
+				{/* 「调整」按钮：独立在收纳胶囊右侧、面板开关正下方（同样的玻璃胶囊）。点它才进入拖拽调整，平时点图标只触发图标自己的功能。 */}
+				<ButtonGroup
+					blur={false}
+					className="no-drag absolute top-full left-full z-30 mt-1.5 ml-2 origin-top-right animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 duration-200"
+				>
+					<ButtonGroupItem
+						title={editing ? labels.done : labels.adjust}
+						aria-label={editing ? labels.done : labels.adjust}
+						aria-pressed={editing}
+						data-header-action-adjust="true"
+						active={editing}
+						onClick={() => {
+							setEditing((current) => !current);
+							setDragKey(null);
+							setDrop(null);
+						}}
+						icon={
+							<span
+								className={cn(
+									editing ? "icon-[solar--check-read-linear]" : "icon-[solar--tuning-2-linear]",
+									"pointer-events-none size-4",
+								)}
+							/>
+						}
+					/>
+				</ButtonGroup>
+				{/* 收纳是按钮组正下方的第二个胶囊（同样的玻璃质感，留一点间隙），不是浮层；没有可收纳的、也不在调整时不显示。 */}
+				{(tray.length > 0 || editing) && (
 				<div
 					data-header-action-tray="true"
 					className={cn(
@@ -538,9 +592,27 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 						onDragOver={overZone("tray")}
 						onDrop={dropOn("tray")}
 						// 宽度跟着内容走：最多 4 列，不够 4 个就更窄。
-						style={{ gridTemplateColumns: `repeat(${Math.min(4, tray.length + 1 + (editing ? 1 : 0))}, 2rem)` }}
+						style={{ gridTemplateColumns: `repeat(${Math.min(4, Math.max(1, tray.length + (editing ? 1 : 0)))}, 2rem)` }}
 						className="grid gap-1"
 					>
+						{/* 调整状态下的空位：与图标同大，放在收纳的第一格；拖到它上面就放到收纳最前面。 */}
+						{editing && (
+							<li
+								aria-hidden="true"
+								data-header-action-seat="true"
+								onDragOver={(event) => {
+									if (dragKey === null) return;
+									event.preventDefault();
+									event.stopPropagation();
+									setDrop({ zone: "tray", index: 0 });
+								}}
+								onDrop={dropOn("tray")}
+								className={cn(
+									"h-7 w-8 rounded-full border border-dashed border-foreground/30 transition-colors",
+									dragKey !== null && drop?.zone === "tray" && drop.index === 0 && "border-primary",
+								)}
+							/>
+						)}
 						{tray.map((item, index) => (
 							<Tile
 								key={item.key}
@@ -559,41 +631,10 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 								onClose={closeTray}
 							/>
 						))}
-						{editing && (
-							<li
-								aria-hidden="true"
-								data-header-action-seat="true"
-								className={cn(
-									"h-7 w-8 rounded-full border border-dashed border-foreground/30 transition-colors",
-									dragKey !== null && drop?.zone === "tray" && drop.index === tray.length && "border-primary",
-								)}
-							/>
-						)}
-						{/* 收纳的最后一项永远是「调整」：点它才进入拖拽调整，否则点图标只是触发图标自己的功能。 */}
-						<li>
-							<button
-								type="button"
-								title={editing ? labels.done : labels.adjust}
-								aria-label={editing ? labels.done : labels.adjust}
-								aria-pressed={editing}
-								data-header-action-adjust="true"
-								onClick={() => {
-									setEditing((current) => !current);
-									setDragKey(null);
-									setDrop(null);
-								}}
-								className="flex h-7 w-8 items-center justify-center rounded-full text-foreground outline-none transition-colors hover:bg-foreground/[0.1] focus-visible:ring-2 focus-visible:ring-ring/60 aria-pressed:bg-foreground/[0.14]"
-							>
-								<span
-									className={cn(
-										editing ? "icon-[solar--check-read-linear]" : "icon-[solar--tuning-2-linear]",
-										"pointer-events-none size-4",
-									)}
-								/>
-							</button>
-						</li>
 					</ul>
 				</div>
+				)}
+				</>
 			)}
 		</div>
 		{/* 活动面板开关是个独立的小组，固定在最右，不参与排序与收纳。 */}
