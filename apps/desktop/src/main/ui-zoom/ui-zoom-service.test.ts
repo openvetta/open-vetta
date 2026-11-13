@@ -53,14 +53,14 @@ describe("ui zoom service", () => {
 	it("缩放变化时红绿灯跟着挪，全屏退出后再套一次", async () => {
 		const { attachUiZoom, setUiZoomFactor } = await load();
 		attachUiZoom(fakeContents() as never);
-		expect(setWindowButtonPosition).toHaveBeenLastCalledWith({ x: 16, y: 24 });
+		expect(setWindowButtonPosition).toHaveBeenLastCalledWith({ x: 16, y: 19 });
 
 		await setUiZoomFactor(1.25);
-		expect(setWindowButtonPosition).toHaveBeenLastCalledWith({ x: 16, y: 31 });
+		expect(setWindowButtonPosition).toHaveBeenLastCalledWith({ x: 16, y: 26 });
 
 		setWindowButtonPosition.mockClear();
 		winHandlers.get("leave-full-screen")?.();
-		expect(setWindowButtonPosition).toHaveBeenCalledWith({ x: 16, y: 31 });
+		expect(setWindowButtonPosition).toHaveBeenCalledWith({ x: 16, y: 26 });
 	});
 
 	it("渲染进程上报实测中线后红绿灯立即对齐，非法值被丢弃", async () => {
@@ -68,7 +68,7 @@ describe("ui zoom service", () => {
 		attachUiZoom(fakeContents() as never);
 
 		setTitlebarCenter(30);
-		expect(setWindowButtonPosition).toHaveBeenLastCalledWith({ x: 16, y: 26 });
+		expect(setWindowButtonPosition).toHaveBeenLastCalledWith({ x: 16, y: 21 });
 
 		setWindowButtonPosition.mockClear();
 		setTitlebarCenter("bad");
@@ -76,7 +76,7 @@ describe("ui zoom service", () => {
 		expect(setWindowButtonPosition).not.toHaveBeenCalled();
 
 		await setUiZoomFactor(1.5); // 缩放后仍沿用最近一次实测中线
-		expect(setWindowButtonPosition).toHaveBeenLastCalledWith({ x: 16, y: 41 });
+		expect(setWindowButtonPosition).toHaveBeenLastCalledWith({ x: 16, y: 36 });
 	});
 
 	it("启动时按配置里的比例套到主窗口，页面重新加载后再套一次", async () => {

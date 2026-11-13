@@ -5,7 +5,7 @@ export function AppBootLoadingView(): JSX.Element {
 	return (
 		<div className="flex h-screen w-screen overflow-hidden bg-background p-2" aria-busy="true">
 			<div className="flex w-[220px] shrink-0 flex-col rounded-xl border border-border/50 bg-muted/60 p-3">
-				{/* macOS 用 hiddenInset 标题栏，交通灯就落在窗口左上角（trafficLightPosition x:16 y:20），
+				{/* macOS 用 hiddenInset 标题栏，交通灯就落在窗口左上角（trafficLightPosition x:16 y:19），
 				    这里不画骨架块，只留等高占位——否则脉冲方块正压在红黄绿三个按钮下面。
 				    留占位而非直接删，是为了下方条目不会上移到交通灯区域。 */}
 				{isMac ? (
