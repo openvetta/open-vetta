@@ -1,3 +1,4 @@
+import { motion, useReducedMotion } from "motion/react";
 import { type ComponentProps, type DragEvent, Fragment, type JSX, type ReactNode, useEffect, useRef, useState } from "react";
 import {
 	DropdownMenu,
@@ -9,7 +10,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@vetta-org/ui";
-import { ButtonGroup } from "@vetta-org/ui/button-group";
+import { ButtonGroup, ButtonGroupItem } from "@vetta-org/ui/button-group";
 import { SessionTopItem, type SessionTopMenuItem } from "@vetta-org/ui/session-top-item";
 import { cn } from "@vetta-org/ui/utils";
 
@@ -56,6 +57,10 @@ export interface HeaderActionBarLabels {
 	readonly topFull: string;
 	/** 「收纳」角标按钮的提示。 */
 	readonly moveToTray: string;
+	/** 收纳末尾「调整」按钮的提示（点了进入拖拽调整）。 */
+	readonly adjust: string;
+	/** 调整状态下该按钮的提示（点了退出调整）。 */
+	readonly done: string;
 }
 
 export interface HeaderActionBarViewProps {
@@ -69,12 +74,30 @@ export interface HeaderActionBarViewProps {
 	readonly onMove: (key: string, zone: HeaderActionZone, index: number) => void;
 }
 
-/** 图标统一放进固定方框：插件传来的图标大小各异，不能撑开按钮，也不接收指针事件。 */
-function IconBox({ children }: { readonly children: ReactNode }): JSX.Element {
+/**
+ * 图标统一放进固定方框：插件传来的图标大小各异，不能撑开按钮，也不接收指针事件。
+ * `jiggle` 不为空时图标像 iOS 编辑主屏幕那样循环轻微抖动；数值用来错开各图标的节奏，免得齐刷刷同步。
+ */
+function IconBox({ children, jiggle }: { readonly children: ReactNode; readonly jiggle?: number }): JSX.Element {
+	const reduceMotion = useReducedMotion();
+	const className =
+		"pointer-events-none flex size-4 shrink-0 items-center justify-center overflow-hidden text-[14px] [&>*]:max-h-4 [&>*]:max-w-4";
+	if (jiggle === undefined || reduceMotion) return <span className={className}>{children}</span>;
+	const swing = jiggle % 2 === 0 ? 2.5 : -2.5;
 	return (
-		<span className="pointer-events-none flex size-4 shrink-0 items-center justify-center overflow-hidden text-[14px] [&>*]:max-h-4 [&>*]:max-w-4">
+		<motion.span
+			className={className}
+			animate={{ rotate: [swing, -swing] }}
+			transition={{
+				duration: 0.13 + (jiggle % 3) * 0.015,
+				delay: (jiggle % 4) * 0.03,
+				repeat: Number.POSITIVE_INFINITY,
+				repeatType: "mirror",
+				ease: "easeInOut",
+			}}
+		>
 			{children}
-		</span>
+		</motion.span>
 	);
 }
 
@@ -82,21 +105,59 @@ function BarItem({
 	item,
 	dragProps,
 	className,
+	jiggle,
+	onStow,
+	stowLabel,
 }: {
 	readonly item: HeaderActionBarItem;
+	/** 调整状态下右上角「−」：收进收纳。 */
+	readonly onStow?: () => void;
+	readonly stowLabel?: string;
+	/** 调整状态下传入：按钮只剩拖动，不再触发功能，图标抖动。 */
+	readonly jiggle?: number;
 	readonly dragProps?: Pick<ComponentProps<"button">, "draggable" | "onDragStart" | "onDragEnd" | "onDragOver" | "onDrop">;
 	readonly className?: string;
 }): JSX.Element {
 	const common = {
 		title: item.title,
 		"aria-label": item.title,
-		icon: <IconBox>{item.icon}</IconBox>,
+		icon: <IconBox jiggle={jiggle}>{item.icon}</IconBox>,
 		badge: item.badge,
 		active: item.active,
 		disabled: item.disabled,
 		className,
 		...dragProps,
 	};
+	// 调整状态：只能拖动、排序，点击不触发任何功能（也不弹菜单 / 气泡）。
+	if (jiggle !== undefined) {
+		return (
+			<ButtonGroupItem
+				{...common}
+				badge={undefined}
+				icon={
+					<>
+						<IconBox jiggle={jiggle}>{item.icon}</IconBox>
+						{/* 嵌在按钮里，用 span 而不是 button（button 不能嵌 button）；点它收纳，不会触发按钮本身。 */}
+						<span
+							role="button"
+							tabIndex={-1}
+							title={stowLabel}
+							aria-label={`${stowLabel}: ${item.title}`}
+							data-header-action-stow="true"
+							onClick={(event) => {
+								event.preventDefault();
+								event.stopPropagation();
+								onStow?.();
+							}}
+							className="absolute -top-1 -right-1 z-10 flex size-3.5 items-center justify-center rounded-full bg-foreground/80 text-background"
+						>
+							<span className="icon-[solar--minus-linear] pointer-events-none size-2.5" />
+						</span>
+					</>
+				}
+			/>
+		);
+	}
 	const { behavior } = item;
 	if (behavior.type === "menu") return <SessionTopItem {...common} menuItems={behavior.items} />;
 	if (behavior.type === "popover") {
@@ -121,7 +182,15 @@ function TileBadge({ badge }: { readonly badge: HeaderActionBarItem["badge"] }):
 }
 
 /** 方块本体：只有图标，名称靠悬浮提示。点一下就使用。 */
-function TileFace({ item, onClick }: { readonly item: HeaderActionBarItem; readonly onClick: () => void }): JSX.Element {
+function TileFace({
+	item,
+	onClick,
+	jiggle,
+}: {
+	readonly item: HeaderActionBarItem;
+	readonly onClick?: () => void;
+	readonly jiggle?: number;
+}): JSX.Element {
 	return (
 		<button
 			type="button"
@@ -131,8 +200,8 @@ function TileFace({ item, onClick }: { readonly item: HeaderActionBarItem; reado
 			onClick={onClick}
 			className="relative flex h-7 w-8 items-center justify-center rounded-full bg-foreground/[0.08] text-foreground outline-none transition-colors hover:bg-foreground/[0.14] focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40"
 		>
-			<IconBox>{item.icon}</IconBox>
-			<TileBadge badge={item.badge} />
+			<IconBox jiggle={jiggle}>{item.icon}</IconBox>
+			{jiggle === undefined && <TileBadge badge={item.badge} />}
 		</button>
 	);
 }
@@ -141,6 +210,7 @@ function Tile({
 	item,
 	index,
 	count,
+	editing,
 	drop,
 	dragging,
 	moveDisabled,
@@ -154,6 +224,8 @@ function Tile({
 	readonly item: HeaderActionBarItem;
 	readonly index: number;
 	readonly count: number;
+	/** 调整状态：此时图标可拖动、显示「+」角标；否则点击只是触发它自己的功能。 */
+	readonly editing: boolean;
 	readonly drop: DropTarget | null;
 	readonly dragging: boolean;
 	readonly moveDisabled: boolean;
@@ -169,7 +241,10 @@ function Tile({
 	const { behavior } = item;
 
 	let face: ReactNode;
-	if (behavior.type === "menu") {
+	if (editing) {
+		// 调整状态：只能拖动，点了没有任何功能。
+		face = <TileFace item={item} jiggle={index} />;
+	} else if (behavior.type === "menu") {
 		face = (
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
@@ -224,7 +299,7 @@ function Tile({
 
 	return (
 		<li
-			draggable
+			draggable={editing}
 			title={item.title}
 			data-header-action-tile={item.key}
 			onDragStart={onDragStart}
@@ -238,17 +313,19 @@ function Tile({
 			)}
 		>
 			{face}
-			{/* 左上角「+」：放上顶栏，拖不动时的备选（也供键盘使用）。 */}
+			{/* 调整状态下左上角「+」：放上顶栏，拖不动时的备选（也供键盘使用）。 */}
+			{editing && (
 			<button
 				type="button"
 				title={moveLabel}
 				aria-label={`${moveLabel}: ${item.title}`}
 				disabled={moveDisabled}
 				onClick={onMoveClick}
-				className="absolute -top-1.5 -left-1.5 flex size-3.5 items-center justify-center rounded-full bg-foreground/80 text-background opacity-0 outline-none transition-opacity group-hover/tile:opacity-100 focus-visible:opacity-100 disabled:hidden"
+				className="absolute -top-1 -right-1 z-10 flex size-3.5 items-center justify-center rounded-full bg-foreground/80 text-background outline-none disabled:hidden"
 			>
 				<span className="icon-[solar--add-linear] size-2.5" />
 			</button>
+			)}
 		</li>
 	);
 }
@@ -289,9 +366,17 @@ function setGhost(event: DragEvent): void {
 
 export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove }: HeaderActionBarViewProps): JSX.Element {
 	const [open, setOpen] = useState(false);
+	const [editing, setEditing] = useState(false);
 	const rootRef = useRef<HTMLDivElement>(null);
 	const [dragKey, setDragKey] = useState<string | null>(null);
 	const [drop, setDrop] = useState<DropTarget | null>(null);
+
+	const closeTray = (): void => {
+		setOpen(false);
+		setEditing(false);
+		setDragKey(null);
+		setDrop(null);
+	};
 
 	// 展开期间：点到别处或按 Esc 收起。菜单 / 气泡的浮层在 body 下，点它们不算「点了外面」。
 	useEffect(() => {
@@ -300,12 +385,10 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 			const target = event.target as HTMLElement | null;
 			if (!target || rootRef.current?.contains(target)) return;
 			if (target.closest("[data-radix-popper-content-wrapper], [role='menu']")) return;
-			setOpen(false);
-			setDragKey(null);
-			setDrop(null);
+			closeTray();
 		};
 		const onKeyDown = (event: KeyboardEvent) => {
-			if (event.key === "Escape") setOpen(false);
+			if (event.key === "Escape") closeTray();
 		};
 		document.addEventListener("pointerdown", onPointerDown, true);
 		document.addEventListener("keydown", onKeyDown);
@@ -313,14 +396,14 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 			document.removeEventListener("pointerdown", onPointerDown, true);
 			document.removeEventListener("keydown", onKeyDown);
 		};
-	}, [open]);
+	}, [open]); // biome-ignore lint/correctness/useExhaustiveDependencies: closeTray 只用稳定的 setState
 
 	const topFull = top.length >= maxTop;
 	// 收纳里的角标不能被藏起来：汇总到小白条上（红色）。
 	const trayAlert = tray.some((item) => item.badge !== undefined && item.badge !== 0);
 	const draggingFromTop = dragKey !== null && top.some((item) => item.key === dragKey);
 	// 托盘打开时显示空位；顶栏一个都没有时也留着，否则没有东西可以悬浮、点开托盘。
-	const hasFreeSeat = (open || top.length === 0) && top.length < maxTop;
+	const hasFreeSeat = (editing || top.length === 0) && top.length < maxTop;
 
 	const canDropIn = (zone: HeaderActionZone): boolean => zone === "tray" || draggingFromTop || !topFull;
 
@@ -368,7 +451,7 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 
 	return (
 		<div className="flex shrink-0 items-center gap-2">
-		<div ref={rootRef} data-header-action-bar="true" className="group/header-actions relative shrink-0">
+		<div ref={rootRef} data-header-action-bar="true" className="group/header-actions relative flex shrink-0">
 			<ButtonGroup onDragOver={overZone("top")} onDrop={dropOn("top")}>
 				{/* 还有空位就在最左边留一个虚线席位（只一个，不把剩余席位都摆出来）。 */}
 				{hasFreeSeat && (
@@ -392,9 +475,12 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 					<BarItem
 						key={item.key}
 						item={item}
-						// 只有托盘打开（编辑状态）时按钮才可拖，平时拖拽手势留给窗口。
+						jiggle={editing ? index : undefined}
+						stowLabel={labels.moveToTray}
+						onStow={() => onMove(item.key, "tray", Number.MAX_SAFE_INTEGER)}
+						// 只有进入「调整」状态后按钮才可拖，平时点击就是触发功能，拖拽手势留给窗口。
 						dragProps={
-							open
+							editing
 								? {
 										draggable: true,
 										onDragStart: startDrag(item.key),
@@ -451,11 +537,9 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 					<ul
 						onDragOver={overZone("tray")}
 						onDrop={dropOn("tray")}
-						className={cn(
-							"grid grid-cols-[repeat(4,2rem)] gap-1",
-							tray.length === 0 && "h-7 w-32 grid-cols-1 rounded-full border border-dashed border-foreground/30",
-							tray.length === 0 && dragKey !== null && draggingFromTop && "border-primary",
-						)}
+						// 宽度跟着内容走：最多 4 列，不够 4 个就更窄。
+						style={{ gridTemplateColumns: `repeat(${Math.min(4, tray.length + 1 + (editing ? 1 : 0))}, 2rem)` }}
+						className="grid gap-1"
 					>
 						{tray.map((item, index) => (
 							<Tile
@@ -463,6 +547,7 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 								item={item}
 								index={index}
 								count={tray.length}
+								editing={editing}
 								drop={drop}
 								dragging={dragKey === item.key}
 								moveDisabled={topFull}
@@ -471,9 +556,42 @@ export function HeaderActionBarView({ top, tray, pinned, maxTop, labels, onMove 
 								onDragStart={startDrag(item.key)}
 								onDragEnd={endDrag}
 								onDragOverTile={(event, at) => overAt("tray", at)(event)}
-								onClose={() => setOpen(false)}
+								onClose={closeTray}
 							/>
 						))}
+						{editing && (
+							<li
+								aria-hidden="true"
+								data-header-action-seat="true"
+								className={cn(
+									"h-7 w-8 rounded-full border border-dashed border-foreground/30 transition-colors",
+									dragKey !== null && drop?.zone === "tray" && drop.index === tray.length && "border-primary",
+								)}
+							/>
+						)}
+						{/* 收纳的最后一项永远是「调整」：点它才进入拖拽调整，否则点图标只是触发图标自己的功能。 */}
+						<li>
+							<button
+								type="button"
+								title={editing ? labels.done : labels.adjust}
+								aria-label={editing ? labels.done : labels.adjust}
+								aria-pressed={editing}
+								data-header-action-adjust="true"
+								onClick={() => {
+									setEditing((current) => !current);
+									setDragKey(null);
+									setDrop(null);
+								}}
+								className="flex h-7 w-8 items-center justify-center rounded-full text-foreground outline-none transition-colors hover:bg-foreground/[0.1] focus-visible:ring-2 focus-visible:ring-ring/60 aria-pressed:bg-foreground/[0.14]"
+							>
+								<span
+									className={cn(
+										editing ? "icon-[solar--check-read-linear]" : "icon-[solar--tuning-2-linear]",
+										"pointer-events-none size-4",
+									)}
+								/>
+							</button>
+						</li>
 					</ul>
 				</div>
 			)}

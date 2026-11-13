@@ -453,7 +453,9 @@
 			"customize": "Customize header",
 			"topFull": "Header is full",
 			"moveToTop": "Add to header",
-			"moveToTray": "Stow"
+			"moveToTray": "Stow",
+			"adjust": "Rearrange",
+			"done": "Done"
 		}
 	},
 	"contextRing": {

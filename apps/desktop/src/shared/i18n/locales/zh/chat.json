@@ -453,7 +453,9 @@
 			"customize": "自定义顶栏",
 			"topFull": "顶栏已满",
 			"moveToTop": "放到顶栏",
-			"moveToTray": "收纳"
+			"moveToTray": "收纳",
+			"adjust": "调整",
+			"done": "完成"
 		}
 	},
 	"contextRing": {
