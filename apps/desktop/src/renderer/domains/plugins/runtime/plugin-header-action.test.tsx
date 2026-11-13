@@ -118,6 +118,25 @@ describe("ConversationHeaderActions", () => {
 		useAction,
 	});
 
+	it("hot reload: a re-registered action replaces the old one in place, and a removed one disappears", async () => {
+		const { app, store } = await render([action("one", () => ({ title: "v1", icon: <i />, onClick: () => {} }))]);
+		expect(titles(app)).toEqual(["v1", "export", "pin"]);
+		// 热更新：同一个动作 id、换了一个 hook（旧探针不能被复用，否则前后 hook 序列不同会报错）。
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		await act(async () => {
+			store.set(pluginHeaderActionsAtom, [
+				action("one", () => ({ title: "v2", icon: <i />, menuItems: [{ id: "a", label: "A", onSelect: () => {} }] })),
+			] as never);
+		});
+		expect(titles(app)).toEqual(["v2", "export", "pin"]);
+		expect(error).not.toHaveBeenCalled();
+		await act(async () => {
+			store.set(pluginHeaderActionsAtom, [] as never);
+		});
+		expect(titles(app)).toEqual(["export", "pin"]);
+		error.mockRestore();
+	});
+
 	it("does not loop when the plugin hook re-renders with its parent's context", async () => {
 		const consume = () => {
 			// 与真实插件里的 useTranslation() 一样吃 i18n 作用域的 context。
