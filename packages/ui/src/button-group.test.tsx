@@ -59,4 +59,21 @@ describe("ButtonGroup", () => {
 		expect(el?.getAttribute("aria-pressed")).toBe("true");
 		expect(el?.hasAttribute("data-active")).toBe(true);
 	});
+
+	test("shape: pill by default, square on request", async () => {
+		await mount(
+			<>
+				<ButtonGroup>
+					<ButtonGroupItem title="a" />
+				</ButtonGroup>
+				<ButtonGroup shape="square">
+					<ButtonGroupItem title="b" />
+				</ButtonGroup>
+			</>,
+		);
+		const groups = document.querySelectorAll("[data-slot=button-group]");
+		expect(groups[0]?.className).toContain("rounded-full");
+		expect(groups[1]?.className).toContain("rounded-xl");
+		expect(groups[1]?.querySelector("button")?.className).toContain("rounded-[10px]");
+	});
 });

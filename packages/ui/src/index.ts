@@ -1,5 +1,5 @@
 export { Button, buttonVariants } from "./button";
-export type { ButtonGroupItemProps, ButtonGroupProps } from "./button-group";
+export type { ButtonGroupItemProps, ButtonGroupProps, ButtonGroupShape } from "./button-group";
 export { ButtonGroup, ButtonGroupItem } from "./button-group";
 export type { CalendarProps } from "./calendar";
 export { Calendar, CalendarDayButton } from "./calendar";

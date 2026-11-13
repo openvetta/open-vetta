@@ -12,27 +12,36 @@ import { cn } from "./utils";
  * 模糊只给 `blur` 属性开启（默认开）；容器本身已经半透明，贴在纯色背景上时可以关掉，省一层合成。
  */
 
+export type ButtonGroupShape = "pill" | "square";
+
+const ShapeContext = React.createContext<ButtonGroupShape>("pill");
+
 export interface ButtonGroupProps extends React.ComponentProps<"div"> {
+	/** 外观：`pill` 胶囊（默认）或 `square` 圆角方形。 */
+	shape?: ButtonGroupShape;
 	/** 是否给胶囊加背景模糊，默认开。贴在纯色背景上没有可模糊的内容时可关。 */
 	blur?: boolean;
 }
 
-function ButtonGroup({ className, blur = true, children, ...props }: ButtonGroupProps) {
+function ButtonGroup({ className, blur = true, shape = "pill", children, ...props }: ButtonGroupProps) {
 	return (
-		<div
-			role="group"
-			data-slot="button-group"
-			className={cn(
-				"inline-flex items-center rounded-full p-0.5",
-				"bg-foreground/[0.06]",
-				"dark:bg-white/[0.08]",
-				blur && "backdrop-blur-md backdrop-saturate-150",
-				className,
-			)}
-			{...props}
-		>
-			{children}
-		</div>
+		<ShapeContext.Provider value={shape}>
+			<div
+				role="group"
+				data-slot="button-group"
+				className={cn(
+					"inline-flex items-center p-0.5",
+					shape === "square" ? "rounded-xl" : "rounded-full",
+					"bg-foreground/[0.06]",
+					"dark:bg-white/[0.08]",
+					blur && "backdrop-blur-md backdrop-saturate-150",
+					className,
+				)}
+				{...props}
+			>
+				{children}
+			</div>
+		</ShapeContext.Provider>
 	);
 }
 
@@ -80,6 +89,7 @@ function ButtonGroupItem({
 	type = "button",
 	...props
 }: ButtonGroupItemProps) {
+	const shape = React.useContext(ShapeContext);
 	const hasLabel = label !== undefined && label !== null && label !== false;
 	return (
 		<button
@@ -88,7 +98,8 @@ function ButtonGroupItem({
 			data-active={active || undefined}
 			aria-pressed={props["aria-pressed"] ?? (active ? true : undefined)}
 			className={cn(
-				"relative inline-flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-full text-[13px] font-medium whitespace-nowrap",
+				"relative inline-flex h-7 shrink-0 items-center justify-center gap-1.5 text-[13px] font-medium whitespace-nowrap",
+				shape === "square" ? "rounded-[10px]" : "rounded-full",
 				"text-foreground transition-colors outline-none select-none",
 				"hover:bg-foreground/[0.07] hover:text-foreground active:translate-y-px",
 				"focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-40",
