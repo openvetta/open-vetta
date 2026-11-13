@@ -39,7 +39,8 @@ export function PageHeaderContent({
 							animate={{ opacity: 1, scale: 1 }}
 							exit={{ opacity: 0, scale: 0.9 }}
 							transition={{ duration: 0.2, ease: [0.22, 0.61, 0.36, 1] }}
-							className="shrink-0"
+							// 左簇被宿主压成 gap-1，按钮组与标题之间再让出 8px。
+							className="mr-2 shrink-0"
 						>
 							<ButtonGroup>
 								<ButtonGroupItem
