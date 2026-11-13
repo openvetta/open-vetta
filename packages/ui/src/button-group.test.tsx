@@ -76,4 +76,18 @@ describe("ButtonGroup", () => {
 		expect(groups[1]?.className).toContain("rounded-xl");
 		expect(groups[1]?.querySelector("button")?.className).toContain("rounded-[10px]");
 	});
+
+	test("divider pseudo-element is out of flow for every item, so an active first item cannot be pushed off-centre", async () => {
+		await mount(
+			<ButtonGroup>
+				<ButtonGroupItem title="a" active />
+			</ButtonGroup>,
+		);
+		const className = document.querySelector("button")?.className ?? "";
+		// 每一项的 ::before 都是绝对定位；第一项隐藏。若只给非第一项绝对定位，
+		// active 的 before:opacity-0 会让第一项生成一个在文档流里的 ::before，图标被 gap 推偏。
+		expect(className).toContain("before:absolute");
+		expect(className).not.toContain("not-first:before:absolute");
+		expect(className).toContain("first:before:hidden");
+	});
 });
