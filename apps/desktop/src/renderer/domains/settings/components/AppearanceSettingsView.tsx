@@ -599,7 +599,7 @@ function DecorPicker({
 export function AppearanceSettingsView({ model }: { model: AppearanceSettingsModel }): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 pt-2 pb-4">
-			<div className="mb-8 flex min-w-0 flex-wrap items-center gap-3">
+			<div className="mb-8 flex min-w-0 flex-wrap items-center justify-between gap-3">
 				<h1 className="text-[20px] font-bold text-foreground">{model.labels.title}</h1>
 				<SettingsAiAssist tabId="appearance" />
 			</div>
