@@ -1,5 +1,5 @@
-import type { ComponentPropsWithoutRef, JSX, ReactNode } from "react";
 import { cn } from "@vetta-org/ui/utils";
+import type { ComponentPropsWithoutRef, JSX, ReactNode } from "react";
 
 export interface AppFrameProps extends ComponentPropsWithoutRef<"div"> {
 	children: ReactNode;
@@ -18,7 +18,8 @@ export function AppFrame({
 }: AppFrameProps): JSX.Element {
 	return (
 		<div
-			className={cn("relative isolate flex h-screen w-screen flex-col overflow-hidden bg-background", className)}
+			// hidden 仍允许 focus/scrollIntoView 滚动外框，连带抬高侧边栏；滚动只属于内部视口。
+			className={cn("relative isolate flex h-screen w-screen flex-col overflow-clip bg-background", className)}
 			{...props}
 		>
 			{decoration}
