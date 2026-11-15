@@ -63,6 +63,13 @@ const goalTests = {
 	],
 };
 const EXPLICIT_SOURCE_TESTS = new Map([
+	// Real Electron geometry covers the shared shell together with desktop's macOS background rules.
+	...[
+		"packages/theme-ui/src/layout/AppFrame.tsx",
+		"apps/desktop/src/renderer/styles.css",
+		"apps/desktop/e2e/fixtures/app-frame-layout.tsx",
+		"apps/desktop/scripts/app-frame-layout.node-test.mjs",
+	].map((source) => [source, desktopTests("src/renderer/root-layout/AppFrame.layout.test.ts")]),
 	["apps/desktop/src/renderer/remote-desktop-host.ts", desktopTests("src/renderer/remote-desktop-host.test.ts")],
 	[
 		"packages/ai/src/providers/google-stream/request.ts",

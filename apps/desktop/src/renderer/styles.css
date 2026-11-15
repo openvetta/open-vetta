@@ -603,6 +603,11 @@ textarea:disabled,
 	margin-left: 0;
 }
 
+/* 沉浸内容帧已经抵消了窗口留白，背景无需再次出血；否则底部多出 8px 滚动范围。 */
+:root[data-platform="mac"] .app-main-frame[data-header-overlay]::before {
+	inset: 0;
+}
+
 /* 出血只给内容，不给页头：页头里给 macOS 红绿灯留的 78px 和 h-11 的垂直居中，
    都是按「主内容帧带 AppFrame p-2 偏移」算的，跟着上面那条负 margin 一起外移后，
    展开侧边栏按钮就比红绿灯偏左偏上（侧边栏收起时尤其明显）。这里把这 8px 在页头层补回来，
