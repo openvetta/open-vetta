@@ -37,13 +37,17 @@ export function AutomationDetailPane({ pane, onClose, onCreated }: AutomationDet
 			headerActions={
 				editing ? (
 					<ButtonGroup>
-						<ButtonGroupItem
-							icon={<span className="icon-[solar--play-bold] size-4" />}
-							title={t("detail.runNow")}
-							aria-label={t("detail.runNow")}
-							disabled={model.running}
-							onClick={model.onRunNow}
-						/>
+						{/* 已禁用的自动化不该能被手动触发，隐藏而不是置灰。 */}
+						{model.enabled ? (
+							<ButtonGroupItem
+								icon={<span className="icon-[solar--play-bold] size-4" />}
+								label={t("detail.runNow")}
+								title={t("detail.runNow")}
+								aria-label={t("detail.runNow")}
+								disabled={model.running}
+								onClick={model.onRunNow}
+							/>
+						) : null}
 						<ButtonGroupItem
 							icon={
 								<span
@@ -53,6 +57,7 @@ export function AutomationDetailPane({ pane, onClose, onCreated }: AutomationDet
 									)}
 								/>
 							}
+							label={model.enabled ? t("detail.pause") : t("detail.enable")}
 							title={model.enabled ? t("detail.pause") : t("detail.enable")}
 							aria-label={model.enabled ? t("detail.pause") : t("detail.enable")}
 							onClick={model.onToggleEnabled}
