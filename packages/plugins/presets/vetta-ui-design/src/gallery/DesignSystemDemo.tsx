@@ -26,6 +26,11 @@ export interface DesignSystemDemoProps {
 	system: DesignSystem;
 	/** 悬停时才滚动：一屏 20 多张卡片同时动只会让人眼花。 */
 	active: boolean;
+	/**
+	 * 底层是否铺 token 色板兜底。默认铺；调用方自己在下面垫了封面时传 false，让 iframe
+	 * 还没 load 的这段时间露出封面而不是色板。
+	 */
+	placeholder?: boolean;
 	className?: string;
 }
 
@@ -43,7 +48,7 @@ export function designSystemDemoHtml(system: DesignSystem): string | null {
 	return demo?.encoding === "text" ? demo.content : null;
 }
 
-export function DesignSystemDemo({ system, active, className }: DesignSystemDemoProps) {
+export function DesignSystemDemo({ system, active, placeholder = true, className }: DesignSystemDemoProps) {
 	const html = designSystemDemoHtml(system);
 	const boxRef = useRef<HTMLDivElement | null>(null);
 	/** 当前缩放：只在 DOM 与这个 ref 之间流动，不进 state（见文件头）。 */
@@ -121,7 +126,7 @@ export function DesignSystemDemo({ system, active, className }: DesignSystemDemo
 			data-active={active || undefined}
 		>
 			{/* 兜底层：iframe 起不来时用户看到的是这套体系的色板，不是一块空白。 */}
-			<DesignSystemPreview system={system} className="absolute inset-0" />
+			{placeholder ? <DesignSystemPreview system={system} className="absolute inset-0" /> : null}
 
 			{distance > 0 ? (
 				// biome-ignore lint/security/noDangerouslySetInnerHtml: 关键帧由本文件生成，唯一变量是已清洗的 id 与数字

@@ -1,7 +1,7 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
 import { memo, type ReactNode } from "react";
-import { DesignSystemPreview } from "../canvas/DesignSystemPreview";
 import { DesignSystemDemo, designSystemDemoHtml } from "../gallery/DesignSystemDemo";
+import { StyleCover } from "../gallery/StyleCover";
 import { designSystemCategoryLabel, designSystemTagline } from "../design-systems/labels";
 import type { DesignSystem } from "../design-systems/types";
 
@@ -23,22 +23,25 @@ export const DesignSystemTileContent = memo(function DesignSystemTileContent({
 	/**
 	 * 是否挂载 HTML demo（一个 iframe，一份完整文档）。
 	 *
-	 * 一屏只有十来张卡时无所谓；风格库那面墙是几十张连排，全挂 iframe 光解析文档就能把
-	 * 滚动拖垮。那边默认只铺色板，悬停到哪张才把那一张换成真 demo。
+	 * 风格库那面墙是几十张连排，全挂 iframe 光解析文档就能把滚动拖垮，所以静态一律走封面
+	 * （没有封面才是色板），悬停到哪张才把那一张叠上真 demo。
 	 */
 	demo?: boolean;
 }) {
 	const { t, locale } = useTranslation();
-	// 有 HTML demo 就用真实渲染当预览，没有才退回 token 色块。
 	const hasDemo = demo && designSystemDemoHtml(system) !== null;
 	return (
 		<>
-			{/* 预览区弹性吃掉剩余高度：外层卡片是 1:1 正方形，文字两行定高在底部。 */}
-			{hasDemo ? (
-				<DesignSystemDemo system={system} active={demoActive} className="min-h-0 flex-1 rounded-md" />
-			) : (
-				<DesignSystemPreview system={system} className="min-h-0 flex-1" />
-			)}
+			{/* 预览区弹性吃掉剩余高度：外层卡片是 4:3，文字两行定高在底部。
+			    静态是封面（没有就是色板）；demo 打开（悬停）时在它上面叠一层真实渲染。 */}
+			<div className="relative min-h-0 flex-1 overflow-hidden rounded-md">
+				<StyleCover system={system} />
+				{hasDemo ? (
+					<div className="absolute inset-0">
+						<DesignSystemDemo system={system} active={demoActive} placeholder={false} className="h-full" />
+					</div>
+				) : null}
+			</div>
 			<div className="flex min-w-0 items-center gap-1.5 px-0.5">
 				<span
 					title={t(system.vibe === "dark" ? "ds.vibe.dark" : "ds.vibe.light")}
