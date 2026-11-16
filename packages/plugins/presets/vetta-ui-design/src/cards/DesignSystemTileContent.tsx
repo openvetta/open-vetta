@@ -1,5 +1,5 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import { DesignSystemPreview } from "../canvas/DesignSystemPreview";
 import { DesignSystemDemo, designSystemDemoHtml } from "../gallery/DesignSystemDemo";
 import { designSystemCategoryLabel, designSystemTagline } from "../design-systems/labels";
@@ -9,7 +9,7 @@ import type { DesignSystem } from "../design-systems/types";
  * 设计体系卡片的公共内容块：缩略预览 + 明暗点 + 名称 + 类目 + 标语。
  * 会话宫格与全局模板 Dialog 共用，选中/锁定等状态样式由外层按钮负责。
  */
-export function DesignSystemTileContent({
+export const DesignSystemTileContent = memo(function DesignSystemTileContent({
 	system,
 	badge,
 	demoActive = false,
@@ -58,4 +58,4 @@ export function DesignSystemTileContent({
 			</div>
 		</>
 	);
-}
+});
