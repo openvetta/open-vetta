@@ -125,7 +125,7 @@ VETTA_R2_ACCESS_KEY_ID
 VETTA_R2_SECRET_ACCESS_KEY
 ```
 
-macOS 正式签名/公证使用以下 CI Secrets（构建跑在 `macos-15` / `macos-15-intel` 托管 runner 上）：
+macOS 正式签名/公证使用以下 CI Secrets（构建跑在 `macos-26` / `macos-26-intel` 托管 runner 上）：
 
 ```text
 MACOS_CERTIFICATE_P12_BASE64
