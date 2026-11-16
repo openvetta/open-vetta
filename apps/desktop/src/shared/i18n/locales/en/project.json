@@ -204,6 +204,7 @@
 		"agentsMdHint": "AGENTS.md defines project-level AI instructions; every session loads this file automatically.",
 		"claudeMdHint": "Vetta also loads CLAUDE.md. If it conflicts with AGENTS.md, AGENTS.md takes priority.",
 		"context": { "title": "Project instructions" },
+		"automations": { "title": "Automations", "viewAll": "View all", "disabled": "Paused", "neverRun": "Never run" },
 		"recentSessions": { "title": "Recent sessions", "empty": "No sessions in this project yet", "startFirst": "Start a session" },
 		"runtime": { "runningSessions": "{{count}} running sessions", "runningTasks": "{{count}} running automations" },
 		"previewMode": "Preview",
