@@ -49,6 +49,13 @@ describe("parseRemoteCatalog", () => {
 			BASE,
 		);
 		expect(authored?.systems[0]?.author).toBe("Grok Bot");
+		const topLevel = parseRemoteCatalog(catalog([entry({ author: "Ada" })]), BASE);
+		expect(topLevel?.systems[0]?.author).toBe("Ada");
+		const both = parseRemoteCatalog(
+			catalog([entry({ author: "Ada", origin: { type: "curated", author: "Grok Bot" } })]),
+			BASE,
+		);
+		expect(both?.systems[0]?.author).toBe("Ada");
 		const anonymous = parseRemoteCatalog(catalog([entry()]), BASE);
 		expect(anonymous?.systems[0]?.author).toBeUndefined();
 		const bogus = parseRemoteCatalog(catalog([entry({ origin: { type: "curated", author: 42 } })]), BASE);
