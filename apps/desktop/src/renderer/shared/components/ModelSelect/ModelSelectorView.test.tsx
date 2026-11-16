@@ -651,4 +651,23 @@ describe("ModelSelectorView 收藏", () => {
 		expect(screen.queryByRole("button", { name: "Add to favorites" })).toBeNull();
 		expect(screen.queryByRole("menuitem", { name: "Favorites" })).toBeNull();
 	});
+
+	it("搜索框右侧的刷新按钮触发宿主刷新；刷新中禁用", async () => {
+		const user = userEvent.setup();
+		const onRefresh = vi.fn();
+		const { rerender } = renderView({ refresh: { onRefresh, refreshing: false, label: "Refresh models" } });
+		await openMenu(user);
+		await user.click(screen.getByRole("button", { name: "Refresh models" }));
+		expect(onRefresh).toHaveBeenCalledTimes(1);
+		rerender(<ModelSelectorView {...baseProps({ refresh: { onRefresh, refreshing: true, label: "Refresh models" } })} />);
+		expect((screen.getByRole("button", { name: "Refresh models" }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it("宿主不接刷新时不出现刷新按钮", async () => {
+		const user = userEvent.setup();
+		renderView();
+		await openMenu(user);
+		expect(screen.queryByRole("button", { name: "Refresh models" })).toBeNull();
+	});
+
 });
