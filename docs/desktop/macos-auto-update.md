@@ -340,7 +340,7 @@ bun run publish:updates:r2
 
 ### 9.1 runner 选择
 
-两个架构各自使用匹配的托管 runner：`macos-15`（arm64）与 `macos-15-intel`（x64）。发布构建与非发布演练走同一个 runner，区别只在于是否要求签名。
+两个架构各自使用匹配的托管 runner：`macos-26`（arm64）与 `macos-26-intel`（x64）。发布构建与非发布演练走同一个 runner，区别只在于是否要求签名。
 
 公证不需要本地环境：`xcrun notarytool` 只是把签好名的产物传给 Apple 换回票据，托管 runner 有网络即可；`.p12` 由 electron-builder 导入临时钥匙串，不碰登录钥匙串。
 

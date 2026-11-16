@@ -265,11 +265,11 @@ jobs:
           # 两个架构各自使用匹配的 GitHub-hosted runner：签名与公证凭据来自 CI Secret，
           # notarytool 只需要网络，不依赖任何一台固定的签名机。
           - platform: macos-arm64
-            runner: macos-15
+            runner: macos-26
             command: dist:mac:arm64
             macArch: arm64
           - platform: macos-x64
-            runner: macos-15-intel
+            runner: macos-26-intel
             command: dist:mac:x64
             macArch: x64
           - platform: linux

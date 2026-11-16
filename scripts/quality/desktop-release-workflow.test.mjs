@@ -262,8 +262,8 @@ describe("Desktop release workflow contracts", () => {
 
 	it("builds each macOS architecture on a matching hosted runner", () => {
 		expect(workflow).toContain("runs-on: $" + "{{ matrix.runner }}");
-		expect(workflow).toContain("runner: macos-15\n");
-		expect(workflow).toContain("runner: macos-15-intel\n");
+		expect(workflow).toContain("runner: macos-26\n");
+		expect(workflow).toContain("runner: macos-26-intel\n");
 		expect(workflow).not.toContain("vetta-mac");
 	});
 
