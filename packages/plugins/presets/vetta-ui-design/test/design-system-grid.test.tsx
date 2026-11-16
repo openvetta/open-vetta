@@ -143,6 +143,16 @@ describe("DesignSystemGrid", () => {
 	});
 });
 
+describe("预览容器的尺寸", () => {
+	it("预览容器必须带 w-full——卡片是 button，交叉轴不会 stretch，子元素又全是 absolute", () => {
+		render(<DesignSystemGrid busy={false} onPick={() => {}} />);
+		// happy-dom 没有布局，宽度塌成 0 只能靠类名断言（同 DesignSystemDemo 的同类回归）。
+		const preview = tiles()[0].querySelector("div.relative");
+		expect(preview?.className).toContain("w-full");
+		expect(preview?.className).toContain("flex-1");
+	});
+});
+
 describe("风格墙的 iframe 预算", () => {
 	const html = "<!doctype html><html><body>demo</body></html>";
 	const withDemo = (id: string, name: string): DesignSystem => ({

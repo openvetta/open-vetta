@@ -34,7 +34,9 @@ export const DesignSystemTileContent = memo(function DesignSystemTileContent({
 		<>
 			{/* 预览区弹性吃掉剩余高度：外层卡片是 4:3，文字两行定高在底部。
 			    静态是封面（没有就是色板）；demo 打开（悬停）时在它上面叠一层真实渲染。 */}
-			<div className="relative min-h-0 flex-1 overflow-hidden rounded-md">
+			{/* w-full 不能省：卡片是 <button>，UA 默认 align-items:center，交叉轴不会 stretch；
+			    这里的子元素全是 absolute，没有正常流内容撑宽，少了它整块宽度塌成 0（色板也看不见）。 */}
+			<div className="relative min-h-0 w-full flex-1 overflow-hidden rounded-md">
 				<StyleCover system={system} />
 				{hasDemo ? (
 					<div className="absolute inset-0">
