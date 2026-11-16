@@ -762,7 +762,9 @@ const builderConfig = {
 	mac: {
 		target: ["dmg", "zip"],
 		category: "public.app-category.productivity",
-		icon: "build/icon.icns",
+		// .icon 是 Icon Composer 产物：打包时 actool 编出 Assets.car，由系统绘制 macOS 26 的玻璃高光与遮罩，
+		// 同时生成 icns 给旧系统兜底。需要 Xcode 26+。
+		icon: "build/icon.icon",
 		// 签名/公证开关由 resolveMacSigning() 按环境变量决定（见
 		// docs/deploy/apple-code-signing.md）：凭据齐全 → Developer ID 签名 +
 		// hardened runtime + 公证；一个都不设 → 维持未签名产物，配套 DMG 里的
