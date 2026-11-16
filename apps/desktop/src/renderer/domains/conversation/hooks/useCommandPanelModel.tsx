@@ -219,6 +219,7 @@ export function useCommandPanelModel({
 			header: t("slashPanel.header"),
 			resultCount: t("slashPanel.resultCount", { count: items.length }),
 			connectorsSection: t("slashPanel.connectorsSection"),
+			moreActions: t("slashPanel.moreActions"),
 			emptyNoMatch: t("slashPanel.emptyNoMatch"),
 			emptyNoMatchHint: t("slashPanel.emptyNoMatchHint"),
 			emptyNoSkills: t("slashPanel.emptyNoSkills"),

@@ -43,6 +43,7 @@ describe("CommandPanelView built-in operation", () => {
 					header: "命令",
 					resultCount: "0 个结果",
 					connectorsSection: "已接入",
+					moreActions: "更多动作",
 					emptyNoMatch: "无结果",
 					emptyNoMatchHint: "",
 					emptyNoSkills: "无技能",
@@ -100,5 +101,54 @@ describe("CommandPanelView built-in operation", () => {
 		expect(screen.getByText("屏障后").closest("button")).toBeNull();
 		fireEvent.click(screen.getByRole("button", { name: "屏障前" }));
 		expect(onSendNow).toHaveBeenCalledWith("before");
+	});
+});
+
+describe("CommandPanelView action bar overflow", () => {
+	function renderWithActions(count: number): void {
+		render(
+			<CommandPanelView
+				open
+				filter=""
+				items={[]}
+				activeIndex={0}
+				connectors={[]}
+				connectorColumns={4}
+				actions={Array.from({ length: count }, (_, index) => ({
+					id: `a${index}`,
+					label: `动作${index}`,
+					active: false,
+					onToggle: vi.fn(),
+				}))}
+				labels={{
+					header: "命令",
+					resultCount: "0 个结果",
+					connectorsSection: "已接入",
+					moreActions: "更多动作",
+					emptyNoMatch: "无结果",
+					emptyNoMatchHint: "",
+					emptyNoSkills: "无技能",
+					emptyNoSkillsHint: "",
+				}}
+				resolveIcon={() => undefined}
+				panelRef={createRef<HTMLDivElement>()}
+				onHoverItem={vi.fn()}
+				onSelectItem={vi.fn()}
+				onSelectConnector={vi.fn()}
+			/>,
+		);
+	}
+
+	it("恰好 3 个动作时不出现「更多」", () => {
+		renderWithActions(3);
+		expect(screen.queryByRole("button", { name: "更多动作" })).toBeNull();
+	});
+
+	it("超过 3 个时第 3 个起在窄屏隐藏，并出现「更多」入口", () => {
+		renderWithActions(4);
+		expect(screen.getByRole("button", { name: "更多动作" })).toBeTruthy();
+		expect(screen.getByTitle("动作1").className.split(" ")).not.toContain("hidden");
+		expect(screen.getByTitle("动作2").className.split(" ")).toContain("hidden");
+		expect(screen.getByTitle("动作3").className.split(" ")).toContain("hidden");
 	});
 });
