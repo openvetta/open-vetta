@@ -114,7 +114,7 @@ export function AutomationPageView<FilterKey extends string>({
 				</div>
 			</section>
 			{detailPane ? (
-				<section className="flex min-w-0 flex-1 flex-col">
+				<section className="@container flex min-w-0 flex-1 flex-col">
 					<div className="drag-region h-6 shrink-0" />
 					{detailPane}
 				</section>

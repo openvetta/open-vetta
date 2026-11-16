@@ -41,9 +41,9 @@ export function AutomationDetailPane({ pane, onClose, onCreated }: AutomationDet
 						{model.enabled ? (
 							<ButtonGroupItem
 								icon={<span className="icon-[solar--play-bold] size-4" />}
-								label={t("detail.runNow")}
+								label={<span className="hidden @[480px]:inline">{t("detail.runNow")}</span>}
 								title={t("detail.runNow")}
-								aria-label={t("detail.runNow")}
+								aria-label={<span className="hidden @[480px]:inline">{t("detail.runNow")}</span>}
 								disabled={model.running}
 								onClick={model.onRunNow}
 							/>
@@ -57,9 +57,9 @@ export function AutomationDetailPane({ pane, onClose, onCreated }: AutomationDet
 									)}
 								/>
 							}
-							label={model.enabled ? t("detail.pause") : t("detail.enable")}
+							label={<span className="hidden @[480px]:inline">{model.enabled ? t("detail.pause") : t("detail.enable")}</span>}
 							title={model.enabled ? t("detail.pause") : t("detail.enable")}
-							aria-label={model.enabled ? t("detail.pause") : t("detail.enable")}
+							aria-label={<span className="hidden @[480px]:inline">{model.enabled ? t("detail.pause") : t("detail.enable")}</span>}
 							onClick={model.onToggleEnabled}
 						/>
 						<DropdownMenu>
