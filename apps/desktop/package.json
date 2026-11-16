@@ -265,7 +265,7 @@
 		"concurrently": "^9.2.1",
 		"cross-env": "^10.1.0",
 		"electron": "^34.2.0",
-		"electron-builder": "^26.8.1",
+		"electron-builder": "26.16.1",
 		"expect-webdriverio": "^5.7.0",
 		"jsdom": "26.1.0",
 		"tailwindcss": "^4.1.12",
