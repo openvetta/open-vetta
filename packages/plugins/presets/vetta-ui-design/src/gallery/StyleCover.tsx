@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DesignSystemPreview } from "../canvas/DesignSystemPreview";
 import type { DesignSystem } from "../design-systems/types";
-import { cachedStyleCover, loadStyleCover, styleCoverUrl } from "./style-cover";
+import { cachedStyleCover, loadStyleCover, styleCoverRef } from "./style-cover";
 
 /**
  * 风格卡的静态预览：有封面用封面，没有（或还没取到、取失败）就是 token 色板。
@@ -11,23 +11,29 @@ import { cachedStyleCover, loadStyleCover, styleCoverUrl } from "./style-cover";
  * 风格墙一次不会为屏幕外的几十张卡发请求。
  */
 export function StyleCover({ system }: { system: DesignSystem }) {
-	const url = styleCoverUrl(system);
+	const found = styleCoverRef(system);
+	// 依赖用原始值：found 每次渲染都是新对象，直接放进依赖数组会让 effect 每次重跑。
+	const url = found?.url ?? null;
+	const bytes = found?.bytes ?? 0;
+	const version = found?.version ?? "";
 	const boxRef = useRef<HTMLDivElement | null>(null);
-	const [src, setSrc] = useState<string | null>(() => (url ? cachedStyleCover(url) : null));
+	const [src, setSrc] = useState<string | null>(() => (found ? cachedStyleCover(found) : null));
 	/** 图片真的解码完成才淡入，避免在解码期间露出半截图。 */
 	const [shown, setShown] = useState(false);
 
 	useEffect(() => {
-		setSrc(url ? cachedStyleCover(url) : null);
+		const ref = url ? { url, bytes, version } : null;
+		// 版本或体积变了（上游更新）就换成新键对应的图：命中缓存直接用，否则先退回色板再取。
+		setSrc(ref ? cachedStyleCover(ref) : null);
 		setShown(false);
 		const box = boxRef.current;
-		if (!url || !box || cachedStyleCover(url)) return;
+		if (!ref || !box || cachedStyleCover(ref)) return;
 		let cancelled = false;
 		const observer = new IntersectionObserver(
 			(entries) => {
 				if (!entries.some((entry) => entry.isIntersecting)) return;
 				observer.disconnect();
-				void loadStyleCover(url).then((dataUrl) => {
+				void loadStyleCover(ref).then((dataUrl) => {
 					if (!cancelled && dataUrl) setSrc(dataUrl);
 				});
 			},
@@ -38,7 +44,7 @@ export function StyleCover({ system }: { system: DesignSystem }) {
 			cancelled = true;
 			observer.disconnect();
 		};
-	}, [url]);
+	}, [url, bytes, version]);
 
 	return (
 		// absolute inset-0：由调用方的相对定位容器决定尺寸，不依赖百分比高度（flex 子项里不可靠）。

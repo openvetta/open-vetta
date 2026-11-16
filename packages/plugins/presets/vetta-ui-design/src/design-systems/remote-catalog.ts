@@ -160,6 +160,7 @@ function parseEntry(raw: unknown, repoRootUrl: string): DesignSystem | null {
 		tagline: localizedText(raw.tagline),
 		source: upstream ?? undefined,
 		author: author ?? undefined,
+		version: shortText(raw.version) ?? undefined,
 		license: shortText(raw.license) ?? undefined,
 	};
 }

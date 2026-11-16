@@ -43,6 +43,12 @@ describe("parseRemoteCatalog", () => {
 		expect(result?.rejected).toEqual([]);
 	});
 
+	it("带出条目版本，封面缓存靠它判断过期", () => {
+		const result = parseRemoteCatalog(catalog([entry({ version: "1.2.3" })]), BASE);
+		expect(result?.systems[0]?.version).toBe("1.2.3");
+		expect(parseRemoteCatalog(catalog([entry()]), BASE)?.systems[0]?.version).toBeUndefined();
+	});
+
 	it("带出 origin.author，没写就没有，不拿别的字段冒充", () => {
 		const authored = parseRemoteCatalog(
 			catalog([entry({ origin: { type: "curated", author: "  Grok Bot ", upstream: "https://example.com/u" } })]),
