@@ -24,6 +24,7 @@ import type { ProjectDetailPageViewProps } from "@vetta-org/theme-ui/project";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useScheduledTasks } from "../../scheduler/hooks/useScheduledTasks";
 import { isAutomationOutputSession } from "../services/automation-session-groups";
 import { resolveSessionOpenTarget } from "./session-open-target";
 
@@ -166,6 +167,11 @@ export function useProjectDetailPageModel(
 	const runningPaths = useAtomValue(runningSessionPathsAtom);
 	const runningTaskIds = useAtomValue(runningTaskIdsAtom);
 	const scheduledTasks = useAtomValue(scheduledTasksAtom);
+	// 任务列表只在自动化页等处才会载入；详情页直接进来时 atom 还是空的，得自己拉一次。
+	const { refreshTasks } = useScheduledTasks();
+	useEffect(() => {
+		void refreshTasks();
+	}, [refreshTasks]);
 	const automationLinks = useAtomValue(automationSessionLinksAtom);
 	const setSelectedTaskId = useSetAtom(selectedTaskIdAtom);
 	useEffect(() => {
