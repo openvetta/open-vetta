@@ -12,13 +12,15 @@ export const APP_ICON_CHANGED_CHANNEL = "vetta:app-icon:changed";
 const buildDir = app.isPackaged ? join(process.resourcesPath, "build") : join(process.cwd(), "build");
 
 let currentId: AppIconId | undefined;
+/** 本进程是否用 setIcon 覆盖过 Dock 图标。 */
+let dockIconOverridden = false;
 
 export function getAppIconId(): AppIconId {
 	currentId ??= normalizeAppIconId(readConfigSync().appIconId);
 	return currentId;
 }
 
-/** 出厂图标走打包默认（Dock 用 icon-dock.png，已自带 824 本体与边距；窗口用平台图标），返回 undefined 表示「用默认」。 */
+/** 出厂图标走打包默认，返回 undefined 表示「用默认」。 */
 function appIconImage(id: AppIconId): NativeImage | undefined {
 	if (id === APP_ICON_DEFAULT) return undefined;
 	// Dock 不会给 setIcon 的图片加遮罩，macOS 用自带 824 超椭圆与边距的 -mac 版本；其余平台用全幅方形。
@@ -37,7 +39,18 @@ export function applyAppIcon(): void {
 	const id = getAppIconId();
 	const image = appIconImage(id);
 	if (process.platform === "darwin") {
-		app.dock?.setIcon(image ?? nativeImage.createFromPath(join(buildDir, "icon-dock.png")));
+		if (image) {
+			dockIconOverridden = true;
+			app.dock?.setIcon(image);
+		} else if (!app.isPackaged) {
+			// 开发态没有我们的 .app 包，Dock 只能手动给图。
+			app.dock?.setIcon(nativeImage.createFromPath(join(buildDir, "icon-dock.png")));
+		} else if (dockIconOverridden) {
+			// 出厂图标由系统按 Assets.car 绘制（Liquid Glass 高光、遮罩随系统版本走），不能自己 setIcon。
+			// 从自定义切回时清掉覆盖，Dock 恢复为包内图标。
+			dockIconOverridden = false;
+			app.dock?.setIcon(nativeImage.createEmpty());
+		}
 		return;
 	}
 	const fallback = nativeImage.createFromPath(join(buildDir, process.platform === "win32" ? "icon.ico" : "icon.png"));

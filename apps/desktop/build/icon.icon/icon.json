@@ -1,0 +1,11 @@
+{
+  "fill": "automatic",
+  "groups": [
+    {
+      "layers": [
+        { "image-name": "vetta.png", "name": "vetta" }
+      ]
+    }
+  ],
+  "supported-platforms": { "squares": ["macOS"] }
+}
