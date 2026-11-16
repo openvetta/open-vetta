@@ -145,6 +145,7 @@ function parseEntry(raw: unknown, repoRootUrl: string): DesignSystem | null {
 
 	const origin = isRecord(raw.origin) ? raw.origin : null;
 	const upstream = origin ? shortText(origin.upstream) : null;
+	const author = origin ? shortText(origin.author) : null;
 
 	return {
 		id,
@@ -157,6 +158,7 @@ function parseEntry(raw: unknown, repoRootUrl: string): DesignSystem | null {
 		designMd,
 		tagline: localizedText(raw.tagline),
 		source: upstream ?? undefined,
+		author: author ?? undefined,
 		license: shortText(raw.license) ?? undefined,
 	};
 }

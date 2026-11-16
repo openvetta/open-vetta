@@ -88,6 +88,21 @@ describe("DesignSystemDetailDialog", () => {
 		expect(document.body.querySelector("[data-active]")).not.toBeNull();
 	});
 
+	it("有作者时在详情里显示，没有就不占位", () => {
+		render(
+			<DesignSystemDetailDialog
+				system={{ ...withDemo, author: "Grok Bot" }}
+				busy={false}
+				onUse={() => {}}
+				onClose={() => {}}
+			/>,
+		);
+		expect(document.body.textContent).toContain("gallery.detail.author");
+		expect(document.body.textContent).toContain("Grok Bot");
+		render(<DesignSystemDetailDialog system={withDemo} busy={false} onUse={() => {}} onClose={() => {}} />);
+		expect(document.body.textContent).not.toContain("gallery.detail.author");
+	});
+
 	it("右下角「使用」把这套体系交回去", () => {
 		const used: string[] = [];
 		render(
