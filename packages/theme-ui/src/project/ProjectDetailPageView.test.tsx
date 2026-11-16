@@ -74,27 +74,45 @@ describe("Project detail", () => {
 		expect(container.textContent).not.toContain("Start a session");
 	});
 
-	it("lists automations in their own block without mixing running hints", () => {
+	it("switches between recent sessions and automations with tabs", () => {
 		const handlers = renderView({
 			automations: [
 				{ id: "t1", name: "Daily digest", date: "October 14", disabled: false, running: true },
 				{ id: "t2", name: "Weekly sweep", date: null, disabled: true, running: false },
 			],
 			runningTaskCount: 1,
-			runningSessionCount: 0,
+			runningSessionCount: 1,
 		});
+		const tab = (name: string) => [...container.querySelectorAll('[role="tab"]')].find((t) => t.textContent === name) as HTMLElement;
+		// 默认停在会话：看不到自动化行，运行中提示只有会话的
+		expect(tab("Recent sessions").getAttribute("aria-selected")).toBe("true");
+		expect(container.textContent).toContain("Continue project");
+		expect(container.textContent).not.toContain("Daily digest");
+		expect(container.textContent).not.toContain("1 running automation");
+
+		act(() => tab("Automations").click());
 		const block = container.querySelector('section[aria-label="Automations"]');
 		expect(block?.textContent).toContain("1 running automation");
 		expect(block?.textContent).toContain("Never run");
 		expect(block?.textContent).toContain("Paused");
-		const sessions = container.querySelector('section[aria-label="Recent sessions"]');
-		expect(sessions?.textContent).not.toContain("running automation");
+		expect(block?.textContent).not.toContain("Continue project");
 		const row = [...block!.querySelectorAll("button")].find((b) => b.textContent?.includes("Daily digest"));
 		act(() => row?.click());
 		expect(handlers.openAutomation).toHaveBeenCalledWith("t1");
 		const all = [...block!.querySelectorAll("button")].find((b) => b.textContent === "View all");
 		act(() => all?.click());
 		expect(handlers.openAll).toHaveBeenCalled();
+	});
+
+	it("shows only automations without tabs when there are no recent sessions", () => {
+		renderView({
+			recentSessions: [],
+			runningSessionCount: 0,
+			automations: [{ id: "t1", name: "Daily digest", date: null, disabled: false, running: false }],
+		});
+		expect(container.querySelector('[role="tab"]')).toBeNull();
+		expect(container.textContent).toContain("Daily digest");
+		expect(container.querySelector('section[aria-label="Recent sessions"]')).toBeNull();
 	});
 
 	it("hides the automations block when the project has none", () => {

@@ -139,6 +139,11 @@ export function ProjectDetailPageView({
 	textareaRef,
 }: ProjectDetailPageViewProps): JSX.Element {
 	const [internalMode, setInternalMode] = useState<"edit" | "preview">("preview");
+	const [listTab, setListTab] = useState<"sessions" | "automations">("sessions");
+	const hasSessions = recentSessions.length > 0;
+	const hasAutomations = automations.length > 0;
+	// 两栏都有才出 tab；只有其一时直接显示它，tab 记忆值失效也不会落到空栏。
+	const showAutomations = hasAutomations && (!hasSessions || listTab === "automations");
 	const currentMode = controlledMode ?? internalMode;
 	const setMode = controlledOnModeChange ?? setInternalMode;
 	const metrics = [
@@ -248,83 +253,64 @@ export function ProjectDetailPageView({
 					<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
 						{batchSection}
 
-						{/* ── Recent Sessions ─────────────────────────────────── */}
-						{recentSessions.length > 0 && (
+						{/* ── Recent Sessions / Automations（有自动化时用 tab 切换）──────── */}
+						{(hasSessions || hasAutomations) && (
 							<div className="w-full px-4 pb-8 @md:px-8">
-								<section aria-label={labels.recentSessionsTitle}>
+								<section aria-label={showAutomations ? labels.automationsTitle : labels.recentSessionsTitle}>
 									<div className="mb-2 flex items-center justify-between">
-										<h2 className="text-[13px] font-medium tracking-wide text-muted-foreground/80">
-											{labels.recentSessionsTitle}
-										</h2>
-										{runningSessionCount > 0 && (
-											<span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
-												<span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80 animate-pulse" />
-												{labels.running}
-											</span>
+										{hasSessions && hasAutomations ? (
+											<div role="tablist" aria-label={labels.recentSessionsTitle} className="flex gap-1.5">
+												{(["sessions", "automations"] as const).map((key) => (
+													<button
+														key={key}
+														type="button"
+														role="tab"
+														aria-selected={(key === "automations") === showAutomations}
+														onClick={() => setListTab(key)}
+														className={cn(
+															"rounded-full px-3 py-1 text-[12px] transition-colors focus-visible:outline-1 focus-visible:outline-ring",
+															(key === "automations") === showAutomations
+																? "bg-accent font-semibold text-foreground"
+																: "text-muted-foreground/60 hover:text-foreground"
+														)}
+													>
+														{key === "sessions" ? labels.recentSessionsTitle : labels.automationsTitle}
+													</button>
+												))}
+											</div>
+										) : (
+											<h2 className="text-[13px] font-medium tracking-wide text-muted-foreground/80">
+												{showAutomations ? labels.automationsTitle : labels.recentSessionsTitle}
+											</h2>
+										)}
+										{showAutomations ? (
+											<div className="flex items-center gap-3">
+												{runningTaskCount > 0 && (
+													<span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
+														<span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80 animate-pulse" />
+														{labels.runningTasks}
+													</span>
+												)}
+												<button
+													type="button"
+													onClick={onOpenAllAutomations}
+													className="text-[11px] text-muted-foreground/60 transition-colors hover:text-foreground focus-visible:outline-1 focus-visible:outline-ring"
+												>
+													{labels.automationsViewAll}
+												</button>
+											</div>
+										) : (
+											runningSessionCount > 0 && (
+												<span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
+													<span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80 animate-pulse" />
+													{labels.running}
+												</span>
+											)
 										)}
 									</div>
 
-									<div className="flex flex-col divide-y divide-border/40 overflow-hidden rounded-xl bg-accent/30">
-										{recentSessions.map((session) => (
-											<button
-												key={session.path}
-												type="button"
-												onClick={() => onOpenRecentSession(session.path)}
-												className="group relative flex w-full items-center justify-between gap-4 px-3.5 py-2.5 text-left transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline-1 focus-visible:outline-ring"
-											>
-												<div className="flex min-w-0 flex-1 items-center gap-2.5">
-													{session.running ? (
-														<span className="relative flex h-2 w-2 shrink-0">
-															<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-															<span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-														</span>
-													) : session.pinned ? (
-														<span className="icon-[solar--pin-linear] h-3.5 w-3.5 shrink-0 text-primary/70" />
-													) : (
-														<span className="icon-[solar--chat-round-line-linear] h-3.5 w-3.5 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-foreground/70" aria-hidden />
-													)}
-													<span className="min-w-0 truncate text-[13px] text-foreground/90 transition-colors group-hover:text-foreground">
-														{session.label}
-													</span>
-												</div>
-												<div className="flex shrink-0 items-center gap-2">
-													<time className="font-mono text-[11px] text-muted-foreground/50 transition-colors group-hover:text-muted-foreground/75">
-														{session.date}
-													</time>
-													<span className="icon-[solar--alt-arrow-right-linear] h-3.5 w-3.5 text-muted-foreground/30 opacity-0 transition-all -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0" aria-hidden />
-												</div>
-											</button>
-										))}
-									</div>
-								</section>
-							</div>
-						)}
-
-						{/* ── Automations ─────────────────────────────────────── */}
-						{automations.length > 0 && (
-							<div className="w-full px-4 pb-8 @md:px-8">
-								<section aria-label={labels.automationsTitle}>
-									<div className="mb-2 flex items-center justify-between">
-										<h2 className="text-[13px] font-medium tracking-wide text-muted-foreground/80">
-											{labels.automationsTitle}
-										</h2>
-										<div className="flex items-center gap-3">
-											{runningTaskCount > 0 && (
-												<span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
-													<span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80 animate-pulse" />
-													{labels.runningTasks}
-												</span>
-											)}
-											<button
-												type="button"
-												onClick={onOpenAllAutomations}
-												className="text-[11px] text-muted-foreground/60 transition-colors hover:text-foreground focus-visible:outline-1 focus-visible:outline-ring"
-											>
-												{labels.automationsViewAll}
-											</button>
-										</div>
-									</div>
-
+									{showAutomations ? (
+										<>
 									<div className="flex flex-col divide-y divide-border/40 overflow-hidden rounded-xl bg-accent/30">
 										{automations.map((task) => (
 											<button
@@ -360,6 +346,43 @@ export function ProjectDetailPageView({
 											</button>
 										))}
 									</div>
+										</>
+									) : (
+										<>
+									<div className="flex flex-col divide-y divide-border/40 overflow-hidden rounded-xl bg-accent/30">
+										{recentSessions.map((session) => (
+											<button
+												key={session.path}
+												type="button"
+												onClick={() => onOpenRecentSession(session.path)}
+												className="group relative flex w-full items-center justify-between gap-4 px-3.5 py-2.5 text-left transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline-1 focus-visible:outline-ring"
+											>
+												<div className="flex min-w-0 flex-1 items-center gap-2.5">
+													{session.running ? (
+														<span className="relative flex h-2 w-2 shrink-0">
+															<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+															<span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+														</span>
+													) : session.pinned ? (
+														<span className="icon-[solar--pin-linear] h-3.5 w-3.5 shrink-0 text-primary/70" />
+													) : (
+														<span className="icon-[solar--chat-round-line-linear] h-3.5 w-3.5 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-foreground/70" aria-hidden />
+													)}
+													<span className="min-w-0 truncate text-[13px] text-foreground/90 transition-colors group-hover:text-foreground">
+														{session.label}
+													</span>
+												</div>
+												<div className="flex shrink-0 items-center gap-2">
+													<time className="font-mono text-[11px] text-muted-foreground/50 transition-colors group-hover:text-muted-foreground/75">
+														{session.date}
+													</time>
+													<span className="icon-[solar--alt-arrow-right-linear] h-3.5 w-3.5 text-muted-foreground/30 opacity-0 transition-all -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0" aria-hidden />
+												</div>
+											</button>
+										))}
+									</div>
+										</>
+									)}
 								</section>
 							</div>
 						)}
