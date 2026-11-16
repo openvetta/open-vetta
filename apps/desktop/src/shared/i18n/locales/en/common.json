@@ -980,6 +980,8 @@
 		},
 		"placeholder": "Select model",
 		"searchPlaceholder": "Search models or providers",
+		"refresh": "Refresh models",
+		"refreshFailed": "Failed to refresh models",
 		"clearSearch": "Clear search",
 		"noResults": "No models found",
 		"noResultsHint": "Try another model name, ID, or provider",

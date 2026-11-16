@@ -159,6 +159,8 @@ export interface ModelSelectorViewProps {
 	footerEnd?: ReactNode;
 	/** 菜单开合回调，宿主可借此在打开时刷新模型目录 */
 	onOpenChange?: (open: boolean) => void;
+	/** 搜索框右侧的刷新按钮：重拉服务商的模型列表。不传就不显示。 */
+	refresh?: { onRefresh: () => void; refreshing: boolean; label: string };
 }
 
 const MODEL_ITEM_SELECTOR = "[data-model-key]";
@@ -224,6 +226,7 @@ export function ModelSelectorView({
 	onModelSelect,
 	onReasoningSelect,
 	onOpenChange,
+	refresh,
 }: ModelSelectorViewProps): JSX.Element {
 	const [openState, setOpenState] = useState(false);
 	// 宿主可以传 open 来控制（例如快捷键唤起）；不传就由视图自己管。
@@ -526,8 +529,8 @@ export function ModelSelectorView({
 								</div>
 							)}
 							<div className="flex w-64 min-w-0 shrink flex-col p-1">
-								<div className="shrink-0 p-0.5">
-									<div className="relative" onKeyDown={handleSearchKeyDown}>
+								<div className="flex shrink-0 items-center gap-0.5 p-0.5">
+									<div className="relative min-w-0 flex-1" onKeyDown={handleSearchKeyDown}>
 										<span
 											aria-hidden="true"
 											className="icon-[solar--magnifer-linear] pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground"
@@ -554,6 +557,21 @@ export function ModelSelectorView({
 											</button>
 										)}
 									</div>
+									{refresh && (
+										<button
+											type="button"
+											onClick={refresh.onRefresh}
+											disabled={refresh.refreshing}
+											aria-label={refresh.label}
+											title={refresh.label}
+											className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60"
+										>
+											<span
+												aria-hidden="true"
+												className={cn("icon-[solar--refresh-linear] size-3.5", refresh.refreshing && "animate-spin")}
+											/>
+										</button>
+									)}
 								</div>
 								{emptyOption && (
 									<>

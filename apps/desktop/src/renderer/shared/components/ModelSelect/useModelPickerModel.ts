@@ -1,9 +1,10 @@
 import { favoriteModelsAtom } from "@shared/store/atoms";
 import { modelCatalog } from "@shared/store/model-catalog";
+import { showToast } from "@shared/store/toast-atoms";
 import type { ModelSelectorViewProps } from "@vetta-org/theme-ui/chat";
 import { fmtMultiplier } from "@vetta-org/theme-ui/shared/MultiplierTag";
 import { useAtom } from "jotai";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { type ResolvedReasoning, resolveReasoning } from "./resolveReasoning";
 import { type ModelOption, useModelOptions } from "./useModelOptions";
@@ -106,6 +107,38 @@ export function useModelPickerModel({
 	const handleOpenChange = useCallback((open: boolean) => {
 		if (open) void modelCatalog.revalidate();
 	}, []);
+
+	const [refreshing, setRefreshing] = useState(false);
+	const refreshingRef = useRef(false);
+	/** 与设置页「预设服务商」的刷新同源：对已启用的预设服务商重拉模型并写回本地配置。 */
+	const handleRefresh = useCallback(() => {
+		if (refreshingRef.current) return;
+		refreshingRef.current = true;
+		setRefreshing(true);
+		void refreshPresetProviderModels()
+			.then(({ failed }) => {
+				if (failed.length > 0) {
+					showToast({
+						variant: "error",
+						title: t("modelSelect.refreshFailed"),
+						message: failed.join(", "),
+						durationMs: 6000,
+					});
+				}
+			})
+			.catch((err: unknown) => {
+				showToast({
+					variant: "error",
+					title: t("modelSelect.refreshFailed"),
+					message: err instanceof Error ? err.message : String(err),
+					durationMs: 6000,
+				});
+			})
+			.finally(() => {
+				refreshingRef.current = false;
+				setRefreshing(false);
+			});
+	}, [t]);
 
 	const emptyLabel = emptyOption?.label;
 	const viewEmptyOption = useMemo(
@@ -222,6 +255,7 @@ export function useModelPickerModel({
 			onModelSelect: handleModelSelect,
 			onOpenChange: handleOpenChange,
 			onReasoningSelect: handleReasoningSelect,
+			refresh: { onRefresh: handleRefresh, refreshing, label: t("modelSelect.refresh") },
 			reasoningModelKeys,
 			selectedModel: value ?? undefined,
 			selectedOption,
@@ -250,4 +284,42 @@ export function reasoningMenuLevels(resolved: ResolvedReasoning | null): string[
 
 export function isValidReasoningLevel(level: string, resolved: ResolvedReasoning): boolean {
 	return level === "off" || level === "none" || resolved.levels.includes(level);
+}
+
+/**
+ * 对本地已启用的预设服务商（source=template 且有密钥）并行重拉模型，成功的写回 models.json，
+ * 返回失败的服务商名。没有可刷新的服务商时什么都不做。
+ */
+async function refreshPresetProviderModels(): Promise<{ failed: string[] }> {
+	const config = await window.vetta.models.get();
+	const targets = Object.entries(config.providers).filter(
+		([, provider]) => provider.source === "template" && !provider.disabled && Boolean(provider.apiKey),
+	);
+	if (targets.length === 0) return { failed: [] };
+	const results = await Promise.all(
+		targets.map(async ([id]) => {
+			try {
+				return { id, ...(await window.vetta.models.refreshPresetModels(id)) };
+			} catch {
+				return { id, models: [], error: { code: "network" } };
+			}
+		}),
+	);
+	// 写回前重读，避免覆盖刷新期间用户在设置页做的改动。
+	const latest = await window.vetta.models.get();
+	const providers = { ...latest.providers };
+	const failed: string[] = [];
+	let changed = false;
+	for (const result of results) {
+		const current = providers[result.id];
+		if (result.error) failed.push(current?.displayName ?? result.id);
+		if (!current || result.models.length === 0) continue;
+		providers[result.id] = { ...current, models: result.models, modelsSyncedAt: new Date().toISOString() };
+		changed = true;
+	}
+	if (changed) {
+		await window.vetta.models.set({ ...latest, providers });
+		await modelCatalog.revalidate({ force: true, sources: ["local"] });
+	}
+	return { failed };
 }
