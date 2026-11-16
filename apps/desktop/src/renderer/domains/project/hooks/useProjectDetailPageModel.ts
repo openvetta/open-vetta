@@ -1,3 +1,4 @@
+import { useScheduledTasks } from "@domains/scheduler/hooks/useScheduledTasks";
 import { isMac } from "@shared/lib/platform";
 import { pathBasename } from "@shared/lib/utils";
 import { useShortcutScope } from "@shared/shortcuts";
@@ -24,7 +25,6 @@ import type { ProjectDetailPageViewProps } from "@vetta-org/theme-ui/project";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useScheduledTasks } from "../../scheduler/hooks/useScheduledTasks";
 import { isAutomationOutputSession } from "../services/automation-session-groups";
 import { resolveSessionOpenTarget } from "./session-open-target";
 
