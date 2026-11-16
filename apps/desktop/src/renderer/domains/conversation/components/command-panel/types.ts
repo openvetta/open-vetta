@@ -34,6 +34,8 @@ export interface CommandPanelLabels extends SkillListLabels {
 	header: string;
 	resultCount: string;
 	connectorsSection: string;
+	/** 窄屏下收纳多余动作的下拉按钮名称。 */
+	moreActions: string;
 }
 
 export interface CommandPanelActionItem {

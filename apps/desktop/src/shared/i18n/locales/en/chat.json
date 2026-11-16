@@ -1091,6 +1091,7 @@
 		"emptyNoMatchHint": "Try another keyword, or just type your request.",
 		"emptyNoSkills": "No skills available",
 		"emptyNoSkillsHint": "Install a skill from the ability market to call it here.",
+		"moreActions": "More actions",
 		"header": "Select a skill",
 		"resultCount": "{{count}} results",
 		"skillsSection": "Skills",

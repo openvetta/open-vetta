@@ -1,5 +1,6 @@
 import { ThemeSurface } from "@vetta-org/theme-ui/appearance/ThemeSurface";
 import { ButtonGroup, ButtonGroupItem } from "@vetta-org/ui/button-group";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@vetta-org/ui/dropdown-menu";
 import { ContextRingView } from "@vetta-org/theme-ui/chat/ContextRingView";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
@@ -19,6 +20,9 @@ const MAX_HEIGHT = "min(320px, 40vh)";
 /** 揭幕：从上往下裁开。内容不动，因此描边、圆角与卡片接缝全程都在终态位置上。 */
 const REVEAL_CLIPPED = { clipPath: "inset(100% 0 0 0)" };
 const REVEAL_SHOWN = { clipPath: "inset(0% 0 0 0)" };
+
+/** 窄输入区（容器宽度，非视口）下命令条最多平铺的动作数；超出的收进「更多」下拉。 */
+const NARROW_INLINE_ACTIONS = 2;
 
 /**
  * InputBar 的「展开」形态：命令区。
@@ -48,6 +52,9 @@ export function CommandPanelView({
 	onSelectConnector,
 }: CommandPanelProps): JSX.Element {
 	const filtering = filter.length > 0;
+	// 恰好 3 个时平铺也放得下；多于 3 个才把第 3 个起折进「更多」。
+	const hasOverflow = actions.length > NARROW_INLINE_ACTIONS + 1;
+	const overflowActions = hasOverflow ? actions.slice(NARROW_INLINE_ACTIONS) : [];
 	const reduceMotion = useReducedMotion();
 	const transition = reduceMotion ? { duration: 0 } : PANEL_REVEAL_TRANSITION;
 	// 揭幕完成前列表只出可视区那几行、渐隐 mask 也先不挂：动画期间少一份重绘。
@@ -148,12 +155,16 @@ export function CommandPanelView({
 						{actions.length > 0 && (
 							<div className="no-scrollbar flex shrink-0 items-center overflow-x-auto px-3 pb-2 pt-1">
 								<ButtonGroup blur={false} shape="square">
-									{actions.map((action) => (
+									{actions.map((action, index) => (
 										<ButtonGroupItem
 											key={action.id}
 											active={action.active}
 											onClick={action.onToggle}
 											title={action.label}
+											// 超过 3 个时，窄容器只平铺前两个，其余由「更多」承接。
+											className={
+												hasOverflow && index >= NARROW_INLINE_ACTIONS ? "hidden @[32rem]:inline-flex" : undefined
+											}
 											icon={
 												action.icon ? (
 													<span className="flex h-4 w-4 items-center justify-center">{action.icon}</span>
@@ -162,6 +173,33 @@ export function CommandPanelView({
 											label={action.label}
 										/>
 									))}
+									{hasOverflow ? (
+										<DropdownMenu>
+											<DropdownMenuTrigger asChild>
+												<ButtonGroupItem
+													className="@[32rem]:hidden"
+													active={overflowActions.some((action) => action.active)}
+													title={labels.moreActions}
+													aria-label={labels.moreActions}
+													icon={<span className="icon-[solar--menu-dots-bold] h-4 w-4" />}
+												/>
+											</DropdownMenuTrigger>
+											{/* keep-open：菜单挂在面板之外，否则点菜单项会被当成面板外点击而收起命令区。 */}
+											<DropdownMenuContent align="end" side="top" data-command-panel-keep-open="true">
+												{overflowActions.map((action) => (
+													<DropdownMenuItem key={action.id} onSelect={action.onToggle}>
+														{action.icon ? (
+															<span className="flex h-4 w-4 shrink-0 items-center justify-center">{action.icon}</span>
+														) : null}
+														<span className="min-w-0 flex-1 truncate">{action.label}</span>
+														{action.active ? (
+															<span className="icon-[solar--check-circle-bold] h-4 w-4 shrink-0 text-primary" />
+														) : null}
+													</DropdownMenuItem>
+												))}
+											</DropdownMenuContent>
+										</DropdownMenu>
+									) : null}
 								</ButtonGroup>
 							</div>
 						)}
