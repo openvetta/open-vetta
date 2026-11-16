@@ -127,14 +127,67 @@ describe("DesignSystemGrid", () => {
 		const active = (): number => document.body.querySelectorAll("[data-active]").length;
 		expect(active()).toBe(0);
 		// React 的 onMouseEnter/Leave 由委托的 mouseover/mouseout 驱动。
+		vi.useFakeTimers();
 		act(() => {
 			tiles()[0].dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
 		});
+		act(() => {
+			vi.advanceTimersByTime(300);
+		});
+		vi.useRealTimers();
 		expect(active()).toBe(1);
 		act(() => {
 			tiles()[0].dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
 		});
 		expect(active()).toBe(0);
+	});
+});
+
+describe("预览容器的尺寸", () => {
+	it("预览容器必须带 w-full——卡片是 button，交叉轴不会 stretch，子元素又全是 absolute", () => {
+		render(<DesignSystemGrid busy={false} onPick={() => {}} />);
+		// happy-dom 没有布局，宽度塌成 0 只能靠类名断言（同 DesignSystemDemo 的同类回归）。
+		const preview = tiles()[0].querySelector("div.relative");
+		expect(preview?.className).toContain("w-full");
+		expect(preview?.className).toContain("flex-1");
+	});
+});
+
+describe("风格墙的 iframe 预算", () => {
+	const html = "<!doctype html><html><body>demo</body></html>";
+	const withDemo = (id: string, name: string): DesignSystem => ({
+		...system(id, name),
+		resources: [{ path: "demo.html", role: "demo", encoding: "text", content: html, bytes: html.length }],
+	});
+	const frames = (): number => document.body.querySelectorAll("iframe").length;
+
+	it("静止时一个 iframe 都不挂：滚动经过的卡片只铺色板", () => {
+		setDesignSystems([withDemo("a", "A"), withDemo("b", "B"), withDemo("c", "C")]);
+		render(<DesignSystemGrid busy={false} onPick={() => {}} />);
+		expect(frames()).toBe(0);
+	});
+
+	it("悬停停留后只挂被悬停那一张，移开即卸", () => {
+		vi.useFakeTimers();
+		try {
+			setDesignSystems([withDemo("a", "A"), withDemo("b", "B")]);
+			render(<DesignSystemGrid busy={false} onPick={() => {}} />);
+			act(() => {
+				tiles()[0].dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+			});
+			// 刚掠过（比如滚动时光标下的卡片不断换）不该立刻付解析一份文档的代价。
+			expect(frames()).toBe(0);
+			act(() => {
+				vi.advanceTimersByTime(300);
+			});
+			expect(frames()).toBe(1);
+			act(() => {
+				tiles()[0].dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+			});
+			expect(frames()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
 

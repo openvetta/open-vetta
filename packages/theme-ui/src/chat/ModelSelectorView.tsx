@@ -471,7 +471,8 @@ export function ModelSelectorView({
 					// 毛玻璃：半透明的主题底色 + 背景模糊，真正透出面板背后的内容（只留柔和的轮廓）。
 					// 底色仍用主题的 background 变量，搜索行等没有自己底色的子元素因此和面板融成一块；
 					// 不要再叠自绘的描边/高光去"假装"玻璃。
-					"w-auto min-w-[180px] max-w-[calc(100vw-2rem)] overflow-visible bg-background/40 p-0 backdrop-blur-2xl backdrop-saturate-150",
+					"w-auto min-w-[180px] max-w-[calc(100vw-2rem)] overflow-visible bg-background/40 p-0 backdrop-blur-2xl backdrop-saturate-150 dark:bg-background/75 dark:backdrop-brightness-50",
+					// 深色下背后若是大块白色内容，透出来会很刺眼：抬高底色不透明度并压暗背景亮度。
 					classNames?.content,
 				)}
 			>

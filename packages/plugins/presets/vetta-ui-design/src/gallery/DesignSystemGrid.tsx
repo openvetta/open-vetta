@@ -1,5 +1,5 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DesignSystemTileContent } from "../cards/DesignSystemTileContent";
 import { refreshDesignCatalog, useCatalogState } from "../design-systems/index";
 import type { DesignSystem } from "../design-systems/types";
@@ -27,12 +27,28 @@ export interface DesignSystemGridProps {
 const GRID_CLASS = "grid grid-cols-3 gap-4";
 /** 骨架格数：填满一两行即可，不必假装有多少套。 */
 const SKELETON_COUNT = 6;
+/**
+ * 悬停多久才挂 demo。滚动时光标底下的卡片一直在换，没有这段停留，每掠过一张就
+ * 建一个 1280px 宽的 iframe 并解析一份完整文档，正好落在滚动那几帧里。
+ */
+const DEMO_DWELL_MS = 160;
 
 export function DesignSystemGrid({ divided = false, busy, onPick }: DesignSystemGridProps) {
 	const { t } = useTranslation();
 	const { systems, status } = useCatalogState();
 	/** 悬停中的条目：只让它的 demo 滚动，其余保持静止。 */
 	const [hovered, setHovered] = useState<string | null>(null);
+	/** 悬停停留够久、真的值得付 iframe 代价的那一张。 */
+	const [demoId, setDemoId] = useState<string | null>(null);
+
+	useEffect(() => {
+		if (hovered === null) {
+			setDemoId(null);
+			return;
+		}
+		const timer = setTimeout(() => setDemoId(hovered), DEMO_DWELL_MS);
+		return () => clearTimeout(timer);
+	}, [hovered]);
 
 	return (
 		<section className={divided ? "mt-8 border-t border-border/60 pt-6" : ""}>
@@ -53,7 +69,11 @@ export function DesignSystemGrid({ divided = false, busy, onPick }: DesignSystem
 							aria-label={t("gallery.styles.view", { name: system.name })}
 							className="flex aspect-[4/3] min-w-0 flex-col gap-2 overflow-hidden rounded-xl border border-border bg-card p-2.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-lg disabled:opacity-40"
 						>
-							<DesignSystemTileContent system={system} demoActive={hovered === system.id} />
+							<DesignSystemTileContent
+								system={system}
+								demo={demoId === system.id}
+								demoActive={demoId === system.id}
+							/>
 						</button>
 					))}
 				</div>

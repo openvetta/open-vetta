@@ -135,6 +135,13 @@ describe("DesignSystemDemo", () => {
 		expect(frame()).toBeNull();
 	});
 
+	it("调用方自己垫了封面时（placeholder=false）不再铺色板兜底", () => {
+		act(() => root.render(<DesignSystemDemo system={withDemo} active={false} placeholder={false} />));
+		const root0 = document.body.querySelector("[data-active], div");
+		expect(root0?.querySelector("[style*='background']")).toBeNull();
+		expect(frame()).not.toBeNull();
+	});
+
 	it("iframe 还没 load 时预览层是透明的，底下露着色板", () => {
 		act(() => root.render(<DesignSystemDemo system={withDemo} active={false} />));
 		expect(frame()?.parentElement?.style.opacity).toBe("0");
