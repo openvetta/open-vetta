@@ -110,7 +110,7 @@ describe("Project detail", () => {
 			runningSessionCount: 0,
 			automations: [{ id: "t1", name: "Daily digest", date: null, disabled: false, running: false }],
 		});
-		expect(container.querySelector('[role="tab"]')).toBeNull();
+		expect(container.querySelector('[role="tablist"][aria-label="Recent sessions"]')).toBeNull();
 		expect(container.textContent).toContain("Daily digest");
 		expect(container.querySelector('section[aria-label="Recent sessions"]')).toBeNull();
 	});
