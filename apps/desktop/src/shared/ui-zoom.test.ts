@@ -6,6 +6,7 @@ import {
 	trafficLightPositionFor,
 	UI_ZOOM_DEFAULT,
 	UI_ZOOM_STEPS,
+	uiZoomNeedsCorrection,
 } from "./ui-zoom";
 
 describe("normalizeUiZoomFactor", () => {
@@ -57,6 +58,24 @@ describe("parseTitlebarCenter", () => {
 		expect(parseTitlebarCenter(28)).toBe(28);
 		for (const bad of [undefined, "28", Number.NaN, -1, 9999, Number.POSITIVE_INFINITY]) {
 			expect(parseTitlebarCenter(bad)).toBeUndefined();
+		}
+	});
+});
+
+describe("uiZoomNeedsCorrection", () => {
+	it("实测与档位一致（含 Chromium 的浮点误差）时不纠正", () => {
+		expect(uiZoomNeedsCorrection(1.1, 1.1)).toBe(false);
+		expect(uiZoomNeedsCorrection(1.1000000001, 1.1)).toBe(false);
+	});
+
+	it("实测偏离档位就纠正：显示 110% 实际却是 100% 或 90%", () => {
+		expect(uiZoomNeedsCorrection(1, 1.1)).toBe(true);
+		expect(uiZoomNeedsCorrection(0.9, 1.1)).toBe(true);
+	});
+
+	it("取不到有效实测值时不动，避免乱写", () => {
+		for (const bad of [undefined, null, Number.NaN, 0, -1, "1.1"]) {
+			expect(uiZoomNeedsCorrection(bad, 1.1)).toBe(false);
 		}
 	});
 });
