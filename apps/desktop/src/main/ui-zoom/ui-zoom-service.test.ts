@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const send = vi.fn();
+const mainSend = vi.fn();
 const setWindowButtonPosition = vi.fn();
 const winHandlers = new Map<string, () => void>();
 const fakeWindow = {
@@ -30,6 +31,7 @@ function fakeContents(initial = 1) {
 		setZoomFactor: vi.fn((v: number) => {
 			zoom = v;
 		}),
+		send: mainSend,
 		on: (event: string, handler: () => void) => handlers.set(event, handler),
 		fire: (event: string) => handlers.get(event)?.(),
 	};
@@ -42,6 +44,7 @@ async function load() {
 
 beforeEach(() => {
 	send.mockClear();
+	mainSend.mockClear();
 	setWindowButtonPosition.mockClear();
 	winHandlers.clear();
 	vi.stubGlobal("process", { ...process, platform: "darwin" });
@@ -120,5 +123,23 @@ describe("ui zoom service", () => {
 		await expect(stepUiZoom(-1)).resolves.toBe(1);
 		await stepUiZoom(1);
 		await expect(resetUiZoom()).resolves.toBe(1);
+	});
+
+	it("快捷键缩放通知主窗口提示档位，到头不变档时也提示，滑块路径不提示", async () => {
+		const { attachUiZoom, resetUiZoom, setUiZoomFactor, stepUiZoom } = await load();
+		attachUiZoom(fakeContents() as never);
+
+		await setUiZoomFactor(1.25); // 滑块走这里
+		expect(mainSend).not.toHaveBeenCalledWith("vetta:ui-zoom:hud", expect.anything());
+
+		await stepUiZoom(1);
+		expect(mainSend).toHaveBeenLastCalledWith("vetta:ui-zoom:hud", 1.5);
+
+		mainSend.mockClear();
+		await stepUiZoom(1); // 已是最大档，比例没变
+		expect(mainSend).toHaveBeenCalledWith("vetta:ui-zoom:hud", 1.5);
+
+		await resetUiZoom();
+		expect(mainSend).toHaveBeenLastCalledWith("vetta:ui-zoom:hud", 1);
 	});
 });
