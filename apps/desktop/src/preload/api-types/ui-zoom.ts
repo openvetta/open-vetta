@@ -11,4 +11,6 @@ export interface DesktopUiZoomApi {
 	reportTitlebarCenter(centerCssPx: number): void;
 	/** 订阅比例变化（含快捷键触发的）。返回取消订阅函数。 */
 	onChanged(handler: (factor: number) => void): () => void;
+	/** 订阅快捷键（Cmd/Ctrl +/-/0）触发的缩放，参数是生效后的比例；滑块拖动不会触发。 */
+	onShortcutZoom(handler: (factor: number) => void): () => void;
 }

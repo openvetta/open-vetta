@@ -6,6 +6,7 @@ const GET_CHANNEL = "vetta:ui-zoom:get";
 const SET_CHANNEL = "vetta:ui-zoom:set";
 const TITLEBAR_CENTER_CHANNEL = "vetta:ui-zoom:titlebar-center";
 const CHANGED_CHANNEL = "vetta:ui-zoom:changed";
+const HUD_CHANNEL = "vetta:ui-zoom:hud";
 
 export function createUiZoomApi(ipc: IpcRenderer): Pick<DesktopApi, "uiZoom"> {
 	return {
@@ -18,6 +19,7 @@ export function createUiZoomApi(ipc: IpcRenderer): Pick<DesktopApi, "uiZoom"> {
 			applyZoom: (factor: number) => webFrame.setZoomFactor(factor),
 			reportTitlebarCenter: (centerCssPx: number) => ipc.send(TITLEBAR_CENTER_CHANNEL, centerCssPx),
 			onChanged: (handler) => onIpcEvent<number>(ipc, CHANGED_CHANNEL, handler),
+			onShortcutZoom: (handler) => onIpcEvent<number>(ipc, HUD_CHANNEL, handler),
 		},
 	};
 }

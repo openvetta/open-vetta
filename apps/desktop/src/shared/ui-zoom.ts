@@ -60,3 +60,8 @@ export function uiZoomNeedsCorrection(actual: unknown, desired: number): boolean
 	if (typeof actual !== "number" || !Number.isFinite(actual) || actual <= 0) return false;
 	return Math.abs(actual - normalizeUiZoomFactor(desired)) > ZOOM_MISMATCH_TOLERANCE;
 }
+
+/** 界面缩放的百分比文案，如 1.1 → "110%"。 */
+export function formatUiZoomPercent(factor: number): string {
+	return `${Math.round(normalizeUiZoomFactor(factor) * 100)}%`;
+}
