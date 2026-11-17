@@ -25,14 +25,23 @@ export function getUiZoomFactor(): number {
 	return currentFactor;
 }
 
+/** 强制重写时先写入的相邻比例，用来绕开「值没变就不下发」的短路；大于 Chromium 判等的容差。 */
+const ZOOM_REWRITE_NUDGE = 0.01;
+/** 窗口重新显示后 Chromium 可能稍后才把缩放改回去，所以延后再补一次。 */
+const ZOOM_RESHOW_REAPPLY_DELAY_MS = 300;
+
 /**
- * 把当前比例套到主窗口。Chromium 的缩放跟 origin 走，页面重新加载后可能回到它自己记的值，
- * 所以窗口创建与每次 did-finish-load 都要重新套一次。
+ * 把当前比例套到主窗口。不能用 getZoomFactor() 判断「是否已经是目标值」：窗口隐藏（Cmd+W）后
+ * 再唤起，渲染进程的实际缩放会被 Chromium 改回陈旧值，而 getZoomFactor() 仍返回我们上次设的值，
+ * 结果设置页显示 110% 画面却是 100%，只有先拉到别的档位才恢复。
+ * 所以这里无条件重写：先写相邻值再写回目标，保证渲染进程收到一次真实变化。两次调用同步完成，
+ * 不会产生可见的中间帧。
  */
 export function applyUiZoomToWebContents(webContents: WebContents): void {
 	if (webContents.isDestroyed()) return;
 	const factor = getUiZoomFactor();
-	if (webContents.getZoomFactor() !== factor) webContents.setZoomFactor(factor);
+	webContents.setZoomFactor(factor + ZOOM_REWRITE_NUDGE);
+	webContents.setZoomFactor(factor);
 	applyTrafficLightPosition(webContents, factor);
 }
 
@@ -55,14 +64,23 @@ export function attachUiZoom(webContents: WebContents): void {
 	const win = BrowserWindow.fromWebContents(webContents);
 	const reapply = () => applyTrafficLightPosition(webContents, getUiZoomFactor());
 	win?.on("leave-full-screen", reapply);
-	win?.on("restore", reapply);
-	win?.on("show", reapply);
+	// 隐藏后重新显示、最小化还原：缩放可能被 Chromium 改回，连同红绿灯一起重新套用。
+	const reapplyZoom = () => {
+		applyUiZoomToWebContents(webContents);
+		setTimeout(() => applyUiZoomToWebContents(webContents), ZOOM_RESHOW_REAPPLY_DELAY_MS);
+	};
+	win?.on("restore", reapplyZoom);
+	win?.on("show", reapplyZoom);
 }
 
 /** 设置比例：夹取、立即生效、广播给所有窗口，再落盘。返回实际生效的比例。 */
 export async function setUiZoomFactor(value: unknown): Promise<number> {
 	const next = normalizeUiZoomFactor(value);
-	if (next === getUiZoomFactor()) return next;
+	if (next === getUiZoomFactor()) {
+		// 值没变也重写一次：这是用户在缩放与实际不同步时，重新选同一档就能恢复的出口。
+		if (mainContents) applyUiZoomToWebContents(mainContents);
+		return next;
+	}
 	currentFactor = next;
 	if (mainContents) applyUiZoomToWebContents(mainContents);
 	for (const win of BrowserWindow.getAllWindows()) {
