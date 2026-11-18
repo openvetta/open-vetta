@@ -9,6 +9,7 @@ import {
 	isSupportedLanguage,
 	type LanguagePreference,
 } from "@/shared/i18n/config";
+import { type ChatBackgroundId, getStoredChatBackgroundId } from "../theme/chat-background";
 import { getStoredNewSessionTextureId, type NewSessionTextureId } from "../theme/new-session-texture";
 import { getStoredOrnamentId, type OrnamentId } from "../theme/ornament";
 
@@ -88,6 +89,9 @@ export const heroOrnamentAtom = atom<OrnamentId>(getStoredOrnamentId());
 export type { NewSessionTextureId };
 /** 新会话页背后当前铺着哪层纹理。 */
 export const newSessionTextureAtom = atom<NewSessionTextureId>(getStoredNewSessionTextureId());
+export type { ChatBackgroundId };
+/** 对话页背后当前铺着哪档聊天背景。 */
+export const chatBackgroundAtom = atom<ChatBackgroundId>(getStoredChatBackgroundId());
 
 // ─── Confirm dialog ───
 

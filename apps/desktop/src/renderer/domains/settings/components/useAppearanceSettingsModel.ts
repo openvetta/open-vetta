@@ -1,10 +1,12 @@
 import { useAppIcon } from "@shared/hooks/useAppIcon";
+import { useChatBackground } from "@shared/hooks/useChatBackground";
 import { useHeroOrnament } from "@shared/hooks/useHeroOrnament";
 import { useLanguage } from "@shared/hooks/useLanguage";
 import { useNewSessionTexture } from "@shared/hooks/useNewSessionTexture";
 import { useTheme } from "@shared/hooks/useTheme";
 import { useUiZoom } from "@shared/hooks/useUiZoom";
 import type { ThemeMode } from "@shared/store/atoms";
+import { CHAT_BACKGROUND_CATALOG, type ChatBackgroundId } from "@shared/theme/chat-background";
 import { NEW_SESSION_TEXTURE_CATALOG, type NewSessionTextureId } from "@shared/theme/new-session-texture";
 import { ORNAMENT_CATALOG, type OrnamentId } from "@shared/theme/ornament";
 import { useThemeRuntime } from "@shared/theme/runtime";
@@ -69,6 +71,13 @@ export interface AppearanceOrnamentOption {
 	preview?: string;
 }
 
+export interface AppearanceChatBackgroundOption {
+	active: boolean;
+	hint: string;
+	id: ChatBackgroundId;
+	label: string;
+}
+
 export interface AppearanceTextureOption {
 	active: boolean;
 	hint: string;
@@ -90,6 +99,7 @@ export interface AppearanceSettingsModel {
 		changeThemeName: (id: string, point: AppearancePoint) => void;
 		setAppIcon: (id: AppIconId) => void;
 		selectUiTheme: (id: string) => void;
+		setChatBackground: (id: ChatBackgroundId) => void;
 		setOrnament: (id: OrnamentId) => void;
 		setTexture: (id: NewSessionTextureId) => void;
 		setUiZoom: (factor: number) => void;
@@ -97,6 +107,8 @@ export interface AppearanceSettingsModel {
 	};
 	activeUiThemeId: string;
 	appIconOptions: AppearanceAppIconOption[];
+	chatBackgroundId: ChatBackgroundId;
+	chatBackgroundOptions: AppearanceChatBackgroundOption[];
 	labels: {
 		/** 「新会话页装饰」这块合并区域的说明，点明装饰件与纹理只影响新会话页。 */
 		newSessionDecorHint: string;
@@ -104,6 +116,7 @@ export interface AppearanceSettingsModel {
 		ornamentHint: string;
 		sections: {
 			appIcon: string;
+			chatBackground: string;
 			language: string;
 			mode: string;
 			ornament: string;
@@ -214,6 +227,7 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 	const { factor: uiZoomFactor, setFactor: setUiZoomFactor, reset: resetUiZoom } = useUiZoom();
 	const { ornamentId, setOrnament } = useHeroOrnament();
 	const { textureId, setTexture } = useNewSessionTexture();
+	const { backgroundId, setBackground } = useChatBackground();
 	const { iconId: appIconId, setIcon: setAppIcon } = useAppIcon();
 	const { t } = useTranslation("settings");
 
@@ -283,6 +297,17 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 		[ornamentId, t],
 	);
 
+	const chatBackgroundOptions = useMemo<AppearanceChatBackgroundOption[]>(
+		() =>
+			CHAT_BACKGROUND_CATALOG.map((entry) => ({
+				id: entry.id,
+				active: backgroundId === entry.id,
+				label: t(entry.labelKey),
+				hint: t(entry.hintKey),
+			})),
+		[backgroundId, t],
+	);
+
 	const textureOptions = useMemo<AppearanceTextureOption[]>(
 		() =>
 			NEW_SESSION_TEXTURE_CATALOG.map((entry) => ({
@@ -313,6 +338,7 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 			ornamentHint: t("ornamentHint"),
 			sections: {
 				appIcon: t(SETTINGS_SECTION["appearance-app-icon"].titleKey),
+				chatBackground: t(SETTINGS_SECTION["appearance-chat-background"].titleKey),
 				language: t(SETTINGS_SECTION["appearance-language"].titleKey),
 				mode: t(SETTINGS_SECTION["appearance-mode"].titleKey),
 				ornament: t(SETTINGS_SECTION["appearance-ornament"].titleKey),
@@ -350,6 +376,10 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 				void selectTheme(id);
 				recordSettingsUsage({ tab: "appearance", action: "selected", target: "ui-theme", value: id });
 			},
+			setChatBackground: (id) => {
+				setBackground(id);
+				recordSettingsUsage({ tab: "appearance", action: "changed", target: "chat-background", value: id });
+			},
 			setOrnament: (id) => {
 				setOrnament(id);
 				recordSettingsUsage({ tab: "appearance", action: "changed", target: "ornament", value: id });
@@ -370,6 +400,7 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 			resetUiZoom,
 			selectTheme,
 			setAppIcon,
+			setBackground,
 			setLanguage,
 			setMode,
 			setOrnament,
@@ -383,6 +414,8 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 		actions,
 		activeUiThemeId: activeThemeId,
 		appIconOptions,
+		chatBackgroundId: backgroundId,
+		chatBackgroundOptions,
 		labels,
 		language: languagePreference,
 		languages,
