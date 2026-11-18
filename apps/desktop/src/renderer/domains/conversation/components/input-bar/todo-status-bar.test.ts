@@ -75,6 +75,22 @@ describe("TodoStatusBarView", () => {
 		view.cleanup();
 	});
 
+	it("keeps the panel's own corner radius instead of inheriting one from the portal", () => {
+		// PopoverContent 用了 asChild，className 会并到同一个 motion.div 上：面板再写 rounded-[inherit]，
+		// twMerge 会用它盖掉 FLOATING_SURFACE_CLASS 的 rounded-2xl，圆角变成从 portal 容器继承的 0。
+		const view = render(ITEMS);
+		act(() => {
+			view.trigger()?.click();
+		});
+
+		const content = document.querySelector<HTMLElement>('[data-slot="popover-content"]');
+		expect(content).not.toBeNull();
+		const radiusTokens = (content?.className ?? "").split(/\s+/).filter((token) => token.startsWith("rounded"));
+		expect(radiusTokens).not.toContain("rounded-[inherit]");
+		expect(radiusTokens.length).toBeGreaterThan(0);
+		view.cleanup();
+	});
+
 	it("opens a popover listing every item and can jump to the activity panel", () => {
 		const onOpenPanel = vi.fn();
 		const view = render(ITEMS, onOpenPanel);

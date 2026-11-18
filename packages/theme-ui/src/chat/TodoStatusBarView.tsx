@@ -102,7 +102,9 @@ export function TodoStatusBarView({
 								animate={{ opacity: 1, scale: 1, y: 0 }}
 								exit={{ opacity: 0, scale: 0.97, y: 6 }}
 								transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
-								className="relative overflow-visible rounded-[inherit]"
+								// 这里的 motion.div 就是 PopoverContent 本体（asChild），圆角来自 FLOATING_SURFACE_CLASS；
+								// 再写 rounded-[inherit] 会和它并排成两条声明，按样式表顺序覆盖成继承自 portal 的 0。
+								className="relative overflow-visible"
 							>
 								<ThemeSurface slot="chat.todoPanel" />
 								<div className="relative z-10 flex max-h-[min(22rem,55vh)] flex-col overflow-hidden rounded-[inherit]">
