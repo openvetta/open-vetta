@@ -55,7 +55,7 @@ export const RichCodeBlock = memo(function RichCodeBlock(props: MarkdownCodeBloc
 			<CodeBlock.Copy>
 				<CodeBlock.Frame>
 					<div ref={ref}>
-						<div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-1 pr-12">
+						<div className="flex flex-wrap items-center gap-2 py-1.5 pr-12 pl-4">
 							<span className="text-[12px] text-muted-foreground">{svg ? "SVG" : "HTML"}</span>
 							<Button variant="ghost" size="sm" aria-pressed={showSource} onClick={() => setShowSource(!showSource)}>
 								{showSource ? labels.preview : labels.source}
@@ -76,41 +76,47 @@ export const RichCodeBlock = memo(function RichCodeBlock(props: MarkdownCodeBloc
 						{live || oversized || showSource ? (
 							<>
 								{!showSource && (
-									<p className="px-3 py-2 text-[12px] text-muted-foreground">
+									<p className="px-4 pb-2 text-[12px] text-muted-foreground">
 										{oversized ? labels.tooLarge : labels.waiting}
 									</p>
 								)}
 								{oversized ? (
-									<pre className="max-h-96 overflow-auto p-3 text-[13px]">
-										<code>{code}</code>
-									</pre>
+									<CodeBlock.Body>
+										<pre className="max-h-96 overflow-auto py-3 pr-4 pl-5 text-[13px]">
+											<code>{code}</code>
+										</pre>
+									</CodeBlock.Body>
 								) : (
 									<CodeBlock.Content />
 								)}
 							</>
 						) : svg ? (
-							<div className="p-3">
-								<SvgPreview source={code} label={labels.svg} failed={labels.failed} />
-							</div>
+							<CodeBlock.Body>
+								<div className="p-4">
+									<SvgPreview source={code} label={labels.svg} failed={labels.failed} />
+								</div>
+							</CodeBlock.Body>
 						) : (
 							<>
-								<p className="px-3 py-2 text-[12px] text-muted-foreground">
+								<p className="px-4 pb-2 text-[12px] text-muted-foreground">
 									{failed ? labels.failed : running ? labels.running : paused ? labels.paused : labels.staticHtml}
 								</p>
-								{srcDoc ? (
-									<iframe
-										key="static"
-										name={MARKDOWN_PREVIEW_FRAME_NAME}
-										title={labels.html}
-										srcDoc={srcDoc}
-										sandbox=""
-										referrerPolicy="no-referrer"
-										allow="camera 'none'; microphone 'none'; geolocation 'none'; clipboard-read 'none'; clipboard-write 'none'"
-										className="h-80 w-full border-0 bg-background"
-									/>
-								) : (
-									<div className="h-80" aria-hidden="true" />
-								)}
+								<CodeBlock.Body>
+									{srcDoc ? (
+										<iframe
+											key="static"
+											name={MARKDOWN_PREVIEW_FRAME_NAME}
+											title={labels.html}
+											srcDoc={srcDoc}
+											sandbox=""
+											referrerPolicy="no-referrer"
+											allow="camera 'none'; microphone 'none'; geolocation 'none'; clipboard-read 'none'; clipboard-write 'none'"
+											className="h-80 w-full border-0"
+										/>
+									) : (
+										<div className="h-80" aria-hidden="true" />
+									)}
+								</CodeBlock.Body>
 							</>
 						)}
 					</div>
