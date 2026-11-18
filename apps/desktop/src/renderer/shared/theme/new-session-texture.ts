@@ -1,4 +1,5 @@
 import { AuroraTexture } from "@shared/components/aurora/AuroraTexture";
+import { DoodleTexture } from "@shared/components/chat-doodle/DoodleTexture";
 import { RippleTexture } from "@shared/components/ripple/RippleTexture";
 import { NewSessionBackground } from "@vetta-org/theme-ui/chat/NewSessionBackground";
 import type { ComponentType } from "react";
@@ -12,7 +13,7 @@ import type { ComponentType } from "react";
  * 两边共用一份表才不会出现「预览与页面对不上」。
  */
 
-export type NewSessionTextureId = "aurora" | "grid" | "none" | "ripple";
+export type NewSessionTextureId = "aurora" | "doodle" | "grid" | "none" | "ripple";
 
 export const NEW_SESSION_TEXTURE_STORAGE_KEY = "vetta-new-session-texture";
 
@@ -36,6 +37,7 @@ export const NEW_SESSION_TEXTURE_CATALOG = [
 	{ id: "grid", labelKey: "textureGridTitle", hintKey: "textureGridHint" },
 	{ id: "aurora", labelKey: "textureAuroraTitle", hintKey: "textureAuroraHint" },
 	{ id: "ripple", labelKey: "textureRippleTitle", hintKey: "textureRippleHint" },
+	{ id: "doodle", labelKey: "textureDoodleTitle", hintKey: "textureDoodleHint" },
 ] as const satisfies readonly NewSessionTextureCatalogEntry[];
 
 export function isNewSessionTextureId(value: string | null | undefined): value is NewSessionTextureId {
@@ -62,6 +64,7 @@ export function setStoredNewSessionTextureId(id: NewSessionTextureId): void {
  */
 export const NEW_SESSION_TEXTURE_COMPONENTS: Record<NewSessionTextureId, ComponentType | null> = {
 	aurora: AuroraTexture,
+	doodle: DoodleTexture,
 	grid: NewSessionBackground,
 	none: null,
 	ripple: RippleTexture,

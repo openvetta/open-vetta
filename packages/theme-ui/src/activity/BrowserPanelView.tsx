@@ -1,3 +1,4 @@
+import { Button, ButtonGroup, ButtonGroupItem } from "@vetta-org/ui";
 import type { FormEvent, JSX, Ref } from "react";
 
 export interface BrowserPanelLabels {
@@ -37,29 +38,8 @@ export interface BrowserPanelViewProps {
 	onRetry: () => void;
 }
 
-function ToolbarButton({
-	icon,
-	title,
-	disabled,
-	onClick,
-}: {
-	icon: string;
-	title: string;
-	disabled?: boolean;
-	onClick: () => void;
-}): JSX.Element {
-	return (
-		<button
-			type="button"
-			title={title}
-			aria-label={title}
-			disabled={disabled}
-			onClick={onClick}
-			className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted-foreground/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
-		>
-			<span className={`${icon} h-4 w-4`} />
-		</button>
-	);
+function toolbarIcon(icon: string): JSX.Element {
+	return <span className={`${icon} text-[14px]`} />;
 }
 
 /**
@@ -96,35 +76,58 @@ export function BrowserPanelView({
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
-			<div className="flex shrink-0 items-center gap-1 border-b border-border/60 px-1.5 py-1.5">
-				<ToolbarButton icon="icon-[mdi--arrow-left]" title={labels.back} disabled={!canBack} onClick={onBack} />
-				<ToolbarButton
-					icon="icon-[mdi--arrow-right]"
-					title={labels.forward}
-					disabled={!canForward}
-					onClick={onForward}
-				/>
-				{loading ? (
-					<ToolbarButton icon="icon-[mdi--close]" title={labels.stop} onClick={onStop} />
-				) : (
-					<ToolbarButton icon="icon-[mdi--refresh]" title={labels.reload} onClick={onReload} />
-				)}
+			<div className="flex shrink-0 items-center gap-10 border-b border-border/60 px-3 py-1.5">
+				<ButtonGroup blur={false} className="shrink-0">
+					<ButtonGroupItem
+						icon={toolbarIcon("icon-[mdi--arrow-left]")}
+						title={labels.back}
+						aria-label={labels.back}
+						disabled={!canBack}
+						onClick={onBack}
+					/>
+					<ButtonGroupItem
+						icon={toolbarIcon("icon-[mdi--arrow-right]")}
+						title={labels.forward}
+						aria-label={labels.forward}
+						disabled={!canForward}
+						onClick={onForward}
+					/>
+					{loading ? (
+						<ButtonGroupItem
+							icon={toolbarIcon("icon-[mdi--close]")}
+							title={labels.stop}
+							aria-label={labels.stop}
+							onClick={onStop}
+						/>
+					) : (
+						<ButtonGroupItem
+							icon={toolbarIcon("icon-[mdi--refresh]")}
+							title={labels.reload}
+							aria-label={labels.reload}
+							onClick={onReload}
+						/>
+					)}
+				</ButtonGroup>
 				<form onSubmit={onAddressSubmit} className="min-w-0 flex-1">
+					{/* 地址栏按按钮组的胶囊皮自绘：同款填充色与全圆角，focus 不描边，与左右两组留出间距。 */}
 					<input
 						type="text"
 						value={address}
 						spellCheck={false}
 						placeholder={labels.addressPlaceholder}
 						onChange={(e) => onAddressChange(e.target.value)}
-						className="h-7 w-full rounded-md border border-transparent bg-transparent px-2.5 text-[12px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary/40 focus:bg-background"
+						className="h-8 w-full rounded-full bg-foreground/[0.06] px-3.5 text-[12px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/50 hover:bg-foreground/[0.08] dark:bg-white/[0.08] dark:hover:bg-white/[0.1]"
 					/>
 				</form>
-				<ToolbarButton
-					icon="icon-[mdi--open-in-new]"
-					title={labels.openExternal}
-					disabled={!currentUrl}
-					onClick={onOpenExternal}
-				/>
+				<ButtonGroup blur={false} className="shrink-0">
+					<ButtonGroupItem
+						icon={toolbarIcon("icon-[mdi--open-in-new]")}
+						title={labels.openExternal}
+						aria-label={labels.openExternal}
+						disabled={!currentUrl}
+						onClick={onOpenExternal}
+					/>
+				</ButtonGroup>
 			</div>
 
 			<div className="relative flex min-h-0 flex-1">
@@ -154,13 +157,9 @@ export function BrowserPanelView({
 					<div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-muted p-6 text-center">
 						<span className="icon-[mdi--alert-circle-outline] h-8 w-8 text-muted-foreground/40" />
 						<span className="text-[12px] text-muted-foreground/70">{labels.failed}</span>
-						<button
-							type="button"
-							onClick={onRetry}
-							className="rounded-md border border-border bg-background px-3 py-1 text-[12px] text-foreground transition-colors hover:bg-muted-foreground/10"
-						>
+						<Button variant="outline" size="sm" onClick={onRetry}>
 							{labels.retry}
-						</button>
+						</Button>
 					</div>
 				)}
 			</div>

@@ -1,14 +1,16 @@
 // @vitest-environment jsdom
 /**
  * 新会话页底衬按「设置 - 外观 - 纹理」的选择决定画哪一档：
- * 选「网格」（含未选过、存了脏值）时画网格那档，选「流光」「涟漪」时各画各的，
+ * 选「网格」（含未选过、存了脏值）时画网格那档，选「流光」「涟漪」「涂鸦」时各画各的，
  * 选「无」时整块背景什么都不画。
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@vetta-org/theme-ui/chat/NewSessionBackground", () => ({
+// 只替掉网格那个组件，遮罩常量走真值：涂鸦那档要复用它。
+vi.mock("@vetta-org/theme-ui/chat/NewSessionBackground", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@vetta-org/theme-ui/chat/NewSessionBackground")>()),
 	NewSessionBackground: () => <div data-testid="grid" />,
 }));
 
@@ -18,6 +20,10 @@ vi.mock("@shared/components/aurora/AuroraTexture", () => ({
 
 vi.mock("@shared/components/ripple/RippleTexture", () => ({
 	RippleTexture: () => <div data-testid="ripple" />,
+}));
+
+vi.mock("@shared/components/chat-doodle/DoodleTexture", () => ({
+	DoodleTexture: () => <div data-testid="doodle" />,
 }));
 
 const STORAGE_KEY = "vetta-new-session-texture";
@@ -70,6 +76,13 @@ describe("NewSessionBackground", () => {
 		await renderBackground("ripple");
 
 		expect(screen.getByTestId("ripple")).toBeTruthy();
+		expect(screen.queryByTestId("grid")).toBeNull();
+	});
+
+	it("选「涂鸦」时画那层细线图标", async () => {
+		await renderBackground("doodle");
+
+		expect(screen.getByTestId("doodle")).toBeTruthy();
 		expect(screen.queryByTestId("grid")).toBeNull();
 	});
 

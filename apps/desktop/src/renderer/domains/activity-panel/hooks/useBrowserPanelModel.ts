@@ -1,6 +1,7 @@
 import {
 	browserUrlByWorkspaceAtom,
 	getBrowserUrlForWorkspace,
+	resolvedThemeAtom,
 	setBrowserUrlForWorkspaceAtom,
 } from "@shared/store/atoms";
 import type { BrowserPanelLabels } from "@vetta-org/theme-ui/activity";
@@ -8,6 +9,7 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { type FormEvent, type Ref, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useActivityWorkspace } from "../registry/context";
+import { browserThemeCss } from "../services/browser-theme-css";
 
 /** 所有会话的内置浏览器共享一份持久 cookie/会话，登录一次到处复用。 */
 const BROWSER_PARTITION = "persist:vetta-browser";
@@ -22,6 +24,8 @@ interface WebviewElement extends HTMLElement {
 	stop(): void;
 	loadURL(url: string): Promise<void>;
 	getURL(): string;
+	insertCSS(css: string): Promise<string>;
+	removeInsertedCSS(key: string): Promise<void>;
 }
 
 /** 把地址栏输入规整为可加载的 URL：已带协议直接用，否则补 https://，空则返回 null。 */
@@ -58,6 +62,7 @@ export function useBrowserPanelModel(): BrowserPanelModel {
 	const { t } = useTranslation("chat");
 	const workspace = useActivityWorkspace();
 	const workspaceId = workspace.id;
+	const theme = useAtomValue(resolvedThemeAtom);
 	const urlMap = useAtomValue(browserUrlByWorkspaceAtom);
 	const targetUrl = getBrowserUrlForWorkspace(urlMap, workspaceId);
 	const setWorkspaceUrl = useSetAtom(setBrowserUrlForWorkspaceAtom);
@@ -65,12 +70,37 @@ export function useBrowserPanelModel(): BrowserPanelModel {
 	const webviewRef = useRef<WebviewElement | null>(null);
 	const readyRef = useRef(false);
 	const pendingRef = useRef<string | null>(null);
+	// guest 里当前生效的主题样式表 key，以及最新主题：注入发生在 dom-ready 与主题切换
+	// 两处，而事件绑定 effect 不随主题重建，所以主题经 ref 读取。
+	const injectedCssKeyRef = useRef<string | null>(null);
+	const themeRef = useRef(theme);
 	const [address, setAddress] = useState(targetUrl ?? "");
 	const [currentUrl, setCurrentUrl] = useState(targetUrl ?? "");
 	const [canBack, setCanBack] = useState(false);
 	const [canForward, setCanForward] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [failed, setFailed] = useState(false);
+
+	// 把宿主主题注入 guest，让滚动条等 UA 部件跟随深浅色；guest 每次重新加载都要重注。
+	const syncTheme = useCallback((): void => {
+		const el = webviewRef.current;
+		if (!el) return;
+		void (async () => {
+			try {
+				const key = await el.insertCSS(browserThemeCss(themeRef.current));
+				const staleKey = injectedCssKeyRef.current;
+				injectedCssKeyRef.current = key;
+				if (staleKey) await el.removeInsertedCSS(staleKey).catch(() => undefined);
+			} catch {
+				// guest 尚未就绪或正在销毁：等下一次 dom-ready / 主题切换再注入。
+			}
+		})();
+	}, []);
+
+	useEffect(() => {
+		themeRef.current = theme;
+		syncTheme();
+	}, [theme, syncTheme]);
 
 	// 绑定 webview 事件：导航/加载状态同步到工具栏与会话记忆。
 	useEffect(() => {
@@ -90,6 +120,7 @@ export function useBrowserPanelModel(): BrowserPanelModel {
 		};
 		const onReady = (): void => {
 			readyRef.current = true;
+			syncTheme();
 			const pending = pendingRef.current;
 			pendingRef.current = null;
 			if (pending && el.getURL() !== pending) void el.loadURL(pending).catch(() => setFailed(true));
@@ -133,7 +164,7 @@ export function useBrowserPanelModel(): BrowserPanelModel {
 			el.removeEventListener("did-navigate-in-page", onInPage);
 			el.removeEventListener("did-fail-load", onFail);
 		};
-	}, [workspaceId, setWorkspaceUrl]);
+	}, [workspaceId, setWorkspaceUrl, syncTheme]);
 
 	// 外部 targetUrl 变化（点会话链接 / 地址栏导航）→ 与当前页不同则加载；未就绪先挂起。
 	useEffect(() => {

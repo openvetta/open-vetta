@@ -35,6 +35,7 @@ function model(
 				changeMode: vi.fn(),
 				changeThemeName: vi.fn(),
 				setAppIcon: vi.fn(),
+				setChatBackground: vi.fn(),
 				selectUiTheme: vi.fn(),
 				setOrnament: vi.fn(),
 				setTexture: vi.fn(),
@@ -48,12 +49,18 @@ function model(
 			{ active: true, id: "default", label: "默认", preview: "default.png" },
 			{ active: false, id: "coding", label: "编程", preview: "coding.png" },
 		],
+		chatBackgroundId: "none",
+		chatBackgroundOptions: [
+			{ active: true, hint: "chatBackgroundNoneHint", id: "none", label: "无" },
+			{ active: false, hint: "chatBackgroundDoodleHint", id: "doodle", label: "涂鸦" },
+		],
 		labels: {
 			newSessionDecorHint: "newSessionDecorHint",
 			newSessionDecorTitle: "新会话页装饰",
 			ornamentHint: "ornamentHint",
 			sections: {
 				appIcon: "应用图标",
+				chatBackground: "聊天背景",
 				language: "语言",
 				mode: "外观模式",
 				ornament: "装饰件",
@@ -86,6 +93,29 @@ function model(
 		...overrides,
 	};
 }
+
+describe("AppearanceSettingsView 的聊天背景区域", () => {
+	it("与「主题颜色」同构：两档选择都直接铺在页面上，不用点开 popover", () => {
+		const view = render(<AppearanceSettingsView model={model()} />);
+
+		const headings = Array.from(view.container.querySelectorAll("h2")).map((h) => h.textContent?.trim());
+		expect(headings).toContain("聊天背景");
+		expect(view.getByTitle("chatBackgroundNoneHint").textContent).toContain("无");
+		// 涂鸦这档的预览就是对话页那层真纹路（内联 svg），不是另画的示意图。
+		const doodleCard = view.getByTitle("chatBackgroundDoodleHint");
+		expect(doodleCard.querySelector("svg")).not.toBeNull();
+	});
+
+	it("点涂鸦卡把选择交回模型，当前档的角标跟着走", async () => {
+		const setChatBackground = vi.fn();
+		const view = render(<AppearanceSettingsView model={model({ actions: { setChatBackground } })} />);
+
+		expect(view.getByTitle("chatBackgroundNoneHint").querySelector('[class*="mdi--check"]')).not.toBeNull();
+		await userEvent.click(view.getByTitle("chatBackgroundDoodleHint"));
+
+		expect(setChatBackground).toHaveBeenCalledWith("doodle");
+	});
+});
 
 describe("AppearanceSettingsView 的新会话页装饰区域", () => {
 	it("装饰件与纹理是「新会话页装饰」这一组里的两个设置项，选项收在 popover 里", () => {

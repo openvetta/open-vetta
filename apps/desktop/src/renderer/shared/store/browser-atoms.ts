@@ -1,6 +1,13 @@
 import { atom } from "jotai";
-import { activityPanelOpenAtom, activityPanelTabByProjectAtom, setActivityPanelWidthAtom } from "./activity-atoms";
+import {
+	activityPanelOpenAtom,
+	activityPanelTabByProjectAtom,
+	hiddenActivityTabsAtom,
+	setActivityPanelWidthAtom,
+} from "./activity-atoms";
 import { activeSessionAtom } from "./chat-atoms";
+
+const BROWSER_TAB_KEY = "browser";
 
 /**
  * 工作空间级内置浏览器：每个 workspace.id 当前预览的 URL。
@@ -19,7 +26,7 @@ export function getBrowserUrlForWorkspace(map: Map<string, string>, workspaceId:
 export const getBrowserUrlForSession = getBrowserUrlForWorkspace;
 
 /** 在显式工作空间打开 URL：写入预览地址 + 展开面板 + 切到浏览器 tab。 */
-export const openUrlInActivityWorkspaceAtom = atom(null, (_get, set, input: { workspaceId: string; url: string }) => {
+export const openUrlInActivityWorkspaceAtom = atom(null, (get, set, input: { workspaceId: string; url: string }) => {
 	set(browserUrlByWorkspaceAtom, (prev) => {
 		const next = new Map(prev);
 		next.set(input.workspaceId, input.url);
@@ -28,7 +35,19 @@ export const openUrlInActivityWorkspaceAtom = atom(null, (_get, set, input: { wo
 	set(activityPanelOpenAtom, true);
 	// 从消息链接展开浏览器时默认拉到最大宽度，给预览页面足够空间。
 	set(setActivityPanelWidthAtom, "max");
-	set(activityPanelTabByProjectAtom, (prev) => new Map(prev).set(input.workspaceId, "browser"));
+	// 用户把浏览器页签关进「+」之后，链接/端口预览仍要能把它带回来：
+	// 否则这里把激活 tab 设成 browser，面板打开了却看不到这个 tab。
+	const hiddenMap = get(hiddenActivityTabsAtom);
+	const hidden = hiddenMap.get(input.workspaceId);
+	if (hidden?.includes(BROWSER_TAB_KEY)) {
+		const next = new Map(hiddenMap);
+		next.set(
+			input.workspaceId,
+			hidden.filter((key) => key !== BROWSER_TAB_KEY),
+		);
+		set(hiddenActivityTabsAtom, next);
+	}
+	set(activityPanelTabByProjectAtom, (prev) => new Map(prev).set(input.workspaceId, BROWSER_TAB_KEY));
 });
 
 /** Ordinary-conversation adapter retained for callers that intentionally use activeSessionAtom. */

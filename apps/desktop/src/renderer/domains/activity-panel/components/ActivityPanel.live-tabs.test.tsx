@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { activityPanelOpenAtom, planModeStateBySessionAtom, todoItemsBySessionAtom } from "@shared/store/atoms";
+import {
+	activityPanelOpenAtom,
+	hiddenActivityTabsAtom,
+	openUrlInActivityWorkspaceAtom,
+	planModeStateBySessionAtom,
+	todoItemsBySessionAtom,
+} from "@shared/store/atoms";
 import { createActivityWorkspace } from "@shared/workspace/activity-workspace";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
@@ -59,6 +65,36 @@ describe("activity panel tabs driven by live session state", () => {
 		act(() => store.set(todoItemsBySessionAtom, new Map()));
 		expect(screen.queryByText("activityPanel.tabs.todo")).toBeNull();
 		expect(screen.queryByText("activityPanel.tabs.plan")).not.toBeNull();
+	});
+
+	// 浏览器是常驻页签：即便还没有地址，栏上也要有入口，用户才能手输地址把浏览器打开。
+	it("keeps the browser tab on the bar without a page", () => {
+		const store = createStore();
+		store.set(activityPanelOpenAtom, true);
+		render(
+			<Provider store={store}>
+				<ActivityPanel workspace={workspace} pluginScenario="project" />
+			</Provider>,
+		);
+		expect(screen.queryByText("browser.tab")).not.toBeNull();
+	});
+
+	// 用户把浏览器页签关掉后，点消息里的链接必须能把它带回来。
+	it("brings a closed browser tab back when a link is opened", () => {
+		const store = createStore();
+		store.set(activityPanelOpenAtom, true);
+		store.set(hiddenActivityTabsAtom, new Map([["/work/project", ["browser"]]]));
+		render(
+			<Provider store={store}>
+				<ActivityPanel workspace={workspace} pluginScenario="project" />
+			</Provider>,
+		);
+		expect(screen.queryAllByText("browser.tab")).toHaveLength(0);
+
+		act(() => {
+			store.set(openUrlInActivityWorkspaceAtom, { workspaceId: "/work/project", url: "https://example.com/a" });
+		});
+		expect(screen.queryAllByText("browser.tab").length).toBeGreaterThan(0);
 	});
 
 	// 端口只有「远端」才有。本机项目下这个 tab 不该占位，远程项目下它必须在——它同时是

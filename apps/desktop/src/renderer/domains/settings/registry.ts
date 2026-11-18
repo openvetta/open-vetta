@@ -102,6 +102,12 @@ export const SETTINGS_SECTIONS = [
 	{ tab: "appearance", id: "appearance-ui-theme", title: "界面主题", titleKey: "section_appearance-ui-theme" },
 	{ tab: "appearance", id: "appearance-theme", title: "主题", titleKey: "section_appearance-theme" },
 	{ tab: "appearance", id: "appearance-ui-zoom", title: "界面大小", titleKey: "section_appearance-ui-zoom" },
+	{
+		tab: "appearance",
+		id: "appearance-chat-background",
+		title: "聊天背景",
+		titleKey: "section_appearance-chat-background",
+	},
 	{ tab: "appearance", id: "appearance-ornament", title: "装饰件", titleKey: "section_appearance-ornament" },
 	{ tab: "appearance", id: "appearance-texture", title: "纹理", titleKey: "section_appearance-texture" },
 	{ tab: "appearance", id: "appearance-app-icon", title: "应用图标", titleKey: "section_appearance-app-icon" },
