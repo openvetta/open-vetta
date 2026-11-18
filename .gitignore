@@ -86,6 +86,7 @@ settings.local.json
 !.claude/hooks/check-file-lines.mjs
 !.claude/hooks/check-file-lines.test.mjs
 .codex/
+.pi/
 prompt/
 spec/
 !docs/agent/extension/spec/
