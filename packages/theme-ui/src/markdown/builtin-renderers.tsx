@@ -29,7 +29,12 @@ export function BuiltinCodeBlock(props: MarkdownCodeBlockProps) {
 			<CodeBlock.Root {...props}>
 				<CodeBlock.Copy>
 					<CodeBlock.Frame>
-						<Formula source={props.code} display live={props.live} />
+						{/* 公式块没有语言栏，内边距在这里补齐，保持与表格/代码正文同一左侧光学边线。 */}
+						<CodeBlock.Body>
+							<div className="py-3 pr-4 pl-5">
+								<Formula source={props.code} display live={props.live} />
+							</div>
+						</CodeBlock.Body>
 					</CodeBlock.Frame>
 				</CodeBlock.Copy>
 			</CodeBlock.Root>

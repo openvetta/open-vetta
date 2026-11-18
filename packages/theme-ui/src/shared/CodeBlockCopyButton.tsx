@@ -38,7 +38,7 @@ export function CodeBlockCopyButtonView({
 				onClick={handleCopy}
 				aria-label={copied ? labels.copied : labels.copy}
 				title={copied ? labels.copied : labels.copy}
-				className="absolute right-2 top-2 z-20 inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-[#30363d] bg-[#161b22]/95 text-[#c9d1d9] opacity-0 shadow-sm transition-opacity hover:bg-[#21262d] hover:text-white focus-visible:opacity-100 group-hover/code-block:opacity-100"
+				className="absolute right-2 top-2 z-20 inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-border/60 bg-background/90 text-muted-foreground opacity-0 shadow-sm transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 group-hover/code-block:opacity-100"
 			>
 				<span className={copied ? "icon-[mdi--check] h-4 w-4" : "icon-[solar--copy-linear] h-4 w-4"} />
 			</button>

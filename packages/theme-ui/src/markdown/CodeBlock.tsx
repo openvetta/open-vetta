@@ -54,28 +54,48 @@ export function CodeBlockCopy({ children }: { children: ReactNode }) {
 	);
 }
 
+/**
+ * 代码块外壳，与 `MarkdownTable` 共用一套「外框 + 内面板」设计：
+ * 外框铺一层淡淡的前景色并留 3px 内边距，底部内面板回到 `background` 并自己收圆角。
+ * 语言标记不画底色、不画分隔线，直接坐在外框上（圆角取外框的 12px），
+ * 与表格表头一致：表头与表体靠颜色深浅分层，而不是靠分割线。
+ */
 export function CodeBlockFrame({ className, ...props }: ComponentPropsWithoutRef<"div">) {
 	return (
 		<div
 			{...props}
-			className={["my-2 overflow-hidden rounded-lg border border-border bg-muted", className]
-				.filter(Boolean)
-				.join(" ")}
+			className={cn(
+				"my-3 rounded-xl border border-border/60 bg-[color-mix(in_srgb,var(--foreground)_8%,var(--background))] p-[3px] dark:bg-muted",
+				className,
+			)}
 		/>
+	);
+}
+
+/** 内面板：对应表格的 tbody 面板，圆角与外框同心（外框 12px 减去 3px 内边距）。 */
+export function CodeBlockBody({ className, ...props }: ComponentPropsWithoutRef<"div">) {
+	return (
+		<div {...props} className={cn("overflow-hidden rounded-[9px] bg-background", className)} />
 	);
 }
 
 export function CodeBlockLanguage() {
 	const { lang } = useCodeBlock();
 	return lang ? (
-		<div className="border-b border-border px-3 py-1 text-[10px] font-medium text-muted-foreground/50">{lang}</div>
+		<div className="px-4 py-2.5 text-[12px] font-medium text-muted-foreground/80">{lang}</div>
 	) : null;
+}
+
+function cn(...parts: Array<string | false | null | undefined>): string {
+	return parts.filter(Boolean).join(" ");
 }
 
 export function CodeBlockContent() {
 	const { code, lang, theme, live } = useCodeBlock();
 	return (
-		<SyntaxHighlightedCode code={code} lang={lang} theme={theme} fontSizeClass="text-[13px]" live={live} />
+		<CodeBlockBody>
+			<SyntaxHighlightedCode code={code} lang={lang} theme={theme} fontSizeClass="text-[13px]" live={live} />
+		</CodeBlockBody>
 	);
 }
 
@@ -96,6 +116,7 @@ export const CodeBlock = {
 	Root: CodeBlockRoot,
 	Copy: CodeBlockCopy,
 	Frame: CodeBlockFrame,
+	Body: CodeBlockBody,
 	Language: CodeBlockLanguage,
 	Content: CodeBlockContent,
 };

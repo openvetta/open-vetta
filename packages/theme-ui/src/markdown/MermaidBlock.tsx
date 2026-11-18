@@ -30,14 +30,14 @@ export const MermaidBlock = memo(function MermaidBlock(props: MarkdownCodeBlockP
 	const current = result?.key === key ? result : undefined;
 	const image = current?.svg ? svgImageSource(current.svg) : null;
 	return <CodeBlock.Root {...props}><CodeBlock.Copy><CodeBlock.Frame><div ref={ref}>
-		<div className="flex items-center gap-2 border-b border-border px-3 py-1 pr-12">
+		<div className="flex items-center gap-2 py-1.5 pr-12 pl-4">
 			<span className="text-[12px] text-muted-foreground">Mermaid</span>
 			<Button variant="ghost" size="sm" aria-pressed={source} onClick={() => setSource(!source)}>{source ? labels.preview : labels.source}</Button>
 			{current?.svg === null && <Button variant="ghost" size="sm" onClick={() => { setResult(undefined); setAttempt((value) => value + 1); }}>{labels.retry ?? "Retry"}</Button>}
 		</div>
 		{source || live || oversized || !host || current?.svg === null ? <>
-			{!source && <p role="status" className="px-3 py-2 text-[12px] text-muted-foreground">{oversized ? labels.tooLarge : live ? labels.waiting : labels.failed}</p>}
+			{!source && <p role="status" className="px-4 pb-2 text-[12px] text-muted-foreground">{oversized ? labels.tooLarge : live ? labels.waiting : labels.failed}</p>}
 			<CodeBlock.Content />
-		</> : image ? <div className="p-3"><MarkdownImage src={image} alt={labels.diagram ?? "Diagram"} labels={props.labels} /></div> : <div className="min-h-24 p-3" role="status">{labels.loading ?? labels.waiting}</div>}
+		</> : image ? <CodeBlock.Body><div className="p-4"><MarkdownImage src={image} alt={labels.diagram ?? "Diagram"} labels={props.labels} /></div></CodeBlock.Body> : <CodeBlock.Body><div className="min-h-24 p-4" role="status">{labels.loading ?? labels.waiting}</div></CodeBlock.Body>}
 	</div></CodeBlock.Frame></CodeBlock.Copy></CodeBlock.Root>;
 });
