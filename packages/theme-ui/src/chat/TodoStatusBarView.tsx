@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { type JSX, useState } from "react";
-import { cn } from "@vetta-org/ui/utils";
+import { cn, FROSTED_SURFACE_CLASS } from "@vetta-org/ui/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@vetta-org/ui/popover";
 import { ThemeSurface } from "../appearance/ThemeSurface";
 import {
@@ -92,6 +92,8 @@ export function TodoStatusBarView({
 							align="start"
 							sideOffset={8}
 							className={cn(
+								// 外观跟模型选择弹层一致：沿用 FLOATING_SURFACE_CLASS 的外投影与深色细线，只把底色换成同款毛玻璃。
+								FROSTED_SURFACE_CLASS,
 								"w-[min(22rem,calc(100vw-2rem))] overflow-visible p-0",
 								classNames?.content,
 							)}
@@ -130,7 +132,7 @@ export function TodoStatusBarView({
 												setOpen(false);
 												onOpenPanel();
 											}}
-											className="flex shrink-0 items-center justify-center gap-1 border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+											className="flex shrink-0 items-center justify-center gap-1 px-3 pb-2 pt-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
 										>
 											<span aria-hidden className="icon-[solar--arrow-right-up-linear] h-3 w-3" />
 											{labels.openPanel}

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { FROSTED_SURFACE_CLASS } from "@vetta-org/ui/utils";
 import { act, createElement, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -47,7 +48,8 @@ vi.mock("@shared/components/ui/popover", () => ({
 		contextRingCapture.onOpenChange = onOpenChange ?? null;
 		return createElement("div", null, children);
 	},
-	PopoverContent: ({ children }: { children: ReactNode }) => createElement("section", null, children),
+	PopoverContent: ({ children, className }: { children: ReactNode; className?: string }) =>
+		createElement("section", { className }, children),
 	PopoverTitle: ({ children }: { children: ReactNode }) => createElement("h2", null, children),
 	PopoverTrigger: ({ children }: { children: ReactNode }) => createElement("div", null, children),
 }));
@@ -70,6 +72,22 @@ describe("ContextRing", () => {
 
 		expect(container.textContent).toContain("contextRing.details.unavailableAfterRestart");
 		expect(contextRingCapture.includeDetails).toHaveLength(0);
+
+		await unmount();
+	});
+
+	it("renders the popover with the model selector's frosted surface", async () => {
+		// 上下文构成弹层与模型选择弹层同一层皮：毛玻璃底色，外投影和深色细线由 PopoverContent 自带。
+		const { container, unmount } = render();
+		await act(async () => contextRingCapture.onOpenChange?.(true));
+
+		const section = container.querySelector<HTMLElement>("section");
+		expect(section).not.toBeNull();
+		const tokens = new Set((section?.className ?? "").split(/\s+/));
+		for (const token of FROSTED_SURFACE_CLASS.split(/\s+/)) {
+			expect(tokens.has(token)).toBe(true);
+		}
+		expect(tokens.has("p-0")).toBe(true);
 
 		await unmount();
 	});

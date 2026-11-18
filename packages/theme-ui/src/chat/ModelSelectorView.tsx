@@ -9,7 +9,7 @@ import type {
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Popover, PopoverContent, PopoverTrigger } from "@vetta-org/ui/popover";
-import { cn } from "@vetta-org/ui/utils";
+import { cn, FROSTED_SURFACE_CLASS } from "@vetta-org/ui/utils";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@vetta-org/ui/dropdown-menu";
 import { ThemeSurface } from "../appearance/ThemeSurface";
 import { MultiplierTag } from "../shared/MultiplierTag";
@@ -468,11 +468,8 @@ export function ModelSelectorView({
 				// 三栏后菜单较宽，贴着窗口右缘放会被推到边上；留出边距让它整体往左收。
 				collisionPadding={16}
 				className={cn(
-					// 毛玻璃：半透明的主题底色 + 背景模糊，真正透出面板背后的内容（只留柔和的轮廓）。
-					// 底色仍用主题的 background 变量，搜索行等没有自己底色的子元素因此和面板融成一块；
-					// 不要再叠自绘的描边/高光去"假装"玻璃。
-					"w-auto min-w-[180px] max-w-[calc(100vw-2rem)] overflow-visible bg-background/40 p-0 backdrop-blur-2xl backdrop-saturate-150 dark:bg-background/75 dark:backdrop-brightness-50",
-					// 深色下背后若是大块白色内容，透出来会很刺眼：抬高底色不透明度并压暗背景亮度。
+					FROSTED_SURFACE_CLASS,
+					"w-auto min-w-[180px] max-w-[calc(100vw-2rem)] overflow-visible p-0",
 					classNames?.content,
 				)}
 			>

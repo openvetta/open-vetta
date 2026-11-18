@@ -31,3 +31,14 @@ export const PANEL_SHADOW_CLASS = "shadow-[0_16px_40px_-12px_rgb(0_0_0/0.10),0_2
 // 深色模式下投影几乎看不见，面板底色又与页面背景只差十几档灰阶，没有边框就会糊在一起，
 // 所以深色补一圈极淡的 1px 描边（浅色模式仍然无线）。
 export const FLOATING_SURFACE_CLASS = `rounded-2xl bg-popover text-popover-foreground dark:ring-1 dark:ring-white/10 ${PANEL_SHADOW_CLASS}`;
+
+/**
+ * 毛玻璃浮层底色：半透明的主题底色 + 背景模糊，真正透出面板背后的内容，只留柔和的轮廓。
+ * 底色仍用主题的 background 变量，搜索行等没有自己底色的子元素因此和面板融成一块；
+ * 不要再叠自绘的描边/高光去“假装”玻璃。
+ * 深色下抬高底色不透明度并压暗背景亮度，否则背后的大块亮色透出来会很刺眼。
+ *
+ * 用在 FLOATING_SURFACE_CLASS 之后：`bg-background/40` 会盖掉其中的 `bg-popover`。
+ */
+export const FROSTED_SURFACE_CLASS =
+	"bg-background/40 backdrop-blur-2xl backdrop-saturate-150 dark:bg-background/75 dark:backdrop-brightness-50";
