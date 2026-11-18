@@ -121,6 +121,60 @@ it("已发送的成员 mention 复用输入框 Token 并使用深浅模式语义
 	expect(screen.getByText("请").tagName).toBe("STRONG");
 });
 
+it("长消息展开后移除气泡底部的渐变和按钮", async () => {
+	const scrollHeight = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(900);
+	const clientHeight = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(320);
+	try {
+		const user = userEvent.setup();
+		render(<UserMessage message={createConversationUserMessage({ id: "long-message", text: "长消息\n\n".repeat(50) })} />);
+		const expand = await screen.findByRole("button", { name: "messageList.userMessage.expand" });
+		const fade = expand.closest("[data-user-message-expand-fade]");
+		expect(fade?.closest('[data-message-visual="outgoingbubble"]')).toBeTruthy();
+		await user.click(expand);
+		expect(fade?.isConnected).toBe(false);
+		expect(screen.getAllByText("长消息")).toHaveLength(50);
+	} finally {
+		scrollHeight.mockRestore();
+		clientHeight.mockRestore();
+	}
+});
+
+it("图片附件与随附正文留出间距，只有正文时不增加顶部留白", () => {
+	const withImage = createConversationUserMessage({
+		id: "with-image",
+		text: "随附正文",
+		attachments: [{ kind: "image", path: "/workspace/example.png" }],
+	});
+	const { rerender } = render(<UserMessage message={withImage} />);
+	const bubble = screen.getByText("随附正文").closest('[data-message-visual="outgoingbubble"]');
+	expect(screen.getByRole("img")).toBeTruthy();
+	expect(bubble?.classList.contains("mt-2")).toBe(true);
+
+	rerender(<UserMessage message={createConversationUserMessage({ id: "text-only", text: "只有正文" })} />);
+	const textOnly = screen.getByText("只有正文").closest('[data-message-visual="outgoingbubble"]');
+	expect(textOnly?.classList.contains("mt-2")).toBe(false);
+});
+
+it("发送包含正文、表格和代码的 Markdown 时，富内容保留独立的主题面板", () => {
+	render(
+		<UserMessage
+			message={createConversationUserMessage({
+				id: "rich-markdown",
+				text: "正文 **强调**\n\n| 指标 | 值 |\n| --- | --- |\n| 人数 | **42** |\n\n```text\nexample\n```",
+			})}
+		/>,
+	);
+
+	const prose = screen.getByText("强调");
+	const bubble = prose.closest('[data-message-visual="outgoingbubble"]');
+	const tableFrame = screen.getByRole("table").closest("[data-md-table-frame]");
+	const codeFrame = screen.getByText("example").closest("[data-md-code-frame]");
+	expect(tableFrame && bubble?.contains(tableFrame)).toBe(true);
+	expect(codeFrame && bubble?.contains(codeFrame)).toBe(true);
+	expect(screen.getByText("42").closest("[data-md-table-frame]")).toBe(tableFrame);
+	expect(prose.closest("[data-md-table-frame], [data-md-code-frame]")).toBeNull();
+});
+
 it("普通 Markdown 中手敲的 @handle 不会被猜测为成员 Token", () => {
 	const { container } = render(
 		<UserMessage

@@ -1339,7 +1339,29 @@
   "textureDoodleHint": "The dense field of hairline icons from the chat page, all tinted by one shared color gradient.",
   "newSessionDecorTitle": "New session page decoration",
   "newSessionDecorHint": "New session page only: the ornament sits above the composer; the texture is the page backdrop.",
-  "section_appearance-chat-background": "Chat background",
+  "section_appearance-chat-background": "Chat appearance",
+  "chatAppearanceBackground": "Chat background",
+  "userBubbleShape": "Bubble shape",
+  "userBubbleColor": "Bubble color",
+  "userBubbleWeight": "Message font weight",
+  "userBubbleWeights": {
+    "default": "Default",
+    "medium": "Medium",
+    "semibold": "Semibold"
+  },
+  "userBubblePreview": "This is how your messages will look.",
+  "userBubbleShapes": {
+    "default": "Default",
+    "chat": "Chat bubble"
+  },
+  "userBubbleColors": {
+    "default": "Default",
+    "blue": "Blue",
+    "yellow": "Yellow",
+    "green": "Green",
+    "purple": "Purple",
+    "pink": "Pink"
+  },
   "chatBackgroundNoneTitle": "None",
   "chatBackgroundNoneHint": "Nothing painted behind the page — just its own tint.",
   "chatBackgroundDoodleTitle": "Doodle",

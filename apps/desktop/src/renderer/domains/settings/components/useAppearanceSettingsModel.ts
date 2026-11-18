@@ -72,7 +72,6 @@ export interface AppearanceOrnamentOption {
 }
 
 export interface AppearanceChatBackgroundOption {
-	active: boolean;
 	hint: string;
 	id: ChatBackgroundId;
 	label: string;
@@ -116,7 +115,6 @@ export interface AppearanceSettingsModel {
 		ornamentHint: string;
 		sections: {
 			appIcon: string;
-			chatBackground: string;
 			language: string;
 			mode: string;
 			ornament: string;
@@ -301,11 +299,10 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 		() =>
 			CHAT_BACKGROUND_CATALOG.map((entry) => ({
 				id: entry.id,
-				active: backgroundId === entry.id,
 				label: t(entry.labelKey),
 				hint: t(entry.hintKey),
 			})),
-		[backgroundId, t],
+		[t],
 	);
 
 	const textureOptions = useMemo<AppearanceTextureOption[]>(
@@ -338,7 +335,6 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 			ornamentHint: t("ornamentHint"),
 			sections: {
 				appIcon: t(SETTINGS_SECTION["appearance-app-icon"].titleKey),
-				chatBackground: t(SETTINGS_SECTION["appearance-chat-background"].titleKey),
 				language: t(SETTINGS_SECTION["appearance-language"].titleKey),
 				mode: t(SETTINGS_SECTION["appearance-mode"].titleKey),
 				ornament: t(SETTINGS_SECTION["appearance-ornament"].titleKey),

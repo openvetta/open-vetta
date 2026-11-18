@@ -5,6 +5,10 @@
  */
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useChatBackground } from "@shared/hooks/useChatBackground";
+import { CHAT_BACKGROUND_STORAGE_KEY } from "@shared/theme/chat-background";
+import { applyInitialUserBubbleAppearance, USER_BUBBLE_PALETTE } from "@shared/theme/user-bubble-appearance";
+import { createStore, Provider } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 import type { AppearanceSettingsModel } from "./useAppearanceSettingsModel";
 
@@ -51,8 +55,8 @@ function model(
 		],
 		chatBackgroundId: "none",
 		chatBackgroundOptions: [
-			{ active: true, hint: "chatBackgroundNoneHint", id: "none", label: "无" },
-			{ active: false, hint: "chatBackgroundDoodleHint", id: "doodle", label: "涂鸦" },
+			{ hint: "chatBackgroundNoneHint", id: "none", label: "无" },
+			{ hint: "chatBackgroundDoodleHint", id: "doodle", label: "涂鸦" },
 		],
 		labels: {
 			newSessionDecorHint: "newSessionDecorHint",
@@ -60,7 +64,6 @@ function model(
 			ornamentHint: "ornamentHint",
 			sections: {
 				appIcon: "应用图标",
-				chatBackground: "聊天背景",
 				language: "语言",
 				mode: "外观模式",
 				ornament: "装饰件",
@@ -94,26 +97,75 @@ function model(
 	};
 }
 
-describe("AppearanceSettingsView 的聊天背景区域", () => {
-	it("与「主题颜色」同构：两档选择都直接铺在页面上，不用点开 popover", () => {
-		const view = render(<AppearanceSettingsView model={model()} />);
+function AppearanceWithChatBackground() {
+	const { backgroundId, setBackground } = useChatBackground();
+	return <AppearanceSettingsView model={model({ chatBackgroundId: backgroundId, actions: { setChatBackground: setBackground } })} />;
+}
 
-		const headings = Array.from(view.container.querySelectorAll("h2")).map((h) => h.textContent?.trim());
-		expect(headings).toContain("聊天背景");
-		expect(view.getByTitle("chatBackgroundNoneHint").textContent).toContain("无");
-		// 涂鸦这档的预览就是对话页那层真纹路（内联 svg），不是另画的示意图。
-		const doodleCard = view.getByTitle("chatBackgroundDoodleHint");
-		expect(doodleCard.querySelector("svg")).not.toBeNull();
-	});
+describe("AppearanceSettingsView 的聊天外观区域", () => {
+	it("预览聊天背景，独立切换气泡形状、颜色和字重并恢复气泡偏好", async () => {
+		const root = document.documentElement;
+		const user = userEvent.setup();
+		const openSettings = () => render(<Provider store={createStore()}><AppearanceWithChatBackground /></Provider>);
+		applyInitialUserBubbleAppearance();
+		try {
+			const settings = openSettings();
+			const shape = settings.getByRole("button", { name: "userBubbleShape" });
+			const color = settings.getByRole("button", { name: "userBubbleColor" });
+			const preview = settings.getByText("userBubblePreview");
+			expect(preview.closest('[data-message-visual="outgoingbubble"]')).not.toBeNull();
+			const section = preview.closest('[data-setting-section-id="appearance-chat-background"]');
+			expect(settings.getByRole("heading", { name: "section_appearance-chat-background" })).toBeTruthy();
+			expect(section?.querySelector("svg pattern")).toBeNull();
+			await user.click(settings.getByRole("button", { name: "chatAppearanceBackground" }));
+			await user.click(settings.getByRole("button", { name: "涂鸦" }));
+			expect(section?.querySelector("svg pattern")).not.toBeNull();
+			expect(localStorage.getItem(CHAT_BACKGROUND_STORAGE_KEY)).toBe("doodle");
+			expect(root.dataset.userBubbleShape).toBe("default");
+			expect(root.style.getPropertyValue("--user-bubble-bg")).toBe("");
 
-	it("点涂鸦卡把选择交回模型，当前档的角标跟着走", async () => {
-		const setChatBackground = vi.fn();
-		const view = render(<AppearanceSettingsView model={model({ actions: { setChatBackground } })} />);
+			await user.click(shape);
+			await user.click(settings.getByRole("button", { name: "userBubbleShapes.chat" }));
+			expect(root.dataset.userBubbleShape).toBe("chat");
+			expect(color.textContent).toContain("userBubbleColors.default");
 
-		expect(view.getByTitle("chatBackgroundNoneHint").querySelector('[class*="mdi--check"]')).not.toBeNull();
-		await userEvent.click(view.getByTitle("chatBackgroundDoodleHint"));
+			await user.click(color);
+			await user.click(settings.getByRole("button", { name: "userBubbleColors.yellow" }));
+			expect(root.dataset.userBubbleShape).toBe("chat");
+			expect(root.style.getPropertyValue("--user-bubble-bg")).toBe(USER_BUBBLE_PALETTE.yellow.background);
+			expect(root.style.getPropertyValue("--user-bubble-fg")).toBe(USER_BUBBLE_PALETTE.yellow.foreground);
+			await user.click(settings.getByRole("button", { name: "userBubbleWeight" }));
+			await user.click(settings.getByRole("button", { name: "userBubbleWeights.semibold" }));
+			expect(root.dataset.userBubbleWeight).toBe("semibold");
+			settings.unmount();
 
-		expect(setChatBackground).toHaveBeenCalledWith("doodle");
+			delete root.dataset.userBubbleShape;
+			delete root.dataset.userBubbleWeight;
+			root.style.removeProperty("--user-bubble-bg");
+			applyInitialUserBubbleAppearance();
+			const reopened = openSettings();
+			expect(reopened.getByRole("button", { name: "userBubbleWeight" }).textContent).toContain("userBubbleWeights.semibold");
+			expect(root.dataset.userBubbleWeight).toBe("semibold");
+			expect(reopened.getByRole("button", { name: "userBubbleShape" }).textContent).toContain("userBubbleShapes.chat");
+			expect(reopened.getByRole("button", { name: "userBubbleColor" }).textContent).toContain("userBubbleColors.yellow");
+			expect(root.dataset.userBubbleShape).toBe("chat");
+			expect(root.style.getPropertyValue("--user-bubble-bg")).toBe(USER_BUBBLE_PALETTE.yellow.background);
+
+			await user.click(reopened.getByRole("button", { name: "userBubbleShape" }));
+			await user.click(reopened.getByRole("button", { name: "userBubbleShapes.default" }));
+			expect(root.dataset.userBubbleShape).toBe("default");
+			expect(root.dataset.userBubbleColor).toBe("yellow");
+			await user.click(reopened.getByRole("button", { name: "userBubbleColor" }));
+			await user.click(reopened.getByRole("button", { name: "userBubbleColors.default" }));
+			expect(root.dataset.userBubbleColor).toBe("default");
+			expect(root.style.getPropertyValue("--user-bubble-bg")).toBe("");
+			expect(root.style.getPropertyValue("--user-bubble-fg")).toBe("");
+			expect(root.dataset.userBubbleWeight).toBe("semibold");
+		} finally {
+			localStorage.removeItem(CHAT_BACKGROUND_STORAGE_KEY);
+			localStorage.removeItem("vetta-user-bubble-appearance");
+			applyInitialUserBubbleAppearance();
+		}
 	});
 });
 

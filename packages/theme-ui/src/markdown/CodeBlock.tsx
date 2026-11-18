@@ -64,6 +64,7 @@ export function CodeBlockFrame({ className, ...props }: ComponentPropsWithoutRef
 	return (
 		<div
 			{...props}
+			data-md-code-frame=""
 			className={cn(
 				"my-3 rounded-xl border border-border/60 bg-[color-mix(in_srgb,var(--foreground)_8%,var(--background))] p-[3px] dark:bg-muted",
 				className,
