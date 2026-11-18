@@ -81,7 +81,7 @@ export const DefaultSessionRowView = memo(function DefaultSessionRowView({
 				? "icon-[mdi--source-fork]"
 				: pinned
 					? "icon-[solar--pin-linear] text-primary/80"
-					: iconClassName ?? "icon-[solar--chat-round-line-linear]";
+					: iconClassName;
 	return (
 		<div className="group/session-row relative">
 			<button
@@ -121,7 +121,7 @@ export const DefaultSessionRowView = memo(function DefaultSessionRowView({
 					>
 						{showTagDots ? (
 							<ConversationTagDotsView colors={tagColors} />
-						) : (
+						) : leadingIconClassName ? (
 							<span
 								data-session-leading-icon="true"
 								aria-hidden="true"
@@ -131,7 +131,7 @@ export const DefaultSessionRowView = memo(function DefaultSessionRowView({
 									active ? "text-foreground/70" : "text-muted-foreground/50",
 								)}
 							/>
-						)}
+						) : null}
 						<SessionTitleMarquee
 							className={cn(
 								"text-[13px]",

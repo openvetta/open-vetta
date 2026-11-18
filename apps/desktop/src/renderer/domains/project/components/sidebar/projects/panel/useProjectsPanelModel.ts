@@ -42,9 +42,8 @@ const activeSessionCwdAtom = selectAtom(activeSessionAtom, (session) => session?
 const pendingSessionPathAtom = selectAtom(pendingSessionOpenAtom, (session) => session?.sessionPath ?? "");
 
 export function useProjectsPanelModel({
-	filter,
 	onOpenSession,
-}: Pick<ProjectsPanelProps, "filter" | "onOpenSession">): ProjectsPanelModel {
+}: Pick<ProjectsPanelProps, "onOpenSession">): ProjectsPanelModel {
 	const { t } = useTranslation("project");
 	const {
 		projects,
@@ -156,16 +155,14 @@ export function useProjectsPanelModel({
 		[visibleBatchProjects],
 	);
 
-	const showBatchGroup = filter === "all" || filter === "batch";
 	const defaultProject = useMemo(() => projects.find((project) => project.isDefault), [projects]);
 	// 默认区的会话来源 cwd：claw 过滤读 im-gateway 自己的 cwd（ADR-0005），
 	// 与 defaultProject.cwd 是两个物理目录，选中 / 重命名都必须用这个值。
 	const defaultSessionsCwd = defaultConversationSource === "claw" ? imCwd : defaultProject?.cwd;
-	const filteredProjects = useMemo(() => {
-		const visible = projects.filter((project) => project.type !== "batch" && !project.isDefault);
-		if (filter === "all") return visible;
-		return visible.filter((project) => project.type === filter);
-	}, [projects, filter]);
+	const userProjects = useMemo(
+		() => projects.filter((project) => project.type !== "batch" && !project.isDefault),
+		[projects],
+	);
 
 	const navigateProject = useCallback(
 		(cwd: string) => {
@@ -483,8 +480,6 @@ export function useProjectsPanelModel({
 
 	const isProjectActive = useCallback((cwd: string) => activeProjectCandidates.has(cwd), [activeProjectCandidates]);
 
-	const noOtherProjects = filteredProjects.length === 0 && (!showBatchGroup || batchAsProjects.length === 0);
-
 	useEffect(() => {
 		if (defaultConversationSource === "claw" && imCwd) {
 			void loadSessions(imCwd);
@@ -505,7 +500,7 @@ export function useProjectsPanelModel({
 	);
 	const projectSidebarSessions = useMemo(() => {
 		const result = new Map<string, SidebarConversationInfo[]>();
-		for (const project of filteredProjects) {
+		for (const project of userProjects) {
 			result.set(
 				project.cwd,
 				projectSidebarConversations(sessionsMap.get(project.cwd) ?? EMPTY_SESSIONS, teamSidebar.conversations, {
@@ -515,7 +510,7 @@ export function useProjectsPanelModel({
 			);
 		}
 		return result;
-	}, [filteredProjects, sessionsMap, teamSidebar.conversations]);
+	}, [userProjects, sessionsMap, teamSidebar.conversations]);
 	useEffect(() => {
 		if (!activeTeamSessionId) return;
 		for (const [cwd, sessions] of projectSidebarSessions) {
@@ -544,13 +539,11 @@ export function useProjectsPanelModel({
 			(defaultConversationSource === "conversation" && teamSidebar.loading),
 		expandedBatchProjects,
 		expandedProjects,
-		filteredProjects,
+		userProjects,
 		imCwd,
-		noOtherProjects,
 		projectSessions: (cwd) => projectSidebarSessions.get(cwd) ?? [],
 		projectSessionsLoading: (cwd) => (sessionLoadingCwds.has(cwd) && !sessionsMap.has(cwd)) || teamSidebar.loading,
 		projectsLoading: !projectsInitialized,
-		showBatchGroup,
 		actions: {
 			archiveProject: (cwd) => {
 				void archiveProject(cwd);

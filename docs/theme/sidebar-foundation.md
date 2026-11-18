@@ -12,7 +12,6 @@ apps/desktop/src/renderer/domains/project/components/sidebar/
   SidebarTopBar.tsx
   SidebarNavigation.tsx
   SidebarNavItemButton.tsx
-  SidebarProjectsSection.tsx
   SidebarBottomBar.tsx
   types.ts
   useSidebarModel.ts
@@ -253,8 +252,8 @@ SidebarTopBar
 SidebarNavigation
   导航区、选中指示器、导航按钮
 
-SidebarProjectsSection
-  过滤器、新建项目、项目列表容器
+ProjectsPanel
+  项目折叠区、新建项目、默认对话列表
 
 SidebarBottomBar
   设置菜单、消息中心入口
@@ -267,7 +266,7 @@ add-project/
   新建项目菜单
 
 filters/
-  侧边栏过滤器
+  默认对话筛选器
 
 message-center/
   消息中心触发器、弹层、tab、列表

@@ -55,7 +55,7 @@ describe("useProjectsPanelModel.defaultNewSession", () => {
 		const store = getDefaultStore();
 		store.set(defaultConversationFilterAtom, tagConversationFilter("t1"));
 		const { result } = renderHook(() =>
-			useProjectsPanelModel({ filter: "all", onOpenSession: vi.fn() }),
+			useProjectsPanelModel({ onOpenSession: vi.fn() }),
 		);
 
 		result.current.actions.defaultNewSession("/repo/a");

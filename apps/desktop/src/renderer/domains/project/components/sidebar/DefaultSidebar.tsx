@@ -2,7 +2,7 @@ import { DefaultSidebar as ThemeDefaultSidebar } from "@vetta-org/theme-ui/sideb
 import { useTranslation } from "react-i18next";
 import type { SidebarModel, SidebarProps } from "./types";
 import { SidebarBottomBar } from "./SidebarBottomBar";
-import { SidebarProjectsSection } from "./SidebarProjectsSection";
+import { ProjectsPanel } from "./projects/panel/ProjectsPanel";
 import { SidebarTopBar } from "./SidebarTopBar";
 import { useDeferredSidebarProjects } from "./useDeferredSidebarProjects";
 
@@ -45,12 +45,9 @@ export function DefaultSidebar({ classNames, model, onOpenSession }: DefaultSide
 			}
 			projects={
 				projectsReady ? (
-					<SidebarProjectsSection
-						classNames={{
-							list: classNames?.projectsList,
-							toolbar: classNames?.projectsToolbar,
-						}}
-						filter={model.filter}
+					<ProjectsPanel
+						defaultSessionListClassName={classNames?.projectsList}
+						projectsToolbarClassName={classNames?.projectsToolbar}
 						onOpenSession={onOpenSession}
 					/>
 				) : null

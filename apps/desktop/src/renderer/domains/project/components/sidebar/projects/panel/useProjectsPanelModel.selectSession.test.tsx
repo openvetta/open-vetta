@@ -94,7 +94,7 @@ describe("useProjectsPanelModel.selectSession", () => {
 		useProjectsMock.mockReturnValue(projectsState(new Map([[cwd, [makeSession("s1", cwd)]]])));
 		const onOpenSession = vi.fn().mockResolvedValue(undefined);
 		const { result, rerender } = renderHook(() =>
-			useProjectsPanelModel({ filter: "all", onOpenSession }),
+			useProjectsPanelModel({ onOpenSession }),
 		);
 		const first = result.current.actions.selectSession;
 
@@ -111,7 +111,7 @@ describe("useProjectsPanelModel.selectSession", () => {
 		useProjectsMock.mockReturnValue(projectsState(new Map([[cwd, [makeSession("s1", cwd)]]])));
 		const onOpenSession = vi.fn().mockResolvedValue(undefined);
 		const { result, rerender } = renderHook(() =>
-			useProjectsPanelModel({ filter: "all", onOpenSession }),
+			useProjectsPanelModel({ onOpenSession }),
 		);
 		const select = result.current.actions.selectSession;
 
@@ -149,7 +149,7 @@ describe("useProjectsPanelModel.selectSession", () => {
 		waitForCommittedPaintSpy.mockReturnValueOnce(paint.promise);
 		useProjectsMock.mockReturnValue(projectsState(new Map()));
 		const onOpenSession = vi.fn().mockResolvedValue(undefined);
-		const { result } = renderHook(() => useProjectsPanelModel({ filter: "all", onOpenSession }));
+		const { result } = renderHook(() => useProjectsPanelModel({ onOpenSession }));
 
 		act(() => {
 			result.current.actions.selectSession(cwd, {
@@ -197,7 +197,7 @@ describe("useProjectsPanelModel.selectSession", () => {
 		];
 		useProjectsMock.mockReturnValue(projectsState(new Map([[cwd, [target]]])));
 		const onOpenSession = vi.fn().mockReturnValue(opened.promise);
-		const { result } = renderHook(() => useProjectsPanelModel({ filter: "all", onOpenSession }));
+		const { result } = renderHook(() => useProjectsPanelModel({ onOpenSession }));
 
 		act(() => {
 			result.current.actions.selectSession(cwd, { ...target, kind: "conversation" });
@@ -235,7 +235,7 @@ describe("useProjectsPanelModel.selectSession", () => {
 		useProjectsMock.mockReturnValue(projectsState(new Map([[cwd, [makeSession("old", cwd), makeSession("next", cwd)]]])));
 		getDefaultStore().set(activeSessionAtom, { cwd, sessionPath: "old", runtimeId: "runtime-old" });
 		const onOpenSession = vi.fn().mockResolvedValue(undefined);
-		const { result } = renderHook(() => useProjectsPanelModel({ filter: "all", onOpenSession }));
+		const { result } = renderHook(() => useProjectsPanelModel({ onOpenSession }));
 
 		act(() => result.current.actions.selectSession(cwd, { ...makeSession("next", cwd), kind: "conversation" }));
 		expect(result.current.activeSessionPath).toBe("next");
@@ -260,7 +260,7 @@ describe("useProjectsPanelModel.selectSession", () => {
 		const onOpenSession = vi.fn(async () => {
 			getDefaultStore().set(activeSessionAtom, { cwd, sessionPath: "next", runtimeId: "runtime-next" });
 		});
-		const { result } = renderHook(() => useProjectsPanelModel({ filter: "all", onOpenSession }));
+		const { result } = renderHook(() => useProjectsPanelModel({ onOpenSession }));
 		expect(result.current.activeSessionPath).toBe("old");
 
 		act(() => result.current.actions.selectSession(cwd, { ...makeSession("next", cwd), kind: "conversation" }));
@@ -283,7 +283,7 @@ describe("useProjectsPanelModel.selectSession", () => {
 			getDefaultStore().set(pendingSessionOpenAtom, { cwd, sessionPath: "legacy", interactionId: "migration" });
 			getDefaultStore().set(activeSessionAtom, { cwd, sessionPath: "canonical", runtimeId: "runtime-canonical" });
 		});
-		const { result } = renderHook(() => useProjectsPanelModel({ filter: "all", onOpenSession }));
+		const { result } = renderHook(() => useProjectsPanelModel({ onOpenSession }));
 		await act(async () => {
 			result.current.actions.selectSession(cwd, { ...makeSession("legacy", cwd), kind: "conversation" });
 			await Promise.resolve();
@@ -300,7 +300,7 @@ describe("useProjectsPanelModel.selectSession", () => {
 		getDefaultStore().set(activeSessionAtom, { cwd, sessionPath: "old", runtimeId: "runtime-old" });
 		getDefaultStore().set(pendingSessionOpenAtom, { cwd, sessionPath: "old", interactionId: "old-open" });
 		const { result, rerender } = renderHook(() =>
-			useProjectsPanelModel({ filter: "all", onOpenSession: vi.fn().mockResolvedValue(undefined) }),
+			useProjectsPanelModel({ onOpenSession: vi.fn().mockResolvedValue(undefined) }),
 		);
 		act(() => result.current.actions.selectSession(cwd, {
 			kind: "agent-team", id: "next", path: "/team/next.jsonl", cwd,
@@ -324,7 +324,7 @@ describe("useProjectsPanelModel.selectSession", () => {
 		const onOpenSession = vi.fn(async () => {
 			getDefaultStore().set(activeSessionAtom, null);
 		});
-		const { result } = renderHook(() => useProjectsPanelModel({ filter: "all", onOpenSession }));
+		const { result } = renderHook(() => useProjectsPanelModel({ onOpenSession }));
 		await act(async () => {
 			result.current.actions.selectSession(cwd, { ...makeSession("next", cwd), kind: "conversation" });
 			await Promise.resolve();
@@ -339,7 +339,7 @@ describe("useProjectsPanelModel.selectSession", () => {
 		routeMatches = [{ pathname: "/agent-teams/team-1/sessions/old", params: { sessionId: "old" } }];
 		useProjectsMock.mockReturnValue(projectsState(new Map()));
 		const { result, rerender } = renderHook(() =>
-			useProjectsPanelModel({ filter: "all", onOpenSession: vi.fn().mockResolvedValue(undefined) }),
+			useProjectsPanelModel({ onOpenSession: vi.fn().mockResolvedValue(undefined) }),
 		);
 		act(() => result.current.actions.selectSession("/repo/a", {
 			kind: "agent-team", id: "next", path: "/team/next.jsonl", cwd: "/repo/a",
@@ -365,7 +365,7 @@ describe("useProjectsPanelModel.selectSession", () => {
 		waitForCommittedPaintSpy.mockReturnValueOnce(paint.promise);
 		useProjectsMock.mockReturnValue(projectsState(new Map([[cwd, [target]]])));
 		const onOpenSession = vi.fn().mockReturnValue(opened.promise);
-		const { result } = renderHook(() => useProjectsPanelModel({ filter: "all", onOpenSession }));
+		const { result } = renderHook(() => useProjectsPanelModel({ onOpenSession }));
 
 		act(() => {
 			result.current.actions.defaultSelectSession(cwd, { ...target, kind: "conversation" });
@@ -404,7 +404,7 @@ describe("useProjectsPanelModel.selectSession", () => {
 		waitForCommittedPaintSpy.mockReturnValueOnce(firstPaint.promise).mockReturnValueOnce(secondPaint.promise);
 		useProjectsMock.mockReturnValue(projectsState(new Map([[cwd, [first, second]]])));
 		const onOpenSession = vi.fn().mockResolvedValue(undefined);
-		const { result } = renderHook(() => useProjectsPanelModel({ filter: "all", onOpenSession }));
+		const { result } = renderHook(() => useProjectsPanelModel({ onOpenSession }));
 
 		act(() => {
 			result.current.actions.selectSession(cwd, { ...first, kind: "conversation" });

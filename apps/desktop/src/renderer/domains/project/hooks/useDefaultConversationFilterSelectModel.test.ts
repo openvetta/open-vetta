@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from "vitest";
-import { DEFAULT_CONVERSATION_FILTER_OPTIONS } from "./useSidebarFilterSelectModel";
+import { DEFAULT_CONVERSATION_FILTER_OPTIONS } from "./useDefaultConversationFilterSelectModel";
 
 describe("default conversation source options", () => {
 	it("keeps Agent Teams inside their projected conversation lists", () => {

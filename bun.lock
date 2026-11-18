@@ -62,7 +62,7 @@
     },
     "apps/desktop": {
       "name": "@vetta/desktop",
-      "version": "0.6.6",
+      "version": "0.6.7",
       "dependencies": {
         "@dagrejs/dagre": "^3.0.0",
         "@fontsource-variable/geist": "^5.2.8",
@@ -168,6 +168,7 @@
         "@aws-sdk/lib-storage": "^3.1097.0",
         "@iconify-json/flat-color-icons": "^1.2.3",
         "@iconify-json/mdi": "^1.2.3",
+        "@iconify-json/tabler": "^1.2.46",
         "@iconify-json/vscode-icons": "^1.2.59",
         "@iconify/tailwind4": "^1.0.6",
         "@sentry/vite-plugin": "^5.4.0",
@@ -1666,6 +1667,8 @@
     "@iconify-json/mdi": ["@iconify-json/mdi@1.2.3", "https://registry.npmmirror.com/@iconify-json/mdi/-/mdi-1.2.3.tgz", { "dependencies": { "@iconify/types": "*" } }, "sha512-O3cLwbDOK7NNDf2ihaQOH5F9JglnulNDFV7WprU2dSoZu3h3cWH//h74uQAB87brHmvFVxIOkuBX2sZSzYhScg=="],
 
     "@iconify-json/solar": ["@iconify-json/solar@1.2.10", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-ChpZ3kNw8nDhHfUoLq5JJ3AdIzytFm57dFkjAS0fjXnL5a7WwibTINjMKfvqQDhuXBrgqejNLyGp8CCpG8UyCg=="],
+
+    "@iconify-json/tabler": ["@iconify-json/tabler@1.2.46", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-iyEZEUhHV4x1ZbNzzjk3i6Z+MH5h5nXipqKaH7+bUlnoQwzn7fNjWRSqwWtwQ4PYN6WM+N/fLQC/48TRto26qQ=="],
 
     "@iconify-json/vscode-icons": ["@iconify-json/vscode-icons@1.2.59", "https://registry.npmmirror.com/@iconify-json/vscode-icons/-/vscode-icons-1.2.59.tgz", { "dependencies": { "@iconify/types": "*" } }, "sha512-6RN+ixRubu3UKrUEqV24iuwvh2DgY541h2QWdxBeK3kJvXuDpaFNxw2dUSUqp80IU7f+QAU5sh718tXgyynnbQ=="],
 

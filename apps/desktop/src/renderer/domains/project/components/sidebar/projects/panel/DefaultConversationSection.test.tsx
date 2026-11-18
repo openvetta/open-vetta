@@ -13,7 +13,7 @@ vi.mock("@vetta-org/theme-ui/project", () => ({
 		return <div>{props.list}</div>;
 	},
 }));
-vi.mock("../../filters/SidebarFilterSelect", () => ({
+vi.mock("../../filters/DefaultConversationFilterSelect", () => ({
 	DefaultConversationFilterSelect: (): JSX.Element => <div />,
 }));
 

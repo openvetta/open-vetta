@@ -30,7 +30,7 @@ export function ProjectGroupView<T extends { key: string }>({
 
 	return (
 		<div className="project-group-contain mb-1">
-			<ProjectRowView {...projectRow} onInteract={handleProjectInteract} rowRef={projectRowRef} />
+			<ProjectRowView {...projectRow} loading={sessions.loading} onInteract={handleProjectInteract} rowRef={projectRowRef} />
 			<ProjectSessionsView {...sessions} empty={emptySessions} />
 		</div>
 	);

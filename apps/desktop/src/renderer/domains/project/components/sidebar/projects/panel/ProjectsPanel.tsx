@@ -1,39 +1,42 @@
+import { sidebarProjectsOpenAtom } from "@shared/store/atoms";
 import { ProjectsLoadingView } from "@vetta-org/theme-ui/project/ProjectsLoadingView";
 import { ProjectsPanelView } from "@vetta-org/theme-ui/project/ProjectsPanelView";
-import { useState } from "react";
+import {
+	SidebarProjectDisclosureContent,
+	SidebarProjectDisclosureTrigger,
+} from "@vetta-org/theme-ui/project/SidebarProjectDisclosure";
+import { cn } from "@vetta-org/ui/utils";
+import { useAtom } from "jotai";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useConversationTagsSync } from "../../../../hooks/useConversationTagsSync";
+import { AddProjectMenu } from "../../add-project/AddProjectMenu";
 import { DefaultConversationSection } from "./DefaultConversationSection";
 import { ProjectGroupsSection } from "./ProjectGroupsSection";
 import { ProjectsPanelEmptyState } from "./ProjectsPanelEmptyState";
 import { ProjectsPanelMenus } from "./ProjectsPanelMenus";
-import { useHasSidebarProjects } from "../../../../hooks/useHasSidebarProjects";
-import { useConversationTagsSync } from "../../../../hooks/useConversationTagsSync";
-import { useProjectsPanelModel } from "./useProjectsPanelModel";
 import type { ProjectsPanelProps } from "./types";
+import { useProjectsPanelModel } from "./useProjectsPanelModel";
 
 export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 	const { t } = useTranslation("project");
 	const model = useProjectsPanelModel(props);
 	useConversationTagsSync();
 	const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
+	const [projectsOpen, setProjectsOpen] = useAtom(sidebarProjectsOpenAtom);
+	const projectsContentId = useId();
 
-	// User-added projects (and batch group under current filter). Default "对话" is separate.
-	const hasUserProjects =
-		model.filteredProjects.length > 0 || (model.showBatchGroup && model.batchProjects.length > 0);
+	const hasUserProjects = model.userProjects.length > 0 || model.batchProjects.length > 0;
 	const showDefaultRegion = Boolean(model.defaultProject);
-	// Full-panel empty only when neither region has content (rare: no default project either).
 	const showEmpty = !hasUserProjects && !showDefaultRegion;
-	// 没有用户项目时整个项目区隐藏，引导卡片改放在对话区下方。
-	const showProjectsRegion = hasUserProjects;
 
 	const defaultCwd = model.defaultProject?.cwd;
 	const newConversation = (): void => {
 		if (defaultCwd) model.actions.defaultNewSession(defaultCwd);
 	};
 
-	const hasAnyProjects = useHasSidebarProjects();
 	const showStartCard =
-		!hasAnyProjects &&
+		!hasUserProjects &&
 		!model.defaultSessionsLoading &&
 		model.defaultSessions.length === 0 &&
 		model.defaultConversationFilter === "conversation";
@@ -41,21 +44,21 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 	const defaultSection =
 		showDefaultRegion && model.defaultProject ? (
 			<>
-			<DefaultConversationSection
-				activeSessionPath={model.activeSessionPath}
-				activeTeamSessionId={model.activeTeamSessionId}
-				defaultConversationFilter={model.defaultConversationFilter}
-				listClassName={props.defaultSessionListClassName}
-				project={model.defaultProject}
-				scrollParent={scrollEl}
-				sessionsCwd={model.defaultSessionsCwd}
-				sessions={model.defaultSessions}
-				sessionsLoading={model.defaultSessionsLoading}
-				onNewSession={model.actions.defaultNewSession}
-				onRenameSession={model.actions.renameSession}
-				onSelectSession={model.actions.defaultSelectSession}
-			/>
-			{showStartCard && <ProjectsPanelEmptyState onNewConversation={newConversation} />}
+				<DefaultConversationSection
+					activeSessionPath={model.activeSessionPath}
+					activeTeamSessionId={model.activeTeamSessionId}
+					defaultConversationFilter={model.defaultConversationFilter}
+					listClassName={props.defaultSessionListClassName}
+					project={model.defaultProject}
+					scrollParent={scrollEl}
+					sessionsCwd={model.defaultSessionsCwd}
+					sessions={model.defaultSessions}
+					sessionsLoading={model.defaultSessionsLoading}
+					onNewSession={model.actions.defaultNewSession}
+					onRenameSession={model.actions.renameSession}
+					onSelectSession={model.actions.defaultSelectSession}
+				/>
+				{showStartCard && <ProjectsPanelEmptyState onNewConversation={newConversation} />}
 			</>
 		) : null;
 	if (model.projectsLoading) return <ProjectsLoadingView />;
@@ -67,14 +70,31 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 			menus={<ProjectsPanelMenus model={model} />}
 			onScrollRef={setScrollEl}
 			scrollElement={scrollEl}
-			projectsSection={<ProjectGroupsSection model={model} scrollParent={scrollEl} />}
+			projectsSection={
+				hasUserProjects && (
+					<>
+						<div className={cn("group relative z-20 flex items-center gap-1 pb-1 pr-1", props.projectsToolbarClassName)}>
+							<SidebarProjectDisclosureTrigger
+								contentId={projectsContentId}
+								label={t("sidebar.projects.title")}
+								open={projectsOpen}
+								onOpenChange={setProjectsOpen}
+							/>
+							<AddProjectMenu className="ml-auto shrink-0" />
+						</div>
+						<SidebarProjectDisclosureContent id={projectsContentId} open={projectsOpen}>
+							<ProjectGroupsSection model={model} scrollParent={scrollEl} />
+						</SidebarProjectDisclosureContent>
+					</>
+				)
+			}
 			quickScrollLabels={{
 				bottom: t("sidebar.projects.scrollToBottom"),
 				top: t("sidebar.projects.scrollToTop"),
 			}}
 			showDefaultRegion={showDefaultRegion}
 			showEmpty={showEmpty}
-			showProjectsRegion={showProjectsRegion}
+			showProjectsRegion={hasUserProjects}
 		/>
 	);
 }

@@ -43,7 +43,7 @@ export function DefaultConversationSectionView({
 	return (
 		<div className={cn("flex flex-col", className)}>
 			<div
-				className="group -mx-1.5 flex shrink-0 items-center justify-between pb-1 pl-2 pr-2.5 pt-1"
+				className="group -mx-1.5 flex shrink-0 items-center justify-between pb-1 pl-1.5 pr-2.5 pt-1"
 				onContextMenu={onOpenContextMenu}
 			>
 				<div className="flex min-w-0 items-center gap-0.5">{filterSelect}</div>
@@ -54,7 +54,7 @@ export function DefaultConversationSectionView({
 						onClick={onMoreClick}
 						className={actionButtonClass}
 					>
-						<span className="icon-[solar--menu-dots-linear] h-4 w-4" />
+						<span className="icon-[solar--menu-dots-bold] h-4 w-4" />
 					</button>
 					{showNewSession && onNewSession && (
 						<button

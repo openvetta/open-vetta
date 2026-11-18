@@ -27,6 +27,7 @@
 			"description": "项目与对话的历史会收在这里。"
 		},
 		"projects": {
+			"title": "项目",
 			"noSessions": "暂无会话",
 			"collapseSessions": "折叠会话",
 			"expandMore": "展开更多（{{count}}）",
@@ -79,9 +80,6 @@
 		}
 	},
 	"filterTabs": {
-		"all": "全部",
-		"normal": "普通",
-		"batch": "批量任务",
 		"conversation": "对话",
 		"team": "团队",
 		"claw": "Claw"

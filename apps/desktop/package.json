@@ -1,6 +1,6 @@
 {
 	"name": "@vetta/desktop",
-	"version": "0.6.6",
+	"version": "0.6.7",
 	"description": "Vetta Desktop App",
 	"author": "Vetta",
 	"type": "module",
@@ -236,6 +236,7 @@
 		"@aws-sdk/lib-storage": "^3.1097.0",
 		"@iconify-json/flat-color-icons": "^1.2.3",
 		"@iconify-json/mdi": "^1.2.3",
+		"@iconify-json/tabler": "^1.2.46",
 		"@iconify-json/vscode-icons": "^1.2.59",
 		"@iconify/tailwind4": "^1.0.6",
 		"@sentry/vite-plugin": "^5.4.0",

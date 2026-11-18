@@ -63,6 +63,10 @@ const goalTests = {
 	],
 };
 const EXPLICIT_SOURCE_TESTS = new Map([
+	[
+		"packages/theme-ui/src/project/SidebarProjectDisclosure.tsx",
+		desktopTests("src/renderer/domains/project/components/sidebar/projects/panel/ProjectsPanel.test.tsx"),
+	],
 	// Real Electron geometry covers the shared shell together with desktop's macOS background rules.
 	...[
 		"packages/theme-ui/src/layout/AppFrame.tsx",

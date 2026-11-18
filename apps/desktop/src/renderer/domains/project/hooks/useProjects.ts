@@ -1,3 +1,4 @@
+import { waitForCommittedPaint } from "@shared/lib/committed-paint";
 import {
 	DEFAULT_CONVERSATION_PROJECT_NAME,
 	defaultConversationCwdAtom,
@@ -15,7 +16,7 @@ import {
 	sessionLoadingCwdsAtom,
 	sessionsMapAtom,
 } from "@shared/store/atoms";
-import { getDefaultStore, useAtomValue, useSetAtom } from "jotai";
+import { useAtomValue, useSetAtom, useStore } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 
 /** firstMessage 是否可直接当展示名（排除空串与 coding-agent 占位）。 */
@@ -88,7 +89,7 @@ function sessionListsEqual(a: readonly SessionInfo[], b: readonly SessionInfo[])
  * 时用 store 现读，订阅面因此降到零。
  */
 export function useProjectActions() {
-	const store = getDefaultStore();
+	const store = useStore();
 	const setProjects = useSetAtom(projectsAtom);
 	const setProjectsInitialized = useSetAtom(projectsInitializedAtom);
 	const setSessionsMap = useSetAtom(sessionsMapAtom);
@@ -98,12 +99,13 @@ export function useProjectActions() {
 	const removePinnedSessions = useSetAtom(removePinnedSessionsAtom);
 
 	const loadSessions = useCallback(
-		(cwd: string): Promise<void> => {
+		(cwd: string, afterPaint = false): Promise<void> => {
 			const activeLoad = sessionLoadPromises.get(cwd);
 			if (activeLoad) return activeLoad;
 			setSessionLoadingCwds((prev) => new Set(prev).add(cwd));
-			const loadPromise = window.vetta.session
-				.listSessions(cwd)
+			const readSessions = () => window.vetta.session.listSessions(cwd);
+			const read = afterPaint ? waitForCommittedPaint().then(readSessions) : readSessions();
+			const loadPromise = read
 				.then((sessions: SessionInfo[]) =>
 					setSessionsMap((prev) => {
 						// 定时 / 新建 session 的 name、以及发送瞬间写入的乐观 firstMessage，在 assistant
@@ -294,15 +296,13 @@ export function useProjectActions() {
 
 	const expandProject = useCallback(
 		(cwd: string) => {
-			setExpandedProjects((prev) => {
-				if (prev.has(cwd)) return prev;
-				void loadSessions(cwd);
-				const next = new Set(prev);
-				next.add(cwd);
-				return next;
-			});
+			const expanded = store.get(expandedProjectsAtom);
+			if (expanded.has(cwd)) return;
+			setExpandedProjects(new Set(expanded).add(cwd));
+			// Let the expanded row and its loading state paint before starting the history read.
+			void loadSessions(cwd, true);
 		},
-		[setExpandedProjects, loadSessions],
+		[store, setExpandedProjects, loadSessions],
 	);
 
 	const collapseProject = useCallback(
@@ -319,19 +319,10 @@ export function useProjectActions() {
 
 	const toggleProject = useCallback(
 		(cwd: string) => {
-			setExpandedProjects((prev) => {
-				if (prev.has(cwd)) {
-					const next = new Set(prev);
-					next.delete(cwd);
-					return next;
-				}
-				void loadSessions(cwd);
-				const next = new Set(prev);
-				next.add(cwd);
-				return next;
-			});
+			if (store.get(expandedProjectsAtom).has(cwd)) collapseProject(cwd);
+			else expandProject(cwd);
 		},
-		[setExpandedProjects, loadSessions],
+		[store, collapseProject, expandProject],
 	);
 
 	const removeProject = useCallback(
