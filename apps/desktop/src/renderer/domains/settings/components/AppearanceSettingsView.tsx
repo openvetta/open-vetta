@@ -4,7 +4,6 @@ import { SELECT_TRIGGER_CLASS } from "@vetta-org/ui";
 import { StepSlider } from "@shared/components/ui/step-slider";
 import { PixelMarioBlocks } from "@shared/components/mario/PixelMarioBlocks";
 import { cn } from "@shared/lib/utils";
-import { CHAT_BACKGROUND_COMPONENTS, type ChatBackgroundId } from "@shared/theme/chat-background";
 import {
 	NEW_SESSION_TEXTURE_COMPONENTS,
 	type NewSessionTextureId,
@@ -18,9 +17,9 @@ import themeLock from "../assets/theme-lock.webp";
 import { SETTINGS_SECTION } from "../registry";
 import { MotionSelect, SettingHeading, SettingRow, SettingSection } from "@vetta-org/theme-ui/settings";
 import type { AppIconId } from "@/shared/app-icon";
+import { ChatAppearanceSettings } from "./ChatAppearanceSettings";
 import type {
 	AppearanceAppIconOption,
-	AppearanceChatBackgroundOption,
 	AppearanceOrnamentOption,
 	AppearanceLanguageOption,
 	AppearanceModeOption,
@@ -562,68 +561,6 @@ const TextureCard = memo(function TextureCard({
 	);
 });
 
-/**
- * 聊天背景预览：方格里直接画一小块真的底衬，所见即所得。
- *
- * 与纹理预览同理，复用对话页那档的实现而不是另画一张示意图：疏密、渐变走向都由实现决定，
- * 另画一份迟早会和页面对不上。预览不挂上下渐隐（那是整页用来避开顶栏和输入框的）。
- */
-function ChatBackgroundPreview({ id }: { id: ChatBackgroundId }): JSX.Element {
-	const Backdrop = CHAT_BACKGROUND_COMPONENTS[id];
-	return (
-		<div className="relative h-full w-full bg-background">
-			{Backdrop ? (
-				<Backdrop fade="none" />
-			) : (
-				// 「无」与装饰件、纹理那两档同款：虚线圈 + 斜杠，一眼看得出这项什么都不画。
-				<span className="flex h-full w-full items-center justify-center">
-					<span className="flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-muted-foreground/50">
-						<span className="icon-[mdi--close] h-5 w-5 text-muted-foreground/60" />
-					</span>
-				</span>
-			)}
-		</div>
-	);
-}
-
-/**
- * 背景选择卡：与本页「色彩主题」那组同构——16:9 预览在上、名字在下，选中只改 1px border 色。
- * 背景是整页的观感，用横向预览比装饰件那种方格更能看出疏密。
- */
-const ChatBackgroundCard = memo(function ChatBackgroundCard({
-	active,
-	hint,
-	id,
-	label,
-	onSelect,
-}: AppearanceChatBackgroundOption & {
-	onSelect: (id: ChatBackgroundId) => void;
-}): JSX.Element {
-	return (
-		<button
-			type="button"
-			onClick={() => onSelect(id)}
-			// 描述文字在卡片里塞不下又不该丢，挂成 title 让需要的人悬停能看到。
-			title={hint}
-			className="group flex flex-col items-stretch gap-2 text-left"
-		>
-			<div
-				className={cn(
-					// 预览自带底色，选中只改 1px border 色，不叠 ring / bg
-					"relative aspect-[16/9] w-full overflow-hidden rounded-lg border bg-background transition-colors",
-					active ? "border-primary/50" : "border-border/60 group-hover:border-primary/40",
-				)}
-			>
-				<ChatBackgroundPreview id={id} />
-				{active && <SelectionCheckBadge />}
-			</div>
-			<span className={cn("text-[12px] transition-colors", active ? "font-medium text-foreground" : "text-muted-foreground")}>
-				{label}
-			</span>
-		</button>
-	);
-});
-
 /** 设置项右侧的下拉式触发器：显示当前选项名，点开 popover 里是方格预览网格；选中后自动收起。 */
 function DecorPicker({
 	active,
@@ -719,14 +656,12 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 				</div>
 			)}
 
-			{/* 聊天背景：与「主题颜色」同构的方格选择卡，预览直接画一小块真纹路。 */}
 			<div className="mb-10">
-				<SettingHeading title={model.labels.sections.chatBackground} section={SETTINGS_SECTION["appearance-chat-background"]} className="mb-4" />
-				<div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
-					{model.chatBackgroundOptions.map((option) => (
-						<ChatBackgroundCard key={option.id} {...option} onSelect={model.actions.setChatBackground} />
-					))}
-				</div>
+				<ChatAppearanceSettings
+					chatBackgroundId={model.chatBackgroundId}
+					chatBackgroundOptions={model.chatBackgroundOptions}
+					onBackgroundChange={model.actions.setChatBackground}
+				/>
 			</div>
 
 			{/* 新会话页装饰：装饰件与纹理两个设置项，点开 popover 挑选；两项都只影响新会话页。 */}

@@ -105,7 +105,7 @@ export const SETTINGS_SECTIONS = [
 	{
 		tab: "appearance",
 		id: "appearance-chat-background",
-		title: "聊天背景",
+		title: "聊天外观",
 		titleKey: "section_appearance-chat-background",
 	},
 	{ tab: "appearance", id: "appearance-ornament", title: "装饰件", titleKey: "section_appearance-ornament" },

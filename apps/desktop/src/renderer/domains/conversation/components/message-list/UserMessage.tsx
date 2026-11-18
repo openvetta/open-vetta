@@ -117,7 +117,7 @@ export const UserMessage = memo(function UserMessage({
 							{projection.appshot ? <AppshotCard data={projection.appshot} /> : null}
 							{projection.displayText ? (
 								<MessageVisual.OutgoingBubble
-									className={`cursor-text ${pending ? "ring-1 ring-primary/40" : ""}`}
+									className={`cursor-text ${hasImages || hasAppshot || hasSettingsAssistBadge ? "mt-2" : ""} ${pending ? "ring-1 ring-primary/40" : ""}`}
 									style={{ wordBreak: "break-word" }}
 								>
 									<UserMessagePrimitive.Text

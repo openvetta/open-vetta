@@ -69,8 +69,8 @@ describe("ActivityPanelView resize shell", () => {
 							<div data-frame="">
 								<Content />
 							</div>
+							<ActivityPanel.ResizeHandle />
 						</ActivityPanel.Surface>
-						<ActivityPanel.ResizeHandle />
 					</ActivityPanel.Desktop>
 				</ActivityPanel.Root>,
 			);
@@ -78,6 +78,7 @@ describe("ActivityPanelView resize shell", () => {
 
 		const handle = container.querySelector<HTMLElement>('[data-resize-handle="left"]');
 		const aside = container.querySelector("aside");
+		const surface = aside?.querySelector<HTMLDivElement>(":scope > div");
 		expect(handle).not.toBeNull();
 		expect(contentRenders).toBe(1);
 
@@ -93,7 +94,9 @@ describe("ActivityPanelView resize shell", () => {
 
 		expect(onResize).toHaveBeenLastCalledWith(410);
 		expect(aside?.style.width).toBe("410px");
-		expect(aside?.style.transition).toBe("none");
+		expect(aside?.style.transition).toBe("");
+		expect(surface?.style.width).toBe("410px");
+		expect(surface?.style.transform).toBe("none");
 		expect(contentRenders).toBe(1);
 
 		act(() => document.dispatchEvent(pointerEvent("pointerup", 450)));

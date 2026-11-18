@@ -1339,7 +1339,29 @@
   "textureDoodleHint": "对话页那层细线图标：密密麻麻的小图案，统一透过一条彩色渐变上色。",
   "newSessionDecorTitle": "新会话页装饰",
   "newSessionDecorHint": "只影响新会话页：装饰件在输入框上方，纹理是整页底衬。",
-  "section_appearance-chat-background": "聊天背景",
+  "section_appearance-chat-background": "聊天外观",
+  "chatAppearanceBackground": "聊天背景",
+  "userBubbleShape": "气泡外观",
+  "userBubbleColor": "气泡颜色",
+  "userBubbleWeight": "消息字重",
+  "userBubbleWeights": {
+    "default": "默认",
+    "medium": "适中",
+    "semibold": "偏粗"
+  },
+  "userBubblePreview": "这是你发出的消息的显示效果。",
+  "userBubbleShapes": {
+    "default": "默认",
+    "chat": "聊天气泡"
+  },
+  "userBubbleColors": {
+    "default": "默认",
+    "blue": "蓝色",
+    "yellow": "黄色",
+    "green": "绿色",
+    "purple": "紫色",
+    "pink": "粉色"
+  },
   "chatBackgroundNoneTitle": "无",
   "chatBackgroundNoneHint": "什么都不铺，只留页面本身的底色。",
   "chatBackgroundDoodleTitle": "涂鸦",

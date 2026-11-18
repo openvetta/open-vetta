@@ -26,11 +26,9 @@ export function ActivityPanelView({
 	// A closed docked panel must not keep its measurement-heavy visual tree alive.
 	// Floating tabs are independent windows and remain mounted below.
 	const renderDockedPanel = model.isOpen;
-	// 面板滑出是主线程上的 width 过渡，tab 内容的首次挂载（插件面板还要先取回并求值
-	// 懒加载 chunk）若与之同帧，长任务一来动画就卡在半路。壳与标签栏照常随开随挂，
-	// 内容等过渡结束再挂；浮出的标签不受影响。
-	const desktopRef = useRef<HTMLElement>(null);
-	const dockedContentReady = useDockedContentReady(model.isOpen, desktopRef);
+	// Let the dock's entrance finish before mounting expensive content such as lazy plugin tabs.
+	const surfaceRef = useRef<HTMLDivElement>(null);
+	const dockedContentReady = useDockedContentReady(model.isOpen, model.narrowSheet, surfaceRef);
 	const mountDockedContent = renderDockedPanel && dockedContentReady;
 	const tabBar =
 		renderDockedPanel &&
@@ -96,9 +94,14 @@ export function ActivityPanelView({
 				onResize={actions.onResize}
 				onResizeEnd={actions.onResizeEnd}
 			>
-				<ActivityPanelPrimitive.Desktop ref={desktopRef} present={!model.narrowSheet}>
-					<ActivityPanelPrimitive.Surface>{panelBody}</ActivityPanelPrimitive.Surface>
-					<ActivityPanelPrimitive.ResizeHandle />
+				<ActivityPanelPrimitive.Desktop
+					present={!model.narrowSheet}
+					data-activity-panel-dock={model.isOpen ? "open" : "closed"}
+				>
+					<ActivityPanelPrimitive.Surface ref={surfaceRef}>
+						{panelBody}
+						<ActivityPanelPrimitive.ResizeHandle />
+					</ActivityPanelPrimitive.Surface>
 				</ActivityPanelPrimitive.Desktop>
 				<ActivityPanelPrimitive.Sheet present={model.bottomSheet}>
 					{panelBody}

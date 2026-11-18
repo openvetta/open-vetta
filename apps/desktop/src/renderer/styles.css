@@ -619,6 +619,13 @@ textarea:disabled,
 	padding-left: 0;
 }
 
+/* 常规页头下，仅展开的新会话停靠栏抵消 AppFrame 右侧和底部的 p-2。 */
+.app-main-frame:not([data-header-overlay]) .new-session-layout > [data-activity-panel-dock="open"] {
+	height: auto;
+	margin-right: -0.5rem;
+	margin-bottom: -0.5rem;
+}
+
 .project-list-containment {
 	contain: layout paint style;
 }
@@ -647,6 +654,120 @@ textarea:focus-visible,
 textarea:focus {
 	outline: none;
 	box-shadow: none;
+}
+
+/* Outgoing messages and the Appearance preview share the same visual primitive. */
+:root[data-user-bubble-shape="chat"] [data-message-visual="outgoingbubble"] {
+	position: relative;
+	margin-bottom: 7px;
+	border-radius: 1.25rem;
+}
+
+:root[data-user-bubble-shape="chat"] [data-message-visual="outgoingbubble"]::after {
+	position: absolute;
+	right: max(12px, 6%);
+	bottom: -7px;
+	width: 18px;
+	height: 12px;
+	background-color: inherit;
+	clip-path: path("M0 0H18C13 3 12 6 14.5 9.5C15.6 11.2 14.6 12 13 11.5C7.5 10 6 5 0 5Z");
+	pointer-events: none;
+	content: "";
+}
+
+:root[data-user-bubble-color]:not([data-user-bubble-color="default"]) [data-message-visual="outgoingbubble"] {
+	background-color: var(--user-bubble-bg);
+	color: var(--user-bubble-fg);
+	/* Pending messages retain their ring without washing out the custom colors. */
+	opacity: 1;
+}
+
+/* Rich Markdown panels have their own theme backgrounds and contrast. */
+:root[data-user-bubble-color]:not([data-user-bubble-color="default"])
+	[data-message-visual="outgoingbubble"] :where([data-md-table-frame], [data-md-code-frame]) {
+	color: var(--foreground);
+}
+
+:root[data-user-bubble-color]:not([data-user-bubble-color="default"])
+	[data-message-visual="outgoingbubble"] .markdown-body
+	:where(.text-foreground, blockquote):not(:where([data-md-table-frame] *, [data-md-code-frame] *)) {
+	color: var(--user-bubble-fg);
+}
+
+:root[data-user-bubble-color]:not([data-user-bubble-color="default"])
+	[data-message-visual="outgoingbubble"] .markdown-body
+	:where(.text-primary, .text-chart-2):not(:where([data-md-table-frame] *, [data-md-code-frame] *)) {
+	--primary: var(--user-bubble-fg);
+	--chart-2: var(--user-bubble-fg);
+}
+
+:root[data-user-bubble-color]:not([data-user-bubble-color="default"])
+	[data-message-visual="outgoingbubble"] .markdown-body
+	:where(a, button).text-primary:hover:not(:where([data-md-table-frame] *, [data-md-code-frame] *)) {
+	/* A softer hover tint preserves white text contrast on the blue bubble. */
+	background-color: color-mix(in srgb, var(--user-bubble-fg) 15%, var(--user-bubble-bg));
+}
+
+:root[data-user-bubble-color]:not([data-user-bubble-color="default"])
+	[data-message-visual="outgoingbubble"] .markdown-body
+	ol > li:not(:where([data-md-table-frame] *, [data-md-code-frame] *))::marker {
+	color: var(--user-bubble-fg);
+}
+
+:root[data-user-bubble-color]:not([data-user-bubble-color="default"])
+	[data-message-visual="outgoingbubble"] .markdown-body
+	code.bg-muted:not(:where([data-md-table-frame] *, [data-md-code-frame] *)) {
+	background-color: color-mix(in srgb, var(--user-bubble-fg) 12%, var(--user-bubble-bg));
+}
+
+:root[data-user-bubble-color]:not([data-user-bubble-color="default"])
+	[data-message-visual="outgoingbubble"] [data-user-message-expand-fade] {
+	--secondary: var(--user-bubble-bg);
+}
+
+/* Use resolved theme surfaces so nested panels do not stack multiple translucent layers. */
+:root:is([data-user-bubble-shape="chat"], [data-user-bubble-color]:not([data-user-bubble-color="default"]))
+	[data-message-visual="outgoingbubble"] {
+	--bubble-surface: var(--user-bubble-bg, var(--secondary));
+	--bubble-panel-background: color-mix(in srgb, var(--background) 88%, var(--bubble-surface));
+	--bubble-panel-muted: color-mix(in srgb, var(--muted) 88%, var(--bubble-surface));
+}
+
+:root:is([data-user-bubble-shape="chat"], [data-user-bubble-color]:not([data-user-bubble-color="default"]))
+	[data-message-visual="outgoingbubble"] :where([data-md-table-frame], [data-md-code-frame]) {
+	--background: var(--bubble-panel-background);
+	--muted: var(--bubble-panel-muted);
+}
+
+:root:is([data-user-bubble-shape="chat"], [data-user-bubble-color]:not([data-user-bubble-color="default"]))
+	[data-message-visual="outgoingbubble"] [data-user-message-expand-fade] button {
+	--expand-foreground: var(--user-bubble-fg, var(--foreground));
+	background-color: color-mix(in srgb, var(--expand-foreground) 8%, var(--bubble-surface));
+	border-color: color-mix(in srgb, var(--expand-foreground) 28%, transparent);
+	color: var(--expand-foreground);
+}
+
+:root:is([data-user-bubble-shape="chat"], [data-user-bubble-color]:not([data-user-bubble-color="default"]))
+	[data-message-visual="outgoingbubble"] [data-user-message-expand-fade] button:is(:hover, :focus-visible) {
+	background-color: color-mix(in srgb, var(--expand-foreground) 15%, var(--bubble-surface));
+	border-color: color-mix(in srgb, var(--expand-foreground) 55%, transparent);
+}
+
+/* Use the prose foreground for decorative lines drawn directly on a styled bubble. */
+:root:is([data-user-bubble-shape="chat"], [data-user-bubble-color]:not([data-user-bubble-color="default"]))
+	[data-message-visual="outgoingbubble"] .markdown-body
+	:where(hr, blockquote, .md-bullet-list):not(:where([data-md-table-frame] *, [data-md-code-frame] *)) {
+	--md-bullet-line: color-mix(in srgb, var(--user-bubble-fg, var(--foreground)) 40%, transparent);
+	border-color: var(--md-bullet-line);
+}
+
+/* Match the editor font weights while letting Markdown emphasis remain explicit. */
+:root[data-user-bubble-weight="medium"] [data-message-visual="outgoingbubble"] {
+	font-weight: 500;
+}
+
+:root[data-user-bubble-weight="semibold"] [data-message-visual="outgoingbubble"] {
+	font-weight: 600;
 }
 
 /* Markdown body: readable text should use text-selection cursor. */
@@ -699,6 +820,7 @@ textarea:focus {
 
 /* Markdown unordered list: tree connector (matches NewSession guiding words) */
 .md-bullet-list {
+	--md-bullet-line: color-mix(in srgb, var(--muted-foreground) 30%, transparent);
 	list-style: none;
 	padding-left: 0.625rem; /* pl-2.5 */
 }
@@ -724,7 +846,7 @@ textarea:focus {
 	top: 0;
 	bottom: 0;
 	width: 0;
-	border-left: 1px solid color-mix(in srgb, var(--muted-foreground) 30%, transparent);
+	border-left: 1px solid var(--md-bullet-line);
 }
 /* Non-last: horizontal branch at first-line height */
 .md-bullet-list > li:not(:last-child)::after {
@@ -733,7 +855,7 @@ textarea:focus {
 	left: 0;
 	top: 0.95rem;
 	width: 12px;
-	border-top: 1px solid color-mix(in srgb, var(--muted-foreground) 30%, transparent);
+	border-top: 1px solid var(--md-bullet-line);
 }
 /* Last: L-shaped corner */
 .md-bullet-list > li:last-child::before {
@@ -743,8 +865,8 @@ textarea:focus {
 	top: 0;
 	height: 0.95rem;
 	width: 12px;
-	border-left: 1px solid color-mix(in srgb, var(--muted-foreground) 30%, transparent);
-	border-bottom: 1px solid color-mix(in srgb, var(--muted-foreground) 30%, transparent);
+	border-left: 1px solid var(--md-bullet-line);
+	border-bottom: 1px solid var(--md-bullet-line);
 	border-bottom-left-radius: 7px;
 }
 .md-bullet-list > li:last-child::after {

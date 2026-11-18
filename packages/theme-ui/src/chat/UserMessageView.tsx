@@ -137,7 +137,7 @@ export function UserMessageText({
 				</div>
 			)}
 			{canExpand && !expanded && (
-				<div className="absolute inset-x-0 bottom-0 flex h-20 items-end justify-center bg-gradient-to-t from-secondary via-secondary/80 to-secondary/0 pb-1.5">
+				<div data-user-message-expand-fade="" className="absolute inset-x-0 bottom-0 flex h-20 items-end justify-center bg-gradient-to-t from-secondary via-secondary/80 to-secondary/0 pb-1.5">
 					<button
 						type="button"
 						onClick={() => setExpanded(true)}

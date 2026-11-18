@@ -2,6 +2,7 @@ import { ContextRingView } from "@vetta-org/theme-ui/chat/ContextRingView";
 import { AgentAvatarView } from "@vetta-org/theme-ui/chat/AgentAvatarView";
 import { Button } from "@shared/components/ui/button";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@shared/components/ui/popover";
+import { cn, FROSTED_SURFACE_CLASS } from "@vetta-org/ui/utils";
 import {
 	createContext,
 	useCallback,
@@ -131,7 +132,13 @@ export function ContextRingContent({ children, className, ...props }: ContextRin
 	const context = useContext(ContextRingContext);
 	if (context && !context.open) return null;
 	return (
-		<PopoverContent side="top" align="end" {...props} className={`w-64 p-0${className ? ` ${className}` : ""}`}>
+		<PopoverContent
+			side="top"
+			align="end"
+			{...props}
+			// 与模型选择、待办弹层同一层皮：沿用外投影与深色细线，底色换成同款毛玻璃。
+			className={cn("w-64 p-0", FROSTED_SURFACE_CLASS, className)}
+		>
 			{children}
 		</PopoverContent>
 	);
