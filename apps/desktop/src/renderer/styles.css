@@ -619,6 +619,13 @@ textarea:disabled,
 	padding-left: 0;
 }
 
+/* 常规页头下，仅展开的新会话停靠栏抵消 AppFrame 右侧和底部的 p-2。 */
+.app-main-frame:not([data-header-overlay]) .new-session-layout > [data-activity-panel-dock="open"] {
+	height: auto;
+	margin-right: -0.5rem;
+	margin-bottom: -0.5rem;
+}
+
 .project-list-containment {
 	contain: layout paint style;
 }

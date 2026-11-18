@@ -107,13 +107,13 @@ export interface ActivityPanelDesktopProps extends ComponentPropsWithoutRef<"asi
 	readonly present?: boolean;
 }
 
-/** Desktop width boundary. Callers explicitly compose Surface and ResizeHandle inside it. */
+/** Desktop layout boundary. The width snaps to its target so siblings reflow only once. */
 export const ActivityPanelDesktop = forwardRef<HTMLElement, ActivityPanelDesktopProps>(
 	function ActivityPanelDesktop(
 		{ present = true, className, children, style, ...props },
 		forwardedRef,
 	) {
-		const { displayedWidth, isOpen, isResizing } = useActivityPanelContext("Desktop");
+		const { displayedWidth, isOpen } = useActivityPanelContext("Desktop");
 		if (!present) return null;
 		return (
 			<aside
@@ -125,7 +125,6 @@ export const ActivityPanelDesktop = forwardRef<HTMLElement, ActivityPanelDesktop
 				style={{
 					...style,
 					width: isOpen ? displayedWidth : 0,
-					transition: isResizing ? "none" : "width 0.2s ease-in-out",
 				}}
 				{...props}
 			>
@@ -137,20 +136,24 @@ export const ActivityPanelDesktop = forwardRef<HTMLElement, ActivityPanelDesktop
 
 export interface ActivityPanelSurfaceProps extends ComponentPropsWithoutRef<"div"> {}
 
-/** Visual content surface whose mount lifetime is independent from open/closed state. */
+/** Visual surface that slides independently of the desktop layout boundary. */
 export const ActivityPanelSurface = forwardRef<HTMLDivElement, ActivityPanelSurfaceProps>(
 	function ActivityPanelSurface({ className, children, style, ...props }, forwardedRef) {
-		const { displayedWidth, isOpen } = useActivityPanelContext("Surface");
+		const { displayedWidth, isOpen, isResizing } = useActivityPanelContext("Surface");
 		return (
 			<div
 				ref={forwardedRef}
 				aria-hidden={!isOpen}
+				inert={!isOpen}
 				className={cn(
-					"flex h-full min-h-0 flex-col transition-opacity duration-150",
+					"absolute inset-y-0 left-0 flex min-h-0 flex-col",
+					isResizing
+						? "transition-none"
+						: "transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none",
 					isOpen ? "opacity-100" : "pointer-events-none opacity-0",
 					className,
 				)}
-				style={{ ...style, width: displayedWidth }}
+				style={{ ...style, width: displayedWidth, transform: isOpen ? "none" : "translateX(100%)" }}
 				{...props}
 			>
 				{children}

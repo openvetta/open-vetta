@@ -48,8 +48,16 @@ beforeEach(() => {
 
 afterEach(() => {
 	cleanup();
+	vi.useRealTimers();
 	vi.unstubAllGlobals();
 });
+
+function endTransition(element: Element | null | undefined, propertyName: string): void {
+	if (!element) throw new Error("Missing transition target");
+	const event = new Event("transitionend", { bubbles: true });
+	Object.defineProperty(event, "propertyName", { value: propertyName });
+	act(() => element.dispatchEvent(event));
+}
 
 function pluginTab(): RegisteredActivityTab {
 	return {
@@ -100,32 +108,72 @@ describe("activity panel plugin tabs outside the ordinary conversation host", ()
 		expect(screen.queryByText("Demo panel")).toBeNull();
 		expect(screen.queryByText("file body")).toBeNull();
 
-		// 打开的那一帧只挂壳与标签栏；内容等滑出过渡结束（或兜底计时）再挂，
-		// 免得首次挂载的长任务把 width 过渡卡在半路。
+		// The shell and tab bar are available immediately. Let expensive tab content
+		// mount once the entrance is finished.
 		act(() => store.set(activityPanelOpenAtom, true));
 		expect(screen.queryByText("Demo panel")).not.toBeNull();
 		expect(screen.queryByText("file body")).toBeNull();
 
 		act(() => vi.advanceTimersByTime(DOCKED_CONTENT_FALLBACK_MS));
 		expect(screen.queryByText("file body")).not.toBeNull();
-		vi.useRealTimers();
 	});
 
-	it("mounts docked content as soon as the panel's width transition ends", () => {
+	it("commits the dock width immediately and mounts content on the surface's slide end", () => {
+		vi.useFakeTimers();
+		const store = renderPanel("conversation", false);
+		const aside = document.querySelector("aside");
+		const surface = aside?.querySelector<HTMLDivElement>(":scope > div");
+		expect(aside?.style.width).toBe("0px");
+		expect(aside?.getAttribute("data-activity-panel-dock")).toBe("closed");
+		expect(surface?.style.transform).toBe("translateX(100%)");
+		expect(surface?.hasAttribute("inert")).toBe(true);
+
+		act(() => store.set(activityPanelOpenAtom, true));
+		expect(Number.parseFloat(aside?.style.width ?? "")).toBeGreaterThan(0);
+		expect(aside?.getAttribute("data-activity-panel-dock")).toBe("open");
+		expect(aside?.style.transition).toBe("");
+		expect(surface?.style.transform).toBe("none");
+		expect(surface?.hasAttribute("inert")).toBe(false);
+		expect(screen.queryByText("Demo panel")).not.toBeNull();
+		expect(screen.queryByText("file body")).toBeNull();
+
+		endTransition(aside, "width");
+		endTransition(surface, "opacity");
+		endTransition(surface?.firstElementChild, "transform");
+		expect(screen.queryByText("file body")).toBeNull();
+
+		endTransition(surface, "transform");
+		expect(screen.queryByText("file body")).not.toBeNull();
+
+		act(() => store.set(activityPanelOpenAtom, false));
+		expect(aside?.style.width).toBe("0px");
+		expect(aside?.getAttribute("data-activity-panel-dock")).toBe("closed");
+		expect(surface?.hasAttribute("inert")).toBe(true);
+		expect(screen.queryByText("file body")).toBeNull();
+	});
+
+	it("waits for the new entrance after a quick close and reopen", () => {
 		vi.useFakeTimers();
 		const store = renderPanel("conversation", false);
 		act(() => store.set(activityPanelOpenAtom, true));
-		expect(screen.queryByText("file body")).toBeNull();
+		const halfDelay = DOCKED_CONTENT_FALLBACK_MS / 2;
+		act(() => vi.advanceTimersByTime(halfDelay));
+		act(() => store.set(activityPanelOpenAtom, false));
+		act(() => store.set(activityPanelOpenAtom, true));
 
-		const aside = document.querySelector("aside");
-		expect(aside).not.toBeNull();
-		const event = new Event("transitionend", { bubbles: true });
-		Object.defineProperty(event, "propertyName", { value: "width" });
-		act(() => {
-			aside?.dispatchEvent(event);
-		});
+		act(() => vi.advanceTimersByTime(halfDelay));
+		expect(screen.queryByText("file body")).toBeNull();
+		endTransition(document.querySelector("aside")?.firstElementChild, "transform");
 		expect(screen.queryByText("file body")).not.toBeNull();
-		vi.useRealTimers();
+	});
+
+	it("mounts content on open when reduced motion skips the desktop slide", () => {
+		vi.stubGlobal("matchMedia", (query: string) => ({
+			matches: query === "(prefers-reduced-motion: reduce)",
+		}));
+		const store = renderPanel("conversation", false);
+		act(() => store.set(activityPanelOpenAtom, true));
+		expect(screen.queryByText("file body")).not.toBeNull();
 	});
 
 	it("mounts docked content immediately when the panel is already open on first render", () => {

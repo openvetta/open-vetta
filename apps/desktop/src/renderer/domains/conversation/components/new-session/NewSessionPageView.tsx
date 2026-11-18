@@ -111,7 +111,7 @@ export function NewSessionPageView({
 		: { duration: PANEL_REVEAL_DURATION * 0.6, ease: PANEL_REVEAL_EASE };
 
 	return (
-		<div className="flex h-full min-w-0 flex-1">
+		<div className="new-session-layout flex h-full min-w-0 flex-1">
 			<NewSessionPageLayoutView
 				isShort={isShort}
 				background={<NewSessionBackground />}
