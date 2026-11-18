@@ -4,7 +4,9 @@ import { isMac } from "../utils/platform";
 export function AppBootLoadingView(): JSX.Element {
 	return (
 		<div className="flex h-screen w-screen overflow-hidden bg-background p-2" aria-busy="true">
-			<div className="flex w-[220px] shrink-0 flex-col rounded-xl border border-border/50 bg-muted/60 p-3">
+			{/* 与真实侧边栏一致贴着窗口左/上/下边（宿主用 .sidebar-dock 的负 margin 抵掉 AppFrame 的
+			    p-2，这里同样抵掉外层的 p-2），不画成悬浮卡片；只留右侧一条分隔线。 */}
+			<div className="-my-2 -ml-2 flex w-[220px] shrink-0 flex-col border-r border-border/50 bg-muted/60 p-3">
 				{/* macOS 用 hiddenInset 标题栏，交通灯就落在窗口左上角（trafficLightPosition x:16 y:19），
 				    这里不画骨架块，只留等高占位——否则脉冲方块正压在红黄绿三个按钮下面。
 				    留占位而非直接删，是为了下方条目不会上移到交通灯区域。 */}
