@@ -27,6 +27,7 @@
 			"description": "Your projects and chat history will live here."
 		},
 		"projects": {
+			"title": "Projects",
 			"noSessions": "No sessions",
 			"collapseSessions": "Collapse sessions",
 			"expandMore": "Show more ({{count}})",
@@ -79,9 +80,6 @@
 		}
 	},
 	"filterTabs": {
-		"all": "All",
-		"normal": "Normal",
-		"batch": "Batch",
 		"conversation": "Chat",
 		"team": "Teams",
 		"claw": "Claw"

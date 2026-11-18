@@ -21,7 +21,7 @@
  * 图标规则会连同内联的 SVG 一起进入插件的 dist/style.css，宿主激活插件时加载它，
  * class 自然存在。这条路对第三方插件同样成立，而本清单只能覆盖仓库内的插件。
  * 下面几条是尚未迁移的旧插件，迁走一个就删一行。 */
-@source inline("icon-[solar--ruler-pen-linear]");
+@source inline("icon-[solar--palette-2-linear]");
 @source inline("icon-[solar--archive-minimalistic-outline]");
 @source inline("icon-[solar--smartphone-2-linear]");
 @source inline("icon-[solar--video-frame-play-horizontal-linear]");

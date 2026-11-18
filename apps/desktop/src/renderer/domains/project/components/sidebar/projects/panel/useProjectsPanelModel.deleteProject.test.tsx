@@ -59,7 +59,7 @@ describe("useProjectsPanelModel.removeProject", () => {
 	it("确认删除项目后只从列表移除，不删除磁盘目录", async () => {
 		const store = getDefaultStore();
 		const { result } = renderHook(() =>
-			useProjectsPanelModel({ filter: "all", onOpenSession: vi.fn(async () => {}) }),
+			useProjectsPanelModel({ onOpenSession: vi.fn(async () => {}) }),
 		);
 
 		act(() => result.current.actions.removeProject(project.cwd));

@@ -714,6 +714,10 @@
 			"types": "./src/project/SessionRowView.tsx",
 			"import": "./src/project/SessionRowView.tsx"
 		},
+		"./project/SidebarProjectDisclosure": {
+			"types": "./src/project/SidebarProjectDisclosure.tsx",
+			"import": "./src/project/SidebarProjectDisclosure.tsx"
+		},
 		"./project/SidebarProjectsSectionView": {
 			"types": "./src/project/SidebarProjectsSectionView.tsx",
 			"import": "./src/project/SidebarProjectsSectionView.tsx"

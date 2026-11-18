@@ -1,10 +1,5 @@
 import { desktopHostedRouteService } from "@shared/hosted-routes/hosted-route-service";
-import {
-	pluginWorkspaceViewsAtom,
-	SIDEBAR_WIDTH_STORAGE_KEY,
-	sidebarFilterAtom,
-	sidebarWidthAtom,
-} from "@shared/store/atoms";
+import { pluginWorkspaceViewsAtom, SIDEBAR_WIDTH_STORAGE_KEY, sidebarWidthAtom } from "@shared/store/atoms";
 import { useMatches, useNavigate } from "@tanstack/react-router";
 import { useAtom, useAtomValue } from "jotai";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -241,7 +236,6 @@ export function useSidebarModel({
 	floating = false,
 }: Pick<SidebarProps, "onCollapse" | "floating">): SidebarModel {
 	const { t } = useTranslation("project");
-	const filter = useAtomValue(sidebarFilterAtom);
 	const navigate = useNavigate();
 	const matches = useMatches();
 	const lastMatch = matches[matches.length - 1];
@@ -476,7 +470,8 @@ export function useSidebarModel({
 	return {
 		width,
 		floating,
-		filter,
+		// Retain the legacy theme SDK field for custom sidebar regions.
+		filter: "all",
 		navItems,
 		moreNavItems,
 		moreLabel,

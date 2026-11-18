@@ -1,6 +1,7 @@
 import { isSubPath, pathBasename } from "@shared/lib/utils";
 import type { RuntimeSessionAccess } from "@vetta/runtime-core";
 import { atom } from "jotai";
+import { atomWithStorage, createJSONStorage } from "jotai/utils";
 import { SCHEDULE_SESSION_MARKER } from "../../../shared/scheduled-session";
 import {
 	parseSessionPins,
@@ -104,8 +105,6 @@ export function sessionDisplayLabel(session: Pick<SessionInfo, "name" | "firstMe
 	return raw;
 }
 
-export type SidebarFilter = "all" | "normal" | "batch";
-
 export const projectsAtom = atom<Project[]>([]);
 export const projectsInitializedAtom = atom<boolean>(false);
 export const expandedProjectsAtom = atom<Set<string>>(new Set<string>());
@@ -175,7 +174,22 @@ const readSidebarWidth = (): number => {
 	return Math.max(SIDEBAR_WIDTH_MIN, n);
 };
 export const sidebarWidthAtom = atom<number>(readSidebarWidth());
-export const sidebarFilterAtom = atom<SidebarFilter>("all");
+const sidebarProjectsStorage = createJSONStorage<boolean>();
+
+export const sidebarProjectsOpenAtom = atomWithStorage<boolean>(
+	"vetta-sidebar-projects-open",
+	true,
+	{
+		...sidebarProjectsStorage,
+		getItem(key, initialValue) {
+			const value: unknown = sidebarProjectsStorage.getItem(key, initialValue);
+			return typeof value === "boolean" ? value : initialValue;
+		},
+		// The disclosure is local to this window. Restore it on mount from localStorage.
+		subscribe: undefined,
+	},
+	{ getOnInit: true },
+);
 
 /** 会话来源维度：普通对话 / Claw。 */
 export type DefaultConversationSource = "conversation" | "claw";

@@ -1,5 +1,5 @@
 import { cn } from "@vetta-org/ui/utils";
-import type { JSX, Ref } from "react";
+import { useId, type JSX, type Ref } from "react";
 import { RunningPulseDot } from "../sidebar/RunningPulseDot";
 import { PROJECT_TYPE_ICONS, type ProjectTypeIconKey, REMOTE_PROJECT_ICON } from "./types";
 
@@ -9,6 +9,7 @@ export interface ProjectRowViewProps {
 	expanded: boolean;
 	hasRunning: boolean;
 	isActive: boolean;
+	loading?: boolean;
 	newSessionTitle: string;
 	onCollapse: () => void;
 	onExpand: () => void;
@@ -29,6 +30,7 @@ export function ProjectRowView({
 	expanded,
 	hasRunning,
 	isActive,
+	loading = false,
 	newSessionTitle,
 	onCollapse,
 	onExpand,
@@ -41,6 +43,8 @@ export function ProjectRowView({
 	remote = false,
 	rowRef,
 }: ProjectRowViewProps): JSX.Element {
+	const labelId = useId();
+
 	return (
 		<div
 			ref={rowRef}
@@ -53,30 +57,32 @@ export function ProjectRowView({
 		>
 			<button
 				type="button"
+				aria-labelledby={labelId}
+				aria-expanded={expanded}
+				aria-busy={expanded && loading}
 				onClick={() => {
 					onInteract?.();
-					if (expanded) {
-						onCollapse();
-						return;
-					}
-					onExpand();
-					onNavigateProject();
+					if (expanded) onCollapse();
+					else onExpand();
 				}}
 				className="relative flex shrink-0 items-center justify-center"
 			>
 				<span
 					className={cn(
-						expanded
-							? "icon-[solar--alt-arrow-down-linear]"
-							: remote
-								? REMOTE_PROJECT_ICON
-								: PROJECT_TYPE_ICONS[projectType],
+						expanded && loading
+							? "icon-[mdi--loading] motion-safe:animate-spin"
+							: expanded
+								? "icon-[solar--alt-arrow-down-linear]"
+								: remote
+									? REMOTE_PROJECT_ICON
+									: PROJECT_TYPE_ICONS[projectType],
 						"h-4 w-4 text-foreground",
 					)}
 				/>
 				{hasRunning && <RunningPulseDot />}
 			</button>
 			<button
+				id={labelId}
 				type="button"
 				onClick={() => {
 					onInteract?.();

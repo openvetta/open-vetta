@@ -185,7 +185,7 @@ export default definePlugin({
 		ctx.ui.registerWorkspaceView({
 			id: GALLERY_VIEW_ID,
 			label: "%gallery.nav.label%",
-			icon: "icon-[solar--ruler-pen-linear]",
+			icon: "icon-[solar--palette-2-linear]",
 			description: "%gallery.nav.description%",
 			component: GalleryView,
 		});

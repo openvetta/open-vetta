@@ -12,7 +12,7 @@ export function ProjectGroupsSection({
 }: ProjectGroupsSectionProps): JSX.Element {
 	return (
 		<>
-			{model.filteredProjects.map((project) => (
+			{model.userProjects.map((project) => (
 				<ProjectGroup
 					key={project.cwd}
 					project={project}
@@ -31,8 +31,7 @@ export function ProjectGroupsSection({
 					onRenameSession={model.actions.renameSession}
 				/>
 			))}
-			{model.showBatchGroup &&
-				model.batchProjects.map(({ project, sessions }) => (
+			{model.batchProjects.map(({ project, sessions }) => (
 					<ProjectGroup
 						key={project.cwd}
 						project={project}

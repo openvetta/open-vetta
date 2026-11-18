@@ -3,13 +3,12 @@ import type {
 	Project,
 	SessionContextMenuSession,
 	SessionExecutionMode,
-	SidebarFilter,
 } from "@shared/store/atoms";
 import type { SidebarConversationInfo } from "../../../../services/sidebar-conversation-projection";
 
 export interface ProjectsPanelProps {
 	defaultSessionListClassName?: string;
-	filter: SidebarFilter;
+	projectsToolbarClassName?: string;
 	onOpenSession: (cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>;
 }
 
@@ -29,14 +28,12 @@ export interface ProjectsPanelModel {
 	defaultSessionsCwd: string;
 	expandedBatchProjects: Set<string>;
 	expandedProjects: Set<string>;
-	filteredProjects: Project[];
+	userProjects: Project[];
 	imCwd: string;
-	noOtherProjects: boolean;
 	projectSessions: (cwd: string) => SidebarConversationInfo[];
 	projectSessionsLoading: (cwd: string) => boolean;
 	projectsLoading: boolean;
 	defaultSessionsLoading: boolean;
-	showBatchGroup: boolean;
 	actions: {
 		archiveProject(cwd: string): void;
 		batchNewSession(cwd: string): void;
