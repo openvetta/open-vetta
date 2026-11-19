@@ -25,8 +25,8 @@ function renderSettings() {
 	});
 	const storedConversations = new Set([sessionPath, "/test/chat/other.jsonl"]);
 	const registeredProjects = new Set(["/project", "/unrelated", "/archive"]);
-	const deleteSession = async (path: string, mode?: string) => {
-		if (mode === "workspace-removal") storedConversations.delete(path);
+	const deleteSession = async (path: string) => {
+		storedConversations.delete(path);
 	};
 	const removeProject = async (path: string) => { registeredProjects.delete(path); };
 	const listRunning = vi.fn(async () => [sessionPath]);

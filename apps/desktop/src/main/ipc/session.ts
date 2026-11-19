@@ -48,7 +48,7 @@ import { stopMonitoringRuntimeSession } from "../app-monitor/app-monitor-service
 import { onConversationListChanged } from "../conversations/conversation-list-events.js";
 import { getDesktopConversationService } from "../conversations/desktop-conversation-service.js";
 import { DesktopGoalController } from "../conversations/desktop-goal-controller.js";
-import { createDesktopSessionCommands } from "../conversations/desktop-session-commands.js";
+import { createDesktopSessionCommands, deleteSessionsInDirectory } from "../conversations/desktop-session-commands.js";
 import { desktopSessionSearch } from "../conversations/desktop-session-search.js";
 import {
 	collectRunningInteractiveSessionIds,
@@ -1205,11 +1205,9 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		return runtime.forkSession(sessionId, entryId);
 	});
 
-	ipcMain.handle(CHANNELS.DELETE, async (_event, sessionPath: unknown, mode?: unknown) => {
+	ipcMain.handle(CHANNELS.DELETE, async (_event, sessionPath: unknown) => {
 		assertNonEmptyString(sessionPath, "sessionPath");
-		if (mode !== undefined && mode !== "workspace-removal" && mode !== "clear-history")
-			throw new Error("Invalid session delete mode");
-		await sessionCommands.delete(sessionPath, mode);
+		await sessionCommands.delete(sessionPath);
 	});
 
 	ipcMain.handle(CHANNELS.RENAME, async (_event, sessionPath: unknown, name: unknown) => {
@@ -1282,8 +1280,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(CHANNELS.CLEAR_DEFAULT_CONVERSATION, async (_event, scope: unknown) => {
 		// 物理分家后（ADR-0005）每个 scope 对应一个独立 cwd，互不干扰：
-		// - "conversation"：清桌面「对话」cwd 下 .vetta/sessions 内的全部会话（保留产物）
-		// - "claw"：清 IM cwd 下 .vetta/sessions 内的全部会话（保留产物）
+		// - "conversation"：清桌面「对话」cwd 下 .vetta/sessions 内的全部会话及其工作目录
+		// - "claw"：清 IM cwd 下 .vetta/sessions 内的全部会话
 		if (scope !== "conversation" && scope !== "claw") {
 			throw new Error("Invalid scope for clearDefaultConversation");
 		}
@@ -1321,6 +1319,16 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 				}
 			}),
 		);
+
+		// 逐条走普通会话删除：工作目录、置顶、标签、批注、自动化绑定都跟着回收。只删 jsonl 会把
+		// 每个会话的 uuid 工作目录留成看不见的孤儿，越清越多。Agent Team 名下的会话不归它管，
+		// 由最后的会话目录清理兜底。
+		await deleteSessionsInDirectory({
+			dir: targetSessionDir,
+			commands: sessionCommands,
+			onError: (sessionPath, error) =>
+				sessionLog.error("clear-default-conversation delete failed", sessionPath, error),
+		});
 
 		try {
 			await rmExceptPreserved(targetSessionDir, new Set());
