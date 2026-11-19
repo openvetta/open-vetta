@@ -39,6 +39,10 @@ scripts/quality/
   check-vitest-runner.mjs      package.json 测试脚本必须走 run-vitest.mjs
   check-turbo-config.mjs       Turbo 输入、环境、入口与 Remote Cache 安全合同
   check-source-path-maps.mjs   根 tsconfig path map 必须显式覆盖 workspace 包的 types 子路径导出
+  check-test-hygiene.mjs       禁止新增 .skip / .only / 快照断言 / 空用例体
+  check-test-assertion-depth.mjs
+                               调用类断言（toHaveBeenCalled*）棘轮：只许降不许升
+  mutation-sample.mjs          手工抽样变异检查，验证“测试会失败”（不进任何门禁）
   test-pkg.mjs                 按包名跑 vitest
   test-impact.mjs              按任务文件选择直接测试与 Vitest 相关测试
   lockfile-impact.mjs          按 workspace 依赖闭包比较 bun.lock
@@ -106,6 +110,41 @@ bun run test:pkg <name>
 ```
 
 包装器会查找 Node 20+（可用 `VETTA_TEST_NODE` 指定 `node.exe`），再执行仓库里的 `node_modules/vitest/vitest.mjs`。不要使用 `bunx vitest`、`npx vitest` 或包脚本里的裸 `vitest`。`check-vitest-runner.mjs` 会扫描 workspace `package.json` 并拒绝这些入口。
+
+## 测试卫生规则（`check-test-hygiene`）
+
+守卫读取测试源文件行级文本，禁止四类能“让红灯消失而不验证任何行为”的写法：
+
+| 写法 | 为什么禁止 |
+| --- | --- |
+| `it.skip` / `it.todo` / `describe.skip` | 直接关掉用例，覆盖悄悄变少 |
+| `it.only` / `describe.only` | 静默让其余用例不跑，本地绿而 CI 红 |
+| `toMatchSnapshot` / `toMatchInlineSnapshot` | 自动生成、永远通过、没人阅读 |
+| `it("...", () => {})` 空用例体 | 满足“存在测试”，却零断言 |
+
+live / 凭据类测试可以保留 skip，但必须在守卫的 `ALLOWED_SKIPS` 里登记理由与 `reviewBy`；过期即报错，逼下次重新确认，不做永久豁免。
+
+## 调用类断言棘轮（`check-test-assertion-depth`）
+
+`expect(fn).toHaveBeenCalled*` 只证明“我调用了它”，不证明用户目标成立，且对实现细节上锁。它是成本最低的绿灯，压力下会稳定挤压真实断言。
+
+基线在 `scripts/quality/baselines/test-assertion-baseline.json`，维护规则与 `coding-agent-rewrite.json` 一致：
+
+- 新增测试文件默认预算 `0`；要豁免必须写明理由并同步基线
+- 已有文件只许降不许升；删除条目表示该文件已清理干净
+- `node scripts/quality/check-test-assertion-depth.mjs --report` 列出超预算最多的文件
+
+该守卫只盯趋势，不判新断言好坏：`expect(fetch).not.toHaveBeenCalled()` 这类证明“没走网络”的断言是合法的，继续写即可。
+
+## 变异抽样（`mutation-sample`，手工）
+
+`scripts/quality/mutation-sample.mjs` 抽样翻转比较符（`===` → `!==`、`&&` → `||`），再跑 `test:impact`，统计“改坏代码但测试仍绿”的比例。它**不进 CI、不被任何门禁调用**，因为需要临时修改源码。
+
+```bash
+VETTA_MUTATION_LIMIT=20 bun scripts/quality/mutation-sample.mjs
+```
+
+要求工作区干净，每次变异前写 `.bak`、`finally` 强制还原。存活率长期高于 20% 时，说明对应区域缺少真实行为断言。
 
 ## 包边界规则（`check-package-boundaries`）
 

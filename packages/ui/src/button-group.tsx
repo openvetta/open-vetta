@@ -88,19 +88,15 @@ function renderBadge(badge: ButtonGroupItemProps["badge"]): React.ReactNode {
 	);
 }
 
-function ButtonGroupItem({
-	className,
-	icon,
-	label,
-	badge,
-	active = false,
-	type = "button",
-	...props
-}: ButtonGroupItemProps) {
+const ButtonGroupItem = React.forwardRef<HTMLButtonElement, ButtonGroupItemProps>(function ButtonGroupItem(
+	{ className, icon, label, badge, active = false, type = "button", ...props },
+	ref,
+) {
 	const shape = React.useContext(ShapeContext);
 	const hasLabel = label !== undefined && label !== null && label !== false;
 	return (
 		<button
+			ref={ref}
 			type={type}
 			data-slot="button-group-item"
 			data-active={active || undefined}
@@ -129,6 +125,6 @@ function ButtonGroupItem({
 			{renderBadge(badge)}
 		</button>
 	);
-}
+});
 
 export { ButtonGroup, ButtonGroupItem, useInButtonGroup };

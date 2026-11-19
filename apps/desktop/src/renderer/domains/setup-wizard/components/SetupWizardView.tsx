@@ -2,26 +2,16 @@ import { cn } from "@shared/lib/utils";
 import { Button } from "@vetta-org/ui/button";
 import type { SetupWizardModel } from "../hooks/useSetupWizard";
 import type { SetupWizardStepId } from "../steps";
-import { CloudLoginStep } from "@shared/components/cloud-slots";
 import { LanguageAppearanceStep } from "./steps/LanguageAppearanceStep";
 import { PermissionsStep } from "./steps/PermissionsStep";
 import { WelcomeStep } from "./steps/WelcomeStep";
 
-function StepBody({
-	onLoginSuccess,
-	step,
-}: {
-	onLoginSuccess: () => void;
-	step: SetupWizardStepId;
-}): JSX.Element {
+function StepBody({ step }: { step: SetupWizardStepId }): JSX.Element {
 	switch (step) {
 		case "permissions":
 			return <PermissionsStep />;
 		case "languageAppearance":
 			return <LanguageAppearanceStep />;
-		case "login":
-			// lite 构建下 steps 列表不含 login，此分支不可达（槽位渲染 null 兜底）
-			return <CloudLoginStep onSuccess={onLoginSuccess} />;
 		case "welcome":
 			return <WelcomeStep />;
 	}
@@ -75,7 +65,7 @@ export function SetupWizardView({ model }: { model: SetupWizardModel }): JSX.Ele
 			<div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6 pb-2 pt-1">
 				<div className="flex w-full max-w-[560px] flex-1 flex-col justify-center py-3">
 					<div key={currentStep} className="setup-wizard-enter">
-						<StepBody step={currentStep} onLoginSuccess={actions.next} />
+						<StepBody step={currentStep} />
 					</div>
 				</div>
 			</div>

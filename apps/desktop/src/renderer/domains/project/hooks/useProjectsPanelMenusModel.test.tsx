@@ -33,6 +33,7 @@ function model(deleteSession: ReturnType<typeof vi.fn>): ProjectsPanelModel {
 		defaultConversationFilter: "conversation",
 		imCwd: "C:/im",
 		projectSessions: () => [],
+		defaultSessions: [],
 		actions: { deleteSession },
 	} as unknown as ProjectsPanelModel;
 }

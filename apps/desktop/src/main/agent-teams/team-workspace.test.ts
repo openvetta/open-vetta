@@ -1,9 +1,14 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createAgentTeamStorageKey } from "./agent-team-storage-layout.js";
-import { createTeamSessionWorkspace, resolveTeamSessionWorkspace, resolveTeamWorkspacePath } from "./team-workspace.js";
+import {
+	createTeamSessionWorkspace,
+	removeTeamSessionWorkspace,
+	resolveTeamSessionWorkspace,
+	resolveTeamWorkspacePath,
+} from "./team-workspace.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -96,4 +101,19 @@ describe("createTeamSessionWorkspace", () => {
 			join("session-workspaces", createAgentTeamStorageKey("Team A", "team-a"), "session-a"),
 		);
 	});
+});
+
+it("removes only the directory allocated for the requested Team session", async () => {
+	const root = await createStorageIndex("team-a", "Team A");
+	const first = await createTeamSessionWorkspace("team-a", "session-a", root);
+	const second = await createTeamSessionWorkspace("team-a", "session-b", root);
+	const otherArtifact = join(second.cwd, "keep.txt");
+	await writeFile(otherArtifact, "keep");
+	await expect(removeTeamSessionWorkspace("team-a", "session-a", second.cwd, root)).rejects.toThrow(
+		"Invalid Agent Team session workspace",
+	);
+	await removeTeamSessionWorkspace("team-a", "session-a", first.cwd, root);
+	await removeTeamSessionWorkspace("team-a", "session-a", first.cwd, root);
+	await expect(access(first.cwd)).rejects.toMatchObject({ code: "ENOENT" });
+	await expect(access(otherArtifact)).resolves.toBeUndefined();
 });

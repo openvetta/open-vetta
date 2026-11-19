@@ -10,7 +10,7 @@ vi.mock("@shared/store/atoms", async () => {
 });
 
 async function setRemoteProviders(value: Record<string, unknown>): Promise<void> {
-	const { remoteProvidersAtom } = await import("@shared/store/atoms");
+	const { remoteProvidersAtom } = await import("@shared/store/model-catalog-atoms");
 	getDefaultStore().set(remoteProvidersAtom, value);
 }
 

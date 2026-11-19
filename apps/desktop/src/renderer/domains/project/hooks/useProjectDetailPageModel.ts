@@ -7,7 +7,6 @@ import {
 	automationSessionLinksAtom,
 	batchProjectsAtom,
 	confirmDialogAtom,
-	isPersonalModeAtom,
 	pageHeaderTitleHiddenAtom,
 	pinnedSessionPathsAtom,
 	projectsAtom,
@@ -142,7 +141,6 @@ export interface ProjectDetailPageModel extends Omit<ProjectDetailPageViewProps,
 	batchProject: ReturnType<typeof useProjectDetail>["batchProject"];
 	decodedCwd: string;
 	isBatch: boolean;
-	isPersonal: boolean;
 	projectType: "normal" | "batch" | undefined;
 }
 
@@ -179,7 +177,6 @@ export function useProjectDetailPageModel(
 		setActiveDocument("AGENTS.md");
 	}, [decodedCwd]);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
-	const isPersonal = useAtomValue(isPersonalModeAtom);
 	const [activityOpen, setActivityOpen] = useAtom(activityPanelOpenAtom);
 	const setConfirm = useSetAtom(confirmDialogAtom);
 	const setHeaderTitleHidden = useSetAtom(pageHeaderTitleHiddenAtom);
@@ -303,7 +300,6 @@ export function useProjectDetailPageModel(
 		exportable,
 		isBatch,
 		isDirty,
-		isPersonal,
 		labels: {
 			showInFolderTitle: isMac ? t("detail.showInFinder") : t("detail.showInExplorer"),
 			showInFolder: isMac ? t("detail.finder") : t("detail.explorer"),

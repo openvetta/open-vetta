@@ -1,3 +1,5 @@
+import { MAIN_SPACE, selectedSpaceAtom } from "@shared/store/spaces";
+import { motion, useReducedMotion } from "motion/react";
 import { sidebarProjectsOpenAtom } from "@shared/store/atoms";
 import { ProjectsLoadingView } from "@vetta-org/theme-ui/project/ProjectsLoadingView";
 import { ProjectsPanelView } from "@vetta-org/theme-ui/project/ProjectsPanelView";
@@ -6,7 +8,7 @@ import {
 	SidebarProjectDisclosureTrigger,
 } from "@vetta-org/theme-ui/project/SidebarProjectDisclosure";
 import { cn } from "@vetta-org/ui/utils";
-import { useAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useConversationTagsSync } from "../../../../hooks/useConversationTagsSync";
@@ -21,6 +23,8 @@ import { useProjectsPanelModel } from "./useProjectsPanelModel";
 export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 	const { t } = useTranslation("project");
 	const model = useProjectsPanelModel(props);
+	const spaceId = useAtomValue(selectedSpaceAtom);
+	const reduceMotion = useReducedMotion();
 	useConversationTagsSync();
 	const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
 	const [projectsOpen, setProjectsOpen] = useAtom(sidebarProjectsOpenAtom);
@@ -35,8 +39,10 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 		if (defaultCwd) model.actions.defaultNewSession(defaultCwd);
 	};
 
+	const showEmptyProjectsSection = spaceId !== MAIN_SPACE && !hasUserProjects;
 	const showStartCard =
 		!hasUserProjects &&
+		!showEmptyProjectsSection &&
 		!model.defaultSessionsLoading &&
 		model.defaultSessions.length === 0 &&
 		model.defaultConversationFilter === "conversation";
@@ -64,6 +70,7 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 	if (model.projectsLoading) return <ProjectsLoadingView />;
 
 	return (
+		<motion.div key={spaceId} className="flex min-h-0 flex-1 flex-col" initial={reduceMotion ? false : { opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }}>
 		<ProjectsPanelView
 			defaultSection={defaultSection}
 			emptyState={<ProjectsPanelEmptyState onNewConversation={newConversation} />}
@@ -71,7 +78,7 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 			onScrollRef={setScrollEl}
 			scrollElement={scrollEl}
 			projectsSection={
-				hasUserProjects && (
+				(hasUserProjects || showEmptyProjectsSection) && (
 					<>
 						<div className={cn("group relative z-20 flex items-center gap-1 pb-1 pr-1", props.projectsToolbarClassName)}>
 							<SidebarProjectDisclosureTrigger
@@ -94,7 +101,8 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 			}}
 			showDefaultRegion={showDefaultRegion}
 			showEmpty={showEmpty}
-			showProjectsRegion={hasUserProjects}
+			showProjectsRegion={hasUserProjects || showEmptyProjectsSection}
 		/>
+		</motion.div>
 	);
 }

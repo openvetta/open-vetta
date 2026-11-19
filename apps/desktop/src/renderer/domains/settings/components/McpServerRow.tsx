@@ -21,12 +21,9 @@ export type McpServerRowThemeViews = {
 export function McpServerRow({
 	name,
 	model,
-	/** 来自远程市场的图标（本地 mcp.json 未写入 icon 时回退） */
-	marketIcon,
 }: {
 	name: string;
 	model: McpSettingsModel;
-	marketIcon?: string;
 }): JSX.Element | null {
 	const { t } = useTranslation("settings");
 	const server = model.config?.mcpServers[name];
@@ -35,7 +32,7 @@ export function McpServerRow({
 	const isDisabled = server.disabled ?? false;
 	const isBuiltin = isBuiltinMcpServer(name, server);
 	const preset = matchBuiltinMcpPreset(name, server);
-	const iconSrc = resolveMcpIcon(name, server) ?? (marketIcon?.trim() || null);
+	const iconSrc = resolveMcpIcon(name, server);
 	const [failedIcon, setFailedIcon] = useState<string | null>(null);
 	const showImg = Boolean(iconSrc) && failedIcon !== iconSrc;
 	const needsSecrets = preset ? missingRequiredSecrets(preset, server).length > 0 : false;

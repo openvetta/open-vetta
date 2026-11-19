@@ -1,4 +1,4 @@
-import { remoteProvidersAtom } from "@shared/store/atoms";
+import { remoteProvidersAtom } from "@shared/store/model-catalog-atoms";
 import type {
 	PluginOfficialApi,
 	PluginOfficialModelSummary,

@@ -1,11 +1,8 @@
 import { useBatchTasks } from "@domains/batch-tasks/hooks/useBatchTasks";
 import { useProjectActions } from "@domains/project/hooks/useProjects";
-import { cloudEnabled } from "@shared/components/cloud-slots";
-import { fetchServerInfo } from "@shared/lib/api";
 import {
 	defaultConversationCwdAtom,
 	defaultImConversationCwdAtom,
-	deployModeAtom,
 	knowledgeBaseEnabledAtom,
 	knowledgeProcessingCwdAtom,
 	SELECTED_MODEL_STORAGE_KEY,
@@ -22,19 +19,12 @@ export function useAppInit(): void {
 	const setDefaultImConversationCwd = useSetAtom(defaultImConversationCwdAtom);
 	const setSelectedModel = useSetAtom(selectedModelAtom);
 	const setSessionExecutionMode = useSetAtom(sessionExecutionModeAtom);
-	const setDeployMode = useSetAtom(deployModeAtom);
 	const setKnowledgeBaseEnabled = useSetAtom(knowledgeBaseEnabledAtom);
 	const setKnowledgeProcessingCwd = useSetAtom(knowledgeProcessingCwdAtom);
 	const { refreshProjects } = useProjectActions();
 	const { refreshProjects: refreshBatchProjects } = useBatchTasks();
 
 	useEffect(() => {
-		// Fetch deploy mode from server（lite 构建不询问服务端，保持默认部署形态）
-		if (cloudEnabled) {
-			void fetchServerInfo()
-				.then((info) => setDeployMode(info.deploy_mode))
-				.catch(console.error);
-		}
 		// Sync workspace path from config file
 		void window.vetta.config.get().then((config) => {
 			if (config.workspacePath) {
@@ -81,7 +71,6 @@ export function useAppInit(): void {
 		setDefaultConversationCwd,
 		setSelectedModel,
 		setSessionExecutionMode,
-		setDeployMode,
 		refreshProjects,
 		refreshBatchProjects,
 		setDefaultImConversationCwd,

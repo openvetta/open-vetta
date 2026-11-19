@@ -250,6 +250,7 @@ export function useDefaultSessionListModel({
 				session,
 				allowMutations: !isClaw,
 				canTag: !isClaw,
+				independent: !isClaw,
 			});
 		},
 		[isClaw, setContextMenu],

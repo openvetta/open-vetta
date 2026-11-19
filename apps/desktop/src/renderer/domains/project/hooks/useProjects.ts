@@ -16,6 +16,7 @@ import {
 	sessionLoadingCwdsAtom,
 	sessionsMapAtom,
 } from "@shared/store/atoms";
+import { assignSpace, selectSpace, spaceOf, spacesAtom } from "@shared/store/spaces";
 import { useAtomValue, useSetAtom, useStore } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 
@@ -262,12 +263,14 @@ export function useProjectActions() {
 	/** Create a new project directory in workspace and register it; returns resolved cwd. */
 	const createProject = useCallback(
 		async (name: string): Promise<string> => {
+			const spaceId = store.get(spacesAtom).selected;
 			const entry = await window.vetta.project.create({ name });
+			store.set(spacesAtom, (state) => assignSpace(state, { kind: "project", key: entry.path }, spaceId));
 			await refreshProjects();
 			setExpandedProjects((prev) => new Set([...prev, entry.path]));
 			return entry.path;
 		},
-		[refreshProjects, setExpandedProjects],
+		[refreshProjects, setExpandedProjects, store],
 	);
 
 	/**
@@ -277,22 +280,32 @@ export function useProjectActions() {
 	 * 两者走同一个服务，校验、授权根登记和变更广播才不会有两套行为。
 	 */
 	const openProjectPath = useCallback(
-		async (path: string): Promise<string> => {
-			await window.vetta.project.open({ path });
+		async (path: string, spaceId = store.get(spacesAtom).selected): Promise<string> => {
+			const config = await window.vetta.config.get();
+			const entry = await window.vetta.project.open({ path });
+			const resolvedPath = entry.path;
+			const existing = [...config.projects, ...config.archivedProjects].some(
+				(project) => project.path === resolvedPath,
+			);
+			const item = { kind: "project", key: resolvedPath } as const;
+			store.set(spacesAtom, (state) =>
+				existing ? selectSpace(state, spaceOf(state, item)) : assignSpace(state, item, spaceId),
+			);
 			await refreshProjects();
-			setExpandedProjects((prev) => new Set([...prev, path]));
-			await loadSessions(path);
-			return path;
+			setExpandedProjects((prev) => new Set([...prev, resolvedPath]));
+			await loadSessions(resolvedPath);
+			return resolvedPath;
 		},
-		[refreshProjects, setExpandedProjects, loadSessions],
+		[refreshProjects, setExpandedProjects, loadSessions, store],
 	);
 
 	/** Open an existing directory and register it */
 	const openProject = useCallback(async () => {
+		const spaceId = store.get(spacesAtom).selected;
 		const cwd = await window.vetta.dialog.selectFolder();
 		if (!cwd) return null;
-		return openProjectPath(cwd);
-	}, [openProjectPath]);
+		return openProjectPath(cwd, spaceId);
+	}, [openProjectPath, store]);
 
 	const expandProject = useCallback(
 		(cwd: string) => {

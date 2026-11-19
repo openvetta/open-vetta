@@ -2,11 +2,9 @@ import "./telemetry/bootstrap.js";
 import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { URL } from "node:url";
 import { getVettaHomePath, VETTA_HOME_ENV } from "@vetta/action-rpc";
 import { app, type BrowserWindow, dialog, ipcMain, nativeTheme, protocol, session, shell } from "electron";
 import { APP_RUNTIME_NAME } from "../shared/app-identity.js";
-import { isCloudBuildEnabled } from "../shared/feature-flags.js";
 import { stopAllOpenMarketplaceMcpRuntimes } from "./abilities/open-marketplace/open-marketplace-mcp-runtime-host.js";
 import { ActionApprovalBroker } from "./app-actions/approval-broker.js";
 import { createAppActionSystem } from "./app-actions/index.js";
@@ -27,7 +25,6 @@ import { parseAgentRpcCommand, runAgentRpcCommand } from "./cli/agent-rpc-comman
 import { parseHelpCliCommand, runHelpCliCommand } from "./cli/help-command.js";
 import { parseOcrCliCommand, runOcrCliCommand } from "./cli/ocr-command.js";
 import { parsePdfCliCommand, runPdfCliCommand } from "./cli/pdf-command.js";
-import type { CloudMainHandle } from "./cloud/index.js";
 import { ensureDevCliShim, ensureDevVettaCliShim, ensureVettaCommandShim } from "./dev-cli-shim.js";
 import {
 	getDiagnosticsLogPath,
@@ -306,7 +303,7 @@ function attachMainWindowLifecycle(mainWindow: BrowserWindow): void {
 	});
 }
 
-// Register custom protocol for OAuth callback
+// Register the vetta:// protocol for pairing invites and other deep links
 // Windows dev mode: must pass electron.exe path and app entry as args,
 // otherwise the URL gets interpreted as a module path.
 if (!isCliMode) {
@@ -317,22 +314,12 @@ if (!isCliMode) {
 	}
 }
 
-// 云服务模块句柄：lite 构建（VETTA_CLOUD_ENABLED=false）恒为 null。
-let cloudMain: CloudMainHandle | null = null;
-
-function handleProtocolUrl(rawUrl: string): void {
-	try {
-		const parsed = new URL(rawUrl);
-		// OAuth 回调（vetta://oauth/callback）由 cloud 模块处理；
-		// lite 构建没有 cloud 模块，深链直接忽略。
-		cloudMain?.handleProtocolUrl(parsed);
-	} catch {
-		// Ignore malformed URLs
-	}
-}
-
+/**
+ * 深链入口（`vetta://pair/...` 等）：不解析具体路由，只负责把应用窗口叫回前台。
+ * OAuth 回调曾经也走这里，随云服务下线一并移除（ADR-0156）。
+ */
 function receiveProtocolUrl(rawUrl: string): void {
-	handleProtocolUrl(rawUrl);
+	void rawUrl;
 	const mainWindow = getMainWindow();
 	if (mainWindow) {
 		if (mainWindow.isMinimized()) mainWindow.restore();
@@ -366,7 +353,7 @@ if (!gotSingleLock) {
 	app.on("second-instance", (_event, argv) => {
 		const protocolUrl = argv.find((arg) => arg.startsWith(`${PROTOCOL}://`));
 		if (protocolUrl) {
-			handleProtocolUrl(protocolUrl);
+			receiveProtocolUrl(protocolUrl);
 		}
 		pluginPackageOpenService?.enqueueFromArgv(argv);
 		showMainWindow();
@@ -640,19 +627,6 @@ if (!gotSingleLock) {
 		ipcMain.handle("vetta:tray:set-tooltip", (_event, tooltip: string) => {
 			getTray()?.setToolTip(tooltip);
 		});
-
-		// 注意：channel 名叫 auth 只是历史沿革，实际是通用的「用系统浏览器打开 URL」，
-		// 浏览器面板等非云功能也在用，因此留在宿主、不随 cloud 模块裁剪。
-		ipcMain.handle("vetta:auth:open-external", async (_event, url: string) => {
-			await openExternalUrl(url);
-		});
-
-		// Vetta 云服务（登录 / 订阅 / 远程模型）：构建期开关。lite 构建下该分支
-		// 被常量折叠，整个 cloud chunk 不进产物。
-		if (isCloudBuildEnabled()) {
-			const { startCloudMain } = await import("./cloud/index.js");
-			cloudMain = startCloudMain({ receiveProtocolUrl });
-		}
 
 		// Dock 图标按用户在「设置 → 外观 → 应用图标」里的选择套用（默认仍是 icon-dock.png）。
 		if (process.platform === "darwin") applyAppIcon();

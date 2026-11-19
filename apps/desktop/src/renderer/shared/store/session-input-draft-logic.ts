@@ -7,8 +7,8 @@ export interface SessionInputDraftLike {
 	appshot: unknown;
 }
 
-export function newSessionInputDraftKey(cwd: string): string {
-	return `new:${cwd}`;
+export function newSessionInputDraftKey(cwd: string, spaceId?: string): string {
+	return spaceId && spaceId !== "main" ? `new-space:${spaceId}:${cwd}` : `new:${cwd}`;
 }
 
 export function isSessionInputDraftEmpty(draft: SessionInputDraftLike): boolean {

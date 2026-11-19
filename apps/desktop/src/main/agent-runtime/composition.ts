@@ -58,7 +58,6 @@ import {
 	DEFAULT_IM_CONVERSATION_SESSION_DIR,
 	readDesktopConfig,
 } from "../config/desktop-config-store.js";
-import { DEFAULT_SERVER_URL } from "../constants.js";
 import { resolveDesktopRuntimeSessionRoots } from "../conversations/session-catalog-roots.js";
 import { resolveSessionListCwd } from "../conversations/session-paths.js";
 import { getKnowledgeRoot } from "../knowledge/knowledge-layout.js";
@@ -255,7 +254,6 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 		linuxBubblewrapPath,
 		macosSandboxExecPath,
 		sandboxHostPath,
-		serverUrl: DEFAULT_SERVER_URL,
 		observationPort: {
 			record: (record) => observationHub.record(record),
 			flush: () => observationHub.flush(),

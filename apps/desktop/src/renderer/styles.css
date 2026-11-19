@@ -1129,6 +1129,66 @@ a {
 	}
 }
 
+/* ─── 侧栏更新入口：主色圆圈边缘的呼吸荡漾 ─── */
+
+@keyframes update-entry-glow {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.58;
+	}
+}
+
+/* 底色呼吸走独立图层的 opacity：直接在 background-color 上插值 color-mix()
+   会被浏览器按离散值切换，看起来就是“跳一下”。 */
+.update-entry-glow {
+	animation: update-entry-glow 3.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes update-entry-ripple {
+	0% {
+		transform: scale(1);
+		opacity: 0;
+	}
+	18% {
+		opacity: 0.4;
+	}
+	100% {
+		transform: scale(1.28);
+		opacity: 0;
+	}
+}
+
+.update-entry-ripple::before,
+.update-entry-ripple::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+	border-radius: 9999px;
+	animation: update-entry-ripple 3.6s cubic-bezier(0.3, 0, 0.4, 1) infinite;
+}
+
+/* 第二道涟漪延后半拍；幅度压在 1.28 倍以内，不会被行高截断。 */
+.update-entry-ripple::after {
+	animation-delay: 1.8s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.update-entry-glow {
+		animation: none;
+	}
+
+	.update-entry-ripple::before,
+	.update-entry-ripple::after {
+		animation: none;
+		opacity: 0;
+	}
+}
+
 /* 窗口不在前台时暂停无限动画：标记由 shared/lib/inactive-window-animations.ts 打在宿主元素上。
    必须走样式而不是脚本的 pause()——原因见那个文件开头。 */
 [data-inactive-paused],

@@ -24,15 +24,6 @@
 		"download": "Download",
 		"close": "Close (Esc)"
 	},
-	"login": {
-		"oauthButton": "Authorize & Sign In",
-		"waitingTitle": "Waiting for browser authorization",
-		"waitingHint": "You'll be signed in automatically",
-		"reopen": "Open the link again",
-		"retry": "Authorize again",
-		"openFailed": "Couldn't open your browser. Please try again.",
-		"rejected": "This authorization link is no longer valid. Please sign in again."
-	},
 	"actionApproval": {
 		"reject": "Reject",
 		"confirm": "Confirm",
@@ -1026,9 +1017,6 @@
 			"theme": "Color theme"
 		},
 		"login": {
-			"title": "Sign in",
-			"subtitle": "Sign in for cloud features and subscription. You can skip and sign in later",
-			"optionalHint": "Optional — tap Next to continue",
 			"signedInTitle": "Signed in",
 			"signedInDesc": "Welcome back, {{name}}",
 			"signedInFallback": "User"

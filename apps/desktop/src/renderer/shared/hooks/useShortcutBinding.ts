@@ -11,6 +11,11 @@ import {
  * 设置页改键后经主进程广播实时更新，供界面上的快捷键提示保持一致。
  */
 export function useShortcutBinding(actionId: ShortcutActionId): string {
+	return getEffectiveShortcut(actionId, useShortcutBindings());
+}
+
+/** 一次取回全部自定义绑定，供列表里同时展示多个快捷键（避免每个动作各订阅一次）。 */
+export function useShortcutBindings(): ShortcutBindings {
 	const [bindings, setBindings] = useState<ShortcutBindings>({});
 
 	useEffect(() => {
@@ -27,5 +32,5 @@ export function useShortcutBinding(actionId: ShortcutActionId): string {
 		};
 	}, []);
 
-	return getEffectiveShortcut(actionId, bindings);
+	return bindings;
 }

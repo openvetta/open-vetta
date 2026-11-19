@@ -4,6 +4,7 @@ import {
 	defaultConversationFilterAtom,
 	tagConversationFilter,
 } from "@shared/store/atoms";
+import { MAIN_SPACE, selectedSpaceAtom } from "@shared/store/spaces";
 import { useAtom, useAtomValue } from "jotai";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -15,13 +16,15 @@ export const DEFAULT_CONVERSATION_FILTER_OPTIONS = [
 
 export function useDefaultConversationFilterSelectModel() {
 	const { t } = useTranslation("project");
-	const [filter, setFilter] = useAtom(defaultConversationFilterAtom);
+	const [storedFilter, setFilter] = useAtom(defaultConversationFilterAtom);
+	const inMain = useAtomValue(selectedSpaceAtom) === MAIN_SPACE;
+	const filter = !inMain && storedFilter === "claw" ? "conversation" : storedFilter;
 	const tags = useAtomValue(conversationTagsAtom);
 
 	// 标签与「对话 / Claw」平级，跟在一条分割线之后；顺序与右键菜单一致（按创建时间）。
 	const options = useMemo(
 		() => [
-			...DEFAULT_CONVERSATION_FILTER_OPTIONS.map((option) => ({
+			...DEFAULT_CONVERSATION_FILTER_OPTIONS.filter(({ value }) => inMain || value !== "claw").map((option) => ({
 				value: option.value as DefaultConversationFilter,
 				label: t(option.labelKey),
 			})),
@@ -32,7 +35,7 @@ export function useDefaultConversationFilterSelectModel() {
 				separatorBefore: index === 0,
 			})),
 		],
-		[t, tags.tags],
+		[inMain, t, tags.tags],
 	);
 
 	const current = options.find((option) => option.value === filter) ?? options[0];

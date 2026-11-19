@@ -64,6 +64,12 @@ See [team task recovery](docs/agent-team-recovery.md) for automatic recovery lim
 
 ## Development
 
+### Desktop workspaces
+
+Open **Settings → Workspaces** to create, rename, reorder, or remove a workspace. Use the workspace icons at the bottom of the sidebar or **Ctrl+1** through **Ctrl+9** to switch. Right-click a project or standalone conversation and choose **Move to workspace**. Moving a project also moves its conversations. Search results include their workspace and open in that workspace.
+
+Removing a workspace moves its contents to the main workspace. **Remove workspace and projects** asks you to type the workspace name, removes active projects from Vetta, and deletes standalone conversations and their dedicated working directories. Project files, project conversations, and archived projects are kept. Workspace settings are saved on the desktop device.
+
 ### Sidebar conversation search
 
 Use the search button in the sidebar's top action row to open the floating panel. It searches titles,

@@ -16,11 +16,11 @@ const ICON_BY_KIND: Record<ChatErrorKind, string> = {
 };
 
 /**
- * 需要人工介入的两类各自的设置页落点与按钮文案。其余四类是暂时性状况，给按钮
+ * 需要人工介入的一类（凭证失效）的设置页落点与按钮文案。其余五类是暂时性状况或
+ * 配额问题——后者过去指向账户页，账户页随服务端下线移除后不再提供跳转，给按钮
  * 反而制造「我该做点什么」的错觉。
  */
 const ACTION_BY_KIND = {
-	quota: { tab: "account", labelKey: "messageList.errorBlock.kinds.quota.action" },
 	auth: { tab: "models", labelKey: "messageList.errorBlock.kinds.auth.action" },
 } as const satisfies Partial<Record<ChatErrorKind, { tab: string; labelKey: string }>>;
 
@@ -35,7 +35,7 @@ export function ErrorBlockView({ block, exportMode = false }: ErrorBlockProps): 
 	const [expanded, toggleExpanded] = useExpansion(`error-detail:${block.id}`);
 
 	const kind = block.kind;
-	const action = kind === "quota" || kind === "auth" ? ACTION_BY_KIND[kind] : undefined;
+	const action = kind === "auth" ? ACTION_BY_KIND[kind] : undefined;
 	// 「已自动重试 N 次」（live）与「重复出现 N 次」（历史回放）互斥：前者是本次
 	// 请求内部的重试，后者是会话文件里连续同类错误折叠后的条数。
 	const note = block.attempts

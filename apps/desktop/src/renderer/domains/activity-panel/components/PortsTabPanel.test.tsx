@@ -59,7 +59,7 @@ const ssh = {
 
 const openExternal = vi.fn(async () => {});
 
-vi.stubGlobal("window", Object.assign(globalThis.window, { vetta: { ssh, auth: { openExternal } } }));
+vi.stubGlobal("window", Object.assign(globalThis.window, { vetta: { ssh, shell: { openExternal } } }));
 
 function renderPanel(store = createStore(), cwd = REMOTE_CWD) {
 	const workspace = createActivityWorkspace(cwd, cwd, ["runtime-1"]);

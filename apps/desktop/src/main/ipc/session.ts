@@ -1205,9 +1205,11 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		return runtime.forkSession(sessionId, entryId);
 	});
 
-	ipcMain.handle(CHANNELS.DELETE, async (_event, sessionPath: unknown) => {
+	ipcMain.handle(CHANNELS.DELETE, async (_event, sessionPath: unknown, mode?: unknown) => {
 		assertNonEmptyString(sessionPath, "sessionPath");
-		await sessionCommands.delete(sessionPath);
+		if (mode !== undefined && mode !== "workspace-removal" && mode !== "clear-history")
+			throw new Error("Invalid session delete mode");
+		await sessionCommands.delete(sessionPath, mode);
 	});
 
 	ipcMain.handle(CHANNELS.RENAME, async (_event, sessionPath: unknown, name: unknown) => {

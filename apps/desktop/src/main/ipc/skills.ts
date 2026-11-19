@@ -10,7 +10,6 @@ import { recordAbilityInstall } from "../abilities/ability-ledger.js";
 import { getBuiltinSkillPaths } from "../builtin-skills.js";
 import { pluginAgentContributionService } from "../plugins/plugin-catalog.js";
 import { parseFrontmatter, rewriteFrontmatterDescription } from "../skills/skill-frontmatter.js";
-import { installSkillFromMarketArchive, installSkillFromMarketSlug } from "../skills/skill-market-install.js";
 import {
 	getDesktopSkillService,
 	getSkillBaseDir,
@@ -82,28 +81,14 @@ export function registerSkillsIpc(): () => void {
 		return skills.list(resolvedCwd);
 	});
 
-	ipcMain.handle(
-		"vetta:skills:install-from-market",
-		async (_event, name: unknown, archiveBuffer: unknown, _type: unknown, meta: unknown) => {
-			assertNonEmptyString(name, "name");
-			if (!(archiveBuffer instanceof ArrayBuffer) && !Buffer.isBuffer(archiveBuffer)) {
-				throw new Error("Invalid archive buffer");
-			}
-			const metaObj = (meta != null && typeof meta === "object" ? meta : {}) as {
-				alias?: string;
-				marketDescription?: string;
-				version?: string;
-				sha256?: string;
-			};
-			const buffer = Buffer.isBuffer(archiveBuffer) ? archiveBuffer : Buffer.from(archiveBuffer as ArrayBuffer);
-			await installSkillFromMarketArchive(name, "skill", buffer, metaObj);
-		},
-	);
-
-	/** Action / 官方插件：按市场 slug 下载并安装能力（skill）。 */
+	/**
+	 * 官方能力市场已随 vetta 服务端下线（ADR-0156）。插件 SDK 的
+	 * `skills.installFromMarket` 仍保留在合同里，这里显式报错而不是静默失败，
+	 * 让调用方知道该改用 GitHub 开放市场。
+	 */
 	ipcMain.handle("vetta:skills:install-from-market-slug", async (_event, _type: unknown, slug: unknown) => {
 		assertNonEmptyString(slug, "slug");
-		return installSkillFromMarketSlug("skill", slug);
+		throw new Error("Vetta 官方能力市场已下线，请使用 GitHub 开放市场");
 	});
 
 	ipcMain.handle("vetta:skills:uninstall", async (_event, name: unknown) => {

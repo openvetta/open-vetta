@@ -193,7 +193,7 @@ export function createSessionApi(ipc: IpcRenderer): Pick<DesktopApi, "session"> 
 			replaceLastUserMessage: (sessionId, entryId) =>
 				ipc.invoke(CHANNELS.REPLACE_LAST_USER_MESSAGE, sessionId, entryId),
 			forkSession: (sessionId, entryId) => ipc.invoke(CHANNELS.FORK_SESSION, sessionId, entryId),
-			delete: (sessionPath) => ipc.invoke(CHANNELS.DELETE, sessionPath),
+			delete: (sessionPath, mode) => ipc.invoke(CHANNELS.DELETE, sessionPath, mode),
 			rename: (sessionPath, name) => ipc.invoke(CHANNELS.RENAME, sessionPath, name),
 			autoTitle: (sessionId, userText, assistantText) =>
 				ipc.invoke(CHANNELS.AUTO_TITLE, sessionId, userText, assistantText),

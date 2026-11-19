@@ -23,6 +23,8 @@ const FULL_STEPS = Object.freeze([
 	["vitest-runner", "scripts/quality/check-vitest-runner.mjs"],
 	["source-path-maps", "scripts/quality/check-source-path-maps.mjs"],
 	["turbo-config", "scripts/quality/check-turbo-config.mjs"],
+	["test-hygiene", "scripts/quality/check-test-hygiene.mjs"],
+	["test-assertion-depth", "scripts/quality/check-test-assertion-depth.mjs"],
 ]);
 
 const MAX_SELECTED_ARGUMENT_CHARS = 12_000;
@@ -134,6 +136,11 @@ export function createQuickGuardPlan(inputFiles) {
 		])
 	) {
 		add("standalone-cli-build");
+	}
+	const testFiles = files.filter((file) => /\.(?:test|node-test)\.(?:ts|tsx|mjs|cjs)$/u.test(file));
+	if (testFiles.length > 0) {
+		steps.push(...selectedSteps("test-hygiene", "scripts/quality/check-test-hygiene.mjs", testFiles));
+		steps.push(...selectedSteps("test-assertion-depth", "scripts/quality/check-test-assertion-depth.mjs", testFiles));
 	}
 	if (files.some((file) => file.endsWith("SKILL.md"))) add("skill-frontmatter");
 	if (files.some((file) => file.endsWith("package.json"))) add("vitest-runner");

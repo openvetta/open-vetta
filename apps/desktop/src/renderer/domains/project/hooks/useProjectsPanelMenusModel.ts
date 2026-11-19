@@ -24,11 +24,11 @@ export function useProjectsPanelMenusModel(model: ProjectsPanelModel) {
 
 	const clearConversationDisabled =
 		projectMenu?.project.isDefault === true &&
-		model.projectSessions(projectMenu.project.cwd).some((session) => runningSessionPaths.has(session.path));
+		model.defaultSessions.some((session) => runningSessionPaths.has(session.path));
 
 	const clearClawDisabled =
 		projectMenu?.project.isDefault === true &&
-		model.projectSessions(model.imCwd).some((session) => runningSessionPaths.has(session.path));
+		model.defaultSessions.some((session) => runningSessionPaths.has(session.path));
 	// 项目右键菜单只区分「清空会话 / 清空 Claw」，标签档按其所属来源（对话）处理。
 	const defaultScope =
 		projectMenu?.project.isDefault === true ? conversationFilterSource(model.defaultConversationFilter) : undefined;

@@ -45,7 +45,7 @@ export interface DesktopAgentTeamsApi {
 	listSessions(teamId: string): Promise<readonly TeamSessionListItem[]>;
 	listSidebarConversations(): Promise<readonly DesktopTeamSidebarConversation[]>;
 	renameSession(reference: TeamSessionReference | string, name: string): Promise<DesktopTeamSessionSnapshot>;
-	deleteSession(reference: TeamSessionReference | string): Promise<void>;
+	deleteSession(reference: TeamSessionReference | string, mode?: "workspace-removal"): Promise<void>;
 	updateModelSettings(id: string, input: UpdateTeamSessionModelSettingsInput): Promise<DesktopTeamSessionSnapshot>;
 	listMemberModels(teamId: string): Promise<Readonly<Record<string, TeamMemberModelPreference>>>;
 	setMemberModel(

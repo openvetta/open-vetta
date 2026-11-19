@@ -36,6 +36,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 import { commandMenuOpenAtom, projectsAtom } from "@shared/store/atoms";
+import { INITIAL_SPACES, spacesAtom } from "@shared/store/spaces";
 import { useCommandMenuModel } from "./useCommandMenuModel";
 
 function sessionResult(path: string, title: string): DesktopSessionSearchResult {
@@ -86,6 +87,7 @@ beforeEach(() => {
 		},
 	});
 	store.set(commandMenuOpenAtom, true);
+	store.set(spacesAtom, INITIAL_SPACES);
 	store.set(projectsAtom, [
 		{ cwd: "/w/alpha", name: "alpha", sessionCount: 0, type: "normal" },
 		{ cwd: "/w/alpine", name: "alpine", sessionCount: 0, type: "normal" },
@@ -249,4 +251,17 @@ it("keeps an unavailable session out of keyboard navigation", async () => {
 	// 禁用行不参与导航，回车不应打开它。
 	act(() => result.current.onActivateItem("session:/w/locked.jsonl"));
 	expect(navigate).not.toHaveBeenCalled();
+});
+
+it("labels a search result with its workspace and switches to that workspace when opened", async () => {
+	store.set(spacesAtom, { ...INITIAL_SPACES,
+		spaces: [{ id: "studio", name: "Studio", icon: { kind: "solar", value: "code" } }],
+		projects: { "/w/alpha": "studio" },
+	});
+	const { result } = render();
+	act(() => result.current.onQueryChange("alpha"));
+	await waitFor(() => expect(result.current.groups.find((group) => group.key === "projects")?.items[0]?.subtitle).toContain("Studio"));
+	act(() => result.current.onActivateItem("project:/w/alpha"));
+	expect(store.get(spacesAtom).selected).toBe("studio");
+	expect(store.get(commandMenuOpenAtom)).toBe(false);
 });

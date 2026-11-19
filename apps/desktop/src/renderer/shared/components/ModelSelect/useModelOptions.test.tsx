@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { localModelsConfigAtom, remoteProvidersAtom } from "@shared/store/atoms";
+import { localModelsConfigAtom, remoteProvidersAtom } from "@shared/store/model-catalog-atoms";
 import type { ModelsConfigData } from "@preload/api";
 import { renderHook } from "@testing-library/react";
 import { createStore, Provider } from "jotai";

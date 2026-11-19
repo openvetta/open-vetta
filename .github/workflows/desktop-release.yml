@@ -6,21 +6,8 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
-      cloud_enabled:
-        description: "Desktop edition. default = release target (GitHub=open-source, R2=commercial)."
-        type: choice
-        options: [default, "true", "false"]
-        default: default
-      server_url:
-        description: "VETTA_SERVER_URL override. Required for a commercial build."
-        type: string
-        required: false
-      site_url:
-        description: "VETTA_SITE_URL override. Empty keeps Environment / repo value."
-        type: string
-        required: false
       marketplace_repository:
-        description: "Optional GitHub marketplace source for either edition. Empty keeps Environment / repo value."
+        description: "Optional GitHub marketplace source. Empty keeps Environment / repo value."
         type: string
         required: false
       marketplace_ref:
@@ -82,15 +69,12 @@ jobs:
       build-version: ${{ steps.config.outputs.build_version }}
       release-version: ${{ steps.version.outputs.release-version }}
       channel: ${{ steps.config.outputs.channel }}
-      cloud_enabled: ${{ steps.config.outputs.cloud_enabled }}
       marketplace_repository: ${{ steps.config.outputs.marketplace_repository }}
       marketplace_ref: ${{ steps.config.outputs.marketplace_ref }}
       notes: ${{ steps.config.outputs.notes }}
       r2_bucket: ${{ steps.config.outputs.r2_bucket }}
       r2_prefix: ${{ steps.config.outputs.r2_prefix }}
       release_target: ${{ steps.config.outputs.release_target }}
-      server_url: ${{ steps.config.outputs.server_url }}
-      site_url: ${{ steps.config.outputs.site_url }}
       speech_input: ${{ steps.config.outputs.speech_input }}
       tenant: ${{ steps.config.outputs.tenant }}
       update_provider: ${{ steps.config.outputs.update_provider }}
@@ -128,18 +112,14 @@ jobs:
           REF_TYPE: ${{ github.ref_type }}
           INPUT_BUILD_VERSION: ${{ github.event.inputs.build_version }}
           INPUT_CHANNEL: ${{ github.event.inputs.channel }}
-          INPUT_CLOUD_ENABLED: ${{ github.event.inputs.cloud_enabled }}
           INPUT_MARKETPLACE_REPOSITORY: ${{ github.event.inputs.marketplace_repository }}
           INPUT_MARKETPLACE_REF: ${{ github.event.inputs.marketplace_ref }}
           INPUT_NOTES: ${{ github.event.inputs.notes }}
           INPUT_R2_PREFIX: ${{ github.event.inputs.r2_prefix }}
           INPUT_RELEASE_TARGET: ${{ github.event.inputs.release_target }}
-          INPUT_SERVER_URL: ${{ github.event.inputs.server_url }}
-          INPUT_SITE_URL: ${{ github.event.inputs.site_url }}
           INPUT_SPEECH_INPUT: ${{ github.event.inputs.speech_input }}
           INPUT_TENANT: ${{ github.event.inputs.tenant }}
           INPUT_UPDATE_URL: ${{ github.event.inputs.update_url }}
-          VAR_CLOUD_ENABLED: ${{ vars.VETTA_CLOUD_ENABLED }}
           VAR_MARKETPLACE_REPOSITORY: ${{ vars.VETTA_OPEN_MARKETPLACE_REPOSITORY }}
           VAR_MARKETPLACE_REF: ${{ vars.VETTA_OPEN_MARKETPLACE_REF }}
           VAR_R2_BUCKET: ${{ vars.VETTA_R2_BUCKET }}
@@ -149,8 +129,6 @@ jobs:
           VAR_RELEASE_CHANNEL: ${{ vars.VETTA_RELEASE_CHANNEL }}
           VAR_TEST_BUILD_VERSION: ${{ vars.VETTA_TEST_BUILD_VERSION }}
           VAR_RELEASE_TARGET: ${{ vars.VETTA_RELEASE_TARGET }}
-          VAR_SERVER_URL: ${{ vars.VETTA_SERVER_URL }}
-          VAR_SITE_URL: ${{ vars.VETTA_SITE_URL }}
           VAR_SPEECH_INPUT: ${{ vars.VETTA_SPEECH_INPUT_ENABLED }}
           VAR_TENANT: ${{ vars.VETTA_TENANT }}
           VAR_UPDATE_URL: ${{ vars.VETTA_UPDATE_URL }}
@@ -171,7 +149,6 @@ jobs:
         env:
           OUTPUT_BUILD_VERSION: ${{ steps.config.outputs.build_version }}
           OUTPUT_CHANNEL: ${{ steps.config.outputs.channel }}
-          OUTPUT_CLOUD_ENABLED: ${{ steps.config.outputs.cloud_enabled }}
           OUTPUT_MARKETPLACE_REPOSITORY: ${{ steps.config.outputs.marketplace_repository }}
           OUTPUT_MARKETPLACE_REF: ${{ steps.config.outputs.marketplace_ref }}
           OUTPUT_NOTES: ${{ steps.config.outputs.notes }}
@@ -179,8 +156,6 @@ jobs:
           OUTPUT_R2_PREFIX: ${{ steps.config.outputs.r2_prefix }}
           OUTPUT_RELEASE_TARGET: ${{ steps.config.outputs.release_target }}
           OUTPUT_SHOULD_PUBLISH: ${{ steps.config.outputs.should_publish }}
-          OUTPUT_SERVER_URL: ${{ steps.config.outputs.server_url }}
-          OUTPUT_SITE_URL: ${{ steps.config.outputs.site_url }}
           OUTPUT_SPEECH_INPUT: ${{ steps.config.outputs.speech_input }}
           OUTPUT_TENANT: ${{ steps.config.outputs.tenant }}
           OUTPUT_UPDATE_PROVIDER: ${{ steps.config.outputs.update_provider }}
@@ -394,7 +369,6 @@ jobs:
         env:
           OUTPUT_BUILD_VERSION: ${{ needs.prepare.outputs.build-version }}
           OUTPUT_CHANNEL: ${{ needs.prepare.outputs.channel }}
-          OUTPUT_CLOUD_ENABLED: ${{ needs.prepare.outputs.cloud_enabled }}
           OUTPUT_MARKETPLACE_REPOSITORY: ${{ needs.prepare.outputs.marketplace_repository }}
           OUTPUT_MARKETPLACE_REF: ${{ needs.prepare.outputs.marketplace_ref }}
           OUTPUT_NOTES: ${{ needs.prepare.outputs.notes }}
@@ -402,8 +376,6 @@ jobs:
           OUTPUT_R2_PREFIX: ${{ needs.prepare.outputs.r2_prefix }}
           OUTPUT_RELEASE_TARGET: ${{ needs.prepare.outputs.release_target }}
           OUTPUT_SHOULD_PUBLISH: ${{ needs.prepare.outputs.should-publish }}
-          OUTPUT_SERVER_URL: ${{ needs.prepare.outputs.server_url }}
-          OUTPUT_SITE_URL: ${{ needs.prepare.outputs.site_url }}
           OUTPUT_SPEECH_INPUT: ${{ needs.prepare.outputs.speech_input }}
           OUTPUT_TENANT: ${{ needs.prepare.outputs.tenant }}
           OUTPUT_UPDATE_PROVIDER: ${{ needs.prepare.outputs.update_provider }}
@@ -414,7 +386,7 @@ jobs:
         working-directory: apps/desktop
         env:
           # 由 prepare 解析：dispatch 表单 > desktop-production Environment/仓库 Variables。
-          # fork 不配任何值就得到开源版。空 optional 键不会写入 GITHUB_ENV。
+          # 空 optional 键不会写入 GITHUB_ENV。
           VETTA_UPDATE_GITHUB_OWNER: ${{ github.repository_owner }}
           VETTA_UPDATE_GITHUB_REPO: ${{ github.event.repository.name }}
         run: bun run ${{ matrix.command }}

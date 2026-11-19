@@ -73,16 +73,9 @@ export interface DesktopSkillsApi {
 	 * @param cwd 当前会话/项目 cwd，用于发现项目级 `<cwd>/.agents/skills` 与 `<cwd>/.vetta/skills`；省略则仅列全局来源。
 	 */
 	list(cwd?: string): Promise<SkillInfo[]>;
-	installFromMarket(
-		name: string,
-		archiveBuffer: ArrayBuffer,
-		type: "skill",
-		/** sha256：市场归档包摘要，安装前校验；存量技能无摘要时省略，跳过校验 */
-		meta?: { alias?: string; marketDescription?: string; version?: string; sha256?: string },
-	): Promise<void>;
 	/**
-	 * 按市场 slug 下载并安装能力（skill）。主进程鉴权/匿名下载，不经过 renderer token。
-	 * 供 App Action 与官方插件使用。
+	 * 官方能力市场已随 vetta 服务端下线（ADR-0156），调用会直接报错。
+	 * 合同保留是因为插件 SDK 的 `skills.installFromMarket` 仍是公开 API。
 	 */
 	installFromMarketSlug(type: "skill", slug: string): Promise<SkillMarketInstallResult>;
 	importCustom(archiveBuffer: ArrayBuffer): Promise<{ name: string; type: "skill" }>;

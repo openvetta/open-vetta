@@ -7,7 +7,6 @@ import type { DesktopAppIconApi } from "./api-types/app-icon.js";
 import type { DesktopAppLifecycleApi } from "./api-types/app-lifecycle.js";
 import type { DesktopAppMonitorApi } from "./api-types/app-monitor.js";
 import type { DesktopAppshotApi } from "./api-types/appshot.js";
-import type { DesktopAuthApi } from "./api-types/auth.js";
 import type { DesktopBatchTasksApi } from "./api-types/batch-tasks.js";
 import type { DesktopConfigApi } from "./api-types/config.js";
 import type { DesktopConversationTagsApi } from "./api-types/conversation-tags.js";
@@ -40,7 +39,6 @@ import type {
 	DesktopRuntimesApi,
 	DesktopSettingsApi,
 	DesktopShellApi,
-	DesktopSubscriptionApi,
 	DesktopTrayApi,
 	DesktopWindowApi,
 } from "./api-types/system.js";
@@ -60,7 +58,6 @@ export type * from "./api-types/app-icon.js";
 export type * from "./api-types/app-lifecycle.js";
 export type * from "./api-types/app-monitor.js";
 export type * from "./api-types/appshot.js";
-export type * from "./api-types/auth.js";
 export type * from "./api-types/batch-tasks.js";
 export type * from "./api-types/config.js";
 export type * from "./api-types/debug.js";
@@ -124,11 +121,9 @@ export interface DesktopApi {
 	mcp: DesktopMcpApi;
 	media: DesktopMediaApi;
 	settings: DesktopSettingsApi;
-	subscription: DesktopSubscriptionApi;
 	shell: DesktopShellApi;
 	clipboard: DesktopClipboardApi;
 	window: DesktopWindowApi;
-	auth: DesktopAuthApi;
 	updater: DesktopUpdaterApi;
 	tray: DesktopTrayApi;
 	scheduler: DesktopSchedulerApi;
