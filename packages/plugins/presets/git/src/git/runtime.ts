@@ -1,4 +1,5 @@
 import type { PluginAiApi, PluginCommandApi, PluginFsApi, PluginOfficialApi, PluginStorageApi, PluginUiApi } from "@vetta-org/plugin-sdk";
+import type { GitTabProbe } from "./tab-visibility";
 import type { ChangeCode, TurnChangeDelta } from "./types";
 
 /**
@@ -46,8 +47,10 @@ interface GitRuntime {
 	settingsListeners: Set<(settings: unknown) => void>;
 	/** Subscribers to "the user asked to commit now" requests from the turn card. */
 	commitRequestListeners: Set<(root: string) => void>;
-	/** cwds whose tab this session already auto-attached (see {@link claimTabAttach}). */
-	attachedCwds: Set<string>;
+	/** cwd → Git 标签卡的探测结论（见 tab-visibility 的 probeGitTab）。 */
+	gitTabProbes: Map<string, GitTabProbe>;
+	/** 探测结论变化时的订阅者（标签栏依赖它重新解析）。 */
+	gitTabProbeListeners: Set<() => void>;
 }
 
 const KEY = "__vettaGitPluginRuntime__";
@@ -71,7 +74,8 @@ function runtime(): GitRuntime {
 			refreshTimer: null,
 			settingsListeners: new Set<(settings: unknown) => void>(),
 			commitRequestListeners: new Set<(root: string) => void>(),
-			attachedCwds: new Set<string>(),
+			gitTabProbes: new Map<string, GitTabProbe>(),
+			gitTabProbeListeners: new Set<() => void>(),
 		} satisfies GitRuntime;
 	}
 	return g[KEY] as GitRuntime;
@@ -203,19 +207,39 @@ export function settingsListeners(): Set<(settings: unknown) => void> {
 	return runtime().settingsListeners;
 }
 
+/** 缓存的探测结论；undefined = 尚未探测 / 已失效。 */
+export function peekGitTabProbe(cwd: string): GitTabProbe | undefined {
+	return runtime().gitTabProbes.get(cwd);
+}
+
+/** 订阅探测结论变化（标签卡显隐随它重算）。 */
+export function onGitTabProbeChange(listener: () => void): () => void {
+	const set = runtime().gitTabProbeListeners;
+	set.add(listener);
+	return () => set.delete(listener);
+}
+
+/** 写入探测结论并广播；结论未变时不广播，避免无意义的整栏重渲。 */
+export function publishGitTabProbe(cwd: string, probe: GitTabProbe): void {
+	const rt = runtime();
+	if (rt.gitTabProbes.get(cwd) === probe) return;
+	rt.gitTabProbes.set(cwd, probe);
+	for (const listener of rt.gitTabProbeListeners) listener();
+}
+
 /**
- * Claim the one automatic tab attach allowed per cwd in this session.
- *
- * Returns false once the cwd has been claimed, so switching conversations back
- * and forth does not keep re-attaching a tab the user has since closed — the
- * host records a manual close as an explicit "hidden" entry, and the plugin has
- * no way to read it back.
+ * 丢弃缓存结论。仓库是可变的：`git init` 与 agent 自己跑的命令都会让「不是仓库」
+ * 变成「是仓库」，缓存必须能被显式作废，否则标签卡会一直沿用旧判断。
  */
-export function claimTabAttach(cwd: string): boolean {
-	const set = runtime().attachedCwds;
-	if (set.has(cwd)) return false;
-	set.add(cwd);
-	return true;
+export function invalidateGitTabProbe(cwd?: string): void {
+	const rt = runtime();
+	if (cwd === undefined) {
+		if (rt.gitTabProbes.size === 0) return;
+		rt.gitTabProbes.clear();
+	} else if (!rt.gitTabProbes.delete(cwd)) {
+		return;
+	}
+	for (const listener of rt.gitTabProbeListeners) listener();
 }
 
 /** Register the host-backed panel resizer (wired in activate from ctx.ui). */

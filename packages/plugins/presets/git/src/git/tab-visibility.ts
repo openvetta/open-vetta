@@ -1,4 +1,5 @@
 import type { PluginCommandApi, PluginFsApi } from "@vetta-org/plugin-sdk";
+import { getFsApi, getGitCommand, peekGitTabProbe, publishGitTabProbe } from "./runtime";
 
 /** 活动面板标签卡 id（与 registerActivityTab 的 contribution id 一致）。 */
 export const CHANGES_TAB_ID = "changes";
@@ -46,4 +47,21 @@ export async function probeGitTab(command: PluginCommandApi, fs: PluginFsApi, cw
 	if (await isGitAvailable(command, cwd)) return "not-repo";
 	const gitDir = await fs.stat(`${cwd.replace(/[\\/]+$/, "")}/.git`).catch(() => null);
 	return gitDir ? "no-git" : "not-repo";
+}
+
+/** 正在探测的 cwd，避免同一 cwd 被多个面板重复探测。 */
+const inFlight = new Set<string>();
+
+/**
+ * 确保 `cwd` 有一个已缓存（或正在获取）的探测结论。
+ *
+ * 标签卡显隐只看缓存：探测完成后写回运行时并广播，标签栏随之重算。
+ */
+export function ensureGitTabProbe(cwd: string): void {
+	if (peekGitTabProbe(cwd) !== undefined || inFlight.has(cwd)) return;
+	inFlight.add(cwd);
+	void probeGitTab(getGitCommand(), getFsApi(), cwd)
+		.then((probe) => publishGitTabProbe(cwd, probe))
+		.catch(() => publishGitTabProbe(cwd, "not-repo"))
+		.finally(() => inFlight.delete(cwd));
 }

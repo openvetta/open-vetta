@@ -1,6 +1,7 @@
 import type { PluginCommandApi, PluginCommandRunResult, PluginFsApi } from "@vetta-org/plugin-sdk";
-import { describe, expect, it } from "vitest";
-import { isGitAvailable, isInsideGitWorkTree, probeGitTab } from "../src/git/tab-visibility";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { invalidateGitTabProbe, onGitTabProbeChange, peekGitTabProbe, setFsApi, setGitCommand } from "../src/git/runtime";
+import { ensureGitTabProbe, isGitAvailable, isInsideGitWorkTree, probeGitTab } from "../src/git/tab-visibility";
 
 function command(result: PluginCommandRunResult | Error): PluginCommandApi {
 	return {
@@ -89,5 +90,59 @@ describe("probeGitTab", () => {
 	it("stays hidden for a plain folder when git is missing", async () => {
 		const host = gitHost({ revParse: null, version: null });
 		await expect(probeGitTab(host, fsWith([]), "/plain")).resolves.toBe("not-repo");
+	});
+});
+
+describe("git tab probe cache", () => {
+	const ok = (stdout: string, exitCode = 0): PluginCommandRunResult => ({ stdout, stderr: "", exitCode });
+
+	beforeEach(() => {
+		invalidateGitTabProbe();
+	});
+
+	/** 装一个会数 rev-parse 次数的宿主：探测次数本身就是「有没有重复探测」的可观察结果。 */
+	function installHost(revParse: PluginCommandRunResult): { probes: () => number } {
+		let probeCount = 0;
+		setGitCommand({
+			run: async (_file: string, args: string[] = []) => {
+				if (args[0] === "--version") return ok("git version 2.43.0");
+				probeCount += 1;
+				return revParse;
+			},
+		});
+		setFsApi(fsWith([]));
+		return { probes: () => probeCount };
+	}
+
+	async function ensureProbe(cwd: string): Promise<string | undefined> {
+		ensureGitTabProbe(cwd);
+		await vi.waitFor(() => expect(peekGitTabProbe(cwd)).toBeDefined());
+		return peekGitTabProbe(cwd);
+	}
+
+	it("publishes one result per cwd and reuses it instead of probing again", async () => {
+		const host = installHost(ok("true\n"));
+		let notifications = 0;
+		const off = onGitTabProbeChange(() => {
+			notifications += 1;
+		});
+
+		expect(peekGitTabProbe("/repo")).toBeUndefined();
+		ensureGitTabProbe("/repo");
+		ensureGitTabProbe("/repo"); // 同一 cwd 的第二次请求必须复用第一次
+
+		await expect(ensureProbe("/repo")).resolves.toBe("repo");
+		expect(host.probes()).toBe(1);
+		expect(notifications).toBe(1);
+		off();
+	});
+
+	it("re-probes after invalidation so `git init` can put the tab on the bar", async () => {
+		installHost(ok("", 128));
+		await expect(ensureProbe("/plain")).resolves.toBe("not-repo");
+
+		installHost(ok("true\n"));
+		invalidateGitTabProbe("/plain");
+		await expect(ensureProbe("/plain")).resolves.toBe("repo");
 	});
 });
