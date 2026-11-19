@@ -142,7 +142,7 @@
 		},
 		"dialogs": {
 			"deleteSessionTitle": "Delete session",
-			"deleteSessionMessage": "Permanently delete the session \"{{name}}\"? This cannot be undone.",
+			"deleteSessionMessage": "Permanently delete the session \"{{name}}\"? Sessions under Chat are deleted together with their own working directory. This cannot be undone.",
 			"deleteBatchTitle": "Delete batch project",
 			"deleteBatchMessage": "Delete batch project \"{{name}}\"? This cannot be undone.",
 			"deleteConfirm": "Delete",
@@ -210,7 +210,7 @@
 		"renamePlaceholder": "Enter a new session name",
 		"clearAll": "Clear all",
 		"clearProjectTitle": "Clear project sessions",
-		"clearProjectMessage": "This deletes all {{count}} sessions in “{{name}}” and cannot be undone.",
+		"clearProjectMessage": "This deletes all {{count}} sessions in “{{name}}”. Project files are not affected. This cannot be undone.",
 		"tabAll": "All",
 		"hintTab": "Switch tag",
 		"hintDelete": "Delete",
