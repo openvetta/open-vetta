@@ -301,6 +301,6 @@ ChatPage
 2. 继续拆 `App.tsx` 中剩余纯 UI 壳层和业务浮层宿主。
 3. 把当前内置主题 runtime 接入设置页 UI 主题选择。
 4. 补 `ProjectRow`、`SessionRow` 的 public props，并接入 component override。
-5. 把 `settingsMenu`、`messageCenter` 弹层接入 `ThemeSurface`。
+5. 把 `messageCenter` 弹层接入 `ThemeSurface`。
 6. 增加主题组件 ErrorBoundary。
 7. 再接远程主题包加载。

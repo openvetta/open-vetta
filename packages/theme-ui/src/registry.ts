@@ -55,7 +55,6 @@ declare module "@vetta-org/theme-sdk" {
 		readonly "sidebar.navigationIndicator"?: ThemeSurfaceConfig;
 		readonly "sidebar.panel"?: ThemeSurfaceConfig;
 		readonly "sidebar.projects"?: ThemeSurfaceConfig;
-		readonly "sidebar.settingsMenu"?: ThemeSurfaceConfig;
 		readonly "sidebar.topBar"?: ThemeSurfaceConfig;
 	}
 }

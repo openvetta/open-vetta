@@ -48,3 +48,39 @@ describe("newSessionInputDraftKey", () => {
 		expect(newSessionInputDraftKey("C:\\proj")).toBe("new:C:\\proj");
 	});
 });
+
+it("restores text and the pending appshot independently across workspaces with the same cwd", () => {
+	const store = getDefaultStore();
+	const cwd = "/shared/chat";
+	const main = newSessionInputDraftKey(cwd);
+	const work = newSessionInputDraftKey(cwd, "work");
+	const attachment = {
+		id: "capture",
+		appName: "Vetta",
+		windowTitle: "Work",
+		documentPath: null,
+		imagePath: "/tmp/capture.png",
+		iconPath: null,
+		textPath: null,
+		capturedAt: 1,
+	};
+	try {
+		switchSessionInputDraftScope(main);
+		store.set(inputValueAtom, "Main draft");
+		switchSessionInputDraftScope(work);
+		expect(store.get(inputValueAtom)).toBe("");
+		store.set(inputValueAtom, "Work draft");
+		store.set(appshotAttachmentAtom, attachment);
+		switchSessionInputDraftScope(main);
+		expect(store.get(inputValueAtom)).toBe("Main draft");
+		expect(store.get(appshotAttachmentAtom)).toBeNull();
+		switchSessionInputDraftScope(work);
+		expect(store.get(inputValueAtom)).toBe("Work draft");
+		expect(store.get(appshotAttachmentAtom)).toEqual(attachment);
+	} finally {
+		clearCurrentSessionInputDraft();
+		switchSessionInputDraftScope(main);
+		clearCurrentSessionInputDraft();
+		switchSessionInputDraftScope(null);
+	}
+});

@@ -39,6 +39,7 @@ import {
 	sessionsMapAtom,
 } from "@shared/store/atoms";
 import { setQueueForSessionAtom, setQueuePausedAtom } from "@shared/store/message-queue-atoms";
+import { assignSpace, spacesAtom } from "@shared/store/spaces";
 import { useNavigate } from "@tanstack/react-router";
 import type { ConversationScenario } from "@vetta-org/plugin-sdk";
 import { getDefaultStore, useAtomValue, useSetAtom } from "jotai";
@@ -409,6 +410,14 @@ export function useSessionOpener(): SessionOpenerController {
 			// ADR-0007: 「对话」项目下 main 会把 cwd 改写成 per-session 子目录，
 			// 这里以 main 返回的 effective cwd 为准，保证 FilesPanel/调试 cwd 都指向子目录。
 			const effectiveCwd = createResult.cwd ?? cwd;
+			const spaceId = options?.newConversationSpace;
+			const assignNewConversation = (path: string): void => {
+				if (isExistingSessionOpen || !spaceId || !path) return;
+				getDefaultStore().set(spacesAtom, (state) =>
+					assignSpace(state, { kind: "conversation", key: path }, spaceId),
+				);
+			};
+			assignNewConversation(canonicalSessionPath);
 
 			// 拿到 sessionId 就立即写 activeSession；默认再 navigate 到 ChatView。
 			// main 返回 Runtime 实际持有的 canonical sessionPath；历史会话导入时它不同于
@@ -453,6 +462,7 @@ export function useSessionOpener(): SessionOpenerController {
 				});
 			}
 			const cachedKey = resolvedSessionPath;
+			if (!canonicalSessionPath) assignNewConversation(cachedKey);
 			let subscribed = false;
 			// History and the running Turn's replay arrive as one snapshot (ADR-0146). The
 			// Turn is rebuilt from its events alone, so the snapshot has no gap or overlap.
@@ -549,7 +559,7 @@ export function useSessionOpener(): SessionOpenerController {
 			// 新会话没有历史需要回放。草稿迁移后先建立事件订阅并立刻派发首条 Prompt；
 			// getState、上下文恢复和侧边栏对账都不再位于首条发送的关键路径。
 			if (sessionPath === undefined) {
-				claimNewSessionInputDraft(cachedKey, newSessionInputDraftKey(cwd));
+				claimNewSessionInputDraft(cachedKey, options?.newSessionDraftKey ?? newSessionInputDraftKey(cwd));
 				if (!(await subscribeForPrompt())) return;
 			}
 

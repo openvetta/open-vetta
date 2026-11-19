@@ -213,6 +213,18 @@ export { ShortcutRecorderView } from "./ShortcutRecorderView";
 export type { ShortcutActionRowView, ShortcutsSettingsViewProps } from "./ShortcutsSettingsView";
 export { ShortcutsSettingsView } from "./ShortcutsSettingsView";
 export type {
+	SpaceEditorDialogViewLabels,
+	SpaceEditorDialogViewProps,
+	SpaceEditorIconOption,
+} from "./SpaceEditorDialogView";
+export { SpaceEditorDialogView } from "./SpaceEditorDialogView";
+export type {
+	SpacesSettingsViewItem,
+	SpacesSettingsViewLabels,
+	SpacesSettingsViewProps,
+} from "./SpacesSettingsView";
+export { SpacesSettingsView } from "./SpacesSettingsView";
+export type {
 	WebhookEndpointListViewLabels,
 	WebhookEndpointListViewProps,
 	WebhookEndpointRowView,

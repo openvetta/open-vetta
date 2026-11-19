@@ -7,6 +7,7 @@ export type SettingsTabLabelKey =
 	| "tabModels"
 	| "tabIm"
 	| "tabWebhook"
+	| "tabSpaces"
 	| "tabArchive"
 	| "tabShortcuts"
 	| "tabAppshot"
@@ -56,6 +57,7 @@ export const SETTINGS_TABS: readonly SettingsTabRegistration[] = [
 	// MCP 管理已迁至侧栏「扩展 → 连接器」
 	{ key: "im", label: "Claw", labelKey: "tabIm", icon: "icon-[mdi--message-text-outline]" },
 	{ key: "webhook", label: "消息推送", labelKey: "tabWebhook", icon: "icon-[mdi--webhook]" },
+	{ key: "spaces", label: "工作空间", labelKey: "tabSpaces", icon: "icon-[solar--widget-linear]" },
 	{ key: "archive", label: "已归档", labelKey: "tabArchive", icon: "icon-[mdi--archive-outline]" },
 	{ key: "shortcuts", label: "快捷键", labelKey: "tabShortcuts", icon: "icon-[mdi--keyboard-outline]" },
 	{
@@ -135,6 +137,7 @@ export const SETTINGS_SECTIONS = [
 	{ tab: "shortcuts", id: "shortcuts-quickpanel", title: "快捷面板", titleKey: "section_shortcuts-quickpanel" },
 	{ tab: "appshot", id: "appshot-gesture", title: "触发快捷键", titleKey: "section_appshot-gesture" },
 	{ tab: "appshot", id: "appshot-permissions", title: "权限", titleKey: "section_appshot-permissions" },
+	{ tab: "spaces", id: "workspaces", title: "工作空间", titleKey: "section_workspaces" },
 	{ tab: "archive", id: "archived-list", title: "归档列表", titleKey: "section_archived-list" },
 	{ tab: "context", id: "agent-personalization", title: "个性化", titleKey: "section_agent-personalization" },
 	{ tab: "context", id: "agent-images", title: "图片", titleKey: "section_agent-images" },
@@ -177,7 +180,5 @@ export function filterVisibleSettingsTabs(
 	tabs: readonly SettingsTabRegistration[],
 	{ isMac, isWindows }: SettingsTabVisibilityContext,
 ): readonly SettingsTabRegistration[] {
-	return tabs.filter(
-		(tab) => (!tab.macOnly || isMac) && (!tab.windowsOnly || isWindows),
-	);
+	return tabs.filter((tab) => (!tab.macOnly || isMac) && (!tab.windowsOnly || isWindows));
 }

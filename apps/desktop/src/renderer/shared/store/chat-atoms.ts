@@ -480,6 +480,8 @@ export const actionButtonHandlersAtom = atom<Map<string, () => void>>(new Map())
 
 /** Options for {@link openSessionFnRef} / useSessionManager.openSession. */
 export interface OpenSessionOptions {
+	newSessionDraftKey?: string;
+	newConversationSpace?: string;
 	/**
 	 * When false, create/subscribe the session and set it active, but stay on the
 	 * current route (e.g. Settings AI assist fly-to-sidebar). Default true.

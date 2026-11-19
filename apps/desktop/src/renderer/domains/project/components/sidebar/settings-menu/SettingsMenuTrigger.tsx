@@ -15,11 +15,17 @@ export const SettingsMenuTrigger = forwardRef<HTMLButtonElement, SettingsMenuTri
 			<SettingsMenuTriggerView
 				ref={ref}
 				className={className}
-				open={model.open}
+				active={model.active}
+				iconOnly
 				settingsFallbackLabel={t("sidebar.settings")}
 				clawOnline={model.clawOnline}
 				clawTitle={model.clawTitle}
 				{...props}
+				onClick={(event) => {
+					props.onClick?.(event);
+					if (event.defaultPrevented) return;
+					model.actions.openSettings();
+				}}
 			/>
 		);
 	},

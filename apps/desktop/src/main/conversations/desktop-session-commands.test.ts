@@ -4,12 +4,13 @@ import { DEFAULT_CONVERSATION_CWD } from "../config/desktop-config-store.js";
 import type { ConversationListChangedEvent } from "./conversation-list-events.js";
 import { createDesktopSessionCommands } from "./desktop-session-commands.js";
 
-function setup(cwd: string | undefined) {
+function setup(cwd: string | undefined, running: string[] = []) {
 	const calls: string[] = [];
 	const events: ConversationListChangedEvent[] = [];
 	const deleted: Array<(path: string) => boolean> = [];
 	const commands = createDesktopSessionCommands({
 		runtime: {
+			getRunningSessionPaths: () => running,
 			deleteSession: vi.fn(async (path: string) => void calls.push(`delete ${path}`)),
 			renameSession: vi.fn(async (path: string, name: string) => void calls.push(`rename ${path} ${name}`)),
 		},
@@ -40,6 +41,26 @@ describe("desktop session commands", () => {
 		expect(deleted[0]("/s/a.jsonl")).toBe(true);
 		expect(deleted[0]("/s/b.jsonl")).toBe(false);
 		expect(events).toEqual([{ cwd: DEFAULT_CONVERSATION_CWD, sessionPath: "/s/a.jsonl" }]);
+	});
+
+	it("protects running and project conversations and keeps artifacts when only clearing history", async () => {
+		const sub = join(DEFAULT_CONVERSATION_CWD, "draft-session");
+		const running = setup(sub, ["/s/running.jsonl"]);
+		await expect(running.commands.delete("/s/running.jsonl", "workspace-removal")).rejects.toThrow(
+			"Conversation is running",
+		);
+		expect(running.calls).toEqual(["assert /s/running.jsonl"]);
+		const project = setup("/code/project");
+		await expect(project.commands.delete("/s/project.jsonl", "workspace-removal")).rejects.toThrow(
+			"Expected a standalone conversation",
+		);
+		expect(project.calls).toEqual(["assert /s/project.jsonl"]);
+		const history = setup(sub);
+		await history.commands.delete("/s/history.jsonl", "clear-history");
+		expect(history.calls).toContain("delete /s/history.jsonl");
+		expect(history.calls).not.toContain(`rm ${sub}`);
+		await history.commands.delete("/s/other.jsonl", "workspace-removal");
+		expect(history.calls).toContain(`rm ${sub}`);
 	});
 
 	it("keeps a project's directory and lists the change under the project", async () => {

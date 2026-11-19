@@ -19,6 +19,7 @@ export const SETTINGS_TAB_LOADERS = {
 	remote: async () => ({ default: (await import("./RemotePairingSettings")).RemotePairingSettings }),
 	pet: async () => ({ default: (await import("./PetSettings")).PetSettings }),
 	sshHosts: async () => ({ default: (await import("./SshHostsSettings")).SshHostsSettings }),
+	spaces: async () => ({ default: (await import("./SpacesSettings")).SpacesSettings }),
 	shortcuts: async () => ({ default: (await import("./ShortcutsSettings")).ShortcutsSettings }),
 	webhook: async () => ({ default: (await import("./WebhookSettings")).WebhookSettings }),
 } satisfies Record<Exclude<SettingsTab, "mcp">, SettingsTabLoader>;

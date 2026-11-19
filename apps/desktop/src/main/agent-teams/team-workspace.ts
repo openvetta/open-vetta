@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import type { TeamSessionWorkspaceKind, TeamSessionWorkspaceSelection } from "@vetta/agent-team";
@@ -41,6 +41,21 @@ export async function createTeamSessionWorkspace(
 	const cwd = teamSessionWorkspacePath(root, teamDirectory, sessionId);
 	await mkdir(cwd, { recursive: true });
 	return { id: `agent-team:${teamId}:session:${sessionId}`, cwd };
+}
+
+export async function removeTeamSessionWorkspace(
+	teamId: string,
+	sessionId: string,
+	cwd: string,
+	rootDirectory = getVettaHomePath(),
+): Promise<void> {
+	const root = join(rootDirectory, "agent-teams");
+	const index = await readAgentTeamStorageIndex(root);
+	const teamDirectory = index.teams[teamId];
+	if (!teamDirectory) throw new Error(`Agent Team storage directory not found: ${teamId}`);
+	const dedicatedPath = teamSessionWorkspacePath(root, teamDirectory, sessionId);
+	if (!sameProjectPath(cwd, dedicatedPath)) throw new Error("Invalid Agent Team session workspace");
+	await rm(dedicatedPath, { recursive: true, force: true });
 }
 
 const defaultDependencies: TeamWorkspaceDependencies = {

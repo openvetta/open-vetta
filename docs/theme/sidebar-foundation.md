@@ -104,7 +104,7 @@ components: {
 
 这类替换适合只换一个局部组件，不需要重写完整 `regions.sidebar`。
 
-Override 组件必须兼容默认组件 props。`sidebar.navItem` 要保留 ref、`onClick`、DOM props 和 `classNames`；`sidebar.settingsTrigger` 要保留 ref 和 PopoverTrigger 注入的 props，否则会破坏弹层打开行为。
+Override 组件必须兼容默认组件 props。`sidebar.navItem` 要保留 ref、`onClick`、DOM props 和 `classNames`；`sidebar.settingsTrigger` 要保留 ref、`onClick`、DOM props 和 `classNames`；它不再承载弹层，点击后直接进入设置页。
 
 ## Surface Slot
 
@@ -117,7 +117,6 @@ type ThemeSurfaceSlot =
   | "sidebar.navigation"
   | "sidebar.projects"
   | "sidebar.bottomBar"
-  | "sidebar.settingsMenu"
   | "sidebar.messageCenter";
 ```
 
@@ -129,7 +128,7 @@ type ThemeSurfaceSlot =
 - `sidebar.projects`
 - `sidebar.bottomBar`
 
-`sidebar.settingsMenu` 和 `sidebar.messageCenter` 已预留，适合后续给弹层接入 frame、背景或外壳装饰。
+`sidebar.messageCenter` 已预留，适合后续给弹层接入 frame、背景或外壳装饰。
 
 ## ThemeSurface
 

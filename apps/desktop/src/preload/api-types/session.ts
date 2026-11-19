@@ -134,6 +134,8 @@ export interface DesktopPlanReviewResolvedEvent {
 	sessionId: string;
 }
 
+export type DesktopSessionDeleteMode = "workspace-removal" | "clear-history";
+
 export interface DesktopSessionApi {
 	create(
 		config: DesktopCodingAgentSessionConfig | undefined,
@@ -267,7 +269,7 @@ export interface DesktopSessionApi {
 	replaceLastUserMessage(sessionId: string, entryId: string): Promise<{ leafId: string | null }>;
 	/** Export fork as new session file; current session unchanged. */
 	forkSession(sessionId: string, entryId: string): Promise<{ path: string; text: string }>;
-	delete(sessionPath: string): Promise<void>;
+	delete(sessionPath: string, mode?: DesktopSessionDeleteMode): Promise<void>;
 	rename(sessionPath: string, name: string): Promise<void>;
 	autoTitle(sessionId: string, userText: string, assistantText: string): Promise<string | null>;
 	/**

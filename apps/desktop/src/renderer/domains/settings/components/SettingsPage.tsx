@@ -17,6 +17,7 @@ const SETTINGS_CONTENT: Record<Exclude<SettingsTab, "mcp">, LazyExoticComponent<
 	permissions: lazy(SETTINGS_TAB_LOADERS.permissions),
 	im: lazy(SETTINGS_TAB_LOADERS.im),
 	webhook: lazy(SETTINGS_TAB_LOADERS.webhook),
+	spaces: lazy(SETTINGS_TAB_LOADERS.spaces),
 	shortcuts: lazy(SETTINGS_TAB_LOADERS.shortcuts),
 	appshot: lazy(SETTINGS_TAB_LOADERS.appshot),
 	archive: lazy(SETTINGS_TAB_LOADERS.archive),

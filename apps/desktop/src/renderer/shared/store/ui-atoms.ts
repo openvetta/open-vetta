@@ -66,6 +66,7 @@ export type SettingsTab =
 	| "webhook"
 	| "shortcuts"
 	| "appshot"
+	| "spaces"
 	| "archive"
 	| "context"
 	| "knowledge"

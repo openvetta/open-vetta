@@ -14,6 +14,7 @@ import {
 	inlineFilePreviewAtom,
 	pendingSessionOpenAtom,
 } from "@shared/store/atoms";
+import { MAIN_SPACE, spaceOf, spacesAtom } from "@shared/store/spaces";
 import { useMatches, useNavigate } from "@tanstack/react-router";
 import { useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
 import { selectAtom } from "jotai/utils";
@@ -22,6 +23,7 @@ import { useTranslation } from "react-i18next";
 import { resolveProjectGoneCleanup } from "../../../../hooks/project-gone-cleanup";
 import { resolveSessionOpenTarget } from "../../../../hooks/session-open-target";
 import { useProjects } from "../../../../hooks/useProjects";
+import { rememberSpaceLocation } from "../../../../hooks/useSpaceNavigation";
 import { useTeamSidebarConversations } from "../../../../hooks/useTeamSidebarConversations";
 import {
 	projectSidebarConversations,
@@ -65,6 +67,7 @@ export function useProjectsPanelModel({
 	const pendingSessionPath = useAtomValue(pendingSessionPathAtom);
 	const activeSessionCwd = useAtomValue(activeSessionCwdAtom);
 	const store = useStore();
+	const spaces = useAtomValue(spacesAtom);
 	const imCwd = useAtomValue(defaultImConversationCwdAtom);
 	const setActiveSession = useSetAtom(activeSessionAtom);
 	const setInlineFilePreview = useSetAtom(inlineFilePreviewAtom);
@@ -96,7 +99,9 @@ export function useProjectsPanelModel({
 	const batchProjects = useAtomValue(batchProjectsAtom);
 	const [expandedBatchProjects, setExpandedBatchProjects] = useAtom(expandedBatchProjectsAtom);
 	const { deleteTask: deleteBatchTask, deleteProject: deleteBatchProject } = useBatchTasks();
-	const defaultConversationFilter = useAtomValue(defaultConversationFilterAtom);
+	const storedFilter = useAtomValue(defaultConversationFilterAtom);
+	const defaultConversationFilter =
+		spaces.selected !== MAIN_SPACE && storedFilter === "claw" ? "conversation" : storedFilter;
 	// 标签档只是「对话」的一个子集视图，会话来源仍取普通对话目录。
 	const defaultConversationSource = conversationFilterSource(defaultConversationFilter);
 	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
@@ -214,6 +219,7 @@ export function useProjectsPanelModel({
 			if (target === "viewer") {
 				selectAfterPaint({ kind: "conversation", path }, () =>
 					(async () => {
+						rememberSpaceLocation(store, { kind: "conversation", cwd, path, viewer: true });
 						await navigate({ to: "/viewer/$path", params: { path: encodeURIComponent(path) } });
 					})(),
 				);
@@ -391,17 +397,33 @@ export function useProjectsPanelModel({
 
 	const clearConversation = useCallback(
 		(cwd: string) => {
-			const allSessions = sessionsMap.get(cwd) ?? [];
+			const spaceId = store.get(spacesAtom).selected;
+			const allSessions = (sessionsMap.get(cwd) ?? []).filter(
+				(session) => spaceOf(store.get(spacesAtom), { kind: "conversation", key: session.path }) === spaceId,
+			);
 			setConfirm({
 				title: t("sidebar.dialogs.clearConversationTitle"),
 				message: t("sidebar.dialogs.clearConversationMessage", { count: allSessions.length }),
 				confirmLabel: t("sidebar.dialogs.clearConfirm"),
 				variant: "danger",
 				onConfirm: async () => {
-					await window.vetta.session.clearDefaultConversation("conversation");
-					const removedPaths = new Set(allSessions.map((session) => session.path));
+					const current = store.get(spacesAtom);
+					const paths = allSessions.filter(
+						(session) => spaceOf(current, { kind: "conversation", key: session.path }) === spaceId,
+					);
+					const running = new Set(await window.vetta.session.listRunning());
+					if (paths.some(({ path }) => running.has(path))) return;
+					if (spaceId === MAIN_SPACE && Object.keys(current.conversations).length === 0) {
+						await window.vetta.session.clearDefaultConversation("conversation");
+					} else {
+						for (const session of paths) await window.vetta.session.delete(session.path, "clear-history");
+					}
+					const removedPaths = new Set(paths.map((session) => session.path));
 					removePinnedSessions(removedPaths);
-					if (removedPaths.has(activeSessionPathValue) || (activeSessionCwd === cwd && !removedPaths.size)) {
+					if (
+						removedPaths.has(activeSessionPathValue) ||
+						(spaceId === MAIN_SPACE && activeSessionCwd === cwd && !removedPaths.size)
+					) {
 						setActiveSession(null);
 						void navigate({
 							to: "/new-session/$cwd",
@@ -421,6 +443,7 @@ export function useProjectsPanelModel({
 			navigate,
 			loadSessions,
 			removePinnedSessions,
+			store,
 			t,
 		],
 	);
@@ -457,7 +480,6 @@ export function useProjectsPanelModel({
 			navigate,
 			loadSessions,
 			removePinnedSessions,
-			store,
 			t,
 		],
 	);
@@ -498,8 +520,14 @@ export function useProjectsPanelModel({
 				ordinaryDefaultSessions,
 				defaultConversationSource === "conversation" ? teamSidebar.conversations : [],
 				{ kind: "default" },
+			).filter(
+				(session) =>
+					spaceOf(spaces, {
+						kind: "conversation",
+						key: session.kind === "agent-team" ? session.teamSessionId : session.path,
+					}) === spaces.selected,
 			),
-		[defaultConversationSource, ordinaryDefaultSessions, teamSidebar.conversations],
+		[defaultConversationSource, ordinaryDefaultSessions, spaces, teamSidebar.conversations],
 	);
 	const projectSidebarSessions = useMemo(() => {
 		const result = new Map<string, SidebarConversationInfo[]>();
@@ -530,7 +558,7 @@ export function useProjectsPanelModel({
 	return {
 		activeSessionPath,
 		activeTeamSessionId,
-		batchProjects: batchAsProjects,
+		batchProjects: spaces.selected === MAIN_SPACE ? batchAsProjects : [],
 		defaultConversationFilter,
 		defaultProject,
 		defaultSessions,
@@ -542,7 +570,9 @@ export function useProjectsPanelModel({
 			(defaultConversationSource === "conversation" && teamSidebar.loading),
 		expandedBatchProjects,
 		expandedProjects,
-		userProjects,
+		userProjects: userProjects.filter(
+			({ cwd }) => spaceOf(spaces, { kind: "project", key: cwd }) === spaces.selected,
+		),
 		imCwd,
 		projectSessions: (cwd) => projectSidebarSessions.get(cwd) ?? [],
 		projectSessionsLoading: (cwd) => (sessionLoadingCwds.has(cwd) && !sessionsMap.has(cwd)) || teamSidebar.loading,
