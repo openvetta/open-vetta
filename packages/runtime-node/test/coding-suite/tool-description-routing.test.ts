@@ -29,7 +29,7 @@ describe("coding tool description routing", () => {
 	});
 
 	it("keeps the platform read description product-neutral", () => {
-		expect(READ_TOOL_DESCRIPTION).toContain("stable edit anchors");
+		expect(READ_TOOL_DESCRIPTION).toContain("prefixed with their line number");
 		expect(READ_TOOL_DESCRIPTION).toContain("offset and limit");
 		expect(READ_TOOL_DESCRIPTION).toContain("vision-capable model can inspect");
 		expect(READ_TOOL_DESCRIPTION).toContain("prefer this tool when visual understanding");

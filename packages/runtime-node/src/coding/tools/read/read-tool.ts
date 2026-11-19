@@ -7,7 +7,7 @@ import {
 	RuntimeToolExecutionError,
 	type RuntimeToolResult,
 } from "@vetta/runtime-core/kernel";
-import { renderAnchoredLines } from "../../shared/anchors.js";
+import { renderNumberedLines } from "../../shared/numbered-lines.js";
 import { localToolPathHost, resolveReadPath, type ToolPathHost } from "../../shared/path-resolution.js";
 import { decodeTextBuffer } from "../../shared/text-decoding.js";
 import { DEFAULT_MAX_BYTES, formatSize, type TruncationResult, truncateHead } from "../../shared/truncation.js";
@@ -313,7 +313,7 @@ async function readText(
 		selectedContent = allLines.slice(startLine).join("\n");
 	}
 
-	const anchorContent = (raw: string): string => renderAnchoredLines(raw.split("\n"), startLineDisplay).join("\n");
+	const numberedContent = (raw: string): string => renderNumberedLines(raw.split("\n"), startLineDisplay).join("\n");
 	const remainingNote = (): string => {
 		if (userLimitedLines === undefined || startLine + userLimitedLines >= totalLines) {
 			return "";
@@ -327,7 +327,7 @@ async function readText(
 	// mistaken for a complete document.
 	if (preserveFullText?.(absolutePath) === true) {
 		return {
-			content: [{ type: "text", text: anchorContent(selectedContent) + remainingNote() }],
+			content: [{ type: "text", text: numberedContent(selectedContent) + remainingNote() }],
 			details: { totalLines } satisfies ReadToolDetails,
 		};
 	}
@@ -343,7 +343,7 @@ async function readText(
 	} else if (truncation.truncated) {
 		const endLineDisplay = startLineDisplay + truncation.outputLines - 1;
 		const nextOffset = endLineDisplay + 1;
-		outputText = anchorContent(truncation.content);
+		outputText = numberedContent(truncation.content);
 		if (truncation.truncatedBy === "lines") {
 			outputText += `\n\n[Showing lines ${startLineDisplay}-${endLineDisplay} of ${totalLines}. Use offset=${nextOffset} to continue.]`;
 		} else {
@@ -351,7 +351,7 @@ async function readText(
 		}
 		details = { totalLines, truncation };
 	} else {
-		outputText = anchorContent(truncation.content) + remainingNote();
+		outputText = numberedContent(truncation.content) + remainingNote();
 		details = { totalLines };
 	}
 

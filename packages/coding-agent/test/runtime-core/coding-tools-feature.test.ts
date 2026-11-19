@@ -500,7 +500,7 @@ describe("greenfield coding tools feature", () => {
 
 			expect(toolResult).toMatchObject({
 				isError: false,
-				content: [{ type: "text", text: expect.stringMatching(/^1:[0-9a-z]{4}→hello from read$/) }],
+				content: [{ type: "text", text: expect.stringMatching(/^1:hello from read$/) }],
 			});
 			await compiled.dispose();
 		} finally {
@@ -703,7 +703,7 @@ describe("greenfield coding tools feature", () => {
 			expect(await resolveTools(compiled.snapshot)).toEqual(["grep"]);
 			expect(toolResult).toMatchObject({
 				isError: false,
-				content: [{ type: "text", text: expect.stringMatching(/^message\.txt:2:[0-9a-z]{4}: needle line$/) }],
+				content: [{ type: "text", text: expect.stringMatching(/^message\.txt:2: needle line$/) }],
 			});
 			await compiled.dispose();
 		} finally {

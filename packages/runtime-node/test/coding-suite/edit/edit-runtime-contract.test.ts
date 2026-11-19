@@ -11,7 +11,6 @@ import {
 	type EditToolInput,
 	EditToolInputSchema,
 } from "../../../src/coding/index.js";
-import { anchorLineHash } from "../../../src/coding/shared/anchors.js";
 import { createTestEditPathPolicy } from "../../support/path-policy.js";
 
 const temporaryDirectories: string[] = [];
@@ -38,10 +37,6 @@ function runtimeRequest(input: EditToolInput, signal = new AbortController().sig
 		input,
 		signal,
 	};
-}
-
-function anchor(line: string, lineNumber: number): string {
-	return `${lineNumber}:${anchorLineHash(line)}`;
 }
 
 async function errorMessage(operation: Promise<unknown>): Promise<string> {
@@ -148,15 +143,15 @@ describe("runtime edit tool", () => {
 		expect(readFileSync(join(runtimeDirectory, "file.txt"), "utf-8")).toBe(initial);
 	});
 
-	it("preserves atomic multi-anchor replacement, insertion, receipts, and diff details", async () => {
+	it("preserves atomic block replacement, receipts, and diff details", async () => {
 		const initial = ["const a = 1;", "const b = 2;", "const c = 3;", "const d = 4;"].join("\n");
-		const runtimeDirectory = createTemporaryDirectory("anchor-batch");
+		const runtimeDirectory = createTemporaryDirectory("block-batch");
 		writeFileSync(join(runtimeDirectory, "file.ts"), initial);
 		const input = {
 			path: "file.ts",
 			edits: [
-				{ anchor: anchor("const a = 1;", 1), new_text: "const a = 10;\nconst added = 11;" },
-				{ anchor: anchor("const c = 3;", 3), new_text: "const afterC = 30;", insert_after: true },
+				{ oldText: "const a = 1;", newText: "const a = 10;\nconst added = 11;" },
+				{ oldText: "const c = 3;", newText: "const afterC = 30;" },
 			],
 		};
 		const runtimeResult = await createEditTool(runtimeDirectory, { pathPolicy: permissivePathPolicy }).execute(
@@ -164,55 +159,47 @@ describe("runtime edit tool", () => {
 		);
 		expect(runtimeResult.details).toMatchObject({ appliedEdits: 2 });
 		expect(readFileSync(join(runtimeDirectory, "file.ts"), "utf-8")).toBe(
-			[
-				"const a = 10;",
-				"const added = 11;",
-				"const b = 2;",
-				"const c = 3;",
-				"const afterC = 30;",
-				"const d = 4;",
-			].join("\n"),
+			["const a = 10;", "const added = 11;", "const b = 2;", "const afterC = 30;", "const d = 4;"].join("\n"),
 		);
 	});
 
-	it("preserves shifted and unique bare-hash anchor recovery", async () => {
-		const runtimeDirectory = createTemporaryDirectory("anchor-recovery");
-		const initial = ["a", "b", "c", "d"].join("\n");
-		writeFileSync(join(runtimeDirectory, "file.txt"), initial);
+	it("locates blocks by text across unrelated line shifts", async () => {
+		const runtimeDirectory = createTemporaryDirectory("block-shift");
+		writeFileSync(join(runtimeDirectory, "file.txt"), ["a", "b", "c", "d"].join("\n"));
 		const input = {
 			path: "file.txt",
 			edits: [
-				{ anchor: anchor("c", 1), new_text: "C" },
-				{ anchor: anchorLineHash("d"), new_text: "D" },
+				{ oldText: "c", newText: "C" },
+				{ oldText: "d", newText: "D" },
 			],
 		};
 		const runtimeResult = await createEditTool(runtimeDirectory, { pathPolicy: permissivePathPolicy }).execute(
 			runtimeRequest(input),
 		);
-		expect(runtimeResult.content[0]).toMatchObject({ text: expect.stringContaining("Applied 2 anchor edit(s)") });
+		expect(runtimeResult.content[0]).toMatchObject({ text: expect.stringContaining("Applied 2 block edit(s)") });
 		expect(readFileSync(join(runtimeDirectory, "file.txt"), "utf-8")).toBe("a\nb\nC\nD");
 	});
 
 	it.each([
 		{
-			label: "stale atomic batch",
+			label: "unmatched block",
 			initial: ["const a = 1;", "const b = 2;", "const c = 3;"].join("\n"),
 			input: {
 				path: "file.ts",
 				edits: [
-					{ anchor: anchor("const a = 1;", 1), new_text: "const a = 10;" },
-					{ anchor: "3:zz", new_text: "const c = 30;" },
+					{ oldText: "const a = 1;", newText: "const a = 10;" },
+					{ oldText: "const zzz = 9;", newText: "const c = 30;" },
 				],
 			},
 		},
 		{
-			label: "overlapping ranges",
+			label: "overlapping blocks",
 			initial: ["const a = 1;", "const b = 2;", "const c = 3;"].join("\n"),
 			input: {
 				path: "file.ts",
 				edits: [
-					{ anchor: anchor("const a = 1;", 1), end_anchor: anchor("const c = 3;", 3), new_text: "x" },
-					{ anchor: anchor("const b = 2;", 2), new_text: "y" },
+					{ oldText: "const a = 1;", oldEndText: "const c = 3;", newText: "x" },
+					{ oldText: "const b = 2;", newText: "y" },
 				],
 			},
 		},
@@ -221,22 +208,16 @@ describe("runtime edit tool", () => {
 			initial: ["function value() {", "  return 1;", "}"].join("\n"),
 			input: {
 				path: "file.ts",
-				edits: [
-					{
-						anchor: anchor("function value() {", 1),
-						end_anchor: anchor("}", 3),
-						new_text: "function changed() {\n  return 1;",
-					},
-				],
+				edits: [{ oldText: "return 1;", oldEndText: "}", newText: "  return 1;" }],
 			},
 		},
-	])("preserves anchor rejection and atomicity for $label", async ({ label, initial, input }) => {
+	])("preserves rejection and atomicity for $label", async ({ label, initial, input }) => {
 		const runtimeDirectory = createTemporaryDirectory(label);
 		writeFileSync(join(runtimeDirectory, "file.ts"), initial);
 		const runtimeError = await errorMessage(
 			createEditTool(runtimeDirectory, { pathPolicy: permissivePathPolicy }).execute(runtimeRequest(input)),
 		);
-		expect(runtimeError).toMatch(/stale|overlap|closing/i);
+		expect(runtimeError).toMatch(/could not be located|overlap|structurally broken/i);
 		expect(readFileSync(join(runtimeDirectory, "file.ts"), "utf-8")).toBe(initial);
 	});
 
@@ -330,7 +311,7 @@ describe("runtime edit tool", () => {
 		expect(calls.map((call) => call.split(":", 1)[0])).toEqual(["access", "read", "write"]);
 	});
 
-	it("preserves anchor-mode cooperative cancellation after reading", async () => {
+	it("preserves block-mode cooperative cancellation after reading", async () => {
 		const cwd = createTemporaryDirectory("anchor-abort");
 		const controller = new AbortController();
 		const calls: string[] = [];
@@ -349,10 +330,7 @@ describe("runtime edit tool", () => {
 		};
 		await expect(
 			createEditTool(cwd, { operations, pathPolicy: permissivePathPolicy }).execute(
-				runtimeRequest(
-					{ path: "file.txt", edits: [{ anchor: anchor("old", 1), new_text: "new" }] },
-					controller.signal,
-				),
+				runtimeRequest({ path: "file.txt", edits: [{ oldText: "old", newText: "new" }] }, controller.signal),
 			),
 		).rejects.toThrow("Operation aborted");
 		expect(calls).toEqual(["access", "read"]);

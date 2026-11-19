@@ -1,26 +1,20 @@
 import { type Static, Type } from "@sinclair/typebox";
 
-export const AnchorEditInputSchema = Type.Object({
-	anchor: Type.String({
+export const BlockEditInputSchema = Type.Object({
+	oldText: Type.String({
 		description:
-			'Start anchor: the WHOLE "line:hash" prefix copied VERBATIM from read/grep/edit output (e.g. "42:h7x2" — the line number is part of the anchor). Never fabricate.',
+			"The block's first line, copied from the file (a unique fragment of it is enough; indentation and internal spacing are ignored). A multi-line value must match consecutive lines. If it matches more than one place, add a neighbouring line until it is unique.",
 	}),
-	end_anchor: Type.Optional(
+	oldEndText: Type.Optional(
 		Type.String({
 			description:
-				"Inclusive end anchor: its entire line is replaced too. If that line contains a closing brace, bracket, or JSX tag that should remain, include it in new_text.",
+				"Optional last line of the block, copied from the file and searched after oldText. Use it to replace a long block without retyping its middle: everything from oldText's line through oldEndText's line is replaced.",
 		}),
 	),
-	new_text: Type.String({
+	newText: Type.String({
 		description:
-			"Replacement for the range (may be multi-line). Empty string deletes the line(s). Send FILE CONTENT ONLY — never prefix its lines with an anchor such as `42:h7x2\u2192`; that prefix is metadata and would be written into the file.",
+			"The replacement for those whole lines. File content only — never the `42:` line numbers from read output. Empty string deletes the lines.",
 	}),
-	insert_after: Type.Optional(
-		Type.Boolean({
-			description:
-				"true = insert new_text AFTER the anchor line instead of replacing it (end_anchor must be omitted).",
-		}),
-	),
 });
 
 export const EditToolInputSchema = Type.Object({
@@ -31,15 +25,17 @@ export const EditToolInputSchema = Type.Object({
 		}),
 	),
 	path: Type.String({ description: "Path to the file to edit (relative or absolute)" }),
-	oldText: Type.Optional(Type.String({ description: "Exact text to find and replace (must match exactly)" })),
+	oldText: Type.Optional(
+		Type.String({ description: "Exact text to find and replace (must match exactly and be unique in the file)" }),
+	),
 	newText: Type.Optional(Type.String({ description: "New text to replace the old text with" })),
 	edits: Type.Optional(
-		Type.Array(AnchorEditInputSchema, {
+		Type.Array(BlockEditInputSchema, {
 			description:
-				"Anchor-mode batch edits (preferred). Atomic: if ANY anchor is stale the whole batch is rejected and fresh anchors are returned — retry the full batch with them. Do not combine with oldText/newText.",
+				"Batch of content-located block edits against this file (preferred for several changes, or for replacing a long block). Atomic: if any block cannot be located the whole batch is rejected and NO changes are written. Do not combine with oldText/newText.",
 		}),
 	),
 });
 
-export type AnchorEditInput = Static<typeof AnchorEditInputSchema>;
+export type BlockEditInput = Static<typeof BlockEditInputSchema>;
 export type EditToolInput = Static<typeof EditToolInputSchema>;

@@ -24,7 +24,7 @@ describe("product tool description routing", () => {
 	});
 
 	it("owns product routing for platform reads", () => {
-		expect(CODING_AGENT_READ_TOOL_DESCRIPTION).toContain("line:hash→content");
+		expect(CODING_AGENT_READ_TOOL_DESCRIPTION).toContain("42:const x = 1;");
 		expect(CODING_AGENT_READ_TOOL_DESCRIPTION).toContain("PDF text: use `extract_text_from_pdf`");
 		expect(CODING_AGENT_READ_TOOL_DESCRIPTION).toContain(
 			"exact skill name shown in the current available-skills list",

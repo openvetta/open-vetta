@@ -1,5 +1,5 @@
 import * as Diff from "diff";
-import { anchorLineHash, stripAnchorPrefixes } from "../../shared/anchors.js";
+import { lineNumberRange, stripLineNumberPrefixes } from "../../shared/numbered-lines.js";
 
 export function detectLineEnding(content: string): "\r\n" | "\n" {
 	const crlfIndex = content.indexOf("\r\n");
@@ -150,19 +150,17 @@ export function prepareExactTextEdit(
 	const { bom, text: content } = stripBom(rawContent);
 	const originalEnding = detectLineEnding(content);
 	const normalizedContent = normalizeToLF(content);
-	// The model was shown anchors for the lines it is replacing, so their hashes identify a
-	// prefix it copied into the replacement even after rewriting that line's content.
-	const replacedHashes = new Set(normalizeToLF(oldText).split("\n").map(anchorLineHash));
-	const sanitizedNewText = stripAnchorPrefixes(newText, replacedHashes);
-	const normalizedNewText = normalizeToLF(sanitizedNewText.text);
-	// Only fall back to a sanitized oldText: a file that genuinely contains an anchor-shaped
-	// line must still be matchable by its literal content.
+	// The model was shown `42:` line numbers for the text it is replacing, so those numbers identify
+	// a prefix it may have copied into the replacement even after rewriting the line.
+	const lineOfOffset = (offset: number): number => normalizedContent.slice(0, offset).split("\n").length;
 	let normalizedOldText = normalizeToLF(oldText);
 	let matchResult = fuzzyFindText(normalizedContent, normalizedOldText);
 	if (!matchResult.found) {
-		const sanitizedOldText = stripAnchorPrefixes(oldText);
-		if (sanitizedOldText.strippedLines.length > 0) {
-			normalizedOldText = normalizeToLF(sanitizedOldText.text);
+		// A file that genuinely contains a `12:`-prefixed line must still be matchable literally, so
+		// the prefix-stripped form is only tried as a fallback.
+		const fallback = stripLineNumberPrefixes(oldText, lineNumberRange(1, normalizedContent.split("\n").length));
+		if (fallback.strippedLines.length > 0) {
+			normalizedOldText = normalizeToLF(fallback.text);
 			matchResult = fuzzyFindText(normalizedContent, normalizedOldText);
 		}
 	}
@@ -181,6 +179,10 @@ export function prepareExactTextEdit(
 		);
 	}
 
+	const startLine = lineOfOffset(matchResult.index);
+	const endLine = lineOfOffset(matchResult.index + Math.max(1, matchResult.matchLength) - 1);
+	const sanitizedNewText = stripLineNumberPrefixes(newText, lineNumberRange(startLine, endLine));
+	const normalizedNewText = normalizeToLF(sanitizedNewText.text);
 	const baseContent = matchResult.contentForReplacement;
 	const replacedContent =
 		baseContent.substring(0, matchResult.index) +

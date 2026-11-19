@@ -8,8 +8,8 @@ export type {
 export { createEditTool } from "./edit-tool.js";
 export { createEditToolRegistration } from "./registration.js";
 export {
-	type AnchorEditInput,
-	AnchorEditInputSchema,
+	type BlockEditInput,
+	BlockEditInputSchema,
 	type EditToolInput,
 	EditToolInputSchema,
 } from "./schema.js";
