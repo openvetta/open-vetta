@@ -1016,6 +1016,11 @@
 			"appearance": "外观模式",
 			"theme": "主题配色"
 		},
+		"login": {
+			"signedInTitle": "已登录",
+			"signedInDesc": "欢迎回来，{{name}}",
+			"signedInFallback": "用户"
+		},
 		"welcome": {
 			"title": "欢迎使用 Vetta",
 			"subtitle": "你的桌面 AI 编程助手已就绪，从一次对话开始吧",

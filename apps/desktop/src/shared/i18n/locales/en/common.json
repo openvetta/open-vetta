@@ -1016,6 +1016,11 @@
 			"appearance": "Appearance",
 			"theme": "Color theme"
 		},
+		"login": {
+			"signedInTitle": "Signed in",
+			"signedInDesc": "Welcome back, {{name}}",
+			"signedInFallback": "User"
+		},
 		"welcome": {
 			"title": "Welcome to Vetta",
 			"subtitle": "Your desktop AI coding assistant is ready. Start with a conversation",
