@@ -129,6 +129,20 @@ export interface DesktopUserQuestionResolvedEvent {
 	sessionId: string;
 }
 
+export interface DesktopPendingQuestionChangedEvent {
+	sessionPath: string;
+	/** 沿用 `hasPendingQuestion`：快捷面板只关心「有没有」，侧栏再读 `count`。 */
+	hasPendingQuestion: boolean;
+	/** 该会话剩余的待处理请求数。 */
+	count: number;
+}
+
+/** 仍在等用户处理的会话。 */
+export interface DesktopPendingInteraction {
+	sessionPath: string;
+	count: number;
+}
+
 export interface DesktopPlanReviewResolvedEvent {
 	requestId: string;
 	sessionId: string;
@@ -194,6 +208,13 @@ export interface DesktopSessionApi {
 	onQuestionResolved(handler: (event: DesktopUserQuestionResolvedEvent) => void): () => void;
 	/** 回传用户对某次提问的答案 / 取消。 */
 	respondToQuestion(requestId: string, result: CodingAgentQuestionResult): Promise<void>;
+	/**
+	 * 「这条会话正在等用户处理」的标记（提问 / 计划审批 / MCP 询问 / 沙箱授权共用）。
+	 * 侧栏据此把旋转图标换成问号；`count` 是该会话剩下的待处理请求数。
+	 */
+	onPendingQuestionChanged(handler: (event: DesktopPendingQuestionChangedEvent) => void): () => void;
+	/** 仍在等用户处理的会话快照；事件只带增量，重载后用它收敛。 */
+	listPendingQuestionPaths(): Promise<DesktopPendingInteraction[]>;
 	/** Plan 模式：读取会话当前的权限模式与最近一份计划。 */
 	getPlanModeState(sessionId: string): Promise<CodingAgentPlanModeState>;
 	/** Plan 模式：用户手势切换权限模式；收紧从下一轮生效，放宽立即生效。 */
