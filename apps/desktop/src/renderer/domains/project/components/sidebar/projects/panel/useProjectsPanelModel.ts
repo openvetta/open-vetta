@@ -34,6 +34,7 @@ import type { BatchProjectEntry, ProjectsPanelModel, ProjectsPanelProps } from "
 import { useSidebarSelectionIntent } from "./useSidebarSelectionIntent";
 
 const EMPTY_SESSIONS: SessionInfo[] = [];
+const EMPTY_BATCH_PROJECTS: BatchProjectEntry[] = [];
 
 /**
  * 侧栏只关心当前会话的 path / cwd。订阅 activeSession 整个对象会让 session 上任何字段
@@ -167,6 +168,16 @@ export function useProjectsPanelModel({
 	const userProjects = useMemo(
 		() => projects.filter((project) => project.type !== "batch" && !project.isDefault),
 		[projects],
+	);
+	// 切换工作空间只换这里的可见集合；放进 return 里现算会让每个项目行都拿到新数组，
+	// 随便一次 atom 变动就把整块侧栏重渲染一遍。
+	const visibleUserProjects = useMemo(
+		() => userProjects.filter(({ cwd }) => spaceOf(spaces, { kind: "project", key: cwd }) === spaces.selected),
+		[spaces, userProjects],
+	);
+	const visibleSpaceBatchProjects = useMemo(
+		() => (spaces.selected === MAIN_SPACE ? batchAsProjects : EMPTY_BATCH_PROJECTS),
+		[batchAsProjects, spaces.selected],
 	);
 
 	const navigateProject = useCallback(
@@ -558,7 +569,7 @@ export function useProjectsPanelModel({
 	return {
 		activeSessionPath,
 		activeTeamSessionId,
-		batchProjects: spaces.selected === MAIN_SPACE ? batchAsProjects : [],
+		batchProjects: visibleSpaceBatchProjects,
 		defaultConversationFilter,
 		defaultProject,
 		defaultSessions,
@@ -570,9 +581,7 @@ export function useProjectsPanelModel({
 			(defaultConversationSource === "conversation" && teamSidebar.loading),
 		expandedBatchProjects,
 		expandedProjects,
-		userProjects: userProjects.filter(
-			({ cwd }) => spaceOf(spaces, { kind: "project", key: cwd }) === spaces.selected,
-		),
+		userProjects: visibleUserProjects,
 		imCwd,
 		projectSessions: (cwd) => projectSidebarSessions.get(cwd) ?? [],
 		projectSessionsLoading: (cwd) => (sessionLoadingCwds.has(cwd) && !sessionsMap.has(cwd)) || teamSidebar.loading,
