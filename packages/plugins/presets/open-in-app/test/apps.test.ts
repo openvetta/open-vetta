@@ -12,10 +12,12 @@ describe("open-in-app commands", () => {
 		expect(buildOpenArgs(byId("finder"), "/work/demo")).toEqual(["/work/demo"]);
 		expect(buildOpenArgs(byId("vscode"), "/work/demo")).toEqual(["-a", "Visual Studio Code", "/work/demo"]);
 		expect(buildOpenArgs(byId("zed"), "/work/my project")).toEqual(["-a", "Zed", "/work/my project"]);
+		expect(buildOpenArgs(byId("ghostty"), "/work/demo")).toEqual(["-a", "Ghostty", "/work/demo"]);
 	});
 
 	it("probes with open -Ra so detection never launches the app", () => {
 		expect(buildProbeArgs(byId("cursor"))).toEqual(["-Ra", "Cursor"]);
+		expect(buildProbeArgs(byId("ghostty"))).toEqual(["-Ra", "Ghostty"]);
 	});
 
 	it("keeps ids unique and Finder always available", () => {
