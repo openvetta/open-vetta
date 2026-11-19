@@ -9,6 +9,8 @@ export default defineConfig({
 			name: "git",
 			entry: "./src/index.tsx",
 			hostUi: true,
+			// 设置页复用宿主的 SettingSection / SettingRow，不再自绘设置项卡片。
+			hostThemeUi: true,
 		}),
 	],
 	esbuild: {

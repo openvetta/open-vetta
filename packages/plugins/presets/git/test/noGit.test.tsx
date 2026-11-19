@@ -3,12 +3,22 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GitPanel } from "../src/components/GitPanel";
 import { GitSettingsView } from "../src/components/GitSettingsView";
-import { setAiApi, setGitCommand, setStorageApi } from "../src/git/runtime";
+import { setGitCommand, setStorageApi } from "../src/git/runtime";
 
-vi.mock("@vetta-org/plugin-sdk", () => ({
-	useTranslation: () => ({ t: (key: string) => key, locale: "en" }),
-	useActivityTab: () => ({ cwd: "/repo" }),
-}));
+vi.mock("@vetta-org/plugin-sdk", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@vetta-org/plugin-sdk")>();
+	return {
+		...actual,
+		useTranslation: () => ({ t: (key: string) => key, locale: "en" }),
+		useActivityTab: () => ({ cwd: "/repo" }),
+		// 宿主的模型选择器由宿主注入 bridge；插件测试里用窄 fake 代替，只保留受控 value 与空值项。
+		ModelPicker: ({ value, emptyOption }: { value: string | null; emptyOption?: { label: string } }) => (
+			<button type="button" data-testid="host-model-picker">
+				{value ?? emptyOption?.label ?? ""}
+			</button>
+		),
+	};
+});
 
 afterEach(() => {
 	cleanup();
@@ -46,7 +56,6 @@ describe("Git panel without git", () => {
 describe("Git settings page without git", () => {
 	it("shows the install hint above the settings and clears it after git is installed", async () => {
 		const state = host();
-		setAiApi({ listModels: async () => ({ models: [] }) } as never);
 		setStorageApi({ get: async () => null, set: async () => undefined } as never);
 		render(<GitSettingsView />);
 

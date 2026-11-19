@@ -1,34 +1,11 @@
-import { useTranslation } from "@vetta-org/plugin-sdk";
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch } from "@vetta-org/ui";
+import { ModelPicker, useTranslation } from "@vetta-org/plugin-sdk";
+import { SettingRow, SettingSection } from "@vetta-org/theme-ui/plugin-ui";
+import { Button, Switch } from "@vetta-org/ui";
 import { useCallback, useEffect, useState } from "react";
-import { getAiApi, getGitCommand } from "../git/runtime";
+import { getGitCommand } from "../git/runtime";
 import { DEFAULT_SETTINGS, type GitSettings, loadSettings, saveSettings } from "../git/settings";
 import { isGitAvailable } from "../git/tab-visibility";
 import { RefreshIcon } from "./icons";
-
-/** Sentinel for "follow the host's default model" in the picker. */
-const FOLLOW_DEFAULT = "__default__";
-
-/** One labelled row with a description and a control on the right. */
-function SettingRow({
-	title,
-	description,
-	children,
-}: {
-	title: string;
-	description: string;
-	children: React.ReactNode;
-}): JSX.Element {
-	return (
-		<div className="flex items-start justify-between gap-6 border-b border-border py-3 last:border-b-0">
-			<div className="min-w-0">
-				<div className="text-[13px] font-medium text-foreground">{title}</div>
-				<div className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">{description}</div>
-			</div>
-			<div className="shrink-0 pt-0.5">{children}</div>
-		</div>
-	);
-}
 
 /** 本机没有 git 时的提示条：配置照常可改，但面板要装好 git 才能用。 */
 function NoGitBanner({ onRecheck }: { onRecheck: () => Promise<void> }): JSX.Element {
@@ -63,7 +40,9 @@ function NoGitBanner({ onRecheck }: { onRecheck: () => Promise<void> }): JSX.Ele
 /**
  * The plugin's configuration page, registered as an off-sidebar workspace view
  * (Settings → Extensions). The host has no declarative settings schema since
- * plugin API 1.6.0 (ADR-0105), so the page is ours to draw.
+ * plugin API 1.6.0 (ADR-0105), so the page is ours to compose — but the chrome
+ * (section cards, setting rows) and the model picker come from the host, so it
+ * looks and behaves like the built-in settings pages.
  *
  * Settings are global to the plugin: project-specific commit rules belong in the
  * project's AGENTS.md / CLAUDE.md, which generation reads with higher priority.
@@ -72,7 +51,6 @@ export function GitSettingsView(): JSX.Element {
 	const { t } = useTranslation();
 	const [settings, setSettings] = useState<GitSettings | null>(null);
 	const [saved, setSaved] = useState(false);
-	const [models, setModels] = useState<Array<{ modelKey: string; name: string }>>([]);
 	const [gitAvailable, setGitAvailable] = useState(true);
 
 	const checkGit = useCallback(async () => {
@@ -82,21 +60,6 @@ export function GitSettingsView(): JSX.Element {
 	useEffect(() => {
 		void checkGit();
 	}, [checkGit]);
-
-	useEffect(() => {
-		let alive = true;
-		void getAiApi()
-			.listModels()
-			.then((result) => {
-				if (alive) setModels(result.models.map((model) => ({ modelKey: model.modelKey, name: model.name })));
-			})
-			.catch(() => {
-				// 模型列表拿不到不该拖垮整页：选择器退化成「跟随默认」。
-			});
-		return () => {
-			alive = false;
-		};
-	}, []);
 
 	useEffect(() => {
 		let alive = true;
@@ -124,18 +87,22 @@ export function GitSettingsView(): JSX.Element {
 	}
 
 	return (
-		<div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-6 py-5">
+		<div className="mx-auto flex w-full max-w-2xl flex-col gap-2 px-6 py-5">
 			<div>
 				<h1 className="text-[15px] font-semibold text-foreground">{t("settings.title")}</h1>
-				<p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{t("settings.tagline")}</p>
+				<p className="mt-1 mb-4 text-[12px] leading-relaxed text-muted-foreground">{t("settings.tagline")}</p>
 			</div>
 
 			{!gitAvailable && <NoGitBanner onRecheck={checkGit} />}
 
-			<div className="flex flex-col">
-				<div className="border-b border-border py-3">
+			<SettingSection
+				section={{ id: "git-commit-message", title: t("settings.commitSectionTitle") }}
+			>
+				<div className="px-4 py-3">
 					<div className="text-[13px] font-medium text-foreground">{t("settings.templateTitle")}</div>
-					<div className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">{t("settings.templateHint")}</div>
+					<div className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">
+						{t("settings.templateHint")}
+					</div>
 					<textarea
 						value={settings.messageTemplate}
 						onChange={(event) => update({ messageTemplate: event.target.value })}
@@ -144,36 +111,35 @@ export function GitSettingsView(): JSX.Element {
 						className="mt-2 w-full resize-y rounded-md border border-border bg-background px-2.5 py-2 text-[12px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-ring"
 					/>
 				</div>
-
-				<SettingRow title={t("settings.modelTitle")} description={t("settings.modelHint")}>
-					<Select
-						value={settings.modelKey ?? FOLLOW_DEFAULT}
-						onValueChange={(next) => update({ modelKey: next === FOLLOW_DEFAULT ? null : next })}
-					>
-						<SelectTrigger className="w-56">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent data-vetta-plugin-root="git">
-							<SelectItem value={FOLLOW_DEFAULT}>{t("settings.modelDefault")}</SelectItem>
-							{models.map((model) => (
-								<SelectItem key={model.modelKey} value={model.modelKey}>
-									{model.name}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
+				<SettingRow title={t("settings.modelTitle")} description={t("settings.modelHint")} border={false}>
+					{/* 与会话输入栏、知识库设置同一个选择器：模型目录、服务商分栏与收藏都由宿主提供。 */}
+					<ModelPicker
+						value={settings.modelKey ?? null}
+						onChange={(modelKey) => update({ modelKey })}
+						emptyOption={{ label: t("settings.modelDefault") }}
+						placeholder={t("settings.modelDefault")}
+						ariaLabel={t("settings.modelTitle")}
+						className="w-56"
+					/>
 				</SettingRow>
+			</SettingSection>
 
+			<SettingSection
+				section={{ id: "git-panel-behavior", title: t("settings.behaviorSectionTitle") }}
+			>
 				<SettingRow title={t("settings.pushAfterCommitTitle")} description={t("settings.pushAfterCommitHint")}>
 					<Switch checked={settings.pushAfterCommit} onCheckedChange={(next) => update({ pushAfterCommit: next })} />
 				</SettingRow>
-
-				<SettingRow title={t("settings.confirmDiscardTitle")} description={t("settings.confirmDiscardHint")}>
+				<SettingRow
+					title={t("settings.confirmDiscardTitle")}
+					description={t("settings.confirmDiscardHint")}
+					border={false}
+				>
 					<Switch checked={settings.confirmDiscard} onCheckedChange={(next) => update({ confirmDiscard: next })} />
 				</SettingRow>
-			</div>
+			</SettingSection>
 
-			<div className="flex items-center gap-2">
+			<div className="mt-2 flex items-center gap-2">
 				<Button type="button" size="sm" onClick={() => void persist()}>
 					{t("settings.save")}
 				</Button>
