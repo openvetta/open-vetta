@@ -75,6 +75,12 @@ const EXPLICIT_SOURCE_TESTS = new Map([
 		"apps/desktop/scripts/app-frame-layout.node-test.mjs",
 	].map((source) => [source, desktopTests("src/renderer/root-layout/AppFrame.layout.test.ts")]),
 	["apps/desktop/src/renderer/remote-desktop-host.ts", desktopTests("src/renderer/remote-desktop-host.test.ts")],
+	// 宿主向插件转发的导出清单是手写字符串：漏列会让插件在 load-definition 阶段整份失败
+	// （0.6.9 的 Git 面板即如此），由契约测试比对清单与真实导出的全集。
+	[
+		"apps/desktop/src/main/plugins/plugin-protocol.ts",
+		desktopTests("src/main/plugins/plugin-protocol-contract.test.ts"),
+	],
 	// `edit` 的锚点模式由内容定位取代（ADR-0157）：这两个源文件与其测试已删除，行为由新测试覆盖。
 	...[
 		"packages/runtime-node/src/coding/shared/anchors.ts",
