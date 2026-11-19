@@ -1,5 +1,5 @@
+import { ButtonGroup, ButtonGroupItem } from "@vetta-org/ui";
 import type { JSX } from "react";
-import { ActionIconButton } from "./batchTaskUi";
 import type { BatchProjectCountsView, BatchTaskProjectActionsLabels } from "./types";
 
 export interface BatchTaskProjectActionsViewProps {
@@ -11,6 +11,10 @@ export interface BatchTaskProjectActionsViewProps {
 	onBatchStop: () => void;
 	onDeleteProject: () => void;
 	onEditProject: () => void;
+}
+
+function actionIcon(name: string): JSX.Element {
+	return <span className={`${name} size-4`} />;
 }
 
 export function BatchTaskProjectActionsView({
@@ -32,42 +36,48 @@ export function BatchTaskProjectActionsView({
 		: labels.start;
 
 	return (
-		<div className="flex items-center gap-0.5">
-			{isActive ? (
-				<ActionIconButton
-					icon="icon-[solar--stop-linear]"
-					title={labels.stop}
-					variant="danger"
-					onClick={onBatchStop}
+		<div className="flex items-center gap-1.5">
+			<ButtonGroup>
+				{isActive ? (
+					<ButtonGroupItem
+						icon={actionIcon("icon-[solar--stop-linear]")}
+						title={labels.stop}
+						aria-label={labels.stop}
+						onClick={onBatchStop}
+					/>
+				) : (
+					<ButtonGroupItem
+						icon={actionIcon("icon-[solar--play-linear]")}
+						title={startTitle}
+						aria-label={labels.start}
+						onClick={onBatchStart}
+						disabled={startDisabled}
+					/>
+				)}
+				<ButtonGroupItem
+					icon={actionIcon("icon-[solar--refresh-linear]")}
+					title={labels.reset}
+					aria-label={labels.reset}
+					onClick={onBatchReset}
+					disabled={counts.total === 0}
 				/>
-			) : (
-				<ActionIconButton
-					icon="icon-[solar--play-linear]"
-					title={startTitle}
-					onClick={onBatchStart}
-					disabled={startDisabled}
+			</ButtonGroup>
+			<ButtonGroup>
+				<ButtonGroupItem
+					icon={actionIcon("icon-[solar--pen-2-linear]")}
+					title={labels.editProject}
+					aria-label={labels.editProject}
+					onClick={onEditProject}
 				/>
-			)}
-			<ActionIconButton
-				icon="icon-[solar--refresh-linear]"
-				title={labels.reset}
-				variant="danger"
-				onClick={onBatchReset}
-				disabled={counts.total === 0}
-			/>
-			<div className="mx-1 h-4 w-px bg-border/60" />
-			<ActionIconButton
-				icon="icon-[solar--pen-2-linear]"
-				title={labels.editProject}
-				onClick={onEditProject}
-			/>
-			<ActionIconButton
-				icon="icon-[solar--trash-bin-trash-linear]"
-				title={labels.deleteProject}
-				variant="danger"
-				onClick={onDeleteProject}
-				disabled={counts.running > 0}
-			/>
+				<ButtonGroupItem
+					icon={actionIcon("icon-[solar--trash-bin-trash-linear]")}
+					title={labels.deleteProject}
+					aria-label={labels.deleteProject}
+					onClick={onDeleteProject}
+					disabled={counts.running > 0}
+				/>
+			</ButtonGroup>
 		</div>
 	);
 }
+
