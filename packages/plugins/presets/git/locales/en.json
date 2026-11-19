@@ -64,6 +64,8 @@
 	"commit.failed": "Commit failed",
 	"settings.title": "Git settings",
 	"settings.tagline": "Commit message template and everyday Git behaviour.",
+	"settings.commitSectionTitle": "Commit messages",
+	"settings.behaviorSectionTitle": "Panel behaviour",
 	"settings.templateTitle": "Commit message requirements",
 	"settings.templateHint": "Used when generating a message. A project's own AGENTS.md / CLAUDE.md rules take priority over this.",
 	"settings.templatePlaceholder": "e.g. Follow conventional commits; keep the subject under 50 characters; write the body in English.",

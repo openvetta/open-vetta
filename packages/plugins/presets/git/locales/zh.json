@@ -64,6 +64,8 @@
 	"commit.failed": "提交失败",
 	"settings.title": "Git 配置",
 	"settings.tagline": "提交信息模板与 Git 常用行为。",
+	"settings.commitSectionTitle": "提交信息",
+	"settings.behaviorSectionTitle": "面板行为",
 	"settings.templateTitle": "提交信息要求",
 	"settings.templateHint": "生成提交信息时使用。项目自身 AGENTS.md / CLAUDE.md 里的要求优先级高于这里。",
 	"settings.templatePlaceholder": "例如：遵循 conventional commits；标题不超过 50 字符；正文用中文。",
