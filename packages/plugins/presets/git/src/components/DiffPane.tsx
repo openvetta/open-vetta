@@ -111,7 +111,7 @@ export function DiffPane({
 					(patch.trim().length === 0 ? (
 						<div className="px-3 py-2 text-[12px] text-muted-foreground">{t("diff.empty")}</div>
 					) : (
-						<PatchContent patch={patch} diffStyle={diffStyle} />
+						<PatchContent patch={patch} diffStyle={diffStyle} virtualize />
 					))}
 			</div>
 		</div>
