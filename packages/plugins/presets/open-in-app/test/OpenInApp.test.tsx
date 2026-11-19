@@ -63,16 +63,18 @@ describe("useOpenInAppAction", () => {
 		expect(state?.title).toBe("action.title");
 		expect(state?.onClick).toBeUndefined();
 		const items = state?.menuItems ?? [];
-		expect(items.map((item) => item.id)).toEqual(["finder", "vscode", "cursor", "zed", "xcode", "terminal"]);
+		expect(items.map((item) => item.id)).toEqual(["finder", "vscode", "cursor", "zed", "xcode", "terminal", "ghostty"]);
 		const disabled = (id: string) => items.find((item) => item.id === id)?.disabled;
-		// Finder / 终端免探测；Zed 装了；其余没装 → 置灰。
+		// Finder 恒定可用；mock 里只装了 Zed，其余（含 Ghostty）一律置灰。
 		expect(disabled("finder")).toBe(false);
 		expect(disabled("zed")).toBe(false);
 		expect(disabled("vscode")).toBe(true);
 		expect(disabled("cursor")).toBe(true);
 		expect(disabled("xcode")).toBe(true);
+		expect(disabled("ghostty")).toBe(true);
 		const probed = command.run.mock.calls.filter(([, args]) => args?.[0] === "-Ra").map(([, args]) => args?.[1]);
 		expect(probed).toContain("Zed");
+		expect(probed).toContain("Ghostty");
 	});
 
 	it("asks the host for each app's own icon by its .app name", async () => {
@@ -80,7 +82,7 @@ describe("useOpenInAppAction", () => {
 		setHostApis(command as never, vi.fn());
 		await declare();
 		const asked = command.appIcon.mock.calls.map(([name]) => name).sort();
-		expect(asked).toEqual(["Cursor", "Finder", "Terminal", "Visual Studio Code", "Xcode", "Zed"]);
+		expect(asked).toEqual(["Cursor", "Finder", "Ghostty", "Terminal", "Visual Studio Code", "Xcode", "Zed"]);
 	});
 
 	it("opens the chosen app on the project directory", async () => {

@@ -6,7 +6,7 @@
 
 - Finder（在访达中显示）
 - VS Code、Cursor、Zed、Xcode
-- 终端
+- 终端、Ghostty
 
 菜单里列出全部应用，用 `open -Ra <应用>` 探测哪些装了（一次运行只测一次，不会真的启动它们），没装的置灰、不可点；图标取自应用本身（`ctx.command.appIcon`）。
 

@@ -1,6 +1,6 @@
 {
 	"plugin.name": "Open in External App",
-	"plugin.description": "Adds a button to the conversation header that hands the project folder to Finder, VS Code, Cursor, Zed, Xcode or Terminal (macOS, local projects only).",
+	"plugin.description": "Adds a button to the conversation header that hands the project folder to Finder, VS Code, Cursor, Zed, Xcode, Terminal or Ghostty (macOS, local projects only).",
 	"action.title": "Open in external app",
 	"app.finder": "Reveal in Finder",
 	"app.vscode": "VS Code",
@@ -8,5 +8,6 @@
 	"app.zed": "Zed",
 	"app.xcode": "Xcode",
 	"app.terminal": "Terminal",
+	"app.ghostty": "Ghostty",
 	"error.failed": "Couldn't open the project folder in {{app}}"
 }

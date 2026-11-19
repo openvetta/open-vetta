@@ -20,6 +20,7 @@ export const EXTERNAL_APPS: readonly ExternalApp[] = [
 	{ id: "zed", labelKey: "app.zed", appName: "Zed", iconAppName: "Zed", icon: "icon-[solar--code-square-linear]" },
 	{ id: "xcode", labelKey: "app.xcode", appName: "Xcode", iconAppName: "Xcode", icon: "icon-[solar--code-square-linear]" },
 	{ id: "terminal", labelKey: "app.terminal", appName: "Terminal", iconAppName: "Terminal", icon: "icon-[solar--programming-linear]" },
+	{ id: "ghostty", labelKey: "app.ghostty", appName: "Ghostty", iconAppName: "Ghostty", icon: "icon-[solar--programming-linear]" },
 ];
 
 /** `open` 的参数：Finder 打开目录本身，其余用 `-a` 指定应用。 */

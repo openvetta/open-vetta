@@ -1,4 +1,4 @@
-import { PatchDiff } from "@pierre/diffs/react";
+import { PatchDiff, Virtualizer } from "@pierre/diffs/react";
 import type { ReactNode } from "react";
 import { Component, useMemo } from "react";
 import { parseDiff } from "../git/parseDiff";
@@ -27,13 +27,27 @@ class DiffErrorBoundary extends Component<{ patch: string; children: ReactNode }
 	}
 }
 
-/** Shared highlighted diff and fallback for working changes and commit history. */
+/**
+ * Shared highlighted diff and fallback for working changes and commit history.
+ *
+ * `virtualize` renders only the lines near the viewport. A wrapped diff line's
+ * height depends on the pane width, so without it every width change (splitter
+ * drag, sidebar collapse, window resize) re-flows the whole patch on the main
+ * thread — a few thousand lines costs tens of milliseconds per frame and janks
+ * the entire window, since plugin panels share the host renderer. Virtualizing
+ * keeps that cost proportional to the viewport instead of the patch.
+ *
+ * It needs a bounded height: the virtualizer element becomes the scroll
+ * container, so pass it only where the pane already has a definite height.
+ */
 export function PatchContent({
 	patch,
 	diffStyle = "unified",
+	virtualize = false,
 }: {
 	patch: string;
 	diffStyle?: "unified" | "split";
+	virtualize?: boolean;
 }): JSX.Element {
 	const mode = useHostMode();
 	const parsed = useMemo(() => parseDiff(patch), [patch]);
@@ -58,9 +72,10 @@ export function PatchContent({
 	} as React.CSSProperties;
 
 	if (parsed.binary || parsed.lines.length === 0) return <DiffView patch={patch} />;
+	const diff = <PatchDiff patch={patch} options={options} style={diffCssVars} disableWorkerPool />;
 	return (
 		<DiffErrorBoundary patch={patch}>
-			<PatchDiff patch={patch} options={options} style={diffCssVars} disableWorkerPool />
+			{virtualize ? <Virtualizer className="h-full overflow-auto">{diff}</Virtualizer> : diff}
 		</DiffErrorBoundary>
 	);
 }
