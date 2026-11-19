@@ -168,9 +168,10 @@ const MODEL_ITEM_SELECTOR = "[data-model-key]";
 /** 紧凑行：覆盖 @vetta-org/ui 默认的 px-3 py-2 text-[13px]，让模型多时列表不至于过长。 */
 const COMPACT_ITEM_CLASS = "gap-1.5 rounded-md px-2 py-1 text-xs";
 const COMPACT_LABEL_CLASS = "px-2 pb-0.5 pt-1 text-[10px]";
-/** 行与分组头的固定高度：虚拟列表按它算位置，不逐行测量。 */
-const ROW_HEIGHT = 28;
+/** 分组头的固定高度：虚拟列表按它算位置，不逐行测量。 */
 const HEADER_HEIGHT = 24;
+/** 模型行高度，与行上的 `h-10` 一致：名字一行 + ID 小字一行，虚拟列表按它算位置。 */
+const ROW_HEIGHT = 40;
 /** 条目数超过它才虚拟化；少量条目直接渲染更简单，也保留菜单自带的字符跳转。 */
 const VIRTUALIZE_THRESHOLD = 40;
 const VIRTUAL_OVERSCAN = 8;
@@ -929,7 +930,24 @@ function ProviderHeader({
 }
 
 /**
- * 单行模型项。模型多达几百个时，搜索每敲一个字符都会重渲染列表；memo 让没变化的行直接跳过。
+ * 模型行左侧的名字与 ID：名字一行，下面一行小字显示模型 ID，省得为查 ID 去点详情浮层。
+ * 目录里没给 name 时 displayName 就是 modelId，那两行一模一样，只留一行。
+ */
+function ModelRowLabel({ model }: { readonly model: ModelSelectorOptionView }): JSX.Element {
+	return (
+		<span className="flex min-w-0 flex-1 flex-col justify-center">
+			<span className="truncate">{model.displayName}</span>
+			{model.modelId !== model.displayName && (
+				<span className="truncate font-mono text-[10px] leading-[13px] text-muted-foreground/70">
+					{model.modelId}
+				</span>
+			)}
+		</span>
+	);
+}
+
+/**
+ * 单个模型项。模型多达几百个时，搜索每敲一个字符都会重渲染列表；memo 让没变化的行直接跳过。
  */
 const ModelRow = memo(function ModelRow({
 	model,
@@ -972,10 +990,10 @@ const ModelRow = memo(function ModelRow({
 		<DropdownMenuItem
 			data-model-key={model.key}
 			aria-current={selected ? "true" : undefined}
-			className={cn(COMPACT_ITEM_CLASS, "group h-7", selected && "bg-accent text-accent-foreground", itemClassName)}
+			className={cn(COMPACT_ITEM_CLASS, "group h-10", selected && "bg-accent text-accent-foreground", itemClassName)}
 			onSelect={(event) => onSelect(model, event)}
 		>
-			<span className="min-w-0 flex-1 truncate">{model.displayName}</span>
+			<ModelRowLabel model={model} />
 			{info && (
 				<ModelInfoButton
 					model={model}

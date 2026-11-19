@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
 	type ModelSelectorFavorites,
@@ -90,12 +90,12 @@ describe("ModelSelectorView 三栏布局", () => {
 		renderView();
 		await openMenu(user);
 
-		expect(screen.getByRole("menuitem", { name: "Alpha Model 1" })).toBeTruthy();
+		expect(screen.getByRole("menuitem", { name: /^Alpha Model 1\b/ })).toBeTruthy();
 		expect(screen.queryByText("Magpie Model 0")).toBeNull();
 
 		await user.click(screen.getByRole("menuitem", { name: "Magpie" }));
-		expect(screen.getByRole("menuitem", { name: "Magpie Model 0" })).toBeTruthy();
-		expect(screen.queryByRole("menuitem", { name: "Alpha Model 1" })).toBeNull();
+		expect(screen.getByRole("menuitem", { name: /^Magpie Model 0\b/ })).toBeTruthy();
+		expect(screen.queryByRole("menuitem", { name: /^Alpha Model 1\b/ })).toBeNull();
 	});
 
 	it("没有图标的供应商用名称首字做头像", async () => {
@@ -112,7 +112,7 @@ describe("ModelSelectorView 三栏布局", () => {
 		renderView({ onModelSelect });
 		await openMenu(user);
 		await user.type(screen.getByPlaceholderText("Search models"), "Magpie Model 7");
-		await user.click(screen.getByRole("menuitem", { name: "Magpie Model 7" }));
+		await user.click(screen.getByRole("menuitem", { name: /^Magpie Model 7\b/ }));
 
 		expect(onModelSelect).toHaveBeenCalledWith("magpie/m7");
 	});
@@ -123,7 +123,7 @@ describe("ModelSelectorView 三栏布局", () => {
 		await openMenu(user);
 
 		expect(screen.queryByRole("menuitem", { name: "Alpha" })).toBeNull();
-		expect(screen.getByRole("menuitem", { name: "Alpha Model 2" })).toBeTruthy();
+		expect(screen.getByRole("menuitem", { name: /^Alpha Model 2\b/ })).toBeTruthy();
 	});
 
 	it("所选模型有推理档位时显示第三栏，选档位后关闭菜单", async () => {
@@ -143,11 +143,11 @@ describe("ModelSelectorView 三栏布局", () => {
 		renderView({ onModelSelect, reasoningModelKeys: new Set(["alpha/m1"]) });
 		await openMenu(user);
 
-		await user.click(screen.getByRole("menuitem", { name: "Alpha Model 1" }));
+		await user.click(screen.getByRole("menuitem", { name: /^Alpha Model 1\b/ }));
 		expect(onModelSelect).toHaveBeenCalledWith("alpha/m1");
 		expect(screen.getByPlaceholderText("Search models")).toBeTruthy();
 
-		await user.click(screen.getByRole("menuitem", { name: "Alpha Model 2" }));
+		await user.click(screen.getByRole("menuitem", { name: /^Alpha Model 2\b/ }));
 		await waitFor(() => expect(screen.queryByPlaceholderText("Search models")).toBeNull());
 	});
 });
@@ -166,8 +166,8 @@ describe("ModelSelectorView 大列表", () => {
 		const rows = screen.getAllByRole("menuitem").filter((item) => item.hasAttribute("data-model-key"));
 		expect(rows.length).toBeGreaterThan(0);
 		expect(rows.length).toBeLessThan(60);
-		expect(screen.getByRole("menuitem", { name: "Magpie Model 0" })).toBeTruthy();
-		expect(screen.queryByRole("menuitem", { name: "Magpie Model 499" })).toBeNull();
+		expect(screen.getByRole("menuitem", { name: /^Magpie Model 0\b/ })).toBeTruthy();
+		expect(screen.queryByRole("menuitem", { name: /^Magpie Model 499\b/ })).toBeNull();
 	});
 
 	it("虚拟列表里的行仍可选中", async () => {
@@ -176,7 +176,7 @@ describe("ModelSelectorView 大列表", () => {
 		renderView({ groups: hugeGroups, onModelSelect });
 		await openMenu(user);
 		await user.click(screen.getByRole("menuitem", { name: "Magpie" }));
-		await user.click(screen.getByRole("menuitem", { name: "Magpie Model 2" }));
+		await user.click(screen.getByRole("menuitem", { name: /^Magpie Model 2\b/ }));
 
 		expect(onModelSelect).toHaveBeenCalledWith("magpie/m2");
 	});
@@ -187,7 +187,44 @@ describe("ModelSelectorView 大列表", () => {
 		await openMenu(user);
 		await user.type(screen.getByPlaceholderText("Search models"), "Magpie Model 499");
 
-		expect(screen.getByRole("menuitem", { name: "Magpie Model 499" })).toBeTruthy();
+		expect(screen.getByRole("menuitem", { name: /^Magpie Model 499\b/ })).toBeTruthy();
+	});
+});
+
+describe("ModelSelectorView 模型行", () => {
+	beforeAll(() => {
+		Element.prototype.scrollIntoView = vi.fn();
+	});
+
+	it("名字下面用一行小字显示模型 ID；名称与 ID 相同时不再重复", async () => {
+		const user = userEvent.setup();
+		const named: ModelSelectorOptionView = {
+			key: "alpha/gpt-4o",
+			provider: "alpha",
+			modelId: "gpt-4o-2024-11-20",
+			displayName: "GPT-4o",
+		};
+		const unnamed: ModelSelectorOptionView = {
+			key: "alpha/plain",
+			provider: "alpha",
+			modelId: "plain-1",
+			displayName: "plain-1",
+		};
+		renderView({
+			groups: [{ provider: "alpha", label: "Alpha", models: [named, unnamed] }],
+			selectedModel: named.key,
+			selectedOption: named,
+		});
+		await user.click(screen.getByRole("button", { name: /GPT-4o/ }));
+
+		const row = screen.getByRole("menuitem", { name: /^GPT-4o/ });
+		expect(row.textContent).toBe("GPT-4ogpt-4o-2024-11-20");
+		const idLine = screen.getByText("gpt-4o-2024-11-20");
+		expect(idLine.className).toContain("font-mono");
+		expect(idLine.className).toContain("text-[10px]");
+
+		// 目录里没给 name 的模型，名字就是 ID，不再重复画第二行。
+		expect(screen.getByRole("menuitem", { name: "plain-1" }).textContent).toBe("plain-1");
 	});
 });
 
@@ -236,6 +273,15 @@ describe("ModelSelectorView 模型详情", () => {
 		});
 	}
 
+	/** 详情浮层。行里也画着模型 ID，按文本找会命中两处，所以按浮层容器定位。 */
+	async function findInfoPanel(): Promise<HTMLElement> {
+		return waitFor(() => {
+			const panel = document.querySelector('[data-slot="popover-content"]');
+			if (!(panel instanceof HTMLElement)) throw new Error("info panel not mounted");
+			return panel;
+		});
+	}
+
 	it("提供 info 后，识图图标、倍率与默认徽章不再平铺在行上，只剩悬停出现的详情图标", async () => {
 		const user = userEvent.setup();
 		renderDetailed();
@@ -276,9 +322,7 @@ describe("ModelSelectorView 模型详情", () => {
 		await user.click(screen.getByRole("button", { name: /Vision Pro/ }));
 		await user.click(screen.getAllByRole("button", { name: "Model details" })[0] as HTMLElement);
 
-		const card = await screen.findByText("vision-pro-1");
-		const panel = card.closest('[data-slot="popover-content"]') as HTMLElement;
-		expect(panel).toBeTruthy();
+		const panel = await findInfoPanel();
 		const text = panel.textContent ?? "";
 		expect(text).toContain("Vision Pro");
 		expect(text).toContain("Alpha Cloud");
@@ -303,7 +347,7 @@ describe("ModelSelectorView 模型详情", () => {
 		await user.click(screen.getByRole("button", { name: /Vision Pro/ }));
 		await user.click(screen.getAllByRole("button", { name: "Model details" })[0] as HTMLElement);
 
-		const panel = (await screen.findByText("vision-pro-1")).closest('[data-slot="popover-content"]') as HTMLElement;
+		const panel = await findInfoPanel();
 		expect(panel.className).toContain("select-text");
 
 		// 在浮层里移动鼠标（拖选文字）不能让所在的菜单项抢走焦点。
@@ -316,7 +360,7 @@ describe("ModelSelectorView 模型详情", () => {
 		expect(infoRow.className).toContain("items-start");
 		expect(Array.from(infoRow.children).map((node) => node.tagName)).toEqual(["DT", "DD"]);
 		expect(screen.getByText("Model ID").className).toContain("text-[10px]");
-		expect(screen.getByText("vision-pro-1").closest("dd")?.className).toContain("text-left");
+		expect(within(panel).getByText("vision-pro-1").closest("dd")?.className).toContain("text-left");
 	});
 
 	it("鼠标划过菜单里别的行（焦点移走）浮层不关闭，点浮层外面才关闭", async () => {
@@ -324,15 +368,15 @@ describe("ModelSelectorView 模型详情", () => {
 		renderDetailed();
 		await user.click(screen.getByRole("button", { name: /Vision Pro/ }));
 		await user.click(screen.getAllByRole("button", { name: "Model details" })[0] as HTMLElement);
-		await screen.findByText("vision-pro-1");
+		const panel = await findInfoPanel();
 
 		const other = screen.getByRole("menuitem", { name: /Alpha Model 1/ });
 		await user.hover(other);
 		other.focus();
-		expect(screen.queryByText("vision-pro-1")).toBeTruthy();
+		expect(panel.isConnected).toBe(true);
 
 		await user.click(document.body);
-		await waitFor(() => expect(screen.queryByText("vision-pro-1")).toBeNull());
+		await waitFor(() => expect(panel.isConnected).toBe(false));
 	});
 
 	it("没有上下文等数据的模型只显示它有的行，输入模式缺省时由识图能力推出", async () => {
@@ -348,7 +392,7 @@ describe("ModelSelectorView 模型详情", () => {
 		await user.click(screen.getByRole("button", { name: /Bare/ }));
 		await user.click(screen.getAllByRole("button", { name: "Model details" })[0] as HTMLElement);
 
-		const panel = (await screen.findByText("bare-1")).closest('[data-slot="popover-content"]') as HTMLElement;
+		const panel = await findInfoPanel();
 		const text = panel.textContent ?? "";
 		expect(text).not.toContain("Context window");
 		expect(text).not.toContain("Max output");
@@ -371,7 +415,7 @@ describe("ModelSelectorView 模型详情", () => {
 		await user.click(screen.getByRole("button", { name: /^R$/ }));
 		await user.click(screen.getAllByRole("button", { name: "Model details" })[0] as HTMLElement);
 
-		const panel = (await screen.findByText("r-1")).closest('[data-slot="popover-content"]') as HTMLElement;
+		const panel = await findInfoPanel();
 		expect(panel.textContent).toContain("Supported");
 	});
 });
@@ -430,8 +474,8 @@ describe("ModelSelectorView 列表滚动", () => {
 		renderView({ groups: hugeGroups, selectedModel: selected?.key, selectedOption: selected });
 		await user.click(screen.getByRole("button", { name: /Magpie Model 300/ }));
 
-		// 第 300 项、每行 28px，再减去 16px 渐隐带。
-		await waitFor(() => expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 300 * 28 - 16 })));
+		// 第 300 项、每行 40px（名字一行 + ID 小字一行），再减去 16px 渐隐带。
+		await waitFor(() => expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 300 * 40 - 16 })));
 	});
 });
 
