@@ -30,7 +30,6 @@ import { mergeDockedTabOrder } from "../services/floating-activity-tab";
 import { useActivityTabResidency } from "./useActivityTabResidency";
 import { useFloatingActivityTabs } from "./useFloatingActivityTabs";
 
-const NON_HIDEABLE_TABS = new Set<string>(["file", "knowledge-history"]);
 const EMPTY_FLOATING_TABS: readonly FloatingActivityTabPlacement[] = [];
 
 function toTabBarItem(tab: ResolvedActivityTab): TabBarItem<ActivityTabKey> {
@@ -122,11 +121,12 @@ export function useActivityPanelModel({
 		[resolved.availablePlugins],
 	);
 
-	const definitionById = useMemo(() => {
-		const map = new Map<string, ActivityTabDefinition>();
-		for (const def of definitions) map.set(def.id, def);
+	/** 解析后的可移除性（定义声明 ∪ 插件按工作空间声明的 pinned）。 */
+	const removableById = useMemo(() => {
+		const map = new Map<ActivityTabId, boolean>();
+		for (const tab of resolved.candidates) map.set(tab.id, tab.removable);
 		return map;
-	}, [definitions]);
+	}, [resolved.candidates]);
 	const onTabChange = useCallback(
 		(next: ActivityTabKey) => {
 			setTabByProject((previous) => {
@@ -345,9 +345,7 @@ export function useActivityPanelModel({
 
 	const onRemoveTab = useCallback(
 		(key: ActivityTabKey) => {
-			if (NON_HIDEABLE_TABS.has(key)) return;
-			const def = definitionById.get(key);
-			if (def && def.removable === false) return;
+			if (removableById.get(key) === false) return;
 			floating.actions.clearFloatingTab(key);
 
 			// 插件 tab：写显式下栏，回到「+」可添加池（不进 hidden 列表）。
@@ -370,7 +368,7 @@ export function useActivityPanelModel({
 		},
 		[
 			workspaceId,
-			definitionById,
+			removableById,
 			attachedPluginTabsMap,
 			setAttachedPluginTabsMap,
 			hiddenTabsMap,

@@ -13,7 +13,7 @@ import { BUILTIN_ACTIVITY_TABS } from "../builtins";
 import { DEFAULT_PLUGIN_TAB_ICON } from "../components/PluginTabPicker";
 import { useActivityTabActivation } from "./activation-context";
 import { useActivityPanelCwd } from "./context";
-import type { ActivityTabDefinition } from "./types";
+import type { ActivityTabDefinition, ActivityTabMeta } from "./types";
 
 /** 缓存插件 tab 内容组件类型，避免每次 render 新建 Component 导致整树 remount。 */
 const pluginComponentCache = new Map<string, ComponentType>();
@@ -38,6 +38,20 @@ function getPluginTabComponent(pluginId: string, tabId: string): ComponentType {
 /** 插件标签卡能自报的最靠前位置：紧随「文件」(0) 与批量进度 (10)。 */
 const PLUGIN_TAB_MIN_ORDER = 10;
 
+function usePluginTabMeta(tab: RegisteredActivityTab, trPlugin: (pluginId: string, text: string) => string): ActivityTabMeta | null {
+	const cwd = useActivityPanelCwd();
+	// 插件声明了 useMeta 就由它决定这一帧：返回 null 即本帧不参与候选。
+	// 无条件调用（不放在条件分支里）——hook 顺序必须与注册时一致。
+	const dynamic = tab.useMeta ? tab.useMeta({ cwd }) : null;
+	if (tab.useMeta && dynamic === null) return null;
+	return {
+		label: dynamic?.label ?? trPlugin(tab.pluginId, tab.label),
+		icon: dynamic?.icon ?? (tab.icon ?? DEFAULT_PLUGIN_TAB_ICON),
+		...(dynamic?.badge !== undefined ? { badge: dynamic.badge } : {}),
+		...(dynamic?.pinned !== undefined ? { pinned: dynamic.pinned } : {}),
+	};
+}
+
 export function toPluginDefinition(
 	tab: RegisteredActivityTab,
 	trPlugin: (pluginId: string, text: string) => string,
@@ -56,10 +70,7 @@ export function toPluginDefinition(
 		initiallyVisible: tab.initiallyVisible,
 		retention: tab.retention,
 		keepAliveWhenAvailable: tab.keepAliveWhenAvailable,
-		useMeta: () => ({
-			label: trPlugin(tab.pluginId, tab.label),
-			icon: tab.icon ?? DEFAULT_PLUGIN_TAB_ICON,
-		}),
+		useMeta: () => usePluginTabMeta(tab, trPlugin),
 		component: getPluginTabComponent(tab.pluginId, tab.tabId),
 	};
 }

@@ -102,6 +102,8 @@ export interface RegisteredActivityTab {
 	retention?: PluginActivityTabContribution["retention"];
 	/** 未激活时仍保留组件实例，适用于内嵌浏览器、编辑器等有状态运行时。 */
 	keepAliveWhenAvailable?: PluginActivityTabContribution["keepAliveWhenAvailable"];
+	/** 按面板工作空间自报这一帧的 meta；缺省 = 静态 label/icon，按上栏记录显隐。 */
+	useMeta?: PluginActivityTabContribution["useMeta"];
 }
 
 /**
