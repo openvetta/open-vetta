@@ -1,3 +1,4 @@
+import { rememberSpaceLocation, revealSpaceItem, spaceDisplayName } from "@domains/project/hooks/useSpaceNavigation";
 import type { InstalledPlugin, SkillInfo } from "@preload/api";
 import { PLUGIN_HOSTED_ROUTE_PATH } from "@shared/hosted-routes/hosted-route-descriptors";
 import { isMac, isWindows } from "@shared/lib/platform";
@@ -5,18 +6,19 @@ import { getEffectiveShortcut, loadShortcutBindings } from "@shared/lib/shortcut
 import { useShortcutScope } from "@shared/shortcuts";
 import {
 	commandMenuOpenAtom,
-	isPersonalModeAtom,
 	pluginWorkspaceViewsAtom,
 	projectsAtom,
 	type SessionExecutionMode,
 } from "@shared/store/atoms";
-import { authUserAtom } from "@shared/store/auth-atoms";
+import type { SpaceItem } from "@shared/store/spaces";
+import { spaceOf, spacesAtom } from "@shared/store/spaces";
 import { useNavigate } from "@tanstack/react-router";
 import type { CommandMenuGroupView, CommandMenuViewLabels } from "@vetta-org/theme-ui/overlays";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom, useAtomValue, useStore } from "jotai";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { resolveDesktopSessionOpenTarget } from "@/shared/session-access";
+import type { DesktopTeamSidebarConversation } from "@/shared/sidebar-conversation";
 import { prefetchCommandMenuAction } from "../../../root-layout/nav-route-prefetch";
 import { usePluginTextResolver } from "../../plugins/runtime/plugin-i18n";
 import { useSessionSearch } from "../../project/hooks/useSessionSearch";
@@ -124,6 +126,10 @@ export interface UseCommandMenuModelArgs {
 export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs): CommandMenuModel {
 	const { t } = useTranslation("common");
 	const { t: tSettings } = useTranslation("settings");
+	const { t: tProject } = useTranslation("project");
+	const spaces = useAtomValue(spacesAtom);
+	const store = useStore();
+	const [teams, setTeams] = useState<readonly DesktopTeamSidebarConversation[]>([]);
 	const navigate = useNavigate();
 
 	const [open, setOpen] = useAtom(commandMenuOpenAtom);
@@ -133,13 +139,26 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 
 	const projects = useAtomValue(projectsAtom);
 	const workspaceViews = useAtomValue(pluginWorkspaceViewsAtom);
-	const isPersonal = useAtomValue(isPersonalModeAtom);
-	const authUser = useAtomValue(authUserAtom);
 	const resolvePluginText = usePluginTextResolver();
 
 	const toggleKey = useCommandMenuToggleKey(open);
 	const hasQuery = Boolean(deferredQuery.trim());
 	const abilities = useInstalledAbilities(open && hasQuery);
+	useEffect(() => {
+		if (!open || !hasQuery || !window.vetta.agentTeams) return;
+		let cancelled = false;
+		void window.vetta.agentTeams
+			.listSidebarConversations()
+			.then((items) => {
+				if (!cancelled) setTeams(items);
+			})
+			.catch(() => {
+				if (!cancelled) setTeams([]);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [open, hasQuery]);
 
 	// 会话是唯一的异步源：空查询时后端只回一份 sources 就 done，故不必发起。
 	const sessionSearch = useSessionSearch(open && hasQuery, {
@@ -182,12 +201,10 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 	const staticEntries = useMemo<CommandMenuEntry[]>(
 		() => [
 			...buildProjectEntries(projects),
-			...buildSettingsEntries({ isPersonal, hasAuthUser: Boolean(authUser), isMac, isWindows }, (key) =>
-				tSettings(key),
-			),
+			...buildSettingsEntries({ isMac, isWindows }, (key) => tSettings(key)),
 			...buildWorkspaceViewEntries(workspaceViews, (view, raw) => resolvePluginText(view.pluginId, raw)),
 		],
-		[projects, workspaceViews, isPersonal, authUser, tSettings, resolvePluginText],
+		[projects, workspaceViews, tSettings, resolvePluginText],
 	);
 
 	const abilityEntries = useMemo(
@@ -201,10 +218,45 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 	);
 
 	const entries = useMemo<CommandMenuEntry[]>(() => {
-		const all = [...staticEntries, ...abilityEntries, ...sessionEntries];
+		const teamEntries = teams
+			.filter(
+				(session) =>
+					hasQuery &&
+					(session.placement.kind === "default" ||
+						projects.some(
+							(project) => session.placement.kind === "project" && project.cwd === session.placement.projectPath,
+						)),
+			)
+			.map(
+				(session, order): CommandMenuEntry => ({
+					id: `team-session:${session.teamSessionId}`,
+					title: session.sessionTitle,
+					groupKey: "sessions",
+					order,
+					icon: "icon-[solar--users-group-rounded-linear]",
+					action: { kind: "openTeamSession", session },
+				}),
+			);
+		const all = [...staticEntries, ...abilityEntries, ...sessionEntries, ...teamEntries].map((entry) => {
+			const item = commandSpaceItem(entry.action);
+			if (!item) return entry;
+			const label = spaceDisplayName(spaces, spaceOf(spaces, item), tProject("spaces.main"));
+			return { ...entry, subtitle: entry.subtitle ? `${entry.subtitle} · ${label}` : label };
+		});
 		// 逃生行只在有查询词时出现：空态里它没有可携带的搜索词，等于一条噪音。
 		return hasQuery ? [...all, buildMarketplaceEscapeEntry(deferredQuery, sourceLabels)] : all;
-	}, [staticEntries, abilityEntries, sessionEntries, hasQuery, deferredQuery, sourceLabels]);
+	}, [
+		staticEntries,
+		abilityEntries,
+		sessionEntries,
+		teams,
+		projects,
+		spaces,
+		tProject,
+		hasQuery,
+		deferredQuery,
+		sourceLabels,
+	]);
 
 	const tokens = useMemo(() => tokenizeCommandMenuQuery(deferredQuery), [deferredQuery]);
 
@@ -250,7 +302,25 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 
 	const runAction = useCallback(
 		(action: CommandMenuAction) => {
+			const item = commandSpaceItem(action);
+			if (
+				item &&
+				(action.kind !== "openSession" ||
+					resolveDesktopSessionOpenTarget(action.result.session.access) !== "unavailable")
+			)
+				revealSpaceItem(store, item);
 			switch (action.kind) {
+				case "openTeamSession": {
+					const { teamId, teamSessionId: sessionId, placement } = action.session;
+					rememberSpaceLocation(store, {
+						kind: "team",
+						teamId,
+						sessionId,
+						projectCwd: placement.kind === "project" ? placement.projectPath : undefined,
+					});
+					void navigate({ to: "/agent-teams/$teamId/sessions/$sessionId", params: { teamId, sessionId } });
+					return true;
+				}
 				case "openProject": {
 					// 用户选中项目是想继续干活，不是想看项目概览：落到最新一条会话上。
 					// listSessions 是本地调用，且只在真的选中某个项目时才发一次。
@@ -262,6 +332,12 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 							return;
 						}
 						if (latest?.target === "viewer") {
+							rememberSpaceLocation(store, {
+								kind: "conversation",
+								cwd: action.cwd,
+								path: latest.session.path,
+								viewer: true,
+							});
 							await navigate({
 								to: "/viewer/$path",
 								params: { path: encodeURIComponent(latest.session.path) },
@@ -299,6 +375,13 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 					const { result } = action;
 					const target = resolveDesktopSessionOpenTarget(result.session.access);
 					if (target === "viewer") {
+						if (result.sourceKind === "conversation" || result.sourceKind === "project")
+							rememberSpaceLocation(store, {
+								kind: "conversation",
+								cwd: result.sourceCwd,
+								path: result.session.path,
+								viewer: true,
+							});
 						void navigate({
 							to: "/viewer/$path",
 							params: { path: encodeURIComponent(result.session.path) },
@@ -315,7 +398,7 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 				}
 			}
 		},
-		[navigate, onOpenSession],
+		[navigate, onOpenSession, store],
 	);
 
 	const activate = useCallback(
@@ -401,4 +484,21 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		onActivateItem: activate,
 		onClose: close,
 	};
+}
+
+function commandSpaceItem(action: CommandMenuAction): SpaceItem | undefined {
+	switch (action.kind) {
+		case "openProject":
+			return { kind: "project", key: action.cwd };
+		case "openTeamSession":
+			return action.session.placement.kind === "project"
+				? { kind: "project", key: action.session.placement.projectPath }
+				: { kind: "conversation", key: action.session.teamSessionId };
+		case "openSession":
+			return action.result.sourceKind === "conversation"
+				? { kind: "conversation", key: action.result.session.path }
+				: { kind: "project", key: action.result.sourceCwd };
+		default:
+			return undefined;
+	}
 }

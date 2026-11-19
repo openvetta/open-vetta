@@ -277,6 +277,7 @@ export const sessionContextMenuAtom = atom<{
 	session: SessionContextMenuSession;
 	/** Read-only sources still allow pin/folder actions, but hide rename/delete. */
 	allowMutations: boolean;
+	independent?: boolean;
 	/** 仅侧边栏下方的普通会话可打标签；项目内会话没有承载标签筛选的入口。 */
 	canTag: boolean;
 } | null>(null);

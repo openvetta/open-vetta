@@ -12,6 +12,7 @@ export function applyPlatformAttribute(): void {
 export const modKey = isMac ? "⌘" : "Ctrl";
 export const altKey = isMac ? "⌥" : "Alt";
 export const shiftKey = "⇧";
+export const ctrlKey = isMac ? "⌃" : "Ctrl";
 
 /**
  * Convert a KeyboardEvent into a serialized shortcut string.
@@ -40,7 +41,7 @@ export function eventToShortcut(e: KeyboardEvent): string | null {
  */
 export function matchesShortcut(e: KeyboardEvent, shortcut: string): boolean {
 	const recorded = eventToShortcut(e);
-	return recorded === shortcut;
+	return recorded === shortcut || (!isMac && recorded === shortcut.replace(/^ctrl\+/, "mod+"));
 }
 
 /**
@@ -63,7 +64,7 @@ export function formatShortcut(shortcut: string): string {
 				display.push(altKey);
 				break;
 			case "ctrl":
-				display.push("Ctrl");
+				display.push(ctrlKey);
 				break;
 			default:
 				display.push(part.toUpperCase());
@@ -88,7 +89,7 @@ export function shortcutParts(shortcut: string): string[] {
 			case "alt":
 				return altKey;
 			case "ctrl":
-				return "Ctrl";
+				return ctrlKey;
 			default:
 				return part.toUpperCase();
 		}

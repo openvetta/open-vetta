@@ -10,6 +10,9 @@ import type { SendInteractionContext } from "../input-bar/types";
 
 interface NewSessionSendOptions {
 	readonly cwd: string;
+	readonly defaultConversationCwd?: string;
+	readonly spaceId?: string;
+	readonly draftKey?: string;
 	readonly executionMode: SessionExecutionMode;
 	/**
 	 * 发送前必须先跑完的一步，返回真正的目标 cwd（新会话页用它把待创建的项目落盘）。
@@ -36,7 +39,17 @@ export function useNewSessionSend(options: NewSessionSendOptions): {
 	readonly startGoal: StartNewSessionGoal;
 } {
 	const sendingRef = useRef(false);
-	const { cwd, executionMode, prepareCwd, openSession, sendMessage, agentProfileId } = options;
+	const {
+		cwd,
+		defaultConversationCwd,
+		spaceId,
+		draftKey,
+		executionMode,
+		prepareCwd,
+		openSession,
+		sendMessage,
+		agentProfileId,
+	} = options;
 
 	const send = useCallback(
 		async (overrideText?: string, context?: SendInteractionContext): Promise<void> => {
@@ -60,6 +73,8 @@ export function useNewSessionSend(options: NewSessionSendOptions): {
 				await openSession(targetCwd, undefined, executionMode, {
 					interactionId,
 					...(agentProfileId ? { agentProfileId } : {}),
+					newSessionDraftKey: draftKey,
+					newConversationSpace: targetCwd === defaultConversationCwd ? spaceId : undefined,
 					navigateBeforeCreate: true,
 					preserveMessagesBeforeCreate: true,
 					onCreateError: () => {
@@ -76,7 +91,17 @@ export function useNewSessionSend(options: NewSessionSendOptions): {
 				sendingRef.current = false;
 			}
 		},
-		[agentProfileId, cwd, executionMode, prepareCwd, openSession, sendMessage],
+		[
+			agentProfileId,
+			cwd,
+			defaultConversationCwd,
+			draftKey,
+			spaceId,
+			executionMode,
+			prepareCwd,
+			openSession,
+			sendMessage,
+		],
 	);
 
 	const startGoal = useCallback<StartNewSessionGoal>(
@@ -92,6 +117,8 @@ export function useNewSessionSend(options: NewSessionSendOptions): {
 				await openSession(targetCwd, undefined, executionMode, {
 					interactionId,
 					...(agentProfileId ? { agentProfileId } : {}),
+					newSessionDraftKey: draftKey,
+					newConversationSpace: targetCwd === defaultConversationCwd ? spaceId : undefined,
 					navigateBeforeCreate: true,
 					onPromptReady: (sessionId) => {
 						startPromise = window.vetta.session
@@ -105,7 +132,7 @@ export function useNewSessionSend(options: NewSessionSendOptions): {
 				sendingRef.current = false;
 			}
 		},
-		[agentProfileId, cwd, executionMode, openSession, prepareCwd],
+		[agentProfileId, cwd, defaultConversationCwd, draftKey, spaceId, executionMode, openSession, prepareCwd],
 	);
 
 	return { send, startGoal };

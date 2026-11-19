@@ -98,7 +98,6 @@ jobs:
         working-directory: apps/desktop
         env:
           VETTA_BUILD_ENV: test
-          VETTA_CLOUD_ENABLED: "false"
           VETTA_OPEN_MARKETPLACE_REPOSITORY: openvetta/vetta-official-marketplace
           VETTA_SPEECH_INPUT_ENABLED: "false"
           VETTA_UPDATE_GITHUB_OWNER: openvetta

@@ -1,6 +1,6 @@
 import type { ModelsConfigData } from "@preload/api";
-import { localModelsConfigAtom, remoteProvidersAtom } from "@shared/store/atoms";
 import { modelCatalog } from "@shared/store/model-catalog";
+import { localModelsConfigAtom, remoteProvidersAtom } from "@shared/store/model-catalog-atoms";
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo } from "react";
 

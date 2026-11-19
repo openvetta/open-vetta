@@ -1,10 +1,7 @@
 import { DOMAIN_MEDIA_CAPABILITIES, MEDIA_PROTOCOL_VERSION, type MediaProviderJob } from "@vetta-org/capability-sdk";
 import { describe, expect, it, vi } from "vitest";
-import type { VettaGatewayRequest, VettaGatewayResponse } from "../cloud-bridge.js";
 import { JobManager } from "../jobs/job-manager.js";
-import { MediaArtifactStore } from "./media-artifact-store.js";
 import { MediaProviderRegistry } from "./media-provider-registry.js";
-import { createVettaImageProvider } from "./vetta-image-provider.js";
 
 const signal = new AbortController().signal;
 
@@ -479,57 +476,5 @@ describe("MediaProviderRegistry", () => {
 
 		await expect(jobs.get("consumer", job.id, signal)).resolves.toMatchObject({ status: "succeeded" });
 		expect(replacementGetJob).toHaveBeenCalledWith("remote-job", expect.objectContaining({ ownerId: "consumer" }));
-	});
-});
-
-describe("Vetta image provider", () => {
-	it("maps gateway authentication failures to unauthenticated media jobs", async () => {
-		const provider = createVettaImageProvider(new MediaArtifactStore(), async () => ({
-			ok: false,
-			status: 401,
-			code: -1,
-			message: "Not signed in",
-		}));
-
-		await expect(
-			provider.submit(
-				{ operation: "generate", kind: "image", mode: "text-to-image", prompt: "draw a fox", inputs: [] },
-				{ ownerId: "consumer", signal },
-			),
-		).resolves.toMatchObject({
-			status: "failed",
-			error: { code: "unauthenticated", message: "Not signed in", retryable: false },
-		});
-	});
-
-	it("owns the gateway route and never accepts one from the caller", async () => {
-		const requests: VettaGatewayRequest[] = [];
-		const requestGateway = async <T>(request: VettaGatewayRequest): Promise<VettaGatewayResponse<T>> => {
-			requests.push(request);
-			return {
-				ok: true,
-				status: 200,
-				code: 0,
-				message: "",
-				data: { data: "aW1hZ2U=", mime_type: "image/png", size: "1024x1024" } as T,
-			};
-		};
-		const artifacts = new MediaArtifactStore();
-		const provider = createVettaImageProvider(artifacts, requestGateway);
-
-		const job = await provider.submit(
-			{
-				operation: "generate",
-				kind: "image",
-				mode: "text-to-image",
-				prompt: "draw a fox",
-				inputs: [],
-			},
-			{ ownerId: "consumer", signal },
-		);
-		expect(requests).toEqual([
-			expect.objectContaining({ path: "images/generate", body: { prompt: "draw a fox", size: "1024x1024" } }),
-		]);
-		await artifacts.release("consumer", job.artifacts?.[0]?.id ?? "");
 	});
 });

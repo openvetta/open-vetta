@@ -1,7 +1,7 @@
 import type { ModelsConfigData } from "@preload/api";
 import type { BatchProject } from "@shared/store/atoms";
-import { localModelsConfigAtom, remoteProvidersAtom } from "@shared/store/atoms";
 import { modelCatalog } from "@shared/store/model-catalog";
+import { localModelsConfigAtom, remoteProvidersAtom } from "@shared/store/model-catalog-atoms";
 import { useAtomValue } from "jotai";
 import { useEffect, useMemo, useState } from "react";
 import type { BatchProjectEditableData } from "../components/BatchProjectFormFields";

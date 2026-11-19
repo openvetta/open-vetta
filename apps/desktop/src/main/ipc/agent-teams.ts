@@ -297,8 +297,11 @@ export function registerAgentTeamsIpc(
 			displayProjection,
 		);
 	});
-	ipcMain.handle(CHANNELS.DELETE_SESSION, async (_event, reference: unknown) => {
-		return await sessions.deleteSession(teamSessionMutationReference(reference));
+	ipcMain.handle(CHANNELS.DELETE_SESSION, async (_event, reference: unknown, mode?: unknown) => {
+		const target = teamSessionMutationReference(reference);
+		if (mode === undefined) return await sessions.deleteSession(target);
+		if (mode !== "workspace-removal") throw new Error("Invalid Team session delete mode");
+		return await sessions.deleteSession(target, mode);
 	});
 	ipcMain.handle(
 		CHANNELS.UPDATE_MODEL_SETTINGS,

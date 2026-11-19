@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { INITIAL_SPACES, spacesAtom } from "@shared/store/spaces";
+import { SpaceSwitcher } from "../../SpaceSwitcher";
 import {
 	batchProjectsAtom,
 	defaultConversationCwdAtom,
@@ -7,7 +9,8 @@ import {
 	sessionsMapAtom,
 } from "@shared/store/atoms";
 import project from "@/shared/i18n/locales/en/project.json";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { shortcutParts } from "@shared/lib/platform";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createInstance } from "i18next";
 import { createStore, Provider } from "jotai";
 import { I18nextProvider } from "react-i18next";
@@ -18,7 +21,8 @@ const STORAGE_KEY = "vetta-sidebar-projects-open";
 const DEFAULT_CWD = "/test/conversations";
 const i18n = createInstance();
 await i18n.init({ lng: "en", fallbackLng: "en", resources: { en: { project } } });
-const navigate = vi.hoisted(() => vi.fn());
+const routedPath = vi.hoisted(() => ({ value: "/settings/spaces" }));
+const navigate = vi.hoisted(() => vi.fn((route?: { to: string }) => { if (route) routedPath.value = route.to; }));
 const listSessions = vi.fn(async (cwd: string) => [{
 	id: "project-session",
 	path: `${cwd}/session.jsonl`,
@@ -27,17 +31,35 @@ const listSessions = vi.fn(async (cwd: string) => [{
 	modifiedAt: 1,
 }]);
 vi.mock("@tanstack/react-router", () => ({
+	useLocation: () => routedPath.value,
 	useMatches: () => [{ pathname: "/", params: {} }],
 	useNavigate: () => navigate,
 }));
 
-function renderPanel() {
+let availableSidebarWidth: number | undefined;
+
+function renderPanel(withSpaces = false, extraSpaces = false, extraSpaceCount = 0) {
 	const store = createStore();
 	store.set(projectsAtom, [
 		{ cwd: DEFAULT_CWD, type: "normal", isDefault: true, sessionCount: 1 },
 		{ cwd: "/test/normal-project", type: "normal", sessionCount: 1 },
 		{ cwd: "/test/second-project", type: "normal", sessionCount: 1 },
 	]);
+	if (withSpaces) store.set(spacesAtom, {
+		...INITIAL_SPACES,
+		spaces: [
+			{ id: "work", name: "Work", icon: { kind: "solar", value: "code" } },
+			...(extraSpaces ? [{ id: "personal", name: "Personal", icon: { kind: "emoji" as const, value: "🏠" } }] : []),
+			...Array.from({ length: extraSpaceCount }, (_, index) => ({
+				id: `extra-${index}`,
+				name: `Extra ${index + 1}`,
+				icon: { kind: "solar" as const, value: "star" as const },
+			})),
+		],
+		projects: { "/test/normal-project": "work" },
+		conversations: { [`${DEFAULT_CWD}/chat.jsonl`]: "work" },
+		locations: { work: { kind: "project", cwd: "/test/normal-project" } },
+	});
 	store.set(projectsInitializedAtom, true);
 	store.set(defaultConversationCwdAtom, DEFAULT_CWD);
 	store.set(sessionsMapAtom, new Map([[DEFAULT_CWD, [{
@@ -67,17 +89,23 @@ function renderPanel() {
 	}]);
 	return render(
 		<I18nextProvider i18n={i18n}>
-			<Provider store={store}><ProjectsPanel onOpenSession={vi.fn()} /></Provider>
+			<Provider store={store}>{withSpaces && <SpaceSwitcher />}<ProjectsPanel onOpenSession={vi.fn()} /></Provider>
 		</I18nextProvider>,
 	);
 }
 
 beforeEach(() => {
 	navigate.mockClear();
+	routedPath.value = "/settings/spaces";
 	listSessions.mockClear();
 	localStorage.removeItem(STORAGE_KEY);
+	localStorage.removeItem("vetta.desktop-spaces.v1");
+	availableSidebarWidth = undefined;
 	vi.stubGlobal("ResizeObserver", class {
-		observe() {}
+		constructor(private readonly callback: (entries: { contentRect: { width: number } }[]) => void) {}
+		observe() {
+			if (availableSidebarWidth !== undefined) this.callback([{ contentRect: { width: availableSidebarWidth } }]);
+		}
 		unobserve() {}
 		disconnect() {}
 	});
@@ -85,7 +113,11 @@ beforeEach(() => {
 	vi.stubGlobal("vetta", {
 		agentTeams: { listSidebarConversations: async () => [] },
 		batchTasks: { onTaskEvent: subscribe },
-		config: { onProjectsChanged: subscribe },
+		config: {
+			onProjectsChanged: subscribe,
+			onShortcutsChanged: subscribe,
+			get: async () => ({ projects: [{ path: "/test/normal-project" }] }),
+		},
 		conversationTags: { list: async () => ({ tags: [], assignments: {} }), onChanged: subscribe },
 		im: { onSessionChanged: subscribe },
 		session: { onSessionsChanged: subscribe, listSessions },
@@ -95,6 +127,7 @@ beforeEach(() => {
 afterEach(() => {
 	cleanup();
 	localStorage.removeItem(STORAGE_KEY);
+	localStorage.removeItem("vetta.desktop-spaces.v1");
 	vi.unstubAllGlobals();
 });
 
@@ -200,4 +233,65 @@ describe("ProjectsPanel project disclosure", () => {
 		expect(trigger().getAttribute("aria-expanded")).toBe("true");
 		expect(normal()).not.toBeNull();
 	});
+});
+
+
+it("switches project and chat membership together, preserving the global page", async () => {
+	renderPanel(true);
+	await screen.findByRole("button", { name: "My batch project", expanded: false });
+	expect(screen.queryByRole("button", { name: "normal-project", expanded: false })).toBeNull();
+	fireEvent.click(screen.getByRole("button", { name: "Work" }));
+	await screen.findByRole("button", { name: "Existing conversation" });
+	expect(screen.getByRole("button", { name: "normal-project", expanded: false })).toBeDefined();
+	expect(screen.queryByRole("button", { name: "My batch project", expanded: false })).toBeNull();
+	fireEvent.click(screen.getByRole("button", { name: "Main workspace" }));
+	await screen.findByRole("button", { name: "My batch project", expanded: false });
+	expect(screen.queryByRole("button", { name: "Existing conversation" })).toBeNull();
+	expect(routedPath.value).toBe("/settings/spaces");
+});
+
+it("opens an overflow workspace and highlights the grouped trigger in a narrow sidebar", async () => {
+	availableSidebarWidth = 68;
+	renderPanel(true, true);
+	const more = screen.getByRole("button", { name: "More workspaces" });
+	expect(screen.queryByRole("button", { name: "Work" })).toBeNull();
+	fireEvent.click(more);
+	expect(more.getAttribute("aria-expanded")).toBe("true");
+	fireEvent.click(await screen.findByRole("button", { name: "Work" }));
+	await screen.findByRole("button", { name: "Existing conversation" });
+	expect(more.getAttribute("aria-expanded")).toBe("false");
+	expect(more.getAttribute("aria-pressed")).toBe("true");
+});
+
+it("lists every workspace in the switcher menu with its shortcut and ends with the workspace settings entry", async () => {
+	availableSidebarWidth = 68;
+	renderPanel(true, false, 9);
+	fireEvent.click(screen.getByRole("button", { name: "More workspaces" }));
+	const dialog = await screen.findByRole("dialog");
+	const rows: Array<[string, number]> = [
+		["Main workspace", 1],
+		["Work", 2],
+		...Array.from({ length: 9 }, (_, index): [string, number] => [`Extra ${index + 1}`, index + 3]),
+	];
+	for (const [name, position] of rows) {
+		const row = within(dialog).getByRole("button", { name });
+		const hints = [...row.querySelectorAll("kbd")].map((hint) => hint.textContent);
+		if (position <= 9) {
+			expect(hints).toEqual(shortcutParts(`ctrl+${position}`));
+		} else {
+			expect(hints).toEqual([]);
+		}
+	}
+
+	fireEvent.click(within(dialog).getByRole("button", { name: "Workspace settings" }));
+	expect(navigate).toHaveBeenLastCalledWith({ to: "/settings/$tab", params: { tab: "spaces" } });
+});
+
+it("restores the last project in the destination workspace and opens a new chat when it has no saved page", async () => {
+	routedPath.value = "/new-session/default";
+	renderPanel(true);
+	fireEvent.click(screen.getByRole("button", { name: "Work" }));
+	await waitFor(() => expect(routedPath.value).toBe("/project/$cwd"));
+	fireEvent.click(screen.getByRole("button", { name: "Main workspace" }));
+	await waitFor(() => expect(routedPath.value).toBe("/new-session/$cwd"));
 });

@@ -61,7 +61,6 @@ export interface McpSettingsModel {
 	mode: McpEditMode;
 	saving: boolean;
 	serverNames: string[];
-	addedServerNames: Set<string>;
 	addingServer: boolean;
 	editingServer: string | null;
 	serverForm: McpServerFormState;
@@ -650,7 +649,6 @@ export function useMcpSettingsModel(options?: McpSettingsModelOptions): McpSetti
 		mode,
 		saving,
 		serverNames,
-		addedServerNames: new Set(serverNames),
 		addingServer,
 		editingServer,
 		serverForm,

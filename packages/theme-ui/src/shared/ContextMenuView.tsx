@@ -19,6 +19,7 @@ export type ContextMenuNode =
 			checked?: boolean;
 			danger?: boolean;
 			disabled?: boolean;
+			title?: string;
 			onSelect: () => void;
 	  }
 	| {
@@ -82,6 +83,7 @@ function renderNodes(nodes: readonly ContextMenuNode[]): JSX.Element[] {
 			<DropdownMenuItem
 				key={node.id}
 				disabled={node.disabled}
+				title={node.title}
 				onSelect={node.onSelect}
 				className={cn("px-2 py-[5px]", node.danger && "text-destructive")}
 			>

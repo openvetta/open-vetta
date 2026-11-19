@@ -14,6 +14,7 @@ import {
 	inlineFilePreviewAtom,
 	pendingSessionOpenAtom,
 } from "@shared/store/atoms";
+import { MAIN_SPACE, spaceOf, spacesAtom } from "@shared/store/spaces";
 import { useMatches, useNavigate } from "@tanstack/react-router";
 import { useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
 import { selectAtom } from "jotai/utils";
@@ -22,6 +23,7 @@ import { useTranslation } from "react-i18next";
 import { resolveProjectGoneCleanup } from "../../../../hooks/project-gone-cleanup";
 import { resolveSessionOpenTarget } from "../../../../hooks/session-open-target";
 import { useProjects } from "../../../../hooks/useProjects";
+import { rememberSpaceLocation } from "../../../../hooks/useSpaceNavigation";
 import { useTeamSidebarConversations } from "../../../../hooks/useTeamSidebarConversations";
 import {
 	projectSidebarConversations,
@@ -32,6 +34,7 @@ import type { BatchProjectEntry, ProjectsPanelModel, ProjectsPanelProps } from "
 import { useSidebarSelectionIntent } from "./useSidebarSelectionIntent";
 
 const EMPTY_SESSIONS: SessionInfo[] = [];
+const EMPTY_BATCH_PROJECTS: BatchProjectEntry[] = [];
 
 /**
  * 侧栏只关心当前会话的 path / cwd。订阅 activeSession 整个对象会让 session 上任何字段
@@ -65,6 +68,7 @@ export function useProjectsPanelModel({
 	const pendingSessionPath = useAtomValue(pendingSessionPathAtom);
 	const activeSessionCwd = useAtomValue(activeSessionCwdAtom);
 	const store = useStore();
+	const spaces = useAtomValue(spacesAtom);
 	const imCwd = useAtomValue(defaultImConversationCwdAtom);
 	const setActiveSession = useSetAtom(activeSessionAtom);
 	const setInlineFilePreview = useSetAtom(inlineFilePreviewAtom);
@@ -96,7 +100,9 @@ export function useProjectsPanelModel({
 	const batchProjects = useAtomValue(batchProjectsAtom);
 	const [expandedBatchProjects, setExpandedBatchProjects] = useAtom(expandedBatchProjectsAtom);
 	const { deleteTask: deleteBatchTask, deleteProject: deleteBatchProject } = useBatchTasks();
-	const defaultConversationFilter = useAtomValue(defaultConversationFilterAtom);
+	const storedFilter = useAtomValue(defaultConversationFilterAtom);
+	const defaultConversationFilter =
+		spaces.selected !== MAIN_SPACE && storedFilter === "claw" ? "conversation" : storedFilter;
 	// 标签档只是「对话」的一个子集视图，会话来源仍取普通对话目录。
 	const defaultConversationSource = conversationFilterSource(defaultConversationFilter);
 	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
@@ -163,6 +169,16 @@ export function useProjectsPanelModel({
 		() => projects.filter((project) => project.type !== "batch" && !project.isDefault),
 		[projects],
 	);
+	// 切换工作空间只换这里的可见集合；放进 return 里现算会让每个项目行都拿到新数组，
+	// 随便一次 atom 变动就把整块侧栏重渲染一遍。
+	const visibleUserProjects = useMemo(
+		() => userProjects.filter(({ cwd }) => spaceOf(spaces, { kind: "project", key: cwd }) === spaces.selected),
+		[spaces, userProjects],
+	);
+	const visibleSpaceBatchProjects = useMemo(
+		() => (spaces.selected === MAIN_SPACE ? batchAsProjects : EMPTY_BATCH_PROJECTS),
+		[batchAsProjects, spaces.selected],
+	);
 
 	const navigateProject = useCallback(
 		(cwd: string) => {
@@ -213,13 +229,16 @@ export function useProjectsPanelModel({
 			if (target === "unavailable") return;
 			if (target === "viewer") {
 				selectAfterPaint({ kind: "conversation", path }, () =>
-					navigate({ to: "/viewer/$path", params: { path: encodeURIComponent(path) } }),
+					(async () => {
+						rememberSpaceLocation(store, { kind: "conversation", cwd, path, viewer: true });
+						await navigate({ to: "/viewer/$path", params: { path: encodeURIComponent(path) } });
+					})(),
 				);
 				return;
 			}
 			selectAfterPaint({ kind: "conversation", path }, () => openInteractiveSession(cwd, path));
 		},
-		[navigate, openInteractiveSession, selectAfterPaint],
+		[navigate, openInteractiveSession, selectAfterPaint, store],
 	);
 
 	const selectSidebarSession = useCallback(
@@ -389,17 +408,33 @@ export function useProjectsPanelModel({
 
 	const clearConversation = useCallback(
 		(cwd: string) => {
-			const allSessions = sessionsMap.get(cwd) ?? [];
+			const spaceId = store.get(spacesAtom).selected;
+			const allSessions = (sessionsMap.get(cwd) ?? []).filter(
+				(session) => spaceOf(store.get(spacesAtom), { kind: "conversation", key: session.path }) === spaceId,
+			);
 			setConfirm({
 				title: t("sidebar.dialogs.clearConversationTitle"),
 				message: t("sidebar.dialogs.clearConversationMessage", { count: allSessions.length }),
 				confirmLabel: t("sidebar.dialogs.clearConfirm"),
 				variant: "danger",
 				onConfirm: async () => {
-					await window.vetta.session.clearDefaultConversation("conversation");
-					const removedPaths = new Set(allSessions.map((session) => session.path));
+					const current = store.get(spacesAtom);
+					const paths = allSessions.filter(
+						(session) => spaceOf(current, { kind: "conversation", key: session.path }) === spaceId,
+					);
+					const running = new Set(await window.vetta.session.listRunning());
+					if (paths.some(({ path }) => running.has(path))) return;
+					if (spaceId === MAIN_SPACE && Object.keys(current.conversations).length === 0) {
+						await window.vetta.session.clearDefaultConversation("conversation");
+					} else {
+						for (const session of paths) await window.vetta.session.delete(session.path, "clear-history");
+					}
+					const removedPaths = new Set(paths.map((session) => session.path));
 					removePinnedSessions(removedPaths);
-					if (removedPaths.has(activeSessionPathValue) || (activeSessionCwd === cwd && !removedPaths.size)) {
+					if (
+						removedPaths.has(activeSessionPathValue) ||
+						(spaceId === MAIN_SPACE && activeSessionCwd === cwd && !removedPaths.size)
+					) {
 						setActiveSession(null);
 						void navigate({
 							to: "/new-session/$cwd",
@@ -419,6 +454,7 @@ export function useProjectsPanelModel({
 			navigate,
 			loadSessions,
 			removePinnedSessions,
+			store,
 			t,
 		],
 	);
@@ -495,8 +531,14 @@ export function useProjectsPanelModel({
 				ordinaryDefaultSessions,
 				defaultConversationSource === "conversation" ? teamSidebar.conversations : [],
 				{ kind: "default" },
+			).filter(
+				(session) =>
+					spaceOf(spaces, {
+						kind: "conversation",
+						key: session.kind === "agent-team" ? session.teamSessionId : session.path,
+					}) === spaces.selected,
 			),
-		[defaultConversationSource, ordinaryDefaultSessions, teamSidebar.conversations],
+		[defaultConversationSource, ordinaryDefaultSessions, spaces, teamSidebar.conversations],
 	);
 	const projectSidebarSessions = useMemo(() => {
 		const result = new Map<string, SidebarConversationInfo[]>();
@@ -527,7 +569,7 @@ export function useProjectsPanelModel({
 	return {
 		activeSessionPath,
 		activeTeamSessionId,
-		batchProjects: batchAsProjects,
+		batchProjects: visibleSpaceBatchProjects,
 		defaultConversationFilter,
 		defaultProject,
 		defaultSessions,
@@ -539,7 +581,7 @@ export function useProjectsPanelModel({
 			(defaultConversationSource === "conversation" && teamSidebar.loading),
 		expandedBatchProjects,
 		expandedProjects,
-		userProjects,
+		userProjects: visibleUserProjects,
 		imCwd,
 		projectSessions: (cwd) => projectSidebarSessions.get(cwd) ?? [],
 		projectSessionsLoading: (cwd) => (sessionLoadingCwds.has(cwd) && !sessionsMap.has(cwd)) || teamSidebar.loading,

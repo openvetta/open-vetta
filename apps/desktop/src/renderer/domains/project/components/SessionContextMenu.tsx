@@ -3,12 +3,15 @@ import { SessionContextMenuView } from "@vetta-org/theme-ui/project/SessionConte
 import { createPortal } from "react-dom";
 import { useSessionContextMenuModel } from "../hooks/useSessionContextMenuModel";
 
+import { useMoveSpaceMenu } from "../hooks/useMoveSpaceMenu";
+
 interface SessionContextMenuProps {
 	x: number;
 	y: number;
 	session: SessionContextMenuSession;
 	allowMutations: boolean;
 	canTag: boolean;
+	independent?: boolean;
 	onClose: () => void;
 	onDelete: (session: SessionContextMenuSession) => void;
 }
@@ -19,9 +22,11 @@ export function SessionContextMenu({
 	session,
 	allowMutations,
 	canTag,
+	independent,
 	onClose,
 	onDelete,
 }: SessionContextMenuProps): JSX.Element {
 	const model = useSessionContextMenuModel(session, allowMutations, canTag, onClose, onDelete);
-	return createPortal(<SessionContextMenuView {...model} x={x} y={y} />, document.body);
+	const move = useMoveSpaceMenu(independent ? { kind: "conversation", key: "teamSessionId" in session ? session.teamSessionId : session.path } : undefined, onClose);
+	return createPortal(<SessionContextMenuView {...model} extraItems={move ? [...(model.extraItems ?? []), move] : model.extraItems} x={x} y={y} />, document.body);
 }

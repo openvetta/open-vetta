@@ -11,31 +11,25 @@ beforeEach(() => {
 	for (const key of Object.keys(process.env)) {
 		if (key.startsWith("VETTA_")) vi.stubEnv(key, undefined);
 	}
-	vi.stubEnv("VETTA_SERVER_URL", "https://server.example/api/v1");
 	vi.stubEnv("VETTA_SPEECH_INPUT_ENABLED", "false");
 });
 afterEach(() => vi.unstubAllEnvs());
 
 describe("independent marketplace build configuration", () => {
-	it.each([
-		{ mode: "development", cloud: "true" },
-		{ mode: "development", cloud: "false" },
-		{ mode: "production", cloud: "true" },
-		{ mode: "production", cloud: "false" },
-	])("leaves the official repository and ref to runtime defaults in $mode with cloud=$cloud", async ({ mode, cloud }) => {
-		vi.stubEnv("VETTA_CLOUD_ENABLED", cloud);
+	it.each(["development", "production"])(
+		"leaves the official repository and ref to runtime defaults in %s",
+		async (mode) => {
 		if (typeof mainConfig !== "function") throw new Error("Expected a main config factory");
 		const config = await mainConfig({ command: "build", mode });
 		expect(config.define).toMatchObject({
-			"process.env.VETTA_CLOUD_ENABLED": JSON.stringify(cloud),
 			"process.env.VETTA_OPEN_MARKETPLACE_REPOSITORY": JSON.stringify(""),
 			"process.env.VETTA_OPEN_MARKETPLACE_REF": "undefined",
 			"process.env.VETTA_OPEN_MARKETPLACE_ARCHIVE_URL": JSON.stringify(""),
 		});
-	});
+		},
+	);
 
 	it("treats an explicitly blank repository as no default source", async () => {
-		vi.stubEnv("VETTA_CLOUD_ENABLED", "true");
 		vi.stubEnv("VETTA_OPEN_MARKETPLACE_REPOSITORY", "   ");
 		if (typeof mainConfig !== "function") throw new Error("Expected a main config factory");
 		const config = await mainConfig({ command: "build", mode: "production" });
@@ -52,8 +46,7 @@ describe("independent marketplace build configuration", () => {
 		});
 	});
 
-	it("preserves explicit distribution overrides with cloud enabled", async () => {
-		vi.stubEnv("VETTA_CLOUD_ENABLED", "true");
+	it("preserves explicit distribution overrides", async () => {
 		vi.stubEnv("VETTA_OPEN_MARKETPLACE_REPOSITORY", "example/fork");
 		vi.stubEnv("VETTA_OPEN_MARKETPLACE_REF", "stable");
 		if (typeof mainConfig !== "function") throw new Error("Expected a main config factory");

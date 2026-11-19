@@ -426,7 +426,6 @@
     "apps/desktop/src/renderer/domains/plugins/runtime/plugin-renderer-capability-host.test.ts": 2,
     "apps/desktop/src/renderer/domains/project/components/sidebar/projects/panel/useProjectsPanelModel.deleteProject.test.tsx": 2,
     "apps/desktop/src/renderer/domains/project/components/sidebar/ScrollObserverCoalescing.test.tsx": 2,
-    "apps/desktop/src/renderer/domains/project/components/sidebar/settings-menu/useSyncUpdateOnOpen.test.ts": 2,
     "apps/desktop/src/renderer/domains/project/hooks/sidebar-conversation-selection.test.tsx": 2,
     "apps/desktop/src/renderer/domains/project/hooks/useProjectsPanelMenusModel.test.tsx": 2,
     "apps/desktop/src/renderer/domains/settings/components/ExtensionsSettingsView.test.tsx": 2,

@@ -72,12 +72,10 @@ jobs:
           INPUT_CHANNEL: ${{ inputs.channel }}
           INPUT_RELEASE_TARGET: r2
           VAR_RELEASE_CHANNEL: ${{ vars.VETTA_RELEASE_CHANNEL }}
-          VAR_CLOUD_ENABLED: ${{ vars.VETTA_CLOUD_ENABLED }}
           VAR_R2_BUCKET: ${{ vars.VETTA_R2_BUCKET }}
           VAR_R2_PREFIX: ${{ vars.VETTA_R2_PREFIX }}
           VAR_R2_PREFIX_STABLE: ${{ vars.VETTA_R2_PREFIX_STABLE }}
           VAR_R2_PREFIX_TEST: ${{ vars.VETTA_R2_PREFIX_TEST }}
-          VAR_SERVER_URL: ${{ vars.VETTA_SERVER_URL }}
           VAR_UPDATE_URL: ${{ vars.VETTA_UPDATE_URL }}
           VAR_UPDATE_URL_STABLE: ${{ vars.VETTA_UPDATE_URL_STABLE }}
           VAR_UPDATE_URL_TEST: ${{ vars.VETTA_UPDATE_URL_TEST }}

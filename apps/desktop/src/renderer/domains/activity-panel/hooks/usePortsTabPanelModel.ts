@@ -215,7 +215,7 @@ export function usePortsTabPanelModel(): PortsTabPanelViewProps {
 	const onOpenExternal = useCallback(
 		(remotePort: number) => {
 			const forward = findForward(remotePort);
-			if (forward) void window.vetta.auth.openExternal(formatForwardedUrl(forward.localPort));
+			if (forward) void window.vetta.shell.openExternal(formatForwardedUrl(forward.localPort));
 		},
 		[findForward],
 	);

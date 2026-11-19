@@ -1,4 +1,3 @@
-import type { LoginPopoverView } from "@cloud/auth/components/LoginPopoverView";
 import type { ActivityPanelFrame } from "@domains/activity-panel/components/activity-panel/ActivityPanelFrame";
 import type { AtPanelView } from "@domains/conversation/components/at-panel/AtPanelView";
 import type { CommandPanelView } from "@domains/conversation/components/command-panel/CommandPanelView";
@@ -87,7 +86,6 @@ declare module "@vetta-org/theme-sdk" {
 		readonly "root.knowledgeDropOverlay"?: ComponentType;
 		readonly "root.knowledgeDropOverlayView"?: typeof KnowledgeDropOverlayView;
 		readonly "root.loginPopover"?: ComponentType;
-		readonly "root.loginPopoverView"?: typeof LoginPopoverView;
 		readonly "root.toaster"?: ComponentType;
 		readonly "root.updateRestartDialog"?: ComponentType;
 		readonly "root.updateRestartDialogView"?: typeof UpdateRestartDialogView;

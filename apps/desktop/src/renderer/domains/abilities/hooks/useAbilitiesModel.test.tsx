@@ -17,7 +17,6 @@ import { BundleMembersSection } from "../components/detail/BundleMembersSection"
 import { BundleInstallDialog } from "../components/detail/BundleInstallDialog";
 import { useAbilitiesModel } from "./useAbilitiesModel";
 
-vi.mock("@shared/components/cloud-slots", () => ({ cloudEnabled: false }));
 vi.mock("@shared/tour", () => ({ CapabilitiesTour: () => null }));
 vi.mock("../../settings/ai-assist", () => ({ SettingsAiAssist: () => null }));
 vi.mock("../components/AbilityMcpDialogs", () => ({ AbilityMcpDialogs: () => null }));
@@ -26,7 +25,7 @@ vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigation }));
 // Isolate unrelated application stores, keeping real React/Jotai/i18next and ability hooks.
 vi.mock("@shared/store/atoms", async () => {
 	const { atom } = await import("jotai");
-	return { authTokenAtom: atom(null), languageAtom: atom("en"), pluginI18nByIdAtom: atom({}) };
+	return { languageAtom: atom("en"), pluginI18nByIdAtom: atom({}) };
 });
 
 it("keeps an installed plugin package icon visible while the marketplace is offline", async () => {

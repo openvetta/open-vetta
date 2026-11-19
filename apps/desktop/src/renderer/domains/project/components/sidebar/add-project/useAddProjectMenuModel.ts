@@ -1,6 +1,7 @@
 import { useBatchTasks } from "@domains/batch-tasks/hooks/useBatchTasks";
 import { isDuplicateProjectName } from "@shared/lib/project-name";
 import { confirmDialogAtom, projectsAtom } from "@shared/store/atoms";
+import { assignSpace, spacesAtom } from "@shared/store/spaces";
 import { useNavigate } from "@tanstack/react-router";
 import { getDefaultStore, useSetAtom } from "jotai";
 import { useState } from "react";
@@ -32,6 +33,7 @@ export function useAddProjectMenuModel(): {
 
 	const handleImport = async (): Promise<void> => {
 		setOpen(false);
+		const spaceId = store.get(spacesAtom).selected;
 		const result = await window.vetta.project.import();
 		if (!result) return;
 		if ("error" in result) {
@@ -44,6 +46,7 @@ export function useAddProjectMenuModel(): {
 			});
 			return;
 		}
+		store.set(spacesAtom, (state) => assignSpace(state, { kind: "project", key: result.path }, spaceId));
 		await Promise.all([refreshProjects(), refreshBatchProjects()]).catch(() => {});
 		const missing = result.missingSources;
 		const onJump = (): void => {

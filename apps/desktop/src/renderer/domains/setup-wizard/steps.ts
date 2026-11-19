@@ -1,21 +1,8 @@
 import { isMac } from "@shared/lib/platform";
-import { isCloudBuildEnabled } from "@/shared/feature-flags";
 
-export type SetupWizardStepId = "permissions" | "languageAppearance" | "login" | "welcome";
+export type SetupWizardStepId = "permissions" | "languageAppearance" | "welcome";
 
-export interface GetSetupWizardStepsOptions {
-	/** When true, omit the optional login step (already signed in). */
-	readonly isLoggedIn?: boolean;
-}
-
-/** macOS: language/appearance → permissions → login → welcome; other platforms skip permissions. */
-export function getSetupWizardSteps(options?: GetSetupWizardStepsOptions): readonly SetupWizardStepId[] {
-	const base: readonly SetupWizardStepId[] = isMac
-		? ["languageAppearance", "permissions", "login", "welcome"]
-		: ["languageAppearance", "login", "welcome"];
-	// lite 构建（无云服务）不引导登录；已登录用户同样跳过。
-	if (!isCloudBuildEnabled() || options?.isLoggedIn) {
-		return base.filter((step) => step !== "login");
-	}
-	return base;
+/** macOS: language/appearance → permissions → welcome; other platforms skip permissions. */
+export function getSetupWizardSteps(): readonly SetupWizardStepId[] {
+	return isMac ? ["languageAppearance", "permissions", "welcome"] : ["languageAppearance", "welcome"];
 }

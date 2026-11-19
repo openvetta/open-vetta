@@ -1,21 +1,14 @@
 // @vitest-environment jsdom
 import type { OpenMarketplaceCatalog, OpenMarketplaceSourceSnapshot } from "@preload/api";
-import type { MarketAbility } from "@shared/lib/api";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ cloud: true, fetchMarket: vi.fn(), language: { language: "en" } }));
-vi.mock("@shared/components/cloud-slots", () => ({
-	get cloudEnabled() { return mocks.cloud; },
-}));
-vi.mock("@shared/lib/api", () => ({ fetchMarketAbilities: mocks.fetchMarket }));
+const mocks = vi.hoisted(() => ({ language: { language: "en" } }));
 vi.mock("@shared/i18n", () => ({
 	i18n: {
 		t: (key: string, options?: { names?: string }) => options?.names ? `${key}: ${options.names}` : key,
 	},
 }));
-vi.mock("@shared/store/atoms", () => ({ authTokenAtom: {} }));
-vi.mock("jotai", () => ({ useAtomValue: () => undefined }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ i18n: mocks.language }) }));
 import { useAbilityData } from "./useAbilityData";
 
@@ -96,8 +89,6 @@ const api = {
 
 beforeEach(() => {
 	vi.clearAllMocks();
-	mocks.cloud = true;
-	mocks.fetchMarket.mockResolvedValue([]);
 	api.listOpenMarketplaces.mockResolvedValue(catalog());
 	api.refreshOpenMarketplaces.mockResolvedValue(catalog("x-api-mcp"));
 	Object.defineProperty(window, "vetta", {
@@ -112,32 +103,20 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-describe("useAbilityData independent markets", () => {
-	it("merges cloud and GitHub, and replaces the old catalog on refresh", async () => {
-		mocks.fetchMarket.mockResolvedValue([{ slug: "cloud-mcp", type: "mcp" } as MarketAbility]);
+describe("useAbilityData markets", () => {
+	it("lists GitHub sources and replaces the old catalog on refresh", async () => {
 		const { result } = renderHook(() => useAbilityData());
 		await waitFor(() => expect(result.current.refreshing).toBe(false));
-		expect(result.current.market.map((ability) => ability.slug)).toEqual(["cloud-mcp", "existing"]);
+		expect(result.current.market.map((ability) => ability.slug)).toEqual(["existing"]);
 		act(() => result.current.refresh());
-		await waitFor(() => expect(result.current.market.map((ability) => ability.slug)).toEqual(["cloud-mcp", "x-api-mcp"]));
+		await waitFor(() => expect(result.current.market.map((ability) => ability.slug)).toEqual(["x-api-mcp"]));
 	});
 
-	it("does not count disabled cloud as a successful request hiding GitHub failure", async () => {
-		mocks.cloud = false;
+	it("reports a load failure when every marketplace source fails", async () => {
 		api.listOpenMarketplaces.mockResolvedValue({ ...catalog("cached", true), abilities: [], snapshots: [] });
 		const { result } = renderHook(() => useAbilityData());
 		await waitFor(() => expect(result.current.refreshing).toBe(false));
-		expect(mocks.fetchMarket).not.toHaveBeenCalled();
 		expect(result.current.error).toContain("abilities:error.loadFailed");
-		expect(result.current.error).toContain("Official");
-	});
-
-	it("keeps GitHub usable when cloud fails and shows the separate failure", async () => {
-		mocks.fetchMarket.mockRejectedValue(new Error("offline"));
-		const { result } = renderHook(() => useAbilityData());
-		await waitFor(() => expect(result.current.refreshing).toBe(false));
-		expect(result.current.market).toHaveLength(1);
-		expect(result.current.error).toContain("abilities:error.serverFailed");
 	});
 
 	it("retains stale content and clears the warning after a successful single-source retry", async () => {
@@ -162,8 +141,7 @@ describe("useAbilityData independent markets", () => {
 		expect(result.current.market[0]?.slug).toBe("x-api-mcp");
 	});
 
-	it("keeps multiple GitHub sources usable without cloud when one source fails", async () => {
-		mocks.cloud = false;
+	it("keeps multiple GitHub sources usable when one source fails", async () => {
 		const healthy = catalog("fresh");
 		const broken = catalog("cached", true, "community");
 		api.listOpenMarketplaces.mockResolvedValue({
@@ -177,7 +155,6 @@ describe("useAbilityData independent markets", () => {
 		expect(result.current.market.map((ability) => ability.slug)).toEqual(["fresh", "cached"]);
 		expect(result.current.error).toContain("community");
 		expect(result.current.error).not.toContain("abilities:error.loadFailed");
-		expect(mocks.fetchMarket).not.toHaveBeenCalled();
 	});
 
 	it("retains a newly added source after sync failure so it can be retried", async () => {
@@ -193,7 +170,7 @@ describe("useAbilityData independent markets", () => {
 		expect(api.removeMarketplaceSource).not.toHaveBeenCalled();
 	});
 
-	it("removes disabled source entries without refreshing cloud or changing local installation state", async () => {
+	it("removes disabled source entries without changing local installation state", async () => {
 		const { result } = renderHook(() => useAbilityData());
 		await waitFor(() => expect(result.current.refreshing).toBe(false));
 		const ledger = result.current.ledger;
@@ -204,7 +181,6 @@ describe("useAbilityData independent markets", () => {
 		expect(api.updateMarketplaceSource).toHaveBeenCalledWith("official", { enabled: false });
 		expect(result.current.market).toEqual([]);
 		expect(result.current.ledger).toBe(ledger);
-		expect(mocks.fetchMarket).toHaveBeenCalledOnce();
 		expect(api.refreshMarketplaceSource).not.toHaveBeenCalled();
 	});
 

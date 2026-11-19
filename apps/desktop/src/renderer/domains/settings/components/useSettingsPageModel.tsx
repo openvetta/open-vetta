@@ -2,13 +2,7 @@ import { useNavigate, useParams, useRouter, useSearch } from "@tanstack/react-ro
 import { Button } from "@shared/components/ui/button";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { isMac, isWindows } from "@shared/lib/platform";
-import {
-	isPersonalModeAtom,
-	pageHeaderLeftSlotAtom,
-	pageHeaderTitleHiddenAtom,
-	type SettingsTab,
-} from "@shared/store/atoms";
-import { authUserAtom } from "@shared/store/auth-atoms";
+import { pageHeaderLeftSlotAtom, pageHeaderTitleHiddenAtom, type SettingsTab } from "@shared/store/atoms";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -24,8 +18,6 @@ export function useSettingsPageModel(): SettingsPageModel {
 	const search = useSearch({ strict: false }) as Record<string, unknown>;
 	const navigate = useNavigate();
 	const router = useRouter();
-	const isPersonal = useAtomValue(isPersonalModeAtom);
-	const authUser = useAtomValue(authUserAtom);
 	const setHeaderTitleHidden = useSetAtom(pageHeaderTitleHiddenAtom);
 	const setHeaderLeftSlot = useSetAtom(pageHeaderLeftSlotAtom);
 	const narrow = useNarrowScreen(1000);
@@ -54,13 +46,8 @@ export function useSettingsPageModel(): SettingsPageModel {
 
 	const visibleTabRegistrations = useMemo(
 		() =>
-			filterVisibleSettingsTabs(SETTINGS_TABS, {
-				isPersonal,
-				hasAuthUser: Boolean(authUser),
-				isMac,
-				isWindows,
-			}),
-		[authUser, isPersonal],
+			filterVisibleSettingsTabs(SETTINGS_TABS, { isMac, isWindows }),
+		[],
 	);
 	const validTabKeys = useMemo(
 		() => new Set(visibleTabRegistrations.map((tab) => tab.key)),

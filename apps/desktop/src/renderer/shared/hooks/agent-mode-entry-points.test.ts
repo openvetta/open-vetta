@@ -14,12 +14,10 @@ const REMOVED_ENTRY_POINTS = [
 	"shared/components/AgentModeSwitcher.tsx",
 	"domains/project/components/sidebar/AgentModeBadgeDropdown.tsx",
 	"domains/project/components/sidebar/settings-menu/SettingsMenuAgentModeSection.tsx",
-];
-
-const HOSTS_WITHOUT_MODE_ENTRY = [
-	"domains/project/components/sidebar/SidebarTopBar.tsx",
 	"domains/project/components/sidebar/settings-menu/SettingsMenuPopover.tsx",
 ];
+
+const HOSTS_WITHOUT_MODE_ENTRY = ["domains/project/components/sidebar/SidebarTopBar.tsx"];
 
 it.each(REMOVED_ENTRY_POINTS)("%s is gone", (relative) => {
 	expect(existsSync(join(rendererRoot, relative))).toBe(false);

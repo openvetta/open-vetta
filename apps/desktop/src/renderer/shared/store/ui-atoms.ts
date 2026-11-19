@@ -57,7 +57,6 @@ export const pageHeaderImmersiveAtom = atom<boolean>(false);
 export type SettingsTab =
 	| "general"
 	| "appearance"
-	| "account"
 	| "models"
 	| "mcp"
 	| "environment"
@@ -67,8 +66,8 @@ export type SettingsTab =
 	| "webhook"
 	| "shortcuts"
 	| "appshot"
+	| "spaces"
 	| "archive"
-	| "team"
 	| "context"
 	| "knowledge"
 	| "pet"

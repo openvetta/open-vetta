@@ -8,7 +8,7 @@ try {
 		config.updateConfig.provider === "generic"
 			? config.updateConfig.url
 			: `${config.updateConfig.owner}/${config.updateConfig.repo}`;
-	console.log(`[desktop-build-env] ${config.edition} build configuration is valid`);
+	console.log("[desktop-build-env] build configuration is valid");
 	console.log(`[desktop-build-env] mode=${config.mode}, targets=${config.platformTags.join(",")}`);
 	console.log(
 		`[desktop-build-env] updater=${config.updateConfig.provider}:${update}, tenant=${config.pluginSelection.name ?? "(none)"}`,

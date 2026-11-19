@@ -1,3 +1,4 @@
+import { selectedSpaceAtom } from "./spaces";
 /**
  * 按作用域隔离的输入草稿 + 已发送历史。
  *
@@ -224,7 +225,7 @@ export function claimNewSessionInputDraft(sessionPath: string, newSessionKey: st
  */
 export function prefillNewSessionInputDraft(cwd: string, text: string): void {
 	const store = getDefaultStore();
-	const key = newSessionInputDraftKeyImpl(cwd);
+	const key = newSessionInputDraftKeyImpl(cwd, store.get(selectedSpaceAtom));
 	const draft: SessionInputDraft = {
 		...loadSessionInputDraft(key),
 		text,

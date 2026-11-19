@@ -9,7 +9,6 @@ const BUILTIN_SKILL_ICON_BASE = "./skills";
 const BUILTIN_SKILL_ICON_FILES: Record<string, string> = {
 	"create-skill": "create-skill.png",
 	"install-ability": "install-ability.png",
-	"publish-ability": "publish-ability.png",
 };
 
 export function builtinSkillIconUrl(skillName: string): string | undefined {

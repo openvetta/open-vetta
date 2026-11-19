@@ -101,14 +101,6 @@ export function resolveDesktopReleaseConfig(request = {}) {
 	if (!RELEASE_TARGETS.has(releaseTarget)) {
 		throw new Error(`release_target must be github or r2 (received ${JSON.stringify(releaseTarget)})`);
 	}
-	const configuredCloudEnabled = parseFlag(
-		pick("cloud_enabled", "VETTA_CLOUD_ENABLED"),
-		"cloud_enabled",
-	);
-	const cloudEnabled = configuredCloudEnabled || (releaseTarget === "github" ? "false" : "true");
-	if (releaseTarget === "github" && cloudEnabled !== "false") {
-		throw new Error("GitHub Releases can only publish the open-source build (cloud_enabled=false)");
-	}
 	const speechInput = parseFlag(pick("speech_input", "VETTA_SPEECH_INPUT_ENABLED"), "speech_input");
 
 	const channel = pick("channel", "VETTA_RELEASE_CHANNEL", "default");
@@ -132,8 +124,6 @@ export function resolveDesktopReleaseConfig(request = {}) {
 		(eventName === "push" && refType === "tag") ||
 		(eventName === "workflow_dispatch" && (channel === "test" || channel === "stable"));
 
-	const serverUrl = cloudEnabled === "true" ? pick("server_url", "VETTA_SERVER_URL") : "";
-	const siteUrl = cloudEnabled === "true" ? pick("site_url", "VETTA_SITE_URL") : "";
 	const marketplaceRepository = pick("marketplace_repository", "VETTA_OPEN_MARKETPLACE_REPOSITORY");
 	const marketplaceRef = pick("marketplace_ref", "VETTA_OPEN_MARKETPLACE_REF");
 	const tenant = pick("tenant", "VETTA_TENANT");
@@ -152,14 +142,9 @@ export function resolveDesktopReleaseConfig(request = {}) {
 	}
 	if (releaseTarget === "github") updateUrl = "";
 
-	if (cloudEnabled === "true" && !serverUrl) {
-		throw new Error("VETTA_SERVER_URL is required when VETTA_CLOUD_ENABLED=true");
-	}
-
 	return {
 		buildVersion,
 		channel,
-		cloudEnabled,
 		marketplaceRepository,
 		marketplaceRef,
 		notes,
@@ -167,13 +152,11 @@ export function resolveDesktopReleaseConfig(request = {}) {
 		r2Prefix,
 		releaseTarget,
 		shouldPublish,
-		serverUrl,
-		siteUrl,
 		speechInput,
 		tenant,
-		// 内置更新源跟随版本形态，与发布目标无关：商业版读 R2，开源版读 GitHub Release。
-		// 开源版也可以发布到 R2，用于让仍读 R2 的旧商业版客户端升级到内置 GitHub 源的过渡版本。
-		updateProvider: cloudEnabled === "true" ? "generic" : "github",
+		// 内置更新源固定为 GitHub Release（ADR-0155：不再有读取 R2 的商业版），
+		// 发布目标仍可选 R2，用于让旧客户端升级到内置 GitHub 源的过渡版本。
+		updateProvider: "github",
 		updateUrl,
 	};
 }
@@ -185,7 +168,6 @@ export function toGithubOutput(config) {
 	return [
 		`build_version=${config.buildVersion}`,
 		`channel=${config.channel}`,
-		`cloud_enabled=${config.cloudEnabled}`,
 		`marketplace_repository=${config.marketplaceRepository}`,
 		`marketplace_ref=${config.marketplaceRef}`,
 		`notes=${config.notes}`,
@@ -193,8 +175,6 @@ export function toGithubOutput(config) {
 		`r2_prefix=${config.r2Prefix}`,
 		`release_target=${config.releaseTarget}`,
 		`should_publish=${config.shouldPublish}`,
-		`server_url=${config.serverUrl}`,
-		`site_url=${config.siteUrl}`,
 		`speech_input=${config.speechInput}`,
 		`tenant=${config.tenant}`,
 		`update_provider=${config.updateProvider}`,
@@ -209,9 +189,6 @@ export function toGithubEnv(config) {
 	const entries = [
 		["VETTA_DESKTOP_BUILD_VERSION", config.buildVersion],
 		["VETTA_RELEASE_PUBLISH", config.shouldPublish ? "true" : "false"],
-		["VETTA_CLOUD_ENABLED", config.cloudEnabled],
-		["VETTA_SERVER_URL", config.serverUrl],
-		["VETTA_SITE_URL", config.siteUrl],
 		["VETTA_OPEN_MARKETPLACE_REPOSITORY", config.marketplaceRepository],
 		["VETTA_OPEN_MARKETPLACE_REF", config.marketplaceRef],
 		["VETTA_TENANT", config.tenant],
@@ -234,9 +211,6 @@ export function toSummaryMarkdown(config) {
 	const rows = [
 		["build_version", config.buildVersion || "(package version)"],
 		["channel", config.channel],
-		["cloud_enabled", config.cloudEnabled || "(invalid: unset)"],
-		["server_url", config.serverUrl || "(unset)"],
-		["site_url", config.siteUrl || "(unset)"],
 		["marketplace_repository", config.marketplaceRepository || "(unset)"],
 		["marketplace_ref", config.marketplaceRef],
 		["tenant", config.tenant || "(unset)"],
@@ -260,22 +234,18 @@ function readRequestFromEnv(env = process.env) {
 		inputs: {
 			build_version: env.INPUT_BUILD_VERSION,
 			channel: env.INPUT_CHANNEL,
-			cloud_enabled: env.INPUT_CLOUD_ENABLED,
 			marketplace_repository: env.INPUT_MARKETPLACE_REPOSITORY,
 			marketplace_ref: env.INPUT_MARKETPLACE_REF,
 			notes: env.INPUT_NOTES,
 			r2_bucket: env.INPUT_R2_BUCKET,
 			r2_prefix: env.INPUT_R2_PREFIX,
 			release_target: env.INPUT_RELEASE_TARGET,
-			server_url: env.INPUT_SERVER_URL,
-			site_url: env.INPUT_SITE_URL,
 			speech_input: env.INPUT_SPEECH_INPUT,
 			tenant: env.INPUT_TENANT,
 			update_url: env.INPUT_UPDATE_URL,
 		},
 		vars: {
 			VETTA_TEST_BUILD_VERSION: env.VAR_TEST_BUILD_VERSION,
-			VETTA_CLOUD_ENABLED: env.VAR_CLOUD_ENABLED,
 			VETTA_OPEN_MARKETPLACE_REPOSITORY: env.VAR_MARKETPLACE_REPOSITORY,
 			VETTA_OPEN_MARKETPLACE_REF: env.VAR_MARKETPLACE_REF,
 			VETTA_R2_BUCKET: env.VAR_R2_BUCKET,
@@ -284,8 +254,6 @@ function readRequestFromEnv(env = process.env) {
 			VETTA_R2_PREFIX_TEST: env.VAR_R2_PREFIX_TEST,
 			VETTA_RELEASE_CHANNEL: env.VAR_RELEASE_CHANNEL,
 			VETTA_RELEASE_TARGET: env.VAR_RELEASE_TARGET,
-			VETTA_SERVER_URL: env.VAR_SERVER_URL,
-			VETTA_SITE_URL: env.VAR_SITE_URL,
 			VETTA_SPEECH_INPUT_ENABLED: env.VAR_SPEECH_INPUT,
 			VETTA_TENANT: env.VAR_TENANT,
 			VETTA_UPDATE_URL: env.VAR_UPDATE_URL,
@@ -299,7 +267,6 @@ function readConfigFromOutputs(env = process.env) {
 	return {
 		buildVersion: normalizeToken(env.OUTPUT_BUILD_VERSION),
 		channel: normalizeToken(env.OUTPUT_CHANNEL) || "default",
-		cloudEnabled: normalizeToken(env.OUTPUT_CLOUD_ENABLED),
 		marketplaceRepository: normalizeToken(env.OUTPUT_MARKETPLACE_REPOSITORY),
 		marketplaceRef: normalizeToken(env.OUTPUT_MARKETPLACE_REF),
 		notes: normalizeToken(env.OUTPUT_NOTES),
@@ -307,8 +274,6 @@ function readConfigFromOutputs(env = process.env) {
 		r2Prefix: normalizeToken(env.OUTPUT_R2_PREFIX),
 		releaseTarget: normalizeToken(env.OUTPUT_RELEASE_TARGET) || "github",
 		shouldPublish: normalizeToken(env.OUTPUT_SHOULD_PUBLISH) === "true",
-		serverUrl: normalizeToken(env.OUTPUT_SERVER_URL),
-		siteUrl: normalizeToken(env.OUTPUT_SITE_URL),
 		speechInput: normalizeToken(env.OUTPUT_SPEECH_INPUT),
 		tenant: normalizeToken(env.OUTPUT_TENANT),
 		updateProvider: normalizeToken(env.OUTPUT_UPDATE_PROVIDER),

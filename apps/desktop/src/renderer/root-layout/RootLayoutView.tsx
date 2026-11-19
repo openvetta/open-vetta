@@ -10,6 +10,7 @@ import { SidebarOverlay } from "@vetta-org/theme-ui/layout/SidebarOverlay";
 import { useThemeComponent, useThemeSurface } from "@vetta-org/theme-sdk";
 import { useAtomValue } from "jotai";
 import { memo, useCallback } from "react";
+import { SpaceEditorDialog } from "../domains/project/components/SpaceEditorDialog";
 import { CommandMenu } from "../domains/command-menu/components/CommandMenu";
 import { useActiveWorkspaceViewHeader } from "../domains/plugins/components/WorkspaceViewHeaderSlot";
 import { Sidebar } from "../domains/project/components/sidebar/Sidebar";
@@ -143,6 +144,7 @@ export function RootLayoutView({ model }: RootLayoutViewProps): JSX.Element {
 				)}
 				{/* 复用 Sidebar 那条 onOpenSession：会话打开的落点逻辑只应有一处宿主实现。 */}
 				<CommandMenu onOpenSession={onOpenSession} />
+				<SpaceEditorDialog />
 				<PerfSendProfiler id="RootGlobalOverlays">
 					<RootGlobalOverlays />
 				</PerfSendProfiler>
