@@ -3,6 +3,7 @@ import { applyActiveTagFilterToNewConversation } from "@domains/project/services
 import type { DesktopSessionAttachmentSnapshot } from "@preload/api";
 import { i18n } from "@shared/i18n";
 import { waitForCommittedPaint } from "@shared/lib/committed-paint";
+import { resolveConversationScenario } from "@shared/lib/conversation-scenario";
 import { perfSendMark } from "@shared/lib/perf-send";
 import {
 	perfSessionSwitchBegin,
@@ -41,7 +42,6 @@ import {
 import { setQueueForSessionAtom, setQueuePausedAtom } from "@shared/store/message-queue-atoms";
 import { assignSpace, spacesAtom } from "@shared/store/spaces";
 import { useNavigate } from "@tanstack/react-router";
-import type { ConversationScenario } from "@vetta-org/plugin-sdk";
 import { getDefaultStore, useAtomValue, useSetAtom } from "jotai";
 import { type MutableRefObject, startTransition, useCallback, useRef } from "react";
 import {
@@ -336,18 +336,19 @@ export function useSessionOpener(): SessionOpenerController {
 			const projectType = getProjects().find((project) => project.cwd === cwd)?.type;
 			const sessionKind = isBatchSession || isBatchProject || projectType === "batch" ? "other" : "conversation";
 			// 对话场景显式下发（不依赖 sessionKind，避免改 kind 牵动 VETTA_CLI/子目录等行为）：
-			// - 批量 → "batch"（与 batch-task-executor 一致，重开不退化成 project，输入栏 badge 不复活）。
-			// - 默认「对话」项目（cwd 归一到 defaultConversationCwd）→ "conversation"。
-			// - 其余交互式项目 → "project"。此前普通项目被 sessionKind="conversation" 误标成
-			//   "conversation"，导致 scope_use:["project"] 的工具/插件插槽永不命中。
+			// 批量 → batch（与 batch-task-executor 一致），默认「对话」项目 → conversation，
+			// 其余交互式项目 → project。此前普通项目被 sessionKind="conversation" 误标成
+			// "conversation"，导致 scope_use:["project"] 的工具/插件插槽永不命中。
+			// 新会话页与项目详情页复用同一个纯函数，插槽过滤才不会与建会话时的判定错位。
+			// 标签只落在「对话」项目的会话上；与新会话的场景用同一个归桶谓词。
 			const defaultCwd = defaultConversationCwdRef.current;
 			const isDefaultConversation = !!defaultCwd && conversationBucketCwd(cwd, defaultCwd) === defaultCwd;
-			const scenario: ConversationScenario =
-				isBatchSession || isBatchProject || projectType === "batch"
-					? "batch"
-					: isDefaultConversation
-						? "conversation"
-						: "project";
+			const scenario = resolveConversationScenario({
+				cwd,
+				defaultConversationCwd: defaultConversationCwdRef.current,
+				batch: isBatchSession || isBatchProject,
+				projectType,
+			});
 			let createResult: Awaited<ReturnType<typeof window.vetta.session.create>>;
 			try {
 				perfSendMark("session-create-start", interactionId);

@@ -1,4 +1,4 @@
-import { CurrentScenarioActivityPanel } from "@domains/activity-panel/components/ActivityPanel";
+import { ActivityPanel } from "@domains/activity-panel/components/ActivityPanel";
 import { ProjectDetailPageView } from "@vetta-org/theme-ui/project";
 import { motion } from "motion/react";
 import { BatchQueueStatus } from "./BatchQueueStatus";
@@ -41,7 +41,8 @@ function ProjectDetailPageContent(): JSX.Element {
 		<ProjectDetailPageView
 			activityOpen={model.activityOpen}
 			activityPanel={
-				<CurrentScenarioActivityPanel
+				<ActivityPanel
+					pluginScenario={model.activityPanelScenario}
 					workspace={createActivityWorkspace(model.decodedCwd, model.decodedCwd, activeRuntimeIds)}
 				/>
 			}

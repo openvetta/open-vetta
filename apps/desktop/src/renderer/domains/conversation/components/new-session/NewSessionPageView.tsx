@@ -1,7 +1,8 @@
-import { CurrentScenarioActivityPanel } from "@domains/activity-panel/components/ActivityPanel";
+import { ActivityPanel } from "@domains/activity-panel/components/ActivityPanel";
 import { motion, useReducedMotion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@shared/lib/utils";
+import type { ConversationScenario } from "@vetta-org/plugin-sdk";
 import { useThemeComponent } from "@vetta-org/theme-sdk";
 import type { NewSessionHeroIdentity } from "@vetta-org/theme-ui";
 import { NewSessionPageLayoutView } from "@vetta-org/theme-ui/chat/NewSessionPageLayoutView";
@@ -34,6 +35,8 @@ const PANEL_SHIFT_Y = 120;
 
 interface NewSessionPageViewProps {
 	activityPanelCwd: string | null;
+	/** 活动面板的对话场景：与发送后建出的会话一致，插件 tab 才不会被 fail-closed 过滤掉。 */
+	activityPanelScenario: ConversationScenario;
 	avatarAutoplay: boolean;
 	className?: string;
 	commandPanelExpanded: boolean;
@@ -64,6 +67,7 @@ interface NewSessionPageViewProps {
 
 export function NewSessionPageView({
 	activityPanelCwd,
+	activityPanelScenario,
 	avatarAutoplay,
 	className,
 	commandPanelExpanded,
@@ -237,8 +241,10 @@ export function NewSessionPageView({
 				}
 			/>
 			{/* 会话尚未创建：选中项目时活动面板按项目根取上下文；「对话」与待创建项目没有
-			    可浏览目录，传 null 走空态（conversation 根是所有会话工作区的父目录，不展示）。 */}
-			<CurrentScenarioActivityPanel
+			    可浏览目录，传 null 走空态（conversation 根是所有会话工作区的父目录，不展示）。
+			    场景按「即将建出的会话」下发，不继承全局 currentScenarioAtom。 */}
+			<ActivityPanel
+				pluginScenario={activityPanelScenario}
 				workspace={createActivityWorkspace(
 					activityPanelCwd ?? "new-session:unbound",
 					activityPanelCwd,

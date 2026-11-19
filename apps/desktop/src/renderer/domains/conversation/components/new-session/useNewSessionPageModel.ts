@@ -1,5 +1,6 @@
 import { useProjectActions } from "@domains/project/hooks/useProjects";
 import { i18n } from "@shared/i18n";
+import { resolveConversationScenario } from "@shared/lib/conversation-scenario";
 import {
 	abortMessageFnRef,
 	activeSessionAtom,
@@ -25,8 +26,10 @@ import {
 	sessionExecutionModeAtom,
 	switchSessionInputDraftScope,
 } from "@shared/store/atoms";
+import { projectsAtom } from "@shared/store/project-atoms";
 import { assignSpace, selectedSpaceAtom, spacesAtom } from "@shared/store/spaces";
 import { useNavigate, useSearch } from "@tanstack/react-router";
+import type { ConversationScenario } from "@vetta-org/plugin-sdk";
 import type { NewSessionHeroIdentity } from "@vetta-org/theme-ui";
 import { useAtomValue, useSetAtom, useStore } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -69,6 +72,11 @@ interface NewSessionPageModel {
 	/** 活动面板根目录；「对话」与待创建项目下为 null，文件面板走空态而不是暴露 conversation 根。 */
 	activityPanelCwd: string | null;
 	greetingTitle: string;
+	/**
+	 * 活动面板要用的对话场景：按「这一页将要建出什么样的会话」推导，而不是看全局
+	 * currentScenarioAtom（它恒为 conversation，会把项目会话专属的插件 tab 全部过滤掉）。
+	 */
+	activityPanelScenario: ConversationScenario;
 	/** 选中的智能体/团队身份；null 时 hero 展示问候语。 */
 	heroIdentity: NewSessionHeroIdentity | null;
 	isShort: boolean;
@@ -134,6 +142,19 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 	const { open: activityOpen, toggle: handleToggleActivity } = useNewSessionActivityPanel(
 		projectSelection.activityPanelCwd,
 	);
+	// 活动面板的对话场景：未选项目时按默认「对话」处理；选中项目后按该项目推导，
+	// 让新会话页上的插件 tab 与发送后建出的会话一致（Team 与 Runtime 对齐为 project）。
+	const projects = useAtomValue(projectsAtom);
+	const activityPanelScenario = useMemo<ConversationScenario>(() => {
+		const panelCwd = projectSelection.activityPanelCwd;
+		if (selectedTeamKey) return "project";
+		if (panelCwd === null) return "conversation";
+		return resolveConversationScenario({
+			cwd: panelCwd,
+			defaultConversationCwd,
+			projectType: projects.find((project) => project.cwd === panelCwd)?.type,
+		});
+	}, [defaultConversationCwd, projectSelection.activityPanelCwd, projects, selectedTeamKey]);
 	const [pinned, setPinned] = useState(false);
 	const setAttachedImages = useSetAtom(attachedImagesAtom);
 	const setHeaderTitle = useSetAtom(pageHeaderTitleAtom);
@@ -319,6 +340,7 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 		commandPanelShift: commandPanelExpanded && skillItems.length > PANEL_SHIFT_MIN_ITEMS,
 		cwd: contextCwd,
 		activityPanelCwd: projectSelection.activityPanelCwd,
+		activityPanelScenario,
 		greetingTitle,
 		heroIdentity,
 		isShort,
