@@ -2,7 +2,6 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import { net } from "electron";
-import { getCloudBridge } from "../cloud-bridge.js";
 
 /**
  * Probe the given (provider, model)'s baseUrl to see if the model server is
@@ -10,10 +9,8 @@ import { getCloudBridge } from "../cloud-bridge.js";
  * host answered, auth/path issues are a separate concern), ok=false on
  * network / DNS / TLS failures.
  *
- * Resolves the provider from local models.json first (LAN servers like
- * Ollama / vLLM), then falls back to the auth-server's remote provider
- * catalogue (Vetta Go et al.). Re-fetches remote on demand instead of
- * trusting the renderer's atom, which may be stale.
+ * Resolves the provider from local models.json (LAN servers like Ollama / vLLM).
+ * The remote provider catalogue went away with the Vetta server (ADR-0156).
  *
  * Uses electron.net.fetch deliberately so we go through Chromium's network
  * stack and bypass macOS 15 LNP, same as the GUI session.
@@ -36,29 +33,8 @@ export async function probeModelProvider(ref: {
 		// File missing/unreadable is fine — fall through to remote.
 	}
 
-	// 2) Fall back to the cloud provider catalogue (Vetta Go)。
-	//    lite 构建没有云端目录，本地查不到就直接失败。
-	let source: "local" | "remote" = "local";
-	const cloud = getCloudBridge();
-	if (!provider && cloud) {
-		const remote = await cloud.fetchRemoteProviders();
-		const r = remote.providers[ref.provider] as { baseUrl?: string } | undefined;
-		if (r) {
-			provider = r;
-			source = "remote";
-		} else if (remote.error && Object.keys(remote.providers).length === 0) {
-			return {
-				ok: false,
-				error: `provider "${ref.provider}" 既不在本地 models.json 也无法查询云端 provider 列表（${remote.error}）`,
-			};
-		}
-	}
-
 	if (!provider) {
-		return {
-			ok: false,
-			error: `provider "${ref.provider}" 既不在本地 models.json 也不在云端 provider 列表`,
-		};
+		return { ok: false, error: `provider "${ref.provider}" 不在本地 models.json` };
 	}
 	if (!provider.baseUrl) {
 		return { ok: false, error: `provider "${ref.provider}" 缺 baseUrl` };
@@ -79,7 +55,7 @@ export async function probeModelProvider(ref: {
 		await net.fetch(origin, { method: "GET", signal: controller.signal });
 		return {
 			ok: true,
-			message: `provider 可达（${source === "remote" ? "云端" : "本地"}）`,
+			message: "provider 可达（本地）",
 		};
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);

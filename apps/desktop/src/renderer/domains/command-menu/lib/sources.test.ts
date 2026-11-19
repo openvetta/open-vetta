@@ -91,7 +91,7 @@ describe("buildSessionEntries", () => {
 });
 
 describe("buildSettingsEntries", () => {
-	const visible = { isPersonal: true, hasAuthUser: true, isMac: true, isWindows: false };
+	const visible = { isMac: true, isWindows: false };
 	const translate = (key: string) => key;
 
 	it("emits section-level entries that deep link with the section id", () => {
@@ -107,11 +107,11 @@ describe("buildSettingsEntries", () => {
 		expect(language?.subtitle).toBe("tabAppearance");
 	});
 
-	it("drops sections whose tab is hidden for this account or platform", () => {
-		const anonymous = buildSettingsEntries({ ...visible, hasAuthUser: false }, translate);
-		// account 标签 requireAuth，未登录时它的 section 不该出现在搜索结果里。
-		expect(anonymous.some((entry) => entry.id === "settings:account-profile")).toBe(false);
-		expect(buildSettingsEntries(visible, translate).some((entry) => entry.id === "settings:account-profile")).toBe(
+	it("drops sections whose tab is hidden on this platform", () => {
+		const windows = buildSettingsEntries({ ...visible, isMac: false, isWindows: true }, translate);
+		// appshot 是 macOnly 标签，其 section 在 Windows 上不该出现在搜索结果里。
+		expect(windows.some((entry) => entry.id === "settings:appshot-gesture")).toBe(false);
+		expect(buildSettingsEntries(visible, translate).some((entry) => entry.id === "settings:appshot-gesture")).toBe(
 			true,
 		);
 	});

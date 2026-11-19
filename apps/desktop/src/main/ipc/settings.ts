@@ -1,7 +1,6 @@
 import { ipcMain } from "electron";
 import { getModelTransport, setModelTransport } from "../agent-settings/model-transport-settings.js";
 import { readAgentSettingsDocument, updateAgentSettingsDocument } from "../agent-settings/settings-document-store.js";
-import { DEFAULT_SERVER_URL, DEFAULT_SITE_URL } from "../constants.js";
 import {
 	listPresetProviders,
 	refreshPresetCatalog,
@@ -30,20 +29,12 @@ export function updateSettings(mutate: (settings: Record<string, unknown>) => vo
 }
 
 export function registerSettingsIpc(): () => void {
-	// 清理 settings.json 中残留的 serverUrl，现在统一由环境变量管理
+	// 一次性清理旧版本写入 settings.json 的 serverUrl（服务端已下线，ADR-0156）。
 	if ("serverUrl" in readSettings()) {
 		updateSettings((settings) => {
 			delete settings.serverUrl;
 		});
 	}
-
-	ipcMain.handle("vetta:settings:get-server-url", () => {
-		return DEFAULT_SERVER_URL;
-	});
-
-	ipcMain.handle("vetta:settings:get-site-url", () => {
-		return DEFAULT_SITE_URL;
-	});
 
 	ipcMain.handle("vetta:settings:get-model-transport", () => getModelTransport());
 

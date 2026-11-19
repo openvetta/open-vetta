@@ -26,8 +26,7 @@
 | --- | --- | --- |
 | 触发器 | tag / `workflow_dispatch` | 决定版本来源和是否允许表单输入 |
 | `channel` | `default` / `stable` / `test` | 决定是否发布、更新 URL 和 R2 prefix |
-| `release_target` | `github` / `r2` | 决定自动更新源是 GitHub Release 还是商业 R2。两种取值都会发 GitHub Release（test channel 除外）|
-| `cloud_enabled` | `false` / `true` | 决定开源版或商业版；GitHub 与 `false`、R2 与 `true` 必须配对 |
+| `release_target` | `github` / `r2` | 决定安装包与清单发到 GitHub Release 还是 R2（内置更新源固定为 GitHub Release）。两种取值都会发 GitHub Release（test channel 除外）|
 
 tag 和手动 stable/test 使用同一套构建、校验和发布 jobs。差异只在输入和发布环境：tag 隐式表达正式发布，手动运行显式选择 channel。
 
@@ -97,14 +96,11 @@ flowchart LR
 
 | 变量 | 说明 |
 | --- | --- |
-| `VETTA_RELEASE_TARGET` | 默认发布目标，商业版通常为 `r2`，开源 fork 为 `github` |
+| `VETTA_RELEASE_TARGET` | 默认发布目标，通常为 `github` |
 | `VETTA_RELEASE_CHANNEL` | 默认 channel；正式环境建议为 `stable` 或留空由 tag 语义决定 |
-| `VETTA_CLOUD_ENABLED` | 商业版 `true`，开源版 `false` |
-| `VETTA_SERVER_URL` | 商业版必填，必须是 HTTPS |
-| `VETTA_SITE_URL` | 商业版站点地址，可选但应与部署环境一致 |
 | `VETTA_TENANT` | 租户标识，可选 |
 | `VETTA_SPEECH_INPUT_ENABLED` | `true` 或 `false` |
-| `VETTA_UPDATE_PROVIDER` | R2 使用 `generic`，GitHub 使用 `github`；通常由 target 推导 |
+| `VETTA_UPDATE_PROVIDER` | 内置更新源固定 `github`；自建 feed 才需要 `generic` |
 | `VETTA_UPDATE_URL` | 默认更新源根路径 |
 | `VETTA_UPDATE_URL_STABLE` / `_TEST` | stable/test 专用公开更新 URL，优先于通用 URL |
 | `VETTA_R2_BUCKET` | R2 bucket |
@@ -164,9 +160,9 @@ APPLE_TEAM_ID
 
 1. 选择目标 ref。
 2. 选择 `channel=stable`。
-3. 选择 `release_target=r2`（商业版）或 `github`（开源版）。
+3. 选择 `release_target=github`（或 `r2`，用于旧客户端过渡）。
 4. 不填写 `build_version`；正式版本来自该 ref 的 `package.json`。
-5. 检查 job summary 中的 `cloud_enabled`、server、更新 URL、R2 prefix 和 `should_publish=true`。
+5. 检查 job summary 中的更新 URL、R2 prefix 和 `should_publish=true`。
 6. 通过 `desktop-production` Environment 审批。
 
 GitHub target 的手动发布会以当前 workflow SHA 创建对应版本 Release；R2 target 不要求先有 tag，但仍应保留 commit、workflow run 和版本号之间的发布记录。

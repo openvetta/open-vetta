@@ -1,5 +1,6 @@
 import type { SettingsTab } from "@shared/store/atoms";
 import type { DesktopSessionSearchResult } from "@/shared/session-search";
+import type { DesktopTeamSidebarConversation } from "@/shared/sidebar-conversation";
 
 /**
  * Command Menu 的领域模型。
@@ -24,6 +25,7 @@ export const COMMAND_MENU_GROUP_LIMIT = 6;
 
 export type CommandMenuAction =
 	| { readonly kind: "openProject"; readonly cwd: string }
+	| { readonly kind: "openTeamSession"; readonly session: DesktopTeamSidebarConversation }
 	| { readonly kind: "openSession"; readonly result: DesktopSessionSearchResult }
 	| { readonly kind: "openSettingsSection"; readonly tab: SettingsTab; readonly section: string }
 	/**

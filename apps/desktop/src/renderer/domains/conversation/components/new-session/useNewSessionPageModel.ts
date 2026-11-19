@@ -6,7 +6,6 @@ import {
 	activeToolNamesAtom,
 	applyInputActionWorkingState,
 	attachedImagesAtom,
-	authUserAtom,
 	confirmDialogAtom,
 	contextCompactionEligibilityAtom,
 	contextUsageAtom,
@@ -144,7 +143,6 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 	const setPromptAttachment = useSetAtom(promptAttachmentAtom);
 	const setCurrentScenario = useSetAtom(currentScenarioAtom);
 	const setActiveToolNames = useSetAtom(activeToolNamesAtom);
-	const authUser = useAtomValue(authUserAtom);
 	const executionMode = useAtomValue(sessionExecutionModeAtom);
 	const openSession = useCallback<NonNullable<(typeof openSessionFnRef)["current"]>>(async (...args) => {
 		await readSessionManagerFn(openSessionFnRef, "openSession")?.(...args);
@@ -302,9 +300,7 @@ export function useNewSessionPageModel(): NewSessionPageModel {
 		setPinned(next);
 	}, []);
 
-	const greetingTitle = authUser?.nickname
-		? i18n.t("chat:newSession.greetingTitle", { nickname: authUser.nickname })
-		: i18n.t("chat:newSession.greetingDefault");
+	const greetingTitle = i18n.t("chat:newSession.greetingDefault");
 
 	return {
 		contextBlock,

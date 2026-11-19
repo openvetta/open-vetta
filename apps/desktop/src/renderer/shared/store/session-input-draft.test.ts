@@ -1,4 +1,8 @@
+// @vitest-environment jsdom
+import { getDefaultStore } from "jotai";
 import { describe, expect, it } from "vitest";
+import { appshotAttachmentAtom, inputValueAtom } from "./chat-atoms";
+import { clearCurrentSessionInputDraft, switchSessionInputDraftScope } from "./session-input-draft";
 import {
 	appendInputHistoryEntry,
 	INPUT_HISTORY_MAX,

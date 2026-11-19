@@ -12,7 +12,6 @@ import { FILE_EDITOR_SAVE_EVENT, OPEN_MODEL_SELECTOR_EVENT } from "@/shared/shor
 import { loadNewSessionPage } from "../domains/conversation/components/loadNewSessionPage";
 import { useAppInit } from "../domains/conversation/hooks/useAppInit";
 import { useSessionManager } from "../domains/conversation/hooks/useSessionManager";
-import { useNotificationInit } from "../domains/message/hooks/useNotificationInit";
 import { useProjectActions } from "../domains/project/hooks/useProjects";
 import { playNotificationSound } from "../shared/audio/notification-sound-player";
 import { useModelCatalogSync } from "../shared/hooks/useModelCatalogSync";
@@ -105,9 +104,7 @@ export function useRootLayoutModel(): RootLayoutModel {
 		}
 	}, [narrow, cancelOverlayClose]);
 
-	// 云会话生命周期已上移到 App 根部的 <CloudAuthBoot />（lite 构建不挂载）
 	useAppInit();
-	useNotificationInit();
 	useUpdaterInit();
 	// 模型目录保鲜：focus / 切回可见时按 TTL 重拉，服务端增删模型无需重启应用。
 	useModelCatalogSync();
@@ -167,6 +164,7 @@ export function useRootLayoutModel(): RootLayoutModel {
 		pendingSessionCreation,
 		pendingSessionOpen,
 		lastActiveSession,
+		defaultConversationCwd,
 		openSession,
 		setActiveSession,
 		setLastActiveSession,
@@ -463,7 +461,7 @@ export function useRootLayoutModel(): RootLayoutModel {
 						break;
 					}
 					case "open-settings": {
-						void navigate({ to: "/settings/$tab", params: { tab: "account" } });
+						void navigate({ to: "/settings/$tab", params: { tab: "general" } });
 						break;
 					}
 					case "open-command-menu": {

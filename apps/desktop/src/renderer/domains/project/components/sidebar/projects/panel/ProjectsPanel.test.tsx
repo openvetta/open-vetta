@@ -7,7 +7,7 @@ import {
 	sessionsMapAtom,
 } from "@shared/store/atoms";
 import project from "@/shared/i18n/locales/en/project.json";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createInstance } from "i18next";
 import { createStore, Provider } from "jotai";
 import { I18nextProvider } from "react-i18next";
@@ -85,7 +85,7 @@ beforeEach(() => {
 	vi.stubGlobal("vetta", {
 		agentTeams: { listSidebarConversations: async () => [] },
 		batchTasks: { onTaskEvent: subscribe },
-		config: { onProjectsChanged: subscribe },
+		config: { onProjectsChanged: subscribe, get: async () => ({ projects: [{ path: "/test/normal-project" }] }) },
 		conversationTags: { list: async () => ({ tags: [], assignments: {} }), onChanged: subscribe },
 		im: { onSessionChanged: subscribe },
 		session: { onSessionsChanged: subscribe, listSessions },

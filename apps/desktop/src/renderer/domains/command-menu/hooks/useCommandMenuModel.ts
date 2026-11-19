@@ -5,12 +5,10 @@ import { getEffectiveShortcut, loadShortcutBindings } from "@shared/lib/shortcut
 import { useShortcutScope } from "@shared/shortcuts";
 import {
 	commandMenuOpenAtom,
-	isPersonalModeAtom,
 	pluginWorkspaceViewsAtom,
 	projectsAtom,
 	type SessionExecutionMode,
 } from "@shared/store/atoms";
-import { authUserAtom } from "@shared/store/auth-atoms";
 import { useNavigate } from "@tanstack/react-router";
 import type { CommandMenuGroupView, CommandMenuViewLabels } from "@vetta-org/theme-ui/overlays";
 import { useAtom, useAtomValue } from "jotai";
@@ -133,8 +131,6 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 
 	const projects = useAtomValue(projectsAtom);
 	const workspaceViews = useAtomValue(pluginWorkspaceViewsAtom);
-	const isPersonal = useAtomValue(isPersonalModeAtom);
-	const authUser = useAtomValue(authUserAtom);
 	const resolvePluginText = usePluginTextResolver();
 
 	const toggleKey = useCommandMenuToggleKey(open);
@@ -182,12 +178,10 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 	const staticEntries = useMemo<CommandMenuEntry[]>(
 		() => [
 			...buildProjectEntries(projects),
-			...buildSettingsEntries({ isPersonal, hasAuthUser: Boolean(authUser), isMac, isWindows }, (key) =>
-				tSettings(key),
-			),
+			...buildSettingsEntries({ isMac, isWindows }, (key) => tSettings(key)),
 			...buildWorkspaceViewEntries(workspaceViews, (view, raw) => resolvePluginText(view.pluginId, raw)),
 		],
-		[projects, workspaceViews, isPersonal, authUser, tSettings, resolvePluginText],
+		[projects, workspaceViews, tSettings, resolvePluginText],
 	);
 
 	const abilityEntries = useMemo(

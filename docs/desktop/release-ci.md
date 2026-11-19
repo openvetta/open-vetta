@@ -26,10 +26,10 @@ R2 目标在**全部平台构建成功后**由 `promote` 任务自动调用 desk
 
 ### 从商业版（R2）迁移到开源版（GitHub）
 
-构建内置的更新源由 `cloud_enabled` 决定（商业版读 R2，开源版读 GitHub Release），与发布目标无关。
-已安装的商业版只会读 R2，所以迁移要发一个过渡版本：`cloud_enabled=false`、`release_target=r2`，
-构建内置 GitHub 更新源，清单仍走 R2 的 pending → promote，让老用户收到；用户装上它之后更新就走 GitHub。
-之后把 `VETTA_RELEASE_TARGET` 改为 `github`。仍在 R2 旧版本的用户升级前，不要下线 R2 的 `latest*.yml`。
+构建内置的更新源固定为 GitHub Release，与发布目标无关（ADR-0156 后不再有读 R2 的商业版）。
+仍读 R2 的旧商业版客户端需要一个过渡版本：把 `VETTA_RELEASE_TARGET` 设为 `r2` 发布，
+构建内置的是 GitHub 更新源，清单仍走 R2 的 pending → promote，老用户装上它之后更新就走 GitHub。
+之后把 `VETTA_RELEASE_TARGET` 改回 `github`。仍在 R2 旧版本的用户升级前，不要下线 R2 的 `latest*.yml`。
 
 ### 上线更新清单：desktop-promote
 

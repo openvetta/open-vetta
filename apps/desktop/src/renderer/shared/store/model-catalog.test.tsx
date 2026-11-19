@@ -5,7 +5,7 @@ import { getDefaultStore } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useModelOptions } from "../components/ModelSelect/useModelOptions";
 import { useModelCatalogSync } from "../hooks/useModelCatalogSync";
-import { authTokenAtom, remoteProvidersAtom } from "./auth-atoms";
+import { remoteProvidersAtom } from "./model-catalog-atoms";
 import { localModelsConfigAtom, modelCatalog } from "./model-catalog";
 
 const LOCAL_CONFIG = { providers: {}, defaultModel: undefined };
@@ -29,7 +29,6 @@ beforeEach(() => {
 	models.fetchRemote.mockResolvedValue({ providers: remoteCatalog("gpt-old") });
 	Object.defineProperty(window, "vetta", { configurable: true, writable: true, value: { models } });
 	const store = getDefaultStore();
-	store.set(authTokenAtom, "token-1");
 	store.set(remoteProvidersAtom, {});
 	store.set(localModelsConfigAtom, null);
 	modelCatalog.reset();
@@ -89,8 +88,7 @@ describe("模型目录与选择器的同步", () => {
 		expect(models.get).toHaveBeenCalledTimes(1);
 	});
 
-	it("未登录（主进程返回空目录）时清掉远程模型", async () => {
-		getDefaultStore().set(authTokenAtom, null);
+	it("主进程返回空目录时清掉远程模型", async () => {
 		models.fetchRemote.mockResolvedValue({ providers: {} });
 		const { result } = renderHook(() => useModelOptions());
 		await waitFor(() => expect(models.fetchRemote).toHaveBeenCalled());

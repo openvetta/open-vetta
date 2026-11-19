@@ -40,7 +40,7 @@ export function eventToShortcut(e: KeyboardEvent): string | null {
  */
 export function matchesShortcut(e: KeyboardEvent, shortcut: string): boolean {
 	const recorded = eventToShortcut(e);
-	return recorded === shortcut;
+	return recorded === shortcut || (!isMac && recorded === shortcut.replace(/^ctrl\+/, "mod+"));
 }
 
 /**

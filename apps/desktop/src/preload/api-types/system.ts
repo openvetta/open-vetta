@@ -40,42 +40,8 @@ export interface DesktopWindowApi {
 }
 
 export interface DesktopSettingsApi {
-	getServerUrl(): Promise<string>;
-	getSiteUrl(): Promise<string>;
-	getServerToken(): Promise<string | undefined>;
-	setServerToken(token: string | undefined): Promise<void>;
-	getServerRefreshToken(): Promise<string | undefined>;
-	setServerRefreshToken(token: string | undefined): Promise<void>;
 	getModelTransport(): Promise<Transport>;
 	setModelTransport(transport: Transport): Promise<Transport>;
-}
-
-/** 套餐配额窗口：5 小时 / 周 / 月三档。 */
-export interface SubscriptionWindow {
-	kind: "5h" | "week" | "month";
-	limit: number;
-	consumed: number;
-	/** RFC3339 时间字符串，窗口重置时刻。 */
-	reset_at: string;
-}
-
-/** GET /subscription/me 的业务数据（已 unwrap data）。 */
-export interface SubscriptionStatus {
-	active: boolean;
-	go_enabled: boolean;
-	tier_id?: string;
-	tier_name?: string;
-	badge_text?: string;
-	badge_color?: string;
-	description?: string;
-	/** RFC3339 到期时间。 */
-	expires_at?: string;
-	windows?: SubscriptionWindow[];
-}
-
-export interface DesktopSubscriptionApi {
-	/** 拉取当前用户的套餐状态。失败返回 status:null + error。 */
-	getStatus(): Promise<{ status: SubscriptionStatus | null; error?: string }>;
 }
 
 export interface DesktopTrayApi {

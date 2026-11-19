@@ -4,10 +4,8 @@
  */
 import type { McpServerConfigData, OpenMarketplaceMcpRuntimeProgress, PluginPermission } from "@preload/api";
 import { i18n } from "@shared/i18n";
-import { abilityToMarketMcpServer, downloadAbility, type MarketAbility } from "@shared/lib/api";
-import { authTokenAtom } from "@shared/store/atoms";
+import type { MarketAbility } from "@shared/lib/api";
 import { showToast } from "@shared/store/toast-atoms";
-import { useAtomValue } from "jotai";
 import { useCallback, useMemo, useState } from "react";
 import type { McpSettingsModel } from "../../settings/components/useMcpSettingsModel";
 import { type InstallOutcome, installSelectedBundleMembers } from "../lib/install-bundle-members";
@@ -94,7 +92,6 @@ export function useAbilityActions({
 	refreshLocalInstallState?: () => Promise<void>;
 }): AbilityActions {
 	const refreshLocal = refreshLocalInstallState ?? (async () => refresh());
-	const token = useAtomValue(authTokenAtom);
 	const [operationById, setOperationById] = useState<ReadonlyMap<string, AbilityOperation>>(
 		() => new Map<string, AbilityOperation>(),
 	);
@@ -186,16 +183,10 @@ export function useAbilityActions({
 				setOperation?.("installing");
 				return "installed";
 			}
-			const buffer = await downloadAbility(item.type, item.slug, token);
-			await window.vetta.skills.installFromMarket(item.slug, buffer, item.type, {
-				alias: item.title,
-				marketDescription: item.description,
-				version: item.version,
-				sha256: item.sha256,
-			});
-			return "installed";
+			// 能力只能来自 GitHub 开放市场或本地目录；其它来源没有可安装的产物。
+			return "skipped";
 		},
-		[token],
+		[],
 	);
 
 	const finishPluginInstall = useCallback(async (item: PluginAbility): Promise<void> => {
@@ -259,15 +250,9 @@ export function useAbilityActions({
 				await finishPluginInstall(item);
 				return "installed";
 			}
-			const buffer = await downloadAbility("plugin", item.slug, token);
-			await window.vetta.plugins.installFromArchive(buffer, {
-				source: "remote",
-				expectedSha256: item.sha256,
-			});
-			await finishPluginInstall(item);
-			return "installed";
+			return "skipped";
 		},
-		[finishPluginInstall, token],
+		[finishPluginInstall],
 	);
 
 	const installMcp = useCallback(
@@ -288,18 +273,16 @@ export function useAbilityActions({
 				return "installed";
 			}
 			const market = item.market as (MarketAbility & { configVersion?: number }) | undefined;
-			const installOptions = market
-				? {
-						abilityVersion: market.version,
-						...(item.origin ? { origin: item.origin } : {}),
-						...(market.configVersion ? { configVersion: market.configVersion } : {}),
-						catalogId: item.id,
-						slug: item.slug,
-						runtimeName: item.serverName,
-					}
-				: undefined;
+			const installOptions = {
+				abilityVersion: market?.version,
+				...(item.origin ? { origin: item.origin } : {}),
+				...(market?.configVersion ? { configVersion: market.configVersion } : {}),
+				catalogId: item.id,
+				slug: item.slug,
+				runtimeName: item.serverName,
+			};
 			let preparedServer: McpServerConfigData | undefined;
-			if (market && item.origin?.kind === "github-marketplace") {
+			if (item.origin?.kind === "github-marketplace") {
 				const unsubscribe =
 					window.vetta.abilities.onMcpRuntimeProgress?.((progress: OpenMarketplaceMcpRuntimeProgress) => {
 						if (progress.sourceId !== item.origin?.sourceId || progress.slug !== item.slug) return;
@@ -321,12 +304,15 @@ export function useAbilityActions({
 				return result;
 			}
 			if (market) {
-				const server = abilityToMarketMcpServer(market);
 				await mcp.onAddRemoteServer(
 					{
-						...server,
+						id: item.slug,
 						name: item.serverName,
-						...(preparedServer ? { config: preparedServer } : {}),
+						display_name: item.title,
+						description: item.description,
+						icon: item.icon || undefined,
+						config: (preparedServer ??
+							(market.config.mcp as unknown as McpServerConfigData)) as McpServerConfigData,
 					},
 					installOptions,
 				);

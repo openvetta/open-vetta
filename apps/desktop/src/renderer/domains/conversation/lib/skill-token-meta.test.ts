@@ -30,8 +30,11 @@ describe("buildSkillTokenMetaMap", () => {
 	});
 
 	it("内置 skill 的图标走 renderer 静态资源", () => {
-		const map = buildSkillTokenMetaMap([{ ...publishAbility, source: "builtin" }], new Map());
-		expect(map.get("skill:publish-ability")?.icon).toBe("./skills/publish-ability.png");
+		const map = buildSkillTokenMetaMap(
+			[{ ...publishAbility, name: "install-ability", source: "builtin" }],
+			new Map(),
+		);
+		expect(map.get("skill:install-ability")?.icon).toBe("./skills/install-ability.png");
 	});
 
 	it("插件 skill 用列表自带的宿主插件 icon", () => {

@@ -72,7 +72,7 @@ body:
       options:
         - Official installer (openvetta.com)
         - Built from source (lite)
-        - Built from source (full / VETTA_CLOUD_ENABLED)
+        - Built from source
         - Other
     validations:
       required: true

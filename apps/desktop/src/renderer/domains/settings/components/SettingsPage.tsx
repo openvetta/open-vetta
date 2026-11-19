@@ -11,7 +11,6 @@ import "./settings-highlight.css";
 const SETTINGS_CONTENT: Record<Exclude<SettingsTab, "mcp">, LazyExoticComponent<ComponentType>> = {
 	general: lazy(SETTINGS_TAB_LOADERS.general),
 	appearance: lazy(SETTINGS_TAB_LOADERS.appearance),
-	account: lazy(SETTINGS_TAB_LOADERS.account),
 	models: lazy(SETTINGS_TAB_LOADERS.models),
 	environment: lazy(SETTINGS_TAB_LOADERS.environment),
 	extensions: lazy(SETTINGS_TAB_LOADERS.extensions),
@@ -21,7 +20,6 @@ const SETTINGS_CONTENT: Record<Exclude<SettingsTab, "mcp">, LazyExoticComponent<
 	shortcuts: lazy(SETTINGS_TAB_LOADERS.shortcuts),
 	appshot: lazy(SETTINGS_TAB_LOADERS.appshot),
 	archive: lazy(SETTINGS_TAB_LOADERS.archive),
-	team: lazy(SETTINGS_TAB_LOADERS.team),
 	context: lazy(SETTINGS_TAB_LOADERS.context),
 	knowledge: lazy(SETTINGS_TAB_LOADERS.knowledge),
 	pet: lazy(SETTINGS_TAB_LOADERS.pet),

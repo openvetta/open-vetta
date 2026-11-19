@@ -5,7 +5,6 @@ import { resolveUpdatePublishConfig } from "./resolve-update-publish-config.mjs"
 
 export const OPEN_SOURCE_BUILD_DEFAULTS = Object.freeze({
 	VETTA_BUILD_ENV: "opensource",
-	VETTA_CLOUD_ENABLED: "false",
 	VETTA_UPDATE_PROVIDER: "github",
 	VETTA_UPDATE_GITHUB_OWNER: "openvetta",
 	VETTA_UPDATE_GITHUB_REPO: "open-vetta",
@@ -220,7 +219,6 @@ export function validateDesktopBuildEnvironment({
 	arch = process.arch,
 } = {}) {
 	const errors = [];
-	const cloudFlag = validateExactFlag(env, "VETTA_CLOUD_ENABLED", ["true", "false"], errors, { required: true });
 	for (const key of OPTIONAL_BOOLEAN_KEYS) validateExactFlag(env, key, ["true", "false"], errors);
 	for (const key of OPTIONAL_ZERO_ONE_KEYS) validateExactFlag(env, key, ["0", "1"], errors);
 
@@ -247,20 +245,12 @@ export function validateDesktopBuildEnvironment({
 
 	const productionUrls = mode === "production";
 	validateUpdateConfiguration(updateConfig, productionUrls, errors);
-	if (cloudFlag === "true") {
-		validateHttpUrl(env, "VETTA_SERVER_URL", errors, { required: true, httpsOnly: productionUrls });
-		if (readValue(env, "VETTA_SITE_URL")) {
-			validateHttpUrl(env, "VETTA_SITE_URL", errors, { httpsOnly: productionUrls });
-		}
-		if (updateConfig && updateConfig.provider !== "generic") {
-			errors.push("commercial builds must use VETTA_UPDATE_PROVIDER=generic");
-		}
-	} else if (cloudFlag === "false") {
-		if (readValue(env, "VETTA_SERVER_URL")) errors.push("VETTA_SERVER_URL must be empty for an open-source build");
-		if (readValue(env, "VETTA_SITE_URL")) errors.push("VETTA_SITE_URL must be empty for an open-source build");
-		if (updateConfig && updateConfig.provider !== "github") {
-			errors.push("open-source builds must use VETTA_UPDATE_PROVIDER=github");
-		}
+	// vetta-serv 已下线（ADR-0156）：构建环境不再接受服务端地址，避免留下无效配置。
+	if (readValue(env, "VETTA_SERVER_URL")) {
+		errors.push("VETTA_SERVER_URL is no longer supported: vetta-serv was removed");
+	}
+	if (readValue(env, "VETTA_SITE_URL")) {
+		errors.push("VETTA_SITE_URL is no longer supported: vetta-serv was removed");
 	}
 	validateMarketplaceRepository(env, errors);
 
@@ -284,7 +274,6 @@ export function validateDesktopBuildEnvironment({
 	}
 
 	return {
-		edition: cloudFlag === "true" ? "commercial" : "opensource",
 		mode,
 		platformTags,
 		pluginSelection,

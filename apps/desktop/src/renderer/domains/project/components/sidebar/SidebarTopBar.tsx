@@ -2,6 +2,8 @@ import { SidebarTopBar as ThemeSidebarTopBar } from "@vetta-org/theme-ui/sidebar
 import { useTranslation } from "react-i18next";
 import { SidebarCommandMenuTrigger } from "./SidebarCommandMenuTrigger";
 
+import { SidebarUpdateButton } from "./update/SidebarUpdateButton";
+
 interface SidebarTopBarProps {
 	className?: string;
 	classNames?: {
@@ -21,7 +23,7 @@ export function SidebarTopBar({ className, classNames, floating, onCollapse }: S
 		<ThemeSidebarTopBar
 			className={className}
 			classNames={classNames}
-			actions={<SidebarCommandMenuTrigger />}
+			actions={<><SidebarUpdateButton /><SidebarCommandMenuTrigger /></>}
 			floating={floating}
 			labels={{
 				hide: t("sidebar.hide"),

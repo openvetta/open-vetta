@@ -3,7 +3,7 @@
  * 只负责取数与刷新，条目组装在 lib/build-ability-items.ts。
  *
  * 首屏策略：本地安装态就绪即结束 loading（列表可出内置/已装项），
- * 服务端市场与开源市场在后台合并，避免网络把整表挡住转圈。
+ * GitHub 开放市场在后台合并，避免网络把整表挡住转圈。
  */
 import type {
 	AbilityLedger,
@@ -16,12 +16,8 @@ import type {
 	SkillInfo,
 	UpdateMarketplaceSourceInput,
 } from "@preload/api";
-import { cloudEnabled } from "@shared/components/cloud-slots";
 import { i18n } from "@shared/i18n";
 import type { MarketAbility } from "@shared/lib/api";
-import { fetchMarketAbilities } from "@shared/lib/api";
-import { authTokenAtom } from "@shared/store/atoms";
-import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getOpenMarketplaceLoadState, shouldReportAbilityLoadFailure } from "../lib/ability-load-policy";
@@ -56,11 +52,8 @@ export interface AbilityData {
 }
 
 export function useAbilityData(): AbilityData {
-	const token = useAtomValue(authTokenAtom);
-	const [serverMarket, setServerMarket] = useState<MarketAbility[]>([]);
 	const open = useOpenMarketplaceData();
 	const loadOpen = open.load;
-	const [serverFailed, setServerFailed] = useState(false);
 	const [ledger, setLedger] = useState<AbilityLedger>({});
 	const [skillManifest, setSkillManifest] = useState<Record<string, InstalledSkill>>({});
 	const [localSkills, setLocalSkills] = useState<SkillInfo[]>([]);
@@ -101,10 +94,6 @@ export function useAbilityData(): AbilityData {
 			setRefreshing(true);
 
 			const local = loadLocalState();
-
-			// 市场浏览无需登录；有 token 时仍带上。lite 构建无 vetta 官方市场，
-			// 只保留 github 开放市场（openMarketplaces）与本地来源。
-			const remote = cloudEnabled ? fetchMarketAbilities(token) : Promise.resolve([]);
 			const openResultPromise = loadOpen(forceOpenMarketplaceRefresh);
 
 			// 本地态先落地并结束列表转圈；市场两条在后台合并。
@@ -123,24 +112,12 @@ export function useAbilityData(): AbilityData {
 					setLoading(false);
 				});
 
-			void remote
-				.then((value) => {
-					if (generation !== loadGenerationRef.current) return;
-					setServerMarket(value);
-					setServerFailed(false);
-				})
-				.catch((reason) => {
-					if (generation !== loadGenerationRef.current) return;
-					setServerFailed(true);
-					console.warn("Ability server marketplace load failed", reason);
-				});
-
-			void Promise.allSettled([local, remote, openResultPromise]).finally(() => {
+			void Promise.allSettled([local, openResultPromise]).finally(() => {
 				if (generation !== loadGenerationRef.current) return;
 				setRefreshing(false);
 			});
 		},
-		[applyLocalState, loadLocalState, loadOpen, token],
+		[applyLocalState, loadLocalState, loadOpen],
 	);
 
 	const refresh = useCallback(() => load(true), [load]);
@@ -169,14 +146,11 @@ export function useAbilityData(): AbilityData {
 		load(false);
 	}, [load, language]);
 
-	const market = useMemo(
-		() => mergeAbilityCatalogs(serverMarket, open.catalog.snapshots),
-		[open.catalog.snapshots, serverMarket],
-	);
+	const market = useMemo(() => mergeAbilityCatalogs([], open.catalog.snapshots), [open.catalog.snapshots]);
 
 	const error = shouldReportAbilityLoadFailure({
 		localFailed,
-		server: { attempted: cloudEnabled, usable: cloudEnabled && !serverFailed },
+		server: { attempted: false, usable: false },
 		open: getOpenMarketplaceLoadState(open.catalog),
 	})
 		? i18n.t("abilities:error.loadFailed")
@@ -194,12 +168,7 @@ export function useAbilityData(): AbilityData {
 		localPresentations,
 		loading,
 		refreshing: refreshing || open.refreshing,
-		error:
-			[
-				...new Set(
-					[error, open.error, serverFailed ? i18n.t("abilities:error.serverFailed") : null].filter(Boolean),
-				),
-			].join(" / ") || null,
+		error: [...new Set([error, open.error].filter(Boolean))].join(" / ") || null,
 		refresh,
 		refreshLocalInstallState,
 		addMarketplaceSource: open.addSource,

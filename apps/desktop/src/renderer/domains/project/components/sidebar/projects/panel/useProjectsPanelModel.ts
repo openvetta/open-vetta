@@ -213,13 +213,15 @@ export function useProjectsPanelModel({
 			if (target === "unavailable") return;
 			if (target === "viewer") {
 				selectAfterPaint({ kind: "conversation", path }, () =>
-					navigate({ to: "/viewer/$path", params: { path: encodeURIComponent(path) } }),
+					(async () => {
+						await navigate({ to: "/viewer/$path", params: { path: encodeURIComponent(path) } });
+					})(),
 				);
 				return;
 			}
 			selectAfterPaint({ kind: "conversation", path }, () => openInteractiveSession(cwd, path));
 		},
-		[navigate, openInteractiveSession, selectAfterPaint],
+		[navigate, openInteractiveSession, selectAfterPaint, store],
 	);
 
 	const selectSidebarSession = useCallback(
@@ -455,6 +457,7 @@ export function useProjectsPanelModel({
 			navigate,
 			loadSessions,
 			removePinnedSessions,
+			store,
 			t,
 		],
 	);

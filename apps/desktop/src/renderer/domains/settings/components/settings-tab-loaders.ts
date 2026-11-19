@@ -5,7 +5,6 @@ type SettingsTabLoader = () => Promise<{ default: ComponentType }>;
 
 /** The same imports serve both React.lazy and intent prefetch. */
 export const SETTINGS_TAB_LOADERS = {
-	account: async () => ({ default: (await import("./AccountSettings")).AccountSettings }),
 	context: async () => ({ default: (await import("./AgentSettings")).AgentSettings }),
 	appearance: async () => ({ default: (await import("./AppearanceSettings")).AppearanceSettings }),
 	appshot: async () => ({ default: (await import("./AppshotSettings")).AppshotSettings }),
@@ -21,7 +20,6 @@ export const SETTINGS_TAB_LOADERS = {
 	pet: async () => ({ default: (await import("./PetSettings")).PetSettings }),
 	sshHosts: async () => ({ default: (await import("./SshHostsSettings")).SshHostsSettings }),
 	shortcuts: async () => ({ default: (await import("./ShortcutsSettings")).ShortcutsSettings }),
-	team: async () => ({ default: (await import("./TeamSettings")).TeamSettings }),
 	webhook: async () => ({ default: (await import("./WebhookSettings")).WebhookSettings }),
 } satisfies Record<Exclude<SettingsTab, "mcp">, SettingsTabLoader>;
 

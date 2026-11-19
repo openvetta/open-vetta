@@ -1,17 +1,15 @@
-import { forwardRef, type ComponentPropsWithoutRef, type JSX, type ReactNode } from "react";
+import { forwardRef, type ComponentPropsWithoutRef, type JSX } from "react";
 import { cn } from "@vetta-org/ui/utils";
 
 export interface SettingsMenuTriggerViewProps extends ComponentPropsWithoutRef<"button"> {
-	readonly avatar?: ReactNode;
 	/** Claw 在线状态徽章（圆点 + "Claw"），仅在线时展示。取代原工作模式 badge 位。 */
 	readonly clawOnline?: boolean;
 	readonly clawTitle?: string;
 	readonly open: boolean;
 	readonly settingsFallbackLabel: string;
-	readonly userLabel?: string | null;
 }
 
-/** 底部头像 item 内的 Claw 在线状态徽章，非交互（点击由外层头像 item 处理）。 */
+/** 底部设置 item 内的 Claw 在线状态徽章，非交互（点击由外层 item 处理）。 */
 function ClawBadge({ title }: { title?: string }): JSX.Element {
 	return (
 		<span
@@ -28,7 +26,7 @@ function ClawBadge({ title }: { title?: string }): JSX.Element {
 
 export const SettingsMenuTriggerView = forwardRef<HTMLButtonElement, SettingsMenuTriggerViewProps>(
 	function SettingsMenuTriggerView(
-		{ avatar, className, clawOnline, clawTitle, open, settingsFallbackLabel, userLabel, ...props },
+		{ className, clawOnline, clawTitle, open, settingsFallbackLabel, ...props },
 		ref,
 	): JSX.Element {
 		return (
@@ -43,20 +41,9 @@ export const SettingsMenuTriggerView = forwardRef<HTMLButtonElement, SettingsMen
 				)}
 				{...props}
 			>
-				{userLabel ? (
-					<>
-						{/* avatar 与 Claw 不收缩；昵称 truncate 吃掉多余宽度 */}
-						<span className="shrink-0">{avatar}</span>
-						<span className="min-w-0 flex-1 truncate text-left">{userLabel}</span>
-						{clawOnline && <ClawBadge title={clawTitle} />}
-					</>
-				) : (
-					<>
-						<span className="icon-[solar--settings-linear] h-3.5 w-3.5 shrink-0" />
-						<span className="min-w-0 flex-1 truncate text-left">{settingsFallbackLabel}</span>
-						{clawOnline && <ClawBadge title={clawTitle} />}
-					</>
-				)}
+				<span className="icon-[solar--settings-linear] h-3.5 w-3.5 shrink-0" />
+				<span className="min-w-0 flex-1 truncate text-left">{settingsFallbackLabel}</span>
+				{clawOnline && <ClawBadge title={clawTitle} />}
 			</button>
 		);
 	},

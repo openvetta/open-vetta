@@ -2,25 +2,13 @@
 
 *[中文](./build-modes.md)*
 
-Vetta Desktop ships in two editions, selected by the build-time flag `VETTA_CLOUD_ENABLED`. An unconfigured development session remains serv-less, but **packaging requires an explicit `true` or `false`** so release builds never guess their edition.
+Vetta Desktop ships in one form: **it never talks to a Vetta server** (serv-less). Account login, subscriptions and credits, the cloud ability marketplace, and the remote model catalog are gone; see [ADR-0156](../adr/0156-desktop-drops-vetta-serv.md).
 
-| | **open-source (serv-less)** | **commercial (Vetta Serv)** |
-| --- | --- | --- |
-| Flag | `VETTA_CLOUD_ENABLED=false` | `VETTA_CLOUD_ENABLED=true` |
-| Account login / OAuth | ❌ not in the bundle | ✅ |
-| Vetta Go model channel | ❌ | ✅ |
-| Subscription / credits / quota | ❌ | ✅ |
-| Ability marketplace source | Multiple GitHub sources (environment-configured or user-added) | Cloud marketplace (Vetta Serv); optional GitHub sources |
-| Remote model catalog | ❌ | ✅ |
-| Built-in skills | those without `requiresCloud` | all |
+Everything the client needs runs locally: local sessions, the coding agent, the plugin system, themes, bring-your-own-key models, the IM gateway, the knowledge base, and an ability marketplace served from GitHub repositories.
 
-**Available in both modes**: local sessions, the coding agent, the plugin system, themes, bring-your-own-key models, the IM gateway, and the knowledge base.
-
-Cloud and GitHub sources are independent: `VETTA_CLOUD_ENABLED` controls cloud services only.
-Commercial builds do not include a GitHub repository by default. In either edition, a built-in source is registered
-only when `VETTA_OPEN_MARKETPLACE_REPOSITORY` is explicitly configured. Unset, empty, or whitespace-only means
-no registration; there is no hard-coded repository fallback. Open-source distributions can configure the official
-repository through the same environment variable.
+Ability sources come only from GitHub repositories and the local install state. A distribution registers an optional built-in
+source only when `VETTA_OPEN_MARKETPLACE_REPOSITORY` is explicitly configured; unset, empty, or whitespace-only means
+no registration, and there is no hard-coded repository fallback.
 Under Abilities → Marketplace sources, users can add multiple GitHub repositories and independently enable,
 auto-update, or refresh each source. A failing source does not block others. Same-name abilities retain their
 source identities; physical installation conflicts still require explicit resolution instead of silent overwrites.
@@ -29,16 +17,14 @@ source identities; physical installation conflicts still require explicit resolu
 Removing it does not delete persisted sources or uninstall abilities; existing sources can be disabled in the UI.
 Adding sources through the UI does not require rebuilding. Normally omit `VETTA_OPEN_MARKETPLACE_ARCHIVE_URL`
 so it follows the repository and ref. Restart development processes after editing environment files;
-subsequent repository content changes only require Refresh. A GitHub commit does not publish to the Vetta Serv
-marketplace. See [GitHub marketplace format](../open-marketplace.md) for source and upgrade semantics.
-
-> `VETTA_CLOUD_ENABLED` is a **build-time** flag, inlined as a constant and folded away: in an open-source build the cloud module and its chunks are never bundled. **It cannot be re-enabled at runtime after shipping** — switching editions requires a rebuild.
+subsequent repository content changes only require Refresh. See [GitHub marketplace format](../open-marketplace.md)
+for source and upgrade semantics.
 
 ---
 
-## Building the open-source edition
+## Building a package
 
-Windows, macOS, and Linux use the same entry point. It selects the host platform, disables cloud, and uses updates from the `openvetta/open-vetta` GitHub Releases page. GitHub ability sources come only from environment configuration, not script defaults.
+Windows, macOS, and Linux use the same entry point. It selects the host platform and uses updates from the `openvetta/open-vetta` GitHub Releases page. GitHub ability sources come only from environment configuration, not script defaults.
 
 ```bash
 cd apps/desktop
@@ -59,30 +45,7 @@ VETTA_UPDATE_GITHUB_REPO=your-fork
 VETTA_OPEN_MARKETPLACE_REPOSITORY=your-org/your-marketplace
 ```
 
-Open-source builds reject `VETTA_SERVER_URL` and `VETTA_SITE_URL`: login, the official marketplace, and the remote model catalog are absent from the bundle.
-
-## Building the commercial edition
-
-You need a running Vetta server:
-
-```bash
-# apps/desktop/.env.production (local file, not committed)
-VETTA_CLOUD_ENABLED=true
-VETTA_SERVER_URL=https://api.example.com/api/v1
-VETTA_SITE_URL=https://www.example.com
-```
-
-Then run `bun run dist:desktop` (or `dist:win`, `dist:mac`, or `dist:linux`) from `apps/desktop`. Commercial builds default to the `generic` provider and the official stable update feed; self-hosted deployments should explicitly override `VETTA_UPDATE_URL`.
-
-On Linux, `bun run package:linux` builds AppImage, DEB, and RPM together. Use `package:linux:appimage`, `package:linux:deb`, `package:linux:rpm`, or `package:linux:tar.gz` to build one format; append `:test` to the same command to use the test build environment.
-
-On Windows, `bun run package:win` builds Inno, MSI, and ZIP together. Use `package:win:inno`, `package:win:msi`, `package:win:zip`, or `package:win:portable` to build one format; each command also has a `:test` variant. The updater manifest continues to reference only Inno; MSI and ZIP are supplemental downloads.
-
-`VETTA_SERVER_URL` is required for commercial builds, and production builds require HTTPS. Missing or invalid settings fail before old output is cleaned, dependencies are downloaded, or compilation begins.
-
-`VETTA_SITE_URL` is optional; it is derived from `VETTA_SERVER_URL` by stripping the `api.` prefix and mapping port `8080` to `3000`.
-
----
+Build environments reject `VETTA_SERVER_URL` and `VETTA_SITE_URL`: login, the official marketplace, and the remote model catalog are absent from the bundle, and setting them fails the pre-flight check.
 
 ## Environment files
 
@@ -102,9 +65,6 @@ Precedence: **inline on the command line > process environment > `.env.<mode>` >
 This is what our team uses for official releases. Your production endpoint, update source and tenant are almost certainly different:
 
 ```bash
-VETTA_CLOUD_ENABLED=true
-VETTA_SERVER_URL=https://api.openvetta.com/api/v1
-VETTA_SITE_URL=https://www.openvetta.com
 VETTA_UPDATE_PROVIDER=generic
 VETTA_UPDATE_URL=https://releases.openvetta.com/desktop/stable
 VETTA_R2_BUCKET=vetta-releases
@@ -116,8 +76,6 @@ VETTA_SPEECH_INPUT_ENABLED=false
 ### Reference: a typical `.env.test`
 
 ```bash
-VETTA_CLOUD_ENABLED=true
-VETTA_SERVER_URL=http://127.0.0.1:8080/api/v1
 # The default provider is stable; override VETTA_UPDATE_URL for a dedicated test feed.
 VETTA_UPDATE_PROVIDER=generic
 VETTA_UPDATE_URL=https://releases.openvetta.com/desktop/test
@@ -127,14 +85,11 @@ VETTA_UPDATE_URL=https://releases.openvetta.com/desktop/test
 
 ## Variable reference
 
-### Mode and service endpoints
+### Marketplace sources
 
 | Variable | Description |
 | --- | --- |
-| `VETTA_CLOUD_ENABLED` | `false` produces open-source; `true` produces commercial; packaging requires an explicit value |
-| `VETTA_SERVER_URL` | Server API endpoint. Required for commercial and forbidden in open-source builds |
-| `VETTA_SITE_URL` | Site URL used for the OAuth login redirect. Derived from `VETTA_SERVER_URL` when unset |
-| `VETTA_OPEN_MARKETPLACE_REPOSITORY` | Optional built-in GitHub source for either edition; empty means no registration, with no default repository address |
+| `VETTA_OPEN_MARKETPLACE_REPOSITORY` | Optional built-in GitHub source; empty means no registration, with no default repository address |
 | `VETTA_OPEN_MARKETPLACE_REF` | Branch or tag, defaults to `main` |
 | `VETTA_OPEN_MARKETPLACE_ARCHIVE_URL` | Explicit archive URL; derived from repository and ref when omitted |
 
@@ -156,7 +111,7 @@ VETTA_UPDATE_URL=https://releases.openvetta.com/desktop/test
 
 | Variable | Description |
 | --- | --- |
-| `VETTA_UPDATE_PROVIDER` | Commercial requires `generic` (the default); open-source requires `github` |
+| `VETTA_UPDATE_PROVIDER` | `github` for official releases, `generic` for your own feed |
 | `VETTA_UPDATE_URL` | For `generic`: R2, self-hosted object storage, or any static HTTP/CDN root |
 | `VETTA_UPDATE_GITHUB_OWNER` · `VETTA_UPDATE_GITHUB_REPO` | For `github` |
 | `VETTA_R2_BUCKET` · `VETTA_R2_PREFIX` | R2 upload target, used only by `publish:updates:r2` |
@@ -203,29 +158,23 @@ The update source is build configuration and is independent of the operating sys
 
 1. **Actions → desktop-release → Run workflow form** (`workflow_dispatch` only; `default` / empty means no override)
 2. **Environment / repository Variables** (when the job sets `environment: desktop-production`, Environment values overlay same-named repository variables)
-3. Built-in defaults: `VETTA_RELEASE_TARGET=github` selects open-source; `r2` selects commercial
+3. Built-in defaults: `VETTA_RELEASE_TARGET=github` publishes to GitHub Releases
 
-Both editions read the `VETTA_OPEN_MARKETPLACE_REPOSITORY` Variable, optionally overridden by the
+The `VETTA_OPEN_MARKETPLACE_REPOSITORY` Variable declares the built-in GitHub source, optionally overridden by the
 `marketplace_repository` input on manual runs. If neither is configured, no GitHub source is bundled.
-To include the official source in an open-source distribution, set the Variable to
+To include the official source in a distribution, set the Variable to
 `https://github.com/openvetta/vetta-official-marketplace`; no code changes are needed.
-An unconfigured commercial build uses only the cloud marketplace.
 
-**A fork with no Variables set produces an open-source build.** For an official commercial build, put these on Settings → Environments → `desktop-production` → Environment variables (credentials stay in Environment secrets):
+**A fork with no Variables set produces a shippable build.** Official releases put these on Settings → Environments → `desktop-production` → Environment variables (credentials stay in Environment secrets):
 
 ```
-VETTA_CLOUD_ENABLED = true
-VETTA_SERVER_URL    = https://api.example.com/api/v1
-VETTA_SITE_URL      = https://www.example.com
-VETTA_RELEASE_TARGET = r2
-VETTA_UPDATE_URL     = https://releases.example.com/desktop/stable
-VETTA_R2_BUCKET      = vetta-releases
-VETTA_R2_PREFIX      = desktop/stable
+VETTA_RELEASE_TARGET = github
+VETTA_UPDATE_PROVIDER = github
 ```
 
 Optional: `VETTA_UPDATE_URL_TEST` / `VETTA_R2_PREFIX_TEST` (and `_STABLE`). Choosing channel `test` on a manual run prefers those; otherwise a trailing `stable` / `test` / `beta` / `prod` / `production` segment is rewritten.
 
-The form can override the edition, server URLs, tenant, speech input, publish target, and channel. GitHub + open-source and R2 + commercial must stay paired. **Do not type R2 keys, certificates, or DSNs into the form** — those stay in Secrets.
+The form can override the tenant, speech input, publish target, and channel. **Do not type R2 keys, certificates, or DSNs into the form** — those stay in Secrets.
 
 The release matrix waits for a dedicated quality job first: the root `bun run check`, quality-script tests, and Desktop packaging contract tests must pass before any platform build starts. Each platform then verifies updater metadata, hashes, blockmaps, and installable contents.
 

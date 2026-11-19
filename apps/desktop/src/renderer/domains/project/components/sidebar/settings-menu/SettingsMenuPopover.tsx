@@ -3,9 +3,7 @@ import { useTranslation } from "react-i18next";
 import { SettingsMenuSettingsItem } from "@vetta-org/theme-ui/sidebar/SettingsMenuSettingsItem";
 import { PopoverContent } from "@vetta-org/ui/popover";
 import type { SettingsMenuModel } from "./types";
-import { SettingsMenuAccountSection } from "./SettingsMenuAccountSection";
 import { SettingsMenuDivider } from "./SettingsMenuDivider";
-import { SettingsMenuQuotaSection } from "./SettingsMenuQuotaSection";
 import { SettingsMenuThemeSection } from "./SettingsMenuThemeSection";
 
 interface SettingsMenuPopoverProps {
@@ -30,15 +28,7 @@ export function SettingsMenuPopover({ model }: SettingsMenuPopoverProps): JSX.El
 				transition={{ duration: 0.12, ease: "easeOut" }}
 			>
 				<SettingsMenuThemeSection model={model} />
-				<SettingsMenuQuotaSection model={model} />
 				<SettingsMenuDivider />
-				{/* 登录/登出属于云服务：lite 构建整段隐藏 */}
-				{model.cloudEnabled && (
-					<>
-						<SettingsMenuAccountSection model={model} />
-						<SettingsMenuDivider />
-					</>
-				)}
 				<SettingsMenuSettingsItemHost model={model} />
 			</motion.div>
 		</PopoverContent>
