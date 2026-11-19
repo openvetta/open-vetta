@@ -1,4 +1,7 @@
 // @vitest-environment jsdom
+import { pendingInteractionPathsAtom } from "@shared/store/pending-interactions-atoms";
+import { runningSessionPathsAtom } from "@shared/store/running-sessions-atoms";
+import { sessionsMapAtom } from "@shared/store/atoms";
 import { INITIAL_SPACES, spacesAtom } from "@shared/store/spaces";
 import project from "@/shared/i18n/locales/en/project.json";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
@@ -52,7 +55,11 @@ afterEach(() => {
 });
 
 /** 挂上切换器与它要打开的新建/编辑对话框，并铺好 `spaceCount` 个自定义工作空间。 */
-function renderSwitcher(spaceCount: number, width: number) {
+function renderSwitcher(
+	spaceCount: number,
+	width: number,
+	activity: { running?: string[]; waiting?: Record<string, number> } = {},
+) {
 	availableWidth = width;
 	const store = createStore();
 	store.set(spacesAtom, {
@@ -63,6 +70,8 @@ function renderSwitcher(spaceCount: number, width: number) {
 			icon: { kind: "solar" as const, value: "star" as const },
 		})),
 	});
+	store.set(runningSessionPathsAtom, new Set(activity.running ?? []));
+	store.set(pendingInteractionPathsAtom, new Map(Object.entries(activity.waiting ?? {})));
 	render(
 		<I18nextProvider i18n={i18n}>
 			<Provider store={store}>
@@ -140,5 +149,70 @@ describe("SpaceSwitcher 新建工作空间", () => {
 		await user.click(within(popover).getByRole("button", { name: "Workspace settings" }));
 
 		expect(navigate).toHaveBeenLastCalledWith({ to: "/settings/$tab", params: { tab: "spaces" } });
+	});
+});
+
+describe("SpaceSwitcher 工作空间状态", () => {
+	const sessionOf = (cwd: string): string => `${cwd}/.vetta/sessions/a.jsonl`;
+	/** 让会话能按 cwd 归因到某个空间：会话进 sessionsMap，cwd 登记为该空间的项目。 */
+	const placeSession = (store: ReturnType<typeof createStore>, cwd: string, spaceId: string): string => {
+		const path = sessionOf(cwd);
+		store.set(
+			sessionsMapAtom,
+			new Map([
+				[
+					cwd,
+					[{ id: "a", path, cwd, firstMessage: "hi", modifiedAt: 1 }],
+				],
+			]),
+		);
+		store.set(spacesAtom, (state) => ({ ...state, projects: { ...state.projects, [cwd]: spaceId } }));
+		return path;
+	};
+
+	it("空间内有会话在跑时给该格点运行灯，并在名称后带数量", async () => {
+		const { store, group } = renderSwitcher(1, 180, { running: [sessionOf("/test/space-0")] });
+		placeSession(store, "/test/space-0", "space-0");
+
+		const cell = within(group).getByRole("button", { name: /Space 1/ });
+		await waitFor(() => expect(cell.getAttribute("aria-label")).toBe("Space 1 · 1 running"));
+		expect(cell.querySelector(".project-running-ping")).not.toBeNull();
+	});
+
+	it("有人在等时换成琥珀色问号，且不再同时显示运行灯", async () => {
+		const path = sessionOf("/test/space-0");
+		const { store, group } = renderSwitcher(1, 180, {
+			running: [path],
+			waiting: { [path]: 1 },
+		});
+		placeSession(store, "/test/space-0", "space-0");
+
+		const cell = await within(group).findByRole("button", { name: /Space 1/ });
+		expect(cell.getAttribute("aria-label")).toBe("Space 1 · 1 waiting for you");
+		expect(cell.querySelector(".project-running-ping")).toBeNull();
+		expect(cell.innerHTML).toContain("bg-amber-500");
+	});
+
+	it("被收纳的空间有状态时「更多」按钮也点灯，展开后的行里同样带角标", async () => {
+		const user = userEvent.setup();
+		const path = sessionOf("/test/space-1");
+		const { store, group } = renderSwitcher(2, 68, { waiting: { [path]: 1 } });
+		placeSession(store, "/test/space-1", "space-1");
+
+		const more = await within(group).findByRole("button", { name: /More workspaces/ });
+		await waitFor(() => expect(more.getAttribute("aria-label")).toBe("More workspaces · 1 waiting for you"));
+		expect(more.innerHTML).toContain("bg-amber-500");
+
+		await user.click(more);
+		const popover = await screen.findByRole("dialog");
+		const row = within(popover).getByRole("button", { name: "Space 2 · 1 waiting for you" });
+		expect(row.innerHTML).toContain("bg-amber-500");
+	});
+
+	it("没有任何运行或等待的空间不显示状态角标", async () => {
+		const { group } = renderSwitcher(1, 180);
+		const cell = within(group).getByRole("button", { name: "Space 1" });
+		expect(cell.querySelector(".project-running-ping")).toBeNull();
+		expect(cell.innerHTML).not.toContain("bg-amber-500");
 	});
 });

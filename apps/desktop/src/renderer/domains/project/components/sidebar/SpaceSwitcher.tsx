@@ -15,10 +15,12 @@ import type { SpaceIcon } from "@shared/store/spaces";
 import { Button } from "@vetta-org/ui/button";
 import { ButtonGroup, ButtonGroupItem } from "@vetta-org/ui/button-group";
 import { useNavigate } from "@tanstack/react-router";
-import { useAtom, useSetAtom } from "jotai";
+import { RunningPulseDot, WaitingPulseBadge } from "@vetta-org/theme-ui/sidebar";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSpaceNavigation } from "../../hooks/useSpaceNavigation";
+import { spaceActivityAtom } from "../../store/space-activity-atom";
 
 /** 一个工作空间在切换列表里的展示数据。 */
 interface SpaceListItem {
@@ -49,6 +51,7 @@ export function SpaceSwitcher(): JSX.Element {
 		observer.observe(row.current);
 		return () => observer.disconnect();
 	}, []);
+	const activity = useAtomValue(spaceActivityAtom);
 	// 工作空间全露得出来时，末尾多放一个「新建」；露不全才换成「更多」，新建入口收进它的列表底部。
 	// 两者靠是否溢出互斥：溢出时首格给主工作空间、末格给「更多」，中间能摆多少就摆多少。
 	const room = Math.max(0, slots - 2);
@@ -64,15 +67,28 @@ export function SpaceSwitcher(): JSX.Element {
 		setOpen(false);
 		editSpace({});
 	};
+	const countLabelOf = (status: "waiting" | "running", count: number): string =>
+		status === "waiting" ? t("spaces.activity.waiting", { count }) : t("spaces.activity.running", { count });
+
+	/** 被收纳的空间里是否有人在等 / 在跑：只给「更多」按钮点灯，不额外造一格。 */
+	const hiddenActivity = summarize(hidden.map(({ id }) => activity.get(id)));
+	const hiddenStatus = statusOf(hiddenActivity);
+	const hiddenStatusLabel = statusLabel(hiddenStatus, hiddenActivity, countLabelOf);
+	/** 格子与列表行的提示：名称 + 状态 + 数量。 */
+	function titledSpaceName(name: string, id: string): string {
+		const totals = activity.get(id);
+		const label = statusLabel(statusOf(totals), totals, countLabelOf);
+		return label ? `${name} · ${label}` : name;
+	}
 	return (
 		<div ref={row} className="flex min-w-0 flex-1 items-center">
 			<ButtonGroup blur={false} aria-label={t("spaces.settingsTitle")}>
 				<ButtonGroupItem
 					active={state.selected === MAIN_SPACE}
 					aria-pressed={state.selected === MAIN_SPACE}
-					aria-label={t("spaces.main")}
-					title={t("spaces.main")}
-					icon={<SpaceGlyph icon={MAIN_SPACE_ICON} />}
+					aria-label={titledSpaceName(t("spaces.main"), MAIN_SPACE)}
+					title={titledSpaceName(t("spaces.main"), MAIN_SPACE)}
+					icon={<SpaceGlyphWithStatus spaceId={MAIN_SPACE} icon={MAIN_SPACE_ICON} />}
 					onClick={() => void switchSpace(MAIN_SPACE)}
 				/>
 				{state.spaces.slice(0, directCount).map((space) => (
@@ -80,9 +96,9 @@ export function SpaceSwitcher(): JSX.Element {
 						key={space.id}
 						active={state.selected === space.id}
 						aria-pressed={state.selected === space.id}
-						aria-label={space.name}
-						title={space.name}
-						icon={<SpaceGlyph icon={space.icon} />}
+						aria-label={titledSpaceName(space.name, space.id)}
+						title={titledSpaceName(space.name, space.id)}
+						icon={<SpaceGlyphWithStatus spaceId={space.id} icon={space.icon} />}
 						draggable
 						onDragStart={(event) => event.dataTransfer.setData("application/x-vetta-space", space.id)}
 						onDragOver={(event) => event.preventDefault()}
@@ -100,9 +116,9 @@ export function SpaceSwitcher(): JSX.Element {
 							<ButtonGroupItem
 								active={hiddenSelected}
 								aria-pressed={hiddenSelected}
-								aria-label={t("spaces.more")}
-								title={t("spaces.more")}
-								icon={<span aria-hidden="true" className="icon-[solar--menu-dots-linear] size-4" />}
+								aria-label={hiddenStatusLabel ? `${t("spaces.more")} · ${hiddenStatusLabel}` : t("spaces.more")}
+								title={hiddenStatusLabel ? `${t("spaces.more")} · ${hiddenStatusLabel}` : t("spaces.more")}
+								icon={<MoreDots hiddenStatus={hiddenStatus} />}
 							/>
 						</PopoverTrigger>
 						<PopoverContent side="top" align="start" className="w-56 gap-1 p-1">
@@ -116,14 +132,14 @@ export function SpaceSwitcher(): JSX.Element {
 											type="button"
 											variant={state.selected === space.id ? "secondary" : "ghost"}
 											className="w-full justify-start"
-											aria-label={space.name}
+											aria-label={titledSpaceName(space.name, space.id)}
 											aria-keyshortcuts={shortcut || undefined}
 											onClick={() => {
 												setOpen(false);
 												void switchSpace(space.id);
 											}}
 										>
-											<SpaceGlyph icon={space.icon} />
+											<SpaceGlyphWithStatus spaceId={space.id} icon={space.icon} />
 											<span className="truncate">{space.name}</span>
 											{shortcut && (
 												<span className="ml-auto flex shrink-0 items-center gap-1">
@@ -169,6 +185,67 @@ export function SpaceSwitcher(): JSX.Element {
 				)}
 			</ButtonGroup>
 		</div>
+	);
+}
+
+type SpaceStatus = "waiting" | "running" | "idle";
+
+/** 有等待就是等待（画面上的问号优先），其次是运行；两者都没有就是空闲。 */
+function statusOf(totals: { running: number; waiting: number } | undefined): SpaceStatus {
+	if (!totals) return "idle";
+	if (totals.waiting > 0) return "waiting";
+	if (totals.running > 0) return "running";
+	return "idle";
+}
+
+/** 把若干空间的状态收成一个：任何一个在等人就算等待，否则任何一个在跑就算运行。 */
+function summarize(totals: readonly ({ running: number; waiting: number } | undefined)[]): {
+	running: number;
+	waiting: number;
+} {
+	let running = 0;
+	let waiting = 0;
+	for (const entry of totals) {
+		running += entry?.running ?? 0;
+		waiting += entry?.waiting ?? 0;
+	}
+	return { running, waiting };
+}
+
+/** 状态对应的悬停文案；空闲时没有文案。 */
+function statusLabel(
+	status: SpaceStatus,
+	totals: { running: number; waiting: number } | undefined,
+	countLabelOf: (status: "waiting" | "running", count: number) => string,
+): string | undefined {
+	if (status === "waiting") return countLabelOf("waiting", totals?.waiting ?? 0);
+	if (status === "running") return countLabelOf("running", totals?.running ?? 0);
+	return undefined;
+}
+
+/** 空间图标 + 右上角状态角标：问号优先，其次运行点；两者都用与项目行相同的呼吸样式。 */
+function SpaceGlyphWithStatus({ spaceId, icon }: { spaceId: string; icon: SpaceIcon }): JSX.Element {
+	const totals = useAtomValue(spaceActivityAtom).get(spaceId);
+	const status = statusOf(totals);
+	if (status === "idle") return <SpaceGlyph icon={icon} />;
+	return (
+		<span className="relative flex items-center justify-center">
+			<SpaceGlyph icon={icon} />
+			{status === "waiting" ? <WaitingPulseBadge /> : <RunningPulseDot />}
+		</span>
+	);
+}
+
+/** 「更多」按钮：被收纳的空间里有人在等 / 在跑时同样点灯。 */
+function MoreDots({ hiddenStatus }: { hiddenStatus: SpaceStatus }): JSX.Element {
+	if (hiddenStatus === "idle") {
+		return <span aria-hidden="true" className="icon-[solar--menu-dots-linear] size-4" />;
+	}
+	return (
+		<span className="relative flex items-center justify-center">
+			<span aria-hidden="true" className="icon-[solar--menu-dots-linear] size-4" />
+			{hiddenStatus === "waiting" ? <WaitingPulseBadge /> : <RunningPulseDot />}
+		</span>
 	);
 }
 

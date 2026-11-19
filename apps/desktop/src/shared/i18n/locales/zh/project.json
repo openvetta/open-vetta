@@ -84,7 +84,11 @@
 			"satellite": "卫星"
 		},
 		"spaceEdit": "编辑「{{name}}」",
-		"spaceRemove": "移除「{{name}}」"
+		"spaceRemove": "移除「{{name}}」",
+		"activity": {
+			"running": "{{count}} 个会话运行中",
+			"waiting": "{{count}} 个会话等你回复"
+		}
 	},
 	"sidebar": {
 		"nav": {
