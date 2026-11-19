@@ -1,4 +1,6 @@
+import { assignSpace, spacesAtom } from "@shared/store/spaces";
 import type { PluginOfficialApi } from "@vetta-org/plugin-sdk";
+import { getDefaultStore } from "jotai";
 
 export function createOfficialProjectsApi(
 	assertOfficial: () => void,
@@ -26,7 +28,19 @@ export function createOfficialProjectsApi(
 		},
 		create: async (name, path) => {
 			assertOfficial();
-			return projects.create(capabilitySessionId, name, path);
+			// 空间归属只存在于界面侧。主进程 create 不写它，未登记的项目会被当成主工作区。
+			// 只给这次真正新建的项目补当前空间；已经在列表里的保持原归属，避免幂等重试把项目搬走。
+			const before = await projects.list(capabilitySessionId).catch(() => null);
+			const entry = await projects.create(capabilitySessionId, name, path);
+			const alreadyRegistered =
+				before !== null &&
+				[...before.projects, ...before.archivedProjects].some((item) => item.path === entry.path);
+			if (!alreadyRegistered) {
+				const store = getDefaultStore();
+				const spaceId = store.get(spacesAtom).selected;
+				store.set(spacesAtom, (state) => assignSpace(state, { kind: "project", key: entry.path }, spaceId));
+			}
+			return entry;
 		},
 		open: async (path, name) => {
 			assertOfficial();
