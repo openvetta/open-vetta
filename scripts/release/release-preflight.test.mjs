@@ -77,7 +77,15 @@ describe("release preflight", () => {
 		const empty = "# Vetta 0.5.70\n<!-- release-status: unreleased -->\n";
 		expect(evaluatePreflight(facts({ notes: empty })).problems.join()).toMatch(/没有任何条目/);
 		expect(evaluatePreflight(facts({ notes: `${NOTES}- TODO 补一条\n` })).problems.join()).toMatch(/占位文字/);
+		for (const marker of ["（占位）", "[占位]", "占位文字：链接"])
+			expect(evaluatePreflight(facts({ notes: `${NOTES}- ${marker}\n` })).problems.join()).toMatch(/占位文字/);
 		expect(evaluatePreflight(facts({ notes: null })).problems.join()).toMatch(/缺少发布说明/);
+	});
+
+	// 正文里把「占位」当普通动词用是正常写法，不能用它拦下发版。
+	it("does not treat a plain use of 占位 as a placeholder", () => {
+		const notes = `${NOTES}- 不是仓库的项目既不占位，也能手动打开面板。\n`;
+		expect(evaluatePreflight(facts({ notes })).problems).toEqual([]);
 	});
 
 	it("counts entries per section", () => {
