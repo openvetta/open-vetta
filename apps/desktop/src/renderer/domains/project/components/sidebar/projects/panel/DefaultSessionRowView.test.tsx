@@ -150,6 +150,25 @@ describe("DefaultSessionRowView leading icon", () => {
 		);
 	});
 
+	it("等你处理时左侧换成停转的琥珀色问号，压过运行与排期状态", () => {
+		const view = render(
+			<DefaultSessionRowView
+				{...props({ tagColors: ["amber"], running: true, scheduled: true, waiting: true })}
+			/>,
+		);
+
+		const icons = view.container.querySelectorAll('[data-session-leading-icon="true"]');
+		expect(icons).toHaveLength(1);
+		const icon = icons[0] as HTMLElement;
+		expect(icon.getAttribute("data-session-waiting")).toBe("true");
+		expect(icon.className).toContain("icon-[solar--question-circle-bold]");
+		expect(icon.className).toContain("text-amber-500");
+		// 停转：等待期间不再画旋转，否则「在忙」与「在等你」两种信号会同时存在。
+		expect(icon.className).not.toContain("animate-spin");
+		// 标签色点让位给等待信号。
+		expect(view.container.textContent).toBe("Conversation");
+	});
+
 	it("shows three members directly and overlays the remaining count on the third avatar", () => {
 		const threeAvatars = Array.from({ length: 3 }, (_, index) => `/avatar-${index}.webp`);
 		const view = render(<DefaultSessionRowView {...props({ trailingAvatarUrls: threeAvatars })} />);

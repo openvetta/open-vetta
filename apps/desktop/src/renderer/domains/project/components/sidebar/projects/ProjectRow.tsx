@@ -7,6 +7,7 @@ interface ProjectRowProps {
 	displayName: string;
 	expanded: boolean;
 	hasRunning: boolean;
+	hasWaiting: boolean;
 	isActive: boolean;
 	onCollapse: (cwd: string) => void;
 	onExpand: (cwd: string) => void;

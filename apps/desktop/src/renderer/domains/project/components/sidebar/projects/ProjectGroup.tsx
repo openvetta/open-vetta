@@ -47,6 +47,7 @@ const ProjectSessionRow = memo(function ProjectSessionRow({
 			pinned={item.pinned}
 			renaming={item.renaming}
 			running={item.running}
+			waiting={item.waiting}
 			scheduled={item.scheduled}
 			trailingAvatarUrls={item.trailingAvatarUrls}
 			titleExtra={item.titleExtra}
@@ -85,6 +86,7 @@ export const ProjectGroup = memo(function ProjectGroup(props: ProjectGroupProps)
 				displayName: model.displayName,
 				expanded: model.expanded,
 				hasRunning: model.hasRunning,
+				hasWaiting: model.hasWaiting,
 				isActive: model.isActive,
 				newSessionTitle: model.newSessionTitle,
 				onCollapse: model.actions.collapse,

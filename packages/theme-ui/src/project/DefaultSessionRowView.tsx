@@ -1,6 +1,7 @@
 import { cn } from "@vetta-org/ui/utils";
 import { memo, type JSX } from "react";
 import { AvatarStackView } from "../shared/AvatarStackView";
+import { SessionStatusIcon } from "../sidebar/SessionStatusIcon";
 import { ConversationTagDotsView } from "./ConversationTagDotsView";
 import { IMMEDIATE_SESSION_SELECTION_STYLE } from "./session-row-transition";
 import { SessionRenameInputView } from "./SessionRenameInputView";
@@ -38,6 +39,8 @@ export interface DefaultSessionRowViewProps {
 	renaming: boolean;
 	running: boolean;
 	scheduled: boolean;
+	/** 会话正等着用户处理；优先于 running/scheduled，左侧换成停转的琥珀色问号。 */
+	waiting?: boolean;
 	/** 自动化会话组组头：本组运行次数。存在时整行点击即展开/收起，不提供更多菜单。 */
 	groupCount?: number;
 	groupExpanded?: boolean;
@@ -64,15 +67,16 @@ export const DefaultSessionRowView = memo(function DefaultSessionRowView({
 	renaming,
 	running,
 	scheduled,
+	waiting = false,
 	groupCount,
 	groupExpanded,
 	nested = false,
 	tagColors,
 }: DefaultSessionRowViewProps): JSX.Element {
 	const title = renaming ? undefined : titleExtra ? `${label}\n${titleExtra}` : label;
-	// 标签色点让位于「正在运行 / 已排期」这类瞬时状态——那两个是需要立刻读到的信号，
+	// 标签色点让位于「等你处理 / 正在运行 / 已排期」这类瞬时状态——它们是需要立刻读到的信号，
 	// 标签则是长期归属，挤掉钉住/分叉图标即可。
-	const showTagDots = !running && !scheduled && tagColors !== undefined && tagColors.length > 0;
+	const showTagDots = !waiting && !running && !scheduled && tagColors !== undefined && tagColors.length > 0;
 	const leadingIconClassName = running
 		? "project-running-icon icon-[solar--refresh-linear] animate-spin"
 		: scheduled
@@ -119,7 +123,9 @@ export const DefaultSessionRowView = memo(function DefaultSessionRowView({
 							SESSION_ROW_CONTENT_FADE_CLASS,
 						)}
 					>
-						{showTagDots ? (
+						{waiting ? (
+							<SessionStatusIcon active={active} running={running} scheduled={scheduled} waiting />
+						) : showTagDots ? (
 							<ConversationTagDotsView colors={tagColors} />
 						) : leadingIconClassName ? (
 							<span

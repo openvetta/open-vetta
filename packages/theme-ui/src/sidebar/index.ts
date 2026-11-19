@@ -100,3 +100,4 @@ export type {
 	SidebarNavRegion,
 } from "./useSidebarNavDrag";
 export { SIDEBAR_NAV_DRAG_MIME, useSidebarNavDrag } from "./useSidebarNavDrag";
+export { WaitingPulseBadge } from "./WaitingPulseBadge";

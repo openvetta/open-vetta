@@ -11,6 +11,7 @@ import {
 	sessionContextMenuAtom,
 	sessionDisplayLabel,
 } from "@shared/store/atoms";
+import { pendingInteractionPathsAtom } from "@shared/store/pending-interactions-atoms";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -56,6 +57,8 @@ export interface DefaultSessionListItemView extends AutomationGroupRowFields {
 	active: boolean;
 	renaming: boolean;
 	running: boolean;
+	/** 会话正等着用户处理；行内优先显示问号而不是旋转图标。 */
+	waiting: boolean;
 	scheduled: boolean;
 	pinned: boolean;
 	iconClassName?: string;
@@ -91,6 +94,7 @@ export function useDefaultSessionListModel({
 	const viewCacheRef = useRef(new Map<string, DefaultSessionListItemView>());
 	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
 	const runningSessionPaths = useAtomValue(runningSessionPathsAtom);
+	const pendingInteractionPaths = useAtomValue(pendingInteractionPathsAtom);
 	const pinnedSessionPaths = useAtomValue(pinnedSessionPathsAtom);
 	const scheduledSessionPaths = useAtomValue(scheduledSessionPathsAtom);
 	const scheduledBasenames = useMemo(() => {
@@ -175,6 +179,7 @@ export function useDefaultSessionListModel({
 			const isActive = isSidebarConversationActive(session, activeSessionPath, activeTeamSessionId);
 			const isRenaming = identity.mutable && renamingSessionPath === session.path;
 			const isRunning = runningSessionPaths.has(session.path);
+			const isWaiting = pendingInteractionPaths.has(session.path);
 			const isSchedule =
 				identity.mutable &&
 				(scheduledSessionPaths.has(session.path) ||
@@ -187,6 +192,7 @@ export function useDefaultSessionListModel({
 				pinned: pinnedSessionPaths.has(session.path),
 				renaming: isRenaming,
 				running: isRunning,
+				waiting: isWaiting,
 				scheduled: isSchedule,
 				iconClassName: identity.iconClassName,
 				trailingAvatarUrls: identity.trailingAvatarUrls,
@@ -229,6 +235,7 @@ export function useDefaultSessionListModel({
 		i18n.language,
 		renamingSessionPath,
 		runningSessionPaths,
+		pendingInteractionPaths,
 		pinnedSessionPaths,
 		scheduledBasenames,
 		scheduledSessionPaths,
