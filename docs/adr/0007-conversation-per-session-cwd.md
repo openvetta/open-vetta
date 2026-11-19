@@ -35,3 +35,19 @@ fs IPC 沙箱边界**不**收紧，仍是 `~/.vetta/conversation` 整体。隔�
   （mentionedFile 拖拽等跨 session 引用）仍可读取，本 ADR 原有的「隔离状态而非权限」立场不变。
 - 新会话页在「对话」/待创建项目上下文中不再把 conversation 根传给活动面板，文件面板显示
   「选择项目」空态；选中项目后按项目根展示。
+
+## 修订（2026-11-19）：所有删除入口都回收工作目录
+
+最初只有「删除单个会话」这一条路径回收 uuid 工作目录，「清空会话」与「移除工作空间」走的是另一套
+`clear-history` / `workspace-removal` 模式开关，会把会话记录删掉却把目录留下。目录在文件面板里被隐藏，
+用户看不见它们，只能看着 `~/.vetta/conversation` 越来越膨胀；而且同一件"删除会话"的事在两处有不同语义。
+
+改为：
+
+- 删除模式参数（`DesktopSessionDeleteMode`）与 `clear-history` 一并移除。`sessionCommands.delete()` 只有
+  一种语义：删掉会话记录，同时删掉它的工作目录、置顶、标签、批注与自动化绑定。
+- 「清空会话」不再自己遍历删文件，而是对会话目录里的每个 session 走同一个 `delete()`；清空之后的会话
+  目录清理仍保留，用于兜底 Agent Team 名下等拒绝删除的会话。
+- IM（Claw）会话的 cwd 是共享根目录而非 per-session 子目录，因此清空 Claw 记录本来就不涉及工作目录。
+
+权衡：清空会话现在会连同会话产物一起删除，`clearConversationMessage` 的文案同步改成明确的提示。

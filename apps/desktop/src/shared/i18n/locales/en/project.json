@@ -84,7 +84,11 @@
 			"satellite": "Satellite"
 		},
 		"spaceEdit": "Edit {{name}}",
-		"spaceRemove": "Remove {{name}}"
+		"spaceRemove": "Remove {{name}}",
+		"activity": {
+			"running": "{{count}} running",
+			"waiting": "{{count}} waiting for you"
+		}
 	},
 	"sidebar": {
 		"nav": {
@@ -142,7 +146,7 @@
 		},
 		"dialogs": {
 			"deleteSessionTitle": "Delete session",
-			"deleteSessionMessage": "Permanently delete the session \"{{name}}\"? This cannot be undone.",
+			"deleteSessionMessage": "Permanently delete the session \"{{name}}\"? Sessions under Chat are deleted together with their own working directory. This cannot be undone.",
 			"deleteBatchTitle": "Delete batch project",
 			"deleteBatchMessage": "Delete batch project \"{{name}}\"? This cannot be undone.",
 			"deleteConfirm": "Delete",
@@ -150,7 +154,7 @@
 			"removeMessage": "Remove \"{{name}}\" from the project list? This will not delete files on disk.",
 			"removeConfirm": "Remove",
 			"clearConversationTitle": "Clear sessions",
-			"clearConversationMessage": "This will delete {{count}} conversation session(s) under Chat while keeping artifacts. Claw sessions are not affected. This cannot be undone.",
+			"clearConversationMessage": "This will delete {{count}} conversation session(s) under Chat together with the files in their working directories. Claw sessions are not affected. This cannot be undone.",
 			"clearClawTitle": "Clear Claw records",
 			"clearClawMessage": "This will delete {{count}} Claw record(s) while keeping artifacts. This cannot be undone.",
 			"clearConfirm": "Clear",
@@ -210,7 +214,7 @@
 		"renamePlaceholder": "Enter a new session name",
 		"clearAll": "Clear all",
 		"clearProjectTitle": "Clear project sessions",
-		"clearProjectMessage": "This deletes all {{count}} sessions in “{{name}}” and cannot be undone.",
+		"clearProjectMessage": "This deletes all {{count}} sessions in “{{name}}”. Project files are not affected. This cannot be undone.",
 		"tabAll": "All",
 		"hintTab": "Switch tag",
 		"hintDelete": "Delete",

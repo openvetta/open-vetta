@@ -7,6 +7,7 @@ interface Args {
 	displayName: string;
 	expanded: boolean;
 	hasRunning: boolean;
+	hasWaiting: boolean;
 	isActive: boolean;
 	onCollapse: (cwd: string) => void;
 	onExpand: (cwd: string) => void;
@@ -23,6 +24,7 @@ export function useProjectRowModel({
 	displayName,
 	expanded,
 	hasRunning,
+	hasWaiting,
 	isActive,
 	onCollapse,
 	onExpand,
@@ -38,6 +40,7 @@ export function useProjectRowModel({
 		displayName,
 		expanded,
 		hasRunning,
+		hasWaiting,
 		isActive,
 		newSessionTitle,
 		projectCwd: project.cwd,

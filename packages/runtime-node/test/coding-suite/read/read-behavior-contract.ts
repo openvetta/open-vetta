@@ -84,18 +84,18 @@ export function defineReadBehaviorContract(subjectName: string, createSubject: C
 				},
 			});
 			expect(subject.definition.schema).not.toHaveProperty("additionalProperties");
-			expect(subject.definition.description).toContain("stable edit anchors");
+			expect(subject.definition.description).toContain("prefixed with their line number");
 			expect(subject.definition.description).toContain("offset and limit");
 			expect(subject.definition.description).not.toContain("SKILL.md");
 		});
 
-		it("reads UTF-8 text with edit-compatible line anchors", async () => {
+		it("reads UTF-8 text with numbered lines the edit tool can point at", async () => {
 			const path = join(testDirectory, "hello.txt");
 			writeFileSync(path, "first line\nsecond line");
 
 			const result = await createSubject(testDirectory).execute({ path: "hello.txt" });
 
-			expect(textOutput(result)).toMatch(/^1:[0-9a-z]{4}→first line\n2:[0-9a-z]{4}→second line$/);
+			expect(textOutput(result)).toMatch(/^1:first line\n2:second line$/);
 			expect(result.details).toEqual({ totalLines: 2 });
 		});
 
@@ -105,7 +105,7 @@ export function defineReadBehaviorContract(subjectName: string, createSubject: C
 
 			const result = await createSubject(testDirectory).execute({ path });
 
-			expect(textOutput(result)).toMatch(/^1:[0-9a-z]{4}→中文$/);
+			expect(textOutput(result)).toMatch(/^1:中文$/);
 		});
 
 		it("preserves empty-file output and missing-file failures", async () => {
@@ -113,7 +113,7 @@ export function defineReadBehaviorContract(subjectName: string, createSubject: C
 			writeFileSync(emptyPath, "");
 			const subject = createSubject(testDirectory);
 
-			expect(textOutput(await subject.execute({ path: emptyPath }))).toMatch(/^1:[0-9a-z]{4}→$/);
+			expect(textOutput(await subject.execute({ path: emptyPath }))).toMatch(/^1:$/);
 			await expect(subject.execute({ path: join(testDirectory, "missing.txt") })).rejects.toThrow();
 		});
 
@@ -188,11 +188,11 @@ export function defineReadBehaviorContract(subjectName: string, createSubject: C
 			const subject = createSubject(testDirectory);
 
 			const offsetResult = await subject.execute({ path, offset: 51, limit: 2 });
-			expect(textOutput(offsetResult)).toMatch(/^51:[0-9a-z]{4}→line 51\n52:[0-9a-z]{4}→line 52/);
+			expect(textOutput(offsetResult)).toMatch(/^51:line 51\n52:line 52/);
 			expect(textOutput(offsetResult)).toContain("[48 more lines in file. Use offset=53 to continue.]");
 
 			const zeroOffsetResult = await subject.execute({ path, offset: 0, limit: 1 });
-			expect(textOutput(zeroOffsetResult)).toMatch(/^1:[0-9a-z]{4}→line 1/);
+			expect(textOutput(zeroOffsetResult)).toMatch(/^1:line 1/);
 		});
 
 		it("rejects offsets beyond the end of the file with the legacy error", async () => {
@@ -360,7 +360,7 @@ export function defineReadBehaviorContract(subjectName: string, createSubject: C
 				limit: 2,
 			});
 
-			expect(textOutput(result)).toMatch(/^10:[0-9a-z]{4}→step 10\n11:[0-9a-z]{4}→step 11/);
+			expect(textOutput(result)).toMatch(/^10:step 10\n11:step 11/);
 			expect(textOutput(result)).toContain("[2489 more lines in file. Use offset=12 to continue.]");
 		});
 

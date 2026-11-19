@@ -48,7 +48,7 @@ import { stopMonitoringRuntimeSession } from "../app-monitor/app-monitor-service
 import { onConversationListChanged } from "../conversations/conversation-list-events.js";
 import { getDesktopConversationService } from "../conversations/desktop-conversation-service.js";
 import { DesktopGoalController } from "../conversations/desktop-goal-controller.js";
-import { createDesktopSessionCommands } from "../conversations/desktop-session-commands.js";
+import { createDesktopSessionCommands, deleteSessionsInDirectory } from "../conversations/desktop-session-commands.js";
 import { desktopSessionSearch } from "../conversations/desktop-session-search.js";
 import {
 	collectRunningInteractiveSessionIds,
@@ -56,6 +56,7 @@ import {
 	reconcileIdleInteractiveSessions,
 } from "../conversations/idle-session-residency.js";
 import { getDesktopMcpElicitationBroker } from "../conversations/mcp-elicitation-broker.js";
+import { PendingInteractions } from "../conversations/pending-interactions.js";
 import { getDesktopPlanReviewBroker } from "../conversations/plan-review-broker.js";
 import { parsePromptRequest } from "../conversations/prompt-request-schema.js";
 import type { DesktopCodingAgentSessionConfig } from "../conversations/resolve-session-config.js";
@@ -239,8 +240,11 @@ const CHANNELS = {
 	/** 有会话在跑的项目 cwd 列表；会话路径无法反推项目，见处理器上的说明。 */
 	LIST_RUNNING_CWDS: "vetta:session:list-running-cwds",
 	RUNNING_CHANGED: "vetta:session:running-changed",
-	// 某 session 是否有待回答的 ask_user_question；广播给所有窗口（侧栏 + 快捷面板）。
+	// 某 session 是否有待用户处理的交互（提问 / 计划审批 / MCP 询问 / 沙箱授权）；
+	// 广播给所有窗口（侧栏 + 快捷面板）。
 	PENDING_QUESTION_CHANGED: "vetta:session:pending-question-changed",
+	/** 仍在等用户处理的会话快照；窗口重载后用它收敛，事件只带增量。 */
+	PENDING_QUESTION_LIST: "vetta:session:pending-question-list",
 	CLEAR_DEFAULT_CONVERSATION: "vetta:session:clear-default-conversation",
 	CLEAR_DEFAULT_ARTIFACTS: "vetta:session:clear-default-artifacts",
 	// Read-only viewer for sessions we don't want to (or can't) take the
@@ -272,21 +276,27 @@ function broadcastToAllWindows(channel: string, payload: unknown): void {
 }
 
 /**
- * 各 session 当前是否有待回答的 ask_user_question。模块级（跨 registerSessionIpc 调用共享），
- * 状态变化时广播给所有窗口——侧栏与快捷面板据此显示「待答」。
+ * 所有窗口共享的「这条会话在等用户」账本（模块级，跨 `registerSessionIpc` 调用存活）。
+ * 账本本身只管记账，广播在下面这个包装里统一发。
  */
-const pendingQuestionPaths = new Set<string>();
+const pendingInteractions = new PendingInteractions();
 
-function setPendingQuestion(sessionPath: string, hasPendingQuestion: boolean): void {
-	const had = pendingQuestionPaths.has(sessionPath);
-	if (hasPendingQuestion) {
-		if (had) return;
-		pendingQuestionPaths.add(sessionPath);
-	} else {
-		if (!had) return;
-		pendingQuestionPaths.delete(sessionPath);
-	}
-	broadcastToAllWindows(CHANNELS.PENDING_QUESTION_CHANGED, { sessionPath, hasPendingQuestion });
+/**
+ * `sessionPath` 上某个交互请求开始/结束等待，并把最新计数广播给所有窗口。
+ * 广播字段沿用 `hasPendingQuestion`，兼容快捷面板既有订阅。
+ */
+function setPendingInteraction(sessionPath: string, requestId: string, pending: boolean): void {
+	const changed = pending
+		? pendingInteractions.begin(sessionPath, requestId)
+		: pendingInteractions.end(sessionPath, requestId);
+	if (!changed) return;
+	const count = pendingInteractions.countOf(sessionPath);
+	broadcastToAllWindows(CHANNELS.PENDING_QUESTION_CHANGED, { sessionPath, hasPendingQuestion: count > 0, count });
+}
+
+/** 当前仍在等用户处理的会话快照；增量事件在窗口重载期间会丢，靠它收敛。 */
+function listPendingInteractions(): { sessionPath: string; count: number }[] {
+	return pendingInteractions.list();
 }
 
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
@@ -509,7 +519,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 				if (signal) signal.removeEventListener("abort", onAbort);
 				petPresentationController.endWaiting(request.sessionId, waitingKey);
 				// 问答结束（提交/取消/中断）后清掉「待答」标记并广播。
-				if (sessionPath) setPendingQuestion(sessionPath, false);
+				if (sessionPath) setPendingInteraction(sessionPath, waitingKey, false);
 				resolve(result);
 			};
 			const onAbort = (): void => finish(CANCELLED_QUESTION);
@@ -522,7 +532,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			petPresentationController.beginWaiting(request.sessionId, waitingKey, "notice.waiting.question");
 			webContents.send(CHANNELS.QUESTION_REQUEST, request);
 			// 广播「待答」给所有窗口（侧栏 + 快捷面板）。
-			if (sessionPath) setPendingQuestion(sessionPath, true);
+			if (sessionPath) setPendingInteraction(sessionPath, waitingKey, true);
 			// 同时发系统通知「有问题待确认」（点击跳转该 session）；前台看着该 session 时自动抑制。
 			const cwd = sessionCwdMap.get(request.sessionId);
 			if (sessionPath && cwd) {
@@ -560,13 +570,13 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			webContents.send(CHANNELS.PLAN_REVIEW_REQUEST, request);
 			const sessionPath = runtime.getSessionPath(request.sessionId);
 			const cwd = sessionCwdMap.get(request.sessionId);
-			if (sessionPath) setPendingQuestion(sessionPath, true);
+			if (sessionPath) setPendingInteraction(sessionPath, `plan-review:${request.requestId}`, true);
 			if (sessionPath && cwd) void notify({ type: "agent-question-pending", sessionPath, cwd });
 		},
 		resolved: (event) => {
 			petPresentationController.endWaiting(event.sessionId, `plan-review:${event.requestId}`);
 			const sessionPath = runtime.getSessionPath(event.sessionId);
-			if (sessionPath) setPendingQuestion(sessionPath, false);
+			if (sessionPath) setPendingInteraction(sessionPath, `plan-review:${event.requestId}`, false);
 			if (!webContents.isDestroyed()) webContents.send(CHANNELS.PLAN_REVIEW_RESOLVED, event);
 		},
 	});
@@ -579,6 +589,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 				mcpElicitationMap.delete(request.requestId);
 				signal?.removeEventListener("abort", onAbort);
 				petPresentationController.endWaiting(request.sessionId, waitingKey);
+				const path = runtime.getSessionPath(request.sessionId);
+				if (path) setPendingInteraction(path, waitingKey, false);
 				resolve(result);
 			};
 			const onAbort = (): void => finish({ action: "cancel" });
@@ -591,6 +603,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			petPresentationController.beginWaiting(request.sessionId, waitingKey, "notice.waiting.mcp");
 			webContents.send(CHANNELS.MCP_ELICITATION_REQUEST, request);
 			const sessionPath = runtime.getSessionPath(request.sessionId);
+			if (sessionPath) setPendingInteraction(sessionPath, waitingKey, true);
 			const cwd = sessionCwdMap.get(request.sessionId);
 			if (sessionPath && cwd) void notify({ type: "agent-question-pending", sessionPath, cwd });
 		});
@@ -613,6 +626,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 				sandboxGrantMap.delete(request.requestId);
 				if (signal) signal.removeEventListener("abort", onAbort);
 				petPresentationController.endWaiting(request.sessionId, waitingKey);
+				const path = runtime.getSessionPath(request.sessionId);
+				if (path) setPendingInteraction(path, waitingKey, false);
 				resolve(decision);
 			};
 			const onAbort = (): void => finish("deny");
@@ -625,6 +640,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			petPresentationController.beginWaiting(request.sessionId, waitingKey, "notice.waiting.permission");
 			webContents.send(CHANNELS.SANDBOX_GRANT_REQUEST, request);
 			const sessionPath = runtime.getSessionPath(request.sessionId);
+			if (sessionPath) setPendingInteraction(sessionPath, waitingKey, true);
 			const cwd = sessionCwdMap.get(request.sessionId);
 			if (sessionPath && cwd) void notify({ type: "agent-question-pending", sessionPath, cwd });
 		});
@@ -1205,11 +1221,9 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		return runtime.forkSession(sessionId, entryId);
 	});
 
-	ipcMain.handle(CHANNELS.DELETE, async (_event, sessionPath: unknown, mode?: unknown) => {
+	ipcMain.handle(CHANNELS.DELETE, async (_event, sessionPath: unknown) => {
 		assertNonEmptyString(sessionPath, "sessionPath");
-		if (mode !== undefined && mode !== "workspace-removal" && mode !== "clear-history")
-			throw new Error("Invalid session delete mode");
-		await sessionCommands.delete(sessionPath, mode);
+		await sessionCommands.delete(sessionPath);
 	});
 
 	ipcMain.handle(CHANNELS.RENAME, async (_event, sessionPath: unknown, name: unknown) => {
@@ -1282,8 +1296,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(CHANNELS.CLEAR_DEFAULT_CONVERSATION, async (_event, scope: unknown) => {
 		// 物理分家后（ADR-0005）每个 scope 对应一个独立 cwd，互不干扰：
-		// - "conversation"：清桌面「对话」cwd 下 .vetta/sessions 内的全部会话（保留产物）
-		// - "claw"：清 IM cwd 下 .vetta/sessions 内的全部会话（保留产物）
+		// - "conversation"：清桌面「对话」cwd 下 .vetta/sessions 内的全部会话及其工作目录
+		// - "claw"：清 IM cwd 下 .vetta/sessions 内的全部会话
 		if (scope !== "conversation" && scope !== "claw") {
 			throw new Error("Invalid scope for clearDefaultConversation");
 		}
@@ -1321,6 +1335,16 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 				}
 			}),
 		);
+
+		// 逐条走普通会话删除：工作目录、置顶、标签、批注、自动化绑定都跟着回收。只删 jsonl 会把
+		// 每个会话的 uuid 工作目录留成看不见的孤儿，越清越多。Agent Team 名下的会话不归它管，
+		// 由最后的会话目录清理兜底。
+		await deleteSessionsInDirectory({
+			dir: targetSessionDir,
+			commands: sessionCommands,
+			onError: (sessionPath, error) =>
+				sessionLog.error("clear-default-conversation delete failed", sessionPath, error),
+		});
 
 		try {
 			await rmExceptPreserved(targetSessionDir, new Set());
@@ -1391,6 +1415,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(CHANNELS.QUESTION_LIST_PENDING, () => questionBroker.listPendingQuestions());
 	ipcMain.handle(CHANNELS.MCP_ELICITATION_LIST_PENDING, () => mcpElicitationBroker.listPending());
+	// 侧栏「这条会话在等你」的集合快照：事件只带增量，窗口重载后靠它收敛。
+	ipcMain.handle(CHANNELS.PENDING_QUESTION_LIST, () => listPendingInteractions());
 
 	ipcMain.handle(CHANNELS.QUESTION_RESPONSE, (_event, requestId: unknown, result: unknown) => {
 		assertNonEmptyString(requestId, "requestId");

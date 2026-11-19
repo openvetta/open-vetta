@@ -1,6 +1,7 @@
 import { cn } from "@vetta-org/ui/utils";
 import { useId, type JSX, type Ref } from "react";
 import { RunningPulseDot } from "../sidebar/RunningPulseDot";
+import { WaitingPulseBadge } from "../sidebar/WaitingPulseBadge";
 import { PROJECT_TYPE_ICONS, type ProjectTypeIconKey, REMOTE_PROJECT_ICON } from "./types";
 
 export interface ProjectRowViewProps {
@@ -8,6 +9,8 @@ export interface ProjectRowViewProps {
 	displayName: string;
 	expanded: boolean;
 	hasRunning: boolean;
+	/** 组内有会话正等着用户处理；优先于运行灯。 */
+	hasWaiting?: boolean;
 	isActive: boolean;
 	loading?: boolean;
 	newSessionTitle: string;
@@ -29,6 +32,7 @@ export function ProjectRowView({
 	displayName,
 	expanded,
 	hasRunning,
+	hasWaiting = false,
 	isActive,
 	loading = false,
 	newSessionTitle,
@@ -79,7 +83,7 @@ export function ProjectRowView({
 						"h-4 w-4 text-foreground",
 					)}
 				/>
-				{hasRunning && <RunningPulseDot />}
+				{hasWaiting ? <WaitingPulseBadge /> : hasRunning ? <RunningPulseDot /> : null}
 			</button>
 			<button
 				id={labelId}

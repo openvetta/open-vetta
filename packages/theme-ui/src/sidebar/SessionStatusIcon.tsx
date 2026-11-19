@@ -5,13 +5,28 @@ export interface SessionStatusIconProps {
 	active: boolean;
 	running: boolean;
 	scheduled: boolean;
+	/**
+	 * 会话正等着用户处理（提问 / 审批 / 询问 / 授权）。优先于其它状态：
+	 * 「在转」说明 agent 还在干活，「停住 + 问号」才说明它在等人，两者同时出现会互相盖住信息。
+	 */
+	waiting?: boolean;
 }
 
 export function SessionStatusIcon({
 	active,
 	running,
 	scheduled,
+	waiting = false,
 }: SessionStatusIconProps): JSX.Element {
+	if (waiting) {
+		return (
+			<span
+				data-session-leading-icon="true"
+				data-session-waiting="true"
+				className="icon-[solar--question-circle-bold] h-3.5 w-3.5 shrink-0 text-amber-500 motion-safe:animate-pulse"
+			/>
+		);
+	}
 	if (running) {
 		return (
 			<span

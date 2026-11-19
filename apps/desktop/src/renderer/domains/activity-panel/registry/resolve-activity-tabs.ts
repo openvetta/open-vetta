@@ -7,7 +7,8 @@ function toResolved(def: ActivityTabDefinition, meta: ActivityTabMeta): Resolved
 		label: meta.label,
 		icon: meta.icon,
 		badge: meta.badge,
-		removable: def.removable !== false,
+		// pinned 优先于注册声明：宿主不再提供移除，也不再走可见性记录。
+		removable: def.removable !== false && meta.pinned !== true,
 		source: def.source,
 		pluginId: def.pluginId,
 		pluginName: def.pluginName,
@@ -86,6 +87,11 @@ export function resolveActivityTabs(input: ResolveActivityTabsInput): ResolveAct
 
 	for (const item of natural) {
 		const def = item.definition;
+		// pinned 的 tab 由贡献方按工作空间声明「必须在栏上」，用户记录不再参与。
+		if (item.removable === false) {
+			onBarRaw.push(item);
+			continue;
+		}
 		if (def.source === "plugin") {
 			if (isPluginTabOnBar(def, tabVisibilityRecords)) {
 				onBarRaw.push(item);

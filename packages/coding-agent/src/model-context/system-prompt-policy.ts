@@ -19,7 +19,7 @@ const builtInToolDescriptions: Record<string, string> = {
 	read: "Read file contents",
 	bash: "Execute bash commands (ls, grep, find, etc.)",
 	shell: "Execute shell commands (PowerShell on Windows by default)",
-	edit: "Make surgical edits to files — anchor mode (batch, atomic, anchors from read/grep output) or exact-text replace",
+	edit: "Make surgical edits to files — block mode (batch, atomic, located by quoting the current text) or exact-text replace",
 	write: "Create or overwrite files",
 	grep: "Search file contents for patterns (respects .gitignore)",
 	glob: "Primary file and directory path matcher for exact names and glob patterns (respects .gitignore)",
@@ -314,11 +314,21 @@ function buildGuidelines(tools: string[], scenario?: ConversationScenario): stri
 	}
 
 	if (hasRead && hasEdit) {
-		guidelinesList.push("Use read to examine files before editing. You must use this tool instead of cat or sed.");
+		guidelinesList.push(
+			"Use read to examine files before editing — not cat, head, tail, or sed to display file contents",
+		);
 	}
 	if (hasEdit) {
 		guidelinesList.push(
-			"Use edit for precise changes. Prefer anchor mode: pass `edits` with the `line:hash` anchors from read/grep output (copy verbatim, never fabricate); the batch is atomic and stale-anchor errors return fresh anchors for immediate retry",
+			"Use edit for precise, surgical changes. Prefer block mode: pass `edits` with `oldText`/`oldEndText` copied from the file (not retyped from memory) plus `newText`; the batch is atomic, and an unmatched `oldText` is rejected with the candidate lines so you can make it more specific",
+		);
+		guidelinesList.push(
+			"When `oldText` matches several places the error lists them: add a neighbouring line until it is unique, instead of retrying the same value. Nothing you read earlier goes stale — locate blocks by their text, and use the line numbers from the latest result only as orientation",
+		);
+	}
+	if (hasSelectedCommandTool) {
+		guidelinesList.push(
+			"Reach for bash + python3 when an edit stops being surgical: the same change across many files, renaming a symbol everywhere, reformatting, restructuring from a list of pairs, or writing a large block by hand. A python3 script that reads, transforms, writes and prints a diff is one deterministic call you can verify; doing the same through block edits is dozens of calls you cannot. Use python3 rather than sed/awk once the pattern contains quotes, slashes, or needs a reported count; sed -i is fine for a single mechanical substitution",
 		);
 	}
 	if (hasWrite) {

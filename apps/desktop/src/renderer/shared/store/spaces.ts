@@ -84,7 +84,7 @@ export type SpaceLocation =
 	| { kind: "conversation"; cwd: string; path: string; viewer?: boolean }
 	| { kind: "team"; teamId: string; sessionId: string; projectCwd?: string };
 
-interface SpaceState {
+export interface SpaceState {
 	spaces: Space[];
 	selected: string;
 	projects: Record<string, string>;

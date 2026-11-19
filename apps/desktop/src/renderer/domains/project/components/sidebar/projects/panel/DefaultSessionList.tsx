@@ -57,6 +57,7 @@ const DefaultSessionRow = memo(function DefaultSessionRow({
 			pinned={item.pinned}
 			renaming={item.renaming}
 			running={item.running}
+			waiting={item.waiting}
 			scheduled={item.scheduled}
 			tagColors={item.tagColors}
 			trailingAvatarUrls={item.trailingAvatarUrls}

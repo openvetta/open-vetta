@@ -18,7 +18,9 @@ import { desktopVersion, parseReleaseStatus, releaseNotesPath } from "./release-
 import { classifyBump, latestReleasedVersion, lockfileDesktopVersion } from "./release-version.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const PLACEHOLDER = /\b(TODO|TBD|FIXME)\b|待补|待填|占位/;
+// 「占位」单独出现常是一句正常描述（如「不是仓库的项目既不占位」），只有括号包起来的标记
+// 「（占位）」、后接「文字/符」的「占位文字」，才算待补内容。
+const PLACEHOLDER = /\b(TODO|TBD|FIXME)\b|待补|待填|[（(【\[]\s*占位|占位\s*[）)】\]]|占位[文字符]/;
 
 /** 发布说明里每个二级标题下的条目数。 */
 export function countSections(text) {

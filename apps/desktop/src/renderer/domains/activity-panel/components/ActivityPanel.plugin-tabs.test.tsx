@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	activityPanelOpenAtom,
+	attachedPluginTabsAtom,
 	floatingActivityTabsByProjectAtom,
 	pluginActivityTabsAtom,
 	type RegisteredActivityTab,
@@ -181,7 +182,61 @@ describe("activity panel plugin tabs outside the ordinary conversation host", ()
 		expect(screen.queryByText("file body")).not.toBeNull();
 	});
 
+	// 「+」可添加池里的 tab 靠上栏记录决定去留；贡献方按工作空间声明 pinned 后，
+	// 记录（包括用户早先按过的减号）不再参与，标签卡必须回栏。
+	it("pins a workspace-scoped plugin tab on the bar even after it was detached", () => {
+		const store = createStore();
+		store.set(activityPanelOpenAtom, true);
+		store.set(attachedPluginTabsAtom, new Map([[workspace.id, ["-demo:panel"]]]));
+		store.set(pluginActivityTabsAtom, [
+			{
+				...pluginTab(),
+				initiallyVisible: false,
+				useMeta: ({ cwd }) => (cwd === workspace.cwd ? { pinned: true } : null),
+			},
+		]);
+
+		render(
+			<Provider store={store}>
+				<ActivityPanel workspace={workspace} pluginScenario="conversation" />
+			</Provider>,
+		);
+
+		expect(screen.queryByText("Demo panel")).not.toBeNull();
+	});
+
+	it("hides the tab when the contribution reports the workspace is not a repository", () => {
+		const store = createStore();
+		store.set(activityPanelOpenAtom, true);
+		store.set(pluginActivityTabsAtom, [{ ...pluginTab(), initiallyVisible: false, useMeta: () => null }]);
+
+		render(
+			<Provider store={store}>
+				<ActivityPanel workspace={workspace} pluginScenario="conversation" />
+			</Provider>,
+		);
+
+		expect(screen.queryByText("Demo panel")).toBeNull();
+	});
+
+	// 新会话页与项目详情页显式下发「即将建出 / 所属项目」的场景：项目作用域的插件 tab
+	// （Git 就是这样声明的）在这些页面上必须与建会话后一致地出现。
+	it("puts a project-scoped plugin tab on the bar when the host supplies the project scenario", () => {
+		const store = createStore();
+		store.set(activityPanelOpenAtom, true);
+		store.set(pluginActivityTabsAtom, [{ ...pluginTab(), scope_use: ["project"] }]);
+
+		render(
+			<Provider store={store}>
+				<ActivityPanel workspace={workspace} pluginScenario="project" />
+			</Provider>,
+		);
+
+		expect(screen.queryByText("Demo panel")).not.toBeNull();
+	});
+
 	it("keeps floating tab content mounted while the docked panel is closed", () => {
+
 		const store = createStore();
 		store.set(activityPanelOpenAtom, false);
 		store.set(floatingActivityTabsByProjectAtom, new Map([

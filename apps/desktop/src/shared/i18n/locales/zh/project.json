@@ -84,7 +84,11 @@
 			"satellite": "卫星"
 		},
 		"spaceEdit": "编辑「{{name}}」",
-		"spaceRemove": "移除「{{name}}」"
+		"spaceRemove": "移除「{{name}}」",
+		"activity": {
+			"running": "{{count}} 个会话运行中",
+			"waiting": "{{count}} 个会话等你回复"
+		}
 	},
 	"sidebar": {
 		"nav": {
@@ -142,7 +146,7 @@
 		},
 		"dialogs": {
 			"deleteSessionTitle": "确认删除会话",
-			"deleteSessionMessage": "确定要永久删除会话「{{name}}」吗？此操作不可恢复。",
+			"deleteSessionMessage": "确定要永久删除会话「{{name}}」吗？「对话」中的会话会连同其专属工作目录一起删除。此操作不可恢复。",
 			"deleteBatchTitle": "删除批量项目",
 			"deleteBatchMessage": "确定要删除批量项目「{{name}}」吗？此操作不可撤回。",
 			"deleteConfirm": "删除",
@@ -150,7 +154,7 @@
 			"removeMessage": "确定要将「{{name}}」从项目列表中移除吗？此操作不会删除磁盘上的文件。",
 			"removeConfirm": "移除",
 			"clearConversationTitle": "清空会话",
-			"clearConversationMessage": "将删除「对话」项目下 {{count}} 个会话（保留产物，Claw 会话不受影响），此操作不可恢复。",
+			"clearConversationMessage": "将删除「对话」项目下 {{count}} 个会话及其工作目录中的文件（Claw 会话不受影响），此操作不可恢复。",
 			"clearClawTitle": "清空 Claw 记录",
 			"clearClawMessage": "将删除 {{count}} 条 Claw 会话记录（保留产物），此操作不可恢复。",
 			"clearConfirm": "清空",
@@ -210,7 +214,7 @@
 		"renamePlaceholder": "输入新的会话名称",
 		"clearAll": "清空全部",
 		"clearProjectTitle": "清空项目会话",
-		"clearProjectMessage": "将删除「{{name}}」下的全部 {{count}} 个会话，且无法恢复。",
+		"clearProjectMessage": "将删除「{{name}}」下的全部 {{count}} 个会话，项目文件不受影响，此操作无法恢复。",
 		"tabAll": "全部",
 		"hintTab": "切换标签",
 		"hintDelete": "删除",

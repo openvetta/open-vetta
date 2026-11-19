@@ -2,15 +2,14 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_CONVERSATION_CWD } from "../config/desktop-config-store.js";
 import type { ConversationListChangedEvent } from "./conversation-list-events.js";
-import { createDesktopSessionCommands } from "./desktop-session-commands.js";
+import { createDesktopSessionCommands, deleteSessionsInDirectory } from "./desktop-session-commands.js";
 
-function setup(cwd: string | undefined, running: string[] = []) {
+function setup(cwd: string | undefined) {
 	const calls: string[] = [];
 	const events: ConversationListChangedEvent[] = [];
 	const deleted: Array<(path: string) => boolean> = [];
 	const commands = createDesktopSessionCommands({
 		runtime: {
-			getRunningSessionPaths: () => running,
 			deleteSession: vi.fn(async (path: string) => void calls.push(`delete ${path}`)),
 			renameSession: vi.fn(async (path: string, name: string) => void calls.push(`rename ${path} ${name}`)),
 		},
@@ -43,31 +42,44 @@ describe("desktop session commands", () => {
 		expect(events).toEqual([{ cwd: DEFAULT_CONVERSATION_CWD, sessionPath: "/s/a.jsonl" }]);
 	});
 
-	it("protects running and project conversations and keeps artifacts when only clearing history", async () => {
-		const sub = join(DEFAULT_CONVERSATION_CWD, "draft-session");
-		const running = setup(sub, ["/s/running.jsonl"]);
-		await expect(running.commands.delete("/s/running.jsonl", "workspace-removal")).rejects.toThrow(
-			"Conversation is running",
-		);
-		expect(running.calls).toEqual(["assert /s/running.jsonl"]);
-		const project = setup("/code/project");
-		await expect(project.commands.delete("/s/project.jsonl", "workspace-removal")).rejects.toThrow(
-			"Expected a standalone conversation",
-		);
-		expect(project.calls).toEqual(["assert /s/project.jsonl"]);
-		const history = setup(sub);
-		await history.commands.delete("/s/history.jsonl", "clear-history");
-		expect(history.calls).toContain("delete /s/history.jsonl");
-		expect(history.calls).not.toContain(`rm ${sub}`);
-		await history.commands.delete("/s/other.jsonl", "workspace-removal");
-		expect(history.calls).toContain(`rm ${sub}`);
-	});
-
 	it("keeps a project's directory and lists the change under the project", async () => {
 		const { commands, calls, events } = setup("/code/vetta");
 		await commands.delete("/s/a.jsonl");
 		expect(calls.some((call) => call.startsWith("rm "))).toBe(false);
 		expect(events).toEqual([{ cwd: "/code/vetta", sessionPath: "/s/a.jsonl" }]);
+	});
+
+	it("clears a session directory together with each workspace, surviving a refused session", async () => {
+		const first = join(DEFAULT_CONVERSATION_CWD, "11111111-1d2a-4e0b-9c1a-2f3e4d5c6b7a");
+		const second = join(DEFAULT_CONVERSATION_CWD, "22222222-1d2a-4e0b-9c1a-2f3e4d5c6b7a");
+		const calls: string[] = [];
+		const refused: string[] = [];
+		const commands = createDesktopSessionCommands({
+			runtime: {
+				deleteSession: vi.fn(async (path: string) => void calls.push(`delete ${path}`)),
+				renameSession: vi.fn(async () => undefined),
+			},
+			onSessionsDeleted: vi.fn(),
+			forgetAnnotations: vi.fn(async () => undefined),
+			assertOrdinary: async (path) => {
+				if (path === "/s/team.jsonl") throw new Error("Conversation is managed by Agent Team: t/s");
+				return path;
+			},
+			readSessionCwd: async (path) => (path === "/s/team.jsonl" ? second : path === "/s/a.jsonl" ? first : second),
+			removeDirectory: vi.fn(async (dir: string) => void calls.push(`rm ${dir}`)),
+			forgetUserMarks: vi.fn(),
+			emitListChanged: vi.fn(),
+		});
+
+		await deleteSessionsInDirectory({
+			dir: "/sessions",
+			commands,
+			onError: (sessionPath) => refused.push(sessionPath),
+			listFiles: async () => ["/s/a.jsonl", "/s/team.jsonl", "/s/b.jsonl"],
+		});
+
+		expect(refused).toEqual(["/s/team.jsonl"]);
+		expect(calls).toEqual([`delete /s/a.jsonl`, `rm ${first}`, `delete /s/b.jsonl`, `rm ${second}`]);
 	});
 
 	it("renames only ordinary sessions and tells the list", async () => {

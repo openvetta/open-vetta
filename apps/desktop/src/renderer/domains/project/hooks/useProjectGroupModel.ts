@@ -11,6 +11,7 @@ import {
 	sessionContextMenuAtom,
 	sessionDisplayLabel,
 } from "@shared/store/atoms";
+import { pendingInteractionPathsAtom } from "@shared/store/pending-interactions-atoms";
 import { isSshProjectUri } from "@vetta/ssh-transport/project-uri";
 import { DEFAULT_VISIBLE_SESSIONS } from "@vetta-org/theme-ui/project/types";
 import { useAtomValue, useSetAtom } from "jotai";
@@ -38,6 +39,8 @@ export interface ProjectGroupSessionView extends AutomationGroupRowFields {
 	active: boolean;
 	renaming: boolean;
 	running: boolean;
+	/** 会话正等着用户处理；行内优先显示问号而不是旋转图标。 */
+	waiting: boolean;
 	scheduled: boolean;
 	pinned: boolean;
 	iconClassName?: string;
@@ -84,6 +87,7 @@ export function useProjectGroupModel({
 	const [showAllSessions, setShowAllSessions] = useState(false);
 	const revealedActiveSessionRef = useRef<string | null>(null);
 	const runningSessionPaths = useAtomValue(runningSessionPathsAtom);
+	const pendingInteractionPaths = useAtomValue(pendingInteractionPathsAtom);
 	const pinnedSessionPaths = useAtomValue(pinnedSessionPathsAtom);
 	const scheduledSessionPaths = useAtomValue(scheduledSessionPathsAtom);
 	const scheduledBasenames = useMemo(() => {
@@ -94,6 +98,11 @@ export function useProjectGroupModel({
 	const projectHasRunning = useMemo(
 		() => sessions.some((session) => runningSessionPaths.has(session.path)),
 		[sessions, runningSessionPaths],
+	);
+	// 有会话在等用户处理时优先报等待，项目行据此把运行点换成问号。
+	const projectHasWaiting = useMemo(
+		() => sessions.some((session) => pendingInteractionPaths.has(session.path)),
+		[sessions, pendingInteractionPaths],
 	);
 	// 同一自动化「每次新建会话」产生的会话折叠成一行，排序与「显示更多」都按折叠后的行数算。
 	const automationLinks = useAtomValue(automationSessionLinksAtom);
@@ -160,6 +169,7 @@ export function useProjectGroupModel({
 			});
 			const isSessionActive = isSidebarConversationActive(session, activeSessionPath, activeTeamSessionId);
 			const isRunning = runningSessionPaths.has(session.path);
+			const isWaiting = pendingInteractionPaths.has(session.path);
 			const isSchedule =
 				identity.mutable &&
 				(scheduledSessionPaths.has(session.path) ||
@@ -172,6 +182,7 @@ export function useProjectGroupModel({
 				pinned: pinnedSessionPaths.has(session.path),
 				renaming: identity.mutable && renamingSessionPath === session.path,
 				running: isRunning,
+				waiting: isWaiting,
 				scheduled: isSchedule,
 				iconClassName: identity.iconClassName,
 				trailingAvatarUrls: identity.trailingAvatarUrls,
@@ -195,6 +206,7 @@ export function useProjectGroupModel({
 		i18n.language,
 		renamingSessionPath,
 		runningSessionPaths,
+		pendingInteractionPaths,
 		pinnedSessionPaths,
 		scheduledBasenames,
 		scheduledSessionPaths,
@@ -261,6 +273,7 @@ export function useProjectGroupModel({
 		expanded: isExpanded,
 		hasMoreSessions: ordering.hasMore,
 		hasRunning: projectHasRunning,
+		hasWaiting: projectHasWaiting,
 		hiddenCount: ordering.hiddenCount,
 		isActive,
 		newSessionTitle: t("sidebar.nav.newSession"),

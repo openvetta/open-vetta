@@ -40,6 +40,8 @@ const CHANNELS = {
 	QUESTION_LIST_PENDING: "vetta:session:question-list-pending",
 	QUESTION_RESOLVED: "vetta:session:question-resolved",
 	QUESTION_RESPONSE: "vetta:session:question-response",
+	PENDING_QUESTION_CHANGED: "vetta:session:pending-question-changed",
+	PENDING_QUESTION_LIST: "vetta:session:pending-question-list",
 	PLAN_MODE_GET_STATE: "vetta:session:plan-mode-get-state",
 	PLAN_MODE_SET_PERMISSION_MODE: "vetta:session:plan-mode-set-permission-mode",
 	GOAL_GET_STATE: "vetta:session:goal-get-state",
@@ -137,6 +139,8 @@ export function createSessionApi(ipc: IpcRenderer): Pick<DesktopApi, "session"> 
 			listPendingQuestions: () => ipc.invoke(CHANNELS.QUESTION_LIST_PENDING),
 			onQuestionResolved: (handler) => onIpcEvent(ipc, CHANNELS.QUESTION_RESOLVED, handler),
 			respondToQuestion: (requestId, result) => ipc.invoke(CHANNELS.QUESTION_RESPONSE, requestId, result),
+			onPendingQuestionChanged: (handler) => onIpcEvent(ipc, CHANNELS.PENDING_QUESTION_CHANGED, handler),
+			listPendingQuestionPaths: () => ipc.invoke(CHANNELS.PENDING_QUESTION_LIST),
 			getPlanModeState: (sessionId) => ipc.invoke(CHANNELS.PLAN_MODE_GET_STATE, sessionId),
 			setPermissionMode: (sessionId, permissionMode) =>
 				ipc.invoke(CHANNELS.PLAN_MODE_SET_PERMISSION_MODE, sessionId, permissionMode),
@@ -193,7 +197,7 @@ export function createSessionApi(ipc: IpcRenderer): Pick<DesktopApi, "session"> 
 			replaceLastUserMessage: (sessionId, entryId) =>
 				ipc.invoke(CHANNELS.REPLACE_LAST_USER_MESSAGE, sessionId, entryId),
 			forkSession: (sessionId, entryId) => ipc.invoke(CHANNELS.FORK_SESSION, sessionId, entryId),
-			delete: (sessionPath, mode) => ipc.invoke(CHANNELS.DELETE, sessionPath, mode),
+			delete: (sessionPath) => ipc.invoke(CHANNELS.DELETE, sessionPath),
 			rename: (sessionPath, name) => ipc.invoke(CHANNELS.RENAME, sessionPath, name),
 			autoTitle: (sessionId, userText, assistantText) =>
 				ipc.invoke(CHANNELS.AUTO_TITLE, sessionId, userText, assistantText),

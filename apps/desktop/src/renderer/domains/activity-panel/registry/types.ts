@@ -12,6 +12,11 @@ export interface ActivityTabMeta {
 	label: string;
 	icon?: string | ReactNode;
 	badge?: number;
+	/**
+	 * 本帧固定上栏：忽略用户的上栏/下栏记录与 `initiallyVisible`，并且不提供减号移除。
+	 * 插件经 `useMeta` 的 `pinned` 声明，内置定义不声明。
+	 */
+	pinned?: boolean;
 }
 
 /**

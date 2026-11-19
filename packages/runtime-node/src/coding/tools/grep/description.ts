@@ -1,4 +1,4 @@
-export const GREP_TOOL_DESCRIPTION = `Search file contents for a pattern. Returns matching lines as \`path:line:hash: content\` — the \`line:hash\` part is an anchor usable directly in the \`edit\` tool's anchor mode. Respects .gitignore. Output is truncated to 100 matches or 30KB (whichever is hit first). Long lines are truncated to 500 chars.
+export const GREP_TOOL_DESCRIPTION = `Search file contents for a pattern. Returns matching lines as \`path:line: content\` (context lines as \`path-line- content\`), so the line number is the one \`edit\` block mode works with. Quote the line text itself into \`oldText\`; the number alone does not identify content. Respects .gitignore. Output is truncated to 100 matches or 30KB (whichever is hit first). Long lines are truncated to 500 chars.
 
 ALWAYS use this tool for content search. NEVER use bash grep, rg, ag, or ack — this tool is faster, respects .gitignore, and provides better formatted output.
 

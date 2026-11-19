@@ -4,10 +4,11 @@ import { GitPanel } from "./components/GitPanel";
 import { GitSettingsView } from "./components/GitSettingsView";
 import { GitTurnCard } from "./components/GitTurnCard";
 import { GitIcon } from "./components/icons";
+import { useGitTabMeta } from "./components/useGitTabMeta";
 import {
-	claimTabAttach,
 	emitRefreshSignal,
 	emitTurnPhase,
+	invalidateGitTabProbe,
 	setAiApi,
 	setFsApi,
 	setGitCommand,
@@ -17,7 +18,7 @@ import {
 	setStorageApi,
 	setUiApi,
 } from "./git/runtime";
-import { CHANGES_TAB_ID, probeGitTab } from "./git/tab-visibility";
+import { CHANGES_TAB_ID } from "./git/tab-visibility";
 
 export default definePlugin({
 	activate(ctx) {
@@ -34,8 +35,6 @@ export default definePlugin({
 		// 失败统一走宿主 toast（自带「复制堆栈」），不在面板里长期占位。
 		setUiApi(ctx.ui);
 
-		/** 最近一次 conversation-changed 的 cwd，用于丢弃过期的仓库探测结果。 */
-		let latestCwd: string | null = null;
 
 		// Let panels resize their host activity panel (narrow click → max, close → narrow).
 		// 面板内部改宽度走 setActivityPanelWidth：openActivityTab 语义是「打开某个标签卡」，
@@ -47,31 +46,16 @@ export default definePlugin({
 
 		// Refresh the panel after each agent turn (it may have edited files), and
 		// surface turn start/end phases for the turn card's per-turn baseline diff.
-		// 会话切换（含订阅时的首次回放）按 cwd 判定是不是 git 仓库：是才把「Git 面板」
-		// 放进标签栏，非仓库项目不占位。setActivityTabVisible 不会抢焦点弹开面板。
+		// 标签卡本身的显隐不再由这里驱动：它跟着面板工作空间走（见 useGitTabMeta），
+		// 新会话页与项目详情页没有会话事件也能判断。turn 结束时仓库状态可能变了
+		// （agent 可能刚跑过 git init），作废探测缓存让标签卡重新判定一次。
 		ctx.conversation.on((event) => {
 			if (event.type === "turn-start") {
 				emitTurnPhase("start");
 			} else if (event.type === "turn-end") {
 				emitTurnPhase("end");
+				invalidateGitTabProbe();
 				emitRefreshSignal();
-			} else if (event.type === "conversation-changed") {
-				const { cwd } = event.conversation;
-				if (!cwd) return;
-				latestCwd = cwd;
-				void probeGitTab(ctx.command, ctx.fs, cwd).then((probe) => {
-					// 探测是异步的，期间可能已切走——切走后再写就会写到别人的 cwd 上。
-					if (latestCwd !== cwd) return;
-					// 必须显式带上 cwd：不带时宿主拿「前台工作区」当作用域，而会话切换回放
-					// 时前台未必已经就绪，那次写入会被直接丢弃，标签卡也就永远不上栏。
-					// 仓库目录但本机没装 git 时也上栏，面板里给出安装引导。
-					if (probe === "not-repo") {
-						ctx.ui.setActivityTabVisible(CHANGES_TAB_ID, false, { cwd });
-						return;
-					}
-					// 每个 cwd 只自动上栏一次：用户手动关掉之后不该被下一次会话切换顶回来。
-					if (claimTabAttach(cwd)) ctx.ui.setActivityTabVisible(CHANGES_TAB_ID, true, { cwd });
-				});
 			}
 		});
 
@@ -82,10 +66,15 @@ export default definePlugin({
 			component: GitPanel,
 			// 排在计划/待办之后、后台任务之前：写代码的项目里，Git 比后台任务更常看。
 			order: 25,
-			// 仅在普通项目对话里出现。
-			scope_use: ["project"],
-			// 出现条件由插件自己驱动：上面的 conversation-changed 探测到 git 工作区才上栏。
+			// 凡是可能出现真实代码目录的场景都放开：`project` 覆盖项目会话、新会话页与
+			// 项目详情页（后两者现在都下推 project），另外批量与自动化会话也跑在项目里。
+			// 「对话」项目（conversation）的 cwd 是宿主内部目录，永远不是仓库，
+			// 列进来只会在那里多一个空的可选面板。
+			scope_use: ["project", "batch", "automation"],
+			// 默认不上栏：由 useMeta 按工作空间决定——Git 工作区里固定上栏且不可移除，
+			// 其它目录只留在「+」可添加池里（「初始化仓库」仍需从那里进入）。
 			initiallyVisible: false,
+			useMeta: useGitTabMeta,
 		});
 
 		// Git 相关配置（提交信息模板、常用行为开关）。纯配置页，配好之后很少再来：

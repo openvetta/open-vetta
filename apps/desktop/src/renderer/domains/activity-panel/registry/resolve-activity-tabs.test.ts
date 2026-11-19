@@ -137,4 +137,37 @@ describe("resolveActivityTabs", () => {
 		// natural by order: file(0), todo(20), debug(90) → user order reorders onBar
 		expect(result.onBar.map((t) => t.id)).toEqual(["todo", "file", "debug"]);
 	});
+
+	// 仓库类面板（如 Git）由贡献方按工作空间声明 pinned：工作空间里有这个东西，
+	// 标签卡就必须在栏上，用户早先按过的减号不能把它挤出栏，也不允许再从栏上移除。
+	it("keeps a pinned plugin tab on the bar and non-removable, ignoring detach records", () => {
+		const result = resolveActivityTabs({
+			definitions: [file, plugin],
+			metaById: metaMap({
+				file: { label: "Files" },
+				"plugin:git:changes": { label: "Changes", pinned: true },
+			}),
+			tabVisibilityRecords: ["-git:changes"],
+			hiddenKeys: [],
+			tabOrder: [],
+		});
+		expect(result.onBar.map((t) => t.id)).toEqual(["file", "plugin:git:changes"]);
+		expect(result.onBar.find((t) => t.id === "plugin:git:changes")?.removable).toBe(false);
+		expect(result.availablePlugins).toEqual([]);
+	});
+
+	it("leaves a non-pinned plugin tab detachable", () => {
+		const result = resolveActivityTabs({
+			definitions: [file, plugin],
+			metaById: metaMap({
+				file: { label: "Files" },
+				"plugin:git:changes": { label: "Changes", pinned: false },
+			}),
+			tabVisibilityRecords: ["-git:changes"],
+			hiddenKeys: [],
+			tabOrder: [],
+		});
+		expect(result.onBar.map((t) => t.id)).toEqual(["file"]);
+		expect(result.availablePlugins.map((t) => t.id)).toEqual(["plugin:git:changes"]);
+	});
 });

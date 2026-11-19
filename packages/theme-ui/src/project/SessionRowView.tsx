@@ -34,6 +34,8 @@ export interface SessionRowViewProps {
 	renaming: boolean;
 	running: boolean;
 	scheduled: boolean;
+	/** 会话正等着用户处理；优先于 running/scheduled，左侧换成停转的琥珀色问号。 */
+	waiting?: boolean;
 	/** 自动化会话组组头：本组运行次数。存在时整行点击即展开/收起，不提供更多菜单。 */
 	groupCount?: number;
 	groupExpanded?: boolean;
@@ -62,6 +64,7 @@ export const SessionRowView = memo(function SessionRowView({
 	renaming,
 	running,
 	scheduled,
+	waiting = false,
 	groupCount,
 	groupExpanded,
 	nested = false,
@@ -99,7 +102,9 @@ export const SessionRowView = memo(function SessionRowView({
 					<>
 						<span aria-hidden="true" className="flex items-center justify-end gap-0.5 pr-1">
 							{pinned ? <span className="icon-[solar--pin-linear] h-3.5 w-3.5 shrink-0 text-primary/80" /> : null}
-							{forked && !running && !scheduled ? (
+							{waiting ? (
+								<SessionStatusIcon active={active} running={running} scheduled={scheduled} waiting />
+							) : forked && !running && !scheduled ? (
 								<span
 									data-session-leading-icon="true"
 									className={cn(

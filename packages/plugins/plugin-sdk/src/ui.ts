@@ -238,13 +238,40 @@ export interface PluginFilePreviewContribution {
 	component: ComponentType<PluginFilePreviewProps>;
 }
 
-/**
- * An activity-panel tab contributed by a plugin. Registering only adds the
- * tab to the "addable pool" — it renders only after the user attaches it in
- * the activity panel (scoped by session cwd).
- */
 /** Host residency policy for an activity-panel tab. */
 export type PluginActivityTabRetention = "active-only" | "warm" | "pinned";
+
+/**
+ * 活动面板标签卡此刻所在的工作空间。`cwd` 与面板自己的作用域一致（项目详情页是项目根，
+ * 会话页是会话 cwd），插件据此判断这个工作空间该不该出现自己的标签卡。
+ */
+export interface PluginActivityTabScope {
+	readonly cwd: string | null;
+}
+
+/**
+ * 一帧的标签卡状态，由 {@link PluginActivityTabContribution.useMeta} 按当前工作空间返回。
+ * 只影响「在不在栏上」这类摆放语义；名字与图标仍以注册时声明为默认值。
+ */
+export interface PluginActivityTabMeta {
+	/** 覆盖注册时的 label（已本地化）；省略时用注册值。 */
+	readonly label?: string;
+	/** 覆盖注册时的 icon；省略时用注册值（含 `plugin.json#icon` 回落）。 */
+	readonly icon?: ReactNode;
+	/** 标签卡角标；0 / 省略表示不显示。 */
+	readonly badge?: number;
+	/**
+	 * 固定上栏：只要本帧返回的 meta 非空且 `pinned` 为 true，标签卡就一直在标签栏里，
+	 * 用户无法用减号移除，也不受「+」可添加池与历史隐藏记录左右。适合「工作空间里有
+	 * 这个东西就必须看得到」的面板（如项目根存在 `.git` 的 Git 面板）。
+	 *
+	 * 省略 = 按用户的上栏记录 / `initiallyVisible` 决定，用户仍可移除。
+	 */
+	readonly pinned?: boolean;
+}
+
+/** {@link PluginActivityTabContribution.useMeta} 的返回：null = 本帧不进入候选。 */
+export type PluginActivityTabMetaResult = PluginActivityTabMeta | null;
 
 export interface PluginActivityTabContribution {
 	/**
@@ -289,6 +316,17 @@ export interface PluginActivityTabContribution {
 	 * maps to `"pinned"`; `false` maps to `"active-only"`.
 	 */
 	keepAliveWhenAvailable?: boolean;
+	/**
+	 * 按当前工作面决定这一帧的 meta：返回 `null` 表示本帧不进入候选（既不上栏，也不在
+	 * 「+」里），返回 `{ pinned: true }` 表示固定上栏且不可移除。
+	 *
+	 * 这是一个 **React hook**：宿主每次解析标签栏时按「已注册定义」各调用一次，所以可以在
+	 * 里面用任意 hook（自己的缓存 store、`useTranslation`……）。约束：
+	 * - 渲染期必须是纯计算，探测一类的异步工作放进 `useEffect`，结果写回自己的 store；
+	 * - 抛错只会让这一项消失（与 `null` 同效），不影响其它标签卡；
+	 * - 省略时行为与本字段出现前一致：静态 label / icon / badge，按用户上栏记录显隐。
+	 */
+	useMeta?: (scope: PluginActivityTabScope) => PluginActivityTabMetaResult;
 }
 
 /**
@@ -792,7 +830,8 @@ export interface PluginUiApi {
 	/**
 	 * Register an activity-panel tab into the addable pool. The user attaches
 	 * it manually via the panel's "+" picker; attach records are keyed by the
-	 * session cwd.
+	 * workspace cwd. A contribution that declares `useMeta` decides its own
+	 * availability per workspace (see {@link PluginActivityTabContribution.useMeta}).
 	 */
 	registerActivityTab(contribution: PluginActivityTabContribution): Disposable;
 	/**

@@ -79,7 +79,7 @@ function RemoveSpaceDialog({ space, onClose }: { space: Space; onClose: () => vo
 				setContents(latest);
 				const working = await runningSpaceConversations(latest);
 				if (working.length > 0) { setRunning(working); return; }
-				for (const session of latest.sessions) await window.vetta.session.delete(session.path, "workspace-removal");
+				for (const session of latest.sessions) await window.vetta.session.delete(session.path);
 				for (const session of latest.teamSessions) await deleteSpaceTeamSession(session);
 				for (const project of latest.projects) await window.vetta.project.remove(project.path);
 			}

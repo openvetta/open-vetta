@@ -152,8 +152,8 @@ export {
 	type DocToPdfToolOptions,
 } from "./tools/doc-to-pdf/index.js";
 export {
-	type AnchorEditInput,
-	AnchorEditInputSchema,
+	type BlockEditInput,
+	BlockEditInputSchema,
 	createEditTool,
 	createEditToolRegistration,
 	EDIT_TOOL_DESCRIPTION,

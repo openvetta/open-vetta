@@ -70,32 +70,3 @@ export function OverlayActionButton({
 	);
 }
 
-export function ActionIconButton({
-	disabled,
-	icon,
-	onClick,
-	title,
-	variant,
-}: {
-	disabled?: boolean;
-	icon: string;
-	onClick: () => void;
-	title: string;
-	variant?: "danger";
-}): JSX.Element {
-	return (
-		<button
-			type="button"
-			disabled={disabled}
-			onClick={onClick}
-			title={title}
-			className={`inline-flex size-7 shrink-0 items-center justify-center rounded-[min(var(--radius-md),12px)] border border-transparent text-sm font-medium transition-all outline-none select-none focus-visible:border-ring disabled:pointer-events-none disabled:opacity-50 ${
-				variant === "danger"
-					? "text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
-					: "text-muted-foreground/60 hover:bg-primary/10 hover:text-primary"
-			}`}
-		>
-			<span className={`${icon} text-[14px]`} />
-		</button>
-	);
-}

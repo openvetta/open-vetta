@@ -4,6 +4,8 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+- 活动面板标签卡新增 `useMeta({ cwd })`：插件按当前面板的工作空间决定这一帧的 label / icon / badge 与显隐，返回 `null` 表示本帧不进入候选，返回 `{ pinned: true }` 表示**固定上栏且不可移除**（忽略上栏记录与 `initiallyVisible`）。此前显隐只能靠 `setActivityTabVisible`，而它需要一份会话上下文：新会话页与项目详情页没有会话，靠 `conversation.on` 判定的面板（如 Git）在这些页面上要么不出现、要么只能按上一个会话残留的记录猜。现在宿主在每个挂载的面板上调用 `useMeta`，并把它当作 hook 使用（渲染期需纯计算，异步探测放 `useEffect`）。省略该字段行为不变。需要 Plugin API `^2.10.0`。
+
 ## [0.3.13] — 2026-11-13
 
 - `ctx.command` 新增 `appIcon(appName)`（macOS）：返回已安装应用的图标（PNG data URL），没装返回 `null`，用于在菜单里展示应用自己的图标并灰掉没装的应用。需要 `agent.command.run`，只在标准应用目录里查找，应用名不能带路径分隔符。旧宿主没有该方法，调用前请判断是否存在。

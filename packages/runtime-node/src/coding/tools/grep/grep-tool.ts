@@ -3,7 +3,6 @@ import { createInterface } from "node:readline";
 import { type Static, Type } from "@sinclair/typebox";
 import type { RuntimeToolDefinition, RuntimeToolResult } from "@vetta/runtime-core/kernel";
 import type { CodingToolExecutableResolver } from "../../host/executable-resolver.js";
-import { anchorLineHash } from "../../shared/anchors.js";
 import {
 	formatNotFoundPath,
 	localToolPathHost,
@@ -101,9 +100,9 @@ const defaultGrepOperations: GrepOperations = {
 /**
  * Recovers a line's exact source text from a ripgrep event.
  *
- * Anchor hashes are computed from this string, so it must be the line as it exists on disk:
- * ripgrep switches from `text` to base64 `bytes` whenever a line is not valid UTF-8, and a
- * line reconstructed any other way would hash to an anchor the `edit` tool cannot resolve.
+ * The reported text must be the line as it exists on disk: ripgrep switches from `text` to base64
+ * `bytes` whenever a line is not valid UTF-8, and a line reconstructed any other way would not match
+ * what an `edit` block quotes back as its `oldText`.
  */
 function decodeEventLine(lines: RipgrepLines | undefined): string | undefined {
 	if (typeof lines?.text === "string") return lines.text.replace(/\r?\n$/, "");
@@ -357,11 +356,10 @@ function formatLines(lines: readonly GrepLine[], input: RunRipgrepInput): string
 		.map((line) => {
 			const relativePath = toRelativePath(line.filePath, input);
 			const { text } = truncateLine(line.text);
-			// The hash must come from the untruncated line so it stays a valid `edit` anchor.
-			const hash = anchorLineHash(line.text);
+			// Match lines are `path:line: content`; context lines swap both separators for `-`.
 			return line.isMatch
-				? `${relativePath}:${line.lineNumber}:${hash}: ${text}`
-				: `${relativePath}-${line.lineNumber}:${hash}- ${text}`;
+				? `${relativePath}:${line.lineNumber}: ${text}`
+				: `${relativePath}-${line.lineNumber}- ${text}`;
 		})
 		.join("\n");
 }

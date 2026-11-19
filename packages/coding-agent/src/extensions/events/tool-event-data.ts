@@ -14,18 +14,17 @@ export interface ReadToolInput extends ToolEventInputBase {
 	limit?: number;
 }
 
-export interface AnchorEditInput {
-	anchor: string;
-	end_anchor?: string;
-	new_text: string;
-	insert_after?: boolean;
+export interface BlockEditInput {
+	oldText: string;
+	oldEndText?: string;
+	newText: string;
 }
 
 export interface EditToolInput extends ToolEventInputBase {
 	path: string;
 	oldText?: string;
 	newText?: string;
-	edits?: AnchorEditInput[];
+	edits?: BlockEditInput[];
 }
 
 export interface WriteToolInput extends ToolEventInputBase {

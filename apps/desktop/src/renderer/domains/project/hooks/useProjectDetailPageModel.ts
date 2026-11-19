@@ -1,4 +1,5 @@
 import { useScheduledTasks } from "@domains/scheduler/hooks/useScheduledTasks";
+import { resolveConversationScenario } from "@shared/lib/conversation-scenario";
 import { isMac } from "@shared/lib/platform";
 import { pathBasename } from "@shared/lib/utils";
 import { useShortcutScope } from "@shared/shortcuts";
@@ -7,6 +8,7 @@ import {
 	automationSessionLinksAtom,
 	batchProjectsAtom,
 	confirmDialogAtom,
+	defaultConversationCwdAtom,
 	pageHeaderTitleHiddenAtom,
 	pinnedSessionPathsAtom,
 	projectsAtom,
@@ -20,6 +22,7 @@ import {
 	sessionsMapAtom,
 } from "@shared/store/atoms";
 import { useNavigate, useParams } from "@tanstack/react-router";
+import type { ConversationScenario } from "@vetta-org/plugin-sdk";
 import type { ProjectDetailPageViewProps } from "@vetta-org/theme-ui/project";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -142,6 +145,8 @@ export interface ProjectDetailPageModel extends Omit<ProjectDetailPageViewProps,
 	decodedCwd: string;
 	isBatch: boolean;
 	projectType: "normal" | "batch" | undefined;
+	/** 活动面板的对话场景：由项目自身推导，不继承上一个会话残留的全局场景。 */
+	activityPanelScenario: ConversationScenario;
 }
 
 export function useProjectDetailPageModel(
@@ -192,6 +197,19 @@ export function useProjectDetailPageModel(
 	const isBatch = !!batchProject;
 	const projectTypeKey = getProjectTypeKey(project);
 	const projectTypeLabel = projectTypeKey ? t(projectTypeKey) : null;
+	// 项目详情页没有自己的会话，全局 currentScenarioAtom 可能是 null（插件 tab 全部被
+	// fail-closed 过滤）或上一个会话残留的场景；按项目本身推导才稳定。
+	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
+	const activityPanelScenario = useMemo(
+		() =>
+			resolveConversationScenario({
+				cwd: decodedCwd,
+				defaultConversationCwd,
+				batch: isBatch,
+				projectType: project?.type,
+			}),
+		[decodedCwd, defaultConversationCwd, isBatch, project?.type],
+	);
 	const exportable = project?.type === "normal" || project?.type === "batch" || isBatch;
 	const recentSessions: ProjectDetailPageViewProps["recentSessions"] = useMemo(
 		() =>
@@ -335,6 +353,7 @@ export function useProjectDetailPageModel(
 			startEditing: t("detail.startEditing"),
 		},
 		loading,
+		activityPanelScenario,
 		projectType: project?.type,
 		projectTypeLabel,
 		saveStatus,

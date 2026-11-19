@@ -1,12 +1,16 @@
 import { TEAM_CONFIGURATION_CHANGED_EVENT, TEAM_SESSIONS_CHANGED_EVENT } from "@shared/agent-teams/team-session-events";
+import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DesktopTeamSidebarConversation } from "../../../../shared/sidebar-conversation";
+import { teamSidebarConversationsAtom } from "../store/team-conversations-atom";
 
 export function useTeamSidebarConversations(projectPaths: readonly string[]): {
 	readonly conversations: readonly DesktopTeamSidebarConversation[];
 	readonly loading: boolean;
 } {
 	const [conversations, setConversations] = useState<readonly DesktopTeamSidebarConversation[]>([]);
+	// 同一份快照也写给工作空间状态汇总，避免它为团队会话另拉一次列表。
+	const publishConversations = useSetAtom(teamSidebarConversationsAtom);
 	const [loading, setLoading] = useState(true);
 	const requestRevisionRef = useRef(0);
 	const projectPathsKey = [...projectPaths].sort().join("\u0000");
@@ -19,13 +23,15 @@ export function useTeamSidebarConversations(projectPaths: readonly string[]): {
 		void window.vetta.agentTeams
 			.listSidebarConversations()
 			.then((next) => {
-				if (requestRevisionRef.current === requestRevision) setConversations(next);
+				if (requestRevisionRef.current !== requestRevision) return;
+				setConversations(next);
+				publishConversations(next);
 			})
 			.catch(() => undefined)
 			.finally(() => {
 				if (requestRevisionRef.current === requestRevision) setLoading(false);
 			});
-	}, [projectPathsKey]);
+	}, [projectPathsKey, publishConversations]);
 
 	useEffect(() => {
 		load();

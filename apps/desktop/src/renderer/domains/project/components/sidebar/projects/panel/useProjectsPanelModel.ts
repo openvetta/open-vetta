@@ -427,7 +427,7 @@ export function useProjectsPanelModel({
 					if (spaceId === MAIN_SPACE && Object.keys(current.conversations).length === 0) {
 						await window.vetta.session.clearDefaultConversation("conversation");
 					} else {
-						for (const session of paths) await window.vetta.session.delete(session.path, "clear-history");
+						for (const session of paths) await window.vetta.session.delete(session.path);
 					}
 					const removedPaths = new Set(paths.map((session) => session.path));
 					removePinnedSessions(removedPaths);

@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -8,7 +8,6 @@ import {
 	GREP_TOOL_DESCRIPTION,
 	GrepToolInputSchema,
 } from "../../../src/coding/index.js";
-import { anchorLineHash } from "../../../src/coding/shared/anchors.js";
 
 describe("runtime grep tool", () => {
 	const temporaryDirectories: string[] = [];
@@ -104,14 +103,14 @@ describe("runtime grep tool", () => {
 			{
 				type: "text",
 				text: expect.stringMatching(
-					/^context\.txt-1:[0-9a-z]{4}- before\ncontext\.txt:2:[0-9a-z]{4}: match one\ncontext\.txt-3:[0-9a-z]{4}- after\n\n\[1 matches limit reached\. Use limit=2 for more, or refine pattern\]$/,
+					/^context\.txt-1- before\ncontext\.txt:2: match one\ncontext\.txt-3- after\n\n\[1 matches limit reached\. Use limit=2 for more, or refine pattern\]$/,
 				),
 			},
 		]);
 		expect(runtimeResult.details).toMatchObject({ matchLimitReached: 1 });
 	});
 
-	it("anchors a non-UTF-8 line to the same hash the read tool would produce", async () => {
+	it("keeps the line number of a non-UTF-8 line usable for a block edit", async () => {
 		const directory = mkdtempSync(join(tmpdir(), "runtime-tools-grep-bytes-"));
 		temporaryDirectories.push(directory);
 		const filePath = join(directory, "binary.txt");
@@ -128,12 +127,11 @@ describe("runtime grep tool", () => {
 		});
 
 		const text = (runtimeResult.content[0] as { text: string }).text;
-		const anchor = /^binary\.txt:1:([0-9a-z]{4}):/.exec(text)?.[1];
-		expect(anchor).toBeDefined();
-		// The `edit` tool resolves an anchor by hashing the file's own line, so the hash grep
-		// hands out must equal the hash of that exact on-disk line.
-		const onDiskLine = readFileSync(filePath, "utf8").split("\n")[0];
-		expect(anchor).toBe(anchorLineHash(onDiskLine));
+		// The output carries `path:line: content`; the content survives the base64 `bytes` fallback
+		// ripgrep uses for non-UTF-8 lines, which is what an edit quotes back as oldText.
+		const match = /^binary\.txt:(\d+): (.*)$/.exec(text);
+		expect(match?.[1]).toBe("1");
+		expect(match?.[2]).toContain("marker");
 	});
 
 	it("returns only file paths when filesOnly is set", async () => {
