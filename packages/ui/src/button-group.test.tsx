@@ -72,6 +72,12 @@ describe("ButtonGroup", () => {
 			</>,
 		);
 		const groups = document.querySelectorAll("[data-slot=button-group]");
+		const rim = groups[0]?.className ?? "";
+		expect(rim).toContain("shadow-none");
+		expect(rim).not.toContain("inset_0_1px_0_rgb(255_255_255/0.85)");
+		expect(rim).toContain("dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.22)");
+		expect(rim).toContain("0_8px_32px_rgb(0_0_0/0.18)");
+		expect(rim).not.toContain("ring-foreground/10");
 		expect(groups[0]?.className).toContain("rounded-full");
 		expect(groups[1]?.className).toContain("rounded-xl");
 		expect(groups[1]?.querySelector("button")?.className).toContain("rounded-[10px]");
