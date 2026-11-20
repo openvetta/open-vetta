@@ -1,6 +1,7 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { isMac } from "../git/platform";
 import type { ChangeSection } from "../git/types";
 
 /** Viewport coordinates of the right-click, for views that position their own menu. */
@@ -95,7 +96,11 @@ export function ChangeMenuItems({
 			<Separator />
 			<MenuItem label={t("menu.copyRelativePath")} onSelect={run(() => handlers.onCopyPath(target, false))} />
 			<MenuItem label={t("menu.copyPath")} onSelect={run(() => handlers.onCopyPath(target, true))} />
-			<MenuItem label={t("menu.revealInFolder")} onSelect={run(() => handlers.onRevealInFolder(target))} />
+			{/* macOS 上那个「文件管理器」叫访达：同一件事，按平台叫它用户熟悉的名字。 */}
+			<MenuItem
+				label={t(isMac() ? "menu.revealInFinder" : "menu.revealInFolder")}
+				onSelect={run(() => handlers.onRevealInFolder(target))}
+			/>
 
 			{target.section === "unstaged" && (
 				<>

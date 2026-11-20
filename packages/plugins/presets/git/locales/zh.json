@@ -47,6 +47,7 @@
 	"menu.copyPath": "复制路径",
 	"menu.copyRelativePath": "复制相对路径",
 	"menu.revealInFolder": "在文件管理器中显示",
+	"menu.revealInFinder": "在访达中显示",
 	"discard.title": "丢弃 {{count}} 个文件的更改？",
 	"discard.description": "这些改动会从工作区移除，无法撤销；未跟踪的文件会被直接删除。",
 	"discard.more": "等 {{count}} 个",

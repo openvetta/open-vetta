@@ -47,6 +47,7 @@
 	"menu.copyPath": "Copy path",
 	"menu.copyRelativePath": "Copy relative path",
 	"menu.revealInFolder": "Reveal in file manager",
+	"menu.revealInFinder": "Reveal in Finder",
 	"discard.title": "Discard changes to {{count}} file(s)?",
 	"discard.description": "The changes are removed from the working tree. This cannot be undone, and untracked files are deleted.",
 	"discard.more": "and {{count}} more",
