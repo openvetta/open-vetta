@@ -201,6 +201,44 @@ describe("ElectronUpdaterEngine", () => {
 		expect(result?.hasUpdate && result.info.releaseNote).toBe("## 新增\n\n- 功能 A");
 	});
 
+	it("双语说明只保留界面语言那一段", async () => {
+		const updateInfo = {
+			version: "1.2.3",
+			files: [],
+			path: "x",
+			sha512: "x",
+			releaseDate: new Date().toISOString(),
+			releaseNotes: [
+				"<h1>Vetta 1.2.3</h1>",
+				"<h2>English</h2><h3>New</h3><ul><li>A keycap component.</li></ul>",
+				"<h2>中文</h2><h3>新增</h3><ul><li>新的键帽组件。</li></ul>",
+			].join(""),
+		} as unknown as UpdateInfo;
+		const updater = {
+			on: vi.fn(),
+			off: vi.fn(),
+			checkForUpdates: vi.fn().mockResolvedValue({ isUpdateAvailable: true, updateInfo }),
+		} as unknown as AppUpdater;
+
+		const zh = await new ElectronUpdaterEngine(
+			updater,
+			undefined,
+			undefined,
+			undefined,
+			() => "zh",
+		).checkForUpdates();
+		expect(zh?.hasUpdate && zh.info.releaseNote).toBe("### 新增\n\n- 新的键帽组件。");
+
+		const en = await new ElectronUpdaterEngine(
+			updater,
+			undefined,
+			undefined,
+			undefined,
+			() => "en",
+		).checkForUpdates();
+		expect(en?.hasUpdate && en.info.releaseNote).toBe("### New\n\n- A keycap component.");
+	});
+
 	it("passes provider-resolved asset URLs to the Inno updater", async () => {
 		const updateInfo: UpdateInfo = {
 			version: "1.2.3",

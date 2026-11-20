@@ -7,7 +7,7 @@ import { getVettaHomePath } from "@vetta/action-rpc";
 import { app, autoUpdater as nativeAutoUpdater, powerMonitor } from "electron";
 import electronUpdater from "electron-updater";
 
-import { mainT } from "./i18n/index.js";
+import { getAppLanguage, mainT } from "./i18n/index.js";
 import {
 	InnoWindowsUpdateController,
 	isVersionedWindowsExecutable,
@@ -114,10 +114,16 @@ const finalizeQuit = async () => {
 	}
 	app.exit(0);
 };
-const updaterEngine = new ElectronUpdaterEngine(autoUpdater, innoWindowsUpdate, nativeMacUpdateEvents, {
-	prepare: prepareQuit,
-	finalize: finalizeQuit,
-});
+const updaterEngine = new ElectronUpdaterEngine(
+	autoUpdater,
+	innoWindowsUpdate,
+	nativeMacUpdateEvents,
+	{
+		prepare: prepareQuit,
+		finalize: finalizeQuit,
+	},
+	getAppLanguage,
+);
 // powerMonitor 只能在 app ready 之后订阅，因此这里只传订阅函数，
 // 由 UpdaterService.onAppReady() 在合适的时机调用。
 const systemEvents = {

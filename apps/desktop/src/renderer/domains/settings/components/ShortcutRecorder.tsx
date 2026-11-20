@@ -1,5 +1,5 @@
 import { ShortcutRecorderView } from "@vetta-org/theme-ui/settings/ShortcutRecorderView";
-import { eventToShortcut, formatShortcut } from "@shared/lib/platform";
+import { eventToShortcut } from "@shared/lib/platform";
 
 export function ShortcutRecorder({
 	value,
@@ -25,7 +25,6 @@ export function ShortcutRecorder({
 			placeholder={placeholder}
 			resetLabel={resetLabel}
 			eventToShortcut={eventToShortcut}
-			formatShortcut={formatShortcut}
 		/>
 	);
 }

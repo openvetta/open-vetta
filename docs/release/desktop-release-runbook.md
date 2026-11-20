@@ -139,7 +139,7 @@ APPLE_TEAM_ID
 ### 推荐：推送版本 tag
 
 1. 更新 `apps/desktop/package.json` 版本。
-2. 完成对应版本的发布说明 `.github/release-notes/v<version>.md`，它会作为 GitHub Release 的正文；缺失时 quality job 直接失败（`node scripts/release/release-notes.mjs --check`）。
+2. 完成对应版本的双语发布说明 `.github/release-notes/v<version>.md`，它会作为 GitHub Release 的正文；缺失或未定稿时 quality job 直接失败（`node scripts/release/release-notes.mjs --check`）。定稿在发版当天一次完成，规则见 `.github/release-notes/README.md`，素材用 `node scripts/release/collect-release-commits.mjs` 收集。
 3. 确认 `desktop-production` 的 server、更新源、R2、签名和可选遥测配置完整。
 4. 合并目标 commit。
 5. 创建并推送完全匹配的 tag：

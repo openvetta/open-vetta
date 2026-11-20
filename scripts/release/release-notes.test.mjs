@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
+	checkReleaseNotes,
 	desktopVersion,
 	markReleased,
 	parseReleaseStatus,
@@ -58,6 +59,44 @@ describe("release notes addressing", () => {
 
 	it("ships release notes for the version this repository is about to release", () => {
 		expect(requireReleaseNotes(desktopVersion())).toMatch(/^\.github\/release-notes\/v\d+\.\d+\.\d+\.md$/);
+	});
+});
+
+describe("release notes finalisation gate", () => {
+	const READY = [
+		"# Vetta 0.5.70",
+		"<!-- release-status: unreleased -->",
+		"",
+		"## English",
+		"",
+		"### New",
+		"",
+		"- A keycap component.",
+		"",
+		"## 中文",
+		"",
+		"### 新增",
+		"",
+		"- 新的键帽组件。",
+		"",
+		"**Full Changelog**: https://github.com/openvetta/open-vetta/compare/v0.5.69...v0.5.70",
+		"",
+	].join("\n");
+
+	it("accepts a bilingual note that has been finalised", () => {
+		expect(checkReleaseNotes("0.5.70", fixtureRoot("0.5.70", ["0.5.70"], () => READY))).toBe(".github/release-notes/v0.5.70.md");
+	});
+
+	// 定稿门禁就是流水线 quality 阶段跑的同一个函数：这里失败，发版会拦在签名之前。
+	it("explains what is still missing in a single-language note", () => {
+		const root = fixtureRoot("0.5.70", ["0.5.70"], () => "# Vetta 0.5.70\n<!-- release-status: unreleased -->\n\n## 新增\n\n- 一条\n");
+		expect(() => checkReleaseNotes("0.5.70", root)).toThrow(/发布说明还没定稿/);
+		expect(() => checkReleaseNotes("0.5.70", root)).toThrow(/## English/);
+	});
+
+	it("still refuses a released note", () => {
+		const root = fixtureRoot("0.5.70", ["0.5.70"], () => READY.replace("unreleased", "released 2026-11-02"));
+		expect(() => checkReleaseNotes("0.5.70", root)).toThrow(/已于 2026-11-02 发布/);
 	});
 });
 

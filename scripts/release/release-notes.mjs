@@ -3,14 +3,15 @@
 /**
  * 发布说明的唯一寻址入口：版本号 → `.github/release-notes/v<version>.md`。
  *
- * 发布流水线拿它做两件事：质量阶段校验文件存在（缺了就早早失败，而不是等到
- * 签名、公证、四个平台都跑完才发现没有 Release 正文），发布阶段解析出路径喂给
+ * 发布流水线拿它做两件事：质量阶段校验文件存在且已按双语格式定稿（缺了就早早失败，
+ * 而不是等到签名、公证、四个平台都跑完才发现没有正文可发），发布阶段解析出路径喂给
  * `gh release create --notes-file`。
  */
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateReleaseNotes } from "./release-notes-format.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const RELEASE_NOTES_DIR = ".github/release-notes";
@@ -83,6 +84,25 @@ export function requireUnreleasedNotes(version, root = repositoryRoot) {
 	);
 }
 
+/**
+ * 发版前的定稿门禁：文件存在、标明未发布，且通过双语格式校验。
+ * 只查「写没写对」，不查「写得好不好」——后者由发版时的人确认。
+ */
+export function checkReleaseNotes(version, root = repositoryRoot) {
+	const path = requireUnreleasedNotes(version, root);
+	const { problems } = validateReleaseNotes(readFileSync(join(root, path), "utf8"), { version });
+	if (problems.length > 0) {
+		throw new Error(
+			[
+				`发布说明还没定稿：${path}`,
+				...problems.map((problem) => `- ${problem}`),
+				`写法见 ${RELEASE_NOTES_DIR}/README.md。`,
+			].join("\n"),
+		);
+	}
+	return path;
+}
+
 /** 发版完成后把状态标记改成已发布。只接受明确标着 unreleased 的文件。 */
 export function markReleased(version, date, root = repositoryRoot) {
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error(`Invalid release date: ${date}`);
@@ -115,10 +135,10 @@ function main(argv) {
 		console.log(`v${version}: ${status.state}${status.date ? ` ${status.date}` : ""}`);
 		return;
 	}
-	// --check 只做校验（存在且未发布）；默认打印路径，方便 shell 里直接代入 --notes-file。
+	// --check 是发布流水线与定稿步骤共用的闸：存在、未发布、双语格式合规。
 	if (argv.includes("--check")) {
-		const path = requireUnreleasedNotes(version);
-		console.log(`Release notes found for v${version}: ${path}`);
+		const path = checkReleaseNotes(version);
+		console.log(`Release notes ready for v${version}: ${path}`);
 		return;
 	}
 	console.log(requireReleaseNotes(version));

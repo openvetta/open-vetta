@@ -1295,6 +1295,12 @@
   "chatAppearanceBackground": "聊天背景",
   "userBubbleShape": "气泡外观",
   "userBubbleColor": "气泡颜色",
+  "userBubbleColorCustom": "自定义",
+  "userBubbleColorValueInput": "颜色值",
+  "userBubbleColorInvalid": "无法识别的颜色",
+  "userBubbleColorHue": "色相",
+  "userBubbleColorArea": "饱和度与明度",
+  "userBubbleColorEyedropper": "从屏幕取色",
   "userBubbleWeight": "消息字重",
   "userBubbleWeights": {
     "default": "默认",

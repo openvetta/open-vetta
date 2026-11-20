@@ -16,13 +16,13 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { releaseNoteTemplate } from "./release-notes-format.mjs";
 import {
 	desktopVersion,
 	parseReleaseStatus,
 	releaseNotesPath,
 	requireReleaseNotes,
 	requireUnreleasedNotes,
-	unreleasedMarker,
 } from "./release-notes.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -114,11 +114,13 @@ export function startNext({ root = repositoryRoot, spec = "patch", latestRelease
 		throw new Error(`v${current} 还没发布，不能开下一个版本。要改这一版的版本号用 --retarget。`);
 	}
 	const version = nextVersion(current, spec);
-	const bump = assertNewerThanReleased(version, latestReleased ?? current, allowIrregular);
+	const previousVersion = latestReleased ?? current;
+	const bump = assertNewerThanReleased(version, previousVersion, allowIrregular);
 	const notesPath = releaseNotesPath(version);
 	if (existsSync(join(root, notesPath))) throw new Error(`${notesPath} 已存在`);
 	writeVersion(root, version);
-	writeFileSync(join(root, notesPath), `# Vetta ${version}\n${unreleasedMarker()}\n`);
+	// 骨架只给结构和 Full Changelog：条目留到发版日一次成稿，定稿门禁会拦住直接发版。
+	writeFileSync(join(root, notesPath), releaseNoteTemplate({ version, previousVersion }));
 	return { from: current, version, bump, notesPath };
 }
 
@@ -130,7 +132,9 @@ export function retarget({ root = repositoryRoot, version, latestReleased, allow
 	const bump = assertNewerThanReleased(version, latestReleased, allowIrregular);
 	const toPath = releaseNotesPath(version);
 	if (existsSync(join(root, toPath))) throw new Error(`${toPath} 已存在`);
-	const text = readFileSync(join(root, fromPath), "utf8").replace(/^# Vetta .+$/m, `# Vetta ${version}`);
+	const text = readFileSync(join(root, fromPath), "utf8")
+		.replace(/^# Vetta .+$/m, `# Vetta ${version}`)
+		.replace(/^(\*\*Full Changelog\*\*: \S*\.\.\.)v\d+\.\d+\.\d+\s*$/m, `$1v${version}`);
 	writeFileSync(join(root, fromPath), text);
 	renameSync(join(root, fromPath), join(root, toPath));
 	writeVersion(root, version);
