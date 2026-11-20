@@ -4,6 +4,8 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+- 文档：手册补三个宿主组件——`Stepper`（数字步进器，`@vetta-org/ui`）、`ColorSwatchPicker` / `ColorPickerPanel`（色点选择器与取色面板，支持吸屏取色与 hex / `rgb()` / `hsl()` 输入，`@vetta-org/ui`）与 `VettaKbd`（快捷键键帽，`@vetta-org/theme-ui/plugin-ui`），并写明 `SettingHeading` 必须传 `section`（只传 `title` 会在渲染期抛错）。组件随宿主发布，需要 Desktop 0.6.13+；插件工程要把 `@vetta-org/ui` 升到 `0.1.1`、`@vetta-org/theme-ui` 升到 `0.1.2` 才拿得到新类型。SDK 自身接口与清单字段没有变化，`pluginApiVersion` 不变。
+
 - 活动面板标签卡新增 `useMeta({ cwd })`：插件按当前面板的工作空间决定这一帧的 label / icon / badge 与显隐，返回 `null` 表示本帧不进入候选，返回 `{ pinned: true }` 表示**固定上栏且不可移除**（忽略上栏记录与 `initiallyVisible`）。此前显隐只能靠 `setActivityTabVisible`，而它需要一份会话上下文：新会话页与项目详情页没有会话，靠 `conversation.on` 判定的面板（如 Git）在这些页面上要么不出现、要么只能按上一个会话残留的记录猜。现在宿主在每个挂载的面板上调用 `useMeta`，并把它当作 hook 使用（渲染期需纯计算，异步探测放 `useEffect`）。省略该字段行为不变。需要 Plugin API `^2.10.0`。
 
 ## [0.3.13] — 2026-11-13
