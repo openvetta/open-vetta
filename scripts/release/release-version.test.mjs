@@ -89,8 +89,24 @@ describe("start the next version", () => {
 		expect(result).toMatchObject({ from: "0.5.69", version: "0.5.70", bump: "patch" });
 		expect(JSON.parse(read(root, "apps/desktop/package.json")).version).toBe("0.5.70");
 		expect(lockfileDesktopVersion(read(root, "bun.lock"))).toBe("0.5.70");
-		expect(read(root, ".github/release-notes/v0.5.70.md")).toBe("# Vetta 0.5.70\n<!-- release-status: unreleased -->\n");
+		// 骨架给结构和 Full Changelog，条目留到发版日写；空骨架过不了定稿门禁。
+		const notes = read(root, ".github/release-notes/v0.5.70.md");
+		expect(notes).toMatch(/^# Vetta 0\.5\.70\n<!-- release-status: unreleased -->/);
+		expect(notes).toContain("## English");
+		expect(notes).toContain("## 中文");
+		expect(notes).toContain("compare/v0.5.69...v0.5.70");
 		expect(read(root, ".github/release-notes/v0.5.69.md")).toBe(released("0.5.69"));
+	});
+
+	it("updates the Full Changelog footer when the version changes", () => {
+		const root = repo(
+			"0.5.70",
+			`# Vetta 0.5.70\n<!-- release-status: unreleased -->\n\n## English\n\n### New\n\n- A thing.\n\n## 中文\n\n### 新增\n\n- 一件事。\n\n**Full Changelog**: https://github.com/openvetta/open-vetta/compare/v0.5.69...v0.5.70\n`,
+		);
+		retarget({ root, version: "0.6.0", latestReleased: "0.5.69" });
+		const notes = read(root, ".github/release-notes/v0.6.0.md");
+		expect(notes).toContain("compare/v0.5.69...v0.6.0");
+		expect(notes).toContain("- 一件事。");
 	});
 
 	it("opens a minor version when asked", () => {
