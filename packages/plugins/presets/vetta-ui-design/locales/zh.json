@@ -375,5 +375,6 @@
 	"interaction.device.follow": "跟随设计稿",
 	"interaction.deviceMenu": "设备与机型",
 	"interaction.switchDevice": "切换设备",
-	"interaction.openExternal.short": "浏览器打开"
+	"interaction.openExternal.short": "浏览器打开",
+	"header.openCanvas": "打开画布"
 }

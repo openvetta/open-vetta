@@ -28,7 +28,7 @@ import { DIRECTION_FILE } from "./direction/record";
 import { readDirectionTells } from "./direction/direction-file";
 import { registerHistoryTools } from "./history/history-tools";
 import { registerExportTool } from "./materials/export-tool";
-import { setDesignPresence } from "./vetd/design-presence";
+import { addDesignPath, setDesignPresence } from "./vetd/design-presence";
 import { ensureDesignIgnored } from "./vetd/design-ignore";
 import { ENGINE_PROVIDED_PACKAGES } from "./engine/engine-files";
 import { engineDiagnostics, installDesignDependencies } from "./engine/engine-manager";
@@ -269,6 +269,8 @@ export function registerDesignTools(ctx: PluginContext): void {
 			// 工具 handler 的 effect 会在当前 Turn 后续模型调用上重放，因此创建成功后
 			// 还要显式覆盖本轮开头写入的 disable，避免 agent 只剩 vetd_create 可用。
 			setDesignPresence(session.cwd, true);
+			// 顶栏「打开画布」的列表跟着长一份，不必等下一次会话切换才看得见新设计。
+			addDesignPath(session.cwd, result.vetdPath);
 			for (const toolName of DESIGN_ONLY_TOOLS) actions.tools.enable(toolName);
 			setPendingDesignPath(result.vetdPath, session.cwd);
 			console.debug(

@@ -375,5 +375,6 @@
 	"interaction.device.follow": "Match design",
 	"interaction.deviceMenu": "Device & model",
 	"interaction.switchDevice": "Switch device",
-	"interaction.openExternal.short": "Browser"
+	"interaction.openExternal.short": "Browser",
+	"header.openCanvas": "Open canvas"
 }
