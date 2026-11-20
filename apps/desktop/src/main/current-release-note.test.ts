@@ -6,6 +6,26 @@ import { readCurrentReleaseNote, stripReleaseNoteHeader } from "./current-releas
 
 const SAMPLE = "# Vetta 1.2.3\n<!-- release-status: unreleased -->\n\n## 新增\n\n- 新功能 A\n";
 
+const BILINGUAL = [
+	"# Vetta 1.2.3",
+	"<!-- release-status: unreleased -->",
+	"",
+	"## English",
+	"",
+	"### New",
+	"",
+	"- Feature A.",
+	"",
+	"## 中文",
+	"",
+	"### 新增",
+	"",
+	"- 新功能 A。",
+	"",
+	"**Full Changelog**: https://github.com/openvetta/open-vetta/compare/v1.2.2...v1.2.3",
+	"",
+].join("\n");
+
 describe("stripReleaseNoteHeader", () => {
 	it("去掉标题与发布状态标记，只留正文", () => {
 		expect(stripReleaseNoteHeader(SAMPLE)).toBe("## 新增\n\n- 新功能 A");
@@ -37,7 +57,13 @@ describe("readCurrentReleaseNote", () => {
 		mkdirSync(join(resources, "release-notes"));
 		writeFileSync(join(resources, "release-notes", "v1.2.3.md"), SAMPLE);
 		expect(
-			readCurrentReleaseNote({ version: "1.2.3", isPackaged: true, resourcesPath: resources, cwd: "/nope" }),
+			readCurrentReleaseNote({
+				version: "1.2.3",
+				isPackaged: true,
+				resourcesPath: resources,
+				cwd: "/nope",
+				language: "zh",
+			}),
 		).toBe("## 新增\n\n- 新功能 A");
 	});
 
@@ -52,15 +78,25 @@ describe("readCurrentReleaseNote", () => {
 				isPackaged: false,
 				resourcesPath: "/nope",
 				cwd: join(repo, "apps", "desktop"),
+				language: "zh",
 			}),
 		).toBe("## 新增\n\n- 新功能 A");
+	});
+
+	it("双语说明按界面语言只返回一段，Full Changelog 不进正文", () => {
+		const resources = makeRoot();
+		mkdirSync(join(resources, "release-notes"));
+		writeFileSync(join(resources, "release-notes", "v1.2.3.md"), BILINGUAL);
+		const base = { version: "1.2.3", isPackaged: true, resourcesPath: resources, cwd: "/nope" };
+		expect(readCurrentReleaseNote({ ...base, language: "zh" })).toBe("### 新增\n\n- 新功能 A。");
+		expect(readCurrentReleaseNote({ ...base, language: "en" })).toBe("### New\n\n- Feature A.");
 	});
 
 	it("文件不存在或正文为空时返回 undefined", () => {
 		const resources = makeRoot();
 		mkdirSync(join(resources, "release-notes"));
 		writeFileSync(join(resources, "release-notes", "v1.0.0.md"), "# Vetta 1.0.0\n");
-		const base = { isPackaged: true, resourcesPath: resources, cwd: "/nope" };
+		const base = { isPackaged: true, resourcesPath: resources, cwd: "/nope", language: "zh" as const };
 		expect(readCurrentReleaseNote({ ...base, version: "9.9.9" })).toBeUndefined();
 		expect(readCurrentReleaseNote({ ...base, version: "1.0.0" })).toBeUndefined();
 	});

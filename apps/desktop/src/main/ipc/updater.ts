@@ -1,5 +1,6 @@
 import { app, ipcMain } from "electron";
 import { readCurrentReleaseNote } from "../current-release-note.js";
+import { getAppLanguage } from "../i18n/index.js";
 import { getAppVersion, updaterService } from "../updater.js";
 
 export function registerUpdaterIpc(): () => void {
@@ -26,6 +27,7 @@ export function registerUpdaterIpc(): () => void {
 				isPackaged: app.isPackaged,
 				resourcesPath: process.resourcesPath,
 				cwd: process.cwd(),
+				language: getAppLanguage(),
 			}) ?? null
 		);
 	});
