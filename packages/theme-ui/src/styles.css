@@ -5,6 +5,8 @@
 @import "./file-preview/syntax-tokens.css";
 /* Command Menu 的一次性装饰动效（组件侧也会 side-effect import）。 */
 @import "./overlays/command-menu.css";
+/* 会话消息流的上下渐隐：两层 mask 把滚动条槽位排除在渐隐之外。 */
+@import "./chat/message-feed-fade.css";
 
 @keyframes pulse {
 	0%,
