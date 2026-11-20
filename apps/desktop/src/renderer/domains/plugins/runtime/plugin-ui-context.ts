@@ -32,6 +32,7 @@ import type {
 	PluginFilePreviewContribution,
 	PluginGlobalSlotContribution,
 	PluginHeaderActionContribution,
+	PluginHeaderActionSurface,
 	PluginImageRef,
 	PluginInputActionContribution,
 	PluginNavBadge,
@@ -49,6 +50,10 @@ import type {
 import { getDefaultStore } from "jotai";
 import QRCode from "qrcode";
 import type { ComponentType } from "react";
+
+/** 顶栏动作能声明的页面；其余页面即使声明了也不会渲染。 */
+const HEADER_ACTION_SURFACES = new Set<PluginHeaderActionSurface>(["conversation", "new-session"]);
+
 import { explicitTabVisibility, withPluginTabVisibility } from "./attached-tabs";
 import type { PluginAgentApiRegistration } from "./plugin-agent-context";
 import { copyTextToClipboard, formatPluginErrorDetail, resolvePluginDisplayText } from "./plugin-host-apis";
@@ -82,6 +87,11 @@ export interface CreatePluginUiApiOptions {
 	disposers: Array<() => void>;
 	agentContributions: PluginAgentApiRegistration;
 	capabilitySessionId: string;
+	/**
+	 * 插件的 `activate` 是否还没返回。activate 里的调用会随每次启动/热更新重放，
+	 * 宿主据此区分「重放」与「用户或工具此刻要打开」。缺省视为已激活完毕。
+	 */
+	isActivating?: () => boolean;
 }
 
 /**
@@ -140,6 +150,28 @@ function setPluginActivityTabVisible(
 }
 
 /**
+ * `openActivityTab` 的 width 什么时候算数。
+ *
+ * - 首次 attach：总是算数，这是标签卡第一次露面。
+ * - 面板本来关着、这次由用户操作或工具调用翻开：算数——此刻正是在决定面板以多宽
+ *   出现；不认的话插件只能等内容挂载后再补一次宽度，面板滑完又被拉宽一截。
+ * - activate 里的调用：会随每次启动/热更新重放，不能把用户手动拖出的宽度冲回去。
+ * - 面板已经开着、标签卡也在：只是切过来，保持用户当前宽度。
+ */
+export function shouldApplyOpenWidth({
+	alreadyAttached,
+	panelWasOpen,
+	activating,
+}: {
+	alreadyAttached: boolean;
+	panelWasOpen: boolean;
+	activating: boolean;
+}): boolean {
+	if (!alreadyAttached) return true;
+	return !panelWasOpen && !activating;
+}
+
+/**
  * Attach + activate a plugin's own activity tab and open the panel, driven
  * directly off the jotai store so it works regardless of whether the activity
  * panel component is currently mounted/expanded. Keyed by the workspace that owns
@@ -151,7 +183,8 @@ function openPluginActivityTab(
 	pluginVersion: string,
 	capabilitySessionId: string,
 	tabId: string,
-	options?: PluginOpenActivityTabOptions,
+	options: PluginOpenActivityTabOptions | undefined,
+	activating: boolean,
 ): void {
 	const store = getDefaultStore();
 	const scopeKey = resolveActivityTabScopeKey(options?.cwd);
@@ -174,10 +207,13 @@ function openPluginActivityTab(
 	const activeBefore = active.get(scopeKey) ?? null;
 	active.set(scopeKey, `plugin:${key}` as ActivityTabKey);
 	store.set(activityPanelTabByProjectAtom, active);
+	const panelWasOpen = store.get(activityPanelOpenAtom);
+	// width 必须和 open 写在同一次同步调用里：面板宽度是瞬间到位、靠 transform 滑出的，
+	// 晚一拍再改宽度就是滑完之后再猛地一拉。
+	if (options?.width != null && shouldApplyOpenWidth({ alreadyAttached, panelWasOpen, activating })) {
+		store.set(setActivityPanelWidthAtom, options.width);
+	}
 	store.set(activityPanelOpenAtom, true);
-	// width 只在首次 attach 时生效：插件 activate 里的 openActivityTab 会随
-	// reload/热更新重放，不能每次都把用户手动拖出的面板宽度覆盖回初始值。
-	if (options?.width != null && !alreadyAttached) store.set(setActivityPanelWidthAtom, options.width);
 	console.debug(
 		`[activity-tab-debug] open ${JSON.stringify({
 			pluginId,
@@ -243,6 +279,7 @@ export function createPluginUiApi({
 	disposers,
 	agentContributions,
 	capabilitySessionId,
+	isActivating = () => false,
 }: CreatePluginUiApiOptions): PluginContext["ui"] {
 	const {
 		slots,
@@ -499,9 +536,22 @@ export function createPluginUiApi({
 		if (contribution.order !== undefined && !Number.isFinite(contribution.order)) {
 			throw new Error("Header action order must be a finite number");
 		}
+		if (contribution.surfaces !== undefined) {
+			if (
+				!Array.isArray(contribution.surfaces) ||
+				contribution.surfaces.some((surface) => !HEADER_ACTION_SURFACES.has(surface))
+			) {
+				throw new Error(`Header action surfaces must be an array of ${[...HEADER_ACTION_SURFACES].join(" | ")}`);
+			}
+		}
+		if (contribution.pin !== undefined && contribution.pin !== "normal" && contribution.pin !== "prefer") {
+			throw new Error('Header action pin must be "normal" or "prefer"');
+		}
 		const normalized: PluginHeaderActionContribution = {
 			id: contribution.id,
 			order: contribution.order,
+			...(contribution.surfaces ? { surfaces: [...new Set(contribution.surfaces)] } : {}),
+			...(contribution.pin === "prefer" ? { pin: "prefer" as const } : {}),
 			useAction: contribution.useAction,
 		};
 		headerActions.push(normalized);
@@ -845,7 +895,7 @@ export function createPluginUiApi({
 			throw new Error("Activity tab id is required");
 		}
 		validateActivityTabCwd(options?.cwd);
-		openPluginActivityTab(plugin.id, plugin.activeVersion, capabilitySessionId, tabId, options);
+		openPluginActivityTab(plugin.id, plugin.activeVersion, capabilitySessionId, tabId, options, isActivating());
 	};
 	const setActivityTabVisible = (tabId: string, visible: boolean, options?: PluginActivityTabTargetOptions): void => {
 		createPluginPermissionApi(plugin).require("ui.slot.activity-tab");

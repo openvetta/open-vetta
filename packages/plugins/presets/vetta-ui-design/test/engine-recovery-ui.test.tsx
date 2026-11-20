@@ -82,6 +82,8 @@ vi.mock("../src/canvas/design-runtime", () => ({
 	setCanvasController: mocks.setCanvasController,
 	setPendingDesignPath: vi.fn(),
 	takePendingDesignPath: () => null,
+	// 画布挂载后订阅「打开另一份设计」：这个用例只关心引擎恢复，订阅实现留空即可。
+	onPendingDesignPath: () => () => {},
 }));
 vi.mock("../src/canvas/bridge-client", () => ({ BridgeHub: class {} }));
 vi.mock("../src/canvas/DesignCanvas", () => ({

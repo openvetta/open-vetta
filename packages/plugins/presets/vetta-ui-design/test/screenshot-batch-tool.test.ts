@@ -69,7 +69,7 @@ beforeEach(() => {
 				return { dispose: () => {} };
 			},
 		},
-		ui: { openActivityTab: vi.fn() },
+		ui: { openActivityTab: vi.fn(), setActivityPanelWidth: vi.fn() },
 	} as unknown as PluginContext;
 	registerDesignTools(ctx);
 });

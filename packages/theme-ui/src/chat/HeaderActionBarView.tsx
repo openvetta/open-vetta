@@ -2,7 +2,6 @@ import { motion, useReducedMotion } from "motion/react";
 import {
 	type ComponentProps,
 	type DragEvent,
-	Fragment,
 	type JSX,
 	type ReactNode,
 	useEffect,
@@ -13,15 +12,13 @@ import {
 import {
 	DropdownMenu,
 	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
 } from "@vetta-org/ui";
 import { ButtonGroup, ButtonGroupItem } from "@vetta-org/ui/button-group";
-import { SessionTopItem, type SessionTopMenuItem } from "@vetta-org/ui/session-top-item";
+import { SessionTopItem, SessionTopMenuItems, type SessionTopMenuItem } from "@vetta-org/ui/session-top-item";
 import { cn } from "@vetta-org/ui/utils";
 import { useHeaderCrowded } from "../app-shell/header-crowding";
 import { partitionHeaderActionsForNarrow } from "./header-action-narrow";
@@ -48,20 +45,34 @@ export interface HeaderActionPopoverApi {
 export type HeaderActionBehavior =
 	| { readonly type: "click"; readonly onClick: () => void }
 	| { readonly type: "menu"; readonly items: readonly SessionTopMenuItem[] }
-	| { readonly type: "popover"; readonly render: (api: HeaderActionPopoverApi) => ReactNode };
+	| {
+			readonly type: "popover";
+			readonly render: (api: HeaderActionPopoverApi) => ReactNode;
+			/** 气泡宽度档位，默认 `md`。 */
+			readonly size?: "sm" | "md" | "lg";
+			/** 气泡容器，默认浮层；`dialog` 为宿主居中对话框。 */
+			readonly host?: "popover" | "dialog";
+			/** 对话框的标题。 */
+			readonly dialogTitle?: string;
+	  };
 
 export interface HeaderActionBarItem {
 	/** 全局唯一：内置为 `builtin:<name>`，插件为 `<pluginId>:<actionId>`。 */
 	readonly key: string;
 	readonly title: string;
 	readonly icon: ReactNode;
+	/** 图标右侧的文字：只在顶栏上、且顶栏不拥挤时显示（见 `LABELED_TOP_ACTIONS_MAX`）。 */
+	readonly label?: string;
 	readonly badge?: number | true;
+	/** 角标与图标的语义色；`neutral` 与不传同义。 */
+	readonly tone?: HeaderActionTone;
 	readonly active?: boolean;
 	readonly disabled?: boolean;
+	/** 禁用原因，取代 `title` 显示。 */
+	readonly disabledReason?: string;
 	readonly behavior: HeaderActionBehavior;
 	/**
 	 * 处于选中态时，即使被收纳也要在活动面板开关左侧露出一个按钮（如「窗口置顶」：开着却看不到入口很奇怪）。
-	 * 仅宿主内置动作使用，插件声明里没有这个字段。
 	 */
 	readonly promoteWhenActive?: boolean;
 	/**
@@ -69,6 +80,42 @@ export interface HeaderActionBarItem {
 	 * 仅宿主内置动作使用（窗口置顶）。
 	 */
 	readonly retainWhenNarrow?: boolean;
+}
+
+/** 顶栏与菜单的语义色，与主题的颜色 token 对应。 */
+export type HeaderActionTone = "neutral" | "info" | "success" | "warning" | "danger";
+
+/** 真实画面上的颜色；`neutral` 用组件默认色，不输出额外 class。 */
+const TONE_SURFACE: Record<Exclude<HeaderActionTone, "neutral">, { badge: string; icon: string }> = {
+	info: { badge: "bg-sky-500", icon: "text-sky-500" },
+	success: { badge: "bg-emerald-500", icon: "text-emerald-500" },
+	warning: { badge: "bg-amber-500", icon: "text-amber-500" },
+	danger: { badge: "bg-red-500", icon: "text-red-500" },
+};
+
+/** 顶栏上有文字时最多几格（再挤就只能靠图标 + 悬浮提示）。 */
+export const LABELED_TOP_ACTIONS_MAX = 4;
+
+function iconToneClass(tone: HeaderActionTone | undefined): string | undefined {
+	return tone && tone !== "neutral" ? TONE_SURFACE[tone].icon : undefined;
+}
+
+/** 角标底色的 class；`neutral` / 未设时交给宿主默认色（红）。 */
+export function headerActionToneBadgeClass(tone: HeaderActionTone | undefined): string | undefined {
+	return tone && tone !== "neutral" ? TONE_SURFACE[tone].badge : undefined;
+}
+
+/** 带语义色的角标：与 `ButtonGroupItem` 自带角标同尺寸，只换底色。 */
+function ToneBadge({ badge, tone }: { readonly badge: number | true; readonly tone?: HeaderActionTone }): JSX.Element {
+	const color = tone && tone !== "neutral" ? TONE_SURFACE[tone].badge : "bg-red-500";
+	if (badge === true) return <span className={`absolute top-1 right-1 size-1.5 rounded-full ${color}`} />;
+	return (
+		<span
+			className={`absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-1 text-[9px] leading-none font-semibold text-white tabular-nums ${color}`}
+		>
+			{badge > 99 ? "99+" : badge}
+		</span>
+	);
 }
 
 export type HeaderActionZone = "top" | "tray";
@@ -116,10 +163,21 @@ const OPAQUE_GLASS =
  * 图标统一放进固定方框：插件传来的图标大小各异，不能撑开按钮，也不接收指针事件。
  * `jiggle` 不为空时图标像 iOS 编辑主屏幕那样循环轻微抖动；数值用来错开各图标的节奏，免得齐刷刷同步。
  */
-function IconBox({ children, jiggle }: { readonly children: ReactNode; readonly jiggle?: number }): JSX.Element {
+function IconBox({
+	children,
+	jiggle,
+	tone,
+}: {
+	readonly children: ReactNode;
+	readonly jiggle?: number;
+	/** 语义色：叠在图标本身的颜色上，`neutral` 不输出。 */
+	readonly tone?: HeaderActionTone;
+}): JSX.Element {
 	const reduceMotion = useReducedMotion();
-	const className =
-		"pointer-events-none flex size-4 shrink-0 items-center justify-center overflow-hidden text-[14px] [&>*]:max-h-4 [&>*]:max-w-4";
+	const className = cn(
+		"pointer-events-none flex size-4 shrink-0 items-center justify-center overflow-hidden text-[14px] [&>*]:max-h-4 [&>*]:max-w-4",
+		iconToneClass(tone),
+	);
 	if (jiggle === undefined || reduceMotion) return <span className={className}>{children}</span>;
 	const swing = jiggle % 2 === 0 ? 2.5 : -2.5;
 	return (
@@ -144,10 +202,13 @@ function BarItem({
 	dragProps,
 	className,
 	jiggle,
+	showLabel,
 	onStow,
 	stowLabel,
 }: {
 	readonly item: HeaderActionBarItem;
+	/** 顶栏此刻是否给文字留位置（见 `LABELED_TOP_ACTIONS_MAX`）。 */
+	readonly showLabel?: boolean;
 	/** 调整状态下右上角「−」：收进收纳。 */
 	readonly onStow?: () => void;
 	readonly stowLabel?: string;
@@ -156,11 +217,24 @@ function BarItem({
 	readonly dragProps?: Pick<ComponentProps<"button">, "draggable" | "onDragStart" | "onDragEnd" | "onDragOver" | "onDrop">;
 	readonly className?: string;
 }): JSX.Element {
+	// 禁用时把原因摆到悬浮提示的首位：只说「不可用」用户没法自救。
+	const tooltip = item.disabled && item.disabledReason ? `${item.disabledReason}\n${item.title}` : item.title;
+	const tonalBadge =
+		item.badge !== undefined && item.tone && item.tone !== "neutral" ? (
+			<ToneBadge badge={item.badge} tone={item.tone} />
+		) : (
+			item.badge
+		);
 	const common = {
-		title: item.title,
+		title: tooltip,
 		"aria-label": item.title,
-		icon: <IconBox jiggle={jiggle}>{item.icon}</IconBox>,
-		badge: item.badge,
+		label: showLabel ? item.label : undefined,
+		icon: (
+			<IconBox jiggle={jiggle} tone={item.tone}>
+				{item.icon}
+			</IconBox>
+		),
+		badge: tonalBadge,
 		active: item.active,
 		disabled: item.disabled,
 		className,
@@ -174,7 +248,7 @@ function BarItem({
 				badge={undefined}
 				icon={
 					<>
-						<IconBox jiggle={jiggle}>{item.icon}</IconBox>
+						<IconBox jiggle={jiggle} tone={item.tone}>{item.icon}</IconBox>
 						{/* 嵌在按钮里，用 span 而不是 button（button 不能嵌 button）；点它收纳，不会触发按钮本身。 */}
 						<span
 							role="button"
@@ -199,7 +273,15 @@ function BarItem({
 	const { behavior } = item;
 	if (behavior.type === "menu") return <SessionTopItem {...common} menuItems={behavior.items} />;
 	if (behavior.type === "popover") {
-		return <SessionTopItem {...common} popoverContent={(api) => behavior.render(api)} />;
+		return (
+			<SessionTopItem
+				{...common}
+				popoverContent={(api) => behavior.render(api)}
+				popoverSize={behavior.size}
+				popoverHost={behavior.host}
+				dialogTitle={behavior.dialogTitle}
+			/>
+		);
 	}
 	return <SessionTopItem {...common} onClick={behavior.onClick} />;
 }
@@ -209,11 +291,15 @@ interface DropTarget {
 	readonly index: number;
 }
 
-function TileBadge({ badge }: { readonly badge: HeaderActionBarItem["badge"] }): JSX.Element | null {
+function TileBadge({ item }: { readonly item: HeaderActionBarItem }): JSX.Element | null {
+	const { badge, tone } = item;
 	if (badge === undefined) return null;
-	if (badge === true) return <span className="absolute top-1 right-1 size-1.5 rounded-full bg-red-500" />;
+	const color = tone && tone !== "neutral" ? TONE_SURFACE[tone].badge : "bg-red-500";
+	if (badge === true) return <span className={`absolute top-1 right-1 size-1.5 rounded-full ${color}`} />;
 	return (
-		<span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] leading-none font-semibold text-white tabular-nums">
+		<span
+			className={`absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-1 text-[9px] leading-none font-semibold text-white tabular-nums ${color}`}
+		>
 			{badge > 99 ? "99+" : badge}
 		</span>
 	);
@@ -232,7 +318,7 @@ function TileFace({
 	return (
 		<button
 			type="button"
-			title={item.title}
+			title={item.disabled && item.disabledReason ? `${item.disabledReason}\n${item.title}` : item.title}
 			aria-label={item.title}
 			disabled={item.disabled}
 			data-active={item.active || undefined}
@@ -240,8 +326,8 @@ function TileFace({
 			onClick={onClick}
 			className="relative flex h-7 w-8 items-center justify-center rounded-full bg-foreground/[0.08] text-foreground outline-none transition-colors hover:bg-foreground/[0.14] focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40 data-[active]:bg-foreground/[0.22]"
 		>
-			<IconBox jiggle={jiggle}>{item.icon}</IconBox>
-			{jiggle === undefined && <TileBadge badge={item.badge} />}
+			<IconBox jiggle={jiggle} tone={item.tone}>{item.icon}</IconBox>
+			{jiggle === undefined && <TileBadge item={item} />}
 		</button>
 	);
 }
@@ -291,37 +377,22 @@ function Tile({
 					<TileFaceTrigger item={item} />
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="center" sideOffset={6} className="min-w-40">
-					{behavior.items.map((entry) => (
-						<Fragment key={entry.id}>
-							{entry.separatorBefore ? <DropdownMenuSeparator /> : null}
-							<DropdownMenuItem
-								disabled={entry.disabled}
-								onSelect={() => {
-									entry.onSelect();
-									onClose();
-								}}
-								className={entry.destructive ? "text-destructive focus:text-destructive" : undefined}
-							>
-								{entry.icon ? <IconBox>{entry.icon}</IconBox> : null}
-								{entry.label}
-							</DropdownMenuItem>
-						</Fragment>
-					))}
+					<SessionTopMenuItems items={behavior.items} onClose={onClose} />
 				</DropdownMenuContent>
 			</DropdownMenu>
 		);
 	} else if (behavior.type === "popover") {
+		const content = behavior.render({ close: onClose });
+		const width = behavior.size === "sm" ? "max-w-[min(92vw,16rem)]" : behavior.size === "lg" ? "max-w-[min(92vw,32rem)]" : "max-w-[min(92vw,24rem)]";
+		// 托盘里的图标没有文字，气泡是唯一能读内容的地方：dialog 对几百像素宽的托盘托盘并不友好，
+		// 这里统一用浮层，只是把声明的宽度档位带上。
 		face = (
 			<Popover>
 				<PopoverTrigger asChild>
 					<TileFaceTrigger item={item} />
 				</PopoverTrigger>
-				<PopoverContent
-					align="center"
-					sideOffset={6}
-					className="w-max max-h-[min(70vh,32rem)] max-w-[min(92vw,32rem)] overflow-auto"
-				>
-					{behavior.render({ close: onClose })}
+				<PopoverContent align="center" sideOffset={6} className={`w-max max-h-[min(70vh,32rem)] overflow-auto ${width}`}>
+					{content}
 				</PopoverContent>
 			</Popover>
 		);
@@ -375,7 +446,7 @@ function TileFaceTrigger({ item, ...props }: { readonly item: HeaderActionBarIte
 	return (
 		<button
 			type="button"
-			title={item.title}
+			title={item.disabled && item.disabledReason ? `${item.disabledReason}\n${item.title}` : item.title}
 			aria-label={item.title}
 			{...props}
 			disabled={item.disabled}
@@ -383,8 +454,8 @@ function TileFaceTrigger({ item, ...props }: { readonly item: HeaderActionBarIte
 			aria-pressed={item.active ? true : undefined}
 			className="relative flex h-7 w-8 items-center justify-center rounded-full bg-foreground/[0.08] text-foreground outline-none transition-colors hover:bg-foreground/[0.14] focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40 data-[active]:bg-foreground/[0.22] data-[state=open]:bg-foreground/[0.1]"
 		>
-			<IconBox>{item.icon}</IconBox>
-			<TileBadge badge={item.badge} />
+			<IconBox tone={item.tone}>{item.icon}</IconBox>
+			<TileBadge item={item} />
 		</button>
 	);
 }
@@ -461,6 +532,8 @@ export function HeaderActionBarView({
 	}, [open]); // biome-ignore lint/correctness/useExhaustiveDependencies: closeTray 只用稳定的 setState
 
 	const topFull = top.length >= maxTop;
+	// 文字比图标宽一倍：顶栏格子多了或页头已挤窄时只留图标，免得整排被推进「更多」。
+	const showLabel = !crowded && top.length <= LABELED_TOP_ACTIONS_MAX;
 	// 收纳里的角标不能被藏起来：汇总到小白条上（红色）。
 	const trayAlert = tray.some((item) => item.badge !== undefined && item.badge !== 0);
 	const draggingFromTop = dragKey !== null && top.some((item) => item.key === dragKey);
@@ -573,6 +646,7 @@ export function HeaderActionBarView({
 					<BarItem
 						key={item.key}
 						item={item}
+						showLabel={showLabel}
 						jiggle={editing ? index : undefined}
 						stowLabel={labels.moveToTray}
 						onStow={() => onMove(item.key, "tray", Number.MAX_SAFE_INTEGER)}

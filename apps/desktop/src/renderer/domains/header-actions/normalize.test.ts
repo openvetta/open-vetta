@@ -90,3 +90,104 @@ describe("headerActionSignature", () => {
 		expect(sig(menu(false))).not.toBe(sig(menu(true)));
 	});
 });
+
+describe("2.11.0 declarations", () => {
+	const base = { title: "t", icon, onClick: () => {} };
+
+	it("clips the label and drops a blank one", () => {
+		const { value } = normalizeHeaderAction({ ...base, label: "x".repeat(60) });
+		expect(value?.label).toHaveLength(HEADER_ACTION_LIMITS.label);
+		expect(normalizeHeaderAction({ ...base, label: "   " }).value?.label).toBeUndefined();
+	});
+
+	it("accepts only known tones", () => {
+		expect(normalizeHeaderAction({ ...base, tone: "danger" }).value?.tone).toBe("danger");
+		// neutral 就是默认外观，不必写进声明里。
+		expect(normalizeHeaderAction({ ...base, tone: "neutral" }).value?.tone).toBeUndefined();
+		expect(normalizeHeaderAction({ ...base, tone: "loud" }).value?.tone).toBeUndefined();
+	});
+
+	it("keeps a disabled reason only when the action is actually disabled", () => {
+		expect(
+			normalizeHeaderAction({ ...base, disabled: true, disabledReason: "merge in progress" }).value?.disabledReason,
+		).toBe("merge in progress");
+		expect(normalizeHeaderAction({ ...base, disabledReason: "nope" }).value?.disabledReason).toBeUndefined();
+	});
+
+	it("accepts structured menu items without onSelect for decorative kinds", () => {
+		const { value } = normalizeHeaderAction({
+			title: "t",
+			icon,
+			menuItems: [
+				{ id: "h", kind: "label", label: "Branches" },
+				{ id: "l", kind: "loading", label: "Loading" },
+				{ id: "e", kind: "empty", label: "Nothing here" },
+				{ id: "a", kind: "radio", label: "main", checked: true, onSelect: () => {} },
+			],
+		});
+		const items = value?.behavior.type === "menu" ? value.behavior.items : [];
+		expect(items.map((item) => item.kind)).toEqual(["label", "loading", "empty", "radio"]);
+		expect(items[1]?.disabled).toBe(true);
+		expect(items[3]?.checked).toBe(true);
+	});
+
+	it("drops interactive items that cannot fire, and submenus without children", () => {
+		const { value } = normalizeHeaderAction({
+			title: "t",
+			icon,
+			menuItems: [
+				{ id: "a", label: "no handler" },
+				{ id: "b", kind: "submenu", label: "empty submenu" },
+				{
+					id: "c",
+					kind: "submenu",
+					label: "Branches",
+					children: [{ id: "c1", label: "main", onSelect: () => {} }],
+				},
+			],
+		});
+		const items = value?.behavior.type === "menu" ? value.behavior.items : [];
+		expect(items.map((item) => item.id)).toEqual(["c"]);
+		expect(items[0]?.children?.map((child) => child.id)).toEqual(["c1"]);
+	});
+
+	it("supports only one submenu level", () => {
+		const { value } = normalizeHeaderAction({
+			title: "t",
+			icon,
+			onClick: () => {},
+			menuItems: [
+				{
+					id: "a",
+					kind: "submenu",
+					label: "A",
+					children: [
+						{ id: "b", kind: "submenu", label: "B", children: [{ id: "c", label: "C", onSelect: () => {} }] },
+					],
+				},
+			],
+		});
+		// 第二层子菜单超出深度上限被丢弃，于是外层也空了、跟着消失；整个菜单退回到 onClick。
+		expect(value?.behavior.type).toBe("click");
+	});
+
+	it("normalizes the object form of a popover, and rejects one without a component", () => {
+		const Component = () => null;
+		const { value } = normalizeHeaderAction({
+			title: "t",
+			icon,
+			popover: { component: Component, size: "lg", host: "dialog", title: "Commit" },
+		});
+		expect(value?.behavior).toMatchObject({
+			type: "popover",
+			popover: { component: Component, size: "lg", host: "dialog", dialogTitle: "Commit" },
+		});
+		const fallback = normalizeHeaderAction({ title: "t", icon, onClick: () => {}, popover: { size: "lg" } });
+		expect(fallback.value?.behavior.type).toBe("click");
+	});
+
+	it("keeps promoteWhenActive", () => {
+		expect(normalizeHeaderAction({ ...base, promoteWhenActive: true }).value?.promoteWhenActive).toBe(true);
+		expect(normalizeHeaderAction(base).value?.promoteWhenActive).toBe(false);
+	});
+});

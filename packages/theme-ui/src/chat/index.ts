@@ -124,9 +124,10 @@ export type {
 	HeaderActionBarViewProps,
 	HeaderActionBehavior,
 	HeaderActionPopoverApi,
+	HeaderActionTone,
 	HeaderActionZone,
 } from "./HeaderActionBarView";
-export { HeaderActionBarView } from "./HeaderActionBarView";
+export { HeaderActionBarView, headerActionToneBadgeClass, LABELED_TOP_ACTIONS_MAX } from "./HeaderActionBarView";
 export { InlineModelPicker } from "./InlineModelPicker";
 export type { InlineTokenChipProps } from "./InlineTokenChip";
 export { InlineTokenChip } from "./InlineTokenChip";

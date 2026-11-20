@@ -5,12 +5,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveDiffScope } from "../git/aiContext";
 import { generateCommitMessage } from "../git/aiMessage";
 import { loadDraft, saveDraft } from "../git/draftStore";
+import { planCommit } from "../git/commitFlow";
 import { readMergeMessage } from "../git/mergeMsg";
 import { gitCommit, gitPush, headCommitMessage } from "../git/run";
 import { emitRefreshSignal, notifyError, onCommitRequest } from "../git/runtime";
 import type { StatusGroups } from "../git/types";
+import { CommitActionRow } from "./CommitActionRow";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { CheckIcon, ChevronIcon, CommitIcon, SparkleIcon, StopIcon } from "./icons";
+import { CheckIcon, SparkleIcon, StopIcon } from "./icons";
 import { useGitSettings } from "./useGitSettings";
 
 /** Draft writes are debounced so typing does not hit storage on every keystroke. */
@@ -40,9 +42,8 @@ export function CommitBox({ root, groups }: { root: string; groups: StatusGroups
 	const hasStaged = groups.staged.length > 0;
 	const hasConflicts = groups.conflict.length > 0;
 	const hasAnyChange = groups.staged.length + groups.unstaged.length > 0;
-	// Empty index + dirty worktree: the button stages everything rather than
-	// sitting disabled, which is where a newcomer otherwise gets stuck.
-	const stageAll = !hasStaged && groups.unstaged.length > 0;
+	// 「能不能提交」「要不要顺手全暂存」只在 git/commitFlow.ts 里定一次，顶栏气泡用的是同一份判断。
+	const { stageAll, blocked } = planCommit(groups, message);
 
 	// 载入该仓库的草稿；没有草稿时用 git 为进行中的合并准备好的 MERGE_MSG 兜底。
 	useEffect(() => {
@@ -66,7 +67,7 @@ export function CommitBox({ root, groups }: { root: string; groups: StatusGroups
 		return () => clearTimeout(timer);
 	}, [root, message]);
 
-	const disabledReason = hasConflicts ? t("commit.blockedByConflicts") : !hasAnyChange ? t("commit.nothingToCommit") : null;
+	const disabledReason = blocked === "conflict" ? t("commit.blockedByConflicts") : blocked === "empty" ? t("commit.nothingToCommit") : null;
 	const canCommit = pending === null && disabledReason === null && message.trim().length > 0;
 
 	const run = useCallback(
@@ -175,9 +176,6 @@ export function CommitBox({ root, groups }: { root: string; groups: StatusGroups
 					: t("commit.action");
 
 	const stagedCount = groups.staged.length;
-	// 两半共用同一档绿：禁用时压成同色系的灰绿，而不是换成中性灰——后者会让按钮
-	// 断成「一块灰 + 一块绿」两个物件。
-	const commitTone = canCommit ? "bg-[#1f883d] text-white hover:bg-[#1a7f37]" : "bg-[#1f883d]/35 text-white/60";
 
 	return (
 		<div className="shrink-0 px-2 pb-2 pt-1">
@@ -219,39 +217,21 @@ export function CommitBox({ root, groups }: { root: string; groups: StatusGroups
 
 			</div>
 
-			{/* 主操作放在卡片外：它是对这张卡片的执行，不是卡片的一部分；圆角与卡片同档。 */}
-			<div className="mt-1.5 flex items-stretch overflow-hidden rounded-lg">
-				<button
-					type="button"
-					disabled={!canCommit}
-					title={disabledReason ?? undefined}
-					onClick={commit}
-					className={`flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 px-2 text-[12px] font-medium transition-colors ${commitTone}`}
-				>
-					<CommitIcon className="h-3.5 w-3.5 shrink-0" />
-					<span className="truncate">{label}</span>
-				</button>
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<button
-							type="button"
-							disabled={pending !== null}
-							title={t("commit.more")}
-							// 分隔线只占八成高度并居中：通高的那条会把按钮视觉上劈成两半。
-							className={`relative flex h-8 w-8 shrink-0 items-center justify-center transition-colors before:absolute before:left-0 before:top-[10%] before:h-[80%] before:w-px before:bg-white/15 ${commitTone}`}
-						>
-							<ChevronIcon className="h-3.5 w-3.5" />
-						</button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end" data-vetta-plugin-root="git">
-						<DropdownMenuItem disabled={!canCommit} onSelect={commitAndPush}>
-							{t("commit.andPush")}
-						</DropdownMenuItem>
-						<DropdownMenuItem disabled={pending !== null || hasConflicts} onSelect={amend}>
-							{t("commit.amend")}
-						</DropdownMenuItem>
-					</DropdownMenuContent>
-				</DropdownMenu>
+			{/* 主操作放在卡片外：它是对这张卡片的执行，不是卡片的一部分；圆角与卡片同档。
+			    与顶栏气泡共用同一个组件，两处的按钮必须长得一模一样。 */}
+			<div className="mt-1.5">
+				<CommitActionRow
+					label={label}
+					moreLabel={t("commit.more")}
+					canCommit={canCommit}
+					busy={pending !== null}
+					disabledReason={disabledReason}
+					extras={[
+						{ id: "commit-push", label: t("commit.andPush"), onSelect: commitAndPush, disabled: !canCommit },
+						{ id: "amend", label: t("commit.amend"), onSelect: amend, disabled: pending !== null || hasConflicts },
+					]}
+					onCommit={commit}
+				/>
 			</div>
 
 			{/* pre-commit 钩子可能跑很久，必须给出「还在跑」的明确信号，而不是只让按钮转圈。 */}

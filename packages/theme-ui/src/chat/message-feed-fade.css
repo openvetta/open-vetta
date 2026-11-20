@@ -1,0 +1,80 @@
+/* 会话消息流的上下渐隐。
+ *
+ * 渐隐要的是「内容还没到底」，不是「滚动条也淡出」：mask 作用在滚动容器上时，
+ * Chromium 连它自己的滚动条一起绘制，单层纵向渐变到边缘就把滑块的头部/尾部吃掉，
+ * 滚到最顶或最底时最明显——滑块刚贴到边就被渐隐抹掉一截。
+ *
+ * 但整条滚动条槽位都排除在渐隐之外也不行：沉浸式顶栏下的滚动容器从窗口顶边开始
+ * （消息列用负 margin 抵到顶栏下面，好让渐隐铺到毛玻璃底下），槽位一旦恒不透明，
+ * 滑块就顶进 titlebar 里，看上去不像属于这个列表。
+ *
+ * 所以分三层。mask 层按「后写的先画」合成，每层的 mask-composite 描述它怎么叠到
+ * 下面的结果上，于是从下往上读是：
+ *   3. 槽位纵向轮廓：默认整条不透明；顶栏模式下顶栏那一段（44px）隐去、到 80px 才实心，
+ *      滑块就不会在 titlebar 里现身，也不会在滚到底时被渐隐吃掉尾部；
+ *   2. 右缘槽位列：只在最后 8px 内为 1，`intersect`（相乘）到上面，把范围收进滚动条；
+ *   1. 内容自己的纵向渐隐：`add` 回去，内容区观感与改动前一致。
+ * 槽位宽度与全局 `::-webkit-scrollbar { width: 8px }` 一致；内容在纵向渐隐带里本来也
+ * 不占这一列（列表自带右内边距），补不透明的只有滚动条本身。
+ *
+ * 不用 `z-index`：mask 是绘制阶段的遮罩，滚动条无法被抬到它上面。
+ */
+.message-feed-fade {
+	--message-feed-scrollbar-gutter: 8px;
+	/* 底部 32px 渐隐：文字退出时不会被输入框硬切。 */
+	--message-feed-fade-content: linear-gradient(
+		to bottom,
+		black calc(100% - 32px),
+		rgb(0 0 0 / 0.8) calc(100% - 24px),
+		rgb(0 0 0 / 0.45) calc(100% - 16px),
+		rgb(0 0 0 / 0.15) calc(100% - 8px),
+		transparent 100%
+	);
+	/* 没有沉浸式顶栏时滚动容器本来就从列表顶边开始，槽位整条可见。 */
+	--message-feed-fade-gutter: linear-gradient(to bottom, black, black);
+
+	mask-image:
+		var(--message-feed-fade-content),
+		linear-gradient(
+			to right,
+			transparent 0,
+			transparent calc(100% - var(--message-feed-scrollbar-gutter)),
+			black calc(100% - var(--message-feed-scrollbar-gutter))
+		),
+		var(--message-feed-fade-gutter);
+	/* 最下面一层的关键字不参与合成，占位即可。 */
+	mask-composite: add, intersect, intersect;
+}
+
+/* 沉浸式顶栏（main[data-header-overlay]）下顶栏浮在消息流上：内容在顶栏那一段（28px）内
+   完全隐去，再沿一条缓入缓出的曲线在约 70px 内渐显（多段色标近似 ease-in-out，线性渐变
+   会在两端出现可见的「硬边」），标题不会与正文叠在一起，像 iOS 的 soft titlebar。
+   滚动条槽位跟着让开顶栏（44px，与消息列让出的 pt-11 一致），在 80px 处才完全实心。 */
+[data-header-overlay="true"] .message-feed-fade {
+	--message-feed-fade-content: linear-gradient(
+		to bottom,
+		transparent 0,
+		transparent 28px,
+		rgb(0 0 0 / 0.04) 36px,
+		rgb(0 0 0 / 0.14) 46px,
+		rgb(0 0 0 / 0.33) 58px,
+		rgb(0 0 0 / 0.58) 70px,
+		rgb(0 0 0 / 0.8) 82px,
+		rgb(0 0 0 / 0.94) 92px,
+		black 100px,
+		black calc(100% - 32px),
+		rgb(0 0 0 / 0.8) calc(100% - 24px),
+		rgb(0 0 0 / 0.45) calc(100% - 16px),
+		rgb(0 0 0 / 0.15) calc(100% - 8px),
+		transparent 100%
+	);
+	--message-feed-fade-gutter: linear-gradient(
+		to bottom,
+		transparent 0,
+		transparent 44px,
+		rgb(0 0 0 / 0.25) 56px,
+		rgb(0 0 0 / 0.55) 66px,
+		black 80px,
+		black 100%
+	);
+}

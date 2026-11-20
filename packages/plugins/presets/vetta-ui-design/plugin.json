@@ -1,10 +1,10 @@
 {
 	"id": "vetta-ui-design",
 	"name": "%plugin.name%",
-	"version": "0.7.6",
+	"version": "0.7.8",
 	"icon": "icon.png",
 	"defaultLocale": "zh",
-	"pluginApiVersion": "^2.0.0",
+	"pluginApiVersion": "^2.11.0",
 	"entry": "dist/mf-manifest.json",
 	"moduleFederation": {
 		"remoteName": "vetta_ui_design",
@@ -20,6 +20,7 @@
 		"ui.slot.file-preview",
 		"ui.slot.message",
 		"ui.slot.input-action",
+		"ui.slot.header-action",
 		"conversation.draft.read",
 		"ui.slot.new-session-context",
 		"ui.file-explorer.decorations",

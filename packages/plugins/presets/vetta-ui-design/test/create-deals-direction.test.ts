@@ -58,7 +58,7 @@ beforeEach(() => {
 				return { dispose: () => {} };
 			},
 		},
-		ui: { setActivityTabVisible: vi.fn(), openActivityTab: vi.fn() },
+		ui: { setActivityTabVisible: vi.fn(), openActivityTab: vi.fn(), setActivityPanelWidth: vi.fn() },
 		storage: { readFile: async () => null, writeFile: async () => ({ revision: "1", changedPaths: [] }) },
 	} as unknown as PluginContext;
 	registerDesignTools(ctx);

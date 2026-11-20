@@ -34,6 +34,8 @@ Every `ctx.ui` registration maps to its own permission:
 
 Components use the host's shared React runtime and design tokens. Registration functions return a `Disposable`; release it during deactivation so reloads do not register the same UI twice.
 
+A header action (`registerHeaderAction`) can carry both state and a way in: `label` puts text such as the current branch next to the icon, `tone` gives the badge and icon a semantic colour, menu items can declare `checkbox` / `radio` / section labels / loading and empty rows / a single submenu level, and the popover can pick a width (`size`) or upgrade to a host dialog (`host: "dialog"`). `surfaces` decides whether the action appears on the conversation page or the new-session page, and `pin: "prefer"` gives “state that must be visible” a default seat in the header for users who never customised their layout. These fields require Plugin API `^2.11.0`; the full contract lives in `docs/plugin/ui-slots.md`.
+
 <Callout title="Style through className only" type="warn">
   A plugin shares one page with the host. Element selectors such as `button`, `div`, or `*` in a stylesheet entry leak into the whole interface, and they leak only on the user's machine. `@vetta-org/plugin-vite` scopes plugin CSS to the plugin root and wires in the host theme tokens, so semantic classes such as `text-foreground` and `bg-card` work directly.
 </Callout>

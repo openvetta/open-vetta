@@ -3,6 +3,7 @@ import "./style.css";
 import { GitPanel } from "./components/GitPanel";
 import { GitSettingsView } from "./components/GitSettingsView";
 import { GitTurnCard } from "./components/GitTurnCard";
+import { useGitHeaderAction } from "./components/HeaderStatusAction";
 import { GitIcon } from "./components/icons";
 import { useGitTabMeta } from "./components/useGitTabMeta";
 import {
@@ -57,6 +58,17 @@ export default definePlugin({
 				invalidateGitTabProbe();
 				emitRefreshSignal();
 			}
+		});
+
+		// 顶栏状态：分支名 + 未提交文件数，点开就能切分支 / 提交 / 拉推。
+		// 声明 `pin: "prefer"`：用户没调整过布局时它优先上顶栏——「我在哪个分支」
+		// 这类信息藏在收纳托盘里就等于没有。仍然受 7 格上限与用户布局的约束。
+		ctx.ui.registerHeaderAction({
+			id: "status",
+			order: 40,
+			surfaces: ["conversation"],
+			pin: "prefer",
+			useAction: useGitHeaderAction,
 		});
 
 		ctx.ui.registerActivityTab({

@@ -11,6 +11,7 @@ import type {
 	PluginFileIconTheme,
 	PluginFilePreviewContribution,
 	PluginHeaderActionContribution,
+	PluginHeaderActionSurface,
 	PluginInputActionContribution,
 	PluginLocales,
 	PluginNavBadge,
@@ -240,6 +241,10 @@ export interface RegisteredHeaderAction {
 	pluginName: string;
 	/** Namespaced id (`${pluginId}:${contributionId}`). */
 	actionId: string;
+	/** 出现在哪些页面；省略视为只有会话页。 */
+	surfaces?: readonly PluginHeaderActionSurface[];
+	/** `prefer` = 用户没调整过布局时优先上顶栏。 */
+	pin?: "normal" | "prefer";
 	useAction: PluginHeaderActionContribution["useAction"];
 }
 

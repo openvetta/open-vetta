@@ -60,6 +60,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		capabilitySessionDiagnosticId = capabilitySessionId;
 		pluginRendererCapabilityHost.bindSession(capabilitySessionId, plugin);
 		const secretsApi = createPluginSecretsApi(plugin, capabilitySessionId, disposers);
+		let activating = true;
 		const context = createPluginContext({
 			plugin,
 			contributions,
@@ -69,10 +70,16 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 			pendingRuntimeRegistrations,
 			activationId,
 			capabilitySessionId,
+			isActivating: () => activating,
 		});
 		activationStarted = true;
 		stage = "activate";
-		const cleanup = await definition.activate(context);
+		let cleanup: Awaited<ReturnType<typeof definition.activate>>;
+		try {
+			cleanup = await definition.activate(context);
+		} finally {
+			activating = false;
+		}
 		activationCleanup.set(cleanup ?? undefined);
 		stage = "runtime-registrations";
 		await Promise.all(pendingRuntimeRegistrations);

@@ -13,7 +13,7 @@ import type { PluginContext, PluginFsApi } from "@vetta-org/plugin-sdk";
 import { getCanvasController } from "../canvas/design-runtime";
 import { byCanvasOrder } from "../canvas/frame-order";
 import { bytesToBase64 } from "../mockup/binary";
-import { CANVAS_TAB_ID } from "../tab-ids";
+import { openCanvasTab } from "../canvas/open-canvas-tab";
 import { captureMaterial } from "./capture-material";
 import { type MaterialBundle, type MaterialFrame, type MaterialKind, renderMaterials } from "./export-materials";
 
@@ -101,7 +101,7 @@ export function registerExportTool(ctx: PluginContext, options: ExportToolOption
 			}
 			const controller = getCanvasController();
 			if (!controller) {
-				ctx.ui.openActivityTab(CANVAS_TAB_ID, { width: "max", cwd: session.cwd });
+				openCanvasTab(ctx.ui, session.cwd);
 				return {
 					ok: false,
 					retryable: true,

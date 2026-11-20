@@ -31,6 +31,10 @@ export interface QuestionPanelLabels {
 	questionTabLabel: (number: number) => string;
 	keyboardHint: string;
 	cancel: string;
+	/** 面板收起的按钮文案。 */
+	collapse: string;
+	/** 面板展开的按钮文案。 */
+	expand: string;
 	/** 多题且未到最后一题时的主按钮文案。 */
 	next: string;
 	/** 单题或最后一题时的主按钮文案。 */

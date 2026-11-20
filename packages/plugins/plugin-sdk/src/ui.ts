@@ -381,6 +381,12 @@ export interface PluginOpenActivityTabOptions extends PluginActivityTabTargetOpt
 	 * widest the window allows — `"max"` keeps following window resizes until the
 	 * user drags the divider. The host clamps to its min/max bounds. Omit to keep
 	 * the user's current width.
+	 *
+	 * Applied when the tab is attached for the first time, or when this call opens
+	 * a closed panel — the panel then slides in at this width in one motion.
+	 * Ignored when the panel is already open with the tab attached (the user's
+	 * width stands), and for calls made while `activate` is still running, since
+	 * those replay on every reload.
 	 */
 	width?: number | "max";
 }
@@ -658,16 +664,43 @@ export interface PluginNewSessionContextContribution {
 }
 
 /**
- * 顶栏动作的下拉菜单项。点击一项执行 `onSelect` 并关闭菜单。
+ * 顶栏动作的下拉菜单项。点击一项执行 `onSelect` 并关闭菜单（`checkbox` / `radio` 例外，见
+ * {@link PluginHeaderActionMenuItemKind}）。
  */
+/**
+ * 菜单项的类型。省略即普通命令项；其余类型让「列表就是状态」的场景（分支列表、开关、
+ * 加载中、空态）不必退化成纯文字：
+ * - `checkbox` / `radio`：`checked` 决定勾选标记，点它触发 `onSelect` 后菜单不自动关（适合切换开关）；
+ * - `label`：分组标题，不可点；
+ * - `loading` / `empty`：占位行，自动禁用、不可点；
+ * - `submenu`：`children` 是下一级菜单项（只支持一层）。
+ */
+export type PluginHeaderActionMenuItemKind =
+	| "item"
+	| "checkbox"
+	| "radio"
+	| "label"
+	| "loading"
+	| "empty"
+	| "submenu";
+
 export interface PluginHeaderActionMenuItem {
 	/** 项在菜单内唯一的 id。 */
 	id: string;
+	/** 默认 `item`。 */
+	kind?: PluginHeaderActionMenuItemKind;
 	label: string;
-	/** 菜单项前的图标，16px 方框内显示。 */
+	/** 菜单项前的图标，16px 方框内显示。`checkbox` / `radio` 已选中时换成勾选标记。 */
 	icon?: ReactNode;
-	onSelect: () => void;
+	/** `submenu` 且给了 `children` 时可省略。 */
+	onSelect?: () => void;
+	/** `submenu` 的下一级菜单项。 */
+	children?: readonly PluginHeaderActionMenuItem[];
+	/** `checkbox` / `radio` 是否已选中。 */
+	checked?: boolean;
 	disabled?: boolean;
+	/** 禁用原因：禁用时排在 `title` 之前显示，用户才知道为什么点不了。 */
+	disabledReason?: string;
 	/** 危险操作（红色）。 */
 	destructive?: boolean;
 	/** 在这一项之前画一条分隔线。 */
@@ -680,30 +713,81 @@ export interface PluginHeaderActionPopoverProps {
 	close: () => void;
 }
 
+/** 角标与图标的语义色，跟随宿主主题；`neutral` 为默认。 */
+export type PluginHeaderActionTone = "neutral" | "info" | "success" | "warning" | "danger";
+
+/** 气泡尺寸：`sm` 约 16rem，`md`（默认）约 24rem，`lg` 约 32rem。 */
+export type PluginHeaderActionPopoverSize = "sm" | "md" | "lg";
+
+/**
+ * 气泡的容器形态。默认 `popover`（贴着按钮的小浮层）；内容是有输入框、列表等需要专注的界面时
+ * 用 `dialog`（宿主居中对话框，带标题栏与关闭按钮，宽度由 `size` 决定）。
+ */
+export type PluginHeaderActionPopoverHost = "popover" | "dialog";
+
+/** 气泡声明：直接给组件，或给组件加容器参数。 */
+export type PluginHeaderActionPopover =
+	| ComponentType<PluginHeaderActionPopoverProps>
+	| {
+			component: ComponentType<PluginHeaderActionPopoverProps>;
+			size?: PluginHeaderActionPopoverSize;
+			host?: PluginHeaderActionPopoverHost;
+			title?: string;
+	  };
+
+/** 顶栏动作此刻能拿到的上下文：它在哪个页面、当前工作目录是什么。 */
+export interface PluginHeaderActionContext {
+	/**
+	 * 当前页面。`conversation` = 会话页；`new-session` = 新会话页（还没有消息，
+	 * 顶栏只有置顶与活动面板开关）。
+	 */
+	surface: PluginHeaderActionSurface;
+	/** 当前工作目录；没有项目（例如空白新会话）时为 `null`。 */
+	cwd: string | null;
+}
+
+/** 顶栏动作可以出现的页面。 */
+export type PluginHeaderActionSurface = "conversation" | "new-session";
+
 /**
  * 顶栏动作此刻的**声明**，由 {@link PluginHeaderActionContribution.useAction} 返回。
  *
  * 宿主用它统一渲染成与内置按钮完全一致的一格；插件能决定的只有下面这些字段，没有 `className`、
- * `style`，也无法替换按钮本身，且**只有图标、没有文字**：名称靠悬浮提示（`title`）显示。
+ * `style`，也无法替换按钮本身。默认**只有图标**，名称靠悬浮提示（`title`）显示；需要把状态
+ * 写在脸上时用 `label`（宽屏才显示，窄了自动退回图标）。
  * `click` / `menuItems` / `popover` **三选一**：
  * 同时给多个时按 `menuItems` > `popover` > `onClick` 取第一个；一个都没有则该动作不显示。
  *
- * 宿主会校验并截断：`title` 最长 40 字（超出截断），`menuItems` 最多
+ * 宿主会校验并截断：`title` 最长 40 字、`label` 最长 24 字（超出截断），`menuItems` 最多
  * 20 项，`badge` 只接受数字（≥ 1，超过 99 显示 `99+`）或 `true`（红点）。
  */
 export interface PluginHeaderActionState {
-	/** 必填。悬浮提示、无障碍名称（按钮上不显示文字，用户靠它认出这个动作）。 */
+	/** 必填。悬浮提示、无障碍名称（按钮上不显示文字时，用户全靠它认出这个动作）。 */
 	title: string;
 	/**
 	 * 必填。图标节点，宿主放进 16px 的固定方框里并忽略指针事件，建议直接用
 	 * iconify 的 `<span className="icon-[solar--…]" />`。
 	 */
 	icon: ReactNode;
+	/**
+	 * 图标右侧的文字，用于「状态本身就是文字」的动作（分支名、当前模型、同步落后数）。
+	 * 最长 24 字；顶栏有位置时显示，被收纳、页头挤窄、顶栏超过 4 格时自动退回纯图标。
+	 */
+	label?: string;
 	/** 角标：数字显示计数，`true` 显示红点。被收纳时宿主会把它汇总到收纳入口上。 */
 	badge?: number | boolean;
+	/** 角标与图标的语义色，默认 `neutral`（灰色数字 / 本色图标）。 */
+	tone?: PluginHeaderActionTone;
 	/** 选中态（例如面板已打开）。 */
 	active?: boolean;
 	disabled?: boolean;
+	/** 禁用原因：禁用时替代 `title` 显示，用户才知道为什么点不了。 */
+	disabledReason?: string;
+	/**
+	 * 处于选中态时，即使被收纳也要在活动面板开关左侧露出来（例如「正在录制」这类必须可见的状态）。
+	 * 只在顶栏有活动面板开关的页面上生效。
+	 */
+	promoteWhenActive?: boolean;
 	/** 点击直接执行。 */
 	onClick?: () => void;
 	/** 点击向下弹出下拉菜单。 */
@@ -712,21 +796,22 @@ export interface PluginHeaderActionState {
 	 * 点击弹出气泡，内容是你自己的组件。气泡的背景、圆角、投影由宿主固定，宽高随内容自适应；
 	 * 被收纳时它会在收纳托盘里**内联展开**（宽约 260px），内容请能在这个宽度下正常显示。
 	 */
-	popover?: ComponentType<PluginHeaderActionPopoverProps>;
+	popover?: PluginHeaderActionPopover;
 }
 
 /**
- * 会话页顶栏右侧按钮组里的一格（`ui.slot.header-action`）。
+ * 会话页与新会话页顶栏右侧按钮组里的一格（`ui.slot.header-action`）。
  *
  * 顶栏右侧是**宿主统一管理的一个按钮组**：内置按钮（导出 / 置顶 / 终端 / 底部面板）与所有插件
  * 贡献排在同一组里，外观由宿主决定，插件不能自定义样式。显示规则：
  * - 顶栏最多显示 7 格（不含最右侧固定的「活动面板」开关），内置与插件共用这 7 个名额；
  * - 超出的、以及用户主动收起的动作进入「收纳」托盘（悬浮在按钮组上时，组下方出现的小白条）；
  * - 用户可以在托盘里拖动调整顺序、决定哪些在顶栏哪些收纳，这份布局按动作 id 记在本机；
- * - 新装插件的动作：顶栏还有空位就排进去，否则进收纳，不会挤走用户已有的布局。
+ * - 新装插件的动作：顶栏还有空位就排进去，否则进收纳，不会挤走用户已有的布局；
+ * - `pin: "prefer"` 只是「用户没调整过时优先上栏」的建议，仍然用户可以改、也不突破 7 格上限。
  * 所以插件**不能**假定自己一定在顶栏上，也不能依赖相邻的是谁。
  *
- * 当前仅出现在会话页。
+ * 出现页面由 `surfaces` 决定，默认只有会话页。
  */
 export interface PluginHeaderActionContribution {
 	/** 贡献 id，在本插件内唯一，最长 64 字符。用户的布局按 `${插件 id}:${id}` 记忆，请不要随意改名。 */
@@ -736,17 +821,25 @@ export interface PluginHeaderActionContribution {
 	 * 同值按插件 id、贡献 id 稳定排序。
 	 */
 	order?: number;
+	/** 出现在哪些页面，默认 `["conversation"]`。 */
+	surfaces?: readonly PluginHeaderActionSurface[];
+	/**
+	 * 初始布局建议。`"prefer"` 表示用户没调整过布局时优先占用顶栏的一个名额
+	 * （仍受 7 格上限与用户后来的调整约束）；默认 `"normal"`，即先待在收纳托盘里。
+	 */
+	pin?: "normal" | "prefer";
 	/**
 	 * 返回动作此刻的声明，返回 `null` 表示当前不适用（例如没有项目目录），宿主不显示也不占位。
 	 *
-	 * 这是一个 **React hook**：宿主在会话页顶栏挂载期间一直调用它，所以可以在里面用任意 hook
+	 * 这是一个 **React hook**：宿主在对应页面顶栏挂载期间一直调用它，所以可以在里面用任意 hook
 	 * （`useActiveConversation()`、`useTranslation()`、你自己的 store……），数据变化时自然重新声明。
+	 * 入参给出当前页面与工作目录，可以据此决定是否出现、显示什么。
 	 * 约束：
 	 * - 渲染期必须是纯计算，不要在里面发请求、起定时器；这类副作用放进 `useEffect`；
 	 * - 抛错只会让这一项消失（错误边界隔离），不会影响其它动作；
 	 * - 每次渲染都可以返回新对象，宿主不依赖引用相等。
 	 */
-	useAction: () => PluginHeaderActionState | null;
+	useAction: (context: PluginHeaderActionContext) => PluginHeaderActionState | null;
 }
 
 /**
@@ -910,9 +1003,10 @@ export interface PluginUiApi {
 	 * `"max"` 是一种持续状态而非一次性求值：窗口尺寸变化时面板跟着变宽变窄，直到
 	 * 用户拖动分隔条或有人写入具体像素为止。传数字则是一次性的固定宽度。
 	 *
-	 * 与 `openActivityTab(id, { width })` 的区别：那里的宽度只在标签卡首次 attach
-	 * 时生效（避免 activate 重放覆盖用户手拖的宽度）；这个是命令式的，每次调用都
-	 * 生效，供插件在自己的标签卡被激活、进入某种视图时按需调整。用户随后仍可拖动。
+	 * 与 `openActivityTab(id, { width })` 的区别：那里的宽度只在「标签卡首次 attach」
+	 * 或「把关着的面板翻开」时生效，且 activate 里的调用除外（避免重放覆盖用户手拖的
+	 * 宽度）；这个是命令式的，每次调用都生效，供插件在自己的标签卡被激活、进入某种
+	 * 视图时按需调整。用户随后仍可拖动。
 	 */
 	setActivityPanelWidth(width: number | "max"): void;
 	/**

@@ -14,13 +14,15 @@ import { refreshDesignCatalog } from "./design-systems/index";
 import { stopAllDesignServers } from "./engine/engine-manager";
 import { SHARE_EXTENSION, SHARE_PREVIEW_EXTENSIONS } from "./export/share-format";
 import { claimCanvasReveal } from "./gallery/open-project";
+import { DesignIcon, useCanvasHeaderAction } from "./header/canvas-header-action";
 import { registerTurnHistory } from "./history/turn-history";
 import { watchPickedSystem } from "./new-session/picked-system";
 import { setPluginCtx } from "./plugin-context";
+import { openCanvasTab } from "./canvas/open-canvas-tab";
 import { CANVAS_TAB_ID, GALLERY_VIEW_ID } from "./tab-ids";
 import { registerDesignTools } from "./tools";
 import { claimCanvasAutoOpen, openCanvasAfterWarmup } from "./vetd/auto-open";
-import { setDesignPresence } from "./vetd/design-presence";
+import { setDesignPaths } from "./vetd/design-presence";
 import { registerToolGate } from "./vetd/tool-gate";
 import { isPureDesignProject, pickDesignPaths } from "./vetd/discover";
 
@@ -49,16 +51,6 @@ const ExportMockupDialog = lazySurface(async () => ({
 }));
 const VetdPreview = lazySurface(async () => ({ default: (await import("./preview/VetdPreview")).VetdPreview }));
 const ScreenshotCard = lazySurface(async () => ({ default: (await import("./cards/ScreenshotCard")).ScreenshotCard }));
-
-function DesignIcon() {
-	return (
-		<svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-			<rect x="3" y="3" width="8" height="12" rx="1" />
-			<rect x="14" y="6" width="7" height="9" rx="1" />
-			<path d="M7 19h10" strokeLinecap="round" />
-		</svg>
-	);
-}
 
 function ScreenshotIcon() {
 	return (
@@ -124,7 +116,9 @@ export default definePlugin({
 					const found = bundles.length + legacyFiles.length;
 					// 这趟全量列举同时是设计工具闸门的判定依据，顺手喂进去，
 					// 免得闸门在每次模型调用前自己再扫一遍工作区。
-					setDesignPresence(cwd, found > 0);
+					// 同一份结论也是顶栏「打开画布」的数据源（它只读缓存、不碰磁盘），
+					// 因此列表入口一并更新存在性，不再单独设一次。
+					setDesignPaths(cwd, [...bundles, ...legacyFiles]);
 					ctx.ui.setActivityTabVisible(CANVAS_TAB_ID, found > 0);
 					if (found === 0) return;
 					// 从画廊点进来的这一次，用户已经说清楚要看设计了：混合项目也铺开，
@@ -133,7 +127,7 @@ export default definePlugin({
 						void openCanvasAfterWarmup(
 							loadCanvasTab,
 							() => latestCwd !== cwd || latestSessionId !== sessionId,
-							() => ctx.ui.openActivityTab(CANVAS_TAB_ID, { width: "max" }),
+							() => openCanvasTab(ctx.ui),
 						);
 					};
 					if (claimCanvasReveal(cwd)) {
@@ -159,6 +153,16 @@ export default definePlugin({
 			scope_use: ["project", "conversation"],
 			// 出现条件由插件驱动：cwd 里有 .vetd 才上栏；vetd_create / 预览「打开画布」也会拉起。
 			initiallyVisible: false,
+		});
+		// 会话顶栏的「打开画布」：cwd 里有 .vetd 才出现，一份直接开、多份列出来选。
+		// 声明 `pin: "prefer"`：有设计稿的会话里，进画布是最主要的动作，藏在收纳托盘
+		// 里等于让用户自己去找标签卡（仍然受 7 格上限与用户布局约束）。
+		ctx.ui.registerHeaderAction({
+			id: "canvas",
+			order: 60,
+			surfaces: ["conversation"],
+			pin: "prefer",
+			useAction: useCanvasHeaderAction,
 		});
 		// 导出渲染图的 dialog 走全局插槽：设计画布在活动面板里太窄，
 		// 判断圆角/边框需要整窗口的预览面积。
@@ -235,12 +239,12 @@ export default definePlugin({
 		ctx.fileExplorer.registerContextMenuAction({
 			id: "vetd-open-canvas",
 			label: "%fileExplorer.openCanvas%",
-			icon: <DesignIcon />,
+			icon: <DesignIcon className="h-4 w-4" />,
 			when: { resourceType: "directory", extensions: ["vetd"] },
 			run: ({ entry }) => {
 				setPendingDesignPath(entry.path);
 				ctx.ui.setActivityTabVisible(CANVAS_TAB_ID, true);
-				ctx.ui.openActivityTab(CANVAS_TAB_ID, { width: "max" });
+				openCanvasTab(ctx.ui);
 			},
 		});
 

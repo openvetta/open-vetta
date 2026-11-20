@@ -41,3 +41,49 @@ export async function hasDesignInWorkspace(fs: PluginFsApi, cwd: string): Promis
 	presenceByCwd.set(cwd, present);
 	return present;
 }
+
+/**
+ * 同一份扫描的另一个结论：这个 cwd 里有哪些设计包。
+ *
+ * 顶栏入口要的是「点开哪一份」，而拿这份列表必须递归列举整个工作区——不能放在
+ * `useAction` 的渲染期。所以和存在性一起，由已经在做全量列举的调用方填进来。
+ */
+const designsByCwd = new Map<string, string[]>();
+const designListeners = new Set<() => void>();
+
+function publishDesigns(cwd: string, next: string[]): void {
+	const previous = designsByCwd.get(cwd);
+	if (previous && previous.length === next.length && previous.every((path, index) => path === next[index])) return;
+	designsByCwd.set(cwd, next);
+	for (const listener of designListeners) listener();
+}
+
+/** 会话切换时那次全量列举的结论，顺带更新存在性。 */
+export function setDesignPaths(cwd: string, paths: readonly string[]): void {
+	const sorted = [...paths].sort();
+	setDesignPresence(cwd, sorted.length > 0);
+	publishDesigns(cwd, sorted);
+}
+
+/** 新建 / 迁移出设计后补一条，不必等下一次会话切换才看见。 */
+export function addDesignPath(cwd: string, path: string): void {
+	const current = designsByCwd.get(cwd) ?? [];
+	if (current.includes(path)) return;
+	setDesignPresence(cwd, true);
+	publishDesigns(cwd, [...current, path].sort());
+}
+
+/** 已知的设计包路径；没探测过是 undefined（与「确定了但没有」区分开）。 */
+export function cachedDesignPaths(cwd: string): string[] | undefined {
+	return designsByCwd.get(cwd);
+}
+
+export function subscribeDesignPaths(listener: () => void): () => void {
+	designListeners.add(listener);
+	return () => designListeners.delete(listener);
+}
+
+/** 测试用：清掉进程内的设计列表缓存。 */
+export function resetDesignPaths(): void {
+	designsByCwd.clear();
+}

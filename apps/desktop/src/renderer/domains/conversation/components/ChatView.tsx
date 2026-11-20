@@ -122,6 +122,7 @@ export function ChatView(props: ChatViewProps): JSX.Element {
 				<SandboxGrantsBadge runtimeIds={runtimeIds} />
 				<ConversationHeaderActions
 					builtins={builtinHeaderActions}
+					cwd={model.cwd ?? null}
 					pinned={
 						<ChatHeaderActions.Panel
 							title={model.header.panelTitle}
@@ -132,7 +133,7 @@ export function ChatView(props: ChatViewProps): JSX.Element {
 				/>
 			</>
 		),
-		[actions.togglePanel, builtinHeaderActions, model.header.panelOpen, model.header.panelTitle, runtimeIds, workspace.id],
+		[actions.togglePanel, builtinHeaderActions, model.cwd, model.header.panelOpen, model.header.panelTitle, runtimeIds, workspace.id],
 	);
 	const onAbort = useCallback(() => {
 		void props.onAbort();

@@ -34,6 +34,8 @@ description: 按产品目标选择界面、文件、Agent、Provider 或 App Act
 
 组件使用宿主共享的 React 与设计令牌。注册函数返回 `Disposable`，在停用阶段释放，避免重载后重复注册。
 
+顶栏动作（`registerHeaderAction`）把状态和入口合在一格：`label` 让分支名这类状态直接出现在图标右侧，`tone` 给角标和图标加语义色，菜单项可以声明 `checkbox` / `radio` / 分组标题 / 加载 / 空态 / 一层子菜单，气泡可选宽度（`size`）或升级成宿主对话框（`host: "dialog"`）。`surfaces` 决定动作出现在会话页还是新会话页，`pin: "prefer"` 让「状态就该看得见」的动作在用户没调整过布局时优先上栏。这些字段需要 Plugin API `^2.11.0`，完整规则见 `docs/plugin/ui-slots.md`。
+
 <Callout title="样式只用 className" type="warn">
   插件与宿主共享同一个页面。在样式入口里写 `button`、`div`、`*` 这类元素选择器会污染整个界面，而且是只在用户机器上复现的那种污染。`@vetta-org/plugin-vite` 会自动把插件 CSS 限定到插件根节点并接入宿主主题令牌，`text-foreground`、`bg-card` 这类语义类直接可用。
 </Callout>

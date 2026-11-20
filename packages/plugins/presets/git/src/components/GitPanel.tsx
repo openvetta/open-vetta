@@ -6,6 +6,7 @@ import { initRepo, resolveRepoRoot, statusPorcelain } from "../git/run";
 import { getGitCommand, invalidateGitTabProbe, onRefreshSignal } from "../git/runtime";
 import { isGitAvailable } from "../git/tab-visibility";
 import type { StatusGroups } from "../git/types";
+import { DiffStat } from "./DiffStat";
 import { GitChanges } from "./GitChanges";
 import { GraphView } from "./graph/GraphView";
 import { GitIcon, GraphIcon, RefreshIcon } from "./icons";
@@ -114,9 +115,13 @@ export function GitPanel(): JSX.Element {
 						{t("panel.title")}
 					</div>
 				)}
-				<Button type="button" variant="ghost" size="icon-xs" onClick={handleRefresh} title={t("action.refresh")}>
-					<RefreshIcon className="h-3.5 w-3.5" />
-				</Button>
+				<div className="flex shrink-0 items-center gap-2">
+					{/* 行数统计紧挨刷新键：这个数字是「截至刚才那次刷新」的快照。 */}
+					{state.kind === "ready" && view === "changes" ? <DiffStat root={state.root} /> : null}
+					<Button type="button" variant="ghost" size="icon-xs" onClick={handleRefresh} title={t("action.refresh")}>
+						<RefreshIcon className="h-3.5 w-3.5" />
+					</Button>
+				</div>
 			</div>
 
 			{state.kind === "loading" && <div className="px-3 py-4 text-[12px] text-muted-foreground">{t("state.loading")}</div>}

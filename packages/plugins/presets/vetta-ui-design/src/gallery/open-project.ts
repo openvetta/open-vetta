@@ -6,7 +6,7 @@
  */
 import { setPendingDesignPath } from "../canvas/design-runtime";
 import { getPluginCtx } from "../plugin-context";
-import { CANVAS_TAB_ID } from "../tab-ids";
+import { openCanvasTab } from "../canvas/open-canvas-tab";
 import { pickResumableSession } from "./gallery-model";
 
 export interface OpenProjectTarget {
@@ -89,5 +89,5 @@ export function resetCanvasReveal(): void {
 
 /** 立刻把画布标签卡铺开（会话页已经在前台时用）。 */
 export function revealCanvasNow(): void {
-	getPluginCtx().ui.openActivityTab(CANVAS_TAB_ID, { width: "max" });
+	openCanvasTab(getPluginCtx().ui);
 }
