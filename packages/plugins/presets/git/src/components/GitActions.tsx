@@ -3,7 +3,6 @@ import { ButtonGroup, ButtonGroupItem } from "@vetta-org/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	aheadBehind,
-	diffStat,
 	gitFetch,
 	gitPublishBranch,
 	gitPull,
@@ -31,7 +30,6 @@ interface PendingPublish {
 export function GitActions({ root, labelled = false }: { root: string; labelled?: boolean }): JSX.Element {
 	const { t } = useTranslation();
 	const [ab, setAb] = useState<{ ahead: number; behind: number } | null>(null);
-	const [stat, setStat] = useState({ additions: 0, deletions: 0, untrackedTruncated: false });
 	const [busy, setBusy] = useState<ActionKind | null>(null);
 	const [pendingPublish, setPendingPublish] = useState<PendingPublish | null>(null);
 	// Reloads overlap (refresh signal + post-action), and they finish out of order;
@@ -47,11 +45,6 @@ export function GitActions({ root, labelled = false }: { root: string; labelled?
 			.catch(() => {
 				if (id === reloadIdRef.current) setAb(null);
 			});
-		diffStat(root)
-			.then((value) => {
-				if (id === reloadIdRef.current) setStat(value);
-			})
-			.catch(() => {});
 	}, [root]);
 
 	useEffect(() => {
@@ -196,19 +189,6 @@ export function GitActions({ root, labelled = false }: { root: string; labelled?
 					);
 				})}
 			</ButtonGroup>
-
-			{stat.additions > 0 && (
-				<span
-					className="text-[11px] font-medium leading-none tabular-nums text-emerald-500/90"
-					title={stat.untrackedTruncated ? t("stat.untrackedTruncated") : undefined}
-				>
-					+{stat.additions}
-					{stat.untrackedTruncated && "+"}
-				</span>
-			)}
-			{stat.deletions > 0 && (
-				<span className="text-[11px] font-medium leading-none tabular-nums text-rose-500/90">−{stat.deletions}</span>
-			)}
 
 			<ConfirmDialog
 				open={pendingPublish !== null}
