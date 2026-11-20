@@ -2,10 +2,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { canvasActionState, designName, openCanvasFor } from "../src/header/canvas-header-action";
 import { cachedDesignPaths, resetDesignPaths, setDesignPaths } from "../src/vetd/design-presence";
 
-const mocks = vi.hoisted(() => ({
-	ui: { setActivityTabVisible: vi.fn(), openActivityTab: vi.fn(), setActivityPanelWidth: vi.fn() },
-	pending: vi.fn(),
-}));
+/** 宿主与画布收到的请求按发生顺序记下来：断言看的是最终发生了什么、先后如何。 */
+const mocks = vi.hoisted(() => {
+	const log: unknown[][] = [];
+	return {
+		log,
+		ui: {
+			setActivityTabVisible: (...args: unknown[]) => log.push(["visible", ...args]),
+			openActivityTab: (...args: unknown[]) => log.push(["open", ...args]),
+			setActivityPanelWidth: (...args: unknown[]) => log.push(["width", ...args]),
+		},
+		pending: (...args: unknown[]) => log.push(["pending", ...args]),
+	};
+});
 
 vi.mock("../src/plugin-context", () => ({
 	getPluginCtx: () => ({ ui: mocks.ui }),
@@ -19,7 +28,7 @@ const t = (key: string) => key;
 
 afterEach(() => {
 	resetDesignPaths();
-	vi.clearAllMocks();
+	mocks.log.length = 0;
 });
 
 describe("designName", () => {
@@ -35,36 +44,46 @@ describe("canvasActionState", () => {
 	});
 
 	it("opens the only design straight away", () => {
-		const open = vi.fn();
-		const state = canvasActionState({ designs: ["/repo/landing.vetd"], open, t });
+		const opened: string[] = [];
+		const state = canvasActionState({ designs: ["/repo/landing.vetd"], open: (path) => opened.push(path), t });
 		expect(state?.label).toBe("header.openCanvas");
 		expect(state?.menuItems).toBeUndefined();
 		(state?.onClick as () => void)();
-		expect(open).toHaveBeenCalledWith("/repo/landing.vetd");
+		expect(opened).toEqual(["/repo/landing.vetd"]);
 	});
 
 	it("lists every design when there is more than one, so the user picks", () => {
-		const open = vi.fn();
-		const state = canvasActionState({ designs: ["/repo/a.vetd", "/repo/b.vetd"], open, t });
+		const opened: string[] = [];
+		const state = canvasActionState({
+			designs: ["/repo/a.vetd", "/repo/b.vetd"],
+			open: (path) => opened.push(path),
+			t,
+		});
 		expect(state?.onClick).toBeUndefined();
 		expect(state?.menuItems?.map((item) => item.label)).toEqual(["a", "b"]);
 		state?.menuItems?.[1]?.onSelect();
-		expect(open).toHaveBeenCalledWith("/repo/b.vetd");
+		expect(opened).toEqual(["/repo/b.vetd"]);
 	});
 });
 
 describe("openCanvasFor", () => {
 	it("hands the design to the canvas before revealing the tab", () => {
 		openCanvasFor("/repo", "/repo/landing.vetd");
-		expect(mocks.pending).toHaveBeenCalledWith("/repo/landing.vetd", "/repo");
-		expect(mocks.ui.setActivityTabVisible).toHaveBeenCalledWith("canvas", true, { cwd: "/repo" });
-		expect(mocks.ui.openActivityTab).toHaveBeenCalledWith("canvas", { width: "max", cwd: "/repo" });
+		expect(mocks.log).toEqual([
+			["pending", "/repo/landing.vetd", "/repo"],
+			["visible", "canvas", true, { cwd: "/repo" }],
+			["width", "max"],
+			["open", "canvas", { width: "max", cwd: "/repo" }],
+		]);
 	});
 
 	it("opens whatever the canvas last had selected when no design is named", () => {
 		openCanvasFor("/repo");
-		expect(mocks.pending).not.toHaveBeenCalled();
-		expect(mocks.ui.openActivityTab).toHaveBeenCalled();
+		expect(mocks.log).toEqual([
+			["visible", "canvas", true, { cwd: "/repo" }],
+			["width", "max"],
+			["open", "canvas", { width: "max", cwd: "/repo" }],
+		]);
 	});
 });
 

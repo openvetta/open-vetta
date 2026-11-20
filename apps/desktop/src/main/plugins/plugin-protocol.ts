@@ -222,6 +222,7 @@ export const SelectValue = ui.SelectValue;
 export const Slider = ui.Slider;
 export const SessionTopGroup = ui.SessionTopGroup;
 export const SessionTopItem = ui.SessionTopItem;
+export const SessionTopMenuItems = ui.SessionTopMenuItems;
 export const Spin = ui.Spin;
 export const StepSlider = ui.StepSlider;
 export const Stepper = ui.Stepper;
