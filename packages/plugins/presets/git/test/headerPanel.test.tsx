@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GitHeaderPanel } from "../src/components/HeaderStatusAction";
 import { setHeaderRepoCwd } from "../src/git/headerStatus";
-import { setGitCommand } from "../src/git/runtime";
+import { setGitCommand, setPanelOpener } from "../src/git/runtime";
 
 vi.mock("@vetta-org/plugin-sdk", () => ({
 	useTranslation: () => ({ t: (key: string, values?: Record<string, unknown>) => (values ? `${key}:${JSON.stringify(values)}` : key), locale: "en" }),
@@ -151,7 +151,9 @@ describe("GitHeaderPanel", () => {
 
 	it("offers a one-click way out to the full panel", async () => {
 		setup();
-		render(<GitHeaderPanel close={closeSpy} />);
+		const events: string[] = [];
+		setPanelOpener(() => events.push("open-panel"));
+		render(<GitHeaderPanel close={() => events.push("close-popover")} />);
 		await waitFor(() => expect(screen.getByText("main")).toBeTruthy());
 
 		await act(async () => {
@@ -159,6 +161,6 @@ describe("GitHeaderPanel", () => {
 		});
 
 		// 气泡先关掉，再让面板拿到焦点：否则浮层还盖在面板上面。
-		expect(closeSpy).toHaveBeenCalled();
+		expect(events).toEqual(["close-popover", "open-panel"]);
 	});
 });
