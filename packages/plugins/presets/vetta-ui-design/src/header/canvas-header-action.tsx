@@ -3,6 +3,7 @@ import { useTranslation } from "@vetta-org/plugin-sdk";
 import { useCallback, useSyncExternalStore } from "react";
 import { setPendingDesignPath } from "../canvas/design-runtime";
 import { getPluginCtx } from "../plugin-context";
+import { openCanvasTab } from "../canvas/open-canvas-tab";
 import { CANVAS_TAB_ID } from "../tab-ids";
 import { cachedDesignPaths, subscribeDesignPaths } from "../vetd/design-presence";
 
@@ -33,7 +34,7 @@ export function openCanvasFor(cwd: string, vetdPath?: string): void {
 	if (vetdPath) setPendingDesignPath(vetdPath, cwd);
 	const ctx = getPluginCtx();
 	ctx.ui.setActivityTabVisible(CANVAS_TAB_ID, true, { cwd });
-	ctx.ui.openActivityTab(CANVAS_TAB_ID, { width: "max", cwd });
+	openCanvasTab(ctx.ui, cwd);
 }
 
 /**

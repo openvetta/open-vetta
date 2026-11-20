@@ -1,7 +1,7 @@
 {
 	"id": "vetta-ui-design",
 	"name": "%plugin.name%",
-	"version": "0.7.7",
+	"version": "0.7.8",
 	"icon": "icon.png",
 	"defaultLocale": "zh",
 	"pluginApiVersion": "^2.11.0",

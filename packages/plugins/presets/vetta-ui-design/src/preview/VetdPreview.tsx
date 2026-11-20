@@ -6,6 +6,7 @@ import { getPluginCtx, notify } from "../plugin-context";
 import { setPendingDesignPath } from "../canvas/design-runtime";
 import { PreviewCanvas } from "./PreviewCanvas";
 import { inlineSnapshotAssets } from "./snapshot-assets";
+import { openCanvasTab } from "../canvas/open-canvas-tab";
 import { CANVAS_TAB_ID } from "../tab-ids";
 import { emptyManifest, type VetdManifest } from "../vetd/manifest-types";
 
@@ -74,7 +75,7 @@ export function VetdPreview({ file }: { file: PluginPreviewFile }) {
 		if (file.path) setPendingDesignPath(file.path);
 		const ctx = getPluginCtx();
 		ctx.ui.setActivityTabVisible(CANVAS_TAB_ID, true);
-		ctx.ui.openActivityTab(CANVAS_TAB_ID, { width: "max" });
+		openCanvasTab(ctx.ui);
 	};
 
 	const runImport = async (packaged: PackagedVetd): Promise<void> => {
@@ -86,7 +87,7 @@ export function VetdPreview({ file }: { file: PluginPreviewFile }) {
 			notify({ message: t("canvas.import.done", { path: vetdPath }), variant: "success", durationMs: 5000 });
 			setPendingDesignPath(vetdPath);
 			ctx.ui.setActivityTabVisible(CANVAS_TAB_ID, true);
-			ctx.ui.openActivityTab(CANVAS_TAB_ID, { width: "max" });
+			openCanvasTab(ctx.ui);
 		} catch (error) {
 			notify({ message: t("canvas.import.failed"), error });
 		}

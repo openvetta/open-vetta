@@ -35,6 +35,7 @@ import { engineDiagnostics, installDesignDependencies } from "./engine/engine-ma
 import { composeNotePins } from "./notes/annotate";
 import { notesFilePath } from "./notes/notes-store";
 import { type DesignNote, type NotesFile, noteStatus, parseNotesFile, pendingNotes } from "./notes/types";
+import { openCanvasTab } from "./canvas/open-canvas-tab";
 import { CANVAS_TAB_ID } from "./tab-ids";
 import { type SourceIssue, THEME_PLACEHOLDER_RULE } from "./vetd/check-sources";
 import { blockingSyntaxIssues, SYNTAX_RULE } from "./vetd/check-syntax";
@@ -281,7 +282,7 @@ export function registerDesignTools(ctx: PluginContext): void {
 				})}`,
 			);
 			ctx.ui.setActivityTabVisible(CANVAS_TAB_ID, true, { cwd: session.cwd });
-			ctx.ui.openActivityTab(CANVAS_TAB_ID, { width: "max", cwd: session.cwd });
+			openCanvasTab(ctx.ui, session.cwd);
 			const stated = statedIntentFrom(trigger.input.intent);
 			const dealt =
 				directionMode === "page" && dealSession && dealParams
@@ -348,7 +349,7 @@ export function registerDesignTools(ctx: PluginContext): void {
 		handler: async ({ host, session, trigger }) => {
 			const controller = getCanvasController();
 			if (!controller) {
-				ctx.ui.openActivityTab(CANVAS_TAB_ID, { width: "max", cwd: session.cwd });
+				openCanvasTab(ctx.ui, session.cwd);
 				return {
 					ok: false,
 					retryable: true,

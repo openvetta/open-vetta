@@ -35,7 +35,7 @@ const ctx = {
 			return { dispose: () => {} };
 		},
 	},
-	ui: { openActivityTab },
+	ui: { openActivityTab, setActivityPanelWidth: vi.fn() },
 } as unknown as PluginContext;
 
 /** 内存文件系统：记录写入，`existing` 里的路径视为已存在。 */

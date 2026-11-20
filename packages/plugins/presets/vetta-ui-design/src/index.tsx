@@ -18,6 +18,7 @@ import { DesignIcon, useCanvasHeaderAction } from "./header/canvas-header-action
 import { registerTurnHistory } from "./history/turn-history";
 import { watchPickedSystem } from "./new-session/picked-system";
 import { setPluginCtx } from "./plugin-context";
+import { openCanvasTab } from "./canvas/open-canvas-tab";
 import { CANVAS_TAB_ID, GALLERY_VIEW_ID } from "./tab-ids";
 import { registerDesignTools } from "./tools";
 import { claimCanvasAutoOpen, openCanvasAfterWarmup } from "./vetd/auto-open";
@@ -126,7 +127,7 @@ export default definePlugin({
 						void openCanvasAfterWarmup(
 							loadCanvasTab,
 							() => latestCwd !== cwd || latestSessionId !== sessionId,
-							() => ctx.ui.openActivityTab(CANVAS_TAB_ID, { width: "max" }),
+							() => openCanvasTab(ctx.ui),
 						);
 					};
 					if (claimCanvasReveal(cwd)) {
@@ -243,7 +244,7 @@ export default definePlugin({
 			run: ({ entry }) => {
 				setPendingDesignPath(entry.path);
 				ctx.ui.setActivityTabVisible(CANVAS_TAB_ID, true);
-				ctx.ui.openActivityTab(CANVAS_TAB_ID, { width: "max" });
+				openCanvasTab(ctx.ui);
 			},
 		});
 

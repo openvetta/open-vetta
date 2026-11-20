@@ -35,7 +35,7 @@ describe("vetd_create activity-tab target", () => {
 					return { dispose: () => {} };
 				},
 			},
-			ui: { setActivityTabVisible, openActivityTab },
+			ui: { setActivityTabVisible, openActivityTab, setActivityPanelWidth: vi.fn() },
 			storage: { readFile: async () => null, writeFile: async () => ({ revision: "1", changedPaths: [] }) },
 		} as unknown as PluginContext;
 		registerDesignTools(ctx);

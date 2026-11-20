@@ -3,7 +3,7 @@ import { canvasActionState, designName, openCanvasFor } from "../src/header/canv
 import { cachedDesignPaths, resetDesignPaths, setDesignPaths } from "../src/vetd/design-presence";
 
 const mocks = vi.hoisted(() => ({
-	ui: { setActivityTabVisible: vi.fn(), openActivityTab: vi.fn() },
+	ui: { setActivityTabVisible: vi.fn(), openActivityTab: vi.fn(), setActivityPanelWidth: vi.fn() },
 	pending: vi.fn(),
 }));
 
