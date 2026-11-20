@@ -735,11 +735,12 @@ interface PluginNewSessionContext {
 
 ## 会话页顶栏动作 registerHeaderAction
 
-在会话页顶栏右侧的**宿主统一按钮组**里加一格，例如「用外部应用打开」。
+在页面顶栏右侧的**宿主统一按钮组**里加一格，例如「用外部应用打开」，或把分支 / 待提交数这类状态摊在顶栏上。
 
 - 权限：`ui.slot.header-action`（缺权限 = warn + noop）
-- 需要 Plugin API `^2.9.0`
-- 当前只出现在会话页顶栏
+- 需要 Plugin API `^2.9.0`；`label` / `tone` / `disabledReason` / `promoteWhenActive`、菜单项类型、
+  气泡尺寸与 `dialog` 容器、`surfaces`、`pin` 需要 `^2.11.0`
+- 出现在会话页与新会话页（由 `surfaces` 决定）
 
 ### 它是声明式的：你只决定「是什么」，不决定「长什么样」
 
@@ -747,17 +748,33 @@ interface PluginNewSessionContext {
 
 | 字段 | 说明 |
 | --- | --- |
-| `title`（必填） | 悬浮提示与无障碍名称。**按钮上没有文字**，用户靠图标 + 这条提示认出它；最长 40 字，超出截断 |
+| `title`（必填） | 悬浮提示与无障碍名称。**默认按钮上没有文字**，用户靠图标 + 这条提示认出它；最长 40 字，超出截断 |
 | `icon`（必填） | 图标节点。宿主放进 16px 固定方框、忽略指针事件，建议用 iconify：`<span className="icon-[solar--folder-linear]" />` |
+| `label` | 图标右侧的文字（最长 24 字）。给「状态本身就是文字」的动作用，比如分支名、落后几个提交。只在顶栏上、且顶栏不超过 4 格、页头不拥挤时显示；被收纳或挤窄时自动退回纯图标 |
 | `badge` | 数字（≥ 1，超过 99 显示 `99+`）或 `true`（红点）；其它值被忽略 |
+| `tone` | `neutral`（默认）/ `info` / `success` / `warning` / `danger`，作用于角标与图标颜色。**别把所有数字都染成红色**：红色留给真正需要人处理的状态（冲突、失败） |
 | `active` / `disabled` | 选中态 / 禁用态 |
+| `disabledReason` | 禁用原因。禁用时取代 `title` 显示，用户才知道为什么点不了 |
+| `promoteWhenActive` | 选中时即使被收纳，也在活动面板开关左侧露出来（适合「正在录制」这类必须可见的状态） |
 | `onClick` / `menuItems` / `popover` | **三选一**的点击行为，见下 |
 
 三种点击行为按 `menuItems` > `popover` > `onClick` 取第一个存在的；一个都没有，这个动作不显示并在控制台打一条 warn。
 
-- `menuItems`：下拉菜单，最多 20 项，`{ id, label, icon?, onSelect, disabled?, destructive?, separatorBefore? }`，`id` 在菜单内唯一，非法项被丢弃；
-- `popover`：一个 React 组件（props `{ close }`），**这是唯一允许自定义内容的地方**。气泡的背景、圆角、投影由宿主固定，宽高随内容自适应（最大约 32rem，超出滚动）；
+- `menuItems`：下拉菜单，最多 20 项，`{ id, kind?, label, icon?, onSelect?, children?, checked?, disabled?, disabledReason?, destructive?, separatorBefore? }`，`id` 在菜单内唯一，非法项被丢弃；
+- `popover`：一个 React 组件（props `{ close }`），或 `{ component, size?: "sm" | "md" | "lg", host?: "popover" | "dialog", title? }`。**这是唯一允许自定义内容的地方**。气泡的背景、圆角、投影由宿主固定；`size` 决定宽度档位（约 16 / 24 / 32rem），`host: "dialog"` 换成宿主居中对话框（内容有输入框、长列表时更合适）；
 - `onClick`：点击直接执行。
+
+#### 菜单项类型：让「列表就是状态」
+
+`kind` 省略即普通命令项。给列表、开关、加载中这些场景用，比把状态写进文案更清楚：
+
+| `kind` | 行为 |
+| --- | --- |
+| `item` | 普通命令项，必须给 `onSelect` |
+| `checkbox` / `radio` | 带勾选标记（`checked`），点击后**菜单不关**（勾选变化就是反馈）；必须给 `onSelect` |
+| `label` | 分组标题，不可点 |
+| `loading` / `empty` | 占位行，自动禁用（「正在加载」「没有本地分支」） |
+| `submenu` | 展开 `children`；**只支持一层**，第二层会被丢弃 |
 
 ### 注册：`useAction` 是一个 hook
 
@@ -765,18 +782,19 @@ interface PluginNewSessionContext {
 interface PluginHeaderActionContribution {
   id: string;        // 本插件内唯一，≤ 64 字符；用户布局按 `${pluginId}:${id}` 记忆，别随意改名
   order?: number;    // 只决定「用户没调整过时」的初始位置，小的靠左
-  useAction: () => PluginHeaderActionState | null; // 返回 null = 此刻不适用，不显示、不占名额
+  surfaces?: readonly ("conversation" | "new-session")[]; // 默认 ["conversation"]
+  pin?: "normal" | "prefer"; // prefer = 用户没调整过时优先占顶栏一格；仍是用户可改的默认值
+  useAction: (context: { surface; cwd }) => PluginHeaderActionState | null; // null = 此刻不适用
 }
 ```
 
-宿主在会话页顶栏挂载期间一直调用 `useAction`，所以里面可以用任意 hook（`useActiveConversation()`、`useTranslation()`、你自己的 store），数据变化就自然重新声明：
+宿主在页面顶栏挂载期间一直调用 `useAction`，所以里面可以用任意 hook（`useTranslation()`、你自己的 store），数据变化就自然重新声明。入参 `context` 给出当前页面（`surface`）与工作目录（`cwd`，没有项目时为 `null`）：
 
 ```tsx
-import { useActiveConversation, useTranslation } from "@vetta-org/plugin-sdk";
+import { useTranslation } from "@vetta-org/plugin-sdk";
 
-function useOpenInApp() {
+function useOpenInApp({ cwd }: { cwd: string | null }) {
   const { t } = useTranslation();
-  const { cwd } = useActiveConversation();
   if (!cwd) return null; // 没有项目目录：不显示
   return {
     title: t("action.title"),
@@ -792,23 +810,42 @@ function useOpenInApp() {
 ctx.ui.registerHeaderAction({ id: "open-in-app", order: 100, useAction: useOpenInApp });
 ```
 
-带气泡的例子：
+把状态摊在按钮上的例子（分支名 + 待提交数 + 角标语义色，点开是快捷操作）：
 
 ```tsx
-function useHistory() {
-  const unread = useUnreadCount();
+function useStatus({ cwd }) {
+  const status = useMyRepoStatus(cwd); // 你自己的 store，渲染期只读缓存
+  if (!cwd || !status) return null;
   return {
-    title: "历史",
-    icon: <span className="icon-[solar--history-linear]" />,
-    badge: unread,
-    popover: ({ close }: { close: () => void }) => <HistoryList onPick={close} />,
+    title: `${status.branch} · ${status.files} 个未提交变更`,
+    label: status.branch ?? "分离 HEAD",
+    icon: <span className="icon-[mdi--source-branch]" />,
+    badge: status.conflict > 0 ? status.conflict : status.files || undefined,
+    tone: status.conflict > 0 ? "danger" : status.behind > 0 ? "info" : undefined,
+    popover: { component: QuickActions, size: "md", title: "Git" },
   };
 }
 ```
 
-`useAction` 的约束（违反时只会让**你这一项**消失，不会影响别的动作）：
+### 工程限制一览
 
-- 渲染期必须是纯计算：不要在里面发请求、起定时器，这类副作用放 `useEffect`；
+| 项 | 限制 |
+| --- | --- |
+| 贡献 id | 本插件内唯一，≤ 64 字符，重复注册抛错 |
+| `title` / `label` | 必填 40 字 / 可选 24 字，超出截断 |
+| `icon` | 必填，16px 固定方框，忽略指针事件 |
+| `menuItems` | ≤ 20 项，id 不重复，`label` ≤ 40 字，子菜单只一层 |
+| `badge` | 数字 ≥ 1 或 `true` |
+| 点击行为 | `menuItems` / `popover` / `onClick` 三选一 |
+| 样式 | 不可自定义（仅 `popover` 组件内部自由） |
+| 顶栏名额 | 7 格，内置与插件共用 |
+| 出现位置 | 会话页与新会话页；两页的布局分别保存 |
+
+### `useAction` 的约束
+
+违反时只会让**你这一项**消失，不会影响别的动作：
+
+- 渲染期必须是纯计算：不要在里面发请求、起定时器，这类副作用放 `useEffect`（状态读取请走「缓存 + 订阅」，别每次渲染都跑 `git status`）；
 - 抛错由宿主错误边界吞掉，该项消失并在控制台记录；
 - 每次渲染可以返回新对象，宿主不依赖引用相等，也不要求你 `useMemo`；
 - `onClick` / `onSelect` 抛错或返回的 Promise 被拒绝，宿主只记日志；
@@ -818,29 +855,15 @@ function useHistory() {
 
 - 顶栏最多显示 **7 格**（不含最右侧固定的「活动面板」开关），**内置与插件共用**这 7 个名额；
 - 超出的、以及用户主动收起的动作进入**收纳**：鼠标悬浮在按钮组上时，组下方出现一条小白条，点开是收纳托盘。托盘里只有图标，点一下直接使用；
-- 打开托盘即进入编辑状态：按钮组里没被占用的席位显示为虚线方框；把托盘里的图标拖进按钮组就上栏，把按钮组里的按钮拖进托盘就收纳，组内也能拖动换序。这份布局按 `${pluginId}:${id}` 记在本机；
-- **默认布局**：用户从没调整过时，顶栏只显示「终端」、「底部面板」、「导出」，按这个顺序（连系统插件「从外部应用打开」也在收纳里），**其余动作（包括你的插件）默认都在收纳里**，需要用户自己拖到顶栏。所以不要指望用户一装上就在顶栏看到你的按钮；
+- 打开托盘即进入编辑状态：按钮组里没被占用的席位显示为虚线方框；把托盘里的图标拖进按钮组就上栏，把按钮组里的按钮拖进托盘就收纳，组内也能拖动换序。这份布局按 `${pluginId}:${id}` 记在本机、且按页面分开存；
+- **默认布局**：会话页在用户从没调整过时只显示「终端」「底部面板」「导出」；新会话页只有「置顶」。**其余动作（包括你的插件）默认都在收纳里**，需要用户自己拖到顶栏。`pin: "prefer"` 是唯一的例外：它让「状态就该看得见」的动作在默认布局里占一格，但仍受 7 格上限与用户后来的调整约束；
 - 用户调整过之后以他存下来的布局为准。此后新装插件的动作：顶栏还有空位就按 `order` 排进去，没有空位进收纳，**不会挤走用户已有的布局**；
 - 被收纳的动作带角标时，宿主会把小白条变红，角标不会被藏起来；
 - 被收纳的菜单 / 气泡动作点击后在托盘旁弹出，内容与在顶栏时一致。
 
 所以：不要依赖自己在顶栏上的位置，不要依赖相邻的是谁，也不要在文案里写「左边的按钮」。
 
-### 工程上的限制一览
-
-| 项 | 限制 |
-| --- | --- |
-| 贡献 id | 本插件内唯一，≤ 64 字符，重复注册抛错 |
-| `title` | 必填，≤ 40 字 |
-| `icon` | 必填，16px 固定方框，忽略指针事件 |
-| `menuItems` | ≤ 20 项，id 不重复，`label` ≤ 40 字 |
-| `badge` | 数字 ≥ 1 或 `true` |
-| 点击行为 | `menuItems` / `popover` / `onClick` 三选一 |
-| 样式 | 不可自定义（仅 `popover` 组件内部自由） |
-| 顶栏名额 | 7 格，内置与插件共用 |
-| 出现位置 | 仅会话页 |
-
-官方示例：`packages/plugins/presets/open-in-app`。
+官方示例：`packages/plugins/presets/open-in-app`（最小动作）与 `packages/plugins/presets/git`（状态 + 快捷操作气泡）。
 
 ## 工具行内渲染 registerToolCallSlot
 

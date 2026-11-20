@@ -4,6 +4,17 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+- 顶栏动作从「只有图标 + 红色角标」扩成能表达状态的入口，需要 Plugin API `^2.11.0`：
+  - `label`：图标右侧的文字（≤ 24 字），给分支名、落后数这类「状态本身就是文字」的动作用；只在顶栏上、不超过 4 格且页头不拥挤时显示，收纳与窄屏自动退回纯图标。
+  - `tone`：角标与图标的语义色（`info` / `success` / `warning` / `danger`），避免所有数字都是红色。
+  - `disabledReason`：禁用原因，禁用时取代 `title`，用户才知道为什么点不了。
+  - `promoteWhenActive`：选中时即使被收纳也在活动面板开关旁露出。
+  - 菜单项 `kind`：`checkbox` / `radio`（带勾选、点击后菜单不关）、`label`（分组标题）、`loading` / `empty`（自动禁用的占位行）、`submenu`（只支持一层）；`disabledReason`、`checked` 一并可用。
+  - `popover` 可以写成 `{ component, size?: "sm" | "md" | "lg", host?: "popover" | "dialog", title? }`，宽度可选、复杂内容可升级为宿主对话框。
+  - `surfaces`：声明出现在会话页和新会话页（默认只有会话页）；`useAction(context)` 会收到 `{ surface, cwd }`。
+  - `pin: "prefer"`：用户没调整过布局时优先占顶栏一格（仍受 7 格上限与用户调整约束）。新会话页的默认顶栏只有「置顶」，两页的布局分别保存。
+  - 旧宿主没有这些字段与入参，插件若只用到 2.9.0 的字段可继续写 `^2.9.0`。
+
 - 文档：手册补三个宿主组件——`Stepper`（数字步进器，`@vetta-org/ui`）、`ColorSwatchPicker` / `ColorPickerPanel`（色点选择器与取色面板，支持吸屏取色与 hex / `rgb()` / `hsl()` 输入，`@vetta-org/ui`）与 `VettaKbd`（快捷键键帽，`@vetta-org/theme-ui/plugin-ui`），并写明 `SettingHeading` 必须传 `section`（只传 `title` 会在渲染期抛错）。组件随宿主发布，需要 Desktop 0.6.13+；插件工程要把 `@vetta-org/ui` 升到 `0.1.1`、`@vetta-org/theme-ui` 升到 `0.1.2` 才拿得到新类型。SDK 自身接口与清单字段没有变化，`pluginApiVersion` 不变。
 
 - 活动面板标签卡新增 `useMeta({ cwd })`：插件按当前面板的工作空间决定这一帧的 label / icon / badge 与显隐，返回 `null` 表示本帧不进入候选，返回 `{ pinned: true }` 表示**固定上栏且不可移除**（忽略上栏记录与 `initiallyVisible`）。此前显隐只能靠 `setActivityTabVisible`，而它需要一份会话上下文：新会话页与项目详情页没有会话，靠 `conversation.on` 判定的面板（如 Git）在这些页面上要么不出现、要么只能按上一个会话残留的记录猜。现在宿主在每个挂载的面板上调用 `useMeta`，并把它当作 hook 使用（渲染期需纯计算，异步探测放 `useEffect`）。省略该字段行为不变。需要 Plugin API `^2.10.0`。

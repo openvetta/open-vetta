@@ -7,7 +7,7 @@ import { act, useContext } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConversationHeaderActions } from "@domains/header-actions/ConversationHeaderActions";
-import { headerActionLayoutAtom } from "@domains/header-actions/layout-store";
+import { headerActionLayoutAtomFor } from "@domains/header-actions/layout-store";
 import { PluginLocalContributions } from "./plugin-local-contributions";
 import { createPluginUiApi } from "./plugin-ui-context";
 
@@ -92,16 +92,22 @@ describe("ConversationHeaderActions", () => {
 		actions: unknown[],
 		builtins = [builtin("export"), builtin("pin")],
 		saved: unknown = { top: [], tray: [] },
+		surface?: "conversation" | "new-session",
 	) {
 		const store = createStore();
 		store.set(pluginHeaderActionsAtom, actions as never);
-		store.set(headerActionLayoutAtom, saved as never);
+		store.set(headerActionLayoutAtomFor(surface ?? "conversation"), saved as never);
 		const app = document.createElement("div");
 		document.body.append(app);
 		await act(async () => {
 			createRoot(app).render(
 				<Provider store={store}>
-					<ConversationHeaderActions builtins={builtins} pinned={<button type="button" data-testid="pinned" />} />
+					<ConversationHeaderActions
+						builtins={builtins}
+						cwd="/repo"
+						pinned={<button type="button" data-testid="pinned" />}
+						surface={surface}
+					/>
 				</Provider>,
 			);
 		});
@@ -267,4 +273,70 @@ describe("ConversationHeaderActions", () => {
 		);
 		expect(titles(app)).toEqual(["pin", "export"]);
 	});
+	it("renders a plugin label next to its icon when the row has room", async () => {
+		const { app } = await render([
+			action("status", () => ({ title: "status", label: "main", icon: <i />, onClick: () => {} })),
+		]);
+		// 有文字时按钮变宽（px-3），标签是按钮内容的一部分，悬浮提示仍是 title。
+		const button = app.querySelector("[data-header-action-bar] button[title=status]") as HTMLButtonElement;
+		expect(button.textContent).toContain("main");
+		const label = app.querySelector("[data-header-action-bar] button[title=status] span") as HTMLElement;
+		expect(label.tagName).toBe("SPAN");
+	});
+
+	it("drops labels when the bar is full, keeping the icon as the identifier", async () => {
+		const many = Array.from({ length: 5 }, (_, index) =>
+			action(`a${index}`, () => ({ title: `a${index}`, label: `L${index}`, icon: <i />, onClick: () => {} })),
+		);
+		const { app } = await render(many);
+		expect(app.querySelector("[data-header-action-bar]")?.textContent).not.toContain("L0");
+	});
+
+	it("only shows actions that declared the current surface", async () => {
+		const onlyNewSession = {
+			...action("init", () => ({ title: "init", icon: <i />, onClick: () => {} })),
+			surfaces: ["new-session"] as const,
+		};
+		const both = {
+			...action("always", () => ({ title: "always", icon: <i />, onClick: () => {} })),
+			surfaces: ["conversation", "new-session"] as const,
+		};
+		const conversation = await render([onlyNewSession, both]);
+		expect(titles(conversation.app)).toEqual(["always", "export", "pin"]);
+		document.body.replaceChildren();
+		// 新会话页给一份显式布局，验证的是「按 surface 过滤」而不是默认排位。
+		const newSession = await render(
+			[onlyNewSession, both],
+			[builtin("pin")],
+			{ top: ["p:init", "p:always", "builtin:pin"], tray: [] },
+			"new-session",
+		);
+		expect(titles(newSession.app)).toEqual(["init", "always", "pin"]);
+	});
+
+	it("passes the surface and cwd to the plugin hook", async () => {
+		const seen: Array<{ surface: string; cwd: string | null }> = [];
+		const probe = (context: { surface: string; cwd: string | null }) => {
+			seen.push(context);
+			return { title: "probe", icon: <i />, onClick: () => {} };
+		};
+		const scoped = { ...action("probe", probe as never), surfaces: ["new-session"] as const };
+		await render([scoped], [builtin("pin")], null, "new-session");
+		expect(seen.at(-1)).toEqual({ surface: "new-session", cwd: "/repo" });
+	});
+
+	it("gives a `pin: prefer` action a default seat in the header of a never-customised user", async () => {
+		const status = {
+			...action("status", () => ({ title: "status", label: "main", icon: <i />, onClick: () => {} })),
+			pin: "prefer" as const,
+		};
+		const { app } = await render(
+			[status, action("promo", () => ({ title: "promo", icon: <i />, onClick: () => {} }))],
+			["terminal", "export"].map(builtin),
+			null,
+		);
+		// 内置的默认三格 + 请求优先上栏的那个；没请求的仍进收纳。
+		expect(titles(app)).toEqual(["terminal", "export", "status"]);
+	});
+
 });

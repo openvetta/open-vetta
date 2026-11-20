@@ -338,6 +338,8 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 					pluginId: plugin.id,
 					pluginName: plugin.name,
 					actionId: `${plugin.id}:${contribution.id}`,
+					...(contribution.surfaces ? { surfaces: contribution.surfaces } : {}),
+					...(contribution.pin ? { pin: contribution.pin } : {}),
 					useAction: contribution.useAction,
 					sortOrder: contribution.order ?? Number.MAX_SAFE_INTEGER,
 					registrationIndex: index,

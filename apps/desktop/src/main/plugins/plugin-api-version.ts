@@ -8,8 +8,11 @@
  * - 2.8.0：`fs.listFilesRecursive` 的文件名筛选与额外忽略目录；底部面板实例的 `openTerminal` / `revealInstance` 与 `terminal.run` 权限。
  * - 2.9.0：会话页顶栏动作贡献点（`registerHeaderAction`）与 `ui.slot.header-action` 权限。
  * - 2.10.0：活动面板标签卡自报这一帧的 meta（`registerActivityTab` 的 `useMeta`，含按工作空间固定上栏）。
+ * - 2.11.0：顶栏动作可自定义的声明：`label` / `tone` / `disabledReason` / `promoteWhenActive`，
+ *   菜单项类型（checkbox / radio / label / loading / empty / submenu），气泡宽度与 `dialog` 容器，
+ *   以及新会话页表面（`surfaces`）与「优先上栏」建议（`pin`）。
  *
  * 清单校验对未知字段 fail-closed。作者把 `pluginApiVersion` 写成用到的那一档，
  * 旧宿主才能给出明确的版本错误。
  */
-export const PLUGIN_API_VERSION = "2.10.0";
+export const PLUGIN_API_VERSION = "2.11.0";

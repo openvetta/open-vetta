@@ -1,5 +1,5 @@
 /**
- * 会话页顶栏按钮组的布局：哪些动作在顶栏、哪些收纳、各自的顺序。
+ * 顶栏按钮组的布局（会话页与新会话页共用）：哪些动作在顶栏、哪些收纳、各自的顺序。
  *
  * 纯函数，不碰 React 与存储，方便单测。规则（插件文档 `ui-slots.md` 里对开发者公开了同一份）：
  * - 顶栏最多 `MAX_TOP_ACTIONS` 格，内置与插件共用；
@@ -8,14 +8,24 @@
  * - 存储里的顶栏超过上限（上限调小、手改存储）时，多出来的从末尾起溢出到收纳最前面。
  */
 
+import type { PluginHeaderActionSurface } from "@vetta-org/plugin-sdk";
+
 export const MAX_TOP_ACTIONS = 7;
 
 /**
- * 用户从没调整过布局时，顶栏默认显示的动作，按这个顺序从左到右；其余动作（含其它插件的）一律收纳。
+ * 用户从没调整过布局时，每个页面默认上顶栏的动作。其余动作（含其它插件的）一律收纳。
  * 默认外的动作（含「从外部应用打开」这类插件动作）都进收纳；某个默认动作此刻不可用时自然缺席。
  * 用户一旦调整过，就以他存下来的布局为准，不再看这份默认。
+ *
+ * 按页面分开：新会话页没有导出 / 终端 / 底部面板，它只有置顶。
  */
-export const DEFAULT_TOP_ACTIONS: readonly string[] = ["builtin:terminal", "builtin:bottom-panel", "builtin:export"];
+export const DEFAULT_TOP_ACTIONS_BY_SURFACE: Record<PluginHeaderActionSurface, readonly string[]> = {
+	conversation: ["builtin:terminal", "builtin:bottom-panel", "builtin:export"],
+	"new-session": ["builtin:pin"],
+};
+
+/** 会话页的默认顶栏，即 {@link DEFAULT_TOP_ACTIONS_BY_SURFACE} 中会话页那一份。 */
+export const DEFAULT_TOP_ACTIONS: readonly string[] = DEFAULT_TOP_ACTIONS_BY_SURFACE.conversation;
 
 export interface HeaderLayout {
 	readonly top: readonly string[];

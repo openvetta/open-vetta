@@ -3,31 +3,68 @@ import type { ComponentType, ReactNode } from "react";
 /** 宿主对插件顶栏动作声明的上限，文档（`ui-slots.md`）里公开同一组数字。 */
 export const HEADER_ACTION_LIMITS = {
 	title: 40,
+	label: 24,
 	menuItems: 20,
 	menuLabel: 40,
+	/** 子菜单只允许一层：再深就该换成一个能搜索的列表，别在顶栏里做树。 */
+	menuDepth: 1,
 } as const;
+
+export type HeaderActionTone = "neutral" | "info" | "success" | "warning" | "danger";
+
+const TONES = new Set<HeaderActionTone>(["neutral", "info", "success", "warning", "danger"]);
+
+export type NormalizedMenuItemKind = "item" | "checkbox" | "radio" | "label" | "loading" | "empty" | "submenu";
+
+const MENU_KINDS = new Set<NormalizedMenuItemKind>([
+	"item",
+	"checkbox",
+	"radio",
+	"label",
+	"loading",
+	"empty",
+	"submenu",
+]);
 
 export interface NormalizedMenuItem {
 	id: string;
+	kind: NormalizedMenuItemKind;
 	label: string;
 	icon?: ReactNode;
-	onSelect: () => void;
+	onSelect?: () => void;
+	children?: NormalizedMenuItem[];
+	checked?: boolean;
 	disabled?: boolean;
+	disabledReason?: string;
 	destructive?: boolean;
 	separatorBefore?: boolean;
+}
+
+export type HeaderActionPopoverSize = "sm" | "md" | "lg";
+export type HeaderActionPopoverHost = "popover" | "dialog";
+
+export interface NormalizedPopover {
+	component: ComponentType<{ close: () => void }>;
+	size: HeaderActionPopoverSize;
+	host: HeaderActionPopoverHost;
+	dialogTitle?: string;
 }
 
 export type NormalizedBehavior =
 	| { type: "click"; onClick: () => void }
 	| { type: "menu"; items: NormalizedMenuItem[] }
-	| { type: "popover"; component: ComponentType<{ close: () => void }> };
+	| { type: "popover"; popover: NormalizedPopover };
 
 export interface NormalizedHeaderAction {
 	title: string;
 	icon: ReactNode;
+	label?: string;
 	badge?: number | true;
+	tone?: HeaderActionTone;
 	active: boolean;
 	disabled: boolean;
+	disabledReason?: string;
+	promoteWhenActive: boolean;
 	behavior: NormalizedBehavior;
 }
 
@@ -36,27 +73,70 @@ function clip(text: string, max: number): string {
 	return chars.length > max ? chars.slice(0, max).join("") : chars.join("");
 }
 
-function normalizeMenuItems(raw: unknown): NormalizedMenuItem[] {
+function normalizeMenuItems(raw: unknown, depth = 0): NormalizedMenuItem[] {
 	if (!Array.isArray(raw)) return [];
 	const seen = new Set<string>();
 	const items: NormalizedMenuItem[] = [];
 	for (const entry of raw.slice(0, HEADER_ACTION_LIMITS.menuItems)) {
 		if (entry === null || typeof entry !== "object") continue;
-		const item = entry as Partial<NormalizedMenuItem>;
+		const item = entry as Record<string, unknown>;
 		if (typeof item.id !== "string" || item.id === "" || seen.has(item.id)) continue;
-		if (typeof item.label !== "string" || item.label.trim() === "" || typeof item.onSelect !== "function") continue;
+		if (typeof item.label !== "string" || item.label.trim() === "") continue;
+
+		const kind = (
+			typeof item.kind === "string" && MENU_KINDS.has(item.kind as NormalizedMenuItemKind) ? item.kind : "item"
+		) as NormalizedMenuItemKind;
+		const onSelect = typeof item.onSelect === "function" ? (item.onSelect as () => void) : undefined;
+		// 子菜单只认 children；其余可点类型必须有 onSelect，否则这一项点了没反应。
+		const children =
+			kind === "submenu" && depth < HEADER_ACTION_LIMITS.menuDepth
+				? normalizeMenuItems(item.children, depth + 1)
+				: undefined;
+		const interactive = kind === "item" || kind === "checkbox" || kind === "radio";
+		if (interactive && !onSelect) continue;
+		if (kind === "submenu" && (!children || children.length === 0)) continue;
+
 		seen.add(item.id);
 		items.push({
 			id: item.id,
+			kind,
 			label: clip(item.label, HEADER_ACTION_LIMITS.menuLabel),
-			icon: item.icon,
-			onSelect: item.onSelect,
-			disabled: item.disabled === true,
+			icon: item.icon as ReactNode,
+			onSelect,
+			...(children ? { children } : {}),
+			...(kind === "checkbox" || kind === "radio" ? { checked: item.checked === true } : {}),
+			disabled: kind === "loading" || kind === "empty" || item.disabled === true,
+			...(typeof item.disabledReason === "string" && item.disabledReason.trim() !== ""
+				? { disabledReason: clip(item.disabledReason, HEADER_ACTION_LIMITS.title) }
+				: {}),
 			destructive: item.destructive === true,
 			separatorBefore: item.separatorBefore === true,
 		});
 	}
 	return items;
+}
+
+/**
+ * 气泡声明有两种写法：直接给组件，或 `{ component, size, host, title }`。两种都收成同一个形状，
+ * 渲染层不必再分支。
+ */
+function normalizePopover(raw: unknown): NormalizedPopover | null {
+	const isComponent = (value: unknown): value is ComponentType<{ close: () => void }> =>
+		typeof value === "function" || (value !== null && typeof value === "object" && "$$typeof" in (value as object));
+
+	if (isComponent(raw)) return { component: raw, size: "md", host: "popover" };
+	if (raw === null || typeof raw !== "object") return null;
+	const options = raw as Record<string, unknown>;
+	if (!isComponent(options.component)) return null;
+	const size: HeaderActionPopoverSize = options.size === "sm" || options.size === "lg" ? options.size : "md";
+	return {
+		component: options.component,
+		size,
+		host: options.host === "dialog" ? "dialog" : "popover",
+		...(typeof options.title === "string" && options.title.trim() !== ""
+			? { dialogTitle: clip(options.title, HEADER_ACTION_LIMITS.title) }
+			: {}),
+	};
 }
 
 /**
@@ -78,10 +158,10 @@ export function normalizeHeaderAction(raw: unknown): { value: NormalizedHeaderAc
 
 	let behavior: NormalizedBehavior | null = null;
 	const menu = normalizeMenuItems(state.menuItems);
+	const popover = normalizePopover(state.popover);
 	if (menu.length > 0) behavior = { type: "menu", items: menu };
-	else if (typeof state.popover === "function" || (state.popover !== null && typeof state.popover === "object")) {
-		behavior = { type: "popover", component: state.popover as ComponentType<{ close: () => void }> };
-	} else if (typeof state.onClick === "function") behavior = { type: "click", onClick: state.onClick as () => void };
+	else if (popover) behavior = { type: "popover", popover };
+	else if (typeof state.onClick === "function") behavior = { type: "click", onClick: state.onClick as () => void };
 	if (!behavior) return { value: null, problem: "one of `onClick` / `menuItems` / `popover` is required" };
 
 	let badge: number | true | undefined;
@@ -90,13 +170,31 @@ export function normalizeHeaderAction(raw: unknown): { value: NormalizedHeaderAc
 		badge = Math.floor(state.badge);
 	}
 
+	const tone =
+		typeof state.tone === "string" && TONES.has(state.tone as HeaderActionTone)
+			? (state.tone as HeaderActionTone)
+			: undefined;
+	const disabled = state.disabled === true;
+	const disabledReason =
+		disabled && typeof state.disabledReason === "string" && state.disabledReason.trim() !== ""
+			? clip(state.disabledReason, HEADER_ACTION_LIMITS.title)
+			: undefined;
+	const label =
+		typeof state.label === "string" && state.label.trim() !== ""
+			? clip(state.label, HEADER_ACTION_LIMITS.label)
+			: undefined;
+
 	return {
 		value: {
 			title: clip(state.title, HEADER_ACTION_LIMITS.title),
 			icon: state.icon as ReactNode,
+			...(label ? { label } : {}),
 			badge,
+			...(tone && tone !== "neutral" ? { tone } : {}),
 			active: state.active === true,
-			disabled: state.disabled === true,
+			disabled,
+			...(disabledReason ? { disabledReason } : {}),
+			promoteWhenActive: state.promoteWhenActive === true,
 			behavior,
 		},
 	};
@@ -126,8 +224,9 @@ function iconSignature(icon: ReactNode, fallback: () => string): string {
 let fallbackCounter = 0;
 
 /**
- * 一次声明里「会改变屏幕上画面」的那部分内容的签名：标题、图标、角标、选中 / 禁用、点击行为的种类与菜单项文案。
- * 回调（`onClick` / `onSelect`）不在其中——它们由调用方通过 ref 始终指向最新的，不需要为此重新发布。
+ * 一次声明里「会改变屏幕上画面」的那部分内容的签名：标题、图标、角标、颜色、选中 / 禁用 / 禁用原因、
+ * 点击行为的种类与菜单项文案。回调（`onClick` / `onSelect`）不在其中——它们由调用方通过 ref 始终
+ * 指向最新的，不需要为此重新发布。
  * 探针据此判断「声明没变」就不再通知按钮组，避免插件每次重渲染（流式期间很频繁）都带动整个按钮组重渲。
  */
 export function headerActionSignature(
@@ -137,16 +236,30 @@ export function headerActionSignature(
 	const { behavior } = action;
 	const behaviorPart =
 		behavior.type === "menu"
-			? `menu:${behavior.items.map((item) => `${item.id}|${item.label}|${item.disabled ? 1 : 0}${item.destructive ? 1 : 0}${item.separatorBefore ? 1 : 0}|${iconSignature(item.icon, () => `m${fallbackCounter++}`)}`).join(";")}`
+			? `menu:${menuSignature(behavior.items)}`
 			: behavior.type === "popover"
-				? `popover:${popoverId(behavior.component)}`
+				? `popover:${popoverId(behavior.popover.component)}:${behavior.popover.size}:${behavior.popover.host}:${behavior.popover.dialogTitle ?? ""}`
 				: "click";
 	return [
 		action.title,
+		action.label ?? "",
 		iconSignature(action.icon, () => `i${fallbackCounter++}`),
 		action.badge ?? "",
+		action.tone ?? "",
 		action.active ? 1 : 0,
 		action.disabled ? 1 : 0,
+		action.disabledReason ?? "",
+		action.promoteWhenActive ? 1 : 0,
 		behaviorPart,
 	].join("\u0001");
+}
+
+function menuSignature(items: readonly NormalizedMenuItem[]): string {
+	return items
+		.map((item) => {
+			const flags = `${item.disabled ? 1 : 0}${item.destructive ? 1 : 0}${item.separatorBefore ? 1 : 0}${item.checked ? 1 : 0}`;
+			const children = item.children ? `[${menuSignature(item.children)}]` : "";
+			return `${item.id}|${item.kind}|${item.label}|${flags}|${item.disabledReason ?? ""}|${iconSignature(item.icon, () => `m${fallbackCounter++}`)}${children}`;
+		})
+		.join(";");
 }

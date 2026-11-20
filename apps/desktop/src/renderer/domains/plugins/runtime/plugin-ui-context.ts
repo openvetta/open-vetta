@@ -32,6 +32,7 @@ import type {
 	PluginFilePreviewContribution,
 	PluginGlobalSlotContribution,
 	PluginHeaderActionContribution,
+	PluginHeaderActionSurface,
 	PluginImageRef,
 	PluginInputActionContribution,
 	PluginNavBadge,
@@ -49,6 +50,10 @@ import type {
 import { getDefaultStore } from "jotai";
 import QRCode from "qrcode";
 import type { ComponentType } from "react";
+
+/** 顶栏动作能声明的页面；其余页面即使声明了也不会渲染。 */
+const HEADER_ACTION_SURFACES = new Set<PluginHeaderActionSurface>(["conversation", "new-session"]);
+
 import { explicitTabVisibility, withPluginTabVisibility } from "./attached-tabs";
 import type { PluginAgentApiRegistration } from "./plugin-agent-context";
 import { copyTextToClipboard, formatPluginErrorDetail, resolvePluginDisplayText } from "./plugin-host-apis";
@@ -499,9 +504,22 @@ export function createPluginUiApi({
 		if (contribution.order !== undefined && !Number.isFinite(contribution.order)) {
 			throw new Error("Header action order must be a finite number");
 		}
+		if (contribution.surfaces !== undefined) {
+			if (
+				!Array.isArray(contribution.surfaces) ||
+				contribution.surfaces.some((surface) => !HEADER_ACTION_SURFACES.has(surface))
+			) {
+				throw new Error(`Header action surfaces must be an array of ${[...HEADER_ACTION_SURFACES].join(" | ")}`);
+			}
+		}
+		if (contribution.pin !== undefined && contribution.pin !== "normal" && contribution.pin !== "prefer") {
+			throw new Error('Header action pin must be "normal" or "prefer"');
+		}
 		const normalized: PluginHeaderActionContribution = {
 			id: contribution.id,
 			order: contribution.order,
+			...(contribution.surfaces ? { surfaces: [...new Set(contribution.surfaces)] } : {}),
+			...(contribution.pin === "prefer" ? { pin: "prefer" as const } : {}),
 			useAction: contribution.useAction,
 		};
 		headerActions.push(normalized);

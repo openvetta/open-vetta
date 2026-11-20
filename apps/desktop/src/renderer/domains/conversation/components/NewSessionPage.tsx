@@ -10,14 +10,15 @@ import { useNewSessionPageModel } from "./new-session/useNewSessionPageModel";
 
 export function NewSessionPage(): JSX.Element {
 	const search = useSearch({ strict: false }) as { cwd?: string };
+	const cwd = search.cwd ? decodeURIComponent(search.cwd) : null;
 	return (
-		<OrphanRemoteProjectGuard cwd={search.cwd ? decodeURIComponent(search.cwd) : null}>
-			<NewSessionPageContent />
+		<OrphanRemoteProjectGuard cwd={cwd}>
+			<NewSessionPageContent cwd={cwd} />
 		</OrphanRemoteProjectGuard>
 	);
 }
 
-function NewSessionPageContent(): JSX.Element {
+function NewSessionPageContent({ cwd }: { readonly cwd: string | null }): JSX.Element {
 	const surface = useThemeSurface("chat.newSessionPage");
 	const model = useNewSessionPageModel();
 	const setHeaderRightSlot = useSetAtom(pageHeaderRightSlotAtom);
@@ -31,6 +32,7 @@ function NewSessionPageContent(): JSX.Element {
 				panelTitle={model.panelTitle}
 				pinTitle={model.pinTitle}
 				pinned={model.pinned}
+				cwd={cwd}
 			/>
 		),
 		[
@@ -40,6 +42,7 @@ function NewSessionPageContent(): JSX.Element {
 			model.panelTitle,
 			model.pinTitle,
 			model.pinned,
+			cwd,
 		],
 	);
 

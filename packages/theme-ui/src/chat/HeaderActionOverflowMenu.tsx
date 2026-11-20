@@ -3,14 +3,15 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
-	DropdownMenuSeparator,
 	DropdownMenuSub,
 	DropdownMenuSubContent,
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@vetta-org/ui";
 import { ButtonGroup, ButtonGroupItem } from "@vetta-org/ui/button-group";
+import { SessionTopMenuItems } from "@vetta-org/ui/session-top-item";
 import type { HeaderActionBarItem } from "./HeaderActionBarView";
+import { headerActionToneBadgeClass } from "./HeaderActionBarView";
 import { narrowOverflowBadge } from "./header-action-narrow";
 
 function MenuIcon({ children }: { readonly children: ReactNode }): JSX.Element {
@@ -23,13 +24,16 @@ function MenuIcon({ children }: { readonly children: ReactNode }): JSX.Element {
 
 function OverflowRowBody({ item }: { readonly item: HeaderActionBarItem }): JSX.Element {
 	const count = typeof item.badge === "number" && item.badge > 0 ? item.badge : undefined;
+	const tone = headerActionToneBadgeClass(item.tone) ?? "bg-red-500";
 	return (
 		<>
 			<MenuIcon>{item.icon}</MenuIcon>
 			<span className="min-w-0 flex-1 truncate">{item.title}</span>
-			{item.badge === true ? <span className="size-1.5 shrink-0 rounded-full bg-red-500" /> : null}
+			{item.badge === true ? <span className={`size-1.5 shrink-0 rounded-full ${tone}`} /> : null}
 			{count !== undefined ? (
-				<span className="flex h-3.5 min-w-3.5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] leading-none font-semibold text-white tabular-nums">
+				<span
+					className={`flex h-3.5 min-w-3.5 shrink-0 items-center justify-center rounded-full px-1 text-[9px] leading-none font-semibold text-white tabular-nums ${tone}`}
+				>
 					{count > 99 ? "99+" : count}
 				</span>
 			) : null}
@@ -50,6 +54,7 @@ function OverflowEntry({
 		return (
 			<DropdownMenuSub>
 				<DropdownMenuSubTrigger
+					title={item.disabled ? item.disabledReason : undefined}
 					disabled={item.disabled}
 					className={activeClass}
 					data-header-action-overflow-item={item.key}
@@ -57,22 +62,7 @@ function OverflowEntry({
 					<OverflowRowBody item={item} />
 				</DropdownMenuSubTrigger>
 				<DropdownMenuSubContent className="min-w-40">
-					{behavior.items.map((entry) => (
-						<Fragment key={entry.id}>
-							{entry.separatorBefore ? <DropdownMenuSeparator /> : null}
-							<DropdownMenuItem
-								disabled={entry.disabled}
-								onSelect={() => {
-									entry.onSelect();
-									onClose();
-								}}
-								className={entry.destructive ? "text-destructive focus:text-destructive" : undefined}
-							>
-								{entry.icon ? <MenuIcon>{entry.icon}</MenuIcon> : null}
-								{entry.label}
-							</DropdownMenuItem>
-						</Fragment>
-					))}
+					<SessionTopMenuItems items={behavior.items} onClose={onClose} />
 				</DropdownMenuSubContent>
 			</DropdownMenuSub>
 		);
