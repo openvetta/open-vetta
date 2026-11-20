@@ -1,6 +1,7 @@
 import { CHAT_BACKGROUND_COMPONENTS, isChatBackgroundId } from "@shared/theme/chat-background";
 import {
 	isUserBubbleColor,
+	isUserBubbleColorChoice,
 	isUserBubbleShape,
 	isUserBubbleWeight,
 	USER_BUBBLE_PALETTE,
@@ -9,6 +10,7 @@ import {
 	userBubbleAppearanceAtom,
 } from "@shared/theme/user-bubble-appearance";
 import type { UserBubbleColor } from "@shared/theme/user-bubble-appearance";
+import { ColorSwatchPicker } from "@vetta-org/ui";
 import { Message } from "@vetta-org/theme-ui/chat/MessageView";
 import { MessageVisual } from "@vetta-org/theme-ui/chat/MessageVisualView";
 import { MotionSelect, SettingRow, SettingSection } from "@vetta-org/theme-ui/settings";
@@ -18,7 +20,14 @@ import { SETTINGS_SECTION } from "../registry";
 import type { AppearanceSettingsModel } from "./useAppearanceSettingsModel";
 
 const section = SETTINGS_SECTION["appearance-chat-background"];
-const colors = Object.keys(USER_BUBBLE_PALETTE) as UserBubbleColor[];
+const paletteColorKeys = (Object.keys(USER_BUBBLE_PALETTE) as UserBubbleColor[]).filter((key) => key !== "default");
+
+/** 色点回传的是颜色值，要认出它对应哪个命名预设（命中就存 key，不命中才是自选色）。 */
+function paletteKeyOf(hex: string): UserBubbleColor | null {
+	const target = hex.toLowerCase();
+	const hit = paletteColorKeys.find((key) => USER_BUBBLE_PALETTE[key]?.background.toLowerCase() === target);
+	return hit ?? null;
+}
 
 type ChatAppearanceProps = Pick<AppearanceSettingsModel, "chatBackgroundId" | "chatBackgroundOptions"> & {
 	onBackgroundChange: AppearanceSettingsModel["actions"]["setChatBackground"];
@@ -32,6 +41,13 @@ export function ChatAppearanceSettings({ chatBackgroundId, chatBackgroundOptions
 	const colorLabel = t("userBubbleColor");
 	const weightLabel = t("userBubbleWeight");
 	const Backdrop = CHAT_BACKGROUND_COMPONENTS[chatBackgroundId];
+
+	// 命名预设与 default（跟随主题）分开：default 不是一个颜色，交给 defaultOption 表达。
+	const colorValue = isUserBubbleColor(appearance.color)
+		? appearance.color === "default"
+			? null
+			: (USER_BUBBLE_PALETTE[appearance.color]?.background ?? null)
+		: appearance.color;
 
 	return (
 		<SettingSection section={section} title={t(section.titleKey)}>
@@ -69,24 +85,34 @@ export function ChatAppearanceSettings({ chatBackgroundId, chatBackgroundOptions
 				/>
 			</SettingRow>
 			<SettingRow title={colorLabel}>
-				<MotionSelect
-					aria-label={colorLabel}
-					value={appearance.color}
-					options={colors.map((value) => ({
-						value,
-						label: (
-							<span className="flex items-center gap-2">
-								<span
-									aria-hidden="true"
-									className="size-3 shrink-0 rounded-full border border-border bg-secondary"
-									style={{ backgroundColor: USER_BUBBLE_PALETTE[value]?.background }}
-								/>
-								{t(`userBubbleColors.${value}`)}
-							</span>
-						),
+				<ColorSwatchPicker
+					showLabel={false}
+					labels={{
+						title: "",
+						group: colorLabel,
+						custom: t("userBubbleColorCustom"),
+						valueInput: t("userBubbleColorValueInput"),
+						invalid: t("userBubbleColorInvalid"),
+						hue: t("userBubbleColorHue"),
+						area: t("userBubbleColorArea"),
+						eyedropper: t("userBubbleColorEyedropper"),
+					}}
+					defaultOption={{ label: t("userBubbleColors.default") }}
+					allowCustom
+					size="sm"
+					options={paletteColorKeys.map((key) => ({
+						value: USER_BUBBLE_PALETTE[key]?.background ?? "#000000",
+						label: t(`userBubbleColors.${key}`),
 					}))}
-					onValueChange={(color) => {
-						if (isUserBubbleColor(color)) updateAppearance({ color });
+					value={colorValue}
+					onChange={(next) => {
+						if (next === null) {
+							updateAppearance({ color: "default" });
+							return;
+						}
+						const key = paletteKeyOf(next);
+						if (key) updateAppearance({ color: key });
+						else if (isUserBubbleColorChoice(next)) updateAppearance({ color: next });
 					}}
 				/>
 			</SettingRow>

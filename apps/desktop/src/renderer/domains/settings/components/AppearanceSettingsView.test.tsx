@@ -111,7 +111,7 @@ describe("AppearanceSettingsView 的聊天外观区域", () => {
 		try {
 			const settings = openSettings();
 			const shape = settings.getByRole("button", { name: "userBubbleShape" });
-			const color = settings.getByRole("button", { name: "userBubbleColor" });
+			const colorGroup = () => settings.getByRole("radiogroup", { name: "userBubbleColor" });
 			const preview = settings.getByText("userBubblePreview");
 			expect(preview.closest('[data-message-visual="outgoingbubble"]')).not.toBeNull();
 			const section = preview.closest('[data-setting-section-id="appearance-chat-background"]');
@@ -127,10 +127,11 @@ describe("AppearanceSettingsView 的聊天外观区域", () => {
 			await user.click(shape);
 			await user.click(settings.getByRole("button", { name: "userBubbleShapes.chat" }));
 			expect(root.dataset.userBubbleShape).toBe("chat");
-			expect(color.textContent).toContain("userBubbleColors.default");
+			// 气泡颜色是一排色点：默认（跟随主题）在最前，选中的那枚标出 aria-checked。
+			expect(colorGroup()).toBeTruthy();
+			expect(settings.getByRole("radio", { name: "userBubbleColors.default" }).getAttribute("aria-checked")).toBe("true");
 
-			await user.click(color);
-			await user.click(settings.getByRole("button", { name: "userBubbleColors.yellow" }));
+			await user.click(settings.getByRole("radio", { name: "userBubbleColors.yellow" }));
 			expect(root.dataset.userBubbleShape).toBe("chat");
 			expect(root.style.getPropertyValue("--user-bubble-bg")).toBe(USER_BUBBLE_PALETTE.yellow.background);
 			expect(root.style.getPropertyValue("--user-bubble-fg")).toBe(USER_BUBBLE_PALETTE.yellow.foreground);
@@ -147,7 +148,7 @@ describe("AppearanceSettingsView 的聊天外观区域", () => {
 			expect(reopened.getByRole("button", { name: "userBubbleWeight" }).textContent).toContain("userBubbleWeights.semibold");
 			expect(root.dataset.userBubbleWeight).toBe("semibold");
 			expect(reopened.getByRole("button", { name: "userBubbleShape" }).textContent).toContain("userBubbleShapes.chat");
-			expect(reopened.getByRole("button", { name: "userBubbleColor" }).textContent).toContain("userBubbleColors.yellow");
+			expect(reopened.getByRole("radio", { name: "userBubbleColors.yellow" }).getAttribute("aria-checked")).toBe("true");
 			expect(root.dataset.userBubbleShape).toBe("chat");
 			expect(root.style.getPropertyValue("--user-bubble-bg")).toBe(USER_BUBBLE_PALETTE.yellow.background);
 
@@ -155,14 +156,47 @@ describe("AppearanceSettingsView 的聊天外观区域", () => {
 			await user.click(reopened.getByRole("button", { name: "userBubbleShapes.default" }));
 			expect(root.dataset.userBubbleShape).toBe("default");
 			expect(root.dataset.userBubbleColor).toBe("yellow");
-			await user.click(reopened.getByRole("button", { name: "userBubbleColor" }));
-			await user.click(reopened.getByRole("button", { name: "userBubbleColors.default" }));
+			await user.click(reopened.getByRole("radio", { name: "userBubbleColors.default" }));
 			expect(root.dataset.userBubbleColor).toBe("default");
 			expect(root.style.getPropertyValue("--user-bubble-bg")).toBe("");
 			expect(root.style.getPropertyValue("--user-bubble-fg")).toBe("");
 			expect(root.dataset.userBubbleWeight).toBe("semibold");
 		} finally {
 			localStorage.removeItem(CHAT_BACKGROUND_STORAGE_KEY);
+			localStorage.removeItem("vetta-user-bubble-appearance");
+			applyInitialUserBubbleAppearance();
+		}
+	});
+
+	it("气泡颜色可以自定义：挑完颜色后气泡变量、选中态与持久化都跟着走", async () => {
+		const root = document.documentElement;
+		const user = userEvent.setup();
+		applyInitialUserBubbleAppearance();
+		try {
+			const settings = render(<Provider store={createStore()}><AppearanceWithChatBackground /></Provider>);
+
+			await user.click(settings.getByRole("radio", { name: "userBubbleColorCustom" }));
+			const input = await settings.findByRole("textbox", { name: "userBubbleColorValueInput" });
+			await user.clear(input);
+			await user.type(input, "#8ec5ff{Enter}");
+
+			// 亮底黑字：自选色要自己决定前景，否则浅色气泡上的白字看不清。
+			expect(root.dataset.userBubbleColor).toBe("#8ec5ff");
+			expect(root.style.getPropertyValue("--user-bubble-bg")).toBe("#8ec5ff");
+			expect(root.style.getPropertyValue("--user-bubble-fg")).toBe("#1d1d1f");
+			const saved = JSON.parse(localStorage.getItem("vetta-user-bubble-appearance") ?? "null") as { color?: string } | null;
+			expect(saved?.color).toBe("#8ec5ff");
+			settings.unmount();
+
+			delete root.dataset.userBubbleColor;
+			root.style.removeProperty("--user-bubble-bg");
+			root.style.removeProperty("--user-bubble-fg");
+			applyInitialUserBubbleAppearance();
+			const reopened = render(<Provider store={createStore()}><AppearanceWithChatBackground /></Provider>);
+			expect(reopened.getByRole("radio", { name: "userBubbleColorCustom" }).getAttribute("aria-checked")).toBe("true");
+			expect(reopened.getByRole("radio", { name: "userBubbleColors.yellow" }).getAttribute("aria-checked")).toBe("false");
+			expect(root.style.getPropertyValue("--user-bubble-bg")).toBe("#8ec5ff");
+		} finally {
 			localStorage.removeItem("vetta-user-bubble-appearance");
 			applyInitialUserBubbleAppearance();
 		}

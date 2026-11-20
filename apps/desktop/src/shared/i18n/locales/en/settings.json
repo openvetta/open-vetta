@@ -1295,6 +1295,12 @@
   "chatAppearanceBackground": "Chat background",
   "userBubbleShape": "Bubble shape",
   "userBubbleColor": "Bubble color",
+  "userBubbleColorCustom": "Custom",
+  "userBubbleColorValueInput": "Color value",
+  "userBubbleColorInvalid": "Unrecognized color",
+  "userBubbleColorHue": "Hue",
+  "userBubbleColorArea": "Saturation and brightness",
+  "userBubbleColorEyedropper": "Pick a color from screen",
   "userBubbleWeight": "Message font weight",
   "userBubbleWeights": {
     "default": "Default",
