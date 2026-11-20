@@ -22,6 +22,14 @@ describe("VettaKbd", () => {
 		expect(markup).not.toContain("⌘");
 	});
 
+	it("keeps keycaps readable on any surface by tinting the face with the foreground colour", () => {
+		const markup = renderToStaticMarkup(<VettaKbd keys="mod+k" platform="mac" />);
+		// 不能写死 card/muted 一类固定底面：这套键帽同时坐在设置页的 muted 字段和 popover 菜单上。
+		expect(markup).toContain("from-foreground/");
+		expect(markup).toContain("dark:from-foreground/");
+		expect(markup).not.toContain("from-card");
+	});
+
 	it("exposes a readable label instead of raw glyphs", () => {
 		const markup = renderToStaticMarkup(<VettaKbd keys="mod+k" platform="mac" />);
 		expect(markup).toContain('role="img"');

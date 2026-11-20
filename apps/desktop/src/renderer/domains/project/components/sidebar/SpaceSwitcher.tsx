@@ -1,6 +1,5 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
 import { useShortcutBindings } from "@shared/hooks/useShortcutBinding";
-import { shortcutParts } from "@shared/lib/platform";
 import { getEffectiveShortcut } from "@shared/lib/shortcuts";
 import { cn } from "@shared/lib/utils";
 import {
@@ -16,6 +15,7 @@ import { Button } from "@vetta-org/ui/button";
 import { ButtonGroup, ButtonGroupItem } from "@vetta-org/ui/button-group";
 import { useNavigate } from "@tanstack/react-router";
 import { RunningPulseDot, WaitingPulseBadge } from "@vetta-org/theme-ui/sidebar";
+import { VettaKbd } from "@vetta-org/theme-ui/shared";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -141,18 +141,7 @@ export function SpaceSwitcher(): JSX.Element {
 										>
 											<SpaceGlyphWithStatus spaceId={space.id} icon={space.icon} />
 											<span className="truncate">{space.name}</span>
-											{shortcut && (
-												<span className="ml-auto flex shrink-0 items-center gap-1">
-													{shortcutParts(shortcut).map((part) => (
-														<kbd
-															key={part}
-															className="rounded border border-border/60 bg-muted/50 px-1 text-[10px] font-medium leading-4 text-muted-foreground"
-														>
-															{part}
-														</kbd>
-													))}
-												</span>
-											)}
+											{shortcut && <VettaKbd keys={shortcut} size="xs" className="ml-auto" />}
 										</Button>
 									);
 								})}

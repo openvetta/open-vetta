@@ -22,10 +22,12 @@ export interface VettaKbdProps {
 }
 
 // 轻拟物键帽：顶部内高光 + 底部落影，与应用快照的键盘预览同一套浮雕观感。
+// 键面用前景色叠层而非固定底色，所以放在 card / muted / popover 上都能浮起来：
+// 浅色主题靠淡灰压深底边，深色主题靠淡白提亮顶面。
 const CAP_RAISED = cn(
 	"inline-flex shrink-0 items-center justify-center whitespace-nowrap font-medium leading-none",
-	// 键帽比所在托盘（卡面/muted 底面）更亮一档，深浅色都能看出凸起。
-	"bg-gradient-to-b from-popover to-secondary text-foreground",
+	"bg-gradient-to-b from-foreground/[0.03] to-foreground/[0.09] text-foreground",
+	"dark:from-foreground/[0.1] dark:to-foreground/[0.03]",
 	"border border-black/[0.08] dark:border-white/[0.08]",
 	"shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_1px_1.5px_rgba(0,0,0,0.14),0_2px_3px_-1px_rgba(0,0,0,0.12)]",
 	"dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.09),0_1.5px_2px_rgba(0,0,0,0.55)]",
@@ -55,7 +57,7 @@ export function VettaKbd({
 
 	return (
 		<span
-			className={cn("inline-flex select-none items-center gap-1 align-middle", className)}
+			className={cn("inline-flex shrink-0 select-none items-center gap-1 align-middle", className)}
 			role="img"
 			aria-label={describeKbdKeys(keys, resolvedPlatform)}
 		>
