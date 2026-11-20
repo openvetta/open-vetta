@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveDiffScope } from "../git/aiContext";
 import { generateCommitMessage } from "../git/aiMessage";
 import { loadDraft, saveDraft } from "../git/draftStore";
+import { planCommit } from "../git/commitFlow";
 import { readMergeMessage } from "../git/mergeMsg";
 import { gitCommit, gitPush, headCommitMessage } from "../git/run";
 import { emitRefreshSignal, notifyError, onCommitRequest } from "../git/runtime";
@@ -40,9 +41,8 @@ export function CommitBox({ root, groups }: { root: string; groups: StatusGroups
 	const hasStaged = groups.staged.length > 0;
 	const hasConflicts = groups.conflict.length > 0;
 	const hasAnyChange = groups.staged.length + groups.unstaged.length > 0;
-	// Empty index + dirty worktree: the button stages everything rather than
-	// sitting disabled, which is where a newcomer otherwise gets stuck.
-	const stageAll = !hasStaged && groups.unstaged.length > 0;
+	// 「能不能提交」「要不要顺手全暂存」只在 git/commitFlow.ts 里定一次，顶栏气泡用的是同一份判断。
+	const { stageAll, blocked } = planCommit(groups, message);
 
 	// 载入该仓库的草稿；没有草稿时用 git 为进行中的合并准备好的 MERGE_MSG 兜底。
 	useEffect(() => {
@@ -66,7 +66,7 @@ export function CommitBox({ root, groups }: { root: string; groups: StatusGroups
 		return () => clearTimeout(timer);
 	}, [root, message]);
 
-	const disabledReason = hasConflicts ? t("commit.blockedByConflicts") : !hasAnyChange ? t("commit.nothingToCommit") : null;
+	const disabledReason = blocked === "conflict" ? t("commit.blockedByConflicts") : blocked === "empty" ? t("commit.nothingToCommit") : null;
 	const canCommit = pending === null && disabledReason === null && message.trim().length > 0;
 
 	const run = useCallback(
