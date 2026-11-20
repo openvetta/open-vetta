@@ -3,6 +3,16 @@ export type { ButtonGroupItemProps, ButtonGroupProps, ButtonGroupShape } from ".
 export { ButtonGroup, ButtonGroupItem, useInButtonGroup } from "./button-group";
 export type { CalendarProps } from "./calendar";
 export { Calendar, CalendarDayButton } from "./calendar";
+export type { HsvColor, RgbColor } from "./color";
+export { hsvToRgb, hueColor, isSameColor, normalizeColor, parseColor, rgbToHsv, toHex } from "./color";
+export type {
+	ColorPickerPanelProps,
+	ColorSwatchOption,
+	ColorSwatchPickerLabels,
+	ColorSwatchPickerProps,
+	ColorSwatchSize,
+} from "./color-swatch-picker";
+export { ColorPickerPanel, ColorSwatchPicker } from "./color-swatch-picker";
 export type { DatePickerLabels, DatePickerProps } from "./date-picker";
 export { DatePicker } from "./date-picker";
 export {
