@@ -381,6 +381,12 @@ export interface PluginOpenActivityTabOptions extends PluginActivityTabTargetOpt
 	 * widest the window allows — `"max"` keeps following window resizes until the
 	 * user drags the divider. The host clamps to its min/max bounds. Omit to keep
 	 * the user's current width.
+	 *
+	 * Applied when the tab is attached for the first time, or when this call opens
+	 * a closed panel — the panel then slides in at this width in one motion.
+	 * Ignored when the panel is already open with the tab attached (the user's
+	 * width stands), and for calls made while `activate` is still running, since
+	 * those replay on every reload.
 	 */
 	width?: number | "max";
 }
@@ -997,9 +1003,10 @@ export interface PluginUiApi {
 	 * `"max"` 是一种持续状态而非一次性求值：窗口尺寸变化时面板跟着变宽变窄，直到
 	 * 用户拖动分隔条或有人写入具体像素为止。传数字则是一次性的固定宽度。
 	 *
-	 * 与 `openActivityTab(id, { width })` 的区别：那里的宽度只在标签卡首次 attach
-	 * 时生效（避免 activate 重放覆盖用户手拖的宽度）；这个是命令式的，每次调用都
-	 * 生效，供插件在自己的标签卡被激活、进入某种视图时按需调整。用户随后仍可拖动。
+	 * 与 `openActivityTab(id, { width })` 的区别：那里的宽度只在「标签卡首次 attach」
+	 * 或「把关着的面板翻开」时生效，且 activate 里的调用除外（避免重放覆盖用户手拖的
+	 * 宽度）；这个是命令式的，每次调用都生效，供插件在自己的标签卡被激活、进入某种
+	 * 视图时按需调整。用户随后仍可拖动。
 	 */
 	setActivityPanelWidth(width: number | "max"): void;
 	/**

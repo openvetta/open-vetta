@@ -37,6 +37,8 @@ export interface CreatePluginContextOptions {
 	pendingRuntimeRegistrations: Promise<void>[];
 	activationId: string;
 	capabilitySessionId: string;
+	/** 见 CreatePluginUiApiOptions.isActivating。 */
+	isActivating?: () => boolean;
 }
 
 export function createPluginContext({
@@ -48,6 +50,7 @@ export function createPluginContext({
 	pendingRuntimeRegistrations,
 	activationId,
 	capabilitySessionId,
+	isActivating,
 }: CreatePluginContextOptions): PluginContext {
 	const { toolCallSlots } = contributions;
 	/**
@@ -71,6 +74,7 @@ export function createPluginContext({
 		disposers,
 		agentContributions,
 		capabilitySessionId,
+		isActivating,
 	});
 	const permissions = createPermissionApi(plugin);
 	return {
