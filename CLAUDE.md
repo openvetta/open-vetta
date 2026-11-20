@@ -55,11 +55,13 @@
 
 ### 五、发布说明补充（Release Notes，强制执行）
 
-**核心准则**：代码改完不等于任务完成，发布说明写完才算。
+**核心准则**：代码改完不等于任务完成；但「完成」是指在提交与 PR 里留下可追溯的用户视角记录，**不是当场往发布说明里追加条目**。
 
-**写入位置**：`.github/release-notes/v<版本号>.md`，一个版本一个文件。版本号以 `apps/desktop/package.json` 的 `version` 字段为准，文件不存在时直接新建。该文件会被 `desktop-release` 流水线直接用作 GitHub Release 正文，写法规范见 `.github/release-notes/README.md`。
+**写入位置**：`.github/release-notes/v<版本号>.md`，一个版本一个文件。版本号以 `apps/desktop/package.json` 的 `version` 字段为准。该文件会被 `desktop-release` 流水线直接用作 GitHub Release 正文，也是应用内「本版本功能」的内容，读者是用户。结构、内容规则与门禁命令只在 `.github/release-notes/README.md` 维护一份。
 
-**强制触发条件**：以下任意一项完成后，必须在同一次任务内把对应条目写入当前版本的发布说明，严禁留作后续工作：
+**为什么不在开发期写**：逐 commit 追加只能得到流水账，无法合并同类、按用户看到的区域归组、把内部术语换成用户语言。发布说明在**发版当天一次成稿**，由 `vetta-release` skill 带人完成。
+
+**强制触发条件**：以下任意一项完成后，必须在同一次任务内把用户可见的变化写进 commit 正文或 PR 的「What users will see」，严禁只留 `fix: 修一下` 这类标题：
 
 - **新增**：任何新功能、新能力、新配置项。
 - **修正**：任何缺陷修复。
@@ -67,19 +69,20 @@
 - **解决 PR**：合并任何 Pull Request。
 - **Close Issue**：关闭任何 issue。
 
+**破坏性变更**（需要用户重新登录、迁移配置、重开旧项目）必须在 PR 里显式标注，发版时会进双语说明的「升级注意 / Upgrade notes」。
+
 **书写要求**：
 
-- 按 `## 新增` / `## 改进` / `## 修复` / `## 其他` 归类，无内容的小节直接省略。
+- 用户看不出差别的内部改动（重构、测试、依赖升级、开发文档）不写进用户说明，也不需要单独立条。
 - 站在用户视角描述影响与代价，严禁复述 diff 或罗列函数名。
-- 关联 PR 或 issue 时统一使用 `owner/repo#123` 格式（如 `openvetta/open-vetta#8`）。
-- 无用户可感知影响的纯内部改动（内部重构、测试、开发文档）仍需在「其他」留一条一句话记录。
+- 关联 PR 或 issue 统一使用 `owner/repo#123` 格式（如 `openvetta/open-vetta#8`）。
 - 已发布版本的说明文件严禁修改；`apps/desktop/CHANGELOG.md` 自 0.5.58 起冻结，不再追加。
-- **写条目前先看状态标记**：标题下一行的 `<!-- release-status: ... -->` 是 `unreleased` 才能写；是 `released` 或没有标记（按已发布处理）就停下，问用户是否开下一个版本。`node scripts/release/release-notes.mjs --status` 可直接查。
+- **动笔前先看状态标记**：标题下一行的 `<!-- release-status: ... -->` 是 `unreleased` 才能写；是 `released` 或没有标记（按已发布处理）就停下，问用户是否开下一个版本。`node scripts/release/release-notes.mjs --status` 可直接查。
 - 发版、开下一个版本、改这一版的版本号，一律走 `vetta-release` skill。
 
 **违规后果警告**：
 
-- **发版直接失败**：缺失对应版本文件时，`desktop-release` 的 quality 阶段即以 `node scripts/release/release-notes.mjs --check` 报错中止。
+- **发版直接失败**：说明缺失或未按双语格式定稿时，`desktop-release` 的 quality 阶段即以 `node scripts/release/release-notes.mjs --check` 报错中止。
 - **补救窗口关闭**：流水线由 tag 推送触发，tag 一旦推出即开始构建，此时再补写已无法进入本次发布。
 
 ---
