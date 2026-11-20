@@ -170,7 +170,7 @@
 	"header.commitAndPush": "Commit & push",
 	"header.stageAllCommit": "Stage all & commit",
 	"header.commitPlaceholder": "Commit message (⌘⏎ to commit)",
-	"header.openPanel": "Open changes panel",
+	"header.openPanel": "Open Git panel",
 	"header.notRepo": "This folder is not a Git repository.",
 	"header.noBranches": "No local branches"
 }

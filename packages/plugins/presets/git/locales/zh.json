@@ -170,7 +170,7 @@
 	"header.commitAndPush": "提交并推送",
 	"header.stageAllCommit": "全部暂存并提交",
 	"header.commitPlaceholder": "提交说明（⌘⏎ 提交）",
-	"header.openPanel": "打开变更面板",
+	"header.openPanel": "打开 Git 面板",
 	"header.notRepo": "当前目录不是 Git 仓库。",
 	"header.noBranches": "没有本地分支"
 }

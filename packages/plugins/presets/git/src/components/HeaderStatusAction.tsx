@@ -2,6 +2,8 @@ import type { PluginHeaderActionContext, PluginHeaderActionState } from "@vetta-
 import { useTranslation } from "@vetta-org/plugin-sdk";
 import {
 	Button,
+	ButtonGroup,
+	ButtonGroupItem,
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
@@ -25,6 +27,7 @@ import { listBranches } from "../git/log";
 import { parseStatus } from "../git/parseStatus";
 import { preflightPush } from "../git/publish";
 import {
+	aheadBehind,
 	checkoutBranch,
 	currentBranch,
 	gitCommit,
@@ -37,8 +40,9 @@ import {
 } from "../git/run";
 import { emitRefreshSignal, notifyError, onRefreshSignal, openPanel } from "../git/runtime";
 import type { BranchRef, StatusGroups } from "../git/types";
+import { CommitActionRow } from "./CommitActionRow";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { BranchIcon, CommitIcon, FetchIcon, PullIcon, PushIcon, SparkleIcon } from "./icons";
+import { BranchIcon, ChevronIcon, CommitIcon, FetchIcon, PullIcon, PushIcon, SparkleIcon, SyncIcon } from "./icons";
 import { useGitSettings } from "./useGitSettings";
 
 const DRAFT_SAVE_DEBOUNCE_MS = 500;
@@ -114,6 +118,9 @@ interface PanelState {
 	groups: StatusGroups;
 	branch: string | null;
 	locals: BranchRef[];
+	/** 与远端的相对位置：同步区的角标用它们。 */
+	ahead: number;
+	behind: number;
 	/** 首次解析结束（成功或失败）后为 true；此前不知道是不是仓库。 */
 	loaded: boolean;
 }
@@ -136,6 +143,8 @@ export function GitHeaderPanel({ close }: { close: () => void }): JSX.Element {
 		groups: EMPTY_GROUPS,
 		branch: snapshot?.branch ?? null,
 		locals: [],
+		ahead: snapshot?.ahead ?? 0,
+		behind: snapshot?.behind ?? 0,
 		loaded: false,
 	});
 	const [message, setMessage] = useState("");
@@ -153,12 +162,21 @@ export function GitHeaderPanel({ close }: { close: () => void }): JSX.Element {
 				setState((previous) => ({ ...previous, root: null, loaded: true }));
 				return;
 			}
-			const [raw, branch, locals] = await Promise.all([
+			const [raw, branch, locals, ab] = await Promise.all([
 				statusPorcelain(root).catch(() => ""),
 				currentBranch(root).catch(() => null),
 				listBranches(root, "local").catch(() => []),
+				aheadBehind(root).catch(() => null),
 			]);
-			setState({ root, groups: parseStatus(raw), branch, locals, loaded: true });
+			setState({
+				root,
+				groups: parseStatus(raw),
+				branch,
+				locals,
+				ahead: ab?.ahead ?? 0,
+				behind: ab?.behind ?? 0,
+				loaded: true,
+			});
 		})();
 	}, [cwd]);
 
@@ -329,43 +347,93 @@ export function GitHeaderPanel({ close }: { close: () => void }): JSX.Element {
 				: null;
 	const canCommit = ready && plan.canCommit && busy === null;
 
+	// 主键文案与面板一致：索引为空时它连「暂存全部」一起做，没必要让用户先想清楚这一步。
+	const commitLabel = plan.stageAll
+		? t("header.stageAllCommit")
+		: settings.pushAfterCommit
+			? t("commit.andPush")
+			: t("header.commit");
 	return (
-		<div className="flex w-[min(88vw,22rem)] flex-col gap-2 p-1 text-[12.5px] text-foreground">
-			{/* 分支：一眼看到现在在哪，点开就能切 */}
-			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<Button variant="ghost" size="sm" disabled={!ready} className="h-7 justify-start gap-1.5 px-1.5 font-medium">
-						<BranchIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-						<span className="max-w-[14rem] truncate">{state.branch ?? t("header.detached")}</span>
-					</Button>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="start" className="min-w-48">
-					<DropdownMenuLabel>{t("branch.switch")}</DropdownMenuLabel>
-					{state.locals.length === 0 ? <DropdownMenuItem disabled>{t("header.noBranches")}</DropdownMenuItem> : null}
-					{state.locals.map((ref) => (
-						<DropdownMenuItem
-							key={ref.name}
-							disabled={ref.name === state.branch}
-							onSelect={() => switchTo(ref.name)}
+		<div className="flex w-[min(88vw,22rem)] flex-col gap-2 p-1 text-foreground">
+			{/* 左上角是「我在哪」，右上角是此刻能对远端做的事——两者职责不同，不挤进同一个按钮组。 */}
+			<div className="flex items-center gap-1.5">
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						{/* 与面板分支栏同一形态：无底色、无边框，就是「图标 + 分支名 + 箭头」。 */}
+						<Button
+							variant="ghost"
+							size="xs"
+							disabled={!ready}
+							title={t("branch.switch")}
+							// 宽度跟着分支名走：分支名短时不该占掉半条顶栏，长了再截断。
+							className="w-auto min-w-0 max-w-[11rem] shrink gap-1 px-1.5"
 						>
-							{ref.name === state.branch ? <span className="icon-[solar--check-circle-linear] size-3.5" /> : null}
-							<span className="truncate">{ref.name}</span>
-						</DropdownMenuItem>
-					))}
-					<DropdownMenuSeparator />
-					<DropdownMenuItem
-						onSelect={() => {
-							close();
-							openPanel();
-						}}
-					>
-						{t("header.openPanel")}
-					</DropdownMenuItem>
-				</DropdownMenuContent>
-			</DropdownMenu>
+							<BranchIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+							<span className="truncate text-[12px] font-medium">{state.branch ?? t("header.detached")}</span>
+							<ChevronIcon className="h-3 w-3 shrink-0 text-muted-foreground/70" />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="start" className="min-w-[13rem]">
+						<DropdownMenuLabel>{t("branch.switch")}</DropdownMenuLabel>
+						{state.locals.length === 0 ? <DropdownMenuItem disabled>{t("header.noBranches")}</DropdownMenuItem> : null}
+						{state.locals.map((ref) => (
+							<DropdownMenuItem key={ref.name} disabled={ref.name === state.branch} onSelect={() => switchTo(ref.name)}>
+								{ref.name === state.branch ? <span className="icon-[solar--check-circle-linear] size-3.5" /> : null}
+								<span className="truncate">{ref.name}</span>
+							</DropdownMenuItem>
+						))}
+					</DropdownMenuContent>
+				</DropdownMenu>
+				<ButtonGroup shape="square" blur={false} className="ml-auto shrink-0">
+					<ButtonGroupItem
+						icon={<FetchIcon className="h-3.5 w-3.5" />}
+						title={t("action.fetch")}
+						disabled={!ready || busy !== null}
+						onClick={fetch}
+						className="h-7"
+					/>
+					<ButtonGroupItem
+						icon={<PullIcon className="h-3.5 w-3.5" />}
+						title={t("action.pull")}
+						badge={state.behind > 0 ? state.behind : undefined}
+						disabled={!ready || busy !== null}
+						onClick={pull}
+						className="h-7"
+					/>
+					<ButtonGroupItem
+						icon={<PushIcon className="h-3.5 w-3.5" />}
+						title={t("action.push")}
+						badge={state.ahead > 0 ? state.ahead : undefined}
+						disabled={!ready || busy !== null}
+						onClick={push}
+						className="h-7"
+					/>
+					<ButtonGroupItem
+						icon={<SyncIcon className="h-3.5 w-3.5" />}
+						title={t("action.sync")}
+						disabled={!ready || busy !== null}
+						onClick={sync}
+						className="h-7"
+					/>
+				</ButtonGroup>
+				{/* 气泡装不下 diff、提交历史与逐文件操作：给它一个一眼能找到的出口。 */}
+				<Button
+					variant="ghost"
+					size="icon-xs"
+					title={t("header.openPanel")}
+					aria-label={t("header.openPanel")}
+					onClick={() => {
+						close();
+						openPanel();
+					}}
+					className="shrink-0"
+				>
+					<span className="icon-[solar--window-frame-linear] size-3.5" />
+				</Button>
+			</div>
 
-			{/* 提交：草稿与面板共用，写一半关掉不会丢 */}
-			<div className="overflow-hidden rounded-lg border border-border/70 bg-background focus-within:ring-1 focus-within:ring-ring/40">
+			{/* 提交说明：与面板里的提交框共用同一份草稿，写一半关掉不会丢。 */}
+			<div className="overflow-hidden rounded-lg border border-border/60 bg-foreground/[0.03] transition-colors focus-within:border-primary/50 focus-within:bg-transparent">
 				<textarea
 					value={message}
 					readOnly={generating || !ready}
@@ -378,72 +446,42 @@ export function GitHeaderPanel({ close }: { close: () => void }): JSX.Element {
 					}}
 					rows={3}
 					placeholder={t("header.commitPlaceholder")}
-					className="block max-h-40 min-h-[56px] w-full resize-none bg-transparent px-2 py-1.5 text-[12.5px] leading-relaxed outline-none placeholder:text-muted-foreground/50"
+					className="block max-h-40 min-h-[58px] w-full resize-none bg-transparent px-2.5 py-2 text-[12.5px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/50"
 				/>
-				<div className="flex items-center gap-1.5 px-1 pb-1">
+				<div className="flex items-center gap-1.5 px-1.5 pb-1.5">
 					<button
 						type="button"
 						disabled={!ready || busy !== null || (!generating && state.groups.staged.length + state.groups.unstaged.length === 0)}
 						title={generating ? t("ai.stop") : t("ai.generateHint")}
 						onClick={() => (generating ? abortRef.current?.abort() : generate())}
-						className="git-ai-accent inline-flex h-6 items-center gap-1 rounded-md px-1 text-[11.5px] font-medium outline-none disabled:opacity-50"
+						className="git-ai-accent inline-flex h-6 items-center gap-1 rounded-md px-1 text-[11.5px] font-medium outline-none transition-opacity hover:opacity-80 disabled:pointer-events-none disabled:opacity-50"
 					>
 						<SparkleIcon className="h-3 w-3 shrink-0" />
-						<span className="git-ai-shimmer">{generating ? t("ai.stop") : t("ai.generate")}</span>
+						<span className="git-ai-shimmer truncate">{generating ? t("ai.stop") : t("ai.generate")}</span>
 					</button>
-					<span className="ml-auto text-[11px] text-muted-foreground">
+					<span className="ml-auto truncate text-[11px] text-muted-foreground">
 						{!ready ? null : (disabledReason ?? t("header.files", { count: state.groups.staged.length + state.groups.unstaged.length }))}
 					</span>
 				</div>
 			</div>
 
-			<div className="flex items-center gap-1.5">
-				<Button
-					size="sm"
-					disabled={!canCommit}
-					title={disabledReason ?? undefined}
-					onClick={() => commit(false)}
-					className="h-7 flex-1 gap-1 bg-[#1f883d] text-white hover:bg-[#1a7f37] disabled:bg-[#1f883d]/35 disabled:text-white/60"
-				>
-					<CommitIcon className="h-3.5 w-3.5" />
-					{plan.stageAll ? t("header.stageAllCommit") : settings.pushAfterCommit ? t("commit.andPush") : t("header.commit")}
-				</Button>
-				<Button
-					size="sm"
-					variant="outline"
-					disabled={!canCommit}
-					title={disabledReason ?? undefined}
-					onClick={() => commit(true)}
-					className="h-7 shrink-0"
-				>
-					{t("header.commitAndPush")}
-				</Button>
-			</div>
-
-			{/* 同步：fetch / pull 用相对计数，push 带上 ahead 数 */}
-			<div className="flex items-center gap-1 border-t border-border/60 pt-1.5">
-				<Button variant="ghost" size="sm" className="h-7 gap-1 px-1.5" disabled={!ready || busy !== null} onClick={fetch}>
-					<FetchIcon className="h-3.5 w-3.5" />
-					{t("action.fetch")}
-				</Button>
-				<Button
-					variant="ghost"
-					size="sm"
-					className="h-7 gap-1 px-1.5"
-					disabled={!ready || busy !== null}
-					onClick={pull}
-				>
-					<PullIcon className="h-3.5 w-3.5" />
-					{t("action.pull")}
-				</Button>
-				<Button variant="ghost" size="sm" className="h-7 gap-1 px-1.5" disabled={!ready || busy !== null} onClick={push}>
-					<PushIcon className="h-3.5 w-3.5" />
-					{t("action.push")}
-				</Button>
-				<Button variant="ghost" size="sm" className="ml-auto h-7 px-1.5 text-muted-foreground" disabled={!ready || busy !== null} onClick={sync}>
-					{t("action.syncLabel")}
-				</Button>
-			</div>
+			{/* 与面板里的提交行共用同一个组件：同样的绿色主键、同样的下拉、同样的禁用档位。 */}
+			<CommitActionRow
+				label={commitLabel}
+				moreLabel={t("commit.more")}
+				canCommit={canCommit}
+				busy={busy !== null || !ready}
+				disabledReason={disabledReason}
+				extras={[
+					{
+						id: "commit-push",
+						label: t("header.commitAndPush"),
+						onSelect: () => commit(true),
+						disabled: !canCommit,
+					},
+				]}
+				onCommit={() => commit(false)}
+			/>
 
 			<ConfirmDialog
 				open={pendingPublish !== null}

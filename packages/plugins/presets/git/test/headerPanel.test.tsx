@@ -16,7 +16,7 @@ const hash = "a".repeat(40);
 /** 一份「索引为空、工作区有一个改动」的 porcelain 输出。 */
 const PORCELAIN = "1 .M N... 100644 100644 100644 0000000 0000000 src/main.ts";
 
-function setup(options: { resolveDelayMs?: number } = {}) {
+function setup(options: { resolveDelayMs?: number; upstream?: boolean } = {}) {
 	const calls: string[][] = [];
 	const run = vi.fn(async (_file: string, args: string[] = []) => {
 		if (args[0] === "rev-parse" && args.includes("--show-toplevel") && options.resolveDelayMs) {
@@ -29,8 +29,11 @@ function setup(options: { resolveDelayMs?: number } = {}) {
 		else if (args[0] === "status") stdout = PORCELAIN;
 		else if (args[0] === "branch" && args.includes("--show-current")) stdout = "main\n";
 		else if (args[0] === "branch") stdout = `main ${hash}\n`;
-		else if (args[0] === "rev-parse" && args.includes("--abbrev-ref")) exitCode = 128;
-		else if (args[0] === "commit") stdout = "";
+		else if (args[0] === "rev-parse" && args.includes("--abbrev-ref")) {
+			// 没有 upstream 时 git 以 128 退出；这条分支决定推送前是否要问一句「发布分支」。
+			if (options.upstream) stdout = "origin/main\n";
+			else exitCode = 128;
+		} else if (args[0] === "rev-list") stdout = "0\t1\n";
 		return { stdout, stderr: "", exitCode };
 	});
 	setGitCommand({ run } as never);
@@ -55,6 +58,12 @@ afterEach(() => {
 });
 
 describe("GitHeaderPanel", () => {
+	let closeSpy: ReturnType<typeof vi.fn>;
+
+	beforeEach(() => {
+		closeSpy = vi.fn();
+	});
+
 	it("shows the current branch and commits a typed message", async () => {
 		const { calls } = setup();
 		render(<GitHeaderPanel close={() => {}} />);
@@ -109,5 +118,47 @@ describe("GitHeaderPanel", () => {
 		setHeaderRepoCwd("/not-a-repo");
 		render(<GitHeaderPanel close={() => {}} />);
 		await waitFor(() => expect(screen.getByText("header.notRepo")).toBeTruthy());
+	});
+
+	it("keeps the commit-and-push variant behind the dropdown next to the commit button", async () => {
+		const { calls } = setup({ upstream: true });
+		render(<GitHeaderPanel close={() => {}} />);
+		await waitFor(() => expect(screen.getByText("main")).toBeTruthy());
+
+		await act(async () => {
+			fireEvent.change(screen.getByPlaceholderText("header.commitPlaceholder"), {
+				target: { value: "feat: header polish" },
+			});
+		});
+
+		// 主键在明面上，其余提交方式收在下拉里（与面板同一套结构）。
+		expect(screen.getByText("header.stageAllCommit")).toBeTruthy();
+		expect(screen.queryByText("header.commitAndPush")).toBeNull();
+
+		// jsdom 里没有真正的指针事件可用，用键盘打开菜单（Radix 对两者走同一条打开路径）。
+		const more = screen.getByTitle("commit.more") as HTMLButtonElement;
+		await act(async () => {
+			fireEvent.keyDown(more, { key: "Enter" });
+		});
+		const item = await screen.findByText("header.commitAndPush");
+		await act(async () => {
+			fireEvent.click(item);
+		});
+
+		await waitFor(() => expect(calls.some((args) => args[0] === "push")).toBe(true));
+		expect(calls).toContainEqual(["commit", "-m", "feat: header polish"]);
+	});
+
+	it("offers a one-click way out to the full panel", async () => {
+		setup();
+		render(<GitHeaderPanel close={closeSpy} />);
+		await waitFor(() => expect(screen.getByText("main")).toBeTruthy());
+
+		await act(async () => {
+			fireEvent.click(screen.getByTitle("header.openPanel"));
+		});
+
+		// 气泡先关掉，再让面板拿到焦点：否则浮层还盖在面板上面。
+		expect(closeSpy).toHaveBeenCalled();
 	});
 });
