@@ -6,6 +6,7 @@ All notable changes to `@vetta-org/ui` are documented in this file.
 
 ### Added
 
+- 新增 `Stepper`（`./stepper` 入口，根入口同时导出）：数字步进器，`− 数值 +` 三段式，受控 `value` / `onValueChange` 配 `min` / `max` / `step`，数值可点进去直接改（回车或失焦提交、Esc 撤销，非法输入按撤销处理），按住加减号连续变化，到边界时按钮禁用。`precision` 缺省按 `step` 推断小数位，避开浮点尾巴。
 - 新增 `SessionTopItem` / `SessionTopGroup`（`./session-top-item` 入口，根入口同时导出）：会话页顶栏的一项，在 `ButtonGroupItem` 之上加三种点击行为——`menuItems` 下拉菜单、`popoverContent` 向下弹出的气泡（内容自定义，传函数可拿到 `close`）、或普通 `onClick`；单独使用时自带胶囊，放进 `ButtonGroup` 则是组内一格。`ButtonGroup` 同时导出 `useInButtonGroup`。
 - 新增 `ButtonGroup` / `ButtonGroupItem`（`./button-group` 入口，根入口同时导出）：半透明胶囊按钮组，支持图标、文字、数字 / 红点角标、选中态，`shape` 可选 `pill`（默认）或 `square`。
 

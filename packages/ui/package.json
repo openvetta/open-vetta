@@ -57,6 +57,10 @@
 			"types": "./src/step-slider.tsx",
 			"import": "./src/step-slider.tsx"
 		},
+		"./stepper": {
+			"types": "./src/stepper.tsx",
+			"import": "./src/stepper.tsx"
+		},
 		"./switch": {
 			"types": "./src/switch.tsx",
 			"import": "./src/switch.tsx"

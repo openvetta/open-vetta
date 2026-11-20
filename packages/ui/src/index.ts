@@ -76,5 +76,7 @@ export { SessionTopGroup, SessionTopItem } from "./session-top-item";
 export { Slider, type SliderProps } from "./slider";
 export { Spin, type SpinProps, type SpinSize } from "./spin";
 export { StepSlider, type StepSliderProps } from "./step-slider";
+export type { StepperLabels, StepperProps, StepperSize } from "./stepper";
+export { Stepper } from "./stepper";
 export { Switch } from "./switch";
 export { type ClassValue, cn } from "./utils";
