@@ -1008,6 +1008,8 @@
 		}
 	},
 	"questionPanel": {
+		"collapse": "收起面板",
+		"expand": "展开面板",
 		"keyboardHint": "↑↓ 选择 · 空格选中 · ←→ 切换 · Enter 下一题",
 		"multiSelectHint": "可多选",
 		"otherOption": "其它（自定义输入）",

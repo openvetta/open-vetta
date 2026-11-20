@@ -45,9 +45,13 @@ export function QuestionPanelView({
 	const [active, setActive] = useState(0);
 	const [focused, setFocused] = useState(0);
 	const [submitting, setSubmitting] = useState(false);
+	/** 折叠状态绑定当前请求：换来下一个问题时面板自动重新展开。 */
+	const [collapsedRequestId, setCollapsedRequestId] = useState<string | null>(null);
+	const collapsed = collapsedRequestId === pending.requestId;
 	const containerRef = useRef<HTMLDivElement>(null);
 
 	const allAnswered = useMemo(() => states.every(isAnswered), [states]);
+	const answeredCount = useMemo(() => states.filter(isAnswered).length, [states]);
 	const activeIndex = Math.min(active, questions.length - 1);
 	const activeQuestion = questions[activeIndex];
 	const otherIndex = activeQuestion.options.length;
@@ -126,7 +130,7 @@ export function QuestionPanelView({
 
 	const handleKey = useCallback(
 		(e: React.KeyboardEvent<HTMLDivElement>) => {
-			if (submitting || e.nativeEvent.isComposing) return;
+			if (submitting || collapsed || e.nativeEvent.isComposing) return;
 			const inInput = (e.target as HTMLElement).tagName === "INPUT";
 			switch (e.key) {
 				case "Enter":
@@ -170,7 +174,7 @@ export function QuestionPanelView({
 					break;
 			}
 		},
-		[submitting, advance, goTab, activeIndex, otherIndex, selectFocused],
+		[submitting, collapsed, advance, goTab, activeIndex, otherIndex, selectFocused],
 	);
 
 	const single = questions.length === 1;
@@ -194,103 +198,141 @@ export function QuestionPanelView({
 			>
 				<ThemeSurface slot="chat.questionPanel" />
 				<div className={["relative z-10 rounded-[inherit]", classNames?.content].filter(Boolean).join(" ")}>
-					<div className="mb-2 flex items-center gap-2 px-1">
-						<span className="icon-[solar--question-circle-linear] size-4 text-primary" />
-						<span className="text-sm font-medium text-foreground">{labels.title}</span>
-						{!single && (
-							<span className="text-xs text-muted-foreground">
-								{states.filter(isAnswered).length}/{questions.length}
+					<div className={["flex items-center gap-2 px-1", collapsed ? "" : "mb-2"].filter(Boolean).join(" ")}>
+						<span className="icon-[solar--question-circle-linear] size-4 shrink-0 text-primary" />
+						<span className="shrink-0 text-sm font-medium text-foreground">{labels.title}</span>
+						{!single && !collapsed && (
+							<span className="shrink-0 text-xs text-muted-foreground">
+								{answeredCount}/{questions.length}
 							</span>
 						)}
+						{collapsed && (
+							<span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+								{!single && `${answeredCount}/${questions.length} · `}
+								{activeQuestion.question}
+							</span>
+						)}
+						<button
+							type="button"
+							tabIndex={-1}
+							aria-expanded={!collapsed}
+							aria-label={collapsed ? labels.expand : labels.collapse}
+							title={collapsed ? labels.expand : labels.collapse}
+							onClick={() => setCollapsedRequestId(collapsed ? null : pending.requestId)}
+							onKeyDown={(event) => {
+								// 收起/展开交给按钮自己的点击；否则容器会把 Enter/Space 当成选项操作。
+								if (event.key === "Enter" || event.key === " ") event.stopPropagation();
+							}}
+							className="ml-auto flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+						>
+							<span
+								className={
+									collapsed ? "icon-[mdi--chevron-up] size-4" : "icon-[mdi--chevron-down] size-4"
+								}
+							/>
+						</button>
 					</div>
 
-					{!single && (
-						<div className="mb-2 flex items-center gap-0.5 overflow-x-auto border-b border-border/60">
-							{questions.map((q, i) => {
-								const answered = isAnswered(states[i]);
-								const isActive = i === activeIndex;
-								return (
-									<button
-										key={i}
-										type="button"
-										tabIndex={-1}
-										onClick={() => goTab(i)}
-										className={`relative flex shrink-0 items-center gap-1 rounded-t-md px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
-											isActive ? "text-foreground" : "text-muted-foreground/70 hover:text-foreground/80"
-										}`}
-									>
-										<span className="max-w-[120px] truncate">
-											{q.header || labels.questionTabLabel(i + 1)}
-										</span>
-										{answered && <span className="icon-[solar--check-circle-bold] size-3 shrink-0 text-primary" />}
-										{isActive && (
-											<motion.span
-												layoutId={`askq-panel-underline-${pending.requestId}`}
-												className="absolute inset-x-1 bottom-0 h-0.5 rounded-full bg-primary"
-												transition={SWITCH}
-											/>
-										)}
-									</button>
-								);
-							})}
-						</div>
-					)}
-
-					<div
-						className={["relative max-h-[46vh] overflow-x-hidden overflow-y-auto", classNames?.body]
-							.filter(Boolean)
-							.join(" ")}
-					>
-						<AnimatePresence mode="wait" initial={false}>
+					<AnimatePresence initial={false}>
+						{!collapsed && (
 							<motion.div
-								key={activeIndex}
-								initial={{ opacity: 0, x: single ? 0 : 10 }}
-								animate={{ opacity: 1, x: 0 }}
-								exit={{ opacity: 0, x: single ? 0 : -10 }}
+								key="question-panel-content"
+								initial={{ height: 0, opacity: 0 }}
+								animate={{ height: "auto", opacity: 1 }}
+								exit={{ height: 0, opacity: 0 }}
 								transition={SWITCH}
+								className="overflow-hidden"
 							>
-								<QuestionBody
-									question={activeQuestion}
-									state={states[activeIndex]}
-									focused={focused}
-									showHeader={single}
-									multiSelectHint={labels.multiSelectHint}
-									otherOption={labels.otherOption}
-									otherPlaceholder={labels.otherPlaceholder}
-									onToggleOption={(label) =>
-										toggleOption(activeIndex, label, activeQuestion.multiSelect ?? false)
-									}
-									onFocusOption={setFocused}
-									onActivateOther={() => activateOther(activeIndex, activeQuestion.multiSelect ?? false)}
-									onOtherText={(text) => setOtherText(activeIndex, text)}
-								/>
-							</motion.div>
-						</AnimatePresence>
-					</div>
+								{!single && (
+									<div className="mb-2 flex items-center gap-0.5 overflow-x-auto border-b border-border/60">
+										{questions.map((q, i) => {
+											const answered = isAnswered(states[i]);
+											const isActive = i === activeIndex;
+											return (
+												<button
+													key={i}
+													type="button"
+													tabIndex={-1}
+													onClick={() => goTab(i)}
+													className={`relative flex shrink-0 items-center gap-1 rounded-t-md px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+														isActive ? "text-foreground" : "text-muted-foreground/70 hover:text-foreground/80"
+													}`}
+												>
+													<span className="max-w-[120px] truncate">
+														{q.header || labels.questionTabLabel(i + 1)}
+													</span>
+													{answered && <span className="icon-[solar--check-circle-bold] size-3 shrink-0 text-primary" />}
+													{isActive && (
+														<motion.span
+															layoutId={`askq-panel-underline-${pending.requestId}`}
+															className="absolute inset-x-1 bottom-0 h-0.5 rounded-full bg-primary"
+															transition={SWITCH}
+														/>
+													)}
+												</button>
+											);
+										})}
+									</div>
+								)}
 
-					<div
-						className={["mt-3 flex items-center justify-between gap-2", classNames?.footer]
-							.filter(Boolean)
-							.join(" ")}
-					>
-						<span className="hidden px-1 text-[11px] text-muted-foreground/70 sm:inline">
-							{labels.keyboardHint}
-						</span>
-						<div className="flex items-center gap-2">
-							<Button variant="ghost" size="sm" onClick={cancel} disabled={submitting}>
-								{labels.cancel}
-							</Button>
-							{showNext ? (
-								<Button size="sm" onClick={goNext} disabled={!currentAnswered || submitting}>
-									{labels.next}
-								</Button>
-							) : (
-								<Button size="sm" onClick={submit} disabled={!allAnswered || submitting}>
-									{labels.submit}
-								</Button>
-							)}
-						</div>
-					</div>
+								<div
+									className={["relative max-h-[46vh] overflow-x-hidden overflow-y-auto", classNames?.body]
+										.filter(Boolean)
+										.join(" ")}
+								>
+									<AnimatePresence mode="wait" initial={false}>
+										<motion.div
+											key={activeIndex}
+											initial={{ opacity: 0, x: single ? 0 : 10 }}
+											animate={{ opacity: 1, x: 0 }}
+											exit={{ opacity: 0, x: single ? 0 : -10 }}
+											transition={SWITCH}
+										>
+											<QuestionBody
+												question={activeQuestion}
+												state={states[activeIndex]}
+												focused={focused}
+												showHeader={single}
+												multiSelectHint={labels.multiSelectHint}
+												otherOption={labels.otherOption}
+												otherPlaceholder={labels.otherPlaceholder}
+												onToggleOption={(label) =>
+													toggleOption(activeIndex, label, activeQuestion.multiSelect ?? false)
+												}
+												onFocusOption={setFocused}
+												onActivateOther={() => activateOther(activeIndex, activeQuestion.multiSelect ?? false)}
+												onOtherText={(text) => setOtherText(activeIndex, text)}
+											/>
+										</motion.div>
+									</AnimatePresence>
+								</div>
+
+								<div
+									className={["mt-3 flex items-center justify-between gap-2", classNames?.footer]
+										.filter(Boolean)
+										.join(" ")}
+								>
+									<span className="hidden px-1 text-[11px] text-muted-foreground/70 sm:inline">
+										{labels.keyboardHint}
+									</span>
+									<div className="flex items-center gap-2">
+										<Button variant="ghost" size="sm" onClick={cancel} disabled={submitting}>
+											{labels.cancel}
+										</Button>
+										{showNext ? (
+											<Button size="sm" onClick={goNext} disabled={!currentAnswered || submitting}>
+												{labels.next}
+											</Button>
+										) : (
+											<Button size="sm" onClick={submit} disabled={!allAnswered || submitting}>
+												{labels.submit}
+											</Button>
+										)}
+									</div>
+								</div>
+							</motion.div>
+						)}
+					</AnimatePresence>
 				</div>
 			</div>
 		</div>
