@@ -6,6 +6,7 @@ All notable changes to `@vetta-org/theme-ui` are documented in this file.
 
 ### Added
 
+- `./plugin-ui` 新增 `VettaKbd`（及 `VettaKbdProps` / `VettaKbdSize` / `VettaKbdKey` / `VettaKbdPlatform` 类型）：插件可以把快捷键绑定渲染成宿主同款浮雕键帽，平台符号由组件自己处理，插件不必自己维护 ⌘ / Ctrl 映射。按「只开放组件」的约定，键位解析函数（`resolveKbdKeys` / `describeKbdKeys`）仍在 `./shared`，不进插件合同。
 - `./plugin-ui` 新增 `MotionSelect`、`SettingSection`、`SettingRow`、`SettingHeading`（及相应类型）：设置页同款的下拉与设置项卡片开放给插件，与已有的模型选择器视图一样是纯展示组件。
 - 新增 `./markdown` 公开入口：局部 Markdown definition、remark/rehype 与元素扩展，以及可组合的 `CodeBlock`。Chat 与活动面板预览共享扩展定义，原 `chat/TextBlockView` 保留转导出。
 - 流式 Markdown 只把已经闭合的代码围栏冻成稳定块，后续 token 只重跑尾块；空行不再拆段，避免把松散列表和缩进代码拆进多个文档。代码高亮在围栏仍在增长或滚出视口时改为等宽纯文本，避免热路径反复跑 Shiki。

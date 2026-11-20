@@ -26,6 +26,9 @@ export type { MotionSelectOption, MotionSelectProps } from "../settings/MotionSe
 export { MotionSelect } from "../settings/MotionSelect";
 export type { SettingSectionMeta } from "../settings/SettingChrome";
 export { SettingHeading, SettingRow, SettingSection } from "../settings/SettingChrome";
+export type { VettaKbdKey, VettaKbdPlatform } from "../shared/kbd-keys";
 export type { MultiplierTagProps } from "../shared/MultiplierTag";
 export { fmtMultiplier, MultiplierTag } from "../shared/MultiplierTag";
 export { getProviderIcon, PROVIDER_ICONS, ProviderIcon } from "../shared/provider-icon";
+export type { VettaKbdProps, VettaKbdSize } from "../shared/VettaKbd";
+export { VettaKbd } from "../shared/VettaKbd";
