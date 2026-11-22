@@ -147,10 +147,10 @@ export const CommandMenuRow = memo(function CommandMenuRow({
 			{item.badge && (
 				<span
 					className={cn(
-						"relative max-w-[40%] shrink-0 truncate rounded-[5px] border px-1.5 py-px text-[10px] font-medium leading-4",
+						"relative max-w-[40%] shrink-0 truncate rounded-[5px] px-1.5 py-px text-[10px] font-medium leading-4",
 						item.badgeTone === "accent"
-							? "border-primary/30 bg-primary/10 text-primary"
-							: "border-foreground/[0.08] bg-foreground/[0.04] text-muted-foreground dark:border-white/[0.08] dark:bg-white/[0.05]",
+							? "bg-primary/15 text-primary"
+							: "bg-foreground/[0.06] text-muted-foreground dark:bg-white/[0.08]",
 					)}
 				>
 					{item.badge}

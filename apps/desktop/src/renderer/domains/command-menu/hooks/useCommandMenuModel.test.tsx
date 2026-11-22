@@ -39,7 +39,7 @@ vi.mock("react-i18next", () => ({
 	useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-import { commandMenuOpenAtom, projectsAtom } from "@shared/store/atoms";
+import { commandMenuOpenAtom, defaultConversationCwdAtom, projectsAtom } from "@shared/store/atoms";
 import { attentionSessionPathsAtom } from "@shared/store/attention-sessions-atoms";
 import { pendingInteractionPathsAtom } from "@shared/store/pending-interactions-atoms";
 import { runningSessionPathsAtom } from "@shared/store/running-sessions-atoms";
@@ -305,4 +305,13 @@ it("keeps a session that just finished on top until it is opened", () => {
 
 	expect(sessionSearchCalls.at(-1)?.request).toMatchObject({ query: "", activePaths: ["/w/done.jsonl"] });
 	expect(result.current.groups[0].items.map((item) => [item.title, item.status])).toEqual([["Done", "unread"]]);
+});
+
+it("starts a new conversation from the panel and closes it", () => {
+	store.set(defaultConversationCwdAtom, "/w/chat");
+	const { result } = render();
+
+	act(() => result.current.onNewSession());
+	expect(store.get(commandMenuOpenAtom)).toBe(false);
+	expect(navigate).toHaveBeenLastCalledWith({ to: "/new-session/$cwd", params: { cwd: encodeURIComponent("/w/chat") } });
 });

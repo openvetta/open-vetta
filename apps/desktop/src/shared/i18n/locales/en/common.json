@@ -1005,6 +1005,7 @@
 		"loading": "Searching sessions",
 		"title": "Command menu",
 		"actionsLabel": "Actions",
+		"newSession": "New session",
 		"hintSelect": "Open",
 		"hintClose": "Close",
 		"overflow": "{{count}} more",

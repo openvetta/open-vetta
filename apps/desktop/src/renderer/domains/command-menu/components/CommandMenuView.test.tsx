@@ -16,6 +16,7 @@ const labels = {
 	loading: "Searching sessions",
 	title: "Command Menu",
 	actionsLabel: "Actions",
+	newSession: "New session",
 	hintSelect: "Open",
 	hintClose: "Close",
 };
@@ -226,7 +227,7 @@ describe("CommandMenuView", () => {
 		expect(within(screen.getByRole("option", { name: /PDF/ })).getByText("Skill").className).toContain("text-primary");
 	});
 
-	it("opens the selected row and closes from the action button group", async () => {
+	it("opens, closes and starts a new session from the bottom button groups", async () => {
 		// 纯展示组件的唯一输出就是回调：按发生顺序记下用户意图，再断言整段序列。
 		const intents: string[] = [];
 		render(
@@ -236,6 +237,8 @@ describe("CommandMenuView", () => {
 					selectedId: "project:demo",
 					onActivateItem: (id) => intents.push(`open:${id}`),
 					onClose: () => intents.push("close"),
+					onNewSession: () => intents.push("new-session"),
+					newSessionShortcut: "mod+n",
 				})}
 			/>,
 		);
@@ -243,7 +246,8 @@ describe("CommandMenuView", () => {
 
 		await userEvent.click(within(actions).getByRole("button", { name: /Open/ }));
 		await userEvent.click(within(actions).getByRole("button", { name: /Close/ }));
-		expect(intents).toEqual(["open:project:demo", "close"]);
+		await userEvent.click(screen.getByRole("button", { name: /New session/ }));
+		expect(intents).toEqual(["open:project:demo", "close", "new-session"]);
 	});
 
 	it("disables the open action when nothing is selected", () => {

@@ -22,6 +22,10 @@ export interface CommandMenuViewProps {
 	readonly labels: CommandMenuViewLabels;
 	/** 唤起 / 关闭面板的快捷键（例如 "mod+t"），显示在输入框右侧。 */
 	readonly toggleShortcut?: string;
+	/** 给了就在左下角显示「新会话」按钮，与右下角操作按钮组对称。 */
+	readonly onNewSession?: () => void;
+	/** 新建会话的生效快捷键，显示在按钮里。 */
+	readonly newSessionShortcut?: string;
 	/** 结果集因击键刚变化：抑制选中指示条的位移动画。 */
 	readonly suppressSelectionAnimation: boolean;
 	readonly inputRef?: RefObject<HTMLInputElement | null>;
@@ -38,6 +42,8 @@ export function CommandMenuView({
 	selectedId,
 	labels,
 	toggleShortcut,
+	onNewSession,
+	newSessionShortcut,
 	suppressSelectionAnimation,
 	inputRef,
 	onQueryChange,
@@ -77,7 +83,7 @@ export function CommandMenuView({
 					onChange={onQueryChange}
 					// 打开后的聚焦由宿主在 open 变化时负责（见 desktop CommandMenu）。
 					autoFocus={false}
-					trailing={toggleShortcut ? <VettaKbd keys={toggleShortcut} size="sm" /> : undefined}
+					trailing={toggleShortcut ? <VettaKbd keys={toggleShortcut} size="sm" variant="flat" /> : undefined}
 					inputProps={{
 						role: "combobox",
 						"aria-expanded": hasResults,
@@ -92,8 +98,9 @@ export function CommandMenuView({
 				id="command-menu-list"
 				role="listbox"
 				aria-label={labels.title}
-				// 底部留出浮动按钮组的高度，最后一行滚到底时不会被它盖住。
-				className="min-h-0 max-h-[min(460px,60vh)] overflow-y-auto overscroll-contain px-1.5 pt-1.5 pb-12"
+				// 底部留出浮动按钮组的高度，最后一行滚到底时不会被它盖住；同一段高度做渐隐，
+				// 滚动中的内容在按钮后面淡出，而不是被按钮生硬地截断。
+				className="min-h-0 max-h-[min(460px,60vh)] overflow-y-auto overscroll-contain px-1.5 pt-1.5 pb-14 [mask-image:linear-gradient(to_bottom,black_calc(100%-56px),transparent)]"
 			>
 			{groups.map((group) => {
 				if (group.items.length === 0 && !group.loading) return null;
@@ -140,32 +147,51 @@ export function CommandMenuView({
 			)}
 			</div>
 			{/*
-			 * 操作提示做成浮在列表右下角的按钮组（复用通用 ButtonGroup 的玻璃胶囊），既是提示也能点：
-			 * 「打开」作用于当前选中项，「关闭」等同 esc。上下选择只靠方向键，不占一个按钮。
+			 * 操作提示做成浮在列表底部的两组按钮（复用通用 ButtonGroup 的玻璃胶囊），既是提示也能点：
+			 * 左边「新会话」，右边「打开」作用于当前选中项、「关闭」等同 esc；左右对称。
+			 * 上下选择只靠方向键，不占一个按钮。外层不接收指针，按钮之间的空隙仍能滚动 / 点到列表。
 			 */}
-			<ButtonGroup className="absolute right-2.5 bottom-2.5 z-10" aria-label={labels.actionsLabel}>
-				<ButtonGroupItem
-					disabled={!selectedId}
-					onClick={() => {
-						if (selectedId) onActivateItem(selectedId);
-					}}
-					label={
-						<span className="inline-flex items-center gap-2">
-							{labels.hintSelect}
-							<VettaKbd keys="enter" size="sm" />
-						</span>
-					}
-				/>
-				<ButtonGroupItem
-					onClick={onClose}
-					label={
-						<span className="inline-flex items-center gap-2">
-							{labels.hintClose}
-							<VettaKbd keys="esc" size="sm" />
-						</span>
-					}
-				/>
-			</ButtonGroup>
+			<div className="pointer-events-none absolute inset-x-2.5 bottom-2.5 z-10 flex items-center justify-between gap-2">
+				{onNewSession ? (
+					<ButtonGroup className="pointer-events-auto">
+						<ButtonGroupItem
+							onClick={onNewSession}
+							label={
+								<span className="inline-flex items-center gap-2">
+									<span aria-hidden="true" className="icon-[solar--pen-new-square-linear] size-4" />
+									{labels.newSession}
+									{newSessionShortcut && <VettaKbd keys={newSessionShortcut} size="sm" variant="flat" />}
+								</span>
+							}
+						/>
+					</ButtonGroup>
+				) : (
+					<span />
+				)}
+				<ButtonGroup className="pointer-events-auto" aria-label={labels.actionsLabel}>
+					<ButtonGroupItem
+						disabled={!selectedId}
+						onClick={() => {
+							if (selectedId) onActivateItem(selectedId);
+						}}
+						label={
+							<span className="inline-flex items-center gap-2">
+								{labels.hintSelect}
+								<VettaKbd keys="enter" size="sm" variant="flat" />
+							</span>
+						}
+					/>
+					<ButtonGroupItem
+						onClick={onClose}
+						label={
+							<span className="inline-flex items-center gap-2">
+								{labels.hintClose}
+								<VettaKbd keys="esc" size="sm" variant="flat" />
+							</span>
+						}
+					/>
+				</ButtonGroup>
+			</div>
 			</div>
 		</SplashPanel>
 	);

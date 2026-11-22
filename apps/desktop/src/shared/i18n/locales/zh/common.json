@@ -1005,6 +1005,7 @@
 		"loading": "正在搜索会话",
 		"title": "命令面板",
 		"actionsLabel": "操作",
+		"newSession": "新会话",
 		"hintSelect": "打开",
 		"hintClose": "关闭",
 		"overflow": "还有 {{count}} 条",

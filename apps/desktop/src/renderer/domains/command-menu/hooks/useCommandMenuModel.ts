@@ -6,6 +6,7 @@ import { getEffectiveShortcut, loadShortcutBindings } from "@shared/lib/shortcut
 import { useShortcutScope } from "@shared/shortcuts";
 import {
 	commandMenuOpenAtom,
+	defaultConversationCwdAtom,
 	pluginWorkspaceViewsAtom,
 	projectsAtom,
 	type SessionExecutionMode,
@@ -43,22 +44,23 @@ import type { CommandMenuAction, CommandMenuEntry } from "../types";
 const SESSION_RESULT_LIMIT = 12;
 
 const OPEN_COMMAND_MENU_ACTION = "open-command-menu";
-/** 默认键只在快捷键定义里维护一份，这里从定义推导。 */
-const OPEN_COMMAND_MENU_DEFAULT_KEY = getEffectiveShortcut(OPEN_COMMAND_MENU_ACTION, {});
+const NEW_SESSION_ACTION = "new-session";
+
+type ShortcutBindings = Parameters<typeof getEffectiveShortcut>[1];
 
 /**
- * 面板内用来「再按一次关闭」的组合键。必须读生效绑定而不是写死默认键：
- * 这个动作在设置里可改键，写死会导致改键后旧键仍能关、新键反而无效。
+ * 面板用到的生效快捷键：「再按一次关闭」的开关键，以及按钮上展示的新建会话键。
+ * 必须读生效绑定而不是写死默认键：这些动作在设置里可改键，写死会导致改键后旧键仍能关、
+ * 按钮上显示的也是错的。默认键只在快捷键定义里维护一份，空绑定即推导出默认值。
  * 只在面板打开过之后才去读配置，避免为一个常驻组件在启动路径上多一次 IPC。
  */
-function useCommandMenuToggleKey(enabled: boolean): string {
-	const [key, setKey] = useState(OPEN_COMMAND_MENU_DEFAULT_KEY);
+function useCommandMenuShortcuts(enabled: boolean): { toggleKey: string; newSessionKey: string } {
+	const [bindings, setBindings] = useState<ShortcutBindings>({});
 	useEffect(() => {
 		if (!enabled) return;
 		let active = true;
-		const apply = (bindings: Parameters<typeof getEffectiveShortcut>[1]) => {
-			if (!active) return;
-			setKey(getEffectiveShortcut(OPEN_COMMAND_MENU_ACTION, bindings) || OPEN_COMMAND_MENU_DEFAULT_KEY);
+		const apply = (next: ShortcutBindings) => {
+			if (active) setBindings(next);
 		};
 		void loadShortcutBindings().then(apply);
 		const unsubscribe = window.vetta.config.onShortcutsChanged((event) => apply(event.bindings ?? {}));
@@ -67,7 +69,15 @@ function useCommandMenuToggleKey(enabled: boolean): string {
 			unsubscribe();
 		};
 	}, [enabled]);
-	return key;
+	return useMemo(
+		() => ({
+			toggleKey:
+				getEffectiveShortcut(OPEN_COMMAND_MENU_ACTION, bindings) ||
+				getEffectiveShortcut(OPEN_COMMAND_MENU_ACTION, {}),
+			newSessionKey: getEffectiveShortcut(NEW_SESSION_ACTION, bindings),
+		}),
+		[bindings],
+	);
 }
 
 export interface CommandMenuModel {
@@ -78,6 +88,9 @@ export interface CommandMenuModel {
 	readonly labels: CommandMenuViewLabels;
 	/** 唤起 / 关闭面板的生效快捷键，供视图显示键帽。 */
 	readonly toggleShortcut: string;
+	/** 新建会话的生效快捷键，显示在左下角按钮里。 */
+	readonly newSessionShortcut: string;
+	readonly onNewSession: () => void;
 	readonly suppressSelectionAnimation: boolean;
 	readonly onQueryChange: (value: string) => void;
 	readonly onHoverItem: (id: string) => void;
@@ -147,7 +160,8 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 	const workspaceViews = useAtomValue(pluginWorkspaceViewsAtom);
 	const resolvePluginText = usePluginTextResolver();
 
-	const toggleKey = useCommandMenuToggleKey(open);
+	const { toggleKey, newSessionKey } = useCommandMenuShortcuts(open);
+	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
 	const hasQuery = Boolean(deferredQuery.trim());
 	const runningPaths = useAtomValue(runningSessionPathsAtom);
 	const waitingPaths = useAtomValue(pendingInteractionPathsAtom);
@@ -343,6 +357,13 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		setSuppressSelectionAnimation(true);
 	}, [setOpen]);
 
+	/** 与全局「新建会话」快捷键同一落点：默认进「对话」的新会话页，cwd 未就绪时退回第一个项目。 */
+	const newSession = useCallback(() => {
+		const target = defaultConversationCwd || projects[0]?.cwd;
+		close();
+		if (target) void navigate({ to: "/new-session/$cwd", params: { cwd: encodeURIComponent(target) } });
+	}, [close, defaultConversationCwd, projects, navigate]);
+
 	const runAction = useCallback(
 		(action: CommandMenuAction) => {
 			const item = commandSpaceItem(action);
@@ -509,6 +530,7 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 			loading: t("commandMenu.loading"),
 			title: t("commandMenu.title"),
 			actionsLabel: t("commandMenu.actionsLabel"),
+			newSession: t("commandMenu.newSession"),
 			hintSelect: t("commandMenu.hintSelect"),
 			hintClose: t("commandMenu.hintClose"),
 		}),
@@ -522,6 +544,8 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		selectedId,
 		labels,
 		toggleShortcut: toggleKey,
+		newSessionShortcut: newSessionKey,
+		onNewSession: newSession,
 		suppressSelectionAnimation,
 		onQueryChange,
 		onHoverItem,

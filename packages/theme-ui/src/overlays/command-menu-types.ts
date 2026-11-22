@@ -53,6 +53,8 @@ export interface CommandMenuViewLabels {
 	readonly title: string;
 	/** 右下角操作按钮组的无障碍名称。 */
 	readonly actionsLabel: string;
+	/** 左下角「新会话」按钮文案。 */
+	readonly newSession: string;
 	/** 按钮文案只写动作（「打开」），键帽由视图按平台渲染。 */
 	readonly hintSelect: string;
 	readonly hintClose: string;
