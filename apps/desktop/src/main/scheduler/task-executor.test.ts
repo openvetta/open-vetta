@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 	emitTaskEvent: vi.fn(),
 	existing: new Set<string>(),
 	notify: vi.fn(async () => undefined as string | undefined),
+	attention: [] as Array<[string, string]>,
 	projects: [] as Array<{ path: string }>,
 	records: [] as TaskExecutionRecord[],
 	updateTask: vi.fn(),
@@ -33,6 +34,9 @@ vi.mock("../ipc/scheduler.js", () => ({ emitTaskEvent: mocks.emitTaskEvent }));
 vi.mock("../logger.js", () => ({ getAppLogger: () => ({ warn: vi.fn(), info: vi.fn(), error: vi.fn() }) }));
 vi.mock("../models/model-settings-host.js", () => ({
 	getDesktopModelSettingsService: () => ({ list: async () => ({ defaultModel: "default/model" }) }),
+}));
+vi.mock("../notifications/index.js", () => ({
+	recordSessionAttention: (sessionPath: string, kind: string) => mocks.attention.push([sessionPath, kind]),
 }));
 vi.mock("../projects/project-path.js", () => ({ sameProjectPath: (a: string, b: string) => a === b }));
 vi.mock("./automation-notifier.js", () => ({ notifyAutomationFinished: mocks.notify }));
@@ -115,6 +119,7 @@ describe("automation task executor", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mocks.records.length = 0;
+		mocks.attention.length = 0;
 		mocks.existing.clear();
 		mocks.projects = [{ path: PROJECT_CWD }];
 		mocks.createSession.mockResolvedValue(session());
@@ -153,6 +158,7 @@ describe("automation task executor", () => {
 			"all done",
 		);
 		expect(mocks.updateTaskLastRun).toHaveBeenCalledWith("task-1", "success");
+		expect(mocks.attention).toEqual([]);
 		expect(isTaskRunning("task-1")).toBe(false);
 	});
 
@@ -164,6 +170,7 @@ describe("automation task executor", () => {
 
 		expect(mocks.records.at(-1)).toMatchObject({ status: "failed", error: "provider down" });
 		expect(mocks.updateTaskLastRun).toHaveBeenCalledWith("task-1", "failed");
+		expect(mocks.attention).toEqual([["C:/sessions/new.jsonl", "unread-result"]]);
 	});
 
 	it("passes the explicit model and reasoning", async () => {

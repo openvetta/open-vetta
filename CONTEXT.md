@@ -252,6 +252,10 @@ desktop 对 Agent 事件提供的横向通知能力。系统横幅经 OS 原生�
 
 Agent 横幅和提示音各自支持三种范围：`background-only` 只在窗口失焦时投递；`away-from-session` 在窗口失焦，或窗口聚焦但用户没看目标 session 时投递（默认，等价旧行为）；`always` 即使正在查看目标 session 也投递。「正在看哪个 session」由渲染进程上报给主进程，与主进程持有的窗口聚焦态合并判定。
 
+### Dock 角标（dock attention badge）
+
+macOS Dock 图标上的数字，表示**需要用户回来看的 session 数**（同一 session 最多计 1）。来源与 [[通知类型]] 的 Agent 三类事件相同：完成、失败、等待处理；另外，定时任务失败且留下会话时也计入。自动化正常完成、单个子 Agent 完成和用户主动中断不计。窗口聚焦且正停在该 session 时不计；用户打开该 session（含窗口重新聚焦时眼前那个）即减掉，不要求先处理完提问或审批；session 被删除时一并移出。等待处理会让 Dock 跳一次（informational）。计数只存在内存里，重启清零。不受横幅/提示音设置影响，没有独立开关；超过 99 显示 `99+`。
+
 ### 交互式 session
 
 用户在聊天界面**手动发起**的 session，与自动化/批量任务/定时任务等**非手动发起**的 session 相对。判别依据是创建路径：交互式 session 经渲染进程的 `session:create` 通道创建，批量/定时任务直接调运行时创建——故主进程可在 `session:create` 处天然圈定交互式 session。[[agent 完成通知]] **只针对交互式 session**，避免后台任务刷屏。

@@ -19,6 +19,7 @@ import { readDesktopConfig } from "../ipc/fs.js";
 import { emitTaskEvent } from "../ipc/scheduler.js";
 import { getAppLogger } from "../logger.js";
 import { getDesktopModelSettingsService } from "../models/model-settings-host.js";
+import { recordSessionAttention } from "../notifications/index.js";
 import { sameProjectPath } from "../projects/project-path.js";
 import { notifyAutomationFinished } from "./automation-notifier.js";
 import { generateId, updateTask, updateTaskLastRun, writeRecord } from "./task-storage.js";
@@ -169,6 +170,8 @@ async function executeTaskInner(task: ScheduledTask, runtime: RuntimeHost, optio
 	const notifyError = await notifyAutomationFinished(task, record, reply);
 	if (notifyError) record = { ...record, notifyError };
 	await writeRecord(record);
+	// 自动化正常跑完不打扰；失败且留下了会话时计入 Dock 角标，打开该会话即消。
+	if (record.status === "failed" && record.sessionPath) recordSessionAttention(record.sessionPath, "unread-result");
 	await updateTaskLastRun(task.id, record.status === "success" ? "success" : "failed");
 	if (task.schedule.kind === "once" && options.trigger === "schedule") {
 		const updated = await updateTask(task.id, (current) => ({ ...current, enabled: false, updatedAt: Date.now() }));

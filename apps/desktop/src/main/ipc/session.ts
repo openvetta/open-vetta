@@ -70,7 +70,7 @@ import { getAppLogger } from "../logger.js";
 import { getDesktopMcpAppRegistry } from "../mcp/mcp-app-runtime.js";
 import { getDesktopMcpTaskCoordinator, getDesktopMcpTaskRegistry } from "../mcp/mcp-task-runtime.js";
 import { forgetMessageAnnotations } from "../message-annotations/host.js";
-import { notify } from "../notifications/index.js";
+import { forgetDeletedSessionAttention, notify } from "../notifications/index.js";
 import { SessionTurnNotificationController } from "../notifications/session-turn-notification-controller.js";
 import { PetSessionPresentationController } from "../pet/pet-session-presentation-controller.js";
 import { sendPetCommandToWindow } from "../pet-window.js";
@@ -402,9 +402,13 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	const runtime = getSharedRuntime();
 	const goalController = new DesktopGoalController(runtime);
+	const handleSessionsDeleted = (isDeleted: (sessionPath: string) => boolean): void => {
+		notifyAutomationSessionsDeleted(isDeleted);
+		forgetDeletedSessionAttention(isDeleted);
+	};
 	const sessionCommands = createDesktopSessionCommands({
 		runtime,
-		onSessionsDeleted: notifyAutomationSessionsDeleted,
+		onSessionsDeleted: handleSessionsDeleted,
 		forgetAnnotations: forgetMessageAnnotations,
 	});
 	const pluginRuntimeSource = getDesktopCodingAgentPluginRuntimeSource();
@@ -1353,7 +1357,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			throw err;
 		}
 		await mkdir(targetSessionDir, { recursive: true });
-		notifyAutomationSessionsDeleted((path) => resolve(path).startsWith(sessionDirWithSep));
+		handleSessionsDeleted((path) => resolve(path).startsWith(sessionDirWithSep));
 	});
 
 	ipcMain.handle(CHANNELS.CLEAR_DEFAULT_ARTIFACTS, async (_event, scope: unknown) => {

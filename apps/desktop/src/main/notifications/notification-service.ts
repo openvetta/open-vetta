@@ -5,6 +5,7 @@ import { mainT } from "../i18n/index.js";
 import { readConfigSync } from "../ipc/fs.js";
 import { PANE_URLS } from "../ipc/permission-panes.js";
 import { getMainWindow, iconPath, showMainWindow } from "../window-manager.js";
+import { createElectronDockBadgeHost, type DockAttentionKind, DockAttentionTracker } from "./dock-attention-badge.js";
 import { decideNotificationDelivery } from "./notification-policy.js";
 
 /** 渲染端→主进程：上报聊天页当前所在 session（离开聊天页传 null）。 */
@@ -81,6 +82,31 @@ export function setNotificationWebContents(wc: WebContents | null): void {
 let foregroundSessionPath: string | null = null;
 export function setForegroundSessionPath(path: string | null): void {
 	foregroundSessionPath = path;
+	if (getMainWindow()?.isFocused()) dockAttention.markSeen(path);
+}
+
+/**
+ * Dock 角标：与系统横幅共用同一批 Agent 事件，但不受横幅/提示音设置影响，始终生效。
+ * 前台判定与横幅的默认抑制规则一致——窗口聚焦且正停在该会话时不计。
+ */
+const dockAttention = new DockAttentionTracker(createElectronDockBadgeHost());
+
+function isViewingSession(sessionPath: string): boolean {
+	return (getMainWindow()?.isFocused() ?? false) && foregroundSessionPath === sessionPath;
+}
+
+/** 让不走系统横幅的来源（如定时任务失败）也计入 Dock 角标。 */
+export function recordSessionAttention(sessionPath: string, kind: DockAttentionKind): void {
+	dockAttention.record(sessionPath, kind, isViewingSession(sessionPath));
+}
+
+/** 主窗口重新获得焦点：用户此刻看到的会话算已读。 */
+export function handleMainWindowFocused(): void {
+	dockAttention.markSeen(foregroundSessionPath);
+}
+
+export function forgetDeletedSessionAttention(isDeleted: (sessionPath: string) => boolean): void {
+	dockAttention.forget(isDeleted);
 }
 
 /** 已展示且未关闭的通知，按 coalesceKey 索引，用于「同 session 合并为一条」。 */
@@ -169,6 +195,9 @@ async function buildDescriptor(n: AppNotification): Promise<NotificationDescript
 }
 
 export async function notify(n: AppNotification): Promise<void> {
+	if (n.type === "agent-turn-complete" || n.type === "agent-question-pending") {
+		recordSessionAttention(n.sessionPath, n.type === "agent-question-pending" ? "action-required" : "unread-result");
+	}
 	const config = readConfigSync();
 	const agentEvent = getAgentEvent(n);
 	if (agentEvent) {
