@@ -40,11 +40,16 @@ export const desktopSessionSearch = new SessionSearchController({
 					chain = chain
 						.then(async () => {
 							if (signal.aborted) return;
-							const results = [];
-							for (const result of event.results ?? []) {
-								const access = await getSharedRuntime().resolveSessionAccess(result.session.path);
-								if (access?.readHistory) results.push({ ...result, session: { ...result.session, access } });
-							}
+							// 一批结果的权限检查互不依赖，并行做；保持原有顺序。
+							const checked = await Promise.all(
+								(event.results ?? []).map(async (result) => {
+									const access = await getSharedRuntime().resolveSessionAccess(result.session.path);
+									return access?.readHistory
+										? { ...result, session: { ...result.session, access } }
+										: undefined;
+								}),
+							);
+							const results = checked.filter((result) => result !== undefined);
 							if (!signal.aborted) emit({ ...event, results });
 							if (event.done) {
 								signal.removeEventListener("abort", abort);
