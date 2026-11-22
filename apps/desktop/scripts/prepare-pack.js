@@ -176,10 +176,9 @@ function resolveSandboxResourceFilters() {
 // createRequire 真能 resolve 到，恢复图片缩放路径。photon-node 是纯 WASM、
 // 无平台二进制差异，可安全跨平台打包。
 //
-// uiohook-napi（快捷面板双击功能键全局监听）、electron-liquid-glass（macOS
-// 液态/磨砂玻璃）与 sherpa-onnx-win-x64（Windows 语音输入）同为被 external 的运行时原生模块，必须复制进 staging，
-// 否则 packaged 环境 require 不到。uiohook 各平台都有 prebuild、需全平台带；
-// electron-liquid-glass 是 darwin-only，Sherpa 是 win32-x64-only；依赖策略按目标产物平台选择，
+// uiohook-napi（应用快照双键同按全局监听）与 sherpa-onnx-win-x64（Windows 语音输入）同为被 external
+// 的运行时原生模块，必须复制进 staging，否则 packaged 环境 require 不到。uiohook 各平台都有 prebuild、
+// 需全平台带；Sherpa 是 win32-x64-only；依赖策略按目标产物平台选择，
 // 不按构建主机选择，避免把另一个系统的原生包带入产物。
 const packagedNativeDependencies = resolvePackagedNativeDependencies(resolvePlatformFamilies(), {
 	speechInputEnabled: speechInputBuildConfig.enabled,
@@ -190,8 +189,7 @@ const optionalExternalDeps = packagedNativeDependencies.optional;
 // Copy an external dep plus its full production-dependency closure into the
 // staged node_modules. app-builder-lib 26's bun collector walks each package's
 // declared `dependencies` and hard-fails when one is missing from the staged
-// tree (e.g. uiohook-napi → node-gyp-build, electron-liquid-glass → bindings /
-// node-addon-api). Transitive deps are nested under the owner's node_modules so
+// tree (e.g. uiohook-napi → node-gyp-build). Transitive deps are nested under the owner's node_modules so
 // both the collector and runtime require() resolve them; the asarUnpack glob
 // `node_modules/<dep>/**/*` then unpacks them alongside the native module.
 function stageDepTree(dep, sourceDir, destDir, seen = new Set()) {
@@ -854,9 +852,9 @@ const builderConfig = {
 	// 上偶尔出问题（photon.ts 已经有 fallback paths 兜底，但能避免就避免）。
 	// 直接 unpack 到 app.asar.unpacked/，让 wasm 落到真实文件系统。
 	//
-// uiohook-napi / electron-liquid-glass / Sherpa-ONNX 加载预编译 .node。
+// uiohook-napi / Sherpa-ONNX 加载预编译 .node。
 	// dlopen 无法从 asar 虚拟文件系统加载原生模块，必须整包 unpack 到真实磁盘，
-	// 否则 packaged 环境 require 即失败（electron-liquid-glass 仅 mac 包内存在）。
+	// 否则 packaged 环境 require 即失败。
 	//
 	// OCR runner 包含稳定且可高度压缩的 WASM / ONNX 资源。将其放入
 	// app.asar.unpacked 后 Electron 仍可透明读取，同时 Windows Inno 能按文件

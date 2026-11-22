@@ -16,7 +16,6 @@ const DEFINITIONS = [
 	{ name: "builder-util-runtime", platforms: "all", unpack: false },
 	{ name: "electron-updater", platforms: "all", unpack: false },
 	{ name: "uiohook-napi", platforms: "all", unpack: true },
-	{ name: "electron-liquid-glass", platforms: ["darwin"], unpack: true, optional: true },
 	{ name: "sherpa-onnx-win-x64", platforms: ["win32"], unpack: true, feature: "speech-input" },
 	// 远程接入的中继连接（desktop-websocket）在主进程顶层静态 import，必须随包分发。
 	// 纯 JS，无平台差异，也不需要 unpack。
