@@ -56,7 +56,7 @@ export interface CommandMenuEntry {
 	readonly badge?: string;
 	readonly badgeTone?: "neutral" | "accent";
 	/** 会话的进行中状态；有值的会话归入「进行中」组。 */
-	readonly status?: "running" | "waiting";
+	readonly status?: "running" | "waiting" | "unread";
 	readonly statusLabel?: string;
 	/**
 	 * 组内先于相关性分数比较的优先级（越小越靠前）。只有「进行中」组用到：

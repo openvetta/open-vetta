@@ -82,4 +82,19 @@ describe("DockAttentionTracker", () => {
 		expect(tracker.count).toBe(1);
 		expect(dock.label).toBe("1");
 	});
+
+	it("publishes the attention set only when its members change", () => {
+		const published: (readonly string[])[] = [];
+		const tracker = new DockAttentionTracker({ setBadge: () => {}, bounce: () => {} }, (paths) => {
+			published.push(paths);
+		});
+		tracker.record("a.jsonl", "unread-result", false);
+		tracker.record("a.jsonl", "unread-result", false);
+		tracker.record("b.jsonl", "unread-result", true);
+		tracker.markSeen("a.jsonl");
+		tracker.markSeen("a.jsonl");
+
+		expect(published).toEqual([["a.jsonl"], []]);
+		expect(tracker.sessionPaths).toEqual([]);
+	});
 });

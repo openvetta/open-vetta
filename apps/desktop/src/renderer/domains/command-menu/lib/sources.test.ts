@@ -13,11 +13,15 @@ import {
 	type CommandMenuSourceLabels,
 } from "./sources";
 
-const idle = { runningPaths: new Set<string>(), waitingPaths: new Map<string, number>() };
+const idle = {
+	runningPaths: new Set<string>(),
+	waitingPaths: new Map<string, number>(),
+	attentionPaths: new Set<string>(),
+};
 
 const labels: CommandMenuSourceLabels = {
 	sessionTypes: { conversation: "Chat", claw: "Claw", project: "Project", batch: "Batch" },
-	sessionStatus: { running: "Running", waiting: "Waiting" },
+	sessionStatus: { running: "Running", waiting: "Waiting", unread: "Finished" },
 	sessionUnavailable: "No access",
 	settingsGroupHint: "Settings",
 	abilitySkill: "Skill",
@@ -89,6 +93,7 @@ describe("buildSessionEntries", () => {
 				["/w/wait.jsonl", 1],
 				["/w/both.jsonl", 2],
 			]),
+			attentionPaths: new Set(),
 		});
 
 		expect(entries.map((entry) => [entry.status, entry.statusLabel, entry.groupKey, entry.priority])).toEqual([
@@ -96,6 +101,22 @@ describe("buildSessionEntries", () => {
 			["waiting", "Waiting", "activeSessions", 0],
 			["waiting", "Waiting", "activeSessions", 0],
 			[undefined, undefined, "sessions", undefined],
+		]);
+	});
+
+	it("keeps a finished but unopened session in progress after it stops running", () => {
+		const done = session({ session: { ...session().session, path: "/w/done.jsonl" } });
+		const running = session({ session: { ...session().session, path: "/w/run.jsonl" } });
+		const entries = buildSessionEntries([done, running], labels, {
+			runningPaths: new Set(["/w/run.jsonl"]),
+			waitingPaths: new Map(),
+			// 正在跑的会话也可能留有上一轮的「未看」记录：在跑优先显示。
+			attentionPaths: new Set(["/w/done.jsonl", "/w/run.jsonl"]),
+		});
+
+		expect(entries.map((entry) => [entry.status, entry.statusLabel, entry.groupKey, entry.priority])).toEqual([
+			["unread", "Finished", "activeSessions", 2],
+			["running", "Running", "activeSessions", 1],
 		]);
 	});
 

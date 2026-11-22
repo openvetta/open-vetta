@@ -1031,7 +1031,8 @@
 		},
 		"sessionStatus": {
 			"running": "运行中",
-			"waiting": "等你回答"
+			"waiting": "等你回答",
+			"unread": "刚完成"
 		}
 	},
 	"updateDialog": {

@@ -1031,7 +1031,8 @@
 		},
 		"sessionStatus": {
 			"running": "Running",
-			"waiting": "Waiting for you"
+			"waiting": "Waiting for you",
+			"unread": "Just finished"
 		}
 	},
 	"updateDialog": {

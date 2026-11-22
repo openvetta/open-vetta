@@ -10,6 +10,9 @@ import { decideNotificationDelivery } from "./notification-policy.js";
 
 /** 渲染端→主进程：上报聊天页当前所在 session（离开聊天页传 null）。 */
 export const NOTIFICATION_SET_FOREGROUND_CHANNEL = "vetta:notification:set-foreground-session";
+/** 需要用户回来看的会话集合（与 Dock 角标同一份）：invoke 取快照，事件推送变化。 */
+export const NOTIFICATION_LIST_ATTENTION_CHANNEL = "vetta:notification:list-attention-sessions";
+export const NOTIFICATION_ATTENTION_CHANGED_CHANNEL = "vetta:notification:attention-sessions-changed";
 /** 主进程→渲染端：用户点击系统通知后下发的路由意图。 */
 export const NOTIFICATION_NAVIGATE_CHANNEL = "vetta:notification:navigate";
 /** 主进程→渲染端：播放经过策略判定的内置提示音。 */
@@ -89,7 +92,15 @@ export function setForegroundSessionPath(path: string | null): void {
  * Dock 角标：与系统横幅共用同一批 Agent 事件，但不受横幅/提示音设置影响，始终生效。
  * 前台判定与横幅的默认抑制规则一致——窗口聚焦且正停在该会话时不计。
  */
-const dockAttention = new DockAttentionTracker(createElectronDockBadgeHost());
+const dockAttention = new DockAttentionTracker(createElectronDockBadgeHost(), (sessionPaths) => {
+	if (webContents && !webContents.isDestroyed()) {
+		webContents.send(NOTIFICATION_ATTENTION_CHANGED_CHANNEL, sessionPaths);
+	}
+});
+
+export function listAttentionSessionPaths(): readonly string[] {
+	return dockAttention.sessionPaths;
+}
 
 function isViewingSession(sessionPath: string): boolean {
 	return (getMainWindow()?.isFocused() ?? false) && foregroundSessionPath === sessionPath;

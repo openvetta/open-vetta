@@ -2,6 +2,8 @@ import { BrowserWindow, ipcMain, type WebContents } from "electron";
 import {
 	closeAllNotifications,
 	handleMainWindowFocused,
+	listAttentionSessionPaths,
+	NOTIFICATION_LIST_ATTENTION_CHANNEL,
 	NOTIFICATION_SET_FOREGROUND_CHANNEL,
 	setForegroundSessionPath,
 	setNotificationWebContents,
@@ -22,11 +24,13 @@ export function registerNotificationIpc(webContents: WebContents): () => void {
 	ipcMain.handle(NOTIFICATION_SET_FOREGROUND_CHANNEL, (_event, sessionPath: unknown) => {
 		setForegroundSessionPath(typeof sessionPath === "string" && sessionPath.length > 0 ? sessionPath : null);
 	});
+	ipcMain.handle(NOTIFICATION_LIST_ATTENTION_CHANNEL, () => listAttentionSessionPaths());
 	const window = BrowserWindow.fromWebContents(webContents);
 	window?.on("focus", handleMainWindowFocused);
 	return () => {
 		if (window && !window.isDestroyed()) window.off("focus", handleMainWindowFocused);
 		ipcMain.removeHandler(NOTIFICATION_SET_FOREGROUND_CHANNEL);
+		ipcMain.removeHandler(NOTIFICATION_LIST_ATTENTION_CHANNEL);
 		setNotificationWebContents(null);
 		setForegroundSessionPath(null);
 		closeAllNotifications();

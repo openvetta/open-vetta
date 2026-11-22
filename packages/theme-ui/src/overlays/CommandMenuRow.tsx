@@ -96,7 +96,13 @@ export const CommandMenuRow = memo(function CommandMenuRow({
 					className="absolute inset-0 rounded-lg bg-foreground/[0.06] dark:bg-white/[0.08] dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.08)]"
 				/>
 			)}
-			{item.status ? (
+			{item.status === "unread" ? (
+				// 跑完未看：保留会话图标，右上角叠一颗强调色圆点，和「在转 / 问号」区分开。
+				<span aria-hidden="true" data-session-unread="true" className="relative flex size-4 shrink-0 items-center justify-center">
+					<span className={cn(item.icon, "size-4", active ? "text-foreground" : "text-muted-foreground")} />
+					<span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-primary" />
+				</span>
+			) : item.status ? (
 				<span aria-hidden="true" className="relative flex size-4 shrink-0 items-center justify-center">
 					<SessionStatusIcon
 						active={active}

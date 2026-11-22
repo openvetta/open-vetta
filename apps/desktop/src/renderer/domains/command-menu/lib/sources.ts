@@ -39,15 +39,24 @@ export interface CommandMenuSourceLabels {
 	readonly searchMarketplace: string;
 }
 
-export type CommandMenuSessionStatus = "running" | "waiting";
+export type CommandMenuSessionStatus = "running" | "waiting" | "unread";
 
-/** 等用户回答比在跑更需要人：排在前面，两者同时成立时也按「等回答」显示。 */
-const SESSION_STATUS_PRIORITY: Readonly<Record<CommandMenuSessionStatus, number>> = { waiting: 0, running: 1 };
+/**
+ * 等用户回答比在跑更需要人：排在前面，两者同时成立时也按「等回答」显示。
+ * 跑完还没看的排在最后：它不急，但不能一停止就从面板里消失，逼用户再去搜。
+ */
+const SESSION_STATUS_PRIORITY: Readonly<Record<CommandMenuSessionStatus, number>> = {
+	waiting: 0,
+	running: 1,
+	unread: 2,
+};
 
 export interface CommandMenuSessionActivity {
 	readonly runningPaths: ReadonlySet<string>;
 	/** sessionPath → 剩余待处理请求数。 */
 	readonly waitingPaths: ReadonlyMap<string, number>;
+	/** 需要用户回来看的会话（主进程与 Dock 角标同一份）；不在跑也不在等的即「跑完未看」。 */
+	readonly attentionPaths: ReadonlySet<string>;
 }
 
 export function resolveSessionStatus(
@@ -56,6 +65,7 @@ export function resolveSessionStatus(
 ): CommandMenuSessionStatus | undefined {
 	if ((activity.waitingPaths.get(path) ?? 0) > 0) return "waiting";
 	if (activity.runningPaths.has(path)) return "running";
+	if (activity.attentionPaths.has(path)) return "unread";
 	return undefined;
 }
 

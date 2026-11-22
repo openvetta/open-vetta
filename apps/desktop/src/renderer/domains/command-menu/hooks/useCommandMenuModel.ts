@@ -10,6 +10,7 @@ import {
 	projectsAtom,
 	type SessionExecutionMode,
 } from "@shared/store/atoms";
+import { attentionSessionPathsAtom } from "@shared/store/attention-sessions-atoms";
 import { pendingInteractionPathsAtom } from "@shared/store/pending-interactions-atoms";
 import { runningSessionPathsAtom } from "@shared/store/running-sessions-atoms";
 import type { SpaceItem } from "@shared/store/spaces";
@@ -150,7 +151,11 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 	const hasQuery = Boolean(deferredQuery.trim());
 	const runningPaths = useAtomValue(runningSessionPathsAtom);
 	const waitingPaths = useAtomValue(pendingInteractionPathsAtom);
-	const activity = useMemo(() => ({ runningPaths, waitingPaths }), [runningPaths, waitingPaths]);
+	const attentionPaths = useAtomValue(attentionSessionPathsAtom);
+	const activity = useMemo(
+		() => ({ runningPaths, waitingPaths, attentionPaths }),
+		[runningPaths, waitingPaths, attentionPaths],
+	);
 	/**
 	 * 空查询时把进行中的会话交给检索服务列出来（面板兼做全局监视入口）。用排序后拼接的
 	 * 字符串做依赖：集合对象每次变化都是新引用，但只有成员变了才值得重新检索。
@@ -159,10 +164,16 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		() =>
 			hasQuery
 				? ""
-				: [...new Set([...runningPaths, ...[...waitingPaths].filter(([, n]) => n > 0).map(([p]) => p)])]
+				: [
+						...new Set([
+							...runningPaths,
+							...attentionPaths,
+							...[...waitingPaths].filter(([, n]) => n > 0).map(([p]) => p),
+						]),
+					]
 						.sort()
 						.join("\n"),
-		[hasQuery, runningPaths, waitingPaths],
+		[hasQuery, runningPaths, waitingPaths, attentionPaths],
 	);
 	const activePaths = useMemo(() => (activePathsKey ? activePathsKey.split("\n") : undefined), [activePathsKey]);
 	const abilities = useInstalledAbilities(open && hasQuery);
@@ -200,6 +211,7 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 			sessionStatus: {
 				running: t("commandMenu.sessionStatus.running"),
 				waiting: t("commandMenu.sessionStatus.waiting"),
+				unread: t("commandMenu.sessionStatus.unread"),
 			},
 			sessionUnavailable: t("commandMenu.sessionUnavailable"),
 			settingsGroupHint: t("commandMenu.groups.settings"),

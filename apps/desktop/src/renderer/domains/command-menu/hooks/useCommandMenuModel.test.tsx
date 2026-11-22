@@ -40,6 +40,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 import { commandMenuOpenAtom, projectsAtom } from "@shared/store/atoms";
+import { attentionSessionPathsAtom } from "@shared/store/attention-sessions-atoms";
 import { pendingInteractionPathsAtom } from "@shared/store/pending-interactions-atoms";
 import { runningSessionPathsAtom } from "@shared/store/running-sessions-atoms";
 import { INITIAL_SPACES, spacesAtom } from "@shared/store/spaces";
@@ -84,6 +85,7 @@ beforeEach(() => {
 	sessionSearchCalls.length = 0;
 	store.set(runningSessionPathsAtom, new Set<string>());
 	store.set(pendingInteractionPathsAtom, new Map<string, number>());
+	store.set(attentionSessionPathsAtom, new Set<string>());
 	projectSessions.current = [];
 	Object.defineProperty(window, "vetta", {
 		configurable: true,
@@ -294,4 +296,13 @@ it("lists running and waiting sessions on top before anything is typed", () => {
 it("does not start a session search for an empty query when nothing is in progress", () => {
 	render();
 	expect(sessionSearchCalls.at(-1)?.open).toBe(false);
+});
+
+it("keeps a session that just finished on top until it is opened", () => {
+	store.set(attentionSessionPathsAtom, new Set(["/w/done.jsonl"]));
+	sessionSearchState.results = [sessionResult("/w/done.jsonl", "Done")];
+	const { result } = render();
+
+	expect(sessionSearchCalls.at(-1)?.request).toMatchObject({ query: "", activePaths: ["/w/done.jsonl"] });
+	expect(result.current.groups[0].items.map((item) => [item.title, item.status])).toEqual([["Done", "unread"]]);
 });

@@ -24,9 +24,9 @@ export interface CommandMenuItemView {
 	readonly badgeTone?: "neutral" | "accent";
 	/**
 	 * 会话的进行中状态：有值时行首图标换成与侧栏一致的状态图标，并在行尾显示 statusLabel。
-	 * waiting 指会话正等着用户处理（提问 / 审批 / 询问 / 授权）。
+	 * waiting 指会话正等着用户处理（提问 / 审批 / 询问 / 授权）；unread 指一轮已跑完、用户还没打开看。
 	 */
-	readonly status?: "running" | "waiting";
+	readonly status?: "running" | "waiting" | "unread";
 	readonly statusLabel?: string;
 	/** 行尾的标签色点（管理会话用），按给定顺序排列。 */
 	readonly tagColors?: readonly string[];

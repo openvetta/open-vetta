@@ -29,10 +29,21 @@ export function formatDockBadgeLabel(count: number): string {
 export class DockAttentionTracker {
 	private readonly pending = new Set<string>();
 
-	constructor(private readonly host: DockBadgeHost) {}
+	/**
+	 * `onChange` 把「需要回来看」的会话集合交给渲染层（命令面板据此保留刚跑完、还没打开的会话），
+	 * 只在集合成员真正变化时调用。
+	 */
+	constructor(
+		private readonly host: DockBadgeHost,
+		private readonly onChange?: (sessionPaths: readonly string[]) => void,
+	) {}
 
 	get count(): number {
 		return this.pending.size;
+	}
+
+	get sessionPaths(): readonly string[] {
+		return [...this.pending];
 	}
 
 	/** `viewing` 为 true（窗口聚焦且正停在该会话）时用户已经看见，不计数也不跳。 */
@@ -64,6 +75,7 @@ export class DockAttentionTracker {
 
 	private render(): void {
 		this.host.setBadge(formatDockBadgeLabel(this.pending.size));
+		this.onChange?.(this.sessionPaths);
 	}
 }
 
