@@ -13,11 +13,12 @@ import {
 	type CommandMenuSourceLabels,
 } from "./sources";
 
-const idle = {
+const idleActivity = {
 	runningPaths: new Set<string>(),
 	waitingPaths: new Map<string, number>(),
 	attentionPaths: new Set<string>(),
 };
+const idle = { activity: idleActivity, recentRank: new Map<string, number>(), asRecentGroup: false };
 
 const labels: CommandMenuSourceLabels = {
 	sessionTypes: { conversation: "Chat", claw: "Claw", project: "Project", batch: "Batch" },
@@ -88,19 +89,23 @@ describe("buildSessionEntries", () => {
 		const waiting = session({ session: { ...session().session, path: "/w/wait.jsonl" } });
 		const both = session({ session: { ...session().session, path: "/w/both.jsonl" } });
 		const entries = buildSessionEntries([running, waiting, both, session()], labels, {
-			runningPaths: new Set(["/w/run.jsonl", "/w/both.jsonl"]),
-			waitingPaths: new Map([
-				["/w/wait.jsonl", 1],
-				["/w/both.jsonl", 2],
-			]),
-			attentionPaths: new Set(),
+			activity: {
+				runningPaths: new Set(["/w/run.jsonl", "/w/both.jsonl"]),
+				waitingPaths: new Map([
+					["/w/wait.jsonl", 1],
+					["/w/both.jsonl", 2],
+				]),
+				attentionPaths: new Set(),
+			},
+			recentRank: new Map(),
+			asRecentGroup: false,
 		});
 
 		expect(entries.map((entry) => [entry.status, entry.statusLabel, entry.groupKey, entry.priority])).toEqual([
 			["running", "Running", "activeSessions", 1],
 			["waiting", "Waiting", "activeSessions", 0],
 			["waiting", "Waiting", "activeSessions", 0],
-			[undefined, undefined, "sessions", undefined],
+			[undefined, undefined, "sessions", Number.MAX_SAFE_INTEGER],
 		]);
 	});
 
@@ -108,16 +113,43 @@ describe("buildSessionEntries", () => {
 		const done = session({ session: { ...session().session, path: "/w/done.jsonl" } });
 		const running = session({ session: { ...session().session, path: "/w/run.jsonl" } });
 		const entries = buildSessionEntries([done, running], labels, {
-			runningPaths: new Set(["/w/run.jsonl"]),
-			waitingPaths: new Map(),
-			// 正在跑的会话也可能留有上一轮的「未看」记录：在跑优先显示。
-			attentionPaths: new Set(["/w/done.jsonl", "/w/run.jsonl"]),
+			activity: {
+				runningPaths: new Set(["/w/run.jsonl"]),
+				waitingPaths: new Map(),
+				// 正在跑的会话也可能留有上一轮的「未看」记录：在跑优先显示。
+				attentionPaths: new Set(["/w/done.jsonl", "/w/run.jsonl"]),
+			},
+			recentRank: new Map(),
+			asRecentGroup: false,
 		});
 
 		expect(entries.map((entry) => [entry.status, entry.statusLabel, entry.groupKey, entry.priority])).toEqual([
 			["unread", "Finished", "activeSessions", 2],
 			["running", "Running", "activeSessions", 1],
 		]);
+	});
+
+	it("ranks opened sessions ahead of never-opened ones, most recent first", () => {
+		const at = (path: string) => session({ session: { ...session().session, path } });
+		const entries = buildSessionEntries([at("/w/never.jsonl"), at("/w/old.jsonl"), at("/w/new.jsonl")], labels, {
+			...idle,
+			recentRank: new Map([
+				["/w/new.jsonl", 0],
+				["/w/old.jsonl", 1],
+			]),
+		});
+		const sorted = [...entries].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
+		expect(sorted.map((entry) => entry.id)).toEqual([
+			"session:/w/new.jsonl",
+			"session:/w/old.jsonl",
+			"session:/w/never.jsonl",
+		]);
+		expect(entries.every((entry) => entry.groupKey === "sessions")).toBe(true);
+	});
+
+	it("files idle sessions under recently opened when listing without a query", () => {
+		const [entry] = buildSessionEntries([session()], labels, { ...idle, asRecentGroup: true });
+		expect(entry.groupKey).toBe("recentSessions");
 	});
 
 	it("marks an unreachable session as disabled instead of dropping it", () => {

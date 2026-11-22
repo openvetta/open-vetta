@@ -82,6 +82,20 @@ export function buildProjectEntries(projects: readonly Project[]): CommandMenuEn
 	}));
 }
 
+/** 没打开过的会话在组内排在所有打开过的会话之后。 */
+const NEVER_OPENED_PRIORITY = Number.MAX_SAFE_INTEGER;
+
+export interface BuildSessionEntriesOptions {
+	readonly activity: CommandMenuSessionActivity;
+	/** 会话路径 → 最近打开的名次（0 = 最近一次打开）。 */
+	readonly recentRank: ReadonlyMap<string, number>;
+	/**
+	 * 空查询时为 true：不在进行中的会话都来自「最近打开」，归入那个组并按打开先后排列。
+	 * 有查询词时为 false：它们留在「会话」组，打开过的按名次排在没打开过的前面（Raycast 式）。
+	 */
+	readonly asRecentGroup: boolean;
+}
+
 /**
  * 会话行的 badge 标明归属：项目 / 批量会话写项目名，「对话」与 Claw 没有项目，写类型名。
  * 带进行中状态的会话归入置顶的「进行中」组。
@@ -89,15 +103,16 @@ export function buildProjectEntries(projects: readonly Project[]): CommandMenuEn
 export function buildSessionEntries(
 	results: readonly DesktopSessionSearchResult[],
 	labels: CommandMenuSourceLabels,
-	activity: CommandMenuSessionActivity,
+	{ activity, recentRank, asRecentGroup }: BuildSessionEntriesOptions,
 ): CommandMenuEntry[] {
 	return results.map((result, index) => {
 		const unavailable = resolveDesktopSessionOpenTarget(result.session.access) === "unavailable";
 		const status = resolveSessionStatus(result.session.path, activity);
 		const hasProject = result.sourceKind === "project" || result.sourceKind === "batch";
+		const rank = recentRank.get(result.session.path);
 		return {
 			id: `session:${result.session.path}`,
-			groupKey: status ? "activeSessions" : "sessions",
+			groupKey: status ? "activeSessions" : asRecentGroup ? "recentSessions" : "sessions",
 			title: sessionDisplayLabel(result.session),
 			icon: "icon-[solar--chat-line-linear]",
 			badge: hasProject
@@ -105,7 +120,7 @@ export function buildSessionEntries(
 				: labels.sessionTypes[result.sourceKind],
 			status,
 			statusLabel: status ? labels.sessionStatus[status] : undefined,
-			priority: status ? SESSION_STATUS_PRIORITY[status] : undefined,
+			priority: status ? SESSION_STATUS_PRIORITY[status] : (rank ?? NEVER_OPENED_PRIORITY),
 			disabled: unavailable,
 			disabledReason: unavailable ? labels.sessionUnavailable : undefined,
 			// 后端已按活跃时间倒序推送，保持原序即"越近越靠前"。

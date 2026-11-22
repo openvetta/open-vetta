@@ -7,12 +7,15 @@ import { useShortcutScope } from "@shared/shortcuts";
 import {
 	commandMenuOpenAtom,
 	defaultConversationCwdAtom,
+	defaultImConversationCwdAtom,
 	pluginWorkspaceViewsAtom,
 	projectsAtom,
 	type SessionExecutionMode,
+	sessionsMapAtom,
 } from "@shared/store/atoms";
 import { attentionSessionPathsAtom } from "@shared/store/attention-sessions-atoms";
 import { pendingInteractionPathsAtom } from "@shared/store/pending-interactions-atoms";
+import { recentSessionVisitsAtom } from "@shared/store/recent-sessions-atoms";
 import { runningSessionPathsAtom } from "@shared/store/running-sessions-atoms";
 import type { SpaceItem } from "@shared/store/spaces";
 import { spaceOf, spacesAtom } from "@shared/store/spaces";
@@ -22,6 +25,7 @@ import { useAtom, useAtomValue, useStore } from "jotai";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { resolveDesktopSessionOpenTarget } from "@/shared/session-access";
+import type { DesktopSessionSearchResult } from "@/shared/session-search";
 import type { DesktopTeamSidebarConversation } from "@/shared/sidebar-conversation";
 import { prefetchCommandMenuAction } from "../../../root-layout/nav-route-prefetch";
 import { usePluginTextResolver } from "../../plugins/runtime/plugin-i18n";
@@ -29,6 +33,7 @@ import { useSessionSearch } from "../../project/hooks/useSessionSearch";
 import { buildCommandMenuGroups, type CommandMenuGroupLabels } from "../lib/build-groups";
 import { pickLatestOpenableSession } from "../lib/latest-session";
 import { tokenizeCommandMenuQuery } from "../lib/match";
+import { findSidebarSessions } from "../lib/sidebar-sessions";
 import {
 	buildInstalledAbilityEntries,
 	buildMarketplaceEscapeEntry,
@@ -37,11 +42,14 @@ import {
 	buildSettingsEntries,
 	buildWorkspaceViewEntries,
 	type CommandMenuSourceLabels,
+	resolveSessionStatus,
 } from "../lib/sources";
 import type { CommandMenuAction, CommandMenuEntry } from "../types";
 
 /** 会话组一次最多渲染几条；后端结果远多于此，截断在进 React 之前完成。 */
 const SESSION_RESULT_LIMIT = 12;
+/** 空查询时「最近打开」最多列几条（与每组上限一致，不出现「还有 N 条」）。 */
+const RECENT_GROUP_SIZE = 6;
 
 const OPEN_COMMAND_MENU_ACTION = "open-command-menu";
 const NEW_SESSION_ACTION = "new-session";
@@ -170,26 +178,65 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		() => ({ runningPaths, waitingPaths, attentionPaths }),
 		[runningPaths, waitingPaths, attentionPaths],
 	);
+	const recentVisits = useAtomValue(recentSessionVisitsAtom);
+	const recentRank = useMemo(
+		() => new Map(recentVisits.map((visit, index) => [visit.path, index] as const)),
+		[recentVisits],
+	);
 	/**
-	 * 空查询时把进行中的会话交给检索服务列出来（面板兼做全局监视入口）。用排序后拼接的
-	 * 字符串做依赖：集合对象每次变化都是新引用，但只有成员变了才值得重新检索。
+	 * 空查询时要展示的会话：进行中的全部 + 最近打开的前几条（面板兼做全局监视与回访入口）。
+	 * 用排序后拼接的字符串做依赖：集合对象每次变化都是新引用，但只有成员变了才值得重算。
 	 */
-	const activePathsKey = useMemo(
+	const watchedKey = useMemo(
 		() =>
 			hasQuery
 				? ""
 				: [
 						...new Set([
+							...[...waitingPaths].filter(([, n]) => n > 0).map(([path]) => path),
 							...runningPaths,
 							...attentionPaths,
-							...[...waitingPaths].filter(([, n]) => n > 0).map(([p]) => p),
+							...recentVisits.slice(0, RECENT_GROUP_SIZE).map((visit) => visit.path),
 						]),
 					]
 						.sort()
 						.join("\n"),
-		[hasQuery, runningPaths, waitingPaths, attentionPaths],
+		[hasQuery, runningPaths, waitingPaths, attentionPaths, recentVisits],
 	);
-	const activePaths = useMemo(() => (activePathsKey ? activePathsKey.split("\n") : undefined), [activePathsKey]);
+	const watchedPaths = useMemo(() => (watchedKey ? watchedKey.split("\n") : []), [watchedKey]);
+
+	/**
+	 * 关注会话的元数据优先取侧栏内存（零 IPC、标题实时）；侧栏里没有的（例如自动化 / IM 在没展开的项目里
+	 * 跑起来的会话）才去检索，检索到的结果缓存下来跨多次打开复用。
+	 * 每个路径在本次运行里最多检索一次：检索不到的（已删除、来源不在检索范围）记下来不再重试，
+	 * 否则它会永远「缺数据」，每次呼出都重新检索、闪一次骨架。
+	 */
+	const sidebarSessions = useAtomValue(sessionsMapAtom);
+	const imConversationCwd = useAtomValue(defaultImConversationCwdAtom);
+	const sidebarMeta = useMemo(
+		() =>
+			findSidebarSessions(watchedPaths, {
+				sessionsByBucket: sidebarSessions,
+				projects,
+				defaultConversationCwd,
+				imConversationCwd,
+			}),
+		[watchedPaths, sidebarSessions, projects, defaultConversationCwd, imConversationCwd],
+	);
+	const [searchedMeta, setSearchedMeta] = useState<ReadonlyMap<string, DesktopSessionSearchResult>>(() => new Map());
+	const searchedMetaRef = useRef(searchedMeta);
+	searchedMetaRef.current = searchedMeta;
+	const attemptedPathsRef = useRef(new Set<string>());
+	// 只在关注集合、侧栏数据变化或面板重新打开时计算缺口，而不是检索结果每合入一条就重算：
+	// 结果逐条流式到达，缺口若随之变化，就会不断取消、重开同一次检索。
+	const missingPaths = useMemo(() => {
+		if (!open) return undefined;
+		const missing = watchedPaths.filter(
+			(path) => !sidebarMeta.has(path) && !searchedMetaRef.current.has(path) && !attemptedPathsRef.current.has(path),
+		);
+		return missing.length > 0 ? missing : undefined;
+	}, [watchedPaths, sidebarMeta, open]);
+
 	const abilities = useInstalledAbilities(open && hasQuery);
 	useEffect(() => {
 		if (!open || !hasQuery || !window.vetta.agentTeams) return;
@@ -207,12 +254,30 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		};
 	}, [open, hasQuery]);
 
-	// 会话是唯一的异步源：空查询且没有进行中的会话时不必发起。
-	const sessionSearch = useSessionSearch(open && (hasQuery || Boolean(activePaths)), {
+	// 会话是唯一的异步源：空查询时只为缓存里没有的关注会话发起。
+	const sessionSearch = useSessionSearch(open && (hasQuery || Boolean(missingPaths)), {
 		query: deferredQuery,
-		limit: SESSION_RESULT_LIMIT,
-		activePaths,
+		limit: hasQuery ? SESSION_RESULT_LIMIT : Math.max(SESSION_RESULT_LIMIT, missingPaths?.length ?? 0),
+		activePaths: hasQuery ? undefined : missingPaths,
 	});
+	// 一次为缺口发起的检索结束（loading 由真转假）后，把这批路径记为已尝试；检索不到的不再重试。
+	// 放在 effect 里而不是计算缺口的 memo 里：memo 必须是纯的（开发模式会执行两次）。
+	const searchWasLoadingRef = useRef(false);
+	useEffect(() => {
+		const finished = searchWasLoadingRef.current && !sessionSearch.loading;
+		searchWasLoadingRef.current = sessionSearch.loading;
+		if (finished && !hasQuery && missingPaths) {
+			for (const path of missingPaths) attemptedPathsRef.current.add(path);
+		}
+	}, [sessionSearch.loading, hasQuery, missingPaths]);
+	useEffect(() => {
+		if (sessionSearch.results.length === 0) return;
+		setSearchedMeta((previous) => {
+			const next = new Map(previous);
+			for (const result of sessionSearch.results) next.set(result.session.path, result);
+			return next;
+		});
+	}, [sessionSearch.results]);
 
 	const sourceLabels = useMemo<CommandMenuSourceLabels>(
 		() => ({
@@ -240,6 +305,7 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		() => ({
 			groups: {
 				activeSessions: t("commandMenu.groups.activeSessions"),
+				recentSessions: t("commandMenu.groups.recentSessions"),
 				projects: t("commandMenu.groups.projects"),
 				sessions: t("commandMenu.groups.sessions"),
 				abilities: t("commandMenu.groups.abilities"),
@@ -266,10 +332,12 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		[abilities.data, sourceLabels],
 	);
 
-	const sessionEntries = useMemo(
-		() => buildSessionEntries(sessionSearch.results.slice(0, SESSION_RESULT_LIMIT), sourceLabels, activity),
-		[sessionSearch.results, sourceLabels, activity],
-	);
+	const sessionEntries = useMemo(() => {
+		const results = hasQuery
+			? sessionSearch.results.slice(0, SESSION_RESULT_LIMIT)
+			: watchedPaths.flatMap((path) => sidebarMeta.get(path) ?? searchedMeta.get(path) ?? []);
+		return buildSessionEntries(results, sourceLabels, { activity, recentRank, asRecentGroup: !hasQuery });
+	}, [hasQuery, sessionSearch.results, watchedPaths, sidebarMeta, searchedMeta, sourceLabels, activity, recentRank]);
 
 	const entries = useMemo<CommandMenuEntry[]>(() => {
 		const teamEntries = teams
@@ -314,6 +382,10 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		sourceLabels,
 	]);
 
+	// 空查询只在有进行中的会话还没取到时才在「进行中」占骨架位；最近打开不占，取到了再出现即可。
+	const showActiveSkeleton =
+		!hasQuery && sessionSearch.loading && Boolean(missingPaths?.some((path) => resolveSessionStatus(path, activity)));
+
 	const tokens = useMemo(() => tokenizeCommandMenuQuery(deferredQuery), [deferredQuery]);
 
 	const { groups, orderedIds, entryById } = useMemo(
@@ -323,9 +395,15 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 				tokens,
 				labels: groupLabels,
 				// 空查询只在列进行中会话，骨架位留给「进行中」组。
-				loadingGroups: sessionSearch.loading ? [hasQuery ? "sessions" : "activeSessions"] : [],
+				loadingGroups: hasQuery
+					? sessionSearch.loading
+						? ["sessions"]
+						: []
+					: showActiveSkeleton
+						? ["activeSessions"]
+						: [],
 			}),
-		[entries, tokens, groupLabels, sessionSearch.loading, hasQuery],
+		[entries, tokens, groupLabels, sessionSearch.loading, hasQuery, showActiveSkeleton],
 	);
 
 	const [selectedId, setSelectedId] = useState<string | null>(null);

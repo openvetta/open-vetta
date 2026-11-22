@@ -1014,6 +1014,7 @@
 		"trigger": "搜索",
 		"groups": {
 			"activeSessions": "进行中",
+			"recentSessions": "最近打开",
 			"projects": "项目",
 			"sessions": "会话",
 			"abilities": "能力",

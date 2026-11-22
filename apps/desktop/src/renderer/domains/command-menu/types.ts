@@ -18,9 +18,11 @@ import type { DesktopTeamSidebarConversation } from "@/shared/sidebar-conversati
  *
  * 「进行中」组置顶：运行中 / 等用户回答的会话是面板兼做全局监视入口的部分，
  * 打开面板第一眼就该看到；加载期间保留骨架位，避免到达时把下面的组顶走。
+ * 「最近打开」紧随其后（只在空查询时出现）：跑完的会话被打开后离开「进行中」，仍能在这里一键回去。
  */
 export const COMMAND_MENU_GROUP_ORDER = [
 	"activeSessions",
+	"recentSessions",
 	"projects",
 	"sessions",
 	"abilities",

@@ -39,9 +39,10 @@ vi.mock("react-i18next", () => ({
 	useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-import { commandMenuOpenAtom, defaultConversationCwdAtom, projectsAtom } from "@shared/store/atoms";
+import { commandMenuOpenAtom, defaultConversationCwdAtom, projectsAtom, sessionsMapAtom } from "@shared/store/atoms";
 import { attentionSessionPathsAtom } from "@shared/store/attention-sessions-atoms";
 import { pendingInteractionPathsAtom } from "@shared/store/pending-interactions-atoms";
+import { recentSessionVisitsAtom } from "@shared/store/recent-sessions-atoms";
 import { runningSessionPathsAtom } from "@shared/store/running-sessions-atoms";
 import { INITIAL_SPACES, spacesAtom } from "@shared/store/spaces";
 import { useCommandMenuModel } from "./useCommandMenuModel";
@@ -86,6 +87,8 @@ beforeEach(() => {
 	store.set(runningSessionPathsAtom, new Set<string>());
 	store.set(pendingInteractionPathsAtom, new Map<string, number>());
 	store.set(attentionSessionPathsAtom, new Set<string>());
+	store.set(recentSessionVisitsAtom, []);
+	store.set(sessionsMapAtom, new Map());
 	projectSessions.current = [];
 	Object.defineProperty(window, "vetta", {
 		configurable: true,
@@ -328,4 +331,53 @@ it("slides the selection only for arrow keys, not when the pointer hovers a row"
 	act(() => result.current.onHoverItem("project:/w/a"));
 	expect(result.current.selectedId).toBe("project:/w/a");
 	expect(result.current.suppressSelectionAnimation).toBe(true);
+});
+
+it("lists recently opened sessions and does not search again when one starts running", () => {
+	store.set(recentSessionVisitsAtom, [{ path: "/w/done.jsonl", openedAt: 2 }]);
+	sessionSearchState.results = [sessionResult("/w/done.jsonl", "Done")];
+	const { result, rerender } = render();
+	expect(result.current.groups[0]).toMatchObject({ key: "recentSessions" });
+	expect(result.current.groups[0].items.map((item) => item.title)).toEqual(["Done"]);
+
+	// 元数据已缓存：状态变化只换分组与状态，不再为它发起检索（因此不会闪骨架）。
+	const requestBefore = sessionSearchCalls.at(-1)?.request.activePaths;
+	sessionSearchState.results = [];
+	act(() => store.set(runningSessionPathsAtom, new Set(["/w/done.jsonl"])));
+	rerender();
+	// 请求参数保持同一个引用即没有重开检索。
+	expect(sessionSearchCalls.at(-1)?.request.activePaths).toBe(requestBefore);
+
+	// 关掉再打开：缓存已有它，不再为它发起检索。
+	act(() => store.set(commandMenuOpenAtom, false));
+	act(() => store.set(commandMenuOpenAtom, true));
+	rerender();
+	expect(sessionSearchCalls.at(-1)?.open).toBe(false);
+	expect(result.current.groups[0].key).toBe("activeSessions");
+	expect(result.current.groups[0].items.map((item) => [item.title, item.status])).toEqual([["Done", "running"]]);
+});
+
+it("shows watched sessions straight from the sidebar without searching", () => {
+	store.set(defaultConversationCwdAtom, "/chat");
+	store.set(sessionsMapAtom, new Map([["/chat", [{ id: "a", path: "/s/a.jsonl", cwd: "/chat/a", name: "Story", firstMessage: "", modifiedAt: 1 }]]]));
+	store.set(recentSessionVisitsAtom, [{ path: "/s/a.jsonl", openedAt: 1 }]);
+	const { result } = render();
+
+	expect(sessionSearchCalls.at(-1)?.open).toBe(false);
+	expect(result.current.groups[0]).toMatchObject({ key: "recentSessions" });
+	expect(result.current.groups[0].items.map((item) => item.title)).toEqual(["Story"]);
+});
+
+it("does not search again for a session that a finished search could not find", () => {
+	store.set(recentSessionVisitsAtom, [{ path: "/s/gone.jsonl", openedAt: 1 }]);
+	sessionSearchState.loading = true;
+	const { rerender } = render();
+	expect(sessionSearchCalls.at(-1)).toMatchObject({ open: true, request: { activePaths: ["/s/gone.jsonl"] } });
+
+	sessionSearchState.loading = false;
+	rerender();
+	act(() => store.set(commandMenuOpenAtom, false));
+	act(() => store.set(commandMenuOpenAtom, true));
+	rerender();
+	expect(sessionSearchCalls.at(-1)?.open).toBe(false);
 });

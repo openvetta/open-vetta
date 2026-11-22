@@ -5,6 +5,7 @@ import { buildCommandMenuGroups, type CommandMenuGroupLabels } from "./build-gro
 const labels: CommandMenuGroupLabels = {
 	groups: {
 		activeSessions: "In progress",
+		recentSessions: "Recent",
 		projects: "Projects",
 		sessions: "Sessions",
 		abilities: "Abilities",
