@@ -31,6 +31,7 @@ const REDIRECTED_SETTINGS_TAB = "mcp";
 
 export interface CommandMenuSourceLabels {
 	readonly sessionTypes: Readonly<Record<DesktopSessionSearchResult["sourceKind"], string>>;
+	readonly sessionStatus: Readonly<Record<CommandMenuSessionStatus, string>>;
 	readonly sessionUnavailable: string;
 	readonly settingsGroupHint: string;
 	readonly abilitySkill: string;
@@ -38,12 +39,32 @@ export interface CommandMenuSourceLabels {
 	readonly searchMarketplace: string;
 }
 
+export type CommandMenuSessionStatus = "running" | "waiting";
+
+/** 等用户回答比在跑更需要人：排在前面，两者同时成立时也按「等回答」显示。 */
+const SESSION_STATUS_PRIORITY: Readonly<Record<CommandMenuSessionStatus, number>> = { waiting: 0, running: 1 };
+
+export interface CommandMenuSessionActivity {
+	readonly runningPaths: ReadonlySet<string>;
+	/** sessionPath → 剩余待处理请求数。 */
+	readonly waitingPaths: ReadonlyMap<string, number>;
+}
+
+export function resolveSessionStatus(
+	path: string,
+	activity: CommandMenuSessionActivity,
+): CommandMenuSessionStatus | undefined {
+	if ((activity.waitingPaths.get(path) ?? 0) > 0) return "waiting";
+	if (activity.runningPaths.has(path)) return "running";
+	return undefined;
+}
+
+/** 不展示绝对路径：项目行只有名字，所在工作空间由调用方作为 badge 补上。 */
 export function buildProjectEntries(projects: readonly Project[]): CommandMenuEntry[] {
 	return projects.map((project, index) => ({
 		id: `project:${project.cwd}`,
 		groupKey: "projects",
 		title: project.name?.trim() || pathBasename(project.cwd),
-		subtitle: project.cwd,
 		icon: project.isDefault ? "icon-[solar--chat-round-line-linear]" : "icon-[solar--folder-linear]",
 		// 侧栏已经按最近使用排好序，沿用它的次序即可，不另造一套。
 		order: index,
@@ -51,19 +72,30 @@ export function buildProjectEntries(projects: readonly Project[]): CommandMenuEn
 	}));
 }
 
+/**
+ * 会话行的 badge 标明归属：项目 / 批量会话写项目名，「对话」与 Claw 没有项目，写类型名。
+ * 带进行中状态的会话归入置顶的「进行中」组。
+ */
 export function buildSessionEntries(
 	results: readonly DesktopSessionSearchResult[],
 	labels: CommandMenuSourceLabels,
+	activity: CommandMenuSessionActivity,
 ): CommandMenuEntry[] {
 	return results.map((result, index) => {
 		const unavailable = resolveDesktopSessionOpenTarget(result.session.access) === "unavailable";
+		const status = resolveSessionStatus(result.session.path, activity);
+		const hasProject = result.sourceKind === "project" || result.sourceKind === "batch";
 		return {
 			id: `session:${result.session.path}`,
-			groupKey: "sessions",
+			groupKey: status ? "activeSessions" : "sessions",
 			title: sessionDisplayLabel(result.session),
-			subtitle: result.sourceName?.trim() || pathBasename(result.sourceCwd),
 			icon: "icon-[solar--chat-line-linear]",
-			badge: labels.sessionTypes[result.sourceKind],
+			badge: hasProject
+				? result.sourceName?.trim() || pathBasename(result.sourceCwd)
+				: labels.sessionTypes[result.sourceKind],
+			status,
+			statusLabel: status ? labels.sessionStatus[status] : undefined,
+			priority: status ? SESSION_STATUS_PRIORITY[status] : undefined,
 			disabled: unavailable,
 			disabledReason: unavailable ? labels.sessionUnavailable : undefined,
 			// 后端已按活跃时间倒序推送，保持原序即"越近越靠前"。

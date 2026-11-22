@@ -1012,6 +1012,7 @@
 		"searchMarketplace": "在能力市场中搜索",
 		"trigger": "搜索",
 		"groups": {
+			"activeSessions": "进行中",
 			"projects": "项目",
 			"sessions": "会话",
 			"abilities": "能力",
@@ -1027,6 +1028,10 @@
 			"claw": "Claw",
 			"project": "项目",
 			"batch": "批量"
+		},
+		"sessionStatus": {
+			"running": "运行中",
+			"waiting": "等你回答"
 		}
 	},
 	"updateDialog": {

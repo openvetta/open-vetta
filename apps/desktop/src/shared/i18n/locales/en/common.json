@@ -1012,6 +1012,7 @@
 		"searchMarketplace": "Search the ability marketplace",
 		"trigger": "Search",
 		"groups": {
+			"activeSessions": "In progress",
 			"projects": "Projects",
 			"sessions": "Sessions",
 			"abilities": "Abilities",
@@ -1027,6 +1028,10 @@
 			"claw": "Claw",
 			"project": "Project",
 			"batch": "Batch"
+		},
+		"sessionStatus": {
+			"running": "Running",
+			"waiting": "Waiting for you"
 		}
 	},
 	"updateDialog": {

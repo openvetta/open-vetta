@@ -15,8 +15,10 @@ export const desktopSessionSearch = new SessionSearchController({
 	run: async (requestId, request, emit, signal) => {
 		const sources = await listDesktopSessionSearchSources();
 		signal.throwIfAborted();
-		emit({ requestId, sources: sources.map(({ cwd, kind, name }) => ({ cwd, kind, name })), done: !request.query });
-		if (!request.query) return;
+		// 空查询只在有「进行中」会话要列出时才进 worker，否则只回 sources 就结束。
+		const needsWorker = Boolean(request.query) || Boolean(request.activePaths?.length);
+		emit({ requestId, sources: sources.map(({ cwd, kind, name }) => ({ cwd, kind, name })), done: !needsWorker });
+		if (!needsWorker) return;
 		await new Promise<void>((done, reject) => {
 			let chain = Promise.resolve();
 			const cancel = worker.start(

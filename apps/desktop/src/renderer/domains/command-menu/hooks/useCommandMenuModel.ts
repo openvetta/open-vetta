@@ -10,6 +10,8 @@ import {
 	projectsAtom,
 	type SessionExecutionMode,
 } from "@shared/store/atoms";
+import { pendingInteractionPathsAtom } from "@shared/store/pending-interactions-atoms";
+import { runningSessionPathsAtom } from "@shared/store/running-sessions-atoms";
 import type { SpaceItem } from "@shared/store/spaces";
 import { spaceOf, spacesAtom } from "@shared/store/spaces";
 import { useNavigate } from "@tanstack/react-router";
@@ -144,6 +146,23 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 
 	const toggleKey = useCommandMenuToggleKey(open);
 	const hasQuery = Boolean(deferredQuery.trim());
+	const runningPaths = useAtomValue(runningSessionPathsAtom);
+	const waitingPaths = useAtomValue(pendingInteractionPathsAtom);
+	const activity = useMemo(() => ({ runningPaths, waitingPaths }), [runningPaths, waitingPaths]);
+	/**
+	 * 空查询时把进行中的会话交给检索服务列出来（面板兼做全局监视入口）。用排序后拼接的
+	 * 字符串做依赖：集合对象每次变化都是新引用，但只有成员变了才值得重新检索。
+	 */
+	const activePathsKey = useMemo(
+		() =>
+			hasQuery
+				? ""
+				: [...new Set([...runningPaths, ...[...waitingPaths].filter(([, n]) => n > 0).map(([p]) => p)])]
+						.sort()
+						.join("\n"),
+		[hasQuery, runningPaths, waitingPaths],
+	);
+	const activePaths = useMemo(() => (activePathsKey ? activePathsKey.split("\n") : undefined), [activePathsKey]);
 	const abilities = useInstalledAbilities(open && hasQuery);
 	useEffect(() => {
 		if (!open || !hasQuery || !window.vetta.agentTeams) return;
@@ -161,10 +180,11 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		};
 	}, [open, hasQuery]);
 
-	// 会话是唯一的异步源：空查询时后端只回一份 sources 就 done，故不必发起。
-	const sessionSearch = useSessionSearch(open && hasQuery, {
+	// 会话是唯一的异步源：空查询且没有进行中的会话时不必发起。
+	const sessionSearch = useSessionSearch(open && (hasQuery || Boolean(activePaths)), {
 		query: deferredQuery,
 		limit: SESSION_RESULT_LIMIT,
+		activePaths,
 	});
 
 	const sourceLabels = useMemo<CommandMenuSourceLabels>(
@@ -174,6 +194,10 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 				claw: t("commandMenu.sessionTypes.claw"),
 				project: t("commandMenu.sessionTypes.project"),
 				batch: t("commandMenu.sessionTypes.batch"),
+			},
+			sessionStatus: {
+				running: t("commandMenu.sessionStatus.running"),
+				waiting: t("commandMenu.sessionStatus.waiting"),
 			},
 			sessionUnavailable: t("commandMenu.sessionUnavailable"),
 			settingsGroupHint: t("commandMenu.groups.settings"),
@@ -187,6 +211,7 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 	const groupLabels = useMemo<CommandMenuGroupLabels>(
 		() => ({
 			groups: {
+				activeSessions: t("commandMenu.groups.activeSessions"),
 				projects: t("commandMenu.groups.projects"),
 				sessions: t("commandMenu.groups.sessions"),
 				abilities: t("commandMenu.groups.abilities"),
@@ -214,8 +239,8 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 	);
 
 	const sessionEntries = useMemo(
-		() => buildSessionEntries(sessionSearch.results.slice(0, SESSION_RESULT_LIMIT), sourceLabels),
-		[sessionSearch.results, sourceLabels],
+		() => buildSessionEntries(sessionSearch.results.slice(0, SESSION_RESULT_LIMIT), sourceLabels, activity),
+		[sessionSearch.results, sourceLabels, activity],
 	);
 
 	const entries = useMemo<CommandMenuEntry[]>(() => {
@@ -242,6 +267,8 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 			const item = commandSpaceItem(entry.action);
 			if (!item) return entry;
 			const label = spaceDisplayName(spaces, spaceOf(spaces, item), tProject("spaces.main"));
+			// 项目行的工作空间放进 badge；会话行的 badge 已经是所属项目，工作空间退到副标题。
+			if (entry.action.kind === "openProject") return { ...entry, badge: label };
 			return { ...entry, subtitle: entry.subtitle ? `${entry.subtitle} · ${label}` : label };
 		});
 		// 逃生行只在有查询词时出现：空态里它没有可携带的搜索词，等于一条噪音。
@@ -267,9 +294,10 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 				entries,
 				tokens,
 				labels: groupLabels,
-				loadingGroups: sessionSearch.loading ? ["sessions"] : [],
+				// 空查询只在列进行中会话，骨架位留给「进行中」组。
+				loadingGroups: sessionSearch.loading ? [hasQuery ? "sessions" : "activeSessions"] : [],
 			}),
-		[entries, tokens, groupLabels, sessionSearch.loading],
+		[entries, tokens, groupLabels, sessionSearch.loading, hasQuery],
 	);
 
 	const [selectedId, setSelectedId] = useState<string | null>(null);

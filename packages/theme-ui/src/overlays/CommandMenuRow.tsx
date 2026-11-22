@@ -2,6 +2,7 @@ import { motion } from "motion/react";
 import { memo, type JSX } from "react";
 import { cn } from "@vetta-org/ui/utils";
 import { ConversationTagDotsView } from "../project/ConversationTagDotsView";
+import { SessionStatusIcon } from "../sidebar/SessionStatusIcon";
 import type { CommandMenuHighlightRange, CommandMenuItemView } from "./command-menu-types";
 
 /**
@@ -97,7 +98,16 @@ export const CommandMenuRow = memo(function CommandMenuRow({
 					className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary"
 				/>
 			)}
-			{item.tagColors && item.tagColors.length > 0 ? (
+			{item.status ? (
+				<span aria-hidden="true" className="flex size-4 shrink-0 items-center justify-center">
+					<SessionStatusIcon
+						active={active}
+						running={item.status === "running"}
+						waiting={item.status === "waiting"}
+						scheduled={false}
+					/>
+				</span>
+			) : item.tagColors && item.tagColors.length > 0 ? (
 				// 与侧栏会话一致：标签色点占据行首图标的位置，多个标签就画多个。
 				<ConversationTagDotsView colors={item.tagColors} className="size-4" />
 			) : (
@@ -120,6 +130,16 @@ export const CommandMenuRow = memo(function CommandMenuRow({
 					</span>
 				)}
 			</span>
+			{item.status && item.statusLabel && (
+				<span
+					className={cn(
+						"shrink-0 text-[11px]",
+						item.status === "waiting" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
+					)}
+				>
+					{item.statusLabel}
+				</span>
+			)}
 			{item.badge && (
 				<span className="shrink-0 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground">
 					{item.badge}

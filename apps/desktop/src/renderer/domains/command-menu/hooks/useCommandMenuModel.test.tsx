@@ -16,11 +16,15 @@ const sessionSearchState = vi.hoisted(() => ({
 const scopeBindings = vi.hoisted(() => ({ current: [] as { key: string; run: () => void }[] }));
 const projectSessions = vi.hoisted(() => ({ current: [] as unknown[] }));
 const prefetchCommandMenuAction = vi.hoisted(() => vi.fn());
+const sessionSearchCalls = vi.hoisted(() => [] as { open: boolean; request: { query: string; activePaths?: readonly string[] } }[]);
 
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigate }));
 vi.mock("../../../root-layout/nav-route-prefetch", () => ({ prefetchCommandMenuAction }));
 vi.mock("../../project/hooks/useSessionSearch", () => ({
-	useSessionSearch: () => sessionSearchState,
+	useSessionSearch: (open: boolean, request: { query: string; activePaths?: readonly string[] }) => {
+		sessionSearchCalls.push({ open, request });
+		return sessionSearchState;
+	},
 }));
 vi.mock("../../plugins/runtime/plugin-i18n", () => ({
 	usePluginTextResolver: () => (_pluginId: string, raw: string) => raw,
@@ -36,6 +40,8 @@ vi.mock("react-i18next", () => ({
 }));
 
 import { commandMenuOpenAtom, projectsAtom } from "@shared/store/atoms";
+import { pendingInteractionPathsAtom } from "@shared/store/pending-interactions-atoms";
+import { runningSessionPathsAtom } from "@shared/store/running-sessions-atoms";
 import { INITIAL_SPACES, spacesAtom } from "@shared/store/spaces";
 import { useCommandMenuModel } from "./useCommandMenuModel";
 
@@ -75,6 +81,9 @@ beforeEach(() => {
 	scopeBindings.current = [];
 	sessionSearchState.results = [];
 	sessionSearchState.loading = false;
+	sessionSearchCalls.length = 0;
+	store.set(runningSessionPathsAtom, new Set<string>());
+	store.set(pendingInteractionPathsAtom, new Map<string, number>());
 	projectSessions.current = [];
 	Object.defineProperty(window, "vetta", {
 		configurable: true,
@@ -260,8 +269,29 @@ it("labels a search result with its workspace and switches to that workspace whe
 	});
 	const { result } = render();
 	act(() => result.current.onQueryChange("alpha"));
-	await waitFor(() => expect(result.current.groups.find((group) => group.key === "projects")?.items[0]?.subtitle).toContain("Studio"));
+	await waitFor(() => expect(result.current.groups.find((group) => group.key === "projects")?.items[0]?.badge).toBe("Studio"));
 	act(() => result.current.onActivateItem("project:/w/alpha"));
 	expect(store.get(spacesAtom).selected).toBe("studio");
 	expect(store.get(commandMenuOpenAtom)).toBe(false);
+});
+
+it("lists running and waiting sessions on top before anything is typed", () => {
+	store.set(runningSessionPathsAtom, new Set(["/w/run.jsonl", "/w/both.jsonl"]));
+	store.set(pendingInteractionPathsAtom, new Map([["/w/both.jsonl", 1]]));
+	sessionSearchState.results = [sessionResult("/w/run.jsonl", "Run"), sessionResult("/w/both.jsonl", "Both")];
+	const { result } = render();
+
+	const lastCall = sessionSearchCalls.at(-1);
+	expect(lastCall?.open).toBe(true);
+	expect(lastCall?.request).toMatchObject({ query: "", activePaths: ["/w/both.jsonl", "/w/run.jsonl"] });
+	expect(result.current.groups[0].key).toBe("activeSessions");
+	expect(result.current.groups[0].items.map((item) => [item.title, item.status, item.badge])).toEqual([
+		["Both", "waiting", "Proj"],
+		["Run", "running", "Proj"],
+	]);
+});
+
+it("does not start a session search for an empty query when nothing is in progress", () => {
+	render();
+	expect(sessionSearchCalls.at(-1)?.open).toBe(false);
 });

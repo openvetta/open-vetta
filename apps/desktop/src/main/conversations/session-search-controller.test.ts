@@ -29,6 +29,10 @@ describe("SessionSearchController", () => {
 		{ query: "x", modifiedFrom: 8_640_000_000_000_001 },
 		{ query: "x", modifiedFrom: 20, modifiedBefore: 10 },
 		{ query: "x", modifiedFrom: 10, modifiedBefore: 10 },
+		{ query: "", activePaths: "C:/a.jsonl" },
+		{ query: "", activePaths: [""] },
+		{ query: "", activePaths: [42] },
+		{ query: "", activePaths: Array.from({ length: 101 }, (_, i) => `C:/${i}.jsonl`) },
 	])("rejects malformed requests: %j", (request) => {
 		expect(() => parseSessionSearchRequest(request)).toThrow();
 	});
@@ -40,6 +44,12 @@ describe("SessionSearchController", () => {
 		});
 		expect(parseSessionSearchRequest({ query: "x", modifiedFrom: -100 })).toMatchObject({ modifiedFrom: -100 });
 		expect(parseSessionSearchRequest({ query: "x", modifiedBefore: 100 })).toMatchObject({ modifiedBefore: 100 });
+	});
+	it("keeps watched session paths and drops an empty list", () => {
+		expect(parseSessionSearchRequest({ query: "", activePaths: ["C:/a.jsonl"] })).toMatchObject({
+			activePaths: ["C:/a.jsonl"],
+		});
+		expect(parseSessionSearchRequest({ query: "", activePaths: [] }).activePaths).toBeUndefined();
 	});
 	it("accepts an empty query for the unfiltered project catalog", () => {
 		expect(parseSessionSearchRequest({ query: " " })).toEqual({

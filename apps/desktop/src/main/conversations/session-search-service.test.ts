@@ -77,6 +77,18 @@ describe("SessionSearchService", () => {
 		});
 		expect((await f.search({ query: "secret" })).results).toEqual([]);
 	});
+	it("lists watched sessions for an empty query and only those", async () => {
+		const f = fixture();
+		const listed = await f.search({ query: "", activePaths: ["messages"] });
+		expect(listed.results.map((result) => result.session.path)).toEqual(["messages"]);
+		expect(listed.results[0]).toMatchObject({ sourceKind: "project", sourceName: "demo" });
+
+		expect((await f.search({ query: "" })).results).toEqual([]);
+		// 有查询词时 activePaths 不放宽匹配：没命中的进行中会话照样不出现。
+		expect(
+			(await f.search({ query: "路线图", activePaths: ["messages"] })).results.map((r) => r.session.path),
+		).toEqual(["title"]);
+	});
 	it("extracts only text blocks and normalizes Unicode and whitespace", () => {
 		expect(
 			extractSearchMessages([

@@ -13,7 +13,7 @@ export function useSessionSearch(open: boolean, request: DesktopSessionSearchReq
 	const [error, setError] = useState(false);
 	const [limited, setLimited] = useState(false);
 	const [skipped, setSkipped] = useState(0);
-	const { query, sourceKind, projectCwd, modifiedFrom, modifiedBefore, limit } = request;
+	const { query, sourceKind, projectCwd, modifiedFrom, modifiedBefore, limit, activePaths } = request;
 	useEffect(() => {
 		let active = true;
 		let cancel: (() => void) | undefined;
@@ -26,7 +26,7 @@ export function useSessionSearch(open: boolean, request: DesktopSessionSearchReq
 		const timer = window.setTimeout(
 			() => {
 				cancel = window.vetta.session.searchSessions(
-					{ query: query.trim(), sourceKind, projectCwd, modifiedFrom, modifiedBefore, limit },
+					{ query: query.trim(), sourceKind, projectCwd, modifiedFrom, modifiedBefore, limit, activePaths },
 					(event) => {
 						if (!active) return;
 						if (event.sources) setSources(event.sources);
@@ -50,6 +50,6 @@ export function useSessionSearch(open: boolean, request: DesktopSessionSearchReq
 			window.clearTimeout(timer);
 			cancel?.();
 		};
-	}, [open, query, sourceKind, projectCwd, modifiedFrom, modifiedBefore, limit]);
+	}, [open, query, sourceKind, projectCwd, modifiedFrom, modifiedBefore, limit, activePaths]);
 	return { results, sources, loading, error, limited, skipped };
 }
