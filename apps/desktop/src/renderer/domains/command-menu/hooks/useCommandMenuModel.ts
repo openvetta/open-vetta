@@ -40,10 +40,11 @@ import type { CommandMenuAction, CommandMenuEntry } from "../types";
 const SESSION_RESULT_LIMIT = 12;
 
 const OPEN_COMMAND_MENU_ACTION = "open-command-menu";
-const OPEN_COMMAND_MENU_DEFAULT_KEY = "mod+k";
+/** 默认键只在快捷键定义里维护一份，这里从定义推导。 */
+const OPEN_COMMAND_MENU_DEFAULT_KEY = getEffectiveShortcut(OPEN_COMMAND_MENU_ACTION, {});
 
 /**
- * 面板内用来「再按一次关闭」的组合键。必须读生效绑定而不是写死 mod+k：
+ * 面板内用来「再按一次关闭」的组合键。必须读生效绑定而不是写死默认键：
  * 这个动作在设置里可改键，写死会导致改键后旧键仍能关、新键反而无效。
  * 只在面板打开过之后才去读配置，避免为一个常驻组件在启动路径上多一次 IPC。
  */
@@ -82,7 +83,7 @@ export interface CommandMenuModel {
 /**
  * 已装能力的目录。刻意**不在面板打开时就取**，而是等到第一次有查询词：
  * 空查询态下不产生任何 IPC 是既定约束，而这两个调用虽然是本地的，也没必要
- * 为一次「按了 ⌘K 又按 esc」付出代价。取到后在本次打开期间缓存。
+ * 为一次「打开面板又按 esc」付出代价。取到后在本次打开期间缓存。
  */
 function useInstalledAbilities(enabled: boolean): {
 	data: { skills: SkillInfo[]; plugins: InstalledPlugin[] };
@@ -428,7 +429,7 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 
 	/**
 	 * exclusive：面板打开期间未匹配的键不下沉到 app 层，否则在面板里敲 mod+n
-	 * 会在背后新建会话。mod+k 显式绑成关闭——app 层那条是 `when: "always"`，
+	 * 会在背后新建会话。开关键显式绑成关闭——app 层那条是 `when: "always"`，
 	 * 不在这里拦下就会被再次「打开」，表现为按了没反应；用的是生效绑定而非默认键。
 	 */
 	useShortcutScope({

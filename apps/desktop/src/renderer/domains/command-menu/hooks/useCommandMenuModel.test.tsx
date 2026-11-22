@@ -82,7 +82,7 @@ beforeEach(() => {
 			skills: { list: async () => [] },
 			plugins: { listAll: async () => [] },
 			session: { listSessions: async () => projectSessions.current },
-			// 面板打开后会去读生效的开关键；默认绑定即 mod+k。
+			// 面板打开后会去读生效的开关键；默认绑定即 mod+t。
 			config: { get: async () => ({}), onShortcutsChanged: () => () => undefined },
 		},
 	});
@@ -199,11 +199,11 @@ it("falls back to the project page when it has no openable session", async () =>
 	expect(onOpenSession).not.toHaveBeenCalled();
 });
 
-it("closes on escape and on a second mod+k without navigating", () => {
+it("closes on escape and on a second mod+t without navigating", () => {
 	const { result } = render();
 	act(() => result.current.onQueryChange("alpha"));
 
-	press("mod+k");
+	press("mod+t");
 	expect(store.get(commandMenuOpenAtom)).toBe(false);
 	expect(navigate).not.toHaveBeenCalled();
 

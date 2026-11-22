@@ -10,7 +10,7 @@ interface AddProjectRootStepProps {
 	onClose: () => void;
 }
 
-/** 第一步：入口列表。↑↓ 在选项间移动，回车确认，与 ⌘K 的操作习惯一致。 */
+/** 第一步：入口列表。↑↓ 在选项间移动，回车确认，与 ⌘T 命令面板的操作习惯一致。 */
 export function AddProjectRootStep({ items, onClose }: AddProjectRootStepProps): JSX.Element {
 	const { t } = useTranslation("project");
 	const listRef = useRef<HTMLDivElement>(null);

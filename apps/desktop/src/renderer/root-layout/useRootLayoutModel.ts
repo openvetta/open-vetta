@@ -506,7 +506,7 @@ export function useRootLayoutModel(): RootLayoutModel {
 						break;
 					}
 					case "open-command-menu": {
-						// 面板内自己绑了一条 mod+k 关闭；能走到这里说明面板是关着的。
+						// 面板内自己绑了一条开关键用于关闭；能走到这里说明面板是关着的。
 						setCommandMenuOpen(true);
 						break;
 					}

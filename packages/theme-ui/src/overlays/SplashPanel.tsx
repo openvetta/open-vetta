@@ -7,7 +7,7 @@ import { cn, OVERLAY_BACKDROP_CLASS, PANEL_SHADOW_CLASS } from "@vetta-org/ui/ut
 
 /**
  * 居中偏上的 Splash 面板外壳：遮罩 + 入场动效 + 高光边 + 主题 surface 槽位。
- * ⌘K 命令面板与「添加项目」这类选项面板共用这一份，样式只在这里改一次。
+ * ⌘T 命令面板与「添加项目」这类选项面板共用这一份，样式只在这里改一次。
  *
  * 自己 portal 到 body：宿主可能把它挂在侧栏之类带 transform / contain 的祖先里，
  * 那样 `fixed` 会相对祖先定位，面板就缩在侧栏里了。
