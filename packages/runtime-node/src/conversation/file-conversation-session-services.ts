@@ -23,6 +23,46 @@ import { nodeErrorCode } from "./node-error-code.js";
 const CONVERSATION_FILE_SUFFIX = ".conversation.jsonl";
 const CONVERSATION_HEADER_READ_BYTES = 64 * 1024;
 const LAST_MESSAGE_PREVIEW_LENGTH = 120;
+/** 会话摘要缓存的条数上限；每条只是一份小摘要，上限只防止极端目录把内存撑大。 */
+const HISTORY_INFO_CACHE_LIMIT = 20_000;
+
+interface CachedHistoryInfo {
+	readonly mtimeMs: number;
+	readonly size: number;
+	readonly info: SessionHistoryInfo;
+}
+
+/**
+ * 会话摘要（标题、首条消息、活跃时间）按文件缓存，模块级共享。
+ *
+ * 列目录原本要把目录下每个会话文件完整读入并解析，会话一多就是数秒，而侧栏加载项目、
+ * 命令面板的每次搜索都要列目录。会话文件只追加写，内容变了大小必变，所以用
+ * （修改时间, 大小）判定是否还能复用：没变的文件只做一次 stat。Catalog 实例按调用新建
+ * （见 runtime-desktop 的 catalogForCurrentRoots），缓存因此放在模块级而不是实例上。
+ * 以 Map 的插入顺序做 LRU。
+ */
+const historyInfoCache = new Map<string, CachedHistoryInfo>();
+
+async function readCachedSessionHistoryInfo(sessionPath: string, fallbackCwd: string): Promise<SessionHistoryInfo> {
+	const stats = await stat(sessionPath);
+	// fallbackCwd 会进入结果（文件里没有 cwd 时兜底），所以也是键的一部分。
+	const key = `${resolve(sessionPath)}\0${fallbackCwd}`;
+	const cached = historyInfoCache.get(key);
+	if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size) {
+		historyInfoCache.delete(key);
+		historyInfoCache.set(key, cached);
+		return { ...cached.info };
+	}
+	const info = await readSessionHistoryInfo(sessionPath, fallbackCwd, stats.mtimeMs);
+	historyInfoCache.delete(key);
+	historyInfoCache.set(key, { mtimeMs: stats.mtimeMs, size: stats.size, info });
+	while (historyInfoCache.size > HISTORY_INFO_CACHE_LIMIT) {
+		const oldest = historyInfoCache.keys().next().value;
+		if (oldest === undefined) break;
+		historyInfoCache.delete(oldest);
+	}
+	return { ...info };
+}
 
 export interface RuntimeConversationSessionRoot {
 	readonly cwd: string;
@@ -137,7 +177,7 @@ export class FileConversationRuntimeSessionCatalog implements RuntimeSessionCata
 				.filter((entry) => entry.isFile() && entry.name.endsWith(CONVERSATION_FILE_SUFFIX))
 				.map(async (entry) => {
 					try {
-						return await readSessionHistoryInfo(join(sessionDir, entry.name), cwd);
+						return await readCachedSessionHistoryInfo(join(sessionDir, entry.name), cwd);
 					} catch {
 						return undefined;
 					}
@@ -169,7 +209,11 @@ export class FileConversationRuntimeSessionFileHistoryReader implements RuntimeS
 	}
 }
 
-async function readSessionHistoryInfo(sessionPath: string, fallbackCwd: string): Promise<SessionHistoryInfo> {
+async function readSessionHistoryInfo(
+	sessionPath: string,
+	fallbackCwd: string,
+	fileModifiedAt: number,
+): Promise<SessionHistoryInfo> {
 	const text = await readFile(sessionPath, "utf8");
 	const header = parseConversationHeader(text);
 	if (!header || !isCanonicalConversationPath(sessionPath, header.sessionId)) {
@@ -197,7 +241,7 @@ async function readSessionHistoryInfo(sessionPath: string, fallbackCwd: string):
 		if (!Number.isFinite(message.timestamp) || message.timestamp <= 0) return latest;
 		return Math.max(latest ?? 0, message.timestamp);
 	}, undefined);
-	const modifiedAt = lastMessageActivityAt ?? (await stat(sessionPath)).mtimeMs;
+	const modifiedAt = lastMessageActivityAt ?? fileModifiedAt;
 	return {
 		id: header.sessionId,
 		path: resolve(sessionPath),

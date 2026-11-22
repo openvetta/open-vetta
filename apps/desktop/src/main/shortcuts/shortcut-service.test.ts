@@ -7,15 +7,6 @@ vi.mock("electron", () => ({
 	BrowserWindow: { getAllWindows: () => [] },
 }));
 
-vi.mock("../quickpanel-trigger.js", () => ({
-	applyQuickPanelTrigger: vi.fn(),
-	setQuickPanelTriggerHandler: vi.fn(),
-}));
-
-vi.mock("../quickpanel-window.js", () => ({
-	toggleQuickPanelWindow: vi.fn(),
-}));
-
 function createFixture(initial?: Partial<DesktopConfig>) {
 	let config: DesktopConfig = {
 		schemaVersion: 2,
@@ -25,11 +16,9 @@ function createFixture(initial?: Partial<DesktopConfig>) {
 		defaultExecutionMode: "full-access",
 		notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES,
 		shortcuts: { bindings: {} },
-		quickPanel: { trigger: "none", postSendBehavior: "foreground" },
 		...initial,
 	};
 	const broadcastBindings = vi.fn();
-	const reloadQuickPanelTrigger = vi.fn(async () => {});
 	const service = new ShortcutService({
 		readConfig: async () => structuredClone(config),
 		updateConfig: async (update) => {
@@ -37,12 +26,10 @@ function createFixture(initial?: Partial<DesktopConfig>) {
 			return structuredClone(config);
 		},
 		broadcastBindings,
-		reloadQuickPanelTrigger,
 	});
 	return {
 		broadcastBindings,
 		getConfig: () => config,
-		reloadQuickPanelTrigger,
 		service,
 	};
 }
@@ -70,21 +57,11 @@ describe("ShortcutService", () => {
 		expect(fixture.broadcastBindings).toHaveBeenLastCalledWith({});
 	});
 
-	it("updates quick panel settings without replacing the adjacent value and reloads the trigger", async () => {
-		const fixture = createFixture({
-			quickPanel: { trigger: "alt", postSendBehavior: "background" },
-		});
+	it("reports only shortcut bindings in settings snapshots", async () => {
+		const fixture = createFixture({ shortcuts: { bindings: { "new-session": "mod+shift+n" } } });
 
-		await expect(fixture.service.setQuickPanelTrigger("mod")).resolves.toEqual({
-			trigger: "mod",
-			postSendBehavior: "background",
-		});
-		expect(fixture.getConfig().quickPanel).toEqual({ trigger: "mod", postSendBehavior: "background" });
-
-		await expect(fixture.service.setQuickPanelPostSendBehavior("foreground")).resolves.toEqual({
-			trigger: "mod",
-			postSendBehavior: "foreground",
-		});
-		expect(fixture.reloadQuickPanelTrigger).toHaveBeenCalledTimes(2);
+		const settings = await fixture.service.getSettings();
+		expect(Object.keys(settings)).toEqual(["bindings"]);
+		expect(settings.bindings).toContainEqual(expect.objectContaining({ id: "new-session", shortcut: "mod+shift+n" }));
 	});
 });

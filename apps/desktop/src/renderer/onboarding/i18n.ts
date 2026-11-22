@@ -1,4 +1,4 @@
-// 引导窗独立 i18next 实例（与 quickpanel 一样自带 Provider，不共用主窗口 runtime 实例）。
+// 引导窗独立 i18next 实例（自带 Provider，不共用主窗口 runtime 实例）。
 // 复用主窗口 "settings" ns 的 zh/en 资源（而非另起新 ns），
 // 决策见 computer-use 实现规格：省掉新 ns 在 NAMESPACES/resources/i18next.d.ts 的三处注册。
 // onboarding* 前缀 key 由 settings.json 承载，故这里沿用 react-i18next 标准 useTranslation("settings")，

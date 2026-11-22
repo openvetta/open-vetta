@@ -40,5 +40,5 @@ export { TabBar } from "./TabBar";
 export type { TimePickerProps } from "./TimePicker";
 export { TimePicker } from "./TimePicker";
 export { useDelayedUnmount } from "./useDelayedUnmount";
-export type { VettaKbdProps, VettaKbdSize } from "./VettaKbd";
+export type { VettaKbdProps, VettaKbdSize, VettaKbdVariant } from "./VettaKbd";
 export { VettaKbd } from "./VettaKbd";

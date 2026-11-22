@@ -16,6 +16,7 @@ import { useAppInit } from "../domains/conversation/hooks/useAppInit";
 import { useSessionManager } from "../domains/conversation/hooks/useSessionManager";
 import { useProjectActions } from "../domains/project/hooks/useProjects";
 import { playNotificationSound } from "../shared/audio/notification-sound-player";
+import { useAttentionSessionsSync } from "../shared/hooks/useAttentionSessionsSync";
 import { useModelCatalogSync } from "../shared/hooks/useModelCatalogSync";
 import { useNarrowScreen } from "../shared/hooks/useNarrowScreen";
 import { usePendingInteractionsSync } from "../shared/hooks/usePendingInteractionsSync";
@@ -45,6 +46,7 @@ import {
 	sidebarCollapsedAtom,
 	sidebarWidthAtom,
 } from "../shared/store/atoms";
+import { recordRecentSessionVisitAtom } from "../shared/store/recent-sessions-atoms";
 import { showToast } from "../shared/store/toast-atoms";
 import { shouldShowChatRoutePending } from "./chat-route-pending";
 import { syncPendingInteractions } from "./pending-interaction-sync";
@@ -114,6 +116,8 @@ export function useRootLayoutModel(): RootLayoutModel {
 	// 全局 running-sessions 订阅必须挂在始终挂载的 App 上：它是 streaming 状态真值
 	// 来源之一，挂在会被卸载的 Sidebar 上会在卸载期间丢 RUNNING_CHANGED 事件。
 	useRunningSessionsSync();
+	const recordRecentSessionVisit = useSetAtom(recordRecentSessionVisitAtom);
+	useAttentionSessionsSync();
 	// 同上：侧栏的「等你处理」标记也以主进程为真值，挂在会被卸载的侧栏上会漏事件。
 	usePendingInteractionsSync();
 	// 会话置顶以主进程为准（手机也会改它），同理挂在根部。
@@ -121,7 +125,7 @@ export function useRootLayoutModel(): RootLayoutModel {
 	// 队列的出队/续发已收归主进程 kernel（ADR-0060）：followUp 在 turn 自然停止点
 	// 接力消费，renderer 不再需要全局出队调度器。
 	// 会话打开/发送的唯一挂载点。ChatPage 与新会话页走模块级 ref，避免再挂一份。
-	const { openSession, sendMessage } = useSessionManager();
+	const { openSession } = useSessionManager();
 	const switchSpace = useSpaceNavigation();
 	const activePath = activeSession?.sessionPath;
 	const activeCwd = activeSession?.cwd;
@@ -249,10 +253,12 @@ export function useRootLayoutModel(): RootLayoutModel {
 
 	// 上报「聊天页当前所在 session」给主进程：仅在聊天路由 "/" 且有 activeSession
 	// 时报其 sessionPath，否则 null。主进程据此 + 窗口聚焦态做系统通知抑制判定。
+	// 同一时机记一次「最近打开」：命令面板据此把打开过的会话排在前面。
 	useEffect(() => {
 		const sessionPath = currentPath === "/" ? activeSession?.sessionPath || null : null;
 		void window.vetta.notification.setForegroundSession(sessionPath);
-	}, [currentPath, activeSession]);
+		if (sessionPath) recordRecentSessionVisit(sessionPath);
+	}, [currentPath, activeSession, recordRecentSessionVisit]);
 
 	// 点击系统通知 → 主进程已前台化窗口，这里把对应 session 打开并路由到聊天页。
 	useEffect(() => {
@@ -274,23 +280,6 @@ export function useRootLayoutModel(): RootLayoutModel {
 			}),
 		[],
 	);
-
-	// 快捷面板回车 → 主进程已据 postSendBehavior 处理窗口聚焦，这里在默认「对话」目录下
-	// 新建会话并直接发送 prompt（复用通知路由同款 openSession + sendMessage）。
-	useEffect(() => {
-		return window.vetta.quickPanel.onRunPrompt(({ text }) => {
-			const cwd = defaultConversationCwd;
-			if (!cwd || !text.trim()) return;
-			void (async () => {
-				try {
-					await openSession(cwd);
-					await sendMessage(text);
-				} catch (error) {
-					console.warn("[RootLayout] quick panel run prompt failed", error);
-				}
-			})();
-		});
-	}, [openSession, sendMessage, defaultConversationCwd]);
 
 	useEffect(() => {
 		const store = getDefaultStore();
@@ -523,7 +512,7 @@ export function useRootLayoutModel(): RootLayoutModel {
 						break;
 					}
 					case "open-command-menu": {
-						// 面板内自己绑了一条 mod+k 关闭；能走到这里说明面板是关着的。
+						// 面板内自己绑了一条开关键用于关闭；能走到这里说明面板是关着的。
 						setCommandMenuOpen(true);
 						break;
 					}

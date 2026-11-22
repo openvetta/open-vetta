@@ -6,10 +6,17 @@ import { getEffectiveShortcut, loadShortcutBindings } from "@shared/lib/shortcut
 import { useShortcutScope } from "@shared/shortcuts";
 import {
 	commandMenuOpenAtom,
+	defaultConversationCwdAtom,
+	defaultImConversationCwdAtom,
 	pluginWorkspaceViewsAtom,
 	projectsAtom,
 	type SessionExecutionMode,
+	sessionsMapAtom,
 } from "@shared/store/atoms";
+import { attentionSessionPathsAtom } from "@shared/store/attention-sessions-atoms";
+import { pendingInteractionPathsAtom } from "@shared/store/pending-interactions-atoms";
+import { recentSessionVisitsAtom } from "@shared/store/recent-sessions-atoms";
+import { runningSessionPathsAtom } from "@shared/store/running-sessions-atoms";
 import type { SpaceItem } from "@shared/store/spaces";
 import { spaceOf, spacesAtom } from "@shared/store/spaces";
 import { useNavigate } from "@tanstack/react-router";
@@ -18,6 +25,7 @@ import { useAtom, useAtomValue, useStore } from "jotai";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { resolveDesktopSessionOpenTarget } from "@/shared/session-access";
+import type { DesktopSessionSearchResult } from "@/shared/session-search";
 import type { DesktopTeamSidebarConversation } from "@/shared/sidebar-conversation";
 import { prefetchCommandMenuAction } from "../../../root-layout/nav-route-prefetch";
 import { usePluginTextResolver } from "../../plugins/runtime/plugin-i18n";
@@ -25,6 +33,7 @@ import { useSessionSearch } from "../../project/hooks/useSessionSearch";
 import { buildCommandMenuGroups, type CommandMenuGroupLabels } from "../lib/build-groups";
 import { pickLatestOpenableSession } from "../lib/latest-session";
 import { tokenizeCommandMenuQuery } from "../lib/match";
+import { findSidebarSessions } from "../lib/sidebar-sessions";
 import {
 	buildInstalledAbilityEntries,
 	buildMarketplaceEscapeEntry,
@@ -33,28 +42,33 @@ import {
 	buildSettingsEntries,
 	buildWorkspaceViewEntries,
 	type CommandMenuSourceLabels,
+	resolveSessionStatus,
 } from "../lib/sources";
 import type { CommandMenuAction, CommandMenuEntry } from "../types";
 
 /** 会话组一次最多渲染几条；后端结果远多于此，截断在进 React 之前完成。 */
 const SESSION_RESULT_LIMIT = 12;
+/** 空查询时「最近打开」最多列几条（与每组上限一致，不出现「还有 N 条」）。 */
+const RECENT_GROUP_SIZE = 6;
 
 const OPEN_COMMAND_MENU_ACTION = "open-command-menu";
-const OPEN_COMMAND_MENU_DEFAULT_KEY = "mod+k";
+const NEW_SESSION_ACTION = "new-session";
+
+type ShortcutBindings = Parameters<typeof getEffectiveShortcut>[1];
 
 /**
- * 面板内用来「再按一次关闭」的组合键。必须读生效绑定而不是写死 mod+k：
- * 这个动作在设置里可改键，写死会导致改键后旧键仍能关、新键反而无效。
+ * 面板用到的生效快捷键：「再按一次关闭」的开关键，以及按钮上展示的新建会话键。
+ * 必须读生效绑定而不是写死默认键：这些动作在设置里可改键，写死会导致改键后旧键仍能关、
+ * 按钮上显示的也是错的。默认键只在快捷键定义里维护一份，空绑定即推导出默认值。
  * 只在面板打开过之后才去读配置，避免为一个常驻组件在启动路径上多一次 IPC。
  */
-function useCommandMenuToggleKey(enabled: boolean): string {
-	const [key, setKey] = useState(OPEN_COMMAND_MENU_DEFAULT_KEY);
+function useCommandMenuShortcuts(enabled: boolean): { toggleKey: string; newSessionKey: string } {
+	const [bindings, setBindings] = useState<ShortcutBindings>({});
 	useEffect(() => {
 		if (!enabled) return;
 		let active = true;
-		const apply = (bindings: Parameters<typeof getEffectiveShortcut>[1]) => {
-			if (!active) return;
-			setKey(getEffectiveShortcut(OPEN_COMMAND_MENU_ACTION, bindings) || OPEN_COMMAND_MENU_DEFAULT_KEY);
+		const apply = (next: ShortcutBindings) => {
+			if (active) setBindings(next);
 		};
 		void loadShortcutBindings().then(apply);
 		const unsubscribe = window.vetta.config.onShortcutsChanged((event) => apply(event.bindings ?? {}));
@@ -63,7 +77,15 @@ function useCommandMenuToggleKey(enabled: boolean): string {
 			unsubscribe();
 		};
 	}, [enabled]);
-	return key;
+	return useMemo(
+		() => ({
+			toggleKey:
+				getEffectiveShortcut(OPEN_COMMAND_MENU_ACTION, bindings) ||
+				getEffectiveShortcut(OPEN_COMMAND_MENU_ACTION, {}),
+			newSessionKey: getEffectiveShortcut(NEW_SESSION_ACTION, bindings),
+		}),
+		[bindings],
+	);
 }
 
 export interface CommandMenuModel {
@@ -72,6 +94,11 @@ export interface CommandMenuModel {
 	readonly groups: readonly CommandMenuGroupView[];
 	readonly selectedId: string | null;
 	readonly labels: CommandMenuViewLabels;
+	/** 唤起 / 关闭面板的生效快捷键，供视图显示键帽。 */
+	readonly toggleShortcut: string;
+	/** 新建会话的生效快捷键，显示在左下角按钮里。 */
+	readonly newSessionShortcut: string;
+	readonly onNewSession: () => void;
 	readonly suppressSelectionAnimation: boolean;
 	readonly onQueryChange: (value: string) => void;
 	readonly onHoverItem: (id: string) => void;
@@ -82,7 +109,7 @@ export interface CommandMenuModel {
 /**
  * 已装能力的目录。刻意**不在面板打开时就取**，而是等到第一次有查询词：
  * 空查询态下不产生任何 IPC 是既定约束，而这两个调用虽然是本地的，也没必要
- * 为一次「按了 ⌘K 又按 esc」付出代价。取到后在本次打开期间缓存。
+ * 为一次「打开面板又按 esc」付出代价。取到后在本次打开期间缓存。
  */
 function useInstalledAbilities(enabled: boolean): {
 	data: { skills: SkillInfo[]; plugins: InstalledPlugin[] };
@@ -141,8 +168,76 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 	const workspaceViews = useAtomValue(pluginWorkspaceViewsAtom);
 	const resolvePluginText = usePluginTextResolver();
 
-	const toggleKey = useCommandMenuToggleKey(open);
+	const { toggleKey, newSessionKey } = useCommandMenuShortcuts(open);
+	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
 	const hasQuery = Boolean(deferredQuery.trim());
+	const runningPaths = useAtomValue(runningSessionPathsAtom);
+	const waitingPaths = useAtomValue(pendingInteractionPathsAtom);
+	const attentionPaths = useAtomValue(attentionSessionPathsAtom);
+	const activity = useMemo(
+		() => ({ runningPaths, waitingPaths, attentionPaths }),
+		[runningPaths, waitingPaths, attentionPaths],
+	);
+	const recentVisits = useAtomValue(recentSessionVisitsAtom);
+	const recentRank = useMemo(
+		() => new Map(recentVisits.map((visit, index) => [visit.path, index] as const)),
+		[recentVisits],
+	);
+	/**
+	 * 空查询时要展示的会话：进行中的全部 + 最近打开的前几条（面板兼做全局监视与回访入口）。
+	 * 用排序后拼接的字符串做依赖：集合对象每次变化都是新引用，但只有成员变了才值得重算。
+	 */
+	// 面板常驻挂载：关着时不算任何目录，运行状态 / 侧栏数据频繁变化也只是几次廉价的空分支。
+	const watchedKey = useMemo(
+		() =>
+			!open || hasQuery
+				? ""
+				: [
+						...new Set([
+							...[...waitingPaths].filter(([, n]) => n > 0).map(([path]) => path),
+							...runningPaths,
+							...attentionPaths,
+							...recentVisits.slice(0, RECENT_GROUP_SIZE).map((visit) => visit.path),
+						]),
+					]
+						.sort()
+						.join("\n"),
+		[open, hasQuery, runningPaths, waitingPaths, attentionPaths, recentVisits],
+	);
+	const watchedPaths = useMemo(() => (watchedKey ? watchedKey.split("\n") : []), [watchedKey]);
+
+	/**
+	 * 关注会话的元数据优先取侧栏内存（零 IPC、标题实时）；侧栏里没有的（例如自动化 / IM 在没展开的项目里
+	 * 跑起来的会话）才去检索，检索到的结果缓存下来跨多次打开复用。
+	 * 每个路径在本次运行里最多检索一次：检索不到的（已删除、来源不在检索范围）记下来不再重试，
+	 * 否则它会永远「缺数据」，每次呼出都重新检索、闪一次骨架。
+	 */
+	const sidebarSessions = useAtomValue(sessionsMapAtom);
+	const imConversationCwd = useAtomValue(defaultImConversationCwdAtom);
+	const sidebarMeta = useMemo(
+		() =>
+			findSidebarSessions(watchedPaths, {
+				sessionsByBucket: sidebarSessions,
+				projects,
+				defaultConversationCwd,
+				imConversationCwd,
+			}),
+		[watchedPaths, sidebarSessions, projects, defaultConversationCwd, imConversationCwd],
+	);
+	const [searchedMeta, setSearchedMeta] = useState<ReadonlyMap<string, DesktopSessionSearchResult>>(() => new Map());
+	const searchedMetaRef = useRef(searchedMeta);
+	searchedMetaRef.current = searchedMeta;
+	const attemptedPathsRef = useRef(new Set<string>());
+	// 只在关注集合、侧栏数据变化或面板重新打开时计算缺口，而不是检索结果每合入一条就重算：
+	// 结果逐条流式到达，缺口若随之变化，就会不断取消、重开同一次检索。
+	const missingPaths = useMemo(() => {
+		if (!open) return undefined;
+		const missing = watchedPaths.filter(
+			(path) => !sidebarMeta.has(path) && !searchedMetaRef.current.has(path) && !attemptedPathsRef.current.has(path),
+		);
+		return missing.length > 0 ? missing : undefined;
+	}, [watchedPaths, sidebarMeta, open]);
+
 	const abilities = useInstalledAbilities(open && hasQuery);
 	useEffect(() => {
 		if (!open || !hasQuery || !window.vetta.agentTeams) return;
@@ -160,11 +255,30 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		};
 	}, [open, hasQuery]);
 
-	// 会话是唯一的异步源：空查询时后端只回一份 sources 就 done，故不必发起。
-	const sessionSearch = useSessionSearch(open && hasQuery, {
+	// 会话是唯一的异步源：空查询时只为缓存里没有的关注会话发起。
+	const sessionSearch = useSessionSearch(open && (hasQuery || Boolean(missingPaths)), {
 		query: deferredQuery,
-		limit: SESSION_RESULT_LIMIT,
+		limit: hasQuery ? SESSION_RESULT_LIMIT : Math.max(SESSION_RESULT_LIMIT, missingPaths?.length ?? 0),
+		activePaths: hasQuery ? undefined : missingPaths,
 	});
+	// 一次为缺口发起的检索结束（loading 由真转假）后，把这批路径记为已尝试；检索不到的不再重试。
+	// 放在 effect 里而不是计算缺口的 memo 里：memo 必须是纯的（开发模式会执行两次）。
+	const searchWasLoadingRef = useRef(false);
+	useEffect(() => {
+		const finished = searchWasLoadingRef.current && !sessionSearch.loading;
+		searchWasLoadingRef.current = sessionSearch.loading;
+		if (finished && !hasQuery && missingPaths) {
+			for (const path of missingPaths) attemptedPathsRef.current.add(path);
+		}
+	}, [sessionSearch.loading, hasQuery, missingPaths]);
+	useEffect(() => {
+		if (sessionSearch.results.length === 0) return;
+		setSearchedMeta((previous) => {
+			const next = new Map(previous);
+			for (const result of sessionSearch.results) next.set(result.session.path, result);
+			return next;
+		});
+	}, [sessionSearch.results]);
 
 	const sourceLabels = useMemo<CommandMenuSourceLabels>(
 		() => ({
@@ -173,6 +287,11 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 				claw: t("commandMenu.sessionTypes.claw"),
 				project: t("commandMenu.sessionTypes.project"),
 				batch: t("commandMenu.sessionTypes.batch"),
+			},
+			sessionStatus: {
+				running: t("commandMenu.sessionStatus.running"),
+				waiting: t("commandMenu.sessionStatus.waiting"),
+				unread: t("commandMenu.sessionStatus.unread"),
 			},
 			sessionUnavailable: t("commandMenu.sessionUnavailable"),
 			settingsGroupHint: t("commandMenu.groups.settings"),
@@ -186,6 +305,8 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 	const groupLabels = useMemo<CommandMenuGroupLabels>(
 		() => ({
 			groups: {
+				activeSessions: t("commandMenu.groups.activeSessions"),
+				recentSessions: t("commandMenu.groups.recentSessions"),
 				projects: t("commandMenu.groups.projects"),
 				sessions: t("commandMenu.groups.sessions"),
 				abilities: t("commandMenu.groups.abilities"),
@@ -199,12 +320,15 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 
 	// 目录只跟着源数据重建，击键不会重跑它——这是击键路径上最大的一块成本。
 	const staticEntries = useMemo<CommandMenuEntry[]>(
-		() => [
-			...buildProjectEntries(projects),
-			...buildSettingsEntries({ isMac, isWindows }, (key) => tSettings(key)),
-			...buildWorkspaceViewEntries(workspaceViews, (view, raw) => resolvePluginText(view.pluginId, raw)),
-		],
-		[projects, workspaceViews, tSettings, resolvePluginText],
+		() =>
+			open
+				? [
+						...buildProjectEntries(projects),
+						...buildSettingsEntries({ isMac, isWindows }, (key) => tSettings(key)),
+						...buildWorkspaceViewEntries(workspaceViews, (view, raw) => resolvePluginText(view.pluginId, raw)),
+					]
+				: [],
+		[open, projects, workspaceViews, tSettings, resolvePluginText],
 	);
 
 	const abilityEntries = useMemo(
@@ -212,12 +336,15 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		[abilities.data, sourceLabels],
 	);
 
-	const sessionEntries = useMemo(
-		() => buildSessionEntries(sessionSearch.results.slice(0, SESSION_RESULT_LIMIT), sourceLabels),
-		[sessionSearch.results, sourceLabels],
-	);
+	const sessionEntries = useMemo(() => {
+		const results = hasQuery
+			? sessionSearch.results.slice(0, SESSION_RESULT_LIMIT)
+			: watchedPaths.flatMap((path) => sidebarMeta.get(path) ?? searchedMeta.get(path) ?? []);
+		return buildSessionEntries(results, sourceLabels, { activity, recentRank, asRecentGroup: !hasQuery });
+	}, [hasQuery, sessionSearch.results, watchedPaths, sidebarMeta, searchedMeta, sourceLabels, activity, recentRank]);
 
 	const entries = useMemo<CommandMenuEntry[]>(() => {
+		if (!open) return [];
 		const teamEntries = teams
 			.filter(
 				(session) =>
@@ -241,11 +368,14 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 			const item = commandSpaceItem(entry.action);
 			if (!item) return entry;
 			const label = spaceDisplayName(spaces, spaceOf(spaces, item), tProject("spaces.main"));
+			// 项目行的工作空间放进 badge；会话行的 badge 已经是所属项目，工作空间退到副标题。
+			if (entry.action.kind === "openProject") return { ...entry, badge: label };
 			return { ...entry, subtitle: entry.subtitle ? `${entry.subtitle} · ${label}` : label };
 		});
 		// 逃生行只在有查询词时出现：空态里它没有可携带的搜索词，等于一条噪音。
 		return hasQuery ? [...all, buildMarketplaceEscapeEntry(deferredQuery, sourceLabels)] : all;
 	}, [
+		open,
 		staticEntries,
 		abilityEntries,
 		sessionEntries,
@@ -258,6 +388,10 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		sourceLabels,
 	]);
 
+	// 空查询只在有进行中的会话还没取到时才在「进行中」占骨架位；最近打开不占，取到了再出现即可。
+	const showActiveSkeleton =
+		!hasQuery && sessionSearch.loading && Boolean(missingPaths?.some((path) => resolveSessionStatus(path, activity)));
+
 	const tokens = useMemo(() => tokenizeCommandMenuQuery(deferredQuery), [deferredQuery]);
 
 	const { groups, orderedIds, entryById } = useMemo(
@@ -266,9 +400,16 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 				entries,
 				tokens,
 				labels: groupLabels,
-				loadingGroups: sessionSearch.loading ? ["sessions"] : [],
+				// 空查询只在列进行中会话，骨架位留给「进行中」组。
+				loadingGroups: hasQuery
+					? sessionSearch.loading
+						? ["sessions"]
+						: []
+					: showActiveSkeleton
+						? ["activeSessions"]
+						: [],
 			}),
-		[entries, tokens, groupLabels, sessionSearch.loading],
+		[entries, tokens, groupLabels, sessionSearch.loading, hasQuery, showActiveSkeleton],
 	);
 
 	const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -299,6 +440,13 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		setSelectedId(null);
 		setSuppressSelectionAnimation(true);
 	}, [setOpen]);
+
+	/** 与全局「新建会话」快捷键同一落点：默认进「对话」的新会话页，cwd 未就绪时退回第一个项目。 */
+	const newSession = useCallback(() => {
+		const target = defaultConversationCwd || projects[0]?.cwd;
+		close();
+		if (target) void navigate({ to: "/new-session/$cwd", params: { cwd: encodeURIComponent(target) } });
+	}, [close, defaultConversationCwd, projects, navigate]);
 
 	const runAction = useCallback(
 		(action: CommandMenuAction) => {
@@ -428,7 +576,7 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 
 	/**
 	 * exclusive：面板打开期间未匹配的键不下沉到 app 层，否则在面板里敲 mod+n
-	 * 会在背后新建会话。mod+k 显式绑成关闭——app 层那条是 `when: "always"`，
+	 * 会在背后新建会话。开关键显式绑成关闭——app 层那条是 `when: "always"`，
 	 * 不在这里拦下就会被再次「打开」，表现为按了没反应；用的是生效绑定而非默认键。
 	 */
 	useShortcutScope({
@@ -453,8 +601,12 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		setSuppressSelectionAnimation(true);
 	}, []);
 
+	/**
+	 * 鼠标悬停让选中底色直接落到指针下那一行，不做滑动：指针扫过一串行时，
+	 * 底色追着指针一路滑会显得拖沓。只有方向键移动才播放滑动。
+	 */
 	const onHoverItem = useCallback((id: string) => {
-		setSuppressSelectionAnimation(false);
+		setSuppressSelectionAnimation(true);
 		setSelectedId(id);
 	}, []);
 
@@ -465,19 +617,28 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 			emptyHint: t("commandMenu.emptyHint"),
 			loading: t("commandMenu.loading"),
 			title: t("commandMenu.title"),
-			hintNavigate: t("commandMenu.hintNavigate"),
+			actionsLabel: t("commandMenu.actionsLabel"),
+			newSession: t("commandMenu.newSession"),
 			hintSelect: t("commandMenu.hintSelect"),
 			hintClose: t("commandMenu.hintClose"),
 		}),
 		[t],
 	);
 
+	// 关闭后不再计算条目，但退场淡出期间面板还在画面上：沿用关闭前最后一次的分组，
+	// 否则淡出时会闪一下空状态。
+	const lastOpenGroupsRef = useRef(groups);
+	if (open) lastOpenGroupsRef.current = groups;
+
 	return {
 		open,
 		query,
-		groups,
+		groups: open ? groups : lastOpenGroupsRef.current,
 		selectedId,
 		labels,
+		toggleShortcut: toggleKey,
+		newSessionShortcut: newSessionKey,
+		onNewSession: newSession,
 		suppressSelectionAnimation,
 		onQueryChange,
 		onHoverItem,

@@ -154,12 +154,7 @@ const CATALOG = [
 		contextLabelKey: "aiAssist.context.shortcuts",
 		defaultIntentKey: "aiAssist.defaultIntent.shortcuts",
 		placeholderKey: "aiAssist.placeholder.shortcuts",
-		exampleKeys: [
-			WHAT_CAN_YOU_CONFIGURE,
-			"aiAssist.examples.shortcuts.list",
-			"aiAssist.examples.shortcuts.quickpanel",
-			"aiAssist.examples.shortcuts.reset",
-		],
+		exampleKeys: [WHAT_CAN_YOU_CONFIGURE, "aiAssist.examples.shortcuts.list", "aiAssist.examples.shortcuts.reset"],
 	},
 	{
 		tabId: "agent",

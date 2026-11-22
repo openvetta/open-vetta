@@ -70,7 +70,7 @@ import { getAppLogger } from "../logger.js";
 import { getDesktopMcpAppRegistry } from "../mcp/mcp-app-runtime.js";
 import { getDesktopMcpTaskCoordinator, getDesktopMcpTaskRegistry } from "../mcp/mcp-task-runtime.js";
 import { forgetMessageAnnotations } from "../message-annotations/host.js";
-import { notify } from "../notifications/index.js";
+import { forgetDeletedSessionAttention, notify } from "../notifications/index.js";
 import { SessionTurnNotificationController } from "../notifications/session-turn-notification-controller.js";
 import { PetSessionPresentationController } from "../pet/pet-session-presentation-controller.js";
 import { sendPetCommandToWindow } from "../pet-window.js";
@@ -241,7 +241,7 @@ const CHANNELS = {
 	LIST_RUNNING_CWDS: "vetta:session:list-running-cwds",
 	RUNNING_CHANGED: "vetta:session:running-changed",
 	// 某 session 是否有待用户处理的交互（提问 / 计划审批 / MCP 询问 / 沙箱授权）；
-	// 广播给所有窗口（侧栏 + 快捷面板）。
+	// 广播给所有窗口。
 	PENDING_QUESTION_CHANGED: "vetta:session:pending-question-changed",
 	/** 仍在等用户处理的会话快照；窗口重载后用它收敛，事件只带增量。 */
 	PENDING_QUESTION_LIST: "vetta:session:pending-question-list",
@@ -265,7 +265,7 @@ const CHANNELS = {
 	PLUGIN_SYSTEM_PROMPT_RESPONSE: PLUGIN_CONTRIBUTION_CHANNELS.SYSTEM_PROMPT_RESPONSE,
 } as const;
 
-/** 向所有存活窗口（含独立的快捷面板窗口）广播一个事件。 */
+/** 向所有存活窗口广播一个事件。 */
 function broadcastToAllWindows(channel: string, payload: unknown): void {
 	for (const win of BrowserWindow.getAllWindows()) {
 		if (win.isDestroyed()) continue;
@@ -283,7 +283,7 @@ const pendingInteractions = new PendingInteractions();
 
 /**
  * `sessionPath` 上某个交互请求开始/结束等待，并把最新计数广播给所有窗口。
- * 广播字段沿用 `hasPendingQuestion`，兼容快捷面板既有订阅。
+ * 广播字段沿用 `hasPendingQuestion`，兼容既有订阅。
  */
 function setPendingInteraction(sessionPath: string, requestId: string, pending: boolean): void {
 	const changed = pending
@@ -402,9 +402,13 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	const runtime = getSharedRuntime();
 	const goalController = new DesktopGoalController(runtime);
+	const handleSessionsDeleted = (isDeleted: (sessionPath: string) => boolean): void => {
+		notifyAutomationSessionsDeleted(isDeleted);
+		forgetDeletedSessionAttention(isDeleted);
+	};
 	const sessionCommands = createDesktopSessionCommands({
 		runtime,
-		onSessionsDeleted: notifyAutomationSessionsDeleted,
+		onSessionsDeleted: handleSessionsDeleted,
 		forgetAnnotations: forgetMessageAnnotations,
 	});
 	const pluginRuntimeSource = getDesktopCodingAgentPluginRuntimeSource();
@@ -531,7 +535,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			questionMap.set(request.requestId, finish);
 			petPresentationController.beginWaiting(request.sessionId, waitingKey, "notice.waiting.question");
 			webContents.send(CHANNELS.QUESTION_REQUEST, request);
-			// 广播「待答」给所有窗口（侧栏 + 快捷面板）。
+			// 广播「待答」给所有窗口。
 			if (sessionPath) setPendingInteraction(sessionPath, waitingKey, true);
 			// 同时发系统通知「有问题待确认」（点击跳转该 session）；前台看着该 session 时自动抑制。
 			const cwd = sessionCwdMap.get(request.sessionId);
@@ -1353,7 +1357,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			throw err;
 		}
 		await mkdir(targetSessionDir, { recursive: true });
-		notifyAutomationSessionsDeleted((path) => resolve(path).startsWith(sessionDirWithSep));
+		handleSessionsDeleted((path) => resolve(path).startsWith(sessionDirWithSep));
 	});
 
 	ipcMain.handle(CHANNELS.CLEAR_DEFAULT_ARTIFACTS, async (_event, scope: unknown) => {
@@ -1395,7 +1399,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		if (!webContents.isDestroyed()) {
 			webContents.send(CHANNELS.RUNNING_CHANGED, payload);
 		}
-		// 并行广播给其它窗口（如独立的快捷面板窗口），让它们也能跟随运行态。
+		// 并行广播给其它窗口，让它们也能跟随运行态。
 		for (const win of BrowserWindow.getAllWindows()) {
 			if (win.isDestroyed()) continue;
 			const wc = win.webContents;

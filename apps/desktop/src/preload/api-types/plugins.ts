@@ -43,9 +43,6 @@ import type {
 	PersistedArtifact,
 	ProjectEntry,
 	ProjectListResult,
-	QuickPanelPostSendBehavior,
-	QuickPanelSettings,
-	QuickPanelTrigger,
 	SchedulerCommandResult,
 	SchedulerExecutionRecord,
 	SchedulerTask,
@@ -591,8 +588,6 @@ export interface DesktopPluginCapabilityShortcutsApi {
 	setBinding(sessionId: string, id: string, shortcut: string): Promise<ShortcutBindingsResult>;
 	resetBinding(sessionId: string, id: string): Promise<ShortcutBindingResetResult>;
 	resetAllBindings(sessionId: string): Promise<ShortcutBindingsResult>;
-	setQuickPanelTrigger(sessionId: string, trigger: QuickPanelTrigger): Promise<QuickPanelSettings>;
-	setQuickPanelPostSendBehavior(sessionId: string, behavior: QuickPanelPostSendBehavior): Promise<QuickPanelSettings>;
 }
 
 export interface DesktopPluginCapabilityDownloadsApi {

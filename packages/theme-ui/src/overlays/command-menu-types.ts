@@ -20,6 +20,14 @@ export interface CommandMenuItemView {
 	/** iconify 类名，例如 `icon-[solar--folder-linear]`。 */
 	readonly icon: string;
 	readonly badge?: string;
+	/** badge 的色调：accent 用主题强调色（如「技能」），默认是中性灰。 */
+	readonly badgeTone?: "neutral" | "accent";
+	/**
+	 * 会话的进行中状态：有值时行首图标换成与侧栏一致的状态图标，并在行尾显示 statusLabel。
+	 * waiting 指会话正等着用户处理（提问 / 审批 / 询问 / 授权）；unread 指一轮已跑完、用户还没打开看。
+	 */
+	readonly status?: "running" | "waiting" | "unread";
+	readonly statusLabel?: string;
 	/** 行尾的标签色点（管理会话用），按给定顺序排列。 */
 	readonly tagColors?: readonly string[];
 	/** 命中了但当前打不开（例如无权限的会话）：显示但禁用，不静默过滤。 */
@@ -43,7 +51,11 @@ export interface CommandMenuViewLabels {
 	readonly emptyHint: string;
 	readonly loading: string;
 	readonly title: string;
-	readonly hintNavigate: string;
+	/** 右下角操作按钮组的无障碍名称。 */
+	readonly actionsLabel: string;
+	/** 左下角「新会话」按钮文案。 */
+	readonly newSession: string;
+	/** 按钮文案只写动作（「打开」），键帽由视图按平台渲染。 */
 	readonly hintSelect: string;
 	readonly hintClose: string;
 }

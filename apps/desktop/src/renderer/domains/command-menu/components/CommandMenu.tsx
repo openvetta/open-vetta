@@ -20,7 +20,7 @@ export function CommandMenu({ onOpenSession }: CommandMenuProps): JSX.Element {
 	const model = useCommandMenuModel({ onOpenSession });
 	const inputRef = useRef<HTMLInputElement | null>(null);
 
-	// 打开后把焦点交给输入框：⌘K 唤起后的第一动作永远是打字。
+	// 打开后把焦点交给输入框：唤起后的第一动作永远是打字。
 	useEffect(() => {
 		if (!model.open) return;
 		const frame = requestAnimationFrame(() => inputRef.current?.focus());
@@ -34,6 +34,9 @@ export function CommandMenu({ onOpenSession }: CommandMenuProps): JSX.Element {
 			groups={model.groups}
 			selectedId={model.selectedId}
 			labels={model.labels}
+			toggleShortcut={model.toggleShortcut}
+			onNewSession={model.onNewSession}
+			newSessionShortcut={model.newSessionShortcut}
 			suppressSelectionAnimation={model.suppressSelectionAnimation}
 			inputRef={inputRef}
 			onQueryChange={model.onQueryChange}

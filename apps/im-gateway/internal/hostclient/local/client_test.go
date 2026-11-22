@@ -49,6 +49,7 @@ import (
 
 func main() {
 	lock := flag.Bool("lock", false, "")
+	lockPadding := flag.Int("lock-padding", 0, "")
 	crash := flag.Bool("crash", false, "")
 	silent := flag.Bool("silent", false, "")
 	echo := flag.Bool("echo", false, "")
@@ -60,6 +61,12 @@ func main() {
 	flag.Parse()
 
 	if *lock {
+		// Optional padding ahead of the lock line: more than a pipe buffer's
+		// worth, so the child exits while the parent is still reading.
+		pad := strings.Repeat("x", 2048)
+		for i := 0; i < *lockPadding; i++ {
+			json.NewEncoder(os.Stdout).Encode(map[string]any{"type": "padding", "data": pad})
+		}
 		json.NewEncoder(os.Stdout).Encode(map[string]any{
 			"type":           "response",
 			"command":        "startup",
@@ -215,6 +222,24 @@ func TestOpenSession_StartupLockError(t *testing.T) {
 	}
 	if lockErr.Holder.Hostname != "test-host" {
 		t.Errorf("holder hostname: %q", lockErr.Holder.Hostname)
+	}
+}
+
+// The lock line lands at the tail of ~200KB of output, so the child has
+// exited while the parent is still draining stdout. Exit must not be
+// announced (nor the pipe closed under the reader) before that tail is read,
+// or the lock error degrades into a generic process_exited failure.
+func TestOpenSession_StartupLockErrorAfterBufferedOutput(t *testing.T) {
+	bin := buildFakeAgent(t)
+	wrapper := writeWrapperScript(t, bin, "--lock", "--lock-padding=100")
+
+	for i := 0; i < 20; i++ {
+		c := New(Options{Bin: wrapper, HandshakeTimeout: 5 * time.Second, CloseTimeout: 2 * time.Second})
+		_, err := c.OpenSession(context.Background(), t.TempDir(), filepath.Join(t.TempDir(), "session.jsonl"))
+		var lockErr *hostclient.ErrSessionLocked
+		if !errors.As(err, &lockErr) {
+			t.Fatalf("attempt %d: expected *ErrSessionLocked, got %T: %v", i, err, err)
+		}
 	}
 }
 

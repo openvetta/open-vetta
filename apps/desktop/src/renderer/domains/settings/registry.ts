@@ -134,7 +134,6 @@ export const SETTINGS_SECTIONS = [
 	{ tab: "im", id: "imbridge-logs", title: "实时日志", titleKey: "section_imbridge-logs" },
 	{ tab: "webhook", id: "webhook-channels", title: "渠道列表", titleKey: "section_webhook-channels" },
 	{ tab: "shortcuts", id: "shortcuts-global", title: "全局快捷键", titleKey: "section_shortcuts-global" },
-	{ tab: "shortcuts", id: "shortcuts-quickpanel", title: "快捷面板", titleKey: "section_shortcuts-quickpanel" },
 	{ tab: "appshot", id: "appshot-gesture", title: "触发快捷键", titleKey: "section_appshot-gesture" },
 	{ tab: "appshot", id: "appshot-permissions", title: "权限", titleKey: "section_appshot-permissions" },
 	{ tab: "spaces", id: "workspaces", title: "工作空间", titleKey: "section_workspaces" },

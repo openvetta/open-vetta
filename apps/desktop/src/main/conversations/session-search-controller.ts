@@ -69,6 +69,7 @@ export function parseSessionSearchRequest(value: unknown): DesktopSessionSearchR
 	const projectCwd = Reflect.get(value, "projectCwd");
 	const modifiedFrom = parseTimeBound(Reflect.get(value, "modifiedFrom"));
 	const modifiedBefore = parseTimeBound(Reflect.get(value, "modifiedBefore"));
+	const activePaths = parseActivePaths(Reflect.get(value, "activePaths"));
 	if (modifiedFrom !== undefined && modifiedBefore !== undefined && modifiedFrom >= modifiedBefore)
 		throw new Error("Invalid search time range");
 	if (typeof query !== "string" || query.length > 200) throw new Error("Invalid search query");
@@ -84,7 +85,18 @@ export function parseSessionSearchRequest(value: unknown): DesktopSessionSearchR
 		throw new Error("Invalid search type");
 	if (projectCwd !== undefined && (typeof projectCwd !== "string" || !projectCwd.trim() || projectCwd.length > 4096))
 		throw new Error("Invalid search project");
-	return { query: query.trim(), limit, sourceKind, projectCwd, modifiedFrom, modifiedBefore };
+	return { query: query.trim(), limit, sourceKind, projectCwd, modifiedFrom, modifiedBefore, activePaths };
+}
+
+function parseActivePaths(value: unknown): readonly string[] | undefined {
+	if (value === undefined) return undefined;
+	if (
+		!Array.isArray(value) ||
+		value.length > 100 ||
+		!value.every((path) => typeof path === "string" && path.trim().length > 0 && path.length <= 4096)
+	)
+		throw new Error("Invalid search active paths");
+	return value.length > 0 ? value : undefined;
 }
 
 function parseTimeBound(value: unknown): number | undefined {

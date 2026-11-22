@@ -47,7 +47,6 @@ import {
 	registerSchedulerIpc,
 	teardownAllIpc,
 } from "./ipc/index.js";
-import { syncQuickPanelTrigger } from "./ipc/quickpanel.js";
 import { disposeAllTerminals } from "./ipc/terminal.js";
 import { registerUiZoomIpc } from "./ipc/ui-zoom.js";
 import { registerKnowledgeIpc } from "./knowledge/ipc.js";
@@ -68,8 +67,6 @@ import { migrateLegacyPluginSettings } from "./plugins/plugin-legacy-settings-mi
 import { createDesktopPluginPackageOpenService } from "./plugins/plugin-package-open.js";
 import { PLUGIN_PROTOCOL_PRIVILEGES, registerPluginProtocols } from "./plugins/plugin-protocol.js";
 import { refreshDesktopProxy } from "./proxy/proxy-host.js";
-import { stopAllUiohookConsumers } from "./quickpanel-trigger.js";
-import { createQuickPanelWindow } from "./quickpanel-window.js";
 import { isQuitCleanupStarted, runQuitCleanup, setQuitCleanup } from "./quit-cleanup.js";
 import {
 	getDesktopRemoteAccessManager,
@@ -96,6 +93,7 @@ import {
 	rebuildTrayContextMenu,
 	setHideToTrayOnClose,
 } from "./tray-manager.js";
+import { stopAllUiohookConsumers } from "./uiohook-gestures.js";
 import { consumePendingUpdateRelaunch } from "./update-relaunch-marker.js";
 import { getAppVersion, runUpgradeE2e, updaterService } from "./updater.js";
 import {
@@ -834,13 +832,7 @@ if (!gotSingleLock) {
 
 				initializePetWindow();
 				startPetIdleGuard();
-				// 快捷面板：预创建隐藏窗口（按需 show/hide，不每次重建），随后据配置启停双击功能键监听。
-				// registerAllIpc 已注册快捷面板 IPC（含 RELOAD_HOTKEY），这里仅补窗口与初次触发器同步。
-				createQuickPanelWindow();
-				void syncQuickPanelTrigger().catch((err) => {
-					mainLog.error("failed to sync quick panel trigger", err);
-				});
-				// Appshot：据配置启停「双键同按」手势监听（与快捷面板共享 uiohook 单例）。
+				// Appshot：据配置启停「双键同按」手势监听。
 				void syncAppshotGesture().catch((err) => {
 					mainLog.error("failed to sync appshot gesture", err);
 				});
@@ -897,7 +889,7 @@ setQuitCleanup(async () => {
 		teardownBatchTasksIpc = undefined;
 	}
 
-	// 退出前注销全部全局键盘监听消费者（快捷面板双击 + appshot 双键同按）。
+	// 退出前注销全部全局键盘监听消费者（appshot 双键同按）。
 	// 必须等它完成：uiohook worker 要自己跑完 uIOhook.stop()，否则进程退出时
 	// uiohook-napi 的 env cleanup hook 会 SIGTRAP（macOS「意外退出」弹窗）。
 	const uiohookShutdown = stopAllUiohookConsumers();

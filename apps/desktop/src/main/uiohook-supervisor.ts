@@ -2,7 +2,7 @@
 // 背景见 uiohook-worker.ts 头注释——uiohook-napi 启动竞态死锁只会冻结 worker 线程，
 // 这里以「启动超时即终止重拉」兜底，Electron 主线程 UI 永不因此阻塞。
 // 不依赖 electron 与 node:worker_threads，宿主创建由调用方注入
-// （quickpanel-trigger.ts 注入 new Worker(...) 的适配器），便于用 fake child 做单元测试。
+// （uiohook-gestures.ts 注入 new Worker(...) 的适配器），便于用 fake child 做单元测试。
 
 import { getAppLogger } from "./logger.js";
 import type { UiohookHostRequest } from "./uiohook-protocol.js";

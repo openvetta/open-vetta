@@ -50,7 +50,7 @@ Debug 停止后，可以显式同步开发环境当前的模型配置和相关�
 bun run verify:ui:sync:debug
 ```
 
-播种和同步只写入净化后的 `agent/models.json`，并复制其中 `credentialRef` 实际引用的 `models/api-key` 加密记录。模型参数和环境变量取密引用会保留，内联明文 key 与命令型取密配置会删除；凭据保持 Electron `safeStorage` 密文，不解密、不输出。首次播种还会生成一份关闭通知、知识库、Quick Panel 和 Appshot 后台能力的安全桌面配置，并只注册当前仓库。以下内容不会复制：会话、锁、Action RPC endpoint、登录态、项目历史、插件、MCP、Skill、调度器、批处理、IM/Webhook 数据和缓存。后续同步不会覆盖 Debug 中已经修改的桌面配置。
+播种和同步只写入净化后的 `agent/models.json`，并复制其中 `credentialRef` 实际引用的 `models/api-key` 加密记录。模型参数和环境变量取密引用会保留，内联明文 key 与命令型取密配置会删除；凭据保持 Electron `safeStorage` 密文，不解密、不输出。首次播种还会生成一份关闭通知、知识库和 Appshot 后台能力的安全桌面配置，并只注册当前仓库。以下内容不会复制：会话、锁、Action RPC endpoint、登录态、项目历史、插件、MCP、Skill、调度器、批处理、IM/Webhook 数据和缓存。后续同步不会覆盖 Debug 中已经修改的桌面配置。
 
 要附着已经运行的普通开发应用，先在另一个终端启动 Desktop，再使用 Dev 命令：
 

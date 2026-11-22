@@ -1,6 +1,5 @@
 /**
  * 全局应用快捷键（设置 → 快捷键 → 全局快捷键）。
- * 与快捷面板（quickPanel）无关：后者是独立域，勿混写。
  */
 
 export interface ShortcutActionDef {
@@ -56,7 +55,7 @@ export const SHORTCUT_ACTIONS = [
 		id: "open-command-menu",
 		labelKey: "shortcutOpenCommandMenuLabel",
 		descriptionKey: "shortcutOpenCommandMenuDesc",
-		defaultShortcut: "mod+k",
+		defaultShortcut: "mod+t",
 		scope: "app",
 	},
 	{

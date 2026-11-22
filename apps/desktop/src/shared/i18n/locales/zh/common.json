@@ -170,8 +170,6 @@
 			"headers": "请求头",
 			"shortcutActionId": "快捷键动作",
 			"shortcutCombo": "组合键",
-			"quickpanelTrigger": "呼出触发",
-			"quickpanelBehavior": "发送后行为",
 			"configLocation": "配置位置"
 		},
 		"shortcuts": {
@@ -195,23 +193,7 @@
 					"summary": "把下列功能的自定义快捷键全部清掉，改回默认。",
 					"confirm": "全部恢复默认",
 					"badge": "重置",
-					"impact": "全局功能快捷键会恢复默认；快捷面板怎么呼出、发送后怎么做不会变。",
-					"warningTitle": "仅影响全局功能键",
-					"warning": "不会改快捷面板的呼出方式，也不会改发送后是打开主窗口还是后台运行。"
-				},
-				"set-quick-panel-trigger": {
-					"title": "修改快捷面板呼出方式",
-					"summary": "选择双击哪个键打开快捷面板。选「不启用」后只能从主窗口使用。",
-					"confirm": "保存呼出方式",
-					"badge": "快捷键",
-					"impact": "马上生效，可随时再改。"
-				},
-				"set-quick-panel-behavior": {
-					"title": "修改发送后行为",
-					"summary": "在快捷面板发出消息后，是打开主窗口跟进，还是只在后台继续跑。",
-					"confirm": "保存发送后行为",
-					"badge": "快捷键",
-					"impact": "只影响之后从快捷面板发出的对话。"
+					"impact": "全局功能快捷键会恢复默认。"
 				}
 			},
 			"bindingSectionTitle": "功能快捷键",
@@ -219,31 +201,7 @@
 			"actionField": "功能",
 			"comboField": "组合键",
 			"comboFieldHint": "点击后按下新的组合键即可录制",
-			"resetToDefault": "将恢复为 {{shortcut}}",
-			"quickPanelTriggerSectionTitle": "快捷面板呼出",
-			"quickPanelTriggerSectionDescription": "与设置页里的快捷面板触发方式相同。",
-			"quickPanelBehaviorSectionTitle": "发送后怎么做",
-			"quickPanelBehaviorSectionDescription": "与设置页里的「发送后行为」相同。",
-			"quickPanelTriggers": {
-				"none": "不启用",
-				"mod": "双击 ⌘ / Ctrl",
-				"alt": "双击 ⌥ / Alt",
-				"shift": "双击 ⇧"
-			},
-			"quickPanelTriggerHints": {
-				"none": "关闭双击呼出，需要时从主窗口操作",
-				"mod": "在任意处双击 ⌘（Mac）或 Ctrl（Windows）打开面板",
-				"alt": "在任意处双击 ⌥ / Alt 打开面板",
-				"shift": "在任意处双击 ⇧ 打开面板"
-			},
-			"quickPanelBehaviors": {
-				"foreground": "打开主窗口",
-				"background": "后台运行"
-			},
-			"quickPanelBehaviorHints": {
-				"foreground": "发送后打开主窗口并定位到新对话",
-				"background": "发送后只关闭面板，对话在后台继续"
-			}
+			"resetToDefault": "将恢复为 {{shortcut}}"
 		},
 		"models": {
 			"ops": {
@@ -1046,14 +1004,17 @@
 		"emptyHint": "换个关键词试试",
 		"loading": "正在搜索会话",
 		"title": "命令面板",
-		"hintNavigate": "↑↓ 选择",
-		"hintSelect": "↵ 打开",
-		"hintClose": "esc 关闭",
+		"actionsLabel": "操作",
+		"newSession": "新会话",
+		"hintSelect": "打开",
+		"hintClose": "关闭",
 		"overflow": "还有 {{count}} 条",
 		"sessionUnavailable": "当前无法打开这个会话",
 		"searchMarketplace": "在能力市场中搜索",
 		"trigger": "搜索",
 		"groups": {
+			"activeSessions": "进行中",
+			"recentSessions": "最近打开",
 			"projects": "项目",
 			"sessions": "会话",
 			"abilities": "能力",
@@ -1069,6 +1030,11 @@
 			"claw": "Claw",
 			"project": "项目",
 			"batch": "批量"
+		},
+		"sessionStatus": {
+			"running": "运行中",
+			"waiting": "等你回答",
+			"unread": "刚完成"
 		}
 	},
 	"updateDialog": {

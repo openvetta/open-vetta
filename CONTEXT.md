@@ -252,6 +252,10 @@ desktop 对 Agent 事件提供的横向通知能力。系统横幅经 OS 原生�
 
 Agent 横幅和提示音各自支持三种范围：`background-only` 只在窗口失焦时投递；`away-from-session` 在窗口失焦，或窗口聚焦但用户没看目标 session 时投递（默认，等价旧行为）；`always` 即使正在查看目标 session 也投递。「正在看哪个 session」由渲染进程上报给主进程，与主进程持有的窗口聚焦态合并判定。
 
+### Dock 角标（dock attention badge）
+
+macOS Dock 图标上的数字，表示**需要用户回来看的 session 数**（同一 session 最多计 1）。来源与 [[通知类型]] 的 Agent 三类事件相同：完成、失败、等待处理；另外，定时任务失败且留下会话时也计入。自动化正常完成、单个子 Agent 完成和用户主动中断不计。窗口聚焦且正停在该 session 时不计；用户打开该 session（含窗口重新聚焦时眼前那个）即减掉，不要求先处理完提问或审批；session 被删除时一并移出。等待处理会让 Dock 跳一次（informational）。计数只存在内存里，重启清零。不受横幅/提示音设置影响，没有独立开关；超过 99 显示 `99+`。
+
 ### 交互式 session
 
 用户在聊天界面**手动发起**的 session，与自动化/批量任务/定时任务等**非手动发起**的 session 相对。判别依据是创建路径：交互式 session 经渲染进程的 `session:create` 通道创建，批量/定时任务直接调运行时创建——故主进程可在 `session:create` 处天然圈定交互式 session。[[agent 完成通知]] **只针对交互式 session**，避免后台任务刷屏。
@@ -618,29 +622,6 @@ _Avoid_: 把卡片数据塞回 `content`——那会污染模型可见通道、�
 ### 卡片收纳（card stacking / 收纳）
 
 消息下方**多张卡片**的展示策略。≥2 张卡片才在卡片区上方出现操作 area（<2 张时直接裸渲染、同今天）：左侧 tab 切换卡片、右侧两个 icon「列表 / 收纳」切布局。**收纳（tab 切换）是基本形态**，列表（向下平铺）是**不持久化的临时形态**——状态存卡片区组件内，卸载/切会话即回落收纳。tab 顺序按卡片在消息里出现的顺序（工具执行顺序），默认激活第一个。依赖 host 经[[卡片渲染器注册表]]对卡片列表的权威认知才得以成立。
-
-### 快捷面板（Quick Panel）
-
-desktop 一个**全局快捷键唤出的独立悬浮窗**（frameless、alwaysOnTop、居中靠上、Spotlight 式），用于不切换上下文地**快速询问 agent**。是与主窗口物理分离的第二个 BrowserWindow（own renderer entry，循 `renderer-ocr` 先例），故**不共享主窗的 jotai store**——它需要的[[最近会话面板]]列表与实时状态全部由 main 进程经 IPC 推送。窗口在启动时创建一次并隐藏，靠 show/hide 切换（非每次重建）；失焦自动隐藏、Esc 隐藏、再次按快捷键 toggle 隐藏。
-
-面板由上到下两块：一个**纯文本输入框**（v1 不支持 [[mentionedFile]] / [[attachedImage]] / `/skill`，复杂带附件任务回主窗做）+ 一个[[最近会话面板]]列表。输入框打字 + Enter 在「对话」scope（[[conversation cwd]]）**新建一个 session 并运行**，复用「对话」默认模型与 `defaultExecutionMode`（面板无模型选择器）。
-
-默认**不启用**：触发选择与发送后行为都在设置页「快捷键设置」里，配置写 main 进程 desktop config（`~/.vetta/config.json`，与 `notificationsEnabled`/`experimental` 同处），**不**走既有 `vetta-shortcuts` localStorage——因触发监听在 main 进程、读不到 renderer localStorage。见 [[快捷面板触发器]]。
-
-### 快捷面板触发器（Quick Panel trigger）
-
-[[快捷面板]]的启动方式：**双击一个功能键**（`config.quickPanel.trigger`，单选 `none` / `mod`=⌘·Ctrl / `alt`=⌥·Alt / `shift`=⇧；缺省 `none`）。`mod` 按平台映射（mac=⌘，其余=Ctrl）；不区分左/右功能键。
-
-双击裸功能键是 Electron `globalShortcut` 能力之外的事，由 `src/main/quickpanel-trigger.ts` 用 **uiohook-napi 原生全局键盘监听**实现：main 进程跟踪目标功能键的「干净点按」（按下→抬起且期间无其它键），两次点按间隔 ≤350ms 即 toggle 面板。仅在 `trigger !== "none"` 时启动监听（默认关=零开销、不申请权限）；配置变更经 `RELOAD_HOTKEY` 热切换。**macOS 首次启动监听需用户在「系统设置 › 输入监控」授权**——设置页对 mac 显示该提示。见 ADR-0035（推翻 ADR-0034 的「普通组合键」缩水方案）。
-_Avoid_: 以为触发是 Electron globalShortcut 或可录制任意组合键——现仅「双击功能键」单选。
-
-### 最近会话面板（Quick Panel recent list）
-
-[[快捷面板]]输入框下方的会话列表，**镜像「对话」侧边栏列表**：仅「对话」scope 的 session，按 `modifiedAt` 倒序。每个 item 显示标题、**实时状态**（运行中 spinner / 待答确认 / 空闲 三态）与**最后一句消息的截断摘要**作副标题。状态与摘要由 main 推送：运行态复用 `runningSessionPathsAtom` 同源的 `vetta:session:running-changed` 广播，待答态复用 [[agent 提问待确认通知]] / pendingQuestions 信号。
-
-键盘模型为 **Raycast 式「输入框为第 0 行」**：输入框始终聚焦，初始高亮输入行；Down 进入列表 item1/2/3、Up 回到输入行；Enter 作用于当前高亮行——高亮输入行且有文字=新建会话，高亮 item=**打开主窗并定位**到该 session（鼠标点击 item 同义）。「打开主窗定位」复用[[系统通知]]点击既有的前台化 + `vetta:notification:navigate` 路由通道。
-
-**发送后行为可配置**（设置项，默认「打开主窗并定位」）：① 打开主窗并定位到新会话 / ② 后台运行、面板只关闭、靠[[agent 完成通知]]提醒。
 
 ### 取消（cancel）与退款（refund）
 

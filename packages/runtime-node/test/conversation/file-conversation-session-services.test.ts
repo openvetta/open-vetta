@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { MessageAppendedEvent, TurnCompletedEvent, TurnStartedEvent } from "@vetta/runtime-core/kernel";
@@ -68,6 +68,32 @@ describe("Greenfield runtime session services", () => {
 		const [session] = await catalog.listSessions(cwd, rootDir);
 
 		expect(session?.modifiedAt).toBe(touchedAt.getTime());
+	});
+
+	it("reuses a parsed session summary until the file changes, then re-reads it", async () => {
+		const rootDir = await createTemporaryRoot();
+		const cwd = join(rootDir, "workspace");
+		const repository = new FileConversationRepository({ rootDir });
+		await repository.create({ sessionId: "cached", createdAt: 10, cwd });
+		await repository.append("cached", 0, [started("cached", 100), userMessage("cached", "alpha question", 110)]);
+		const sessionPath = repository.resolveConversationPath("cached");
+		await repository.close();
+		// 固定到整秒，后面才能把修改时间原样还原（文件系统的亚毫秒精度经 utimes 会丢失）。
+		const pinned = new Date("2030-01-01T00:00:00.000Z");
+		await utimes(sessionPath, pinned, pinned);
+		const catalog = new FileConversationRuntimeSessionCatalog();
+		expect((await catalog.listSessions(cwd, rootDir))[0]?.firstMessage).toBe("alpha question");
+
+		// 同样大小、同样修改时间的改写：摘要直接复用缓存，不重新解析文件。
+		const original = await readFile(sessionPath, "utf8");
+		await writeFile(sessionPath, original.replace("alpha question", "bravo question"));
+		await utimes(sessionPath, pinned, pinned);
+		expect((await catalog.listSessions(cwd, rootDir))[0]?.firstMessage).toBe("alpha question");
+
+		// 内容变长（大小变化）：缓存失效，读到最新内容。
+		await writeFile(sessionPath, original.replace("alpha question", "charlie question"));
+		await utimes(sessionPath, pinned, pinned);
+		expect((await catalog.listSessions(cwd, rootDir))[0]?.firstMessage).toBe("charlie question");
 	});
 
 	it("lists, reads, renames and deletes conversation artifacts without exposing storage details", async () => {

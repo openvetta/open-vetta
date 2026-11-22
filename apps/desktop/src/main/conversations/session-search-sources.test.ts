@@ -38,7 +38,7 @@ vi.mock("node:fs/promises", async (importOriginal) => ({
 	readFile: async (path: string) => JSON.stringify({ type: path.includes("batch") ? "batch" : "project" }),
 }));
 
-import { listDesktopSessionSearchSources } from "./session-search-sources.js";
+import { listDesktopSessionSearchSources, narrowSessionSearchSources } from "./session-search-sources.js";
 
 describe("desktop session search sources", () => {
 	it("uses registered sources only, preserving default buckets and batch working directories", async () => {
@@ -50,5 +50,25 @@ describe("desktop session search sources", () => {
 		expect(sources[3].sessions?.[0]).toMatchObject({ path: "C:/sessions/task", cwd: "C:/batch/item" });
 		expect([...sources[3].executionModeByPath!.values()]).toEqual(["sandbox"]);
 		expect(getProject).toHaveBeenCalledWith("C:/batch");
+	});
+});
+
+describe("narrowSessionSearchSources", () => {
+	const sources = [
+		{ cwd: "C:/conversation", kind: "conversation" as const },
+		{ cwd: "C:/im", kind: "claw" as const },
+		{ cwd: "C:/project", kind: "project" as const, name: "Project" },
+		{ cwd: "C:/other", kind: "project" as const, name: "Other" },
+		{ cwd: "C:/batch", kind: "batch" as const, name: "Batch", sessions: [] },
+	];
+
+	it("keeps only the sources that own the watched sessions, plus inline batch sources", () => {
+		const narrowed = narrowSessionSearchSources(sources, ["C:/project", "C:/conversation/chat-1"]);
+		expect(narrowed.map((source) => source.cwd)).toEqual(["C:/conversation", "C:/project", "C:/batch"]);
+		expect(narrowSessionSearchSources(sources, ["C:/im"]).map((source) => source.cwd)).toEqual(["C:/im", "C:/batch"]);
+	});
+
+	it("falls back to every source when a session header could not be read", () => {
+		expect(narrowSessionSearchSources(sources, ["C:/project", undefined])).toHaveLength(sources.length);
 	});
 });

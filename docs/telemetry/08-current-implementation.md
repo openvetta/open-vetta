@@ -5,7 +5,7 @@
 当前 desktop 已落地以下闭环：
 
 - `@sentry/electron/main` 覆盖 Main、原生崩溃和 Renderer 事件接收；
-- Main、Pet、Quick Panel、Onboarding 的 Renderer 均初始化 Sentry；
+- Main、Pet、Onboarding 的 Renderer 均初始化 Sentry；
 - 四个 preload 入口均初始化 Sentry；
 - React 主窗口的 caught/recoverable render error 显式发送给 Sentry；
 - Sentry 关闭截图和默认 PII，事件发送前移除请求体、认证 header、Cookie、query string，并脱敏 token、JWT 和邮箱；

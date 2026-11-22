@@ -3,11 +3,11 @@ import { useRef, type JSX, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ThemeSurface } from "../appearance/ThemeSurface";
 import "./command-menu.css";
-import { cn, OVERLAY_BACKDROP_CLASS, PANEL_SHADOW_CLASS } from "@vetta-org/ui/utils";
+import { cn, GLASS_PANEL_CLASS, OVERLAY_BACKDROP_CLASS } from "@vetta-org/ui/utils";
 
 /**
  * 居中偏上的 Splash 面板外壳：遮罩 + 入场动效 + 高光边 + 主题 surface 槽位。
- * ⌘K 命令面板与「添加项目」这类选项面板共用这一份，样式只在这里改一次。
+ * ⌘T 命令面板与「添加项目」这类选项面板共用这一份，样式只在这里改一次。
  *
  * 自己 portal 到 body：宿主可能把它挂在侧栏之类带 transform / contain 的祖先里，
  * 那样 `fixed` 会相对祖先定位，面板就缩在侧栏里了。
@@ -67,8 +67,8 @@ export function SplashPanel({
 						exit={{ opacity: 0, scale: 0.96, y: -8 }}
 						transition={{ duration: 0.16, ease: [0.25, 0.1, 0.25, 1] }}
 						style={{ width: `min(${width}, calc(100vw - 32px))` }}
-						// 不用边框线，靠柔和的大半径投影把面板托起来（与 Dialog 共用 PANEL_SHADOW_CLASS）。
-						className={cn("command-menu-sheen relative flex flex-col rounded-2xl bg-popover", PANEL_SHADOW_CLASS)}
+						// 玻璃面板：与 ButtonGroup 同一套半透明叠层 + 内阴影高光边（见 GLASS_PANEL_CLASS）。
+						className={cn("command-menu-sheen relative flex flex-col rounded-2xl", GLASS_PANEL_CLASS)}
 					>
 						<ThemeSurface slot="root.commandMenu.panel" />
 						<div className="relative z-10 flex min-h-0 flex-col">

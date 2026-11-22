@@ -1,7 +1,6 @@
 import { ShortcutsSettingsView as ThemeShortcutsSettingsView } from "@vetta-org/theme-ui/settings";
 import { SettingsAiAssist } from "../ai-assist";
 import { SETTINGS_SECTION } from "../registry";
-import { QuickPanelSettingsSection } from "./QuickPanelSettingsSection";
 import { ShortcutRecorder } from "./ShortcutRecorder";
 import type { ShortcutsSettingsModel } from "./useShortcutsSettingsModel";
 
@@ -30,13 +29,6 @@ export function ShortcutsSettingsView({ model }: { model: ShortcutsSettingsModel
 					/>
 				),
 			}))}
-			quickPanelSection={
-				<QuickPanelSettingsSection
-					model={model.quickPanel}
-					onTriggerChange={model.onQuickPanelTriggerChange}
-					onBehaviorChange={model.onQuickPanelBehaviorChange}
-				/>
-			}
 		/>
 	);
 }

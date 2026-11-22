@@ -15,8 +15,20 @@ import type { DesktopTeamSidebarConversation } from "@/shared/sidebar-conversati
  * 五个源的延迟差两个数量级（同步内存数组 vs 流式 IPC 会话检索），若让它们竞争
  * 同一条全局相关性排序，异步结果到达时会把光标下的行顶走，用户回车打开的将是
  * 从未看见的东西。固定组序 + 组内排序是这个不变量的实现方式。
+ *
+ * 「进行中」组置顶：运行中 / 等用户回答的会话是面板兼做全局监视入口的部分，
+ * 打开面板第一眼就该看到；加载期间保留骨架位，避免到达时把下面的组顶走。
+ * 「最近打开」紧随其后（只在空查询时出现）：跑完的会话被打开后离开「进行中」，仍能在这里一键回去。
  */
-export const COMMAND_MENU_GROUP_ORDER = ["projects", "sessions", "abilities", "settings", "workspaceViews"] as const;
+export const COMMAND_MENU_GROUP_ORDER = [
+	"activeSessions",
+	"recentSessions",
+	"projects",
+	"sessions",
+	"abilities",
+	"settings",
+	"workspaceViews",
+] as const;
 
 export type CommandMenuGroupKey = (typeof COMMAND_MENU_GROUP_ORDER)[number];
 
@@ -44,6 +56,15 @@ export interface CommandMenuEntry {
 	/** iconify 类名。 */
 	readonly icon: string;
 	readonly badge?: string;
+	readonly badgeTone?: "neutral" | "accent";
+	/** 会话的进行中状态；有值的会话归入「进行中」组。 */
+	readonly status?: "running" | "waiting" | "unread";
+	readonly statusLabel?: string;
+	/**
+	 * 组内先于相关性分数比较的优先级（越小越靠前）。只有「进行中」组用到：
+	 * 等用户回答的会话要排在只是在跑的会话前面，无论查询词命中得多好。
+	 */
+	readonly priority?: number;
 	/** 命中但当前不可用（例如无权限的会话）：显示并禁用，不静默过滤。 */
 	readonly disabled?: boolean;
 	readonly disabledReason?: string;

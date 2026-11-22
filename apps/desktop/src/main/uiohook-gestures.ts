@@ -1,49 +1,30 @@
-// 全局键盘手势共享监听器（uiohook 宿主 worker 线程的消费者管理）。
-// Electron globalShortcut 无法监听裸功能键的双击/双键同按，这里用 uiohook-napi 做原生全局键盘监听。
+// 全局键盘手势监听器（uiohook 宿主 worker 线程的生命周期与手势状态机）。
+// Electron globalShortcut 无法监听裸功能键的双键同按，这里用 uiohook-napi 做原生全局键盘监听。
 // uIOhook 不在主线程运行：uiohook-napi ≤1.5.5 的 hook_enable() 存在启动竞态死锁，会把**调用
 // 线程**永久冻住（macOS 彩虹圈），故隔离到 worker 线程（uiohook-worker.ts），由
 // UiohookSupervisor 负责 spawn/看门狗/重试，键盘事件经 parentPort 回传本模块的状态机。
 // 宿主必须留在主进程内：实测 Electron utilityProcess 里的 CGEventTap 至多投递一个事件后就
-// 永久失聪，双击 ⌘ / 双 Shift 同按依赖的修饰键事件一个都收不到（详见 uiohook-worker.ts）。
+// 永久失聪，双 Shift 同按依赖的修饰键事件一个都收不到（详见 uiohook-worker.ts）。
 // 本模块（主线程）刻意**不 import uiohook-napi**：加载 addon 会在主线程 Environment
 // 注册 env cleanup hook，退出时对 worker 的失效 CFRunLoopRef 调 hook_stop() 而 SIGTRAP。
 // 键码常量走 uiohook-keycodes.ts，停止走 worker 自己的 uIOhook.stop()（uiohook-protocol.ts）。
-// 两个消费者共用同一宿主：
-//   - quickpanel：「干净双击」某个功能键唤出快捷面板；
-//   - appshot：左右同一功能键「双键同按持按 250ms」触发前台窗口捕获。
+// 当前唯一的消费者是 appshot：左右同一功能键「双键同按持按 250ms」触发前台窗口捕获。
 // 活跃消费者集合管理启停：首个消费者出现时拉起宿主、集合清空时终止（不申请权限/无开销）。
 // macOS 首次启动监听会触发系统「输入监控」授权；未授权时收不到事件——设置页有提示。
 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
-import type { AppshotGesture, QuickPanelTrigger } from "./config/desktop-config-store.js";
+import type { AppshotGesture } from "./config/desktop-config-store.js";
 import { getAppLogger } from "./logger.js";
 import { UIOHOOK_KEYCODE } from "./uiohook-keycodes.js";
 import type { UiohookHostChild } from "./uiohook-supervisor.js";
 import { UiohookSupervisor } from "./uiohook-supervisor.js";
 
-const log = getAppLogger("quickpanel-trigger");
-
-/** 两次干净点按的最大间隔（ms）。 */
-const DOUBLE_TAP_MS = 350;
+const log = getAppLogger("uiohook-gestures");
 
 /** appshot 双键同按需要的持按时长（ms）。 */
 const APPSHOT_HOLD_MS = 250;
-
-/** 触发对应的 uiohook keycode 集合（含左右两侧）。mod 按平台映射：mac=⌘，其余=Ctrl。 */
-function keycodesFor(trigger: Exclude<QuickPanelTrigger, "none">): number[] {
-	switch (trigger) {
-		case "mod":
-			return process.platform === "darwin"
-				? [UIOHOOK_KEYCODE.Meta, UIOHOOK_KEYCODE.MetaRight]
-				: [UIOHOOK_KEYCODE.Ctrl, UIOHOOK_KEYCODE.CtrlRight];
-		case "alt":
-			return [UIOHOOK_KEYCODE.Alt, UIOHOOK_KEYCODE.AltRight];
-		case "shift":
-			return [UIOHOOK_KEYCODE.Shift, UIOHOOK_KEYCODE.ShiftRight];
-	}
-}
 
 /** appshot 手势对应的左右键对。mod 按平台映射：mac=⌘，其余=Ctrl。 */
 function appshotKeycodesFor(gesture: AppshotGesture): number[] {
@@ -61,7 +42,7 @@ function appshotKeycodesFor(gesture: AppshotGesture): number[] {
 
 // ----- 共享 uiohook 生命周期 -----------------------------------------------
 
-type UiohookConsumer = "quickpanel" | "appshot";
+type UiohookConsumer = "appshot";
 
 const activeConsumers = new Set<UiohookConsumer>();
 
@@ -71,7 +52,7 @@ let supervisor: UiohookSupervisor | null = null;
 // 必须用 dirname(import.meta.url) 拼路径：若改成把入口文件名作为字面量传给 new URL 再配
 // import.meta.url，Vite 会将其识别为静态资源引用，把 uiohook-worker.ts 的源码内联成
 // data:video/mp2t;base64,... URL，运行时 fileURLToPath 立即抛 ERR_INVALID_URL_SCHEME，
-// 宿主永远起不来（快捷面板与应用快照整体失效）。守卫见 uiohook-host-entry.test.ts。
+// 宿主永远起不来（应用快照手势整体失效）。守卫见 uiohook-host-entry.test.ts。
 const HOST_DIR = dirname(fileURLToPath(import.meta.url));
 
 /** 把 node:worker_threads 的 Worker 适配成 UiohookSupervisor 需要的最小句柄。 */
@@ -118,51 +99,6 @@ function syncHookLifecycle(): Promise<void> {
 		return Promise.resolve();
 	}
 	return supervisor?.stop() ?? Promise.resolve();
-}
-
-// ----- quickpanel：干净双击状态机 -------------------------------------------
-
-let qpTargets = new Set<number>();
-let onQuickPanelTrigger: (() => void) | null = null;
-
-// 单次「干净点按」检测状态：目标功能键按下→抬起、且期间没有按过其它键。
-let modifierDown = false;
-let pressedOtherDuringPress = false;
-let lastCleanTapAt = 0;
-
-function resetQuickPanelState(): void {
-	modifierDown = false;
-	pressedOtherDuringPress = false;
-	lastCleanTapAt = 0;
-}
-
-function handleQuickPanelKeydown(keycode: number): void {
-	if (qpTargets.size === 0) return;
-	if (qpTargets.has(keycode)) {
-		modifierDown = true;
-		pressedOtherDuringPress = false;
-	} else {
-		// 任意非目标键：作废本次按压，并打断双击序列（避免打字途中误触发）。
-		pressedOtherDuringPress = true;
-		lastCleanTapAt = 0;
-	}
-}
-
-function handleQuickPanelKeyup(keycode: number): void {
-	if (!qpTargets.has(keycode) || !modifierDown) return;
-	modifierDown = false;
-	if (pressedOtherDuringPress) return; // 组合键（如 ⌘C）不算点按
-	const now = Date.now();
-	if (lastCleanTapAt && now - lastCleanTapAt <= DOUBLE_TAP_MS) {
-		lastCleanTapAt = 0;
-		try {
-			onQuickPanelTrigger?.();
-		} catch (err) {
-			log.error("trigger callback failed", err);
-		}
-	} else {
-		lastCleanTapAt = now;
-	}
 }
 
 // ----- appshot：双键同按持按状态机 -------------------------------------------
@@ -216,9 +152,6 @@ function handleAppshotKeydown(keycode: number): void {
 	if (axDownAt.size === axTargets.size && axTimer === null) {
 		axTimer = setTimeout(() => {
 			axTimer = null;
-			// 防双 Shift 持按被双击状态机误判为 shift 双击：作废进行中的按压并清双击序列。
-			pressedOtherDuringPress = true;
-			lastCleanTapAt = 0;
 			try {
 				onAppshotGesture?.();
 			} catch (err) {
@@ -240,39 +173,18 @@ function handleAppshotKeyup(keycode: number): void {
 // ----- 事件分发 --------------------------------------------------------------
 
 function handleKeydown(keycode: number): void {
-	handleQuickPanelKeydown(keycode);
 	handleAppshotKeydown(keycode);
 }
 
 function handleKeyup(keycode: number): void {
-	handleQuickPanelKeyup(keycode);
 	handleAppshotKeyup(keycode);
 }
 
 // ----- 对外 API --------------------------------------------------------------
 
-/** 设定双击触发回调（唤出/切换面板）。在 main 启动时调用一次。 */
-export function setQuickPanelTriggerHandler(handler: () => void): void {
-	onQuickPanelTrigger = handler;
-}
-
 /** 设定 appshot 双键同按触发回调（捕获前台窗口）。在 main 启动时调用一次。 */
 export function setAppshotGestureHandler(handler: () => void): void {
 	onAppshotGesture = handler;
-}
-
-/** 依据配置启停 quickpanel 消费者：none 注销；其它注册并设定目标功能键。设置变更后再次调用即可热切换。 */
-export function applyQuickPanelTrigger(trigger: QuickPanelTrigger): void {
-	resetQuickPanelState();
-	if (trigger === "none") {
-		qpTargets = new Set();
-		activeConsumers.delete("quickpanel");
-	} else {
-		qpTargets = new Set(keycodesFor(trigger));
-		activeConsumers.add("quickpanel");
-		log.info("quick panel trigger set", { trigger });
-	}
-	void syncHookLifecycle();
 }
 
 /** 依据配置启停 appshot 消费者：none 注销；其它注册并设定目标键对。设置变更后再次调用即可热切换。 */
@@ -289,14 +201,6 @@ export function applyAppshotGesture(gesture: AppshotGesture | "none"): void {
 	void syncHookLifecycle();
 }
 
-/** 注销 quickpanel 消费者（关闭功能或 IPC teardown 时）；appshot 消费者仍活跃则底层监听不停。 */
-export function stopQuickPanelTrigger(): void {
-	resetQuickPanelState();
-	qpTargets = new Set();
-	activeConsumers.delete("quickpanel");
-	void syncHookLifecycle();
-}
-
 /**
  * 注销全部消费者并停止底层监听（退出 APP 时）。
  *
@@ -305,9 +209,7 @@ export function stopQuickPanelTrigger(): void {
  * （macOS 上就是「Vetta 意外退出」弹窗，详见 uiohook-protocol.ts）。
  */
 export function stopAllUiohookConsumers(): Promise<void> {
-	resetQuickPanelState();
 	resetAppshotState();
-	qpTargets = new Set();
 	axTargets = new Set();
 	activeConsumers.clear();
 	return syncHookLifecycle();

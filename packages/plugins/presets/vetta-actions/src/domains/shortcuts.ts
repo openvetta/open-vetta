@@ -6,9 +6,7 @@ type ShortcutsQueryInput = { operation: "help" } | { operation: "get" };
 type ShortcutsManageInput =
 	| { operation: "set-binding"; id: string; shortcut: string }
 	| { operation: "reset-binding"; id: string }
-	| { operation: "reset-all-bindings" }
-	| { operation: "set-quick-panel-trigger"; trigger: "none" | "mod" | "alt" | "shift" }
-	| { operation: "set-quick-panel-behavior"; behavior: "foreground" | "background" };
+	| { operation: "reset-all-bindings" };
 
 const querySchema: PluginJsonSchema = {
 	type: "object",
@@ -43,28 +41,12 @@ const manageSchema: PluginJsonSchema = {
 			required: ["operation"],
 			additionalProperties: false,
 		},
-		{
-			properties: {
-				operation: { const: "set-quick-panel-trigger" },
-				trigger: { enum: ["none", "mod", "alt", "shift"] },
-			},
-			required: ["operation", "trigger"],
-			additionalProperties: false,
-		},
-		{
-			properties: {
-				operation: { const: "set-quick-panel-behavior" },
-				behavior: { enum: ["foreground", "background"] },
-			},
-			required: ["operation", "behavior"],
-			additionalProperties: false,
-		},
 	],
 };
 
 const queryExamples: PluginAppActionExample<ShortcutsQueryInput>[] = [
 	{ description: "查看快捷键域说明与可用 id", input: { operation: "help" } },
-	{ description: "读取全局绑定 + 快捷面板设置", input: { operation: "get" } },
+	{ description: "读取全局快捷键绑定", input: { operation: "get" } },
 ];
 const manageExamples: PluginAppActionExample<ShortcutsManageInput>[] = [
 	{
@@ -73,8 +55,6 @@ const manageExamples: PluginAppActionExample<ShortcutsManageInput>[] = [
 	},
 	{ description: "恢复打开项目默认键", input: { operation: "reset-binding", id: "open-project" } },
 	{ description: "全部恢复默认全局绑定", input: { operation: "reset-all-bindings" } },
-	{ description: "启用双击 mod 呼出快捷面板", input: { operation: "set-quick-panel-trigger", trigger: "mod" } },
-	{ description: "快捷面板发送后后台运行", input: { operation: "set-quick-panel-behavior", behavior: "background" } },
 ];
 
 export function registerShortcutsActions(ctx: PluginContext): void {
@@ -83,9 +63,9 @@ export function registerShortcutsActions(ctx: PluginContext): void {
 		id: "shortcuts.query",
 		publicId: "shortcuts.query",
 		title: "查询快捷键设置",
-		summary: "读取设置 → 快捷键：全局应用快捷键绑定与快捷面板呼出/发送后行为。",
+		summary: "读取设置 → 快捷键：全局应用快捷键绑定。",
 		description:
-			'对象参数；operation 为 "help" 或 "get"。对应设置 → 快捷键整页：全局应用快捷键 + 快捷面板呼出/发送后行为。',
+			'对象参数；operation 为 "help" 或 "get"。对应设置 → 快捷键整页：全局应用快捷键。',
 		keywords: [
 			"快捷键",
 			"shortcut",
@@ -97,9 +77,6 @@ export function registerShortcutsActions(ctx: PluginContext): void {
 			"open-project",
 			"open-settings",
 			"全局快捷键",
-			"快捷面板",
-			"quick panel",
-			"双击",
 		],
 		effect: "read",
 		inputSchema: querySchema,
@@ -108,12 +85,8 @@ export function registerShortcutsActions(ctx: PluginContext): void {
 			if (input.operation === "help") {
 				return {
 					guidance:
-						"shortcuts 对应设置 → 快捷键整页。bindings：new-session / open-project / open-settings；quickPanel：双击功能键呼出与发送后行为。",
+						"shortcuts 对应设置 → 快捷键整页。bindings：new-session / open-project / open-settings 等全局应用快捷键。",
 					availableActions: ctx.official.shortcuts.listAvailableActions(),
-					quickPanelOptions: {
-						trigger: ["none", "mod", "alt", "shift"],
-						postSendBehavior: ["foreground", "background"],
-					},
 					actions: [
 						{ id: "shortcuts.query", inputSchema: querySchema, examples: queryExamples },
 						{ id: "shortcuts.manage", inputSchema: manageSchema, examples: manageExamples },
@@ -127,10 +100,10 @@ export function registerShortcutsActions(ctx: PluginContext): void {
 		id: "shortcuts.manage",
 		publicId: "shortcuts.manage",
 		title: "修改快捷键设置",
-		summary: "修改设置 → 快捷键：全局绑定或快捷面板呼出/发送后行为。",
+		summary: "修改设置 → 快捷键：全局应用快捷键绑定。",
 		description:
-			'对象参数；operation 为 "set-binding" | "reset-binding" | "reset-all-bindings" | "set-quick-panel-trigger" | "set-quick-panel-behavior"。',
-		keywords: ["快捷键", "shortcut", "重置快捷键", "keybinding", "快捷面板", "quick panel", "双击"],
+			'对象参数；operation 为 "set-binding" | "reset-binding" | "reset-all-bindings"。',
+		keywords: ["快捷键", "shortcut", "重置快捷键", "keybinding"],
 		effect: "write",
 		approval: {
 			defaultPresentation: "shortcuts.set-binding",
@@ -142,23 +115,11 @@ export function registerShortcutsActions(ctx: PluginContext): void {
 					title: "恢复全部全局快捷键确认",
 					description: "确认将全部全局应用快捷键恢复默认。",
 				},
-				{
-					id: "shortcuts.set-quick-panel-trigger",
-					title: "修改快捷面板触发确认",
-					description: "确认双击功能键呼出方式。",
-				},
-				{
-					id: "shortcuts.set-quick-panel-behavior",
-					title: "修改快捷面板发送后行为确认",
-					description: "确认发送后前台/后台行为。",
-				},
 			],
 			presentationByOperation: {
 				"set-binding": "shortcuts.set-binding",
 				"reset-binding": "shortcuts.reset-binding",
 				"reset-all-bindings": "shortcuts.reset-all-bindings",
-				"set-quick-panel-trigger": "shortcuts.set-quick-panel-trigger",
-				"set-quick-panel-behavior": "shortcuts.set-quick-panel-behavior",
 			},
 		},
 		inputSchema: manageSchema,
@@ -187,19 +148,7 @@ export function registerShortcutsActions(ctx: PluginContext): void {
 				const result = await ctx.official.shortcuts.resetBinding(input.id);
 				return { operation: input.operation, id: input.id, ...result };
 			}
-			if (input.operation === "reset-all-bindings") {
-				return { operation: input.operation, ...(await ctx.official.shortcuts.resetAllBindings()) };
-			}
-			if (input.operation === "set-quick-panel-trigger") {
-				return {
-					operation: input.operation,
-					quickPanel: await ctx.official.shortcuts.setQuickPanelTrigger(input.trigger),
-				};
-			}
-			return {
-				operation: input.operation,
-				quickPanel: await ctx.official.shortcuts.setQuickPanelBehavior(input.behavior),
-			};
+			return { operation: input.operation, ...(await ctx.official.shortcuts.resetAllBindings()) };
 		},
 	});
 }

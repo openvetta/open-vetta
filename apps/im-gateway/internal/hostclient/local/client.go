@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"time"
 
@@ -72,6 +73,10 @@ const (
 	// ~1s warm. Keep in sync with config.DefaultHandshakeTimeout.
 	defaultHandshakeTimeout = 30 * time.Second
 	defaultCloseTimeout     = 5 * time.Second
+	// After the child exits, how long the reader gets to finish what is still
+	// in the stdout pipe before exit is announced anyway. Normally EOF arrives
+	// at once; this only bounds the case where something else holds the pipe.
+	stdoutDrainTimeout = 2 * time.Second
 )
 
 // Client implements hostclient.HostClient by spawning coding-agent subprocesses.
@@ -151,16 +156,27 @@ func (c *Client) OpenSession(ctx context.Context, cwd, sessionPath string) (host
 	if err != nil {
 		return nil, newHostFailure(hostclient.FailureCodeProcessIOFailed, hostclient.FailurePhaseStartup, hostclient.FailureRetrySafe, fmt.Sprintf("hostclient/local: stdin pipe: %v", err), err)
 	}
-	stdout, err := cmd.StdoutPipe()
+	// Not cmd.StdoutPipe(): Wait closes that pipe as soon as the child exits,
+	// discarding whatever the reader hasn't consumed yet — notably the
+	// startup lock error, which the agent prints right before exiting. With
+	// our own pipe the reader always reads to EOF, and exit is announced only
+	// after it has (see the Wait goroutine below).
+	stdout, stdoutW, err := os.Pipe()
 	if err != nil {
 		return nil, newHostFailure(hostclient.FailureCodeProcessIOFailed, hostclient.FailurePhaseStartup, hostclient.FailureRetrySafe, fmt.Sprintf("hostclient/local: stdout pipe: %v", err), err)
 	}
+	cmd.Stdout = stdoutW
 	stderrBuf := &bytes.Buffer{}
 	cmd.Stderr = stderrBuf
 
 	if err := cmd.Start(); err != nil {
+		_ = stdout.Close()
+		_ = stdoutW.Close()
 		return nil, newHostFailure(hostclient.FailureCodeProcessSpawnFailed, hostclient.FailurePhaseStartup, hostclient.FailureRetrySafe, fmt.Sprintf("hostclient/local: spawn coding-agent (%s): %v", c.opts.Bin, err), err)
 	}
+	// The child holds its own copy of the write end; ours would keep the
+	// reader from ever seeing EOF.
+	_ = stdoutW.Close()
 
 	s := &session{
 		cwd:          cwd,
@@ -174,9 +190,21 @@ func (c *Client) OpenSession(ctx context.Context, cwd, sessionPath string) (host
 		closeTimeout: c.opts.CloseTimeout,
 	}
 
-	go s.readerLoop(stdout)
+	readerDone := make(chan struct{})
+	go func() {
+		defer close(readerDone)
+		defer func() { _ = stdout.Close() }()
+		s.readerLoop(stdout)
+	}()
 	go func() {
 		err := cmd.Wait()
+		// Announce exit only once stdout is drained, so anything the child
+		// printed before exiting is already in s.events / delivered to Send.
+		select {
+		case <-readerDone:
+		case <-time.After(stdoutDrainTimeout):
+			_ = stdout.Close()
+		}
 		s.markExited(err)
 	}()
 
@@ -203,8 +231,9 @@ func (c *Client) OpenSession(ctx context.Context, cwd, sessionPath string) (host
 //
 //	{"type":"response","command":"startup","success":false,"lockHolder":{...}}
 //
-// The lock error arrives BEFORE the process exits, so by the time Send
-// fails the event is already buffered.
+// The lock error arrives BEFORE the process exits, and s.exited is only
+// closed after stdout has been read to EOF, so by the time Send fails the
+// event is already buffered.
 //
 // On a lock-error path the caller never gets a session and therefore
 // never reads from events; draining is safe.
@@ -266,10 +295,10 @@ func (s *session) handshake(ctx context.Context, timeout time.Duration) error {
 //	{"type":"response","command":"startup","success":false,
 //	 "error":"...","lockHolder":{"pid":...,"hostname":"...","openedAt":"..."}}
 //
-// Because main.ts emits this BEFORE runRpcMode and the subprocess exits
-// shortly after, by the time handshake's Send fails the line is already
-// in the events channel (the reader goroutine routes id-less responses
-// to events).
+// Because main.ts emits this BEFORE runRpcMode and s.exited waits for the
+// reader to reach EOF, by the time handshake's Send fails the line is
+// already in the events channel (the reader goroutine routes id-less
+// responses to events).
 func (s *session) detectStartupLockError() *hostclient.ErrSessionLocked {
 	// Drain whatever's currently in the events channel non-blockingly.
 	for {

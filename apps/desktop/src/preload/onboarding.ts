@@ -3,7 +3,8 @@ import "./telemetry.js";
 import type { HelperPermissions, OnboardingBridge, OnboardingPaneKind } from "../shared/onboarding-ipc.js";
 
 // 通道字面量刻意内联（不 import shared/onboarding-ipc.ts，避免把主进程模块拉进 preload
-// 的 Rollup chunk，见 preload/quickpanel.ts 的坑）。与 src/shared/onboarding-ipc.ts 保持一致。
+// 的 Rollup chunk：多个 preload 入口共享模块会被抽成同级 chunk，而 Electron 以单文件加载 preload、
+// 无法解析它）。与 src/shared/onboarding-ipc.ts 保持一致。
 const CHECK_PERMISSIONS = "vetta:onboarding:check-permissions";
 const REQUEST_PERMISSIONS = "vetta:onboarding:request-permissions";
 const OPEN_PANE = "vetta:permissions:open-pane";
@@ -12,7 +13,7 @@ const CLOSE = "vetta:onboarding:close";
 const PERMISSIONS_UPDATED = "vetta:onboarding:permissions-updated";
 const DRAG_ERROR = "vetta:onboarding:drag-error";
 
-// i18n 通道字面量（与 src/main/ipc/i18n.ts、preload/quickpanel.ts 一致）。
+// i18n 通道字面量（与 src/main/ipc/i18n.ts 一致）。
 const I18N_GET_INITIAL = "vetta:i18n:get-initial-language";
 const I18N_LANGUAGE_CHANGED = "vetta:i18n:language-changed";
 

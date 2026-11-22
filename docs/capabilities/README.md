@@ -615,11 +615,11 @@ window.vetta.capabilities.invoke({
 
 当前已经实现能力基础设施及多条端到端链路：
 
-- `packages/capability-sdk` 只提供 Capability ID、Token、基础存储/文件/网络能力、Agent 设置/通用设置/IM 桥接/模型配置/MCP 配置/项目/会话/下载/调度/Webhook/知识库/批量任务/应用更新/技能管理/全局快捷键/快捷面板领域能力、Grant 和稳定错误码；Theme、Plugin 集成已由 Desktop 上层所有。
+- `packages/capability-sdk` 只提供 Capability ID、Token、基础存储/文件/网络能力、Agent 设置/通用设置/IM 桥接/模型配置/MCP 配置/项目/会话/下载/调度/Webhook/知识库/批量任务/应用更新/技能管理/全局快捷键领域能力、Grant 和稳定错误码；Theme、Plugin 集成已由 Desktop 上层所有。
 - Capability Token 已统一使用 TypeBox Schema 作为静态类型、运行时 parser 与 JSON Schema 的单一来源，并由 Token 生成不包含执行函数的只读 Catalog。当前已声明的 38 个 Foundation Token 和 103 个 Domain Token 已全部完成迁移；TypeBox 校验错误会转换为稳定 Capability 错误码，`undefined` 输出使用独立的无载荷 Schema，Token 定义在类型层强制提供输入和输出 Schema。
 - Foundation、Domain 聚合 Catalog 以及公开文档由 Token 自动生成；完整 Schema 见 [`catalog.json`](catalog.json)，可读目录见 [`catalog.md`](catalog.md)。质量门禁会拒绝过期的生成文件、手写 parser Token 和未发布 Catalog 的能力定义文件。
 - `packages/capability-runtime` 提供 Foundation/Domain 双 Registry、Capability Hub、Provider 原子替换、替换或卸载时的在途调用中止、Capability Module/publisher 校验、精确 Grant、AccessSession、namespace constraint 和审计事件。
-- `apps/desktop/src/main/capabilities` 提供 Desktop Capability Host、基础存储/文件/网络 Provider、Agent 设置/通用设置/IM 桥接/模型配置/MCP 配置/项目/会话/下载/调度/Webhook/知识库/批量任务/应用更新/技能管理/全局快捷键/快捷面板领域 Provider 和原生后端装配；已抽取领域服务的原 IPC 与 Capability Provider 复用同一实现，通用配置桥则与领域服务共享底层 config store。
+- `apps/desktop/src/main/capabilities` 提供 Desktop Capability Host、基础存储/文件/网络 Provider、Agent 设置/通用设置/IM 桥接/模型配置/MCP 配置/项目/会话/下载/调度/Webhook/知识库/批量任务/应用更新/技能管理/全局快捷键领域 Provider 和原生后端装配；已抽取领域服务的原 IPC 与 Capability Provider 复用同一实现，通用配置桥则与领域服务共享底层 config store。
 - Desktop Capability Host 单例持有 Theme Adapter 和 Plugin Adapter；IPC 只复用实例，不重复创建或负责销毁。
 - Theme Storage 主进程路径已经迁移为 `Theme SDK facade -> 宿主桥接 -> 内置 Theme Adapter -> AccessSession -> Foundation Storage Capability -> 现有持久化后端`。
 - Theme SDK、renderer storage hook、preload API、IPC channel 和磁盘格式保持兼容。
@@ -639,7 +639,7 @@ window.vetta.capabilities.invoke({
 - 官方插件的批量任务管理已迁移为 `PluginOfficialApi batchTasks facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Batch Task Capability -> BatchTaskService`；项目查询与增删改、单任务运行/重试/停止/删除/续跑/会话删除，以及项目批量启动、停止、清理和重置共十七个操作分别使用精确 Grant，`listProjectIds` 继续由项目列表派生，原 Batch Tasks IPC 与 Provider 共用同一个服务实例。
 - 官方插件的应用更新管理已迁移为 `PluginOfficialApi updater facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Updater Capability -> UpdaterService`；状态与当前版本查询、检查、下载、安装、稍后处理和取消共七个操作分别使用精确 Grant，原 Updater IPC 与 Provider 共用同一个服务实例，Desktop UI 的状态事件仍保留为内部订阅通道。
 - 官方插件的技能管理已迁移为 `PluginOfficialApi skills facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Skill Capability -> SkillService`；技能发现、已安装清单、启停和卸载分别使用精确 Grant，原 Skills IPC 与 Provider 共用同一个服务单例，市场安装和自定义导入仍保留在原系统流程中。
-- 官方插件的快捷键管理已迁移为 `PluginOfficialApi shortcuts facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Shortcut/Quick Panel Capability -> ShortcutService`；绑定查询、设置、单项重置、全部重置、快捷面板触发键和发送后行为分别使用精确 Grant，原 Config/Quick Panel IPC 与 Provider 共用同一个服务单例。同步的动作目录仍由 Plugin 系统 facade 从宿主共享的静态应用目录派生，不进入能力契约。
+- 官方插件的快捷键管理已迁移为 `PluginOfficialApi shortcuts facade -> Preload/IPC 桥接 -> Plugin Adapter -> AccessSession -> Domain Shortcut Capability -> ShortcutService`；绑定查询、设置、单项重置、全部重置、快捷面板触发键和发送后行为分别使用精确 Grant，原 Config/Quick Panel IPC 与 Provider 共用同一个服务单例。同步的动作目录仍由 Plugin 系统 facade 从宿主共享的静态应用目录派生，不进入能力契约。
 - `PluginOfficialApi.plugins` 属于 Plugin 系统自己的安装、启停、卸载和重载业务，不定义为 Domain Capability；当前通过绑定 `capabilitySessionId` 的 Plugin System IPC 调用，宿主侧 Plugin Adapter 在每次操作前重新校验 Session 和 official 状态，再复用 Desktop 插件管理副作用。
 - Desktop Renderer 的 `HostedRouteService` 提供 namespace 注册、路径解析和实际导航基础设施；Capability 层以 `cap.domain.vetta.navigation.open-hosted-route` 和可序列化 `HostedRouteRef` 暴露受授权命令。Plugin/Theme Renderer Adapter 分别固定 namespace 与当前 owner，并通过精确 Grant 和可撤销 Session 调用该能力。现有 `/theme/...`、`/workspace/...` URL、React 页面 Registry、加载和 ErrorBoundary 仍由 Desktop 及来源系统拥有；Plugin Loader 继续用主进程返回的 `capabilitySessionId` 关联 Renderer Session，Theme Runtime 则随激活主题创建并撤销 Session。
 - `PluginOfficialApi.appearance` 与通用 `PluginOfficialApi.navigation` 仍属于 Renderer Plugin 系统 facade，继续通过 active + official Session 校验；它们没有因为 Hosted Page Token 的落地而被错误提升为通用 Capability。

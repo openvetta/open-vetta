@@ -8,7 +8,7 @@ import {
 import { type CommandMenuMatch, matchCommandMenuEntry } from "./match";
 
 /**
- * 目录 → 渲染分组。三条不变量都在这里落地：
+ * 目录 → 渲染分组。三条不变量都在这里落地（组内排序为 priority → 匹配分 → order）：
  *  1. 组顺序取自 COMMAND_MENU_GROUP_ORDER 常量，与相关性无关；
  *  2. 每组截断到 COMMAND_MENU_GROUP_LIMIT，DOM 行数恒定在几十量级，不需要虚拟列表；
  *  3. 条目 id 全局唯一，供上层把选中态锚在 id 而不是下标上。
@@ -51,6 +51,9 @@ function toItemView(scored: ScoredEntry): CommandMenuItemView {
 		subtitleHighlights: match.subtitleHighlights,
 		icon: entry.icon,
 		badge: entry.badge,
+		badgeTone: entry.badgeTone,
+		status: entry.status,
+		statusLabel: entry.statusLabel,
 		disabled: entry.disabled,
 		disabledReason: entry.disabledReason,
 	};
@@ -89,7 +92,12 @@ export function buildCommandMenuGroups({
 	for (const key of COMMAND_MENU_GROUP_ORDER) {
 		const matched = byGroup.get(key) ?? [];
 		// 分数高者在前；同分退回适配器给的组内次序，保证排列稳定可预测。
-		matched.sort((a, b) => b.match.score - a.match.score || a.entry.order - b.entry.order);
+		matched.sort(
+			(a, b) =>
+				(a.entry.priority ?? 0) - (b.entry.priority ?? 0) ||
+				b.match.score - a.match.score ||
+				a.entry.order - b.entry.order,
+		);
 		const visible = matched.slice(0, limit);
 		const hidden = matched.length - visible.length;
 		const pinned = pinnedByGroup.get(key) ?? [];

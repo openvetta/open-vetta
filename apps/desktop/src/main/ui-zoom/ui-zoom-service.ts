@@ -1,5 +1,5 @@
 // 主窗口的界面缩放。比例持久化在 desktop-config.uiZoomFactor，菜单快捷键与设置页滑块
-// 都经 setUiZoomFactor 进来，保证只有一个事实源。只作用于主窗口：快捷面板、桌宠等
+// 都经 setUiZoomFactor 进来，保证只有一个事实源。只作用于主窗口：桌宠等
 // 辅助窗口以及 <webview> 内置浏览器保持各自的大小。
 
 import { BrowserWindow, type WebContents } from "electron";

@@ -67,7 +67,6 @@ describe("debug profile seeding", () => {
       language: "zh",
       defaultExecutionMode: "sandbox",
 		defaultAgentMode: "coding",
-      quickPanel: { triggerMode: "hotkey" },
       knowledgeBase: { enabled: true },
     });
     writeCredential(credentialDir, "referenced", "models", "openai-ref", "secret-ciphertext");
@@ -108,7 +107,6 @@ describe("debug profile seeding", () => {
       defaultExecutionMode: "sandbox",
 		defaultAgentMode: "coding",
       knowledgeBase: { enabled: false },
-      quickPanel: { trigger: "none", postSendBehavior: "foreground" },
       appshot: { enabled: false },
     });
     expect(JSON.stringify(desktopConfig)).not.toContain("private-project");

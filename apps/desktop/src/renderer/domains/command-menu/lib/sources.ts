@@ -31,6 +31,7 @@ const REDIRECTED_SETTINGS_TAB = "mcp";
 
 export interface CommandMenuSourceLabels {
 	readonly sessionTypes: Readonly<Record<DesktopSessionSearchResult["sourceKind"], string>>;
+	readonly sessionStatus: Readonly<Record<CommandMenuSessionStatus, string>>;
 	readonly sessionUnavailable: string;
 	readonly settingsGroupHint: string;
 	readonly abilitySkill: string;
@@ -38,12 +39,42 @@ export interface CommandMenuSourceLabels {
 	readonly searchMarketplace: string;
 }
 
+export type CommandMenuSessionStatus = "running" | "waiting" | "unread";
+
+/**
+ * 等用户回答比在跑更需要人：排在前面，两者同时成立时也按「等回答」显示。
+ * 跑完还没看的排在最后：它不急，但不能一停止就从面板里消失，逼用户再去搜。
+ */
+const SESSION_STATUS_PRIORITY: Readonly<Record<CommandMenuSessionStatus, number>> = {
+	waiting: 0,
+	running: 1,
+	unread: 2,
+};
+
+export interface CommandMenuSessionActivity {
+	readonly runningPaths: ReadonlySet<string>;
+	/** sessionPath → 剩余待处理请求数。 */
+	readonly waitingPaths: ReadonlyMap<string, number>;
+	/** 需要用户回来看的会话（主进程与 Dock 角标同一份）；不在跑也不在等的即「跑完未看」。 */
+	readonly attentionPaths: ReadonlySet<string>;
+}
+
+export function resolveSessionStatus(
+	path: string,
+	activity: CommandMenuSessionActivity,
+): CommandMenuSessionStatus | undefined {
+	if ((activity.waitingPaths.get(path) ?? 0) > 0) return "waiting";
+	if (activity.runningPaths.has(path)) return "running";
+	if (activity.attentionPaths.has(path)) return "unread";
+	return undefined;
+}
+
+/** 不展示绝对路径：项目行只有名字，所在工作空间由调用方作为 badge 补上。 */
 export function buildProjectEntries(projects: readonly Project[]): CommandMenuEntry[] {
 	return projects.map((project, index) => ({
 		id: `project:${project.cwd}`,
 		groupKey: "projects",
 		title: project.name?.trim() || pathBasename(project.cwd),
-		subtitle: project.cwd,
 		icon: project.isDefault ? "icon-[solar--chat-round-line-linear]" : "icon-[solar--folder-linear]",
 		// 侧栏已经按最近使用排好序，沿用它的次序即可，不另造一套。
 		order: index,
@@ -51,19 +82,45 @@ export function buildProjectEntries(projects: readonly Project[]): CommandMenuEn
 	}));
 }
 
+/** 没打开过的会话在组内排在所有打开过的会话之后。 */
+const NEVER_OPENED_PRIORITY = Number.MAX_SAFE_INTEGER;
+
+export interface BuildSessionEntriesOptions {
+	readonly activity: CommandMenuSessionActivity;
+	/** 会话路径 → 最近打开的名次（0 = 最近一次打开）。 */
+	readonly recentRank: ReadonlyMap<string, number>;
+	/**
+	 * 空查询时为 true：不在进行中的会话都来自「最近打开」，归入那个组并按打开先后排列。
+	 * 有查询词时为 false：它们留在「会话」组，打开过的按名次排在没打开过的前面（Raycast 式）。
+	 */
+	readonly asRecentGroup: boolean;
+}
+
+/**
+ * 会话行的 badge 标明归属：项目 / 批量会话写项目名，「对话」与 Claw 没有项目，写类型名。
+ * 带进行中状态的会话归入置顶的「进行中」组。
+ */
 export function buildSessionEntries(
 	results: readonly DesktopSessionSearchResult[],
 	labels: CommandMenuSourceLabels,
+	{ activity, recentRank, asRecentGroup }: BuildSessionEntriesOptions,
 ): CommandMenuEntry[] {
 	return results.map((result, index) => {
 		const unavailable = resolveDesktopSessionOpenTarget(result.session.access) === "unavailable";
+		const status = resolveSessionStatus(result.session.path, activity);
+		const hasProject = result.sourceKind === "project" || result.sourceKind === "batch";
+		const rank = recentRank.get(result.session.path);
 		return {
 			id: `session:${result.session.path}`,
-			groupKey: "sessions",
+			groupKey: status ? "activeSessions" : asRecentGroup ? "recentSessions" : "sessions",
 			title: sessionDisplayLabel(result.session),
-			subtitle: result.sourceName?.trim() || pathBasename(result.sourceCwd),
 			icon: "icon-[solar--chat-line-linear]",
-			badge: labels.sessionTypes[result.sourceKind],
+			badge: hasProject
+				? result.sourceName?.trim() || pathBasename(result.sourceCwd)
+				: labels.sessionTypes[result.sourceKind],
+			status,
+			statusLabel: status ? labels.sessionStatus[status] : undefined,
+			priority: status ? SESSION_STATUS_PRIORITY[status] : (rank ?? NEVER_OPENED_PRIORITY),
 			disabled: unavailable,
 			disabledReason: unavailable ? labels.sessionUnavailable : undefined,
 			// 后端已按活跃时间倒序推送，保持原序即"越近越靠前"。
@@ -128,7 +185,7 @@ export function buildWorkspaceViewEntries(
 
 /**
  * 只收本地已装能力，不碰市场目录——`listOpenMarketplaces()` 对 autoUpdate 源仍会
- * 走网络，挂在 ⌘K 上代价不可接受。市场由恒定置底的逃生行承接。
+ * 走网络，挂在命令面板上代价不可接受。市场由恒定置底的逃生行承接。
  *
  * 条目动作统一是「跳能力页并预填名称」而不是直接开详情抽屉：详情需要 catalog id，
  * 而它的合成规则（台账 catalogId 回退、市场 id、本地 id）散在 build-ability-items
@@ -150,6 +207,7 @@ export function buildInstalledAbilityEntries(
 			subtitle: getSkillDisplayDescription(skill) || undefined,
 			icon: "icon-[solar--magic-stick-3-linear]",
 			badge: labels.abilitySkill,
+			badgeTone: "accent",
 			order: order++,
 			action: { kind: "openAbilities", query: title, scope: "mine" },
 		});
@@ -162,6 +220,7 @@ export function buildInstalledAbilityEntries(
 			subtitle: plugin.id,
 			icon: "icon-[solar--plug-circle-linear]",
 			badge: labels.abilityPlugin,
+			badgeTone: "accent",
 			order: order++,
 			action: { kind: "openAbilities", query: plugin.name, scope: "mine" },
 		});
@@ -171,7 +230,7 @@ export function buildInstalledAbilityEntries(
 
 /**
  * 能力市场逃生行：恒定置底、不参与匹配打分。面板内只能搜到已装能力，这一行把
- * "搜市场"降级成一次回车跳转，而不是把远端目录的异步态与失败态搬进 ⌘K。
+ * "搜市场"降级成一次回车跳转，而不是把远端目录的异步态与失败态搬进命令面板。
  */
 export function buildMarketplaceEscapeEntry(query: string, labels: CommandMenuSourceLabels): CommandMenuEntry {
 	return {

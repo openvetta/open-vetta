@@ -4,6 +4,8 @@ import { buildCommandMenuGroups, type CommandMenuGroupLabels } from "./build-gro
 
 const labels: CommandMenuGroupLabels = {
 	groups: {
+		activeSessions: "In progress",
+		recentSessions: "Recent",
 		projects: "Projects",
 		sessions: "Sessions",
 		abilities: "Abilities",
@@ -128,5 +130,21 @@ describe("buildCommandMenuGroups", () => {
 		const { groups } = buildCommandMenuGroups({ entries, tokens: ["open", "vetta"], labels });
 
 		expect(groups[0].items[0].titleHighlights).toEqual([{ start: 0, end: 9 }]);
+	});
+
+	it("puts in-progress sessions first, waiting before running regardless of match score", () => {
+		const entries = [
+			entry("p1", "projects", "alpha"),
+			entry("run", "activeSessions", "alpha", { priority: 1, status: "running", statusLabel: "Running" }),
+			entry("wait", "activeSessions", "zeta alpha", { priority: 0, status: "waiting", statusLabel: "Waiting" }),
+		];
+		const { groups, orderedIds } = buildCommandMenuGroups({ entries, tokens: ["alpha"], labels });
+
+		expect(groups.map((group) => group.key)).toEqual(["activeSessions", "projects"]);
+		expect(groups[0].items.map((item) => [item.id, item.status, item.statusLabel])).toEqual([
+			["wait", "waiting", "Waiting"],
+			["run", "running", "Running"],
+		]);
+		expect(orderedIds[0]).toBe("wait");
 	});
 });

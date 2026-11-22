@@ -13,8 +13,16 @@ import {
 	type CommandMenuSourceLabels,
 } from "./sources";
 
+const idleActivity = {
+	runningPaths: new Set<string>(),
+	waitingPaths: new Map<string, number>(),
+	attentionPaths: new Set<string>(),
+};
+const idle = { activity: idleActivity, recentRank: new Map<string, number>(), asRecentGroup: false };
+
 const labels: CommandMenuSourceLabels = {
 	sessionTypes: { conversation: "Chat", claw: "Claw", project: "Project", batch: "Batch" },
+	sessionStatus: { running: "Running", waiting: "Waiting", unread: "Finished" },
 	sessionUnavailable: "No access",
 	settingsGroupHint: "Settings",
 	abilitySkill: "Skill",
@@ -53,17 +61,95 @@ describe("buildProjectEntries", () => {
 		expect(entries.map((entry) => entry.order)).toEqual([0, 1]);
 		expect(entries[0].action).toEqual({ kind: "openProject", cwd: "/w/alpha" });
 		expect(entries[0].id).toBe("project:/w/alpha");
+		// 不展示绝对路径。
+		expect(entries.every((entry) => entry.subtitle === undefined)).toBe(true);
 	});
 });
 
 describe("buildSessionEntries", () => {
-	it("labels the source and preserves the backend ordering", () => {
-		const entries = buildSessionEntries([session(), session({ sourceKind: "claw" })], labels);
+	it("badges the owning project (or the type for project-less chats) and preserves the backend ordering", () => {
+		const entries = buildSessionEntries(
+			[
+				session(),
+				session({ sourceKind: "claw", sourceName: undefined }),
+				session({ sourceName: undefined, sourceCwd: "/w/beta-dir" }),
+			],
+			labels,
+			idle,
+		);
 
-		expect(entries[0].subtitle).toBe("Project A");
-		expect(entries[0].badge).toBe("Project");
-		expect(entries[1].badge).toBe("Claw");
-		expect(entries.map((entry) => entry.order)).toEqual([0, 1]);
+		expect(entries.map((entry) => entry.badge)).toEqual(["Project A", "Claw", "beta-dir"]);
+		expect(entries.every((entry) => entry.subtitle === undefined)).toBe(true);
+		expect(entries.map((entry) => entry.groupKey)).toEqual(["sessions", "sessions", "sessions"]);
+		expect(entries.map((entry) => entry.order)).toEqual([0, 1, 2]);
+	});
+
+	it("moves running and waiting sessions into the in-progress group, waiting first", () => {
+		const running = session({ session: { ...session().session, path: "/w/run.jsonl" } });
+		const waiting = session({ session: { ...session().session, path: "/w/wait.jsonl" } });
+		const both = session({ session: { ...session().session, path: "/w/both.jsonl" } });
+		const entries = buildSessionEntries([running, waiting, both, session()], labels, {
+			activity: {
+				runningPaths: new Set(["/w/run.jsonl", "/w/both.jsonl"]),
+				waitingPaths: new Map([
+					["/w/wait.jsonl", 1],
+					["/w/both.jsonl", 2],
+				]),
+				attentionPaths: new Set(),
+			},
+			recentRank: new Map(),
+			asRecentGroup: false,
+		});
+
+		expect(entries.map((entry) => [entry.status, entry.statusLabel, entry.groupKey, entry.priority])).toEqual([
+			["running", "Running", "activeSessions", 1],
+			["waiting", "Waiting", "activeSessions", 0],
+			["waiting", "Waiting", "activeSessions", 0],
+			[undefined, undefined, "sessions", Number.MAX_SAFE_INTEGER],
+		]);
+	});
+
+	it("keeps a finished but unopened session in progress after it stops running", () => {
+		const done = session({ session: { ...session().session, path: "/w/done.jsonl" } });
+		const running = session({ session: { ...session().session, path: "/w/run.jsonl" } });
+		const entries = buildSessionEntries([done, running], labels, {
+			activity: {
+				runningPaths: new Set(["/w/run.jsonl"]),
+				waitingPaths: new Map(),
+				// 正在跑的会话也可能留有上一轮的「未看」记录：在跑优先显示。
+				attentionPaths: new Set(["/w/done.jsonl", "/w/run.jsonl"]),
+			},
+			recentRank: new Map(),
+			asRecentGroup: false,
+		});
+
+		expect(entries.map((entry) => [entry.status, entry.statusLabel, entry.groupKey, entry.priority])).toEqual([
+			["unread", "Finished", "activeSessions", 2],
+			["running", "Running", "activeSessions", 1],
+		]);
+	});
+
+	it("ranks opened sessions ahead of never-opened ones, most recent first", () => {
+		const at = (path: string) => session({ session: { ...session().session, path } });
+		const entries = buildSessionEntries([at("/w/never.jsonl"), at("/w/old.jsonl"), at("/w/new.jsonl")], labels, {
+			...idle,
+			recentRank: new Map([
+				["/w/new.jsonl", 0],
+				["/w/old.jsonl", 1],
+			]),
+		});
+		const sorted = [...entries].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
+		expect(sorted.map((entry) => entry.id)).toEqual([
+			"session:/w/new.jsonl",
+			"session:/w/old.jsonl",
+			"session:/w/never.jsonl",
+		]);
+		expect(entries.every((entry) => entry.groupKey === "sessions")).toBe(true);
+	});
+
+	it("files idle sessions under recently opened when listing without a query", () => {
+		const [entry] = buildSessionEntries([session()], labels, { ...idle, asRecentGroup: true });
+		expect(entry.groupKey).toBe("recentSessions");
 	});
 
 	it("marks an unreachable session as disabled instead of dropping it", () => {
@@ -73,7 +159,7 @@ describe("buildSessionEntries", () => {
 				access: { readHistory: false, resume: false, rename: false, delete: false },
 			},
 		});
-		const [entry] = buildSessionEntries([locked], labels);
+		const [entry] = buildSessionEntries([locked], labels, idle);
 
 		expect(entry.disabled).toBe(true);
 		expect(entry.disabledReason).toBe("No access");
@@ -86,7 +172,7 @@ describe("buildSessionEntries", () => {
 				access: { readHistory: true, resume: false, rename: false, delete: false },
 			},
 		});
-		expect(buildSessionEntries([readOnly], labels)[0].disabled).toBe(false);
+		expect(buildSessionEntries([readOnly], labels, idle)[0].disabled).toBe(false);
 	});
 });
 

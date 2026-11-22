@@ -24,6 +24,22 @@ export const OVERLAY_BACKDROP_CLASS = "overlay-backdrop bg-black/20 backdrop-blu
 export const PANEL_SHADOW_CLASS = "shadow-[0_16px_40px_-12px_rgb(0_0_0/0.10),0_2px_8px_-2px_rgb(0_0_0/0.05)]";
 
 /**
+ * 大块玻璃面板（命令面板这类 Splash）：与 `ButtonGroup` 同一套玻璃语言——用前景色 / 白色的低透明度
+ * 叠层而不是实色底，外缘靠内阴影（上沿亮线、下沿淡线、一圈极淡的内辉光）而不是均匀描边，深色再加一层投影。
+ * 面板比按钮组大得多、上面压着成段文字，所以叠层比按钮组厚，背景模糊也更重，保证正文可读。
+ *
+ * 浅色单独调：白底上「半透明白 + 白色高光」几乎看不出层次，会显得是一块平板。所以浅色用
+ * 更通透的白叠层配更强的饱和度，让背后的颜色透上来；外缘是一圈白色内高光加一圈极淡的暗描边，
+ * 再用两层投影把面板托离背景（近处一层收紧、远处一层铺开），玻璃的厚度感主要来自这里。
+ */
+export const GLASS_PANEL_CLASS = [
+	"bg-white/55 backdrop-blur-2xl backdrop-saturate-[1.8]",
+	"shadow-[inset_0_1px_0_rgb(255_255_255/0.95),inset_0_0_0_1px_rgb(255_255_255/0.55),0_0_0_1px_rgb(0_0_0/0.07),0_10px_24px_-10px_rgb(0_0_0/0.16),0_32px_72px_-20px_rgb(0_0_0/0.28)]",
+	"dark:bg-[color-mix(in_srgb,var(--popover)_62%,transparent)] dark:backdrop-saturate-150",
+	"dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.22),inset_0_-1px_0_rgb(255_255_255/0.1),inset_0_0_0_1px_rgb(255_255_255/0.06),inset_0_0_32px_rgb(255_255_255/0.04),0_24px_64px_rgb(0_0_0/0.45)]",
+].join(" ");
+
+/**
  * 所有下拉 / 弹出面板（Popover、DropdownMenu、Select 的内容面）的统一外观：
  * 无外边框、大圆角、共用柔和投影。三个基础组件都从这里取，调用方不要再自己写
  * `border` / `rounded-*` / `shadow-*`，否则会和全局风格分叉。

@@ -1,3 +1,5 @@
+> **Status: superseded（快捷面板已移除）。** 快捷面板整体下线，`electron-liquid-glass` 不再有使用方。本 ADR 仅留作决策轨迹。
+
 # 快捷面板背景接入 macOS 原生液态/磨砂玻璃，darwin-only 原生模块以 createRequire 条件加载
 
 快捷面板背景改用 macOS 原生玻璃：macOS 26+ (Tahoe) 为液态玻璃，更低版本自动回退为磨砂玻璃（legacy `NSVisualEffectView` 模糊）。经由 `electron-liquid-glass`（`liquidGlass.addView(win.getNativeWindowHandle(), { cornerRadius: 16, opaque: false })`）实现，玻璃视图绘制在 web 内容之下，故渲染层在玻璃模式下把卡片背景设为透明、去掉边框与阴影。模式由主进程依平台/`isGlassSupported()` 判定后经 `QUICK_PANEL_CHANNELS.ON_GLASS` 下发（`liquid`|`frosted`|`none`）。非 macOS 退回原不透明卡片。

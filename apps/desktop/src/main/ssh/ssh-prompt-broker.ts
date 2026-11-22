@@ -53,7 +53,7 @@ export function askSshPromptInRenderer(request: SshPromptUserRequest): Promise<S
 		const timer = setTimeout(() => settle({ ok: false }), PROMPT_TIMEOUT_MS);
 		timer.unref?.();
 		pending.set(id, { resolve: settle, timer });
-		// 广播给所有窗口：用户可能正看着快捷面板而不是主窗口。先答的那个算数。
+		// 广播给所有窗口：用户可能正看着其它窗口而不是主窗口。先答的那个算数。
 		for (const win of windows) win.webContents.send(SSH_PROMPT_CHANNELS.REQUEST, event);
 	});
 }

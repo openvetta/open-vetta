@@ -1210,15 +1210,6 @@
   "resetShortcuts": "Reset shortcuts",
   "shortcutPlaceholder": "Press shortcut...",
   "shortcutHint": "Click the shortcut area, then press the new key combination to record. Changes take effect immediately, no restart needed.",
-  "quickPanelTrigger": "Trigger",
-  "quickPanelTriggerDescription": "Double-tap a modifier key to summon the quick panel system-wide",
-  "quickPanelTriggerHintMac": "First time: grant Vetta access in System Settings › Privacy & Security › Input Monitoring",
-  "quickPanelTriggerNone": "Disabled",
-  "quickPanelTriggerDoubleTap": "Double-tap {{key}}",
-  "quickPanelBehavior": "After Send",
-  "quickPanelBehaviorDescription": "What to do after sending from the quick panel",
-  "quickPanelBehaviorForeground": "Open the main window and jump to the new session",
-  "quickPanelBehaviorBackground": "Run in the background, just close the panel",
   "appshotGesture": "Trigger Shortcut",
   "appshotGestureDescription": "Hold both sides of the same modifier key for about 0.25s to attach the frontmost window's screenshot and text for the AI. First use requires Screen Recording and Accessibility access in System Settings.",
   "appshotGestureBothShift": "Hold both {{key}} keys",
@@ -1366,7 +1357,6 @@
   "section_imbridge-logs": "Live Logs",
   "section_webhook-channels": "Channel List",
   "section_shortcuts-global": "Global Shortcuts",
-  "section_shortcuts-quickpanel": "Quick Panel",
   "section_appshot-gesture": "Trigger Shortcut",
   "section_appshot-permissions": "Permissions",
   "section_archived-list": "Archived List",
@@ -1599,7 +1589,6 @@
       },
       "shortcuts": {
         "list": "Show current global shortcuts",
-        "quickpanel": "Adjust quick panel related settings",
         "reset": "Reset shortcuts to defaults"
       },
       "agent": {

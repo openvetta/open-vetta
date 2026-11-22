@@ -19,7 +19,6 @@ import { createNotificationApi } from "./apis/notification.js";
 import { createPetApi } from "./apis/pet.js";
 import { createPluginsApi } from "./apis/plugins.js";
 import { createProjectApi } from "./apis/project.js";
-import { createQuickPanelApi } from "./apis/quick-panel.js";
 import { createRemotePairingApi } from "./apis/remote-pairing.js";
 import { createRuntimeConfigurationApi } from "./apis/runtime-configuration.js";
 import { createSchedulerApi } from "./apis/scheduler.js";
@@ -66,7 +65,6 @@ const rawApi: Omit<DesktopApi, "hostAccess"> = {
 	...createProjectApi(ipcRenderer),
 	...createSshApi(ipcRenderer),
 	...createTerminalApi(ipcRenderer),
-	...createQuickPanelApi(ipcRenderer),
 	...createRuntimeConfigurationApi(ipcRenderer),
 	remotePairing: createRemotePairingApi(ipcRenderer),
 	...createAppshotApi(ipcRenderer),

@@ -15,9 +15,10 @@ const labels = {
 	emptyHint: "Try a different keyword",
 	loading: "Searching sessions",
 	title: "Command Menu",
-	hintNavigate: "↑↓ Navigate",
-	hintSelect: "↵ Open",
-	hintClose: "esc Close",
+	actionsLabel: "Actions",
+	newSession: "New session",
+	hintSelect: "Open",
+	hintClose: "Close",
 };
 
 function item(overrides: Partial<CommandMenuItemView> = {}): CommandMenuItemView {
@@ -75,7 +76,7 @@ describe("CommandMenuView", () => {
 		];
 		render(<CommandMenuView {...props({ groups })} />);
 
-		const rendered = screen.getAllByRole("group").map((node) => node.getAttribute("aria-label"));
+		const rendered = within(screen.getByRole("listbox")).getAllByRole("group").map((node) => node.getAttribute("aria-label"));
 		expect(rendered).toEqual(["Projects", "Sessions", "Settings"]);
 	});
 
@@ -201,5 +202,57 @@ describe("CommandMenuView", () => {
 		await userEvent.type(screen.getByRole("combobox"), "g");
 		expect(onQueryChange).toHaveBeenCalledWith("g");
 		expect(screen.getByRole("combobox").getAttribute("value")).toBe("");
+	});
+
+	it("shows the toggle shortcut and keycap hints, and marks in-progress sessions", () => {
+		const groups = [
+			group({
+				key: "activeSessions",
+				label: "In progress",
+				items: [item({ id: "s1", title: "deploy", status: "waiting", statusLabel: "Waiting", badge: "vetta" })],
+			}),
+			group({ key: "abilities", label: "Abilities", items: [item({ id: "a1", title: "PDF", badge: "Skill", badgeTone: "accent" })] }),
+		];
+		render(<CommandMenuView {...props({ groups, toggleShortcut: "mod+t" })} />);
+
+		const dialog = screen.getByRole("dialog");
+		expect(dialog.textContent).toContain("T");
+		const actions = screen.getByRole("group", { name: "Actions" });
+		expect(within(actions).getByRole("button", { name: /Open/ })).toBeTruthy();
+		expect(within(actions).getByRole("button", { name: /Close/ })).toBeTruthy();
+		const session = screen.getByRole("option", { name: /deploy/ });
+		expect(within(session).getByText("Waiting")).toBeTruthy();
+		expect(within(session).getByText("vetta")).toBeTruthy();
+		expect(session.querySelector("[data-session-waiting='true']")).not.toBeNull();
+		expect(within(screen.getByRole("option", { name: /PDF/ })).getByText("Skill").className).toContain("text-primary");
+	});
+
+	it("opens, closes and starts a new session from the bottom button groups", async () => {
+		// 纯展示组件的唯一输出就是回调：按发生顺序记下用户意图，再断言整段序列。
+		const intents: string[] = [];
+		render(
+			<CommandMenuView
+				{...props({
+					groups: [group()],
+					selectedId: "project:demo",
+					onActivateItem: (id) => intents.push(`open:${id}`),
+					onClose: () => intents.push("close"),
+					onNewSession: () => intents.push("new-session"),
+					newSessionShortcut: "mod+n",
+				})}
+			/>,
+		);
+		const actions = screen.getByRole("group", { name: "Actions" });
+
+		await userEvent.click(within(actions).getByRole("button", { name: /Open/ }));
+		await userEvent.click(within(actions).getByRole("button", { name: /Close/ }));
+		await userEvent.click(screen.getByRole("button", { name: /New session/ }));
+		expect(intents).toEqual(["open:project:demo", "close", "new-session"]);
+	});
+
+	it("disables the open action when nothing is selected", () => {
+		render(<CommandMenuView {...props({ groups: [], selectedId: null })} />);
+		const open = within(screen.getByRole("group", { name: "Actions" })).getByRole("button", { name: /Open/ });
+		expect((open as HTMLButtonElement).disabled).toBe(true);
 	});
 });

@@ -10,6 +10,7 @@ import type { DesktopSessionSearchEvent } from "../../shared/session-search.js";
 import { agentTeamConversationOwnershipRecords } from "../agent-teams/team-ownership-backfill.js";
 import { listLegacyTeamSessionDocuments } from "../agent-teams/team-session-legacy-source.js";
 import { ConversationOwnershipCatalog, conversationOwnershipPathKey } from "./conversation-ownership-catalog.js";
+import { createSessionSearchResultBatcher } from "./session-search-result-batcher.js";
 import { SessionSearchService } from "./session-search-service.js";
 import type { SessionSearchWorkerRequest } from "./session-search-worker-protocol.js";
 
@@ -67,14 +68,13 @@ export function startSessionSearchWorker(port: Pick<MessagePort, "on" | "postMes
 		const { requestId } = message;
 		const controller = new AbortController();
 		controllers.set(requestId, controller);
+		const batcher = createSessionSearchResultBatcher((results) => {
+			if (!controller.signal.aborted) emit({ requestId, results, done: false });
+		});
 		void search
-			.searchStream(
-				message.request,
-				message.sources,
-				(result) => emit({ requestId, results: [result], done: false }),
-				controller.signal,
-			)
+			.searchStream(message.request, message.sources, (result) => batcher.push(result), controller.signal)
 			.then((summary) => {
+				batcher.flush();
 				if (!controller.signal.aborted) emit({ requestId, done: true, ...summary });
 			})
 			.catch(() => {

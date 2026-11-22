@@ -11,7 +11,6 @@ import {
 	DOMAIN_KNOWLEDGE_CAPABILITIES,
 	DOMAIN_OCR_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
-	DOMAIN_QUICK_PANEL_CAPABILITIES,
 	DOMAIN_SCHEDULER_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
 	DOMAIN_SHORTCUT_CAPABILITIES,
@@ -49,7 +48,6 @@ const DOMAIN_PROJECT_PROVIDER_OWNER = "vetta.domain.project";
 const DOMAIN_SESSION_PROVIDER_OWNER = "vetta.domain.session";
 const DOMAIN_SKILL_PROVIDER_OWNER = "vetta.domain.skill";
 const DOMAIN_SHORTCUT_PROVIDER_OWNER = "vetta.domain.shortcut";
-const DOMAIN_QUICK_PANEL_PROVIDER_OWNER = "vetta.domain.quick-panel";
 const DOMAIN_DOWNLOAD_PROVIDER_OWNER = "vetta.domain.download";
 const DOMAIN_UPDATER_PROVIDER_OWNER = "vetta.domain.updater";
 const DOMAIN_KNOWLEDGE_PROVIDER_OWNER = "vetta.domain.knowledge";
@@ -426,20 +424,6 @@ export function registerDesktopDomainProviders(
 			},
 		}),
 	]);
-	const quickPanelRegistration = registry.registerOwner(DOMAIN_QUICK_PANEL_PROVIDER_OWNER, [
-		bindCapability(DOMAIN_QUICK_PANEL_CAPABILITIES.SET_TRIGGER, {
-			execute: async ({ trigger }, context) => {
-				assertNotAborted(context.signal);
-				return shortcuts.setQuickPanelTrigger(trigger);
-			},
-		}),
-		bindCapability(DOMAIN_QUICK_PANEL_CAPABILITIES.SET_POST_SEND_BEHAVIOR, {
-			execute: async ({ behavior }, context) => {
-				assertNotAborted(context.signal);
-				return shortcuts.setQuickPanelPostSendBehavior(behavior);
-			},
-		}),
-	]);
 	const downloadRegistration = registry.registerOwner(DOMAIN_DOWNLOAD_PROVIDER_OWNER, [
 		bindCapability(DOMAIN_DOWNLOAD_CAPABILITIES.LIST, {
 			execute: async (_input, context) => {
@@ -692,7 +676,6 @@ export function registerDesktopDomainProviders(
 			updaterRegistration.dispose();
 			downloadRegistration.dispose();
 			batchTaskRegistration.dispose();
-			quickPanelRegistration.dispose();
 			shortcutRegistration.dispose();
 			skillRegistration.dispose();
 			sessionRegistration.dispose();

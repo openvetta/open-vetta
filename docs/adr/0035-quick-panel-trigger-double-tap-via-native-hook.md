@@ -1,3 +1,5 @@
+> **Status: superseded（快捷面板已移除）。** 快捷面板整体下线，双击功能键触发随之删除；uiohook-napi 全局监听保留，现只服务应用快照的「双键同按」手势（`src/main/uiohook-gestures.ts`）。本 ADR 仅留作决策轨迹。
+
 # 快捷面板触发器改回「双击功能键」，引入 uiohook-napi 原生全局监听
 
 推翻 ADR-0034。快捷面板呼出方式改为**双击一个功能键**（设置页单选：不启用 / 双击 ⌘·Ctrl / 双击 ⌥·Alt / 双击 ⇧），全局生效（APP 未聚焦/隐藏时也能唤出）。配置存 `~/.vetta/config.json` 的 `quickPanel.trigger`（`none`|`mod`|`alt`|`shift`，缺省 `none`）。

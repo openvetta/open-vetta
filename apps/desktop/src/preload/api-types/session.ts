@@ -131,7 +131,7 @@ export interface DesktopUserQuestionResolvedEvent {
 
 export interface DesktopPendingQuestionChangedEvent {
 	sessionPath: string;
-	/** 沿用 `hasPendingQuestion`：快捷面板只关心「有没有」，侧栏再读 `count`。 */
+	/** 沿用 `hasPendingQuestion` 表示「有没有」，侧栏再读 `count`。 */
 	hasPendingQuestion: boolean;
 	/** 该会话剩余的待处理请求数。 */
 	count: number;

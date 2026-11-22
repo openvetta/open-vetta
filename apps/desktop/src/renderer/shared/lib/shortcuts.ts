@@ -1,6 +1,5 @@
 /**
  * Renderer 侧全局快捷键：定义 re-export + 持久化（desktop-config）+ localStorage 迁移。
- * 快捷面板不在此模块。
  */
 
 import {

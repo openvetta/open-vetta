@@ -329,7 +329,6 @@ function writeSafeDesktopConfiguration(
     notificationsEnabled: false,
     debugMode: true,
     knowledgeBase: { enabled: false },
-    quickPanel: { trigger: "none", postSendBehavior: "foreground" },
     appshot: { enabled: false },
   };
 

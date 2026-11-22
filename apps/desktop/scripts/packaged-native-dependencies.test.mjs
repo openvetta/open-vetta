@@ -20,16 +20,6 @@ test("omits sherpa from a speech-disabled Windows artifact", () => {
 	assert.ok(!windows.asarUnpack.some((pattern) => pattern.includes("sherpa")));
 });
 
-test("keeps darwin-only glass out of Windows and Linux artifacts", () => {
-	for (const platform of ["win32", "linux"]) {
-		const result = resolvePackagedNativeDependencies(new Set([platform]));
-		assert.ok(!result.optional.includes("electron-liquid-glass"));
-		assert.ok(!result.required.includes("electron-liquid-glass"));
-	}
-	const mac = resolvePackagedNativeDependencies(new Set(["darwin"]));
-	assert.ok(mac.optional.includes("electron-liquid-glass"));
-});
-
 test("stages the node-pty wrapper everywhere and only matching-OS binary packages", () => {
 	// 壳是纯 JS、三平台都要；二进制包按 OS 分，串平台就等于把别的系统的 .node 带进产物。
 	const byPlatform = {
@@ -83,7 +73,6 @@ test("keeps platform-specific packages external regardless of build target", () 
 	// bundle 只构建一份：按平台过滤 external 会把原生模块打进 bundle 直接构建失败。
 	const externals = resolveMainBundleExternals();
 	assert.ok(externals.includes("koffi"));
-	assert.ok(externals.includes("electron-liquid-glass"));
 	assert.ok(externals.includes("sherpa-onnx-win-x64"));
 	assert.ok(!resolveMainBundleExternals({ speechInputEnabled: false }).includes("sherpa-onnx-win-x64"));
 });

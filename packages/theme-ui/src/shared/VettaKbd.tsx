@@ -9,6 +9,11 @@ import {
 } from "./kbd-keys";
 
 export type VettaKbdSize = "xs" | "sm";
+/**
+ * raised：浮雕键帽（默认）；flat：玻璃面板上的平铺键帽，只有一块淡底，不画描边和投影。
+ * flat 的键面符号用前景亮色：淡底已经把键帽和文字区分开，符号再压灰会在玻璃上发虚。
+ */
+export type VettaKbdVariant = "raised" | "flat";
 
 export interface VettaKbdProps {
 	/** 快捷键串（"mod+shift+k"）或键位列表；列表项可写成按平台取值的对象。 */
@@ -16,6 +21,7 @@ export interface VettaKbdProps {
 	/** 强制平台；默认按当前窗口平台判断。 */
 	readonly platform?: VettaKbdPlatform;
 	readonly size?: VettaKbdSize;
+	readonly variant?: VettaKbdVariant;
 	/** 键之间显示 "+" 连接符（默认只靠间距分组）。 */
 	readonly separator?: boolean;
 	readonly className?: string;
@@ -33,6 +39,11 @@ const CAP_RAISED = cn(
 	"dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.09),0_1.5px_2px_rgba(0,0,0,0.55)]",
 );
 
+const CAP_FLAT = cn(
+	"inline-flex shrink-0 items-center justify-center whitespace-nowrap font-medium leading-none",
+	"bg-foreground/[0.07] text-foreground dark:bg-white/[0.1]",
+);
+
 const SIZE_CLASS: Record<VettaKbdSize, string> = {
 	xs: "h-[18px] min-w-[18px] rounded-[4px] px-1 text-[10px]",
 	sm: "h-[22px] min-w-[22px] rounded-[5px] px-1.5 text-[11px]",
@@ -48,6 +59,7 @@ export function VettaKbd({
 	keys,
 	platform,
 	size = "xs",
+	variant = "raised",
 	separator = false,
 	className,
 }: VettaKbdProps): JSX.Element | null {
@@ -71,7 +83,7 @@ export function VettaKbd({
 							+
 						</span>
 					)}
-					<kbd aria-hidden="true" className={cn(CAP_RAISED, SIZE_CLASS[size])}>
+					<kbd aria-hidden="true" className={cn(variant === "flat" ? CAP_FLAT : CAP_RAISED, SIZE_CLASS[size])}>
 						{label}
 					</kbd>
 				</Fragment>
