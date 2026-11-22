@@ -41,7 +41,8 @@ const CAP_RAISED = cn(
 
 const CAP_FLAT = cn(
 	"inline-flex shrink-0 items-center justify-center whitespace-nowrap font-medium leading-none",
-	"bg-foreground/[0.07] text-foreground/45 dark:bg-white/[0.1] dark:text-white/45",
+	// 浅色的符号要比深色更实一些，否则在白色玻璃上细线符号（⏎、⎋）几乎看不见。
+	"bg-foreground/[0.07] text-foreground/55 dark:bg-white/[0.1] dark:text-white/45",
 );
 
 const SIZE_CLASS: Record<VettaKbdSize, string> = {

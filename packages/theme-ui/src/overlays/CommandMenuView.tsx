@@ -15,6 +15,14 @@ import "./command-menu.css";
  * 面板顶部对齐而非垂直居中：结果条数会变，垂直居中会让输入框随每次击键上下跳。
  */
 
+/**
+ * 浮在列表上的按钮组在浅色下补一层玻璃：通用 ButtonGroup 的浅色只有一层淡灰底（贴在普通页面上够用），
+ * 压在白色玻璃面板和列表内容上就成了一块灰片。这里只覆盖浅色的底色与阴影（深色沿用 ButtonGroup
+ * 自带的 dark: 样式不变），不改通用组件。
+ */
+const FLOATING_GROUP_CLASS =
+	"pointer-events-auto bg-white/65 shadow-[inset_0_1px_0_rgb(255_255_255/0.95),0_0_0_1px_rgb(0_0_0/0.07),0_6px_18px_-6px_rgb(0_0_0/0.18)]";
+
 /** 悬停提示里的快捷键文字，例如 mac 上的「⌘N」、Windows 上的「Ctrl N」。 */
 function formatKbdTitle(keys: string): string {
 	const platform = detectKbdPlatform();
@@ -161,7 +169,7 @@ export function CommandMenuView({
 			<div className="pointer-events-none absolute inset-x-2.5 bottom-2.5 z-10 flex items-center justify-between gap-2">
 				{onNewSession ? (
 					// 只有图标的圆形按钮：胶囊里单个纯图标项正好是一颗与右侧按钮组等高的圆。
-					<ButtonGroup className="pointer-events-auto">
+					<ButtonGroup className={FLOATING_GROUP_CLASS}>
 						<ButtonGroupItem
 							onClick={onNewSession}
 							aria-label={labels.newSession}
@@ -172,7 +180,7 @@ export function CommandMenuView({
 				) : (
 					<span />
 				)}
-				<ButtonGroup className="pointer-events-auto" aria-label={labels.actionsLabel}>
+				<ButtonGroup className={FLOATING_GROUP_CLASS} aria-label={labels.actionsLabel}>
 					<ButtonGroupItem
 						disabled={!selectedId}
 						onClick={() => {
