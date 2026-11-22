@@ -11,7 +11,7 @@ import {
 export type VettaKbdSize = "xs" | "sm";
 /**
  * raised：浮雕键帽（默认）；flat：玻璃面板上的平铺键帽，只有一块淡底，不画描边和投影。
- * flat 的键面符号刻意压暗，和按钮里的文字形成两种明度：文字是动作，键帽只是提示。
+ * flat 的键面符号用前景亮色：淡底已经把键帽和文字区分开，符号再压灰会在玻璃上发虚。
  */
 export type VettaKbdVariant = "raised" | "flat";
 
@@ -41,8 +41,7 @@ const CAP_RAISED = cn(
 
 const CAP_FLAT = cn(
 	"inline-flex shrink-0 items-center justify-center whitespace-nowrap font-medium leading-none",
-	// 浅色的符号要比深色更实一些，否则在白色玻璃上细线符号（⏎、⎋）几乎看不见。
-	"bg-foreground/[0.07] text-foreground/55 dark:bg-white/[0.1] dark:text-white/45",
+	"bg-foreground/[0.07] text-foreground dark:bg-white/[0.1]",
 );
 
 const SIZE_CLASS: Record<VettaKbdSize, string> = {
