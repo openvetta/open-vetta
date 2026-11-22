@@ -1004,7 +1004,7 @@
 		"emptyHint": "换个关键词试试",
 		"loading": "正在搜索会话",
 		"title": "命令面板",
-		"hintNavigate": "选择",
+		"actionsLabel": "操作",
 		"hintSelect": "打开",
 		"hintClose": "关闭",
 		"overflow": "还有 {{count}} 条",

@@ -15,7 +15,7 @@ const labels = {
 	emptyHint: "Try a different keyword",
 	loading: "Searching sessions",
 	title: "Command Menu",
-	hintNavigate: "Navigate",
+	actionsLabel: "Actions",
 	hintSelect: "Open",
 	hintClose: "Close",
 };
@@ -75,7 +75,7 @@ describe("CommandMenuView", () => {
 		];
 		render(<CommandMenuView {...props({ groups })} />);
 
-		const rendered = screen.getAllByRole("group").map((node) => node.getAttribute("aria-label"));
+		const rendered = within(screen.getByRole("listbox")).getAllByRole("group").map((node) => node.getAttribute("aria-label"));
 		expect(rendered).toEqual(["Projects", "Sessions", "Settings"]);
 	});
 
@@ -216,11 +216,39 @@ describe("CommandMenuView", () => {
 
 		const dialog = screen.getByRole("dialog");
 		expect(dialog.textContent).toContain("T");
-		expect(screen.getByText("Navigate")).toBeTruthy();
+		const actions = screen.getByRole("group", { name: "Actions" });
+		expect(within(actions).getByRole("button", { name: /Open/ })).toBeTruthy();
+		expect(within(actions).getByRole("button", { name: /Close/ })).toBeTruthy();
 		const session = screen.getByRole("option", { name: /deploy/ });
 		expect(within(session).getByText("Waiting")).toBeTruthy();
 		expect(within(session).getByText("vetta")).toBeTruthy();
 		expect(session.querySelector("[data-session-waiting='true']")).not.toBeNull();
 		expect(within(screen.getByRole("option", { name: /PDF/ })).getByText("Skill").className).toContain("text-primary");
+	});
+
+	it("opens the selected row and closes from the action button group", async () => {
+		// 纯展示组件的唯一输出就是回调：按发生顺序记下用户意图，再断言整段序列。
+		const intents: string[] = [];
+		render(
+			<CommandMenuView
+				{...props({
+					groups: [group()],
+					selectedId: "project:demo",
+					onActivateItem: (id) => intents.push(`open:${id}`),
+					onClose: () => intents.push("close"),
+				})}
+			/>,
+		);
+		const actions = screen.getByRole("group", { name: "Actions" });
+
+		await userEvent.click(within(actions).getByRole("button", { name: /Open/ }));
+		await userEvent.click(within(actions).getByRole("button", { name: /Close/ }));
+		expect(intents).toEqual(["open:project:demo", "close"]);
+	});
+
+	it("disables the open action when nothing is selected", () => {
+		render(<CommandMenuView {...props({ groups: [], selectedId: null })} />);
+		const open = within(screen.getByRole("group", { name: "Actions" })).getByRole("button", { name: /Open/ });
+		expect((open as HTMLButtonElement).disabled).toBe(true);
 	});
 });

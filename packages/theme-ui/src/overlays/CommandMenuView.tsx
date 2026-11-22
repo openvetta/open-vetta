@@ -1,8 +1,9 @@
+import { ButtonGroup, ButtonGroupItem } from "@vetta-org/ui/button-group";
 import { useCallback, useEffect, useRef, type JSX, type RefObject } from "react";
 import { VettaKbd } from "../shared/VettaKbd";
 import { CommandMenuRow } from "./CommandMenuRow";
 import type { CommandMenuGroupView, CommandMenuViewLabels } from "./command-menu-types";
-import { SplashFooter, SplashInputHeader } from "./SplashParts";
+import { SplashInputHeader } from "./SplashParts";
 import { SplashPanel } from "./SplashPanel";
 import "./command-menu.css";
 
@@ -85,28 +86,14 @@ export function CommandMenuView({
 					}}
 				/>
 			}
-			footer={
-				<SplashFooter>
-					<span className="inline-flex items-center gap-1.5">
-						<VettaKbd keys="up+down" size="sm" />
-						{labels.hintNavigate}
-					</span>
-					<span className="inline-flex items-center gap-1.5">
-						<VettaKbd keys="enter" size="sm" />
-						{labels.hintSelect}
-					</span>
-					<span className="ml-auto inline-flex items-center gap-1.5">
-						<VettaKbd keys="esc" size="sm" />
-						{labels.hintClose}
-					</span>
-				</SplashFooter>
-			}
 		>
+			<div className="relative flex min-h-0 flex-col">
 			<div
 				id="command-menu-list"
 				role="listbox"
 				aria-label={labels.title}
-				className="min-h-0 max-h-[min(420px,56vh)] overflow-y-auto overscroll-contain px-1.5 py-1.5"
+				// 底部留出浮动按钮组的高度，最后一行滚到底时不会被它盖住。
+				className="min-h-0 max-h-[min(460px,60vh)] overflow-y-auto overscroll-contain px-1.5 pt-1.5 pb-12"
 			>
 			{groups.map((group) => {
 				if (group.items.length === 0 && !group.loading) return null;
@@ -151,6 +138,34 @@ export function CommandMenuView({
 					<span className="text-[11px] text-muted-foreground">{labels.emptyHint}</span>
 				</div>
 			)}
+			</div>
+			{/*
+			 * 操作提示做成浮在列表右下角的按钮组（复用通用 ButtonGroup 的玻璃胶囊），既是提示也能点：
+			 * 「打开」作用于当前选中项，「关闭」等同 esc。上下选择只靠方向键，不占一个按钮。
+			 */}
+			<ButtonGroup className="absolute right-2.5 bottom-2.5 z-10" aria-label={labels.actionsLabel}>
+				<ButtonGroupItem
+					disabled={!selectedId}
+					onClick={() => {
+						if (selectedId) onActivateItem(selectedId);
+					}}
+					label={
+						<span className="inline-flex items-center gap-2">
+							{labels.hintSelect}
+							<VettaKbd keys="enter" size="sm" />
+						</span>
+					}
+				/>
+				<ButtonGroupItem
+					onClick={onClose}
+					label={
+						<span className="inline-flex items-center gap-2">
+							{labels.hintClose}
+							<VettaKbd keys="esc" size="sm" />
+						</span>
+					}
+				/>
+			</ButtonGroup>
 			</div>
 		</SplashPanel>
 	);

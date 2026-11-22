@@ -51,8 +51,9 @@ export interface CommandMenuViewLabels {
 	readonly emptyHint: string;
 	readonly loading: string;
 	readonly title: string;
-	/** 底栏提示文案只写动作（「选择」），键帽由视图按平台渲染。 */
-	readonly hintNavigate: string;
+	/** 右下角操作按钮组的无障碍名称。 */
+	readonly actionsLabel: string;
+	/** 按钮文案只写动作（「打开」），键帽由视图按平台渲染。 */
 	readonly hintSelect: string;
 	readonly hintClose: string;
 }

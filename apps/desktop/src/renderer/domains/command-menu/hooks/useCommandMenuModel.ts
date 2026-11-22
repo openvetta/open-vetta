@@ -508,7 +508,7 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 			emptyHint: t("commandMenu.emptyHint"),
 			loading: t("commandMenu.loading"),
 			title: t("commandMenu.title"),
-			hintNavigate: t("commandMenu.hintNavigate"),
+			actionsLabel: t("commandMenu.actionsLabel"),
 			hintSelect: t("commandMenu.hintSelect"),
 			hintClose: t("commandMenu.hintClose"),
 		}),

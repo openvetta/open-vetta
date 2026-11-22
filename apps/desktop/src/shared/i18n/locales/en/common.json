@@ -1004,7 +1004,7 @@
 		"emptyHint": "Try a different keyword",
 		"loading": "Searching sessions",
 		"title": "Command menu",
-		"hintNavigate": "Navigate",
+		"actionsLabel": "Actions",
 		"hintSelect": "Open",
 		"hintClose": "Close",
 		"overflow": "{{count}} more",
