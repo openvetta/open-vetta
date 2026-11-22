@@ -75,6 +75,8 @@ export interface CommandMenuModel {
 	readonly groups: readonly CommandMenuGroupView[];
 	readonly selectedId: string | null;
 	readonly labels: CommandMenuViewLabels;
+	/** 唤起 / 关闭面板的生效快捷键，供视图显示键帽。 */
+	readonly toggleShortcut: string;
 	readonly suppressSelectionAnimation: boolean;
 	readonly onQueryChange: (value: string) => void;
 	readonly onHoverItem: (id: string) => void;
@@ -507,6 +509,7 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		groups,
 		selectedId,
 		labels,
+		toggleShortcut: toggleKey,
 		suppressSelectionAnimation,
 		onQueryChange,
 		onHoverItem,

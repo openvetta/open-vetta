@@ -54,6 +54,7 @@ export interface CommandMenuEntry {
 	/** iconify 类名。 */
 	readonly icon: string;
 	readonly badge?: string;
+	readonly badgeTone?: "neutral" | "accent";
 	/** 会话的进行中状态；有值的会话归入「进行中」组。 */
 	readonly status?: "running" | "waiting";
 	readonly statusLabel?: string;

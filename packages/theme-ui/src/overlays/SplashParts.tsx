@@ -53,6 +53,8 @@ export interface SplashInputHeaderProps {
 	>;
 	/** 挂载后自动聚焦，默认开启：进入这一步后的第一个动作就是打字。 */
 	readonly autoFocus?: boolean;
+	/** 输入框右侧的附加内容，例如唤起面板的快捷键提示。 */
+	readonly trailing?: ReactNode;
 }
 
 export function SplashInputHeader({
@@ -69,6 +71,7 @@ export function SplashInputHeader({
 	inputRef,
 	inputProps,
 	autoFocus = true,
+	trailing,
 }: SplashInputHeaderProps): JSX.Element {
 	const ownRef = useRef<HTMLInputElement | null>(null);
 	const ref = inputRef ?? ownRef;
@@ -119,6 +122,7 @@ export function SplashInputHeader({
 				}}
 				className="min-w-0 flex-1 bg-transparent text-[14px] text-foreground outline-none placeholder:text-muted-foreground/70 disabled:opacity-60"
 			/>
+			{trailing}
 		</div>
 	);
 }
@@ -162,8 +166,8 @@ export function SplashFooter({ children, className }: { children: ReactNode; cla
 	return (
 		<div
 			className={cn(
-				// 唯一保留分隔线的地方，并用与面板不同的底色把操作区托出来。
-				"flex min-h-8 shrink-0 items-center gap-3 border-t border-border/60 bg-muted/50 px-3.5 py-1",
+				// 唯一保留分隔线的地方；玻璃面板上不另铺底色，只用一条极淡的线把操作区分开。
+				"flex min-h-9 shrink-0 items-center gap-3 border-t border-foreground/[0.06] px-3.5 py-1.5 dark:border-white/[0.07]",
 				"text-[11px] text-muted-foreground/80",
 				className,
 			)}

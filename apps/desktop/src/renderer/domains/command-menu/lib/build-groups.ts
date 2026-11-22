@@ -51,6 +51,7 @@ function toItemView(scored: ScoredEntry): CommandMenuItemView {
 		subtitleHighlights: match.subtitleHighlights,
 		icon: entry.icon,
 		badge: entry.badge,
+		badgeTone: entry.badgeTone,
 		status: entry.status,
 		statusLabel: entry.statusLabel,
 		disabled: entry.disabled,

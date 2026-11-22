@@ -6,8 +6,8 @@ import { SessionStatusIcon } from "../sidebar/SessionStatusIcon";
 import type { CommandMenuHighlightRange, CommandMenuItemView } from "./command-menu-types";
 
 /**
- * 结果行。选中态由**静态 CSS 背景**表达，只有 2px 的左侧指示条参与 layout 动画
- * ——对齐 `chat/AtPanelView` 的既有做法：整行背景每次都做布局动画在低端机上代价过高。
+ * 结果行。选中态是一块与 ButtonGroup 选中项同语言的玻璃圆角底（前景色低透明度叠层 + 上沿亮线），
+ * 只在用户上下移动选中项时让这块底滑过去；结果重算时直接落位，不逐击键播放。
  */
 
 /** 把命中区间渲染成高亮片段；区间由调用方保证已排序且互不重叠。 */
@@ -80,12 +80,10 @@ export const CommandMenuRow = memo(function CommandMenuRow({
 				"group relative flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left outline-none transition-colors",
 				disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer",
 			)}
-			style={{
-				background: active ? "color-mix(in srgb, var(--primary) 9%, transparent)" : "transparent",
-			}}
 		>
 			{active && (
 				<motion.span
+					aria-hidden="true"
 					layoutId="command-menu-active-marker"
 					// 结果重算时 layout 动画会把指示条从旧行“弹”到新行，逐击键播放既抖又费；
 					// 只有用户主动上下移动选中项时才让它滑动。
@@ -95,11 +93,11 @@ export const CommandMenuRow = memo(function CommandMenuRow({
 							? { duration: 0 }
 							: { type: "spring", stiffness: 500, damping: 32 }
 					}
-					className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary"
+					className="absolute inset-0 rounded-lg bg-foreground/[0.06] dark:bg-white/[0.08] dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.08)]"
 				/>
 			)}
 			{item.status ? (
-				<span aria-hidden="true" className="flex size-4 shrink-0 items-center justify-center">
+				<span aria-hidden="true" className="relative flex size-4 shrink-0 items-center justify-center">
 					<SessionStatusIcon
 						active={active}
 						running={item.status === "running"}
@@ -109,14 +107,14 @@ export const CommandMenuRow = memo(function CommandMenuRow({
 				</span>
 			) : item.tagColors && item.tagColors.length > 0 ? (
 				// 与侧栏会话一致：标签色点占据行首图标的位置，多个标签就画多个。
-				<ConversationTagDotsView colors={item.tagColors} className="size-4" />
+				<ConversationTagDotsView colors={item.tagColors} className="relative size-4" />
 			) : (
 				<span
 					aria-hidden="true"
-					className={cn(item.icon, "size-4 shrink-0", active ? "text-foreground" : "text-muted-foreground")}
+					className={cn(item.icon, "relative size-4 shrink-0", active ? "text-foreground" : "text-muted-foreground")}
 				/>
 			)}
-			<span className="flex min-w-0 flex-1 items-baseline gap-2">
+			<span className="relative flex min-w-0 flex-1 items-baseline gap-2">
 				{/*
 				 * 标题不参与收缩（shrink-0），只受 max-w 约束：标题和副标题都可收缩时，
 				 * flex 会按内容等比压缩，一条长描述能把名字挤成两三个字。让副标题先让位。
@@ -133,7 +131,7 @@ export const CommandMenuRow = memo(function CommandMenuRow({
 			{item.status && item.statusLabel && (
 				<span
 					className={cn(
-						"shrink-0 text-[11px]",
+						"relative shrink-0 text-[11px]",
 						item.status === "waiting" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
 					)}
 				>
@@ -141,7 +139,14 @@ export const CommandMenuRow = memo(function CommandMenuRow({
 				</span>
 			)}
 			{item.badge && (
-				<span className="shrink-0 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground">
+				<span
+					className={cn(
+						"relative max-w-[40%] shrink-0 truncate rounded-[5px] border px-1.5 py-px text-[10px] font-medium leading-4",
+						item.badgeTone === "accent"
+							? "border-primary/30 bg-primary/10 text-primary"
+							: "border-foreground/[0.08] bg-foreground/[0.04] text-muted-foreground dark:border-white/[0.08] dark:bg-white/[0.05]",
+					)}
+				>
 					{item.badge}
 				</span>
 			)}
@@ -156,7 +161,7 @@ export const CommandMenuRow = memo(function CommandMenuRow({
 						onMore(item.id);
 					}}
 					className={cn(
-						"-mr-1 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground",
+						"relative -mr-1 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground",
 						active ? "opacity-100" : "opacity-0 group-hover:opacity-100",
 					)}
 				>

@@ -34,6 +34,7 @@ export function CommandMenu({ onOpenSession }: CommandMenuProps): JSX.Element {
 			groups={model.groups}
 			selectedId={model.selectedId}
 			labels={model.labels}
+			toggleShortcut={model.toggleShortcut}
 			suppressSelectionAnimation={model.suppressSelectionAnimation}
 			inputRef={inputRef}
 			onQueryChange={model.onQueryChange}

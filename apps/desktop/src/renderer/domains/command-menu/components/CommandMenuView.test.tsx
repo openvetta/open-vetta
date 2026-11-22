@@ -15,9 +15,9 @@ const labels = {
 	emptyHint: "Try a different keyword",
 	loading: "Searching sessions",
 	title: "Command Menu",
-	hintNavigate: "↑↓ Navigate",
-	hintSelect: "↵ Open",
-	hintClose: "esc Close",
+	hintNavigate: "Navigate",
+	hintSelect: "Open",
+	hintClose: "Close",
 };
 
 function item(overrides: Partial<CommandMenuItemView> = {}): CommandMenuItemView {
@@ -201,5 +201,26 @@ describe("CommandMenuView", () => {
 		await userEvent.type(screen.getByRole("combobox"), "g");
 		expect(onQueryChange).toHaveBeenCalledWith("g");
 		expect(screen.getByRole("combobox").getAttribute("value")).toBe("");
+	});
+
+	it("shows the toggle shortcut and keycap hints, and marks in-progress sessions", () => {
+		const groups = [
+			group({
+				key: "activeSessions",
+				label: "In progress",
+				items: [item({ id: "s1", title: "deploy", status: "waiting", statusLabel: "Waiting", badge: "vetta" })],
+			}),
+			group({ key: "abilities", label: "Abilities", items: [item({ id: "a1", title: "PDF", badge: "Skill", badgeTone: "accent" })] }),
+		];
+		render(<CommandMenuView {...props({ groups, toggleShortcut: "mod+t" })} />);
+
+		const dialog = screen.getByRole("dialog");
+		expect(dialog.textContent).toContain("T");
+		expect(screen.getByText("Navigate")).toBeTruthy();
+		const session = screen.getByRole("option", { name: /deploy/ });
+		expect(within(session).getByText("Waiting")).toBeTruthy();
+		expect(within(session).getByText("vetta")).toBeTruthy();
+		expect(session.querySelector("[data-session-waiting='true']")).not.toBeNull();
+		expect(within(screen.getByRole("option", { name: /PDF/ })).getByText("Skill").className).toContain("text-primary");
 	});
 });

@@ -20,6 +20,8 @@ export interface CommandMenuItemView {
 	/** iconify 类名，例如 `icon-[solar--folder-linear]`。 */
 	readonly icon: string;
 	readonly badge?: string;
+	/** badge 的色调：accent 用主题强调色（如「技能」），默认是中性灰。 */
+	readonly badgeTone?: "neutral" | "accent";
 	/**
 	 * 会话的进行中状态：有值时行首图标换成与侧栏一致的状态图标，并在行尾显示 statusLabel。
 	 * waiting 指会话正等着用户处理（提问 / 审批 / 询问 / 授权）。
@@ -49,6 +51,7 @@ export interface CommandMenuViewLabels {
 	readonly emptyHint: string;
 	readonly loading: string;
 	readonly title: string;
+	/** 底栏提示文案只写动作（「选择」），键帽由视图按平台渲染。 */
 	readonly hintNavigate: string;
 	readonly hintSelect: string;
 	readonly hintClose: string;

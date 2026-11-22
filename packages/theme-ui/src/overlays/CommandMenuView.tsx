@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, type JSX, type RefObject } from "react";
+import { VettaKbd } from "../shared/VettaKbd";
 import { CommandMenuRow } from "./CommandMenuRow";
 import type { CommandMenuGroupView, CommandMenuViewLabels } from "./command-menu-types";
 import { SplashFooter, SplashInputHeader } from "./SplashParts";
@@ -18,6 +19,8 @@ export interface CommandMenuViewProps {
 	readonly groups: readonly CommandMenuGroupView[];
 	readonly selectedId: string | null;
 	readonly labels: CommandMenuViewLabels;
+	/** 唤起 / 关闭面板的快捷键（例如 "mod+t"），显示在输入框右侧。 */
+	readonly toggleShortcut?: string;
 	/** 结果集因击键刚变化：抑制选中指示条的位移动画。 */
 	readonly suppressSelectionAnimation: boolean;
 	readonly inputRef?: RefObject<HTMLInputElement | null>;
@@ -33,6 +36,7 @@ export function CommandMenuView({
 	groups,
 	selectedId,
 	labels,
+	toggleShortcut,
 	suppressSelectionAnimation,
 	inputRef,
 	onQueryChange,
@@ -72,6 +76,7 @@ export function CommandMenuView({
 					onChange={onQueryChange}
 					// 打开后的聚焦由宿主在 open 变化时负责（见 desktop CommandMenu）。
 					autoFocus={false}
+					trailing={toggleShortcut ? <VettaKbd keys={toggleShortcut} size="sm" /> : undefined}
 					inputProps={{
 						role: "combobox",
 						"aria-expanded": hasResults,
@@ -82,9 +87,18 @@ export function CommandMenuView({
 			}
 			footer={
 				<SplashFooter>
-					<span>{labels.hintNavigate}</span>
-					<span>{labels.hintSelect}</span>
-					<span className="ml-auto">{labels.hintClose}</span>
+					<span className="inline-flex items-center gap-1.5">
+						<VettaKbd keys="up+down" size="sm" />
+						{labels.hintNavigate}
+					</span>
+					<span className="inline-flex items-center gap-1.5">
+						<VettaKbd keys="enter" size="sm" />
+						{labels.hintSelect}
+					</span>
+					<span className="ml-auto inline-flex items-center gap-1.5">
+						<VettaKbd keys="esc" size="sm" />
+						{labels.hintClose}
+					</span>
 				</SplashFooter>
 			}
 		>

@@ -182,6 +182,7 @@ export function buildInstalledAbilityEntries(
 			subtitle: getSkillDisplayDescription(skill) || undefined,
 			icon: "icon-[solar--magic-stick-3-linear]",
 			badge: labels.abilitySkill,
+			badgeTone: "accent",
 			order: order++,
 			action: { kind: "openAbilities", query: title, scope: "mine" },
 		});
@@ -194,6 +195,7 @@ export function buildInstalledAbilityEntries(
 			subtitle: plugin.id,
 			icon: "icon-[solar--plug-circle-linear]",
 			badge: labels.abilityPlugin,
+			badgeTone: "accent",
 			order: order++,
 			action: { kind: "openAbilities", query: plugin.name, scope: "mine" },
 		});
