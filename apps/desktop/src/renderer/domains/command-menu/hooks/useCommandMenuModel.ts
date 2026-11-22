@@ -517,8 +517,12 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		setSuppressSelectionAnimation(true);
 	}, []);
 
+	/**
+	 * 鼠标悬停让选中底色直接落到指针下那一行，不做滑动：指针扫过一串行时，
+	 * 底色追着指针一路滑会显得拖沓。只有方向键移动才播放滑动。
+	 */
 	const onHoverItem = useCallback((id: string) => {
-		setSuppressSelectionAnimation(false);
+		setSuppressSelectionAnimation(true);
 		setSelectedId(id);
 	}, []);
 

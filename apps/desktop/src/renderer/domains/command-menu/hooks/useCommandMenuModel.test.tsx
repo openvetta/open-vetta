@@ -315,3 +315,17 @@ it("starts a new conversation from the panel and closes it", () => {
 	expect(store.get(commandMenuOpenAtom)).toBe(false);
 	expect(navigate).toHaveBeenLastCalledWith({ to: "/new-session/$cwd", params: { cwd: encodeURIComponent("/w/chat") } });
 });
+
+it("slides the selection only for arrow keys, not when the pointer hovers a row", () => {
+	store.set(projectsAtom, [
+		{ cwd: "/w/a", name: "A", sessionCount: 0, type: "normal" },
+		{ cwd: "/w/b", name: "B", sessionCount: 0, type: "normal" },
+	]);
+	const { result } = render();
+
+	press("arrowdown");
+	expect(result.current.suppressSelectionAnimation).toBe(false);
+	act(() => result.current.onHoverItem("project:/w/a"));
+	expect(result.current.selectedId).toBe("project:/w/a");
+	expect(result.current.suppressSelectionAnimation).toBe(true);
+});
