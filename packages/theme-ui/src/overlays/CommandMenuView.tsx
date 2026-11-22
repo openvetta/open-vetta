@@ -1,5 +1,6 @@
 import { ButtonGroup, ButtonGroupItem } from "@vetta-org/ui/button-group";
 import { useCallback, useEffect, useRef, type JSX, type RefObject } from "react";
+import { detectKbdPlatform, resolveKbdKeys } from "../shared/kbd-keys";
 import { VettaKbd } from "../shared/VettaKbd";
 import { CommandMenuRow } from "./CommandMenuRow";
 import type { CommandMenuGroupView, CommandMenuViewLabels } from "./command-menu-types";
@@ -13,6 +14,12 @@ import "./command-menu.css";
  *
  * 面板顶部对齐而非垂直居中：结果条数会变，垂直居中会让输入框随每次击键上下跳。
  */
+
+/** 悬停提示里的快捷键文字，例如 mac 上的「⌘N」、Windows 上的「Ctrl N」。 */
+function formatKbdTitle(keys: string): string {
+	const platform = detectKbdPlatform();
+	return resolveKbdKeys(keys, platform).join(platform === "mac" ? "" : " ");
+}
 
 export interface CommandMenuViewProps {
 	readonly open: boolean;
@@ -148,21 +155,18 @@ export function CommandMenuView({
 			</div>
 			{/*
 			 * 操作提示做成浮在列表底部的两组按钮（复用通用 ButtonGroup 的玻璃胶囊），既是提示也能点：
-			 * 左边「新会话」，右边「打开」作用于当前选中项、「关闭」等同 esc；左右对称。
+			 * 左边「新会话」（只有图标），右边「打开」作用于当前选中项、「关闭」等同 esc；左右对称。
 			 * 上下选择只靠方向键，不占一个按钮。外层不接收指针，按钮之间的空隙仍能滚动 / 点到列表。
 			 */}
 			<div className="pointer-events-none absolute inset-x-2.5 bottom-2.5 z-10 flex items-center justify-between gap-2">
 				{onNewSession ? (
+					// 只有图标的圆形按钮：胶囊里单个纯图标项正好是一颗与右侧按钮组等高的圆。
 					<ButtonGroup className="pointer-events-auto">
 						<ButtonGroupItem
 							onClick={onNewSession}
-							label={
-								<span className="inline-flex items-center gap-2">
-									<span aria-hidden="true" className="icon-[solar--pen-new-square-linear] size-4" />
-									{labels.newSession}
-									{newSessionShortcut && <VettaKbd keys={newSessionShortcut} size="sm" variant="flat" />}
-								</span>
-							}
+							aria-label={labels.newSession}
+							title={newSessionShortcut ? `${labels.newSession} (${formatKbdTitle(newSessionShortcut)})` : labels.newSession}
+							icon={<span aria-hidden="true" className="icon-[solar--pen-new-square-linear] size-4" />}
 						/>
 					</ButtonGroup>
 				) : (

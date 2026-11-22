@@ -9,7 +9,10 @@ import {
 } from "./kbd-keys";
 
 export type VettaKbdSize = "xs" | "sm";
-/** raised：浮雕键帽（默认）；flat：玻璃面板上的平铺键帽，只有一块淡底，不画描边和投影。 */
+/**
+ * raised：浮雕键帽（默认）；flat：玻璃面板上的平铺键帽，只有一块淡底，不画描边和投影。
+ * flat 的键面符号刻意压暗，和按钮里的文字形成两种明度：文字是动作，键帽只是提示。
+ */
 export type VettaKbdVariant = "raised" | "flat";
 
 export interface VettaKbdProps {
@@ -38,7 +41,7 @@ const CAP_RAISED = cn(
 
 const CAP_FLAT = cn(
 	"inline-flex shrink-0 items-center justify-center whitespace-nowrap font-medium leading-none",
-	"bg-foreground/[0.07] text-muted-foreground dark:bg-white/[0.1]",
+	"bg-foreground/[0.07] text-foreground/45 dark:bg-white/[0.1] dark:text-white/45",
 );
 
 const SIZE_CLASS: Record<VettaKbdSize, string> = {
