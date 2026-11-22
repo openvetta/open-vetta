@@ -381,3 +381,15 @@ it("does not search again for a session that a finished search could not find", 
 	rerender();
 	expect(sessionSearchCalls.at(-1)?.open).toBe(false);
 });
+
+it("does no catalog work while closed but keeps the last results for the closing fade", () => {
+	store.set(projectsAtom, [{ cwd: "/w/a", name: "A", sessionCount: 0, type: "normal" }]);
+	const { result } = render();
+	expect(result.current.groups.map((group) => group.key)).toEqual(["projects", "settings"]);
+
+	act(() => store.set(commandMenuOpenAtom, false));
+	expect(result.current.groups.map((group) => group.key)).toEqual(["projects", "settings"]);
+	// 关着时状态变化不触发会话取数。
+	act(() => store.set(runningSessionPathsAtom, new Set(["/w/run.jsonl"])));
+	expect(sessionSearchCalls.at(-1)?.open).toBe(false);
+});

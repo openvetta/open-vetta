@@ -187,9 +187,10 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 	 * 空查询时要展示的会话：进行中的全部 + 最近打开的前几条（面板兼做全局监视与回访入口）。
 	 * 用排序后拼接的字符串做依赖：集合对象每次变化都是新引用，但只有成员变了才值得重算。
 	 */
+	// 面板常驻挂载：关着时不算任何目录，运行状态 / 侧栏数据频繁变化也只是几次廉价的空分支。
 	const watchedKey = useMemo(
 		() =>
-			hasQuery
+			!open || hasQuery
 				? ""
 				: [
 						...new Set([
@@ -201,7 +202,7 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 					]
 						.sort()
 						.join("\n"),
-		[hasQuery, runningPaths, waitingPaths, attentionPaths, recentVisits],
+		[open, hasQuery, runningPaths, waitingPaths, attentionPaths, recentVisits],
 	);
 	const watchedPaths = useMemo(() => (watchedKey ? watchedKey.split("\n") : []), [watchedKey]);
 
@@ -319,12 +320,15 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 
 	// 目录只跟着源数据重建，击键不会重跑它——这是击键路径上最大的一块成本。
 	const staticEntries = useMemo<CommandMenuEntry[]>(
-		() => [
-			...buildProjectEntries(projects),
-			...buildSettingsEntries({ isMac, isWindows }, (key) => tSettings(key)),
-			...buildWorkspaceViewEntries(workspaceViews, (view, raw) => resolvePluginText(view.pluginId, raw)),
-		],
-		[projects, workspaceViews, tSettings, resolvePluginText],
+		() =>
+			open
+				? [
+						...buildProjectEntries(projects),
+						...buildSettingsEntries({ isMac, isWindows }, (key) => tSettings(key)),
+						...buildWorkspaceViewEntries(workspaceViews, (view, raw) => resolvePluginText(view.pluginId, raw)),
+					]
+				: [],
+		[open, projects, workspaceViews, tSettings, resolvePluginText],
 	);
 
 	const abilityEntries = useMemo(
@@ -340,6 +344,7 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 	}, [hasQuery, sessionSearch.results, watchedPaths, sidebarMeta, searchedMeta, sourceLabels, activity, recentRank]);
 
 	const entries = useMemo<CommandMenuEntry[]>(() => {
+		if (!open) return [];
 		const teamEntries = teams
 			.filter(
 				(session) =>
@@ -370,6 +375,7 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		// 逃生行只在有查询词时出现：空态里它没有可携带的搜索词，等于一条噪音。
 		return hasQuery ? [...all, buildMarketplaceEscapeEntry(deferredQuery, sourceLabels)] : all;
 	}, [
+		open,
 		staticEntries,
 		abilityEntries,
 		sessionEntries,
@@ -619,10 +625,15 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 		[t],
 	);
 
+	// 关闭后不再计算条目，但退场淡出期间面板还在画面上：沿用关闭前最后一次的分组，
+	// 否则淡出时会闪一下空状态。
+	const lastOpenGroupsRef = useRef(groups);
+	if (open) lastOpenGroupsRef.current = groups;
+
 	return {
 		open,
 		query,
-		groups,
+		groups: open ? groups : lastOpenGroupsRef.current,
 		selectedId,
 		labels,
 		toggleShortcut: toggleKey,
