@@ -43,12 +43,9 @@ import {
 	normalizeExperimental,
 	normalizeImageGeneration,
 	normalizeKnowledgeBase,
-	normalizeQuickPanel,
 	normalizeShortcuts,
 	type ProjectEntry,
 	persistVettaCliPaths,
-	type QuickPanelConfig,
-	type QuickPanelTrigger,
 	readConfigSync,
 	readDesktopConfig,
 	updateDesktopConfig,
@@ -120,8 +117,6 @@ export {
 	type KnowledgeBaseConfig,
 	persistVettaCliPaths,
 	type ProjectEntry,
-	type QuickPanelConfig,
-	type QuickPanelTrigger,
 	readConfigSync,
 	readDesktopConfig,
 	updateDesktopConfig,
@@ -495,10 +490,6 @@ export function registerFsIpc(): () => void {
 						: current.knowledgeBase,
 				// bindings 整表替换（支持 reset 删键）；GUI/Action 均传完整 map。
 				shortcuts: patch.shortcuts !== undefined ? normalizeShortcuts(patch.shortcuts) : current.shortcuts,
-				quickPanel:
-					patch.quickPanel !== undefined
-						? normalizeQuickPanel({ ...current.quickPanel, ...patch.quickPanel })
-						: current.quickPanel,
 				appshot:
 					patch.appshot !== undefined
 						? normalizeAppshot({ ...current.appshot, ...patch.appshot })

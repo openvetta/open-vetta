@@ -30,7 +30,6 @@ import { registerPluginsIpc } from "./plugins.js";
 import { registerProjectCloneIpc } from "./project-clone.js";
 import { registerProjectExportIpc } from "./project-export.js";
 import { registerProjectsIpc } from "./projects.js";
-import { registerQuickPanelIpc } from "./quickpanel.js";
 import { registerRemotePairingIpc } from "./remote-pairing.js";
 import { registerRuntimeConfigurationIpc } from "./runtime-configuration.js";
 import { registerRuntimesIpc } from "./runtimes.js";
@@ -83,7 +82,6 @@ interface IpcTeardown {
 	teardownTerminal: () => void;
 	teardownConversationTags: () => void;
 	teardownSessionPins: () => void;
-	teardownQuickPanel: () => void;
 	teardownAppshot: () => void;
 	teardownDiagnostics: () => void;
 	teardownOnboarding: () => void;
@@ -136,7 +134,6 @@ export function registerAllIpc(
 		teardownTerminal: registerTerminalIpc(),
 		teardownConversationTags: registerConversationTagsIpc(webContents),
 		teardownSessionPins: registerSessionPinsIpc(webContents),
-		teardownQuickPanel: registerQuickPanelIpc(),
 		teardownAppshot: registerAppshotIpc(),
 		teardownDiagnostics: registerDiagnosticsIpc(),
 		teardownOnboarding: registerOnboardingIpc(),
@@ -182,7 +179,6 @@ export function teardownAllIpc(teardown: IpcTeardown): void {
 	teardown.teardownTerminal();
 	teardown.teardownConversationTags();
 	teardown.teardownSessionPins();
-	teardown.teardownQuickPanel();
 	teardown.teardownAppshot();
 	teardown.teardownDiagnostics();
 	teardown.teardownOnboarding();

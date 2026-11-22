@@ -167,7 +167,7 @@ function classify(abs, text, deferrals) {
 	const rel = toRel(abs);
 	const lines = text.split("\n").length;
 
-	if (/\/onboarding\/|\/pet\/|\/quickpanel\//.test(rel)) {
+	if (/\/onboarding\/|\/pet\//.test(rel)) {
 		return { status: "non_goal", rel, lines };
 	}
 	// Host design-system chrome (Dialog/Button implementations) — not business views.

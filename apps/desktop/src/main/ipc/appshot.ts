@@ -1,11 +1,11 @@
 import { ipcMain } from "electron";
 import { APPSHOT_CHANNELS } from "../../shared/appshot-ipc.js";
 import { captureAppshot } from "../appshot/appshot-service.js";
-import { applyAppshotGesture, setAppshotGestureHandler } from "../quickpanel-trigger.js";
+import { applyAppshotGesture, setAppshotGestureHandler } from "../uiohook-gestures.js";
 import { readDesktopConfig } from "./fs.js";
 
 // ----- 双键同按手势生命周期 -----------------------------------------------
-// 全局手势由 quickpanel-trigger.ts 的共享 uiohook 监听检测。
+// 全局手势由 uiohook-gestures.ts 的 uiohook 监听检测。
 // 这里只负责把捕获回调挂上、并按配置启停。
 
 let gestureHandlerBound = false;
@@ -37,7 +37,7 @@ export function registerAppshotIpc(): () => void {
 
 	return () => {
 		ipcMain.removeHandler(APPSHOT_CHANNELS.RELOAD_GESTURE);
-		// 注销 appshot 消费者；quickpanel 消费者仍活跃时底层监听不停。
+		// 注销 appshot 消费者；没有其它消费者时底层监听随之停止。
 		applyAppshotGesture("none");
 	};
 }

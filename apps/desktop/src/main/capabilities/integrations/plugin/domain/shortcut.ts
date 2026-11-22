@@ -1,9 +1,5 @@
 import {
-	DOMAIN_QUICK_PANEL_CAPABILITIES,
 	DOMAIN_SHORTCUT_CAPABILITIES,
-	type QuickPanelPostSendBehavior,
-	type QuickPanelSettings,
-	type QuickPanelTrigger,
 	type ShortcutBindingResetResult,
 	type ShortcutBindingsResult,
 	type ShortcutSettings,
@@ -39,26 +35,6 @@ export const pluginShortcutMethods = {
 
 	resetAllShortcutBindings(this: PluginCapabilitySessionAccess, sessionId: string): Promise<ShortcutBindingsResult> {
 		return this.client(sessionId, { official: true }).invoke(DOMAIN_SHORTCUT_CAPABILITIES.RESET_ALL_BINDINGS, {});
-	},
-
-	setQuickPanelTrigger(
-		this: PluginCapabilitySessionAccess,
-		sessionId: string,
-		trigger: QuickPanelTrigger,
-	): Promise<QuickPanelSettings> {
-		return this.client(sessionId, { official: true }).invoke(DOMAIN_QUICK_PANEL_CAPABILITIES.SET_TRIGGER, {
-			trigger,
-		});
-	},
-
-	setQuickPanelPostSendBehavior(
-		this: PluginCapabilitySessionAccess,
-		sessionId: string,
-		behavior: QuickPanelPostSendBehavior,
-	): Promise<QuickPanelSettings> {
-		return this.client(sessionId, { official: true }).invoke(DOMAIN_QUICK_PANEL_CAPABILITIES.SET_POST_SEND_BEHAVIOR, {
-			behavior,
-		});
 	},
 };
 

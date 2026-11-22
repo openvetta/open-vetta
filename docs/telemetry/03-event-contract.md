@@ -65,7 +65,7 @@ anonymousUserId 必须是不可逆派生值或匿名安装标识，不能直接�
 export interface ErrorContext {
   correlationId: string;
   process: "main" | "renderer" | "preload";
-  window?: "main" | "pet" | "quickpanel" | "onboarding";
+  window?: "main" | "pet" | "onboarding";
   feature?: string;
   operation?: string;
   handled: boolean;

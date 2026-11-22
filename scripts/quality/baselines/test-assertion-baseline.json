@@ -381,7 +381,6 @@
     "apps/desktop/src/main/conversations/conversation-ownership-guard.test.ts": 2,
     "apps/desktop/src/main/conversations/mcp-elicitation-broker.test.ts": 2,
     "apps/desktop/src/main/conversations/session-search-controller.test.ts": 2,
-    "apps/desktop/src/main/ipc/quickpanel.test.ts": 2,
     "apps/desktop/src/main/ipc/terminal.test.ts": 2,
     "apps/desktop/src/main/ocr/ocr-service.test.ts": 2,
     "apps/desktop/src/main/plugins/coding-agent-handler-registry.test.ts": 2,

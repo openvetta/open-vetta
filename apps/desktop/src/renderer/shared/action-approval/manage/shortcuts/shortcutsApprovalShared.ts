@@ -2,13 +2,6 @@ import { formatShortcut } from "@shared/lib/platform";
 import { isShortcutActionId, SHORTCUT_ACTIONS, type ShortcutActionId } from "@/shared/shortcuts";
 
 export const SHORTCUTS_APPROVAL_ICON = "icon-[mdi--keyboard-outline]";
-export const QUICK_PANEL_APPROVAL_ICON = "icon-[mdi--lightning-bolt-outline]";
-
-export type QuickPanelTrigger = "none" | "mod" | "alt" | "shift";
-export type QuickPanelBehavior = "foreground" | "background";
-
-export const QUICK_PANEL_TRIGGERS: readonly QuickPanelTrigger[] = ["none", "mod", "alt", "shift"];
-export const QUICK_PANEL_BEHAVIORS: readonly QuickPanelBehavior[] = ["foreground", "background"];
 
 export function resolveShortcutActionId(value: string | undefined): ShortcutActionId {
 	if (value && isShortcutActionId(value)) return value;

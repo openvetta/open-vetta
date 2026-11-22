@@ -98,8 +98,6 @@ export const PLUGIN_CAPABILITY_CHANNELS = {
 	SHORTCUT_BINDING_SET: "vetta:plugins:capabilities:shortcut:binding:set",
 	SHORTCUT_BINDING_RESET: "vetta:plugins:capabilities:shortcut:binding:reset",
 	SHORTCUT_BINDING_RESET_ALL: "vetta:plugins:capabilities:shortcut:binding:reset-all",
-	QUICK_PANEL_TRIGGER_SET: "vetta:plugins:capabilities:quick-panel:trigger:set",
-	QUICK_PANEL_POST_SEND_BEHAVIOR_SET: "vetta:plugins:capabilities:quick-panel:post-send-behavior:set",
 	DOWNLOAD_LIST: "vetta:plugins:capabilities:download:list",
 	DOWNLOAD_CANCEL: "vetta:plugins:capabilities:download:cancel",
 	UPDATER_STATE_GET: "vetta:plugins:capabilities:updater:state:get",

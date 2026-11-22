@@ -1,11 +1,4 @@
-import type {
-	QuickPanelPostSendBehavior,
-	QuickPanelSettings,
-	QuickPanelTrigger,
-	ShortcutBindingResetResult,
-	ShortcutBindingsResult,
-	ShortcutSettings,
-} from "@vetta-org/capability-sdk";
+import type { ShortcutBindingResetResult, ShortcutBindingsResult, ShortcutSettings } from "@vetta-org/capability-sdk";
 import { BrowserWindow } from "electron";
 import {
 	findShortcutBindingConflict,
@@ -21,26 +14,14 @@ import { SHORTCUTS_CHANNELS } from "../../shared/shortcuts-ipc.js";
 import {
 	type DesktopConfig,
 	type DesktopConfigUpdater,
-	normalizeQuickPanel,
 	readDesktopConfig,
 	updateDesktopConfig,
 } from "../config/desktop-config-store.js";
-import { applyQuickPanelTrigger, setQuickPanelTriggerHandler } from "../quickpanel-trigger.js";
-import { toggleQuickPanelWindow } from "../quickpanel-window.js";
 
 export interface ShortcutServiceOptions {
 	readonly readConfig: () => Promise<DesktopConfig>;
 	readonly updateConfig: (update: DesktopConfigUpdater) => Promise<DesktopConfig>;
 	readonly broadcastBindings: (bindings: Record<string, string>) => void;
-	readonly reloadQuickPanelTrigger: () => Promise<void>;
-}
-
-function snapshotQuickPanel(config: DesktopConfig): QuickPanelSettings {
-	const quickPanel = normalizeQuickPanel(config.quickPanel);
-	return {
-		trigger: quickPanel.trigger ?? "none",
-		postSendBehavior: quickPanel.postSendBehavior ?? "foreground",
-	};
 }
 
 function readBindings(config: DesktopConfig): ShortcutBindings {
@@ -54,12 +35,7 @@ export class ShortcutService {
 		const config = await this.options.readConfig();
 		return {
 			bindings: listShortcutBindingsSnapshot(readBindings(config)),
-			quickPanel: snapshotQuickPanel(config),
 		};
-	}
-
-	async getQuickPanelSettings(): Promise<QuickPanelSettings> {
-		return snapshotQuickPanel(await this.options.readConfig());
 	}
 
 	async setBinding(id: string, shortcut: string): Promise<ShortcutBindingsResult> {
@@ -105,41 +81,9 @@ export class ShortcutService {
 		return { bindings: listShortcutBindingsSnapshot({}) };
 	}
 
-	async setQuickPanelTrigger(trigger: QuickPanelTrigger): Promise<QuickPanelSettings> {
-		await this.options.updateConfig((config) => {
-			const current = snapshotQuickPanel(config);
-			return { ...config, quickPanel: { trigger, postSendBehavior: current.postSendBehavior } };
-		});
-		await this.options.reloadQuickPanelTrigger();
-		return this.getQuickPanelSettings();
-	}
-
-	async setQuickPanelPostSendBehavior(behavior: QuickPanelPostSendBehavior): Promise<QuickPanelSettings> {
-		await this.options.updateConfig((config) => {
-			const current = snapshotQuickPanel(config);
-			return { ...config, quickPanel: { trigger: current.trigger, postSendBehavior: behavior } };
-		});
-		await this.options.reloadQuickPanelTrigger();
-		return this.getQuickPanelSettings();
-	}
-
 	notifyBindingsChanged(bindings: Record<string, string>): void {
 		this.options.broadcastBindings(bindings);
 	}
-}
-
-let triggerHandlerBound = false;
-
-function ensureQuickPanelTriggerHandler(): void {
-	if (triggerHandlerBound) return;
-	setQuickPanelTriggerHandler(() => toggleQuickPanelWindow());
-	triggerHandlerBound = true;
-}
-
-export async function syncQuickPanelTrigger(): Promise<void> {
-	ensureQuickPanelTriggerHandler();
-	const config = await readDesktopConfig();
-	applyQuickPanelTrigger(snapshotQuickPanel(config).trigger);
 }
 
 function broadcastBindings(bindings: Record<string, string>): void {
@@ -154,7 +98,6 @@ const desktopShortcutService = new ShortcutService({
 	readConfig: readDesktopConfig,
 	updateConfig: updateDesktopConfig,
 	broadcastBindings,
-	reloadQuickPanelTrigger: syncQuickPanelTrigger,
 });
 
 export function getDesktopShortcutService(): ShortcutService {

@@ -1,6 +1,6 @@
 // Appshot（全局手势捕获前台应用窗口）主进程 <-> 渲染进程 IPC 契约。
 // main 与 preload 的 api-types 引用此文件——通道字符串以此为唯一来源；
-// 注意：preload 实现文件（apis/*）内必须内联字面量，不 import 本文件（见 preload/apis/quick-panel.ts 的坑）。
+// 注意：preload 实现文件（apis/*）内必须内联字面量，不 import 本文件（原因见 preload/apis/appshot.ts 头注释）。
 
 export const APPSHOT_CHANNELS = {
 	/** settings → main invoke：配置变更后热重载手势监听 */

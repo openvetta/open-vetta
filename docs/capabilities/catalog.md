@@ -133,8 +133,6 @@
 | `cap.domain.vetta.shortcut.binding.set` | domain | command | 1 |
 | `cap.domain.vetta.shortcut.binding.reset` | domain | command | 1 |
 | `cap.domain.vetta.shortcut.binding.reset-all` | domain | command | 1 |
-| `cap.domain.vetta.quick-panel.trigger.set` | domain | command | 1 |
-| `cap.domain.vetta.quick-panel.post-send-behavior.set` | domain | command | 1 |
 | `cap.domain.vetta.skill.list` | domain | query | 1 |
 | `cap.domain.vetta.skill.installed.list` | domain | query | 1 |
 | `cap.domain.vetta.skill.installed.set-enabled` | domain | command | 1 |

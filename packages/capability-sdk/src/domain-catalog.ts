@@ -14,7 +14,7 @@ import { DOMAIN_OCR_CAPABILITIES } from "./domain/ocr.js";
 import { DOMAIN_PROJECT_CAPABILITIES } from "./domain/project.js";
 import { DOMAIN_SCHEDULER_CAPABILITIES } from "./domain/scheduler.js";
 import { DOMAIN_SESSION_CAPABILITIES } from "./domain/session.js";
-import { DOMAIN_QUICK_PANEL_CAPABILITIES, DOMAIN_SHORTCUT_CAPABILITIES } from "./domain/shortcut.js";
+import { DOMAIN_SHORTCUT_CAPABILITIES } from "./domain/shortcut.js";
 import { DOMAIN_SKILL_CAPABILITIES } from "./domain/skill.js";
 import { DOMAIN_UPDATER_CAPABILITIES } from "./domain/updater.js";
 import { DOMAIN_WEBHOOK_CAPABILITIES } from "./domain/webhook.js";
@@ -36,7 +36,6 @@ export const DOMAIN_CAPABILITY_CATALOG = createCapabilityCatalog([
 	...Object.values(DOMAIN_SCHEDULER_CAPABILITIES),
 	...Object.values(DOMAIN_SESSION_CAPABILITIES),
 	...Object.values(DOMAIN_SHORTCUT_CAPABILITIES),
-	...Object.values(DOMAIN_QUICK_PANEL_CAPABILITIES),
 	...Object.values(DOMAIN_SKILL_CAPABILITIES),
 	...Object.values(DOMAIN_UPDATER_CAPABILITIES),
 	...Object.values(DOMAIN_WEBHOOK_CAPABILITIES),

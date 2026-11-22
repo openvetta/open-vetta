@@ -1,6 +1,6 @@
 // Vetta Computer Use 授权引导窗主进程 <-> 渲染进程 IPC 契约。
 // 通道字符串以此文件为唯一来源；preload 实现文件（preload/onboarding.ts）内必须
-// 内联字面量，不 import 本文件（见 preload/quickpanel.ts 的坑）。
+// 内联字面量，不 import 本文件（原因见 preload/apis/appshot.ts 头注释）。
 
 export const ONBOARDING_CHANNELS = {
 	// onboarding renderer → main invoke

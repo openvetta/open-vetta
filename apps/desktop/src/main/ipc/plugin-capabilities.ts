@@ -65,20 +65,6 @@ function optionalSkillType(value: unknown): "skill" | undefined {
 	return value;
 }
 
-function requireQuickPanelTrigger(value: unknown): "none" | "mod" | "alt" | "shift" {
-	if (value !== "none" && value !== "mod" && value !== "alt" && value !== "shift") {
-		throw new Error("trigger must be none, mod, alt, or shift");
-	}
-	return value;
-}
-
-function requireQuickPanelBehavior(value: unknown): "foreground" | "background" {
-	if (value !== "foreground" && value !== "background") {
-		throw new Error("behavior must be foreground or background");
-	}
-	return value;
-}
-
 function requireExecutionMode(value: unknown): "sandbox" | "full-access" {
 	if (value !== "sandbox" && value !== "full-access") {
 		throw new Error("mode must be sandbox or full-access");
@@ -633,17 +619,6 @@ export function registerPluginCapabilitiesIpc(): () => void {
 	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.SHORTCUT_BINDING_RESET_ALL, (_event, sessionId: unknown) =>
 		adapter.resetAllShortcutBindings(requireString(sessionId, "sessionId")),
-	);
-	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.QUICK_PANEL_TRIGGER_SET, (_event, sessionId: unknown, trigger: unknown) =>
-		adapter.setQuickPanelTrigger(requireString(sessionId, "sessionId"), requireQuickPanelTrigger(trigger)),
-	);
-	ipcMain.handle(
-		PLUGIN_CAPABILITY_CHANNELS.QUICK_PANEL_POST_SEND_BEHAVIOR_SET,
-		(_event, sessionId: unknown, behavior: unknown) =>
-			adapter.setQuickPanelPostSendBehavior(
-				requireString(sessionId, "sessionId"),
-				requireQuickPanelBehavior(behavior),
-			),
 	);
 	ipcMain.handle(PLUGIN_CAPABILITY_CHANNELS.DOWNLOAD_LIST, (_event, sessionId: unknown) =>
 		adapter.listDownloads(requireString(sessionId, "sessionId")),

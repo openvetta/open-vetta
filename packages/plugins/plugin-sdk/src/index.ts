@@ -207,7 +207,6 @@ export type {
 	PluginOfficialSkillInfo,
 	PluginOfficialInstalledSkill,
 	PluginOfficialShortcutBinding,
-	PluginOfficialQuickPanelSettings,
 	PluginOfficialImStatus,
 	PluginOfficialImLog,
 	PluginOfficialMcpServerSummary,

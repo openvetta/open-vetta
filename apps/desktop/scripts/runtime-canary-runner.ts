@@ -615,7 +615,7 @@ async function evaluateRenderer<T>(cdpPort: number, expression: string, schema: 
 function isMainRendererUrl(url: string): boolean {
 	return (
 		url.startsWith("http://") &&
-		!["/pet.html", "/quickpanel.html", "/onboarding.html"].some((entry) => url.includes(entry))
+		!["/pet.html", "/onboarding.html"].some((entry) => url.includes(entry))
 	);
 }
 

@@ -74,8 +74,8 @@ const DOMAIN_USAGE = {
 		alternatives: "内容检索使用 kb_filter_by_tags、kb_list_available_tags 和文件工具；知识页面写入使用 kb_write_page。",
 	},
 	shortcuts: {
-		target: "Vetta Desktop 的全局快捷键与快捷面板设置",
-		useWhen: "用户要查询或改变 Vetta 的快捷键绑定及快捷面板行为。",
+		target: "Vetta Desktop 的全局快捷键设置",
+		useWhen: "用户要查询或改变 Vetta 的快捷键绑定。",
 		avoidWhen: "实现网页键盘交互、修改 IDE 快捷键或讨论键盘操作。",
 		alternatives: "代码交互修改项目；其他应用使用其设置入口；操作咨询直接解释。",
 	},

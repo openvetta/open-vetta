@@ -1210,15 +1210,6 @@
   "resetShortcuts": "重置快捷键",
   "shortcutPlaceholder": "请按下快捷键…",
   "shortcutHint": "点击快捷键区域后按下新的组合键即可录制。修改后立即生效，无需重启。",
-  "quickPanelTrigger": "呼出方式",
-  "quickPanelTriggerDescription": "双击功能键全局唤出快捷面板",
-  "quickPanelTriggerHintMac": "首次使用需在「系统设置 › 隐私与安全性 › 输入监控」中授权 Vetta",
-  "quickPanelTriggerNone": "不启用",
-  "quickPanelTriggerDoubleTap": "双击 {{key}}",
-  "quickPanelBehavior": "发送后行为",
-  "quickPanelBehaviorDescription": "在快捷面板发送后如何处理",
-  "quickPanelBehaviorForeground": "打开主窗并定位到新会话",
-  "quickPanelBehaviorBackground": "后台运行，仅关闭面板",
   "appshotGesture": "触发快捷键",
   "appshotGestureDescription": "同时按住左右两侧的同一功能键约 0.25 秒，把前台窗口的截图和文字作为附件交给 AI。首次使用需在系统设置中授权屏幕录制与辅助功能。",
   "appshotGestureBothShift": "同时按住左右 {{key}}",
@@ -1366,7 +1357,6 @@
   "section_imbridge-logs": "实时日志",
   "section_webhook-channels": "渠道列表",
   "section_shortcuts-global": "全局快捷键",
-  "section_shortcuts-quickpanel": "快捷面板",
   "section_appshot-gesture": "触发快捷键",
   "section_appshot-permissions": "权限",
   "section_archived-list": "归档列表",
@@ -1599,7 +1589,6 @@
       },
       "shortcuts": {
         "list": "看看当前有哪些全局快捷键",
-        "quickpanel": "调整快捷面板相关设置",
         "reset": "把快捷键恢复默认"
       },
       "agent": {

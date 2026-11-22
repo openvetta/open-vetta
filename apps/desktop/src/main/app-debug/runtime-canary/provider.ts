@@ -302,7 +302,6 @@ async function writeFixtureConfiguration(fixture: RuntimeCanaryFixture): Promise
 						ocrConcurrency: 1,
 					},
 					shortcuts: { bindings: {} },
-					quickPanel: { trigger: "none", postSendBehavior: "foreground" },
 					appshot: { enabled: false, gesture: "both-shift" },
 				},
 				null,

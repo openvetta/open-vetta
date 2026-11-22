@@ -12,7 +12,6 @@ import {
 	DOMAIN_MODEL_CAPABILITIES,
 	DOMAIN_OCR_CAPABILITIES,
 	DOMAIN_PROJECT_CAPABILITIES,
-	DOMAIN_QUICK_PANEL_CAPABILITIES,
 	DOMAIN_SCHEDULER_CAPABILITIES,
 	DOMAIN_SESSION_CAPABILITIES,
 	DOMAIN_SHORTCUT_CAPABILITIES,
@@ -343,7 +342,6 @@ function domainOutput(capabilityId: CapabilityId): unknown {
 					isDefault: true,
 				},
 			],
-			quickPanel: { trigger: "none", postSendBehavior: "foreground" },
 		};
 	}
 	if (
@@ -354,9 +352,6 @@ function domainOutput(capabilityId: CapabilityId): unknown {
 	}
 	if (capabilityId === DOMAIN_SHORTCUT_CAPABILITIES.RESET_BINDING.id) {
 		return { bindings: [], shortcut: "mod+n" };
-	}
-	if (Object.values(DOMAIN_QUICK_PANEL_CAPABILITIES).some((capability) => capability.id === capabilityId)) {
-		return { trigger: "mod", postSendBehavior: "foreground" };
 	}
 	if (capabilityId === DOMAIN_DOWNLOAD_CAPABILITIES.LIST.id) {
 		return [

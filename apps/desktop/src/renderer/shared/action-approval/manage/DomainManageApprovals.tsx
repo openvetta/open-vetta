@@ -47,8 +47,6 @@ import {
 	ShortcutsResetAllBindingsApproval,
 	ShortcutsResetBindingApproval,
 	ShortcutsSetBindingApproval,
-	ShortcutsSetQuickPanelBehaviorApproval,
-	ShortcutsSetQuickPanelTriggerApproval,
 } from "./shortcuts";
 import {
 	SkillsInstallFromMarketApproval,
@@ -106,8 +104,6 @@ export function DomainManageApprovals(): JSX.Element {
 			<ShortcutsSetBindingApproval />
 			<ShortcutsResetBindingApproval />
 			<ShortcutsResetAllBindingsApproval />
-			<ShortcutsSetQuickPanelTriggerApproval />
-			<ShortcutsSetQuickPanelBehaviorApproval />
 
 			<AgentSetExperimentalApproval />
 

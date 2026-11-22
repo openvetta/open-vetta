@@ -1,11 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { type ActiveActionApproval, useActionApproval } from "../../useActionApproval";
-import {
-	ApprovalImpactCard,
-	ApprovalRawFallback,
-	ApprovalValueList,
-	ApprovalWarningCard,
-} from "../ApprovalParts";
+import { ApprovalImpactCard, ApprovalRawFallback, ApprovalValueList } from "../ApprovalParts";
 import { useManageApprovalFrame } from "../useManageApprovalShell";
 import {
 	formatShortcutDisplay,
@@ -70,9 +65,6 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 			{input ? (
 				<>
 					<ApprovalValueList rows={rows} />
-					<ApprovalWarningCard>
-						{t("manageApproval.shortcuts.ops.reset-all-bindings.warning")}
-					</ApprovalWarningCard>
 					<ApprovalImpactCard
 						icon={SHORTCUTS_APPROVAL_ICON}
 						title={t("manageApproval.afterActionTitle")}

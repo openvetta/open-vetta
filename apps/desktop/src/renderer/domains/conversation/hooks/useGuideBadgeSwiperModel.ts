@@ -55,18 +55,6 @@ export function useGuideBadgeSwiperModel(mounted: boolean): GuideBadgeSwiperMode
 				text: t("guideBadgeSwiper.petFeatureText"),
 				onClick: () => void navigate({ to: "/settings/$tab", params: { tab: "pet" } }),
 			},
-			{
-				id: "quick-panel-feature",
-				type: "once",
-				icon: "icon-[solar--magnifer-linear]",
-				text: t("guideBadgeSwiper.quickPanelText"),
-				onClick: () =>
-					void navigate({
-						to: "/settings/$tab",
-						params: { tab: "shortcuts" },
-						search: { section: "shortcuts-quickpanel" },
-					}),
-			},
 		],
 		[navigate, t],
 	);

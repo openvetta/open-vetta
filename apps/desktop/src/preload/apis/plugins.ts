@@ -312,10 +312,6 @@ export function createPluginsApi(ipc: IpcRenderer, webUtils: WebUtils): Pick<Des
 						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SHORTCUT_BINDING_RESET, sessionId, id),
 					resetAllBindings: (sessionId) =>
 						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SHORTCUT_BINDING_RESET_ALL, sessionId),
-					setQuickPanelTrigger: (sessionId, trigger) =>
-						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.QUICK_PANEL_TRIGGER_SET, sessionId, trigger),
-					setQuickPanelPostSendBehavior: (sessionId, behavior) =>
-						ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.QUICK_PANEL_POST_SEND_BEHAVIOR_SET, sessionId, behavior),
 				},
 				scheduler: {
 					listTasks: (sessionId) => ipc.invoke(PLUGIN_CAPABILITY_CHANNELS.SCHEDULER_TASK_LIST, sessionId),

@@ -170,8 +170,6 @@
 			"headers": "Headers",
 			"shortcutActionId": "Shortcut action",
 			"shortcutCombo": "Key combo",
-			"quickpanelTrigger": "Summon trigger",
-			"quickpanelBehavior": "After send",
 			"configLocation": "Config location"
 		},
 		"shortcuts": {
@@ -195,23 +193,7 @@
 					"summary": "Clear custom shortcuts for the features below and restore defaults.",
 					"confirm": "Restore all defaults",
 					"badge": "Reset",
-					"impact": "Global feature shortcuts return to defaults. Quick Panel summon and after-send stay the same.",
-					"warningTitle": "Global feature keys only",
-					"warning": "Does not change how you open the Quick Panel, or whether send opens the main window."
-				},
-				"set-quick-panel-trigger": {
-					"title": "Change Quick Panel summon",
-					"summary": "Choose which key to double-tap to open the Quick Panel. “Disabled” means you’ll use the main window instead.",
-					"confirm": "Save summon method",
-					"badge": "Shortcut",
-					"impact": "Applies immediately. You can change it again anytime."
-				},
-				"set-quick-panel-behavior": {
-					"title": "Change after-send behavior",
-					"summary": "After you send from the Quick Panel, open the main window to follow up, or keep running in the background.",
-					"confirm": "Save after-send behavior",
-					"badge": "Shortcut",
-					"impact": "Only affects chats you start later from the Quick Panel."
+					"impact": "Global feature shortcuts return to defaults."
 				}
 			},
 			"bindingSectionTitle": "Feature shortcuts",
@@ -219,31 +201,7 @@
 			"actionField": "Feature",
 			"comboField": "Key combo",
 			"comboFieldHint": "Click, then press the new combination to record",
-			"resetToDefault": "Will restore to {{shortcut}}",
-			"quickPanelTriggerSectionTitle": "Quick Panel summon",
-			"quickPanelTriggerSectionDescription": "Same options as on the Shortcuts settings page.",
-			"quickPanelBehaviorSectionTitle": "After you send",
-			"quickPanelBehaviorSectionDescription": "Same as “after-send behavior” on the settings page.",
-			"quickPanelTriggers": {
-				"none": "Disabled",
-				"mod": "Double-tap ⌘ / Ctrl",
-				"alt": "Double-tap ⌥ / Alt",
-				"shift": "Double-tap ⇧"
-			},
-			"quickPanelTriggerHints": {
-				"none": "Turn off double-tap summon; use the main window when needed",
-				"mod": "Double-tap ⌘ (Mac) or Ctrl (Windows) anywhere to open the panel",
-				"alt": "Double-tap ⌥ / Alt anywhere to open the panel",
-				"shift": "Double-tap ⇧ anywhere to open the panel"
-			},
-			"quickPanelBehaviors": {
-				"foreground": "Open main window",
-				"background": "Run in background"
-			},
-			"quickPanelBehaviorHints": {
-				"foreground": "After send, open the main window on the new chat",
-				"background": "After send, close the panel and keep the chat running in the background"
-			}
+			"resetToDefault": "Will restore to {{shortcut}}"
 		},
 		"models": {
 			"ops": {
