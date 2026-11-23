@@ -10,7 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FRAME_READY_EXPRESSION, framePrepareScript } from "../src/canvas/offscreen-raster";
 
-type PageWindow = Window & { __vetdPainted?: string | null };
+type PageWindow = Window & { __vetdPainted?: string | null; __vetdBooted?: boolean };
 
 let posted: unknown[];
 let frames: FrameRequestCallback[];
@@ -40,11 +40,15 @@ beforeEach(() => {
 		return frames.length;
 	});
 	Object.defineProperty(document, "fonts", { configurable: true, value: { ready: Promise.resolve() } });
+	// 复用中的窗口：引擎早已落定。冷启动的用例自己把它关掉。
+	(window as PageWindow).__vetdBooted = true;
 });
 
 afterEach(() => {
+	vi.useRealTimers();
 	vi.restoreAllMocks();
 	(window as PageWindow).__vetdPainted = undefined;
+	(window as PageWindow).__vetdBooted = undefined;
 	(window as Window & { __vetdNavFrom?: string }).__vetdNavFrom = undefined;
 });
 
@@ -103,6 +107,70 @@ it("does not mistake the previous frame's late paint for the target before navig
 	window.history.pushState({ key: "k-detail" }, "", "/detail");
 	(window as PageWindow).__vetdPainted = "detail";
 	expect(ready()).toBe(true);
+});
+
+describe("cold capture window", () => {
+	/**
+	 * 新开的离屏窗口加载根地址后，宿主立刻执行准备脚本，引擎这时还没渲染。没有 index.tsx
+	 * 的设计稿，首页随后 `<Navigate replace>` 到第一帧。切帧若抢在前面发出，就会被这次
+	 * 重定向盖掉，而地址、历史 key、绘制标记都对得上——Frame3 的位图截成了 Frame1。
+	 */
+	const ready = (): boolean => new Function(`return (${FRAME_READY_EXPRESSION});`)() as boolean;
+
+	beforeEach(() => {
+		// rAF 留给外层的手动驱动（settle），只接管等待引擎用的计时器。
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+		(window as PageWindow).__vetdBooted = undefined;
+		window.history.replaceState(null, "", "/");
+	});
+
+	it("waits for the home redirect before switching frames, and never reports the redirect target as ready", () => {
+		run(framePrepareScript("Frame3"));
+		expect(posted).toEqual([]);
+
+		// 引擎渲染完首页、重定向到第一帧并画完：这一刻以前会被当成 Frame3 就绪。
+		window.history.replaceState({ key: "k-frame1" }, "", "/Frame1");
+		(window as PageWindow).__vetdPainted = "Frame1";
+		expect(ready()).toBe(false);
+
+		(window as PageWindow).__vetdBooted = true;
+		vi.advanceTimersByTime(20);
+		expect(posted).toEqual([{ vetd: true, type: "show-frame", id: "Frame3" }]);
+		expect(ready()).toBe(false);
+
+		window.history.pushState({ key: "k-frame3" }, "", "/Frame3");
+		(window as PageWindow).__vetdPainted = "Frame3";
+		expect(ready()).toBe(true);
+	});
+
+	it("re-arms instead of navigating when the home redirect lands on the requested frame", async () => {
+		run(framePrepareScript("Frame1"));
+		window.history.replaceState({ key: "k-frame1" }, "", "/Frame1");
+		(window as PageWindow).__vetdPainted = "Frame1";
+		(window as PageWindow).__vetdBooted = true;
+		vi.advanceTimersByTime(20);
+
+		expect(posted).toEqual([]);
+		expect((window as PageWindow).__vetdPainted).toBeNull();
+		await settle();
+		expect(ready()).toBe(true);
+	});
+
+	it("falls back to switching anyway on an engine that never raises the boot marker", () => {
+		run(framePrepareScript("Frame3"));
+		vi.advanceTimersByTime(2_900);
+		expect(posted).toEqual([]);
+		vi.advanceTimersByTime(200);
+		expect(posted).toEqual([{ vetd: true, type: "show-frame", id: "Frame3" }]);
+	});
+
+	it("drops a wait left over from an earlier timed-out capture so two switches never interleave", () => {
+		run(framePrepareScript("Frame2"));
+		run(framePrepareScript("Frame3"));
+		(window as PageWindow).__vetdBooted = true;
+		vi.advanceTimersByTime(20);
+		expect(posted).toEqual([{ vetd: true, type: "show-frame", id: "Frame3" }]);
+	});
 });
 
 describe("frame ready expression", () => {

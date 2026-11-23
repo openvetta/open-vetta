@@ -152,6 +152,7 @@ const HISTORY_KEY_EXPRESSION = `(history.state && history.state.key ? history.st
 export const FRAME_PAINTED_EXPRESSION = `(function () {
 	var painted = window.__vetdPainted;
 	if (typeof painted !== "string") return false;
+	if (window.__vetdNavFrom === null) return false;
 	if (window.__vetdNavFrom && ${HISTORY_KEY_EXPRESSION} === window.__vetdNavFrom) return false;
 	return painted === ${SHOWN_FRAME_EXPRESSION};
 })()`;
@@ -169,6 +170,41 @@ export const NAVIGATE_TO_FRAME_STATEMENTS = `window.__vetdPainted = null;
 
 /** 地址栏已经显示目标帧（页面表达式，调用处需先定义变量 `ID`）。 */
 export const SHOWING_FRAME_EXPRESSION = `${SHOWN_FRAME_EXPRESSION} === ID`;
+
+/**
+ * 等引擎路由落定的上限。只为兜住没有 `__vetdBooted` 标记的旧引擎：到点照旧切帧，
+ * 退回原来的行为，而不是把整次截图耗到宿主超时。
+ */
+const ENGINE_BOOT_WAIT_MS = 3_000;
+
+/**
+ * 把切帧语句推迟到引擎路由落定之后（标记由 engine/src/main.tsx 的 EngineBooted 写入）。
+ *
+ * 新开的离屏窗口里，宿主在 load 后立刻执行准备脚本，引擎这时多半还没渲染；没有
+ * index.tsx 的设计稿，首页随后会重定向到第一帧。切帧导航抢在前面发出就会被这次
+ * 重定向盖掉，而地址、历史 key、绘制标记三者都对得上，就绪判断照样放行——位图于是
+ * 截成了第一帧。
+ *
+ * 等待期间把 `__vetdNavFrom` 置为 null，{@link FRAME_PAINTED_EXPRESSION} 一律不放行：
+ * 启动时第一帧写下的绘制标记不能被宿主或分块脚本里并行的轮询当成就绪。
+ * 每次准备脚本带一个令牌，上一轮超时遗留的等待在路由落定时不再动手，免得两次切帧交错。
+ *
+ * `body` 运行在函数里，可以用 `return` 提前结束；路由已经落定时它同步执行。
+ */
+export function afterEngineBoot(body: string): string {
+	return `var TOKEN = {};
+	window.__vetdPrepareToken = TOKEN;
+	window.__vetdNavFrom = null;
+	var BOOT_DEADLINE = Date.now() + ${ENGINE_BOOT_WAIT_MS};
+	(function run() {
+		if (window.__vetdPrepareToken !== TOKEN) return;
+		if (window.__vetdBooted !== true && Date.now() < BOOT_DEADLINE) {
+			setTimeout(run, 20);
+			return;
+		}
+		${body}
+	})();`;
+}
 
 /**
  * 复用离屏窗口前先清掉上一帧的完成标记，再等这一帧重新画出来。
@@ -189,7 +225,7 @@ export function framePrepareScript(frameId: string): string {
 	const id = JSON.stringify(frameId);
 	return `(() => {
 	var ID = ${id};
-	if (${SHOWING_FRAME_EXPRESSION}) {
+	${afterEngineBoot(`if (${SHOWING_FRAME_EXPRESSION}) {
 		window.__vetdPainted = null;
 		window.__vetdNavFrom = "";
 		requestAnimationFrame(function () {
@@ -201,7 +237,7 @@ export function framePrepareScript(frameId: string): string {
 		});
 		return;
 	}
-	${NAVIGATE_TO_FRAME_STATEMENTS}
+	${NAVIGATE_TO_FRAME_STATEMENTS}`)}
 })()`;
 }
 
