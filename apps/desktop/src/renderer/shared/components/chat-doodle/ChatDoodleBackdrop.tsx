@@ -1,5 +1,5 @@
 import { NEW_SESSION_TEXTURE_MASK } from "@vetta-org/theme-ui/chat/NewSessionBackground";
-import { useId, type JSX } from "react";
+import { type JSX, type RefObject, useId, useLayoutEffect, useRef, useState } from "react";
 
 /**
  * 对话页的「涂鸦墙纸」底衬。是否为对话页铺这一层由外观设置里的「聊天背景」决定
@@ -238,7 +238,48 @@ export interface ChatDoodleBackdropProps {
  * 一个 `<rect>` 就铺满整块区域，缩放窗口也不会重排图形。
  */
 
+interface LayerSize {
+	readonly width: number;
+	readonly height: number;
+}
+
+/**
+ * 量出底衬的实际像素尺寸，交给 SVG 的遮罩与填充矩形。
+ *
+ * 不能只写 `100%`：Chromium 会缓存 `<mask>` 里按百分比算出的内容，容器变宽时
+ * （例如活动面板打开 → 拖宽 → 关掉）遮罩仍停在旧宽度，多出来的那一截就是空白。
+ * 写成具体像素后，尺寸一变属性就变，遮罩随之失效重画。
+ */
+function useLayerSize(): readonly [RefObject<HTMLDivElement | null>, LayerSize | null] {
+	const ref = useRef<HTMLDivElement | null>(null);
+	const [size, setSize] = useState<LayerSize | null>(null);
+
+	useLayoutEffect(() => {
+		const node = ref.current;
+		if (!node) return;
+		const update = (width: number, height: number): void => {
+			const next = { width: Math.ceil(width), height: Math.ceil(height) };
+			setSize((prev) => (prev && prev.width === next.width && prev.height === next.height ? prev : next));
+		};
+		const rect = node.getBoundingClientRect();
+		update(rect.width, rect.height);
+		if (typeof ResizeObserver === "undefined") return;
+		const observer = new ResizeObserver((entries) => {
+			const box = entries[0]?.contentRect;
+			if (box) update(box.width, box.height);
+		});
+		observer.observe(node);
+		return () => observer.disconnect();
+	}, []);
+
+	return [ref, size];
+}
+
 export function ChatDoodleBackdrop({ fade = "chat" }: ChatDoodleBackdropProps): JSX.Element {
+	const [containerRef, size] = useLayerSize();
+	// 量到之前（首帧、jsdom）退回百分比，不影响首屏。
+	const width = size && size.width > 0 ? size.width : "100%";
+	const height = size && size.height > 0 ? size.height : "100%";
 	const rawId = useId();
 	const id = rawId.replace(/[^a-zA-Z0-9_-]/g, "");
 	const mask = FADE_MASKS[fade];
@@ -252,6 +293,7 @@ export function ChatDoodleBackdrop({ fade = "chat" }: ChatDoodleBackdropProps): 
 
 	return (
 		<div
+			ref={containerRef}
 			aria-hidden
 			className="pointer-events-none absolute inset-0 overflow-hidden"
 			style={mask ? { maskImage: mask, WebkitMaskImage: mask } : undefined}
@@ -305,8 +347,16 @@ export function ChatDoodleBackdrop({ fade = "chat" }: ChatDoodleBackdropProps): 
 						</pattern>
 					))}
 					{layers.map((layer) => (
-						<mask key={layer.maskId} id={layer.maskId}>
-							<rect width="100%" height="100%" fill={`url(#${layer.patternId})`} />
+						<mask
+							key={layer.maskId}
+							id={layer.maskId}
+							maskUnits="userSpaceOnUse"
+							x={0}
+							y={0}
+							width={width}
+							height={height}
+						>
+							<rect width={width} height={height} fill={`url(#${layer.patternId})`} />
 						</mask>
 					))}
 					<linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
@@ -322,8 +372,8 @@ export function ChatDoodleBackdrop({ fade = "chat" }: ChatDoodleBackdropProps): 
 				{layers.map((layer) => (
 					<rect
 						key={layer.maskId}
-						width="100%"
-						height="100%"
+						width={width}
+						height={height}
 						fill={`url(#${gradientId})`}
 						mask={`url(#${layer.maskId})`}
 						style={{ opacity: layer.opacity }}
