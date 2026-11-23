@@ -12,7 +12,7 @@ import { UsageShareChart } from "./UsageShareChart";
 import { UsageTrendChart } from "./UsageTrendChart";
 import type { UsageCardModel, UsageSettingsModel } from "./useUsageSettingsModel";
 
-const CARD = "rounded-xl border border-border/50 bg-card/40";
+const CARD = "rounded-xl bg-card";
 
 function Panel({
 	id,
