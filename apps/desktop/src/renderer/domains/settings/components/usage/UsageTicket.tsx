@@ -52,7 +52,8 @@ const TICKET_PALETTE = {
 	ink: "rgb(17, 17, 17)",
 	muted: "rgb(118, 118, 118)",
 	faint: "rgb(190, 190, 190)",
-	band: "rgb(168, 190, 226)",
+	band: "rgb(236, 241, 249)",
+	bandLabel: "rgb(78, 86, 102)",
 	backdrop: "rgb(30, 30, 30)",
 	caption: "rgb(140, 140, 140)",
 } as const;
@@ -178,6 +179,7 @@ function Field({
 	max = 18,
 	fitWidth,
 	clipWidth,
+	labelColor,
 }: {
 	field: UsageTicketField;
 	x: number;
@@ -190,12 +192,13 @@ function Field({
 	fitWidth?: number;
 	/** Ellipsise the value at this width instead of a fixed character count. */
 	clipWidth?: number;
+	labelColor?: string;
 }): JSX.Element {
 	const value = clipWidth ? clipToWidth(field.value, size, clipWidth) : clip(field.value, max);
 	const valueSize = fitWidth ? fitFontSize(value, size, fitWidth) : size;
 	return (
 		<g>
-			<text x={x} y={y} textAnchor={anchor} fontSize={10} fill={palette.muted}>
+			<text x={x} y={y} textAnchor={anchor} fontSize={10} fill={labelColor ?? palette.muted}>
 				{field.label}
 			</text>
 			<text x={x} y={y + size + 6} textAnchor={anchor} fontSize={valueSize} fontWeight={700} fill={palette.ink}>
@@ -379,6 +382,7 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel 
 								size={18}
 								max={8}
 								fitWidth={columnWidth - 16}
+								labelColor={palette.bandLabel}
 							/>
 						))}
 
