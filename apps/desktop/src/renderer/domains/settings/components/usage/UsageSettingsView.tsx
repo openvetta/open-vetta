@@ -308,9 +308,9 @@ function StatusMessage({
 
 function LoadingPlaceholder(): JSX.Element {
 	return (
-		<div aria-hidden="true" className="flex flex-col gap-3">
+		<div aria-hidden="true" className="flex flex-col gap-4">
 			<div className={cn(CARD, "h-[168px]")} />
-			<div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
+			<div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
 				{Array.from({ length: 3 }, (_, index) => (
 					<div key={index} className={cn(CARD, "h-[96px]")} />
 				))}
@@ -367,14 +367,14 @@ export function UsageSettingsView({ model }: { model: UsageSettingsModel }): JSX
 			) : (
 				<>
 					<RangeToolbar model={model} />
-					<div className="flex flex-col gap-5">
+					<div className="flex flex-col gap-4">
 						<section
 							id={SETTINGS_SECTION["usage-overview"].id}
 							aria-label={labels.title}
-							className="flex flex-col gap-3"
+							className="flex flex-col gap-4"
 						>
 							<UsageHero model={model} />
-							<div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
+							<div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
 								{model.cards.map((card) => (
 									<StatCard key={card.key} card={card} />
 								))}
