@@ -1,3 +1,10 @@
+import {
+	type AppMonitorUsageAggregate,
+	createEmptyHourlyTokens,
+	normalizeHourlyTokens,
+	normalizeModelUsageRecord,
+} from "./app-monitor-usage.js";
+
 export const APP_MONITOR_SCHEMA_VERSION = 1;
 
 export interface AppMonitorToolStats {
@@ -110,13 +117,7 @@ export interface AppMonitorData {
 		tasksCreated: number;
 		runsStarted: number;
 	};
-	usage: {
-		inputTokens: number;
-		outputTokens: number;
-		cacheReadTokens: number;
-		cacheWriteTokens: number;
-		costTotal: number;
-	};
+	usage: AppMonitorUsageAggregate;
 	compactions: {
 		started: number;
 		succeeded: number;
@@ -586,6 +587,9 @@ export function createDefaultAppMonitorData(now = Date.now()): AppMonitorData {
 			cacheReadTokens: 0,
 			cacheWriteTokens: 0,
 			costTotal: 0,
+			requests: 0,
+			byModel: {},
+			hourlyTokens: createEmptyHourlyTokens(),
 		},
 		compactions: {
 			started: 0,
@@ -783,6 +787,9 @@ export function normalizeAppMonitorData(value: unknown): AppMonitorData {
 			cacheReadTokens: normalizeCount(usage.cacheReadTokens),
 			cacheWriteTokens: normalizeCount(usage.cacheWriteTokens),
 			costTotal: normalizeAmount(usage.costTotal),
+			requests: normalizeCount(usage.requests),
+			byModel: normalizeModelUsageRecord(usage.byModel),
+			hourlyTokens: normalizeHourlyTokens(usage.hourlyTokens),
 		},
 		compactions: {
 			started: normalizeCount(compactions.started),
