@@ -13,7 +13,7 @@ export interface UsageTicketModel {
 	to: { big: string; sub: string };
 	span: string;
 	badge: string;
-	/** Four headline numbers in the tinted band. */
+	/** Headline numbers in the tinted band, spread evenly across it. */
 	highlights: UsageTicketField[];
 	/** Two rows of three fields under the band. */
 	details: UsageTicketField[];
@@ -364,8 +364,8 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel;
 								x={PAD + 12 + index * columnWidth}
 								y={bandY + 22}
 								palette={palette}
-								size={16}
-								max={7}
+								size={18}
+								max={8}
 							/>
 						))}
 

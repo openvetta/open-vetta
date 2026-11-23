@@ -159,6 +159,7 @@ describe("用量设置页", () => {
 		expect(within(ticket).getByText("TO")).toBeTruthy();
 		expect(within(ticket).getByText("活跃 2 天")).toBeTruthy();
 		expect(within(ticket).getByText("5.5K")).toBeTruthy();
+		expect(within(ticket).queryByText("模型请求")).toBeNull();
 		await userEvent.keyboard("{Escape}");
 
 		await userEvent.click(screen.getByRole("button", { name: "今天" }));

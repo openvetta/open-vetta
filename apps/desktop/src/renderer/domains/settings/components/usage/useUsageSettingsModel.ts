@@ -519,7 +519,6 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 				{ label: t("usage.hero.label"), value: formatters.tokens(summary.tokens) },
 				{ label: t("usage.cards.input"), value: formatters.tokens(promptTokens) },
 				{ label: t("usage.cards.output"), value: formatters.tokens(totals.outputTokens) },
-				{ label: t("usage.cards.requests"), value: formatters.count(totals.requests) },
 			],
 			details: [
 				{ label: t("usage.ticket.topModel"), value: top ? seriesLabel(top.series, top.series.key) : "—" },
