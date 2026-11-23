@@ -1,17 +1,15 @@
 import { Button } from "@shared/components/ui/button";
 import { Calendar } from "@shared/components/ui/calendar";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@shared/components/ui/dialog";
 import { Popover, PopoverAnchor, PopoverContent } from "@shared/components/ui/popover";
 import { SegmentedControl } from "@shared/components/ui/segmented-control";
 import { cn } from "@shared/lib/utils";
-import { showToast } from "@shared/store/toast-atoms";
-import { type CSSProperties, type ReactNode, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { SETTINGS_SECTION } from "../../registry";
 import { dayKeyFromLocalDate, localDateFromDayKey, type UsageRangePreset } from "./usage-aggregation";
 import { UsageHeatmap } from "./UsageHeatmap";
 import { HATCH_BACKGROUND } from "./usage-chart-theme";
-import { renderTicketPng, UsageTicket, type UsageTicketModel } from "./UsageTicket";
+import { UsageTicketDialog } from "./UsageTicketDialog";
 import { UsageTrendChart } from "./UsageTrendChart";
 import type {
 	UsageCardModel,
@@ -287,64 +285,6 @@ function UsageTable({ model }: { model: UsageSettingsModel }): JSX.Element {
 	);
 }
 
-function UsageTicketDialog({ model, ticket }: { model: UsageSettingsModel; ticket: UsageTicketModel }): JSX.Element {
-	const labels = model.labels.ticket;
-	const svgRef = useRef<SVGSVGElement>(null);
-	const [busy, setBusy] = useState(false);
-
-	const exportImage = async (action: (dataUrl: string) => Promise<void> | void, done: string) => {
-		const svg = svgRef.current;
-		if (!svg || busy) return;
-		setBusy(true);
-		try {
-			await action(await renderTicketPng(svg));
-			showToast({ variant: "success", message: done });
-		} catch {
-			showToast({ variant: "error", message: labels.failed });
-		} finally {
-			setBusy(false);
-		}
-	};
-	const copy = () => exportImage((dataUrl) => window.vetta.clipboard.writeImage(dataUrl), labels.copied);
-	const save = () =>
-		exportImage((dataUrl) => {
-			const link = document.createElement("a");
-			link.href = dataUrl;
-			link.download = ticket.fileName;
-			link.click();
-		}, labels.saved);
-
-	return (
-		<Dialog>
-			<DialogTrigger asChild>
-				<Button variant="ghost" size="sm">
-					<span className="icon-[solar--ticket-linear] h-3.5 w-3.5" />
-					{labels.open}
-				</Button>
-			</DialogTrigger>
-			<DialogContent className="max-h-[calc(100vh-32px)] overflow-y-auto sm:max-w-[640px]">
-				<DialogHeader>
-					<DialogTitle>{labels.title}</DialogTitle>
-					<DialogDescription>{labels.description}</DialogDescription>
-				</DialogHeader>
-				<div className="flex justify-center overflow-hidden rounded-xl">
-					<UsageTicket ref={svgRef} ticket={ticket} />
-				</div>
-				<DialogFooter>
-					<Button variant="ghost" size="sm" disabled={busy} onClick={() => void copy()}>
-						<span className="icon-[solar--copy-linear] h-3.5 w-3.5" />
-						{labels.copy}
-					</Button>
-					<Button variant="primary" size="sm" disabled={busy} onClick={() => void save()}>
-						<span className="icon-[solar--download-minimalistic-linear] h-3.5 w-3.5" />
-						{labels.save}
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
-	);
-}
-
 function StatusMessage({
 	icon,
 	title,
@@ -390,7 +330,9 @@ export function UsageSettingsView({ model }: { model: UsageSettingsModel }): JSX
 					<p className="mt-1 text-[12px] text-muted-foreground">{labels.subtitle}</p>
 				</div>
 				<div className="flex items-center gap-1">
-				{model.ticket && <UsageTicketDialog model={model} ticket={model.ticket} />}
+				{model.ticket && (
+						<UsageTicketDialog ticket={model.ticket} rangeLabel={model.rangeLabel} labels={labels.ticket} />
+					)}
 				<Button
 					variant="ghost"
 					size="icon-sm"

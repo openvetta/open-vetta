@@ -2342,9 +2342,8 @@
     "ticket": {
       "open": "制作小票",
       "title": "用量小票",
-      "description": "按当前选择的时间段生成，可复制或保存为图片。",
-      "copy": "复制图片",
-      "save": "保存图片",
+      "description": "把这段时间在 Vetta 里消耗的 token 印成一张小票，保存成图片就能直接分享。",
+      "copy": "复制到剪贴板",
       "copied": "已复制到剪贴板",
       "saved": "已开始保存",
       "failed": "生成图片失败",
@@ -2361,7 +2360,12 @@
       "footer": "VETTA · TOKEN PASS",
       "date": "DATE",
       "total": "TOTAL",
-      "today": "TODAY"
+      "today": "TODAY",
+      "eyebrow": "Token Pass",
+      "period": "时间段",
+      "image": "图片",
+      "make": "制作小票",
+      "close": "关闭"
     }
   }
 }

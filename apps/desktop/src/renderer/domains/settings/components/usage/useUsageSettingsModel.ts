@@ -8,6 +8,7 @@ import { enUS, zhCN } from "react-day-picker/locale";
 import { useTranslation } from "react-i18next";
 import type { UsageHeatmapLabels } from "./UsageHeatmap";
 import type { UsageTicketModel } from "./UsageTicket";
+import type { UsageTicketDialogLabels } from "./UsageTicketDialog";
 import type { UsageTrendChartDataset } from "./UsageTrendChart";
 import {
 	buildUsageHeatmap,
@@ -132,16 +133,7 @@ export interface UsageSettingsModel {
 			total: string;
 			share: string;
 		};
-		ticket: {
-			open: string;
-			title: string;
-			description: string;
-			copy: string;
-			save: string;
-			copied: string;
-			saved: string;
-			failed: string;
-		};
+		ticket: UsageTicketDialogLabels;
 		emptyTitle: string;
 		emptyDescription: string;
 		emptyRange: string;
@@ -589,10 +581,14 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 			},
 			ticket: {
 				open: t("usage.ticket.open"),
+				eyebrow: t("usage.ticket.eyebrow"),
 				title: t("usage.ticket.title"),
 				description: t("usage.ticket.description"),
+				period: t("usage.ticket.period"),
+				image: t("usage.ticket.image"),
+				make: t("usage.ticket.make"),
 				copy: t("usage.ticket.copy"),
-				save: t("usage.ticket.save"),
+				close: t("usage.ticket.close"),
 				copied: t("usage.ticket.copied"),
 				saved: t("usage.ticket.saved"),
 				failed: t("usage.ticket.failed"),
