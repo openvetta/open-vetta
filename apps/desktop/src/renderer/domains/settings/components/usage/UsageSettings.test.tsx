@@ -167,7 +167,7 @@ describe("用量设置页", () => {
 		const todayTicket = within(await screen.findByRole("dialog")).getByRole("img");
 		expect(within(todayTicket).queryByText("FROM")).toBeNull();
 		expect(within(todayTicket).queryByText("11/17")).toBeNull();
-		expect(within(todayTicket).getByText("DATE")).toBeTruthy();
+		expect(within(todayTicket).getByText("TODAY")).toBeTruthy();
 		expect(within(todayTicket).getAllByText("今天").length).toBeGreaterThan(0);
 		expect(within(todayTicket).getAllByText("1.5K").length).toBeGreaterThan(0);
 	});
