@@ -10,10 +10,10 @@ const MONTH_ROW = 16;
 
 const LEVEL_CLASS: Record<HeatmapCell["level"], string> = {
 	0: "fill-muted-foreground/10",
-	1: "fill-primary/25",
-	2: "fill-primary/50",
-	3: "fill-primary/70",
-	4: "fill-primary",
+	1: "fill-[color-mix(in_srgb,var(--term-green)_25%,transparent)]",
+	2: "fill-[color-mix(in_srgb,var(--term-green)_50%,transparent)]",
+	3: "fill-[color-mix(in_srgb,var(--term-green)_75%,transparent)]",
+	4: "fill-[var(--term-green)]",
 };
 
 export interface UsageHeatmapLabels {

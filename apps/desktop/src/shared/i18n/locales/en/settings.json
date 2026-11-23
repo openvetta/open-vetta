@@ -2279,22 +2279,16 @@
     "customRangeLabel": "Pick a date range",
     "rangeSpan": "{{start}} – {{end}}",
     "cards": {
-      "total": "Total tokens",
-      "totalHint": "{{value}} per day",
       "input": "Input",
       "output": "Output",
+      "requests": "Model requests",
+      "inputHint": "{{rate}} cache hits · {{value}}",
       "outputHint": "{{rate}} of total",
-      "cacheRead": "Cache reads",
-      "cacheHint": "{{rate}} hit rate",
-      "cacheWriteHint": "{{value}} written",
-      "requests": "Requests",
-      "requestsHint": "{{days}} active days",
-      "cost": "Cost",
-      "peakHint": "Peak {{date}}"
+      "requestsHint": "Includes each follow-up after a tool call"
     },
     "sections": {
       "trend": "Usage trend",
-      "share": "Model share",
+      "share": "By model",
       "models": "By model",
       "heatmap": "Daily activity"
     },
@@ -2304,14 +2298,8 @@
       "week": "Weekly"
     },
     "trendAria": "Token usage trend for the selected period",
-    "shareAria": "Token share by model",
-    "shareCenter": "Tokens",
     "table": {
       "model": "Model",
-      "requests": "Requests",
-      "input": "Input",
-      "output": "Output",
-      "cache": "Cache read / write",
       "total": "Total",
       "share": "Share"
     },
@@ -2335,6 +2323,24 @@
     "emptyDescription": "Once you start chatting, token usage is summarized here by day and by model.",
     "emptyRange": "No usage in this period",
     "errorTitle": "Couldn't load usage",
-    "retry": "Retry"
+    "retry": "Retry",
+    "average": "Avg",
+    "distributionCaption_one": "tokens · {{count}} model",
+    "distributionCaption_other": "tokens · {{count}} models",
+    "rowRequests_one": "{{value}} call",
+    "rowRequests_other": "{{value}} calls",
+    "rowDetail": "In {{input}} · Out {{output}} · Cache {{cache}}",
+    "hero": {
+      "label": "Total usage",
+      "average": "{{value}} per day",
+      "activeDays": "Active {{days}}/{{total}} days",
+      "peak": "Peak {{date}} · {{value}}"
+    },
+    "composition": {
+      "input": "Fresh input",
+      "cacheRead": "Cache read",
+      "cacheWrite": "Cache write",
+      "output": "Output"
+    }
   }
 }

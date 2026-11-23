@@ -64,8 +64,13 @@ function renderPage() {
 }
 
 function cardValue(label: string): string {
-	const card = screen.getByText(label, { selector: "div" }).parentElement;
-	return card?.children[1]?.textContent ?? "";
+	const card = screen.getByText(label, { selector: "div" }).closest("[data-usage-card]");
+	return card?.querySelector("[data-card-value]")?.textContent ?? "";
+}
+
+function modelNames(): string[] {
+	const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
+	return rows.map((row) => within(row).getAllByRole("cell")[0]?.querySelector("[title]")?.textContent ?? "");
 }
 
 beforeEach(() => {
@@ -85,22 +90,19 @@ describe("用量设置页", () => {
 		expect(screen.getByRole("heading", { name: "用量" })).toBeTruthy();
 		await screen.findByRole("table");
 
-		expect(cardValue("总 Token")).toBe("5.5K");
-		expect(cardValue("调用次数")).toBe("7");
-		const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
-		expect(rows.map((row) => within(row).getAllByRole("cell")[0]?.textContent)).toEqual([
-			"gpt-5openai",
-			"claude-opusanthropic",
-		]);
+		expect(cardValue("总用量")).toBe("5.5K");
+		expect(cardValue("模型请求")).toBe("7");
+		expect(modelNames()).toEqual(["gpt-5", "claude-opus"]);
+		expect(screen.getByText("openai · 4 次调用 · 输入 3K · 输出 1K · 缓存 0 / 0")).toBeTruthy();
 
 		await userEvent.click(screen.getByRole("button", { name: "今天" }));
-		expect(cardValue("总 Token")).toBe("1.5K");
-		expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(2);
+		expect(cardValue("总用量")).toBe("1.5K");
+		expect(modelNames()).toEqual(["claude-opus"]);
 		expect(screen.getByText("按小时")).toBeTruthy();
 
 		await userEvent.click(screen.getByRole("button", { name: "全部" }));
-		expect(cardValue("总 Token")).toBe("12.5K");
-		expect(screen.getByText("未区分模型（早期记录）", { selector: "div" })).toBeTruthy();
+		expect(cardValue("总用量")).toBe("12.5K");
+		expect(modelNames()).toContain("未区分模型（早期记录）");
 	});
 
 	it("点热力图里的某一天，切到那一天的明细", async () => {
@@ -112,10 +114,8 @@ describe("用量设置页", () => {
 		expect(cell).toBeTruthy();
 		fireEvent.click(cell as Element);
 
-		expect(cardValue("总 Token")).toBe("4K");
-		const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
-		expect(rows).toHaveLength(1);
-		expect(rows[0]?.textContent).toContain("gpt-5");
+		expect(cardValue("总用量")).toBe("4K");
+		expect(modelNames()).toEqual(["gpt-5"]);
 	});
 
 	it("所选时间段没有用量时给出提示，不画空图表", async () => {

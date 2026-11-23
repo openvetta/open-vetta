@@ -7,7 +7,6 @@ import type { Locale } from "react-day-picker";
 import { enUS, zhCN } from "react-day-picker/locale";
 import { useTranslation } from "react-i18next";
 import type { UsageHeatmapLabels } from "./UsageHeatmap";
-import type { UsageShareSlice } from "./UsageShareChart";
 import type { UsageTrendChartDataset } from "./UsageTrendChart";
 import {
 	buildUsageHeatmap,
@@ -26,16 +25,49 @@ import {
 } from "./usage-aggregation";
 import { MUTED_SERIES_EXPRESSION, SERIES_COLOR_EXPRESSIONS } from "./usage-chart-theme";
 
+const TONE = {
+	blue: "var(--chart-2)",
+	amber: "var(--chart-1)",
+	green: "var(--term-green)",
+	magenta: "var(--term-magenta)",
+} as const;
+
 export const USAGE_RANGE_PRESETS: readonly UsageRangePreset[] = ["today", "3d", "7d", "30d", "all", "custom"];
 const DEFAULT_PRESET: UsageRangePreset = "7d";
 
 export type UsageLoadStatus = "loading" | "ready" | "error";
 
 export interface UsageCardModel {
-	key: "total" | "input" | "output" | "cacheRead" | "requests" | "cost";
+	key: "input" | "output" | "requests";
 	label: string;
 	value: string;
-	hint?: string;
+	/** Solar icon class for the corner glyph. */
+	icon: string;
+	/** CSS colour expression tinting the glyph and hint. */
+	color: string;
+	hint?: { icon: string; text: string };
+}
+
+/** One slice of where the tokens went: input, output, cache read, cache write. */
+export interface UsageCompositionItem {
+	key: "input" | "output" | "cacheRead" | "cacheWrite";
+	label: string;
+	value: string;
+	/** 0–1 of all tokens in the range. */
+	share: number;
+	percent: string;
+	color: string;
+}
+
+export interface UsageDistributionSegment {
+	key: string;
+	label: string;
+	color: string;
+	/** History without a model and the folded tail render as stripes, not a colour. */
+	striped: boolean;
+	share: number;
+	shareLabel: string;
+	value: string;
 }
 
 export interface UsageTableRowModel {
@@ -43,10 +75,11 @@ export interface UsageTableRowModel {
 	name: string;
 	provider: string;
 	color: string;
-	requests: string;
-	input: string;
-	output: string;
-	cache: string;
+	initial: string;
+	/** "anthropic · 12 calls" */
+	meta: string;
+	/** "In 1.2K · Out 300 · Cache 4K / 0" */
+	detail: string;
 	total: string;
 	share: number;
 	shareLabel: string;
@@ -71,14 +104,15 @@ export interface UsageSettingsModel {
 		columnTitles: string[];
 		datasets: UsageTrendChartDataset[];
 	};
-	share: { slices: UsageShareSlice[]; centerValue: string };
+	hero: { label: string; value: string; hints: string[] } | null;
+	composition: UsageCompositionItem[];
+	distribution: { total: string; caption: string; segments: UsageDistributionSegment[] };
 	rows: UsageTableRowModel[];
 	heatmap: UsageHeatmap | null;
 	heatmapLabels: UsageHeatmapLabels;
 	heatmapSummary: string;
 	themeKey: string;
 	formatTokens: (value: number) => string;
-	formatShare: (share: number) => string;
 	labels: {
 		title: string;
 		subtitle: string;
@@ -86,18 +120,13 @@ export interface UsageSettingsModel {
 		customRangeLabel: string;
 		trend: string;
 		share: string;
-		shareAria: string;
-		shareCenter: string;
+		average: string;
 		trendAria: string;
 		models: string;
 		heatmap: string;
 		total: string;
 		table: {
 			model: string;
-			requests: string;
-			input: string;
-			output: string;
-			cache: string;
 			total: string;
 			share: string;
 		};
@@ -113,6 +142,14 @@ export interface UsageSettingsModel {
 		selectDay: (day: string) => void;
 		reload: () => void;
 	};
+}
+
+const DISTRIBUTION_MAX_SEGMENTS = 5;
+
+/** First letter or digit of a model name, for its avatar. */
+function initialOf(name: string): string {
+	const match = name.match(/[\p{L}\p{N}]/u);
+	return (match?.[0] ?? "?").toUpperCase();
 }
 
 function seriesColor(series: UsageReportSeries | { kind: "other" }, slot: number): string {
@@ -171,11 +208,6 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 	const formatters = useMemo(() => {
 		const integer = new Intl.NumberFormat(intlLocale);
 		const percent = new Intl.NumberFormat(intlLocale, { style: "percent", maximumFractionDigits: 1 });
-		const currency = new Intl.NumberFormat(intlLocale, {
-			style: "currency",
-			currency: "USD",
-			maximumFractionDigits: 2,
-		});
 		const dayFormat = new Intl.DateTimeFormat(intlLocale, { month: "short", day: "numeric", timeZone: "UTC" });
 		const fullDayFormat = new Intl.DateTimeFormat(intlLocale, {
 			year: "numeric",
@@ -191,7 +223,6 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 			tokens: formatTokenCount,
 			count: (value: number) => integer.format(value),
 			share: (value: number) => percent.format(value),
-			cost: (value: number) => currency.format(value),
 			day: (day: string) => dayFormat.format(utc(day)),
 			fullDay: (day: string) => fullDayFormat.format(utc(day)),
 			month: (day: string) => monthFormat.format(utc(day)),
@@ -269,81 +300,148 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 				name: seriesLabel(row.series, row.series.key),
 				provider: row.series.kind === "model" ? row.series.provider : "",
 				color: colors.get(row.series.key) ?? MUTED_SERIES_EXPRESSION,
-				requests: row.totals.requests > 0 ? formatters.count(row.totals.requests) : "—",
-				input: formatters.tokens(row.totals.inputTokens),
-				output: formatters.tokens(row.totals.outputTokens),
-				cache: `${formatters.tokens(row.totals.cacheReadTokens)} / ${formatters.tokens(row.totals.cacheWriteTokens)}`,
+				initial: initialOf(seriesLabel(row.series, row.series.key)),
+				meta: [
+					row.series.kind === "model" ? row.series.provider : "",
+					row.totals.requests > 0
+						? t("usage.rowRequests", { count: row.totals.requests, value: formatters.count(row.totals.requests) })
+						: "",
+				]
+					.filter(Boolean)
+					.join(" · "),
+				detail: t("usage.rowDetail", {
+					input: formatters.tokens(row.totals.inputTokens),
+					output: formatters.tokens(row.totals.outputTokens),
+					cache: `${formatters.tokens(row.totals.cacheReadTokens)} / ${formatters.tokens(row.totals.cacheWriteTokens)}`,
+				}),
 				total: formatters.tokens(row.tokens),
 				share: row.share,
 				shareLabel: formatters.share(row.share),
 			})),
-		[colors, formatters, seriesLabel, summary],
+		[colors, formatters, seriesLabel, summary, t],
 	);
 
-	const share = useMemo<UsageSettingsModel["share"]>(() => {
-		const slices = (summary?.rows ?? [])
-			.filter((row) => row.tokens > 0)
-			.map((row) => ({
-				key: row.series.key,
-				label: seriesLabel(row.series, row.series.key),
-				color: colors.get(row.series.key) ?? MUTED_SERIES_EXPRESSION,
-				tokens: row.tokens,
-			}));
-		return { slices, centerValue: formatters.tokens(summary?.tokens ?? 0) };
-	}, [colors, formatters, seriesLabel, summary]);
+	const distribution = useMemo<UsageSettingsModel["distribution"]>(() => {
+		const visible = (summary?.rows ?? []).filter((row) => row.tokens > 0);
+		const head = visible.slice(0, DISTRIBUTION_MAX_SEGMENTS);
+		const tail = visible.slice(DISTRIBUTION_MAX_SEGMENTS);
+		const segments: UsageDistributionSegment[] = head.map((row) => ({
+			key: row.series.key,
+			label: seriesLabel(row.series, row.series.key),
+			color: colors.get(row.series.key) ?? MUTED_SERIES_EXPRESSION,
+			striped: row.series.kind === "unattributed",
+			share: row.share,
+			shareLabel: formatters.share(row.share),
+			value: formatters.tokens(row.tokens),
+		}));
+		if (tail.length > 0) {
+			const tokens = tail.reduce((sum, row) => sum + row.tokens, 0);
+			const shareOfTail = tail.reduce((sum, row) => sum + row.share, 0);
+			segments.push({
+				key: OTHER_SERIES_KEY,
+				label: t("usage.series.other"),
+				color: MUTED_SERIES_EXPRESSION,
+				striped: true,
+				share: shareOfTail,
+				shareLabel: formatters.share(shareOfTail),
+				value: formatters.tokens(tokens),
+			});
+		}
+		return {
+			total: formatters.tokens(summary?.tokens ?? 0),
+			caption: t("usage.distributionCaption", { count: visible.length }),
+			segments,
+		};
+	}, [colors, formatters, seriesLabel, summary, t]);
+
+	const composition = useMemo<UsageCompositionItem[]>(() => {
+		if (!summary) return [];
+		const { totals } = summary;
+		// Prompt-side first (fresh, cached, cache writes), then what the model wrote back.
+		const entries: Array<[UsageCompositionItem["key"], number, string]> = [
+			["input", totals.inputTokens, TONE.blue],
+			["cacheRead", totals.cacheReadTokens, TONE.green],
+			["cacheWrite", totals.cacheWriteTokens, TONE.magenta],
+			["output", totals.outputTokens, TONE.amber],
+		];
+		return entries.map(([key, value, color]) => {
+			const fraction = summary.tokens > 0 ? value / summary.tokens : 0;
+			return {
+				key,
+				label: t(`usage.composition.${key}`),
+				value: formatters.tokens(value),
+				share: fraction,
+				percent: formatters.share(fraction),
+				color,
+			};
+		});
+	}, [formatters, summary, t]);
+
+	const hero = useMemo<UsageSettingsModel["hero"]>(() => {
+		if (!summary) return null;
+		const hints: string[] = [];
+		if (summary.dayCount > 1) {
+			hints.push(t("usage.hero.average", { value: formatters.tokens(summary.tokens / summary.dayCount) }));
+			hints.push(t("usage.hero.activeDays", { days: summary.activeDays, total: summary.dayCount }));
+		}
+		if (summary.peak && summary.dayCount > 1) {
+			hints.push(
+				t("usage.hero.peak", {
+					date: formatters.day(summary.peak.day),
+					value: formatters.tokens(summary.peak.tokens),
+				}),
+			);
+		}
+		return { label: t("usage.hero.label"), value: formatters.tokens(summary.tokens), hints };
+	}, [formatters, summary, t]);
 
 	const cards = useMemo<UsageCardModel[]>(() => {
 		if (!summary) return [];
 		const { totals } = summary;
-		const result: UsageCardModel[] = [
-			{
-				key: "total",
-				label: t("usage.cards.total"),
-				value: formatters.tokens(summary.tokens),
-				hint:
-					summary.dayCount > 1
-						? t("usage.cards.totalHint", { value: formatters.tokens(summary.tokens / summary.dayCount) })
-						: undefined,
-			},
+		const promptTokens = totals.inputTokens + totals.cacheReadTokens + totals.cacheWriteTokens;
+		return [
 			{
 				key: "input",
 				label: t("usage.cards.input"),
-				value: formatters.tokens(totals.inputTokens),
+				value: formatters.tokens(promptTokens),
+				icon: "icon-[solar--import-linear]",
+				color: TONE.blue,
 				hint:
-					summary.peak && summary.dayCount > 1
-						? t("usage.cards.peakHint", { date: formatters.day(summary.peak.day) })
-						: undefined,
+					summary.cacheHitRate === null
+						? undefined
+						: {
+								icon: "icon-[solar--server-square-linear]",
+								text: t("usage.cards.inputHint", {
+									rate: formatters.share(summary.cacheHitRate),
+									value: formatters.tokens(totals.cacheReadTokens),
+								}),
+							},
 			},
 			{
 				key: "output",
 				label: t("usage.cards.output"),
 				value: formatters.tokens(totals.outputTokens),
+				icon: "icon-[solar--export-linear]",
+				color: TONE.amber,
 				hint:
 					summary.tokens > 0
-						? t("usage.cards.outputHint", { rate: formatters.share(totals.outputTokens / summary.tokens) })
-						: undefined,
-			},
-			{
-				key: "cacheRead",
-				label: t("usage.cards.cacheRead"),
-				value: formatters.tokens(totals.cacheReadTokens),
-				hint:
-					summary.cacheHitRate !== null
-						? t("usage.cards.cacheHint", { rate: formatters.share(summary.cacheHitRate) })
+						? {
+								icon: "icon-[solar--pie-chart-2-linear]",
+								text: t("usage.cards.outputHint", {
+									rate: formatters.share(totals.outputTokens / summary.tokens),
+								}),
+							}
 						: undefined,
 			},
 			{
 				key: "requests",
 				label: t("usage.cards.requests"),
 				value: formatters.count(totals.requests),
-				hint: summary.dayCount > 1 ? t("usage.cards.requestsHint", { days: summary.activeDays }) : undefined,
+				icon: "icon-[solar--cpu-bolt-linear]",
+				color: TONE.green,
+				hint: { icon: "icon-[solar--info-circle-linear]", text: t("usage.cards.requestsHint") },
 			},
 		];
-		// Costs are only known for models with configured prices; a zero would read as "free".
-		if (totals.costTotal > 0) {
-			result.push({ key: "cost", label: t("usage.cards.cost"), value: formatters.cost(totals.costTotal) });
-		}
-		return result;
 	}, [formatters, summary, t]);
 
 	const heatmap = useMemo(
@@ -396,7 +494,9 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 		calendarLocale: language === "en" ? enUS : zhCN,
 		cards,
 		trend,
-		share,
+		hero,
+		composition,
+		distribution,
 		rows,
 		heatmap,
 		heatmapLabels,
@@ -405,7 +505,6 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 			: "",
 		themeKey: `${resolvedTheme}:${themeName}`,
 		formatTokens: formatters.tokens,
-		formatShare: formatters.share,
 		labels: {
 			title: t("usage.title"),
 			subtitle: t("usage.subtitle"),
@@ -413,18 +512,13 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 			customRangeLabel: t("usage.customRangeLabel"),
 			trend: t("usage.sections.trend"),
 			share: t("usage.sections.share"),
-			shareAria: t("usage.shareAria"),
-			shareCenter: t("usage.shareCenter"),
+			average: t("usage.average"),
 			trendAria: t("usage.trendAria"),
 			models: t("usage.sections.models"),
 			heatmap: t("usage.sections.heatmap"),
 			total: t("usage.total"),
 			table: {
 				model: t("usage.table.model"),
-				requests: t("usage.table.requests"),
-				input: t("usage.table.input"),
-				output: t("usage.table.output"),
-				cache: t("usage.table.cache"),
 				total: t("usage.table.total"),
 				share: t("usage.table.share"),
 			},

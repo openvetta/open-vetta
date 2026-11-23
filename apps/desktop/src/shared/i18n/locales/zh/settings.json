@@ -2279,22 +2279,16 @@
     "customRangeLabel": "选择日期区间",
     "rangeSpan": "{{start}} – {{end}}",
     "cards": {
-      "total": "总 Token",
-      "totalHint": "日均 {{value}}",
       "input": "输入",
       "output": "输出",
-      "outputHint": "输出占比 {{rate}}",
-      "cacheRead": "缓存读取",
-      "cacheHint": "命中率 {{rate}}",
-      "cacheWriteHint": "写入 {{value}}",
-      "requests": "调用次数",
-      "requestsHint": "活跃 {{days}} 天",
-      "cost": "费用",
-      "peakHint": "峰值 {{date}}"
+      "requests": "模型请求",
+      "inputHint": "缓存命中 {{rate}} · {{value}}",
+      "outputHint": "占总用量 {{rate}}",
+      "requestsHint": "含工具调用后的每轮续写"
     },
     "sections": {
       "trend": "用量趋势",
-      "share": "模型占比",
+      "share": "模型分布",
       "models": "模型明细",
       "heatmap": "每日活跃"
     },
@@ -2304,14 +2298,8 @@
       "week": "按周"
     },
     "trendAria": "所选时间段的 token 用量趋势",
-    "shareAria": "各模型的 token 占比",
-    "shareCenter": "Token",
     "table": {
       "model": "模型",
-      "requests": "调用",
-      "input": "输入",
-      "output": "输出",
-      "cache": "缓存读 / 写",
       "total": "合计",
       "share": "占比"
     },
@@ -2335,6 +2323,22 @@
     "emptyDescription": "开始对话后，这里会按天、按模型汇总 token 消耗。",
     "emptyRange": "这段时间没有用量",
     "errorTitle": "用量加载失败",
-    "retry": "重试"
+    "retry": "重试",
+    "average": "平均",
+    "distributionCaption": "Token · {{count}} 个模型",
+    "rowRequests": "{{value}} 次调用",
+    "rowDetail": "输入 {{input}} · 输出 {{output}} · 缓存 {{cache}}",
+    "hero": {
+      "label": "总用量",
+      "average": "日均 {{value}}",
+      "activeDays": "活跃 {{days}}/{{total}} 天",
+      "peak": "峰值 {{date}} · {{value}}"
+    },
+    "composition": {
+      "input": "新输入",
+      "cacheRead": "缓存读取",
+      "cacheWrite": "缓存写入",
+      "output": "输出"
+    }
   }
 }
