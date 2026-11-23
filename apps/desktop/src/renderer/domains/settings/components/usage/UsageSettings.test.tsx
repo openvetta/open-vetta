@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 设置 → 用量：打开页面后先出页面壳再读报表，默认看近 7 天；切换时间范围、点热力图某天、加载失败重试。
+ * 设置 → 用量：打开页面后先出页面壳再读报表，默认看今天；切换时间范围、点热力图某天、加载失败重试。
  */
 import settings from "@/shared/i18n/locales/zh/settings.json";
 import type { UsageReport } from "@preload/api-types/app-monitor";
@@ -83,22 +83,22 @@ afterEach(() => {
 });
 
 describe("用量设置页", () => {
-	it("默认展示近 7 天，按模型列出明细；切到今天只剩当天的模型", async () => {
+	it("默认展示今天，只列当天的模型；切到近 7 天按模型列出明细", async () => {
 		mockReport(async () => REPORT);
 		renderPage();
 
 		expect(screen.getByRole("heading", { name: "用量" })).toBeTruthy();
 		await screen.findByRole("table");
 
+		expect(cardValue("总用量")).toBe("1.5K");
+		expect(modelNames()).toEqual(["claude-opus"]);
+		expect(screen.getByText("按小时")).toBeTruthy();
+
+		await userEvent.click(screen.getByRole("button", { name: "近 7 天" }));
 		expect(cardValue("总用量")).toBe("5.5K");
 		expect(cardValue("模型请求")).toBe("7");
 		expect(modelNames()).toEqual(["gpt-5", "claude-opus"]);
 		expect(screen.getByText("openai · 4 次调用 · 输入 3K · 输出 1K · 缓存 0 / 0")).toBeTruthy();
-
-		await userEvent.click(screen.getByRole("button", { name: "今天" }));
-		expect(cardValue("总用量")).toBe("1.5K");
-		expect(modelNames()).toEqual(["claude-opus"]);
-		expect(screen.getByText("按小时")).toBeTruthy();
 
 		await userEvent.click(screen.getByRole("button", { name: "全部" }));
 		expect(cardValue("总用量")).toBe("12.5K");
@@ -151,6 +151,7 @@ describe("用量设置页", () => {
 		renderPage();
 		await screen.findByRole("table");
 
+		await userEvent.click(screen.getByRole("button", { name: "近 7 天" }));
 		await userEvent.click(screen.getByRole("button", { name: "制作小票" }));
 		const dialog = await screen.findByRole("dialog");
 		const ticket = within(dialog).getByRole("img");

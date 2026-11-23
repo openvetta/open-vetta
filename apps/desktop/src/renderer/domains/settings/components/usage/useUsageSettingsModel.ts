@@ -35,7 +35,7 @@ const TONE = {
 } as const;
 
 export const USAGE_RANGE_PRESETS: readonly UsageRangePreset[] = ["today", "3d", "7d", "30d", "all", "custom"];
-const DEFAULT_PRESET: UsageRangePreset = "7d";
+const DEFAULT_PRESET: UsageRangePreset = "today";
 
 export type UsageLoadStatus = "loading" | "ready" | "error";
 
