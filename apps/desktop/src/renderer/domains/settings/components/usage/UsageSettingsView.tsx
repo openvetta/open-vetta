@@ -246,7 +246,7 @@ function UsageTable({ model }: { model: UsageSettingsModel }): JSX.Element {
 			</thead>
 			<tbody>
 				{model.rows.map((row, index) => (
-					<tr key={row.key} className={cn("transition-colors hover:bg-accent/40", index > 0 && "border-t border-border/40")}>
+					<tr key={row.key} className={cn(index > 0 && "border-t border-border/40")}>
 						<td className="max-w-0 py-2.5 pr-2 pl-1">
 							<div className="flex min-w-0 items-center gap-3">
 								<span
