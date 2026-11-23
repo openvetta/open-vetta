@@ -1,4 +1,4 @@
-import { forwardRef, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { resolveCssColors } from "./usage-chart-theme";
 
 export interface UsageTicketField {
@@ -59,6 +59,49 @@ const PALETTE_EXPRESSIONS = {
 } as const;
 
 type Palette = Record<keyof typeof PALETTE_EXPRESSIONS, string>;
+
+/** The packaged app icon (same file the window uses). */
+const BRAND_ICON_URL = "./icon.png";
+
+/**
+ * The icon as a data URL: an SVG rasterised from a blob cannot fetch external images, so the
+ * export would silently drop a plain `href`. Null while loading or when the file is unavailable.
+ */
+function useBrandIconDataUrl(): string | null {
+	const [dataUrl, setDataUrl] = useState<string | null>(null);
+	useEffect(() => {
+		let cancelled = false;
+		void (async () => {
+			try {
+				const response = await fetch(BRAND_ICON_URL);
+				if (!response.ok) return;
+				const blob = await response.blob();
+				const reader = new FileReader();
+				reader.onload = () => {
+					if (!cancelled && typeof reader.result === "string") setDataUrl(reader.result);
+				};
+				reader.readAsDataURL(blob);
+			} catch {
+				// No icon: the ticket falls back to the bolt glyph.
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+	return dataUrl;
+}
+
+function BrandIcon({ href, x, y, size, clipId }: { href: string; x: number; y: number; size: number; clipId: string }): JSX.Element {
+	return (
+		<g>
+			<clipPath id={clipId}>
+				<rect x={x} y={y} width={size} height={size} rx={size * 0.24} />
+			</clipPath>
+			<image href={href} x={x} y={y} width={size} height={size} clipPath={`url(#${clipId})`} />
+		</g>
+	);
+}
 
 function ticketPath(): string {
 	const w = TICKET_WIDTH;
@@ -156,6 +199,8 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel;
 			setFontFamily(getComputedStyle(host).fontFamily || "system-ui, sans-serif");
 		}, [themeKey]);
 
+		const iconHref = useBrandIconDataUrl();
+		const clipBase = useId().replace(/[^a-zA-Z0-9_-]/g, "");
 		const bars = useMemo(() => barcodeBars(ticket.serial, TICKET_WIDTH - PAD * 2), [ticket.serial]);
 		const w = TICKET_WIDTH;
 		const mid = w / 2;
@@ -179,10 +224,13 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel;
 						aria-label={`${ticket.from.big} – ${ticket.to.big} · ${ticket.highlights[0]?.value ?? ""}`}
 					>
 						<rect width={POSTER_WIDTH} height={POSTER_HEIGHT} fill={palette.backdrop} />
+						{iconHref && (
+							<BrandIcon href={iconHref} x={CORNER} y={CORNER - 4} size={22} clipId={`${clipBase}-corner`} />
+						)}
 						{ticket.corners.map((caption, index) => (
 							<text
 								key={`${index}-${caption}`}
-								x={index % 2 === 0 ? CORNER : POSTER_WIDTH - CORNER}
+								x={index === 0 && iconHref ? CORNER + 30 : index % 2 === 0 ? CORNER : POSTER_WIDTH - CORNER}
 								y={index < 2 ? CORNER + 12 : POSTER_HEIGHT - CORNER}
 								textAnchor={index % 2 === 0 ? "start" : "end"}
 								fontSize={13}
@@ -204,6 +252,12 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel;
 									{ticket.toLabel}
 								</text>
 								<line x1={PAD} x2={w - PAD} y1={46} y2={46} stroke={palette.faint} strokeDasharray="2 3" />
+								{iconHref && (
+									<>
+										<rect x={mid - 17} y={30} width={34} height={32} fill={palette.paper} />
+										<BrandIcon href={iconHref} x={mid - 12} y={34} size={24} clipId={`${clipBase}-date`} />
+									</>
+								)}
 								<text x={PAD} y={92} fontSize={32} fontWeight={700} fill={palette.ink} letterSpacing={-0.5}>
 									{ticket.from.big}
 								</text>
@@ -260,10 +314,14 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel;
 							stroke={palette.faint}
 							strokeDasharray="2 3"
 						/>
-						<path
-							d={`M ${mid + 2} ${21} L ${mid - 6} ${32} H ${mid} L ${mid - 2} ${40} L ${mid + 6} ${29} H ${mid} Z`}
-							fill={palette.ink}
-						/>
+						{iconHref ? (
+							<BrandIcon href={iconHref} x={mid - 12} y={18.5} size={24} clipId={`${clipBase}-route`} />
+						) : (
+							<path
+								d={`M ${mid + 2} ${21} L ${mid - 6} ${32} H ${mid} L ${mid - 2} ${40} L ${mid + 6} ${29} H ${mid} Z`}
+								fill={palette.ink}
+							/>
+						)}
 
 						{/* Dates */}
 						<text x={PAD} y={84} fontSize={32} fontWeight={700} fill={palette.ink} letterSpacing={-0.5}>
