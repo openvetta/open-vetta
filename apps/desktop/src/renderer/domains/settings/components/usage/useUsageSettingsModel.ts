@@ -12,6 +12,7 @@ import type { UsageTrendChartDataset } from "./UsageTrendChart";
 import {
 	buildUsageHeatmap,
 	buildUsageTrend,
+	formatTokenCount,
 	type HeatmapCell,
 	indexUsageDays,
 	OTHER_SERIES_KEY,
@@ -169,7 +170,6 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 	}, [load]);
 
 	const formatters = useMemo(() => {
-		const compact = new Intl.NumberFormat(intlLocale, { notation: "compact", maximumFractionDigits: 1 });
 		const integer = new Intl.NumberFormat(intlLocale);
 		const percent = new Intl.NumberFormat(intlLocale, { style: "percent", maximumFractionDigits: 1 });
 		const currency = new Intl.NumberFormat(intlLocale, {
@@ -189,7 +189,8 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 		const weekdayFormat = new Intl.DateTimeFormat(intlLocale, { weekday: "short", timeZone: "UTC" });
 		const utc = (day: string) => new Date(`${day}T00:00:00Z`);
 		return {
-			tokens: (value: number) => (Math.abs(value) < 10_000 ? integer.format(value) : compact.format(value)),
+			tokens: formatTokenCount,
+			count: (value: number) => integer.format(value),
 			share: (value: number) => percent.format(value),
 			cost: (value: number) => currency.format(value),
 			day: (day: string) => dayFormat.format(utc(day)),
@@ -269,7 +270,7 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 				name: seriesLabel(row.series, row.series.key),
 				provider: row.series.kind === "model" ? row.series.provider : "",
 				color: colors.get(row.series.key) ?? MUTED_SERIES_EXPRESSION,
-				requests: row.totals.requests > 0 ? formatters.tokens(row.totals.requests) : "—",
+				requests: row.totals.requests > 0 ? formatters.count(row.totals.requests) : "—",
 				input: formatters.tokens(row.totals.inputTokens),
 				output: formatters.tokens(row.totals.outputTokens),
 				cache: `${formatters.tokens(row.totals.cacheReadTokens)} / ${formatters.tokens(row.totals.cacheWriteTokens)}`,
@@ -335,7 +336,7 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 			{
 				key: "requests",
 				label: t("usage.cards.requests"),
-				value: formatters.tokens(totals.requests),
+				value: formatters.count(totals.requests),
 				hint: summary.dayCount > 1 ? t("usage.cards.requestsHint", { days: summary.activeDays }) : undefined,
 			},
 		];

@@ -311,3 +311,25 @@ export function buildUsageHeatmap(
 	});
 	return { weeks: cells, monthStarts, totalTokens: totalInView, activeDays };
 }
+
+const TOKEN_UNITS = [
+	{ value: 1e3, suffix: "K" },
+	{ value: 1e6, suffix: "M" },
+	{ value: 1e9, suffix: "B" },
+] as const;
+
+function scaleTokens(value: number, unit: (typeof TOKEN_UNITS)[number]): string {
+	const scaled = value / unit.value;
+	return scaled.toFixed(Math.abs(scaled) < 100 ? 1 : 0).replace(/\.0$/, "");
+}
+
+/** Token counts read as K/M/B in every language (1.3M, not 130万), matching how model limits are quoted. */
+export function formatTokenCount(value: number): string {
+	const abs = Math.abs(value);
+	if (abs < 1000) return String(Math.round(value));
+	let index = 0;
+	while (index < TOKEN_UNITS.length - 1 && abs >= TOKEN_UNITS[index + 1].value) index += 1;
+	// 999,960 would print as "1000K"; step up to "1M" instead.
+	if (index < TOKEN_UNITS.length - 1 && Math.abs(Number(scaleTokens(value, TOKEN_UNITS[index]))) >= 1000) index += 1;
+	return `${scaleTokens(value, TOKEN_UNITS[index])}${TOKEN_UNITS[index].suffix}`;
+}

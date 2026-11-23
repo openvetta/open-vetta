@@ -85,7 +85,7 @@ describe("用量设置页", () => {
 		expect(screen.getByRole("heading", { name: "用量" })).toBeTruthy();
 		await screen.findByRole("table");
 
-		expect(cardValue("总 Token")).toBe("5,500");
+		expect(cardValue("总 Token")).toBe("5.5K");
 		expect(cardValue("调用次数")).toBe("7");
 		const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
 		expect(rows.map((row) => within(row).getAllByRole("cell")[0]?.textContent)).toEqual([
@@ -94,12 +94,12 @@ describe("用量设置页", () => {
 		]);
 
 		await userEvent.click(screen.getByRole("button", { name: "今天" }));
-		expect(cardValue("总 Token")).toBe("1,500");
+		expect(cardValue("总 Token")).toBe("1.5K");
 		expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(2);
 		expect(screen.getByText("按小时")).toBeTruthy();
 
 		await userEvent.click(screen.getByRole("button", { name: "全部" }));
-		expect(cardValue("总 Token")).toBe("1.3万");
+		expect(cardValue("总 Token")).toBe("12.5K");
 		expect(screen.getByText("未区分模型（早期记录）", { selector: "div" })).toBeTruthy();
 	});
 
@@ -112,7 +112,7 @@ describe("用量设置页", () => {
 		expect(cell).toBeTruthy();
 		fireEvent.click(cell as Element);
 
-		expect(cardValue("总 Token")).toBe("4,000");
+		expect(cardValue("总 Token")).toBe("4K");
 		const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
 		expect(rows).toHaveLength(1);
 		expect(rows[0]?.textContent).toContain("gpt-5");

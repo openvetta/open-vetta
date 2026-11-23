@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	buildUsageHeatmap,
 	buildUsageTrend,
+	formatTokenCount,
 	indexUsageDays,
 	OTHER_SERIES_KEY,
 	resolveUsageRange,
@@ -180,5 +181,13 @@ describe("每日活跃热力图", () => {
 		expect(levels.get("2026-11-15")).toBe(0);
 		expect(heatmap.activeDays).toBe(5);
 		expect(heatmap.monthStarts.length).toBeGreaterThanOrEqual(11);
+	});
+});
+
+describe("token 数显示", () => {
+	it("不足一千显示原数，往上依次用 K、M、B，整数不带 .0", () => {
+		expect(
+			[0, 999, 1000, 1250, 12_500, 999_960, 1_300_000, 250_000_000, 4_200_000_000].map(formatTokenCount),
+		).toEqual(["0", "999", "1K", "1.3K", "12.5K", "1M", "1.3M", "250M", "4.2B"]);
 	});
 });
