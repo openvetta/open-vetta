@@ -2258,5 +2258,84 @@
   "sshPromptAccept": "Confirm and connect",
   "sshPromptReject": "Cancel connection",
   "section_remote-devices": "Paired phones",
-  "section_remote-cloud": "Away from home"
+  "section_remote-cloud": "Away from home",
+  "tabUsage": "Usage",
+  "section_usage-overview": "Overview",
+  "section_usage-trend": "Usage trend",
+  "section_usage-models": "By model",
+  "section_usage-heatmap": "Daily activity",
+  "usage": {
+    "title": "Usage",
+    "subtitle": "Tokens used in Vetta, by day and by model",
+    "refresh": "Refresh",
+    "presets": {
+      "today": "Today",
+      "3d": "3 days",
+      "7d": "7 days",
+      "30d": "30 days",
+      "all": "All",
+      "custom": "Custom"
+    },
+    "customRangeLabel": "Pick a date range",
+    "rangeSpan": "{{start}} – {{end}}",
+    "cards": {
+      "total": "Total tokens",
+      "totalHint": "{{value}} per day",
+      "input": "Input",
+      "output": "Output",
+      "outputHint": "{{rate}} of total",
+      "cacheRead": "Cache reads",
+      "cacheHint": "{{rate}} hit rate",
+      "cacheWriteHint": "{{value}} written",
+      "requests": "Requests",
+      "requestsHint": "{{days}} active days",
+      "cost": "Cost",
+      "peakHint": "Peak {{date}}"
+    },
+    "sections": {
+      "trend": "Usage trend",
+      "share": "Model share",
+      "models": "By model",
+      "heatmap": "Daily activity"
+    },
+    "granularity": {
+      "hour": "Hourly",
+      "day": "Daily",
+      "week": "Weekly"
+    },
+    "trendAria": "Token usage trend for the selected period",
+    "shareAria": "Token share by model",
+    "shareCenter": "Tokens",
+    "table": {
+      "model": "Model",
+      "requests": "Requests",
+      "input": "Input",
+      "output": "Output",
+      "cache": "Cache read / write",
+      "total": "Total",
+      "share": "Share"
+    },
+    "series": {
+      "unknown": "Unknown model",
+      "unattributed": "Unattributed (earlier records)",
+      "knowledgeBase": "Knowledge base processing",
+      "other": "Other"
+    },
+    "total": "Total",
+    "hourLabel": "{{hour}}:00",
+    "weekOf": "Week of {{date}}",
+    "heatmapSummary": "{{tokens}} tokens over {{days}} active days in the past year",
+    "heatmapAria": "Heatmap of daily token usage over the past year",
+    "heatmapCell": "{{date}} · {{tokens}} tokens",
+    "heatmapCellEmpty": "{{date}} · No usage",
+    "heatmapHint": "Click a day to see its breakdown",
+    "less": "Less",
+    "more": "More",
+    "emptyTitle": "No usage yet",
+    "emptyDescription": "Once you start chatting, token usage is summarized here by day and by model.",
+    "emptyRange": "No usage in this period",
+    "errorTitle": "Couldn't load usage",
+    "retry": "Retry",
+    "coverage": "Covers model calls from conversations, automations and batch tasks, plus knowledge base processing. Subagents, team members, session title generation, context compaction and plugin-initiated calls aren't counted yet. Earlier records only have totals and show as \"Unattributed\"."
+  }
 }

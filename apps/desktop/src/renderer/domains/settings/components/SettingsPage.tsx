@@ -9,6 +9,7 @@ import "./settings-highlight.css";
 
 /** MCP 已迁至扩展 → 连接器；`mcp` 保留在 SettingsTab 供 analytics / 旧链接重定向，此处不渲染。 */
 const SETTINGS_CONTENT: Record<Exclude<SettingsTab, "mcp">, LazyExoticComponent<ComponentType>> = {
+	usage: lazy(SETTINGS_TAB_LOADERS.usage),
 	general: lazy(SETTINGS_TAB_LOADERS.general),
 	appearance: lazy(SETTINGS_TAB_LOADERS.appearance),
 	models: lazy(SETTINGS_TAB_LOADERS.models),
