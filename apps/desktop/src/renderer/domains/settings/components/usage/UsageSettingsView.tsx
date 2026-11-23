@@ -19,14 +19,6 @@ import type {
 
 const CARD = "rounded-xl bg-card";
 
-/** Soft dot grid fading out from the top-right corner of KPI cards. */
-const DOT_GRID_STYLE: CSSProperties = {
-	backgroundImage: "radial-gradient(color-mix(in srgb, var(--foreground) 16%, transparent) 1px, transparent 1.4px)",
-	backgroundSize: "6px 6px",
-	maskImage: "radial-gradient(circle at 100% 0%, black, transparent 72%)",
-	WebkitMaskImage: "radial-gradient(circle at 100% 0%, black, transparent 72%)",
-};
-
 function tint(color: string, percent: number): string {
 	return `color-mix(in srgb, ${color} ${percent}%, transparent)`;
 }
@@ -74,16 +66,9 @@ function Chip({ icon, children }: { icon?: string; children: ReactNode }): JSX.E
 function StatCard({ card }: { card: UsageCardModel }): JSX.Element {
 	return (
 		<div data-usage-card={card.key} className={cn(CARD, "relative overflow-hidden px-4 pt-3.5 pb-3.5")}>
-			<div aria-hidden="true" className="pointer-events-none absolute top-0 right-0 h-20 w-28" style={DOT_GRID_STYLE} />
 			<div className="relative flex items-start justify-between gap-2">
 				<div className="text-[12px] text-muted-foreground">{card.label}</div>
-				<span
-					aria-hidden="true"
-					className="flex h-6 w-6 items-center justify-center rounded-md"
-					style={{ background: tint(card.color, 15), color: card.color }}
-				>
-					<span className={cn(card.icon, "h-3.5 w-3.5")} />
-				</span>
+				<span aria-hidden="true" className={cn(card.icon, "h-4 w-4 text-muted-foreground/60")} />
 			</div>
 			<div data-card-value className="relative mt-1.5 text-[20px] font-semibold tabular-nums leading-tight text-foreground">
 				{card.value}
@@ -110,35 +95,20 @@ function compositionFill(item: UsageCompositionItem): CSSProperties {
 	return { background: item.color };
 }
 
-const HERO_GLOW_STYLE: CSSProperties = {
-	backgroundImage:
-		"radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--chart-2) 12%, transparent), transparent 55%), radial-gradient(90% 120% at 100% 100%, color-mix(in srgb, var(--chart-1) 9%, transparent), transparent 60%)",
-};
-
 function UsageHero({ model }: { model: UsageSettingsModel }): JSX.Element | null {
 	const { hero, composition } = model;
 	if (!hero) return null;
 	const visible = composition.filter((item) => item.share > 0);
 	return (
-		<div data-usage-card="total" className={cn(CARD, "relative overflow-hidden p-5")} style={HERO_GLOW_STYLE}>
-			<div aria-hidden="true" className="pointer-events-none absolute top-0 right-0 h-28 w-48" style={DOT_GRID_STYLE} />
+		<div data-usage-card="total" className={cn(CARD, "relative overflow-hidden p-5")}>
 			<div className="relative flex flex-wrap items-start justify-between gap-3">
-				<div className="flex items-center gap-2">
-					<span
-						aria-hidden="true"
-						className="flex h-6 w-6 items-center justify-center rounded-md"
-						style={{ background: tint("var(--chart-2)", 15), color: "var(--chart-2)" }}
-					>
-						<span className="icon-[solar--bolt-linear] h-3.5 w-3.5" />
-					</span>
-					<div className="text-[13px] font-medium text-muted-foreground">{hero.label}</div>
-				</div>
+				<div className="text-[13px] font-medium text-muted-foreground">{hero.label}</div>
 				{hero.hints.length > 0 && (
 					<div className="flex flex-wrap gap-1.5">
 						{hero.hints.map((hint) => (
 							<span
 								key={hint}
-								className="rounded-lg bg-background/60 px-2 py-1 text-[11px] tabular-nums text-muted-foreground"
+								className="rounded-lg bg-accent/60 px-2 py-1 text-[11px] tabular-nums text-muted-foreground"
 							>
 								{hint}
 							</span>
@@ -187,46 +157,18 @@ function segmentFill(segment: UsageDistributionSegment): CSSProperties {
 		: { background: segment.color };
 }
 
-/** Labelled columns over one segmented bar; small slices keep only their colour. */
-function ModelDistribution({ model }: { model: UsageSettingsModel }): JSX.Element {
-	const { distribution } = model;
+/** The split across models as one segmented bar; the table below carries the numbers. */
+function ModelShareBar({ model }: { model: UsageSettingsModel }): JSX.Element {
 	return (
-		<div className="flex h-full flex-col">
-			<div className="flex items-baseline gap-1.5">
-				<span className="text-[28px] font-semibold leading-none tabular-nums text-foreground">{distribution.total}</span>
-				<span className="text-[12px] text-muted-foreground">{distribution.caption}</span>
-			</div>
-			<div className="mt-5 flex min-h-[132px] flex-1 gap-[3px]">
-				{distribution.segments.map((segment) => {
-					const labelled = segment.share >= 0.14;
-					return (
-						<div
-							key={segment.key}
-							className="flex min-w-[6px] flex-col"
-							style={{ flex: `${Math.max(segment.share, 0.015)} 1 0%` }}
-							title={`${segment.label} · ${segment.shareLabel} · ${segment.value}`}
-						>
-							<div className="flex flex-1 flex-col border-l border-border/60 pl-1.5">
-								{labelled && (
-									<div className="min-w-0 truncate text-[11px] leading-tight">
-										<span className="font-semibold tabular-nums text-foreground">{segment.shareLabel}</span>
-										<span className="ml-1 tabular-nums text-muted-foreground">{segment.value}</span>
-									</div>
-								)}
-							</div>
-							<div className="h-2.5 rounded-full" style={segmentFill(segment)} />
-						</div>
-					);
-				})}
-			</div>
-			<ul className="mt-3 flex flex-wrap gap-x-3.5 gap-y-1.5 text-[11px] text-muted-foreground">
-				{distribution.segments.map((segment) => (
-					<li key={segment.key} className="flex min-w-0 max-w-full items-center gap-1.5">
-						<span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={segmentFill(segment)} />
-						<span className="truncate">{segment.label}</span>
-					</li>
-				))}
-			</ul>
+		<div className="mb-3 flex h-2.5 gap-[3px]" aria-hidden="true">
+			{model.distribution.segments.map((segment) => (
+				<div
+					key={segment.key}
+					className="h-full min-w-[4px] rounded-full"
+					style={{ flex: `${Math.max(segment.share, 0.01)} 1 0%`, ...segmentFill(segment) }}
+					title={`${segment.label} · ${segment.shareLabel}`}
+				/>
+			))}
 		</div>
 	);
 }
@@ -367,7 +309,7 @@ function LoadingPlaceholder(): JSX.Element {
 	return (
 		<div aria-hidden="true" className="flex flex-col gap-3">
 			<div className={cn(CARD, "h-[168px]")} />
-			<div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
+			<div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
 				{Array.from({ length: 3 }, (_, index) => (
 					<div key={index} className={cn(CARD, "h-[96px]")} />
 				))}
@@ -426,7 +368,7 @@ export function UsageSettingsView({ model }: { model: UsageSettingsModel }): JSX
 							className="flex flex-col gap-3"
 						>
 							<UsageHero model={model} />
-							<div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
+							<div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
 								{model.cards.map((card) => (
 									<StatCard key={card.key} card={card} />
 								))}
@@ -442,38 +384,29 @@ export function UsageSettingsView({ model }: { model: UsageSettingsModel }): JSX
 							</div>
 						) : (
 							<>
-								<div className="flex flex-wrap gap-4">
-									<Panel
-										id="usage-share"
-										title={labels.share}
-										className="flex min-w-[260px] flex-[2_1_260px] flex-col"
-									>
-										<ModelDistribution model={model} />
-									</Panel>
-									<Panel
-										id={SETTINGS_SECTION["usage-trend"].id}
-										title={labels.trend}
-										className="min-w-0 flex-[3_1_380px]"
-										aside={<Chip icon="icon-[solar--clock-circle-linear]">{model.trend.granularityLabel}</Chip>}
-									>
-										<UsageTrendChart
-											ariaLabel={labels.trendAria}
-											columnLabels={model.trend.columnLabels}
-											columnTitles={model.trend.columnTitles}
-											datasets={model.trend.datasets}
-											formatTokens={model.formatTokens}
-											totalLabel={labels.total}
-											averageLabel={labels.average}
-											themeKey={model.themeKey}
-										/>
-									</Panel>
-								</div>
+								<Panel
+									id={SETTINGS_SECTION["usage-trend"].id}
+									title={labels.trend}
+									aside={<Chip icon="icon-[solar--clock-circle-linear]">{model.trend.granularityLabel}</Chip>}
+								>
+									<UsageTrendChart
+										ariaLabel={labels.trendAria}
+										columnLabels={model.trend.columnLabels}
+										columnTitles={model.trend.columnTitles}
+										datasets={model.trend.datasets}
+										formatTokens={model.formatTokens}
+										totalLabel={labels.total}
+										averageLabel={labels.average}
+										themeKey={model.themeKey}
+									/>
+								</Panel>
 
 								<Panel
 									id={SETTINGS_SECTION["usage-models"].id}
 									title={labels.models}
 									aside={<Chip>{model.distribution.caption}</Chip>}
 								>
+									<ModelShareBar model={model} />
 									<UsageTable model={model} />
 								</Panel>
 							</>

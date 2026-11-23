@@ -2288,7 +2288,6 @@
     },
     "sections": {
       "trend": "用量趋势",
-      "share": "模型分布",
       "models": "模型明细",
       "heatmap": "每日活跃"
     },

@@ -2288,7 +2288,6 @@
     },
     "sections": {
       "trend": "Usage trend",
-      "share": "By model",
       "models": "By model",
       "heatmap": "Daily activity"
     },

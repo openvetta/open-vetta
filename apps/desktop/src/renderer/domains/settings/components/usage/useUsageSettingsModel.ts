@@ -106,7 +106,7 @@ export interface UsageSettingsModel {
 	};
 	hero: { label: string; value: string; hints: string[] } | null;
 	composition: UsageCompositionItem[];
-	distribution: { total: string; caption: string; segments: UsageDistributionSegment[] };
+	distribution: { caption: string; segments: UsageDistributionSegment[] };
 	rows: UsageTableRowModel[];
 	heatmap: UsageHeatmap | null;
 	heatmapLabels: UsageHeatmapLabels;
@@ -119,7 +119,6 @@ export interface UsageSettingsModel {
 		refresh: string;
 		customRangeLabel: string;
 		trend: string;
-		share: string;
 		average: string;
 		trendAria: string;
 		models: string;
@@ -348,7 +347,6 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 			});
 		}
 		return {
-			total: formatters.tokens(summary?.tokens ?? 0),
 			caption: t("usage.distributionCaption", { count: visible.length }),
 			segments,
 		};
@@ -511,7 +509,6 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 			refresh: t("usage.refresh"),
 			customRangeLabel: t("usage.customRangeLabel"),
 			trend: t("usage.sections.trend"),
-			share: t("usage.sections.share"),
 			average: t("usage.average"),
 			trendAria: t("usage.trendAria"),
 			models: t("usage.sections.models"),
