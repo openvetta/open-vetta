@@ -10,8 +10,8 @@ import {
 
 export type VettaKbdSize = "xs" | "sm";
 /**
- * raised：浮雕键帽（默认）；flat：玻璃面板上的平铺键帽，只有一块淡底，不画描边和投影。
- * flat 的键面符号用前景亮色：淡底已经把键帽和文字区分开，符号再压灰会在玻璃上发虚。
+ * raised：浮雕键帽（默认）；flat：玻璃面板上的线框键帽，只画一圈细描边，不铺底色、不画投影。
+ * flat 的描边和键面符号都用前景亮色：玻璃底会透出背后内容，压灰的线和字在上面发虚。
  */
 export type VettaKbdVariant = "raised" | "flat";
 
@@ -41,7 +41,7 @@ const CAP_RAISED = cn(
 
 const CAP_FLAT = cn(
 	"inline-flex shrink-0 items-center justify-center whitespace-nowrap font-medium leading-none",
-	"bg-foreground/[0.07] text-foreground dark:bg-white/[0.1]",
+	"border border-current bg-transparent text-foreground",
 );
 
 const SIZE_CLASS: Record<VettaKbdSize, string> = {
