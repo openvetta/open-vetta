@@ -328,7 +328,7 @@ function UsageTicketDialog({ model, ticket }: { model: UsageSettingsModel; ticke
 					<DialogDescription>{labels.description}</DialogDescription>
 				</DialogHeader>
 				<div className="flex justify-center overflow-hidden rounded-xl">
-					<UsageTicket ref={svgRef} ticket={ticket} themeKey={model.themeKey} />
+					<UsageTicket ref={svgRef} ticket={ticket} />
 				</div>
 				<DialogFooter>
 					<Button variant="ghost" size="sm" disabled={busy} onClick={() => void copy()}>

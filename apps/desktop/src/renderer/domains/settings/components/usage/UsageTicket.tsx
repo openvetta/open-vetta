@@ -1,5 +1,4 @@
-import { forwardRef, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { resolveCssColors } from "./usage-chart-theme";
+import { forwardRef, useEffect, useId, useMemo, useState } from "react";
 
 export interface UsageTicketField {
 	label: string;
@@ -45,22 +44,22 @@ const NOTCH = 14;
 const RADIUS = 18;
 
 /**
- * The ticket is an inverted surface: light paper in the dark theme, dark paper in the light one.
- * Colours are resolved to concrete values because the SVG is also serialised into a PNG, where
- * CSS variables no longer resolve.
+ * Fixed print colours. The ticket is an image people save and share, so it must look the same in
+ * every theme and appearance; it deliberately does not read theme tokens.
  */
-const PALETTE_EXPRESSIONS = {
-	paper: "color-mix(in srgb, var(--foreground) 94%, var(--background))",
-	ink: "var(--background)",
-	muted: "color-mix(in srgb, var(--background) 55%, var(--foreground))",
-	faint: "color-mix(in srgb, var(--background) 25%, var(--foreground))",
-	band: "color-mix(in srgb, var(--chart-2) 28%, color-mix(in srgb, var(--foreground) 94%, var(--background)))",
-	accent: "var(--chart-2)",
-	backdrop: "color-mix(in srgb, var(--background) 94%, var(--foreground))",
-	caption: "color-mix(in srgb, var(--foreground) 45%, var(--background))",
+const TICKET_PALETTE = {
+	paper: "rgb(255, 255, 255)",
+	ink: "rgb(17, 17, 17)",
+	muted: "rgb(118, 118, 118)",
+	faint: "rgb(190, 190, 190)",
+	band: "rgb(168, 190, 226)",
+	backdrop: "rgb(30, 30, 30)",
+	caption: "rgb(140, 140, 140)",
 } as const;
 
-type Palette = Record<keyof typeof PALETTE_EXPRESSIONS, string>;
+type Palette = typeof TICKET_PALETTE;
+
+const TICKET_FONT = '-apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", "Microsoft YaHei", sans-serif';
 
 /** The packaged app icon (same file the window uses). */
 const BRAND_ICON_URL = "./icon.png";
@@ -206,24 +205,9 @@ function Field({
 	);
 }
 
-export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel; themeKey: string }>(
-	function UsageTicket({ ticket, themeKey }, ref) {
-		const hostRef = useRef<HTMLSpanElement>(null);
-		const [palette, setPalette] = useState<Palette | null>(null);
-		const [fontFamily, setFontFamily] = useState("system-ui, sans-serif");
-
-		// biome-ignore lint/correctness/useExhaustiveDependencies: themeKey re-resolves the palette after a theme switch.
-		useLayoutEffect(() => {
-			const host = hostRef.current;
-			if (!host) return;
-			const keys = Object.keys(PALETTE_EXPRESSIONS) as Array<keyof Palette>;
-			const colors = resolveCssColors(
-				host,
-				keys.map((key) => PALETTE_EXPRESSIONS[key]),
-			);
-			setPalette(Object.fromEntries(keys.map((key, index) => [key, colors[index] ?? ""])) as Palette);
-			setFontFamily(getComputedStyle(host).fontFamily || "system-ui, sans-serif");
-		}, [themeKey]);
+export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel }>(
+	function UsageTicket({ ticket }, ref) {
+		const palette = TICKET_PALETTE;
 
 		const iconHref = useBrandIconDataUrl();
 		const clipBase = useId().replace(/[^a-zA-Z0-9_-]/g, "");
@@ -244,8 +228,8 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel;
 		const badgeWidth = Math.min(badgeGap, Math.max(60, estimateWidth(ticket.badge, badgeFont) + 20));
 
 		return (
-			<span ref={hostRef} className="block">
-				{palette && (
+			<span className="block">
+				{(
 					<svg
 						ref={ref}
 						xmlns="http://www.w3.org/2000/svg"
@@ -253,7 +237,7 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel;
 						height={POSTER_HEIGHT}
 						viewBox={`0 0 ${POSTER_WIDTH} ${POSTER_HEIGHT}`}
 						className="h-auto max-w-full"
-						fontFamily={fontFamily}
+						fontFamily={TICKET_FONT}
 						role="img"
 						aria-label={`${ticket.from.big} – ${ticket.to.big} · ${ticket.highlights[0]?.value ?? ""}`}
 					>
