@@ -372,12 +372,13 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel 
 							<Field
 								key={field.label}
 								field={field}
-								x={PAD + 12 + index * columnWidth}
+								x={PAD + (index + 0.5) * columnWidth}
+								anchor="middle"
 								y={bandY + 22}
 								palette={palette}
 								size={18}
 								max={8}
-								fitWidth={columnWidth - 20}
+								fitWidth={columnWidth - 16}
 							/>
 						))}
 
