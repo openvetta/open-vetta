@@ -2340,6 +2340,31 @@
       "cacheRead": "Cache read",
       "cacheWrite": "Cache write",
       "output": "Output"
+    },
+    "ticket": {
+      "open": "Make ticket",
+      "title": "Usage ticket",
+      "description": "Built from the selected period. Copy it or save it as an image.",
+      "copy": "Copy image",
+      "save": "Save image",
+      "copied": "Copied to clipboard",
+      "saved": "Saving started",
+      "failed": "Couldn't create the image",
+      "from": "FROM",
+      "to": "TO",
+      "span_one": "{{count}} day",
+      "span_other": "{{count}} days",
+      "active_one": "{{count}} active day",
+      "active_other": "{{count}} active days",
+      "topModel": "Top model",
+      "topShare": "Share",
+      "cacheHit": "Cache hits",
+      "timeZone": "Time zone",
+      "models": "Models",
+      "issued": "Issued",
+      "footer": "VETTA · TOKEN PASS",
+      "date": "DATE",
+      "total": "TOTAL"
     }
   }
 }

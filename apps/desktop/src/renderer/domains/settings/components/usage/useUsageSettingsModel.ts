@@ -7,6 +7,7 @@ import type { Locale } from "react-day-picker";
 import { enUS, zhCN } from "react-day-picker/locale";
 import { useTranslation } from "react-i18next";
 import type { UsageHeatmapLabels } from "./UsageHeatmap";
+import type { UsageTicketModel } from "./UsageTicket";
 import type { UsageTrendChartDataset } from "./UsageTrendChart";
 import {
 	buildUsageHeatmap,
@@ -109,6 +110,8 @@ export interface UsageSettingsModel {
 	distribution: { caption: string; segments: UsageDistributionSegment[] };
 	rows: UsageTableRowModel[];
 	heatmap: UsageHeatmap | null;
+	/** Shareable receipt of the selected range; null until there is usage to print. */
+	ticket: UsageTicketModel | null;
 	heatmapLabels: UsageHeatmapLabels;
 	heatmapSummary: string;
 	themeKey: string;
@@ -128,6 +131,16 @@ export interface UsageSettingsModel {
 			model: string;
 			total: string;
 			share: string;
+		};
+		ticket: {
+			open: string;
+			title: string;
+			description: string;
+			copy: string;
+			save: string;
+			copied: string;
+			saved: string;
+			failed: string;
 		};
 		emptyTitle: string;
 		emptyDescription: string;
@@ -215,6 +228,7 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 			weekday: "short",
 			timeZone: "UTC",
 		});
+		const monthDayFormat = new Intl.DateTimeFormat(intlLocale, { month: "2-digit", day: "2-digit", timeZone: "UTC" });
 		const monthFormat = new Intl.DateTimeFormat(intlLocale, { month: "short", timeZone: "UTC" });
 		const weekdayFormat = new Intl.DateTimeFormat(intlLocale, { weekday: "short", timeZone: "UTC" });
 		const utc = (day: string) => new Date(`${day}T00:00:00Z`);
@@ -225,6 +239,7 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 			day: (day: string) => dayFormat.format(utc(day)),
 			fullDay: (day: string) => fullDayFormat.format(utc(day)),
 			month: (day: string) => monthFormat.format(utc(day)),
+			monthDay: (day: string) => monthDayFormat.format(utc(day)),
 			// 2023-01-02 is a Monday; any fixed week works for weekday names.
 			weekday: (offset: number) => weekdayFormat.format(utc(`2023-01-0${2 + offset}`)),
 		};
@@ -469,6 +484,62 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 			: t("usage.rangeSpan", { start: formatters.day(range.start), end: formatters.day(range.end) })
 		: "";
 
+	const ticket = useMemo<UsageTicketModel | null>(() => {
+		if (!report || !summary || summary.tokens === 0) return null;
+		const { range: span, totals } = summary;
+		const top = summary.rows[0];
+		const promptTokens = totals.inputTokens + totals.cacheReadTokens + totals.cacheWriteTokens;
+		const end = (day: string) => ({
+			big: formatters.monthDay(day),
+			sub: `${day.slice(0, 4)} · ${formatters.weekday((new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7)}`,
+		});
+		const serialTokens = Math.round(summary.tokens).toString(36).toUpperCase().padStart(6, "0").slice(-6);
+		const single = span.start === span.end;
+		const isToday = single && span.start === report.today;
+		return {
+			single,
+			fromLabel: t(single ? "usage.ticket.date" : "usage.ticket.from"),
+			toLabel: t(single ? "usage.ticket.total" : "usage.ticket.to"),
+			total: { big: formatters.tokens(summary.tokens), sub: "TOKEN" },
+			corners: [
+				"Vetta",
+				single ? (isToday ? t("usage.presets.today") : formatters.fullDay(span.start)) : rangeLabel,
+				formatters.fullDay(report.today),
+				"#TOKENPASS",
+			],
+			from: end(span.start),
+			to: end(span.end),
+			span: t("usage.ticket.span", { count: summary.dayCount }),
+			badge: single
+				? isToday
+					? t("usage.presets.today")
+					: ""
+				: t("usage.ticket.active", { count: summary.activeDays }),
+			highlights: [
+				{ label: t("usage.hero.label"), value: formatters.tokens(summary.tokens) },
+				{ label: t("usage.cards.input"), value: formatters.tokens(promptTokens) },
+				{ label: t("usage.cards.output"), value: formatters.tokens(totals.outputTokens) },
+				{ label: t("usage.cards.requests"), value: formatters.count(totals.requests) },
+			],
+			details: [
+				{ label: t("usage.ticket.topModel"), value: top ? seriesLabel(top.series, top.series.key) : "—" },
+				{ label: t("usage.ticket.topShare"), value: top ? formatters.share(top.share) : "—" },
+				{
+					label: t("usage.ticket.cacheHit"),
+					value: summary.cacheHitRate === null ? "—" : formatters.share(summary.cacheHitRate),
+				},
+			],
+			meta: [
+				{ label: t("usage.ticket.timeZone"), value: report.timeZone },
+				{ label: t("usage.ticket.models"), value: String(summary.rows.length) },
+				{ label: t("usage.ticket.issued"), value: formatters.monthDay(report.today) },
+			],
+			serial: `VT-${span.end.replaceAll("-", "")}-${serialTokens}`,
+			footer: t("usage.ticket.footer"),
+			fileName: `vetta-usage-${span.start}_${span.end}.png`,
+		};
+	}, [formatters, rangeLabel, report, seriesLabel, summary, t]);
+
 	const selectPreset = useCallback((next: UsageRangePreset) => setPreset(next), []);
 	const selectCustomRange = useCallback((next: UsageDayRange | null) => {
 		setCustomRange(next);
@@ -497,6 +568,7 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 		distribution,
 		rows,
 		heatmap,
+		ticket,
 		heatmapLabels,
 		heatmapSummary: heatmap
 			? t("usage.heatmapSummary", { tokens: formatters.tokens(heatmap.totalTokens), days: heatmap.activeDays })
@@ -518,6 +590,16 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 				model: t("usage.table.model"),
 				total: t("usage.table.total"),
 				share: t("usage.table.share"),
+			},
+			ticket: {
+				open: t("usage.ticket.open"),
+				title: t("usage.ticket.title"),
+				description: t("usage.ticket.description"),
+				copy: t("usage.ticket.copy"),
+				save: t("usage.ticket.save"),
+				copied: t("usage.ticket.copied"),
+				saved: t("usage.ticket.saved"),
+				failed: t("usage.ticket.failed"),
 			},
 			emptyTitle: t("usage.emptyTitle"),
 			emptyDescription: t("usage.emptyDescription"),

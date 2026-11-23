@@ -145,4 +145,29 @@ describe("用量设置页", () => {
 		await waitFor(() => expect(screen.getByRole("table")).toBeTruthy());
 		expect(screen.queryByText("用量加载失败")).toBeNull();
 	});
+
+	it("制作小票：多天显示起止日期，只选今天时顶部只显示今天", async () => {
+		mockReport(async () => REPORT);
+		renderPage();
+		await screen.findByRole("table");
+
+		await userEvent.click(screen.getByRole("button", { name: "制作小票" }));
+		const dialog = await screen.findByRole("dialog");
+		const ticket = within(dialog).getByRole("img");
+		expect(within(ticket).getByText("FROM")).toBeTruthy();
+		expect(within(ticket).getByText("11/17")).toBeTruthy();
+		expect(within(ticket).getByText("TO")).toBeTruthy();
+		expect(within(ticket).getByText("活跃 2 天")).toBeTruthy();
+		expect(within(ticket).getByText("5.5K")).toBeTruthy();
+		await userEvent.keyboard("{Escape}");
+
+		await userEvent.click(screen.getByRole("button", { name: "今天" }));
+		await userEvent.click(screen.getByRole("button", { name: "制作小票" }));
+		const todayTicket = within(await screen.findByRole("dialog")).getByRole("img");
+		expect(within(todayTicket).queryByText("FROM")).toBeNull();
+		expect(within(todayTicket).queryByText("11/17")).toBeNull();
+		expect(within(todayTicket).getByText("DATE")).toBeTruthy();
+		expect(within(todayTicket).getAllByText("今天").length).toBeGreaterThan(0);
+		expect(within(todayTicket).getAllByText("1.5K").length).toBeGreaterThan(0);
+	});
 });
