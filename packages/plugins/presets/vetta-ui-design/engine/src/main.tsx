@@ -275,11 +275,31 @@ function NavigationBridge() {
 	return null;
 }
 
+/**
+ * 「路由已落定」标记，供离屏截图的切帧脚本等待（见 canvas/offscreen-raster 的 afterEngineBoot）。
+ *
+ * 离屏窗口恒定加载根地址，宿主在页面 load 后立刻执行切帧脚本，而这时引擎往往还在等
+ * 首屏 chunk、没开始渲染。没有 index.tsx 的设计稿，首页还会再 `<Navigate replace>`
+ * 到第一帧——切帧导航若先发出，就会被这次迟到的重定向盖掉，目标帧的位图截成了第一帧。
+ * 所以要等首页的重定向也落地（地址已离开 `/`）才算就绪，而不只是 React 挂上了。
+ *
+ * 放在 Routes 之外：frame 或外壳构建失败时标记照样亮，切帧不会因此干等。
+ */
+function EngineBooted({ home }: { home: string | null }) {
+	const location = useLocation();
+	const settled = !(location.pathname === "/" && home !== null && home !== HOME_FRAME_ID);
+	useEffect(() => {
+		if (settled) (window as { __vetdBooted?: boolean }).__vetdBooted = true;
+	}, [settled]);
+	return null;
+}
+
 function App() {
 	const home = homeFrameId(frameIds);
 	return (
 		<>
 			<NavigationBridge />
+			<EngineBooted home={home} />
 			<Routes>
 				{/* 无路径的父路由：所有 frame 都是它的子路由，外壳因此只挂载一次。 */}
 				<Route element={<LayoutRoute />}>

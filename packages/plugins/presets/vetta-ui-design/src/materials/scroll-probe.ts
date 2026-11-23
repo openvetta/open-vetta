@@ -16,6 +16,7 @@
  */
 
 import {
+	afterEngineBoot,
 	FRAME_PAINTED_EXPRESSION,
 	NAVIGATE_TO_FRAME_STATEMENTS,
 	SHOWING_FRAME_EXPRESSION,
@@ -133,7 +134,7 @@ export function scrollPrepareScript(frameId: string, scrollTop: number): string 
 		target.scrollTop = TOP;
 		window.__vetdScrollAt = TOP;
 	};
-	if (${SHOWING_FRAME_EXPRESSION} && typeof window.__vetdPainted === "string") {
+	${afterEngineBoot(`if (${SHOWING_FRAME_EXPRESSION} && typeof window.__vetdPainted === "string") {
 		window.__vetdNavFrom = "";
 		apply();
 		return;
@@ -143,7 +144,7 @@ export function scrollPrepareScript(frameId: string, scrollTop: number): string 
 		if (!${FRAME_PAINTED_EXPRESSION}) return;
 		clearInterval(timer);
 		apply();
-	}, 50);
+	}, 50);`)}
 })()`;
 }
 

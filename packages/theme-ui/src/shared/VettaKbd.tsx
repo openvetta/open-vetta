@@ -10,8 +10,9 @@ import {
 
 export type VettaKbdSize = "xs" | "sm";
 /**
- * raised：浮雕键帽（默认）；flat：玻璃面板上的平铺键帽，只有一块淡底，不画描边和投影。
- * flat 的键面符号用前景亮色：淡底已经把键帽和文字区分开，符号再压灰会在玻璃上发虚。
+ * raised：浮雕键帽（默认）；flat：玻璃面板上的线框键帽，只画一圈大圆角细描边，不铺底色、不画投影。
+ * flat 的描边和键面符号取同一个前景色，只降不透明度：同色同调才读成一个键帽，
+ * 灰色在玻璃底上会发脏；描边要明显淡于符号（符号用实色前景，描边只取五分之一），连续线条比字形笔画显得亮，数值接近时边框会盖过键位。
  */
 export type VettaKbdVariant = "raised" | "flat";
 
@@ -41,12 +42,18 @@ const CAP_RAISED = cn(
 
 const CAP_FLAT = cn(
 	"inline-flex shrink-0 items-center justify-center whitespace-nowrap font-medium leading-none",
-	"bg-foreground/[0.07] text-foreground dark:bg-white/[0.1]",
+	"border border-foreground/20 bg-transparent text-foreground",
 );
 
 const SIZE_CLASS: Record<VettaKbdSize, string> = {
 	xs: "h-[18px] min-w-[18px] rounded-[4px] px-1 text-[10px]",
 	sm: "h-[22px] min-w-[22px] rounded-[5px] px-1.5 text-[11px]",
+};
+
+// 线框键帽没有底色撑面积，内边距收紧、符号放大、圆角加大，键位才不显得空。
+const FLAT_SIZE_CLASS: Record<VettaKbdSize, string> = {
+	xs: "h-[18px] min-w-[18px] rounded-[6px] px-[3px] text-[11px]",
+	sm: "h-[22px] min-w-[22px] rounded-[7px] px-[3px] text-[13px]",
 };
 
 /**
@@ -83,7 +90,7 @@ export function VettaKbd({
 							+
 						</span>
 					)}
-					<kbd aria-hidden="true" className={cn(variant === "flat" ? CAP_FLAT : CAP_RAISED, SIZE_CLASS[size])}>
+					<kbd aria-hidden="true" className={variant === "flat" ? cn(CAP_FLAT, FLAT_SIZE_CLASS[size]) : cn(CAP_RAISED, SIZE_CLASS[size])}>
 						{label}
 					</kbd>
 				</Fragment>
