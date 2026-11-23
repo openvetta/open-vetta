@@ -62,7 +62,7 @@
     },
     "apps/desktop": {
       "name": "@vetta/desktop",
-      "version": "0.6.15",
+      "version": "0.6.16",
       "dependencies": {
         "@dagrejs/dagre": "^3.0.0",
         "@fontsource-variable/geist": "^5.2.8",
@@ -111,6 +111,7 @@
         "ajv": "^8.20.0",
         "builder-util-runtime": "9.7.0",
         "canvas-confetti": "^1.9.4",
+        "chart.js": "^4.5.0",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "croner": "^8.1.2",

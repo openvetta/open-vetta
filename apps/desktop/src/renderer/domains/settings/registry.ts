@@ -1,6 +1,7 @@
 import type { SettingsTab } from "@shared/store/atoms";
 
 export type SettingsTabLabelKey =
+	| "tabUsage"
 	| "tabGeneral"
 	| "tabAppearance"
 	| "tabContext"
@@ -38,6 +39,7 @@ export interface SettingsSectionRegistration {
 }
 
 export const SETTINGS_TABS: readonly SettingsTabRegistration[] = [
+	{ key: "usage", label: "用量", labelKey: "tabUsage", icon: "icon-[solar--chart-2-linear]" },
 	{ key: "general", label: "通用设置", labelKey: "tabGeneral", icon: "icon-[mdi--cog-outline]" },
 	{
 		key: "remote",
@@ -86,6 +88,10 @@ export const SETTINGS_TABS: readonly SettingsTabRegistration[] = [
 ] as const;
 
 export const SETTINGS_SECTIONS = [
+	{ tab: "usage", id: "usage-overview", title: "概览", titleKey: "section_usage-overview" },
+	{ tab: "usage", id: "usage-trend", title: "用量趋势", titleKey: "section_usage-trend" },
+	{ tab: "usage", id: "usage-models", title: "模型明细", titleKey: "section_usage-models" },
+	{ tab: "usage", id: "usage-heatmap", title: "每日活跃", titleKey: "section_usage-heatmap" },
 	{ tab: "general", id: "general-basics", title: "基础", titleKey: "section_general-basics" },
 	{ tab: "general", id: "general-notifications", title: "通知", titleKey: "section_general-notifications" },
 	{ tab: "general", id: "general-network", title: "网络代理", titleKey: "section_general-network" },

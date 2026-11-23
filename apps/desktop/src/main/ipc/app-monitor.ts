@@ -16,6 +16,7 @@ import type {
 } from "../../preload/api-types/app-monitor.js";
 import {
 	getAppMonitorSnapshot,
+	getAppMonitorUsageReport,
 	recordAppMonitorEvent,
 	recordAppMonitorUserActivity,
 } from "../app-monitor/app-monitor-service.js";
@@ -25,6 +26,7 @@ const USER_ACTIVITY_CHANNEL = "vetta:app-monitor:user-activity";
 const RECORD_EVENT_CHANNEL = "vetta:app-monitor:record-event";
 const GET_ACHIEVEMENT_USAGE_CHANNEL = "vetta:app-monitor:get-achievement-usage";
 const GET_PROMPT_REF_USAGE_CHANNEL = "vetta:app-monitor:get-prompt-ref-usage";
+const GET_USAGE_REPORT_CHANNEL = "vetta:app-monitor:get-usage-report";
 
 const INPUT_ATTACHMENT_SOURCES = new Set<AppMonitorInputAttachmentSource>([
 	"at-panel",
@@ -133,11 +135,13 @@ export function registerAppMonitorIpc(): () => void {
 		}
 		return usage;
 	});
+	ipcMain.handle(GET_USAGE_REPORT_CHANNEL, () => getAppMonitorUsageReport());
 	return () => {
 		ipcMain.removeListener(USER_ACTIVITY_CHANNEL, onUserActivity);
 		ipcMain.removeListener(RECORD_EVENT_CHANNEL, onRecordEvent);
 		ipcMain.removeHandler(GET_ACHIEVEMENT_USAGE_CHANNEL);
 		ipcMain.removeHandler(GET_PROMPT_REF_USAGE_CHANNEL);
+		ipcMain.removeHandler(GET_USAGE_REPORT_CHANNEL);
 	};
 }
 

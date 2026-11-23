@@ -2258,5 +2258,118 @@
   "sshPromptAccept": "Confirm and connect",
   "sshPromptReject": "Cancel connection",
   "section_remote-devices": "Paired phones",
-  "section_remote-cloud": "Away from home"
+  "section_remote-cloud": "Away from home",
+  "tabUsage": "Usage",
+  "section_usage-overview": "Overview",
+  "section_usage-trend": "Usage trend",
+  "section_usage-models": "By model",
+  "section_usage-heatmap": "Daily activity",
+  "usage": {
+    "title": "Usage",
+    "subtitle": "Tokens used in Vetta",
+    "refresh": "Refresh",
+    "presets": {
+      "today": "Today",
+      "3d": "3 days",
+      "7d": "7 days",
+      "30d": "30 days",
+      "all": "All",
+      "custom": "Custom"
+    },
+    "customRangeLabel": "Pick a date range",
+    "rangeSpan": "{{start}} – {{end}}",
+    "cards": {
+      "input": "Input",
+      "output": "Output",
+      "requests": "Model requests",
+      "inputHint": "{{rate}} cache hits · {{value}}",
+      "outputHint": "{{rate}} of total",
+      "requestsHint": "Includes each follow-up after a tool call"
+    },
+    "sections": {
+      "trend": "Usage trend",
+      "models": "By model",
+      "heatmap": "Daily activity"
+    },
+    "granularity": {
+      "hour": "Hourly",
+      "day": "Daily",
+      "week": "Weekly"
+    },
+    "trendAria": "Token usage trend for the selected period",
+    "table": {
+      "model": "Model",
+      "total": "Total",
+      "share": "Share"
+    },
+    "series": {
+      "unknown": "Unknown model",
+      "unattributed": "Unattributed (earlier records)",
+      "knowledgeBase": "Knowledge base processing",
+      "other": "Other"
+    },
+    "total": "Total",
+    "hourLabel": "{{hour}}:00",
+    "weekOf": "Week of {{date}}",
+    "heatmapSummary": "{{tokens}} tokens over {{days}} active days in the past year",
+    "heatmapAria": "Heatmap of daily token usage over the past year",
+    "heatmapCell": "{{date}} · {{tokens}} tokens",
+    "heatmapCellEmpty": "{{date}} · No usage",
+    "heatmapHint": "Click a day to see its breakdown",
+    "less": "Less",
+    "more": "More",
+    "emptyTitle": "No usage yet",
+    "emptyDescription": "Once you start chatting, token usage is summarized here by day and by model.",
+    "emptyRange": "No usage in this period",
+    "errorTitle": "Couldn't load usage",
+    "retry": "Retry",
+    "average": "Avg",
+    "distributionCaption_one": "tokens · {{count}} model",
+    "distributionCaption_other": "tokens · {{count}} models",
+    "rowRequests_one": "{{value}} call",
+    "rowRequests_other": "{{value}} calls",
+    "rowDetail": "In {{input}} · Out {{output}} · Cache {{cache}}",
+    "hero": {
+      "label": "Total usage",
+      "average": "{{value}} per day",
+      "activeDays": "Active {{days}}/{{total}} days",
+      "peak": "Peak {{date}} · {{value}}"
+    },
+    "composition": {
+      "input": "Fresh input",
+      "cacheRead": "Cache read",
+      "cacheWrite": "Cache write",
+      "output": "Output"
+    },
+    "ticket": {
+      "open": "Make ticket",
+      "title": "Usage ticket",
+      "description": "Print the tokens you used in Vetta over this period as a ticket, saved as an image ready to share.",
+      "copy": "Copy to clipboard",
+      "copied": "Copied to clipboard",
+      "saved": "Saving started",
+      "failed": "Couldn't create the image",
+      "from": "FROM",
+      "to": "TO",
+      "span_one": "{{count}} day",
+      "span_other": "{{count}} days",
+      "active_one": "{{count}} active day",
+      "active_other": "{{count}} active days",
+      "topModel": "Top model",
+      "topShare": "Share",
+      "cacheHit": "Cache hits",
+      "timeZone": "Time zone",
+      "models": "Models",
+      "issued": "Issued",
+      "footer": "VETTA · TOKEN PASS",
+      "date": "DATE",
+      "total": "TOTAL",
+      "today": "TODAY",
+      "eyebrow": "Token Pass",
+      "period": "Period",
+      "image": "Image",
+      "make": "Make ticket",
+      "close": "Close"
+    }
+  }
 }

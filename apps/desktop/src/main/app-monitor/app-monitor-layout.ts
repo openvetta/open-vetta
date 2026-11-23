@@ -15,7 +15,11 @@ export function appMonitorProfilePath(): string {
 	return join(appMonitorRootPath(), "profile.json");
 }
 
+export function appMonitorMonthsDirPath(): string {
+	return join(appMonitorRootPath(), "months");
+}
+
 export function appMonitorMonthPath(month: string): string {
 	if (!MONTH_KEY_PATTERN.test(month)) throw new Error(`Invalid app monitor month: ${month}`);
-	return join(appMonitorRootPath(), "months", `${month}.json`);
+	return join(appMonitorMonthsDirPath(), `${month}.json`);
 }

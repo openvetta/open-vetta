@@ -1062,11 +1062,45 @@ a {
 	animation: vetta-dialog-content-out 150ms ease-in;
 }
 
+/* Full-screen dialog stages (e.g. the usage ticket maker): same timing as dialog-content, but the
+   element fills the viewport, so it scales in place instead of from a translate(-50%, -50%) centre. */
+@keyframes vetta-dialog-stage-in {
+	from {
+		opacity: 0;
+		transform: scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+@keyframes vetta-dialog-stage-out {
+	from {
+		opacity: 1;
+		transform: scale(1);
+	}
+	to {
+		opacity: 0;
+		transform: scale(0.96);
+	}
+}
+
+[data-slot="dialog-stage"][data-state="open"] {
+	animation: vetta-dialog-stage-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-slot="dialog-stage"][data-state="closed"] {
+	animation: vetta-dialog-stage-out 150ms ease-in;
+}
+
 @media (prefers-reduced-motion: reduce) {
 	[data-slot="dialog-overlay"][data-state="open"],
 	[data-slot="dialog-overlay"][data-state="closed"],
 	[data-slot="dialog-content"][data-state="open"],
-	[data-slot="dialog-content"][data-state="closed"] {
+	[data-slot="dialog-content"][data-state="closed"],
+	[data-slot="dialog-stage"][data-state="open"],
+	[data-slot="dialog-stage"][data-state="closed"] {
 		animation: none;
 	}
 }

@@ -55,6 +55,7 @@ export const pageHeaderImmersiveAtom = atom<boolean>(false);
 // ─── Settings page ───
 
 export type SettingsTab =
+	| "usage"
 	| "general"
 	| "appearance"
 	| "models"

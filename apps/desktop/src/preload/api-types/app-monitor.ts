@@ -155,8 +155,55 @@ export interface AppMonitorPromptRefUsage {
  */
 export type AppMonitorPromptRefUsageMap = Record<string, AppMonitorPromptRefUsage>;
 
+export interface UsageTokenTotals {
+	inputTokens: number;
+	outputTokens: number;
+	cacheReadTokens: number;
+	cacheWriteTokens: number;
+	costTotal: number;
+	/** 完成的模型调用次数；按模型统计上线前的记录没有这一项，记为 0。 */
+	requests: number;
+}
+
+/**
+ * 用量报表里一行「模型」的来源：
+ * - `model`：带 provider / model 的真实模型；
+ * - `unknown`：运行时没有报告模型的调用；
+ * - `unattributed`：按模型统计上线前的历史，只有总数；
+ * - `knowledgeBase`：知识库加工的模型调用，单独计数。
+ */
+export type UsageReportSeriesKind = "model" | "unknown" | "unattributed" | "knowledgeBase";
+
+export interface UsageReportSeries {
+	key: string;
+	kind: UsageReportSeriesKind;
+	provider: string;
+	model: string;
+}
+
+export interface UsageReportDay {
+	/** 报表时区下的 `YYYY-MM-DD`。 */
+	day: string;
+	totals: UsageTokenTotals;
+	/** key 对应 `UsageReport.series[].key`。 */
+	bySeries: Record<string, UsageTokenTotals>;
+	/** 当天每小时的 token 数；按小时统计上线前的日期为 null。 */
+	hourlyTokens: number[] | null;
+}
+
+export interface UsageReport {
+	timeZone: string;
+	/** 报表时区下的今天。 */
+	today: string;
+	series: UsageReportSeries[];
+	/** 只含有记录的日期，按日期升序。 */
+	days: UsageReportDay[];
+}
+
 export interface DesktopAppMonitorApi {
 	getAchievementUsage(): Promise<AchievementUsageStats>;
+	/** 设置页「用量」：所有已落盘月份的按天 token 汇总。 */
+	getUsageReport(): Promise<UsageReport>;
 	/** 命令面板按使用频次排序用；读的是已落盘的 inputPromptRefs.byRef。 */
 	getPromptRefUsage(): Promise<AppMonitorPromptRefUsageMap>;
 	recordEvent(event: AppMonitorEvent): void;

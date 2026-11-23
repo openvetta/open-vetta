@@ -1,10 +1,16 @@
+import { readdir } from "node:fs/promises";
 import { atomicWriteJSONAsync } from "@vetta/toolkit/atomic-write";
 import { createVersionedJsonConfigStore, type VersionedJsonConfigStore } from "@vetta/toolkit/config-store";
 import { migrateAppMonitorData } from "../config/app-monitor/migrate-config.js";
 import { migrateAppMonitorMonthData } from "../config/app-monitor/migrate-month-data.js";
 import { getAppLogger } from "../logger.js";
 import { type AppMonitorData, normalizeAppMonitorData } from "./app-monitor-data.js";
-import { appMonitorMonthPath, appMonitorProfilePath, appMonitorSummaryPath } from "./app-monitor-layout.js";
+import {
+	appMonitorMonthPath,
+	appMonitorMonthsDirPath,
+	appMonitorProfilePath,
+	appMonitorSummaryPath,
+} from "./app-monitor-layout.js";
 import { type AppMonitorMonthData, normalizeAppMonitorMonthData } from "./app-monitor-month-data.js";
 import { type AppMonitorProfile, normalizeAppMonitorProfile } from "./app-monitor-profile.js";
 
@@ -39,4 +45,22 @@ export function createAppMonitorMonthStore(
 		writeJson: atomicWriteJSONAsync,
 		logger: log,
 	});
+}
+
+const MONTH_FILE_PATTERN = /^(\d{4}-\d{2})\.json$/;
+
+/** Month keys that have a persisted monthly file, ascending. Missing directory means none yet. */
+export async function listPersistedAppMonitorMonths(): Promise<string[]> {
+	let names: string[];
+	try {
+		names = await readdir(appMonitorMonthsDirPath());
+	} catch {
+		return [];
+	}
+	const months: string[] = [];
+	for (const name of names) {
+		const match = MONTH_FILE_PATTERN.exec(name);
+		if (match?.[1]) months.push(match[1]);
+	}
+	return months.sort();
 }
