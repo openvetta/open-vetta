@@ -37,6 +37,8 @@ export const POSTER_HEIGHT = 760;
 const TICKET_X = (POSTER_WIDTH - TICKET_WIDTH) / 2;
 const TICKET_Y = (POSTER_HEIGHT - TICKET_HEIGHT) / 2;
 const CORNER = 28;
+/** Left edge of the middle column under the band. */
+const DETAIL_SECOND_X = 206;
 const PAD = 24;
 const PERFORATION_Y = 360;
 const NOTCH = 14;
@@ -147,6 +149,22 @@ function estimateWidth(text: string, size: number): number {
 	return width;
 }
 
+/** Largest font size (up to `max`) at which bold `text` fits in `width`. */
+function fitFontSize(text: string, max: number, width: number, min = 12): number {
+	// Bold digits run a little wider than the regular estimate.
+	const unit = estimateWidth(text, 1) * 1.08;
+	return unit > 0 ? Math.max(min, Math.min(max, Math.floor(width / unit))) : max;
+}
+
+/** Cuts `text` with an ellipsis so bold text at `size` stays within `width`. */
+function clipToWidth(text: string, size: number, width: number): string {
+	const bold = 1.08;
+	if (estimateWidth(text, size) * bold <= width) return text;
+	let cut = text;
+	while (cut.length > 1 && estimateWidth(`${cut}…`, size) * bold > width) cut = cut.slice(0, -1);
+	return `${cut.trimEnd()}…`;
+}
+
 function clip(text: string, max: number): string {
 	return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
@@ -159,6 +177,8 @@ function Field({
 	palette,
 	size = 15,
 	max = 18,
+	fitWidth,
+	clipWidth,
 }: {
 	field: UsageTicketField;
 	x: number;
@@ -167,14 +187,20 @@ function Field({
 	palette: Palette;
 	size?: number;
 	max?: number;
+	/** Shrink the value's font instead of overflowing this width. */
+	fitWidth?: number;
+	/** Ellipsise the value at this width instead of a fixed character count. */
+	clipWidth?: number;
 }): JSX.Element {
+	const value = clipWidth ? clipToWidth(field.value, size, clipWidth) : clip(field.value, max);
+	const valueSize = fitWidth ? fitFontSize(value, size, fitWidth) : size;
 	return (
 		<g>
 			<text x={x} y={y} textAnchor={anchor} fontSize={10} fill={palette.muted}>
 				{field.label}
 			</text>
-			<text x={x} y={y + size + 6} textAnchor={anchor} fontSize={size} fontWeight={700} fill={palette.ink}>
-				{clip(field.value, max)}
+			<text x={x} y={y + size + 6} textAnchor={anchor} fontSize={valueSize} fontWeight={700} fill={palette.ink}>
+				{value}
 			</text>
 		</g>
 	);
@@ -207,7 +233,15 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel;
 		const bandY = 136;
 		const bandWidth = w - PAD * 2;
 		const columnWidth = bandWidth / ticket.highlights.length;
-		const badgeWidth = Math.max(60, estimateWidth(ticket.badge, 10) + 22);
+		const totalSize = fitFontSize(
+			ticket.total.big,
+			32,
+			TICKET_WIDTH - PAD * 2 - estimateWidth(ticket.from.big, 32) - 28,
+		);
+		// The pill sits between the two big dates; shrink its text rather than touch them.
+		const badgeGap = TICKET_WIDTH - PAD * 2 - estimateWidth(ticket.from.big, 32) - estimateWidth(ticket.to.big, 32) - 20;
+		const badgeFont = fitFontSize(ticket.badge, 10, badgeGap - 20, 8);
+		const badgeWidth = Math.min(badgeGap, Math.max(60, estimateWidth(ticket.badge, badgeFont) + 20));
 
 		return (
 			<span ref={hostRef} className="block">
@@ -267,7 +301,7 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel;
 								<text
 									x={w - PAD}
 									y={92}
-									fontSize={32}
+									fontSize={totalSize}
 									fontWeight={700}
 									fill={palette.ink}
 									textAnchor="end"
@@ -278,14 +312,7 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel;
 								<text x={w - PAD} y={112} fontSize={11} fill={palette.muted} textAnchor="end">
 									{ticket.total.sub}
 								</text>
-								{ticket.badge && (
-									<>
-										<rect x={mid - badgeWidth / 2} y={68} width={badgeWidth} height={20} rx={10} fill={palette.ink} />
-										<text x={mid} y={82} fontSize={10} fontWeight={600} fill={palette.paper} textAnchor="middle">
-											{ticket.badge}
-										</text>
-									</>
-								)}
+
 							</>
 						) : (
 							<>
@@ -348,7 +375,7 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel;
 							{ticket.span}
 						</text>
 						<rect x={mid - badgeWidth / 2} y={72} width={badgeWidth} height={20} rx={10} fill={palette.ink} />
-						<text x={mid} y={86} fontSize={10} fontWeight={600} fill={palette.paper} textAnchor="middle">
+						<text x={mid} y={86} fontSize={badgeFont} fontWeight={600} fill={palette.paper} textAnchor="middle">
 							{ticket.badge}
 						</text>
 
@@ -366,6 +393,7 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel;
 								palette={palette}
 								size={18}
 								max={8}
+								fitWidth={columnWidth - 20}
 							/>
 						))}
 
@@ -373,23 +401,25 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel;
 							<Field
 								key={field.label}
 								field={field}
-								x={index === 0 ? PAD : index === 1 ? 206 : w - PAD}
+								x={index === 0 ? PAD : index === 1 ? DETAIL_SECOND_X : w - PAD}
 								anchor={index === 2 ? "end" : "start"}
 								y={230}
 								palette={palette}
-								max={index === 0 ? 20 : 8}
+								max={8}
+								clipWidth={index === 0 ? DETAIL_SECOND_X - PAD - 14 : undefined}
 							/>
 						))}
 						{ticket.meta.map((field, index) => (
 							<Field
 								key={field.label}
 								field={field}
-								x={index === 0 ? PAD : index === 1 ? 206 : w - PAD}
+								x={index === 0 ? PAD : index === 1 ? DETAIL_SECOND_X : w - PAD}
 								anchor={index === 2 ? "end" : "start"}
 								y={290}
 								palette={palette}
 								size={13}
-								max={index === 0 ? 22 : 10}
+								max={10}
+								clipWidth={index === 0 ? DETAIL_SECOND_X - PAD - 14 : undefined}
 							/>
 						))}
 

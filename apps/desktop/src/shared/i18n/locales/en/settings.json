@@ -2364,7 +2364,8 @@
       "issued": "Issued",
       "footer": "VETTA · TOKEN PASS",
       "date": "DATE",
-      "total": "TOTAL"
+      "total": "TOTAL",
+      "today": "TODAY"
     }
   }
 }

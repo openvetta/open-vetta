@@ -498,7 +498,7 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 		const isToday = single && span.start === report.today;
 		return {
 			single,
-			fromLabel: t(single ? "usage.ticket.date" : "usage.ticket.from"),
+			fromLabel: t(isToday ? "usage.ticket.today" : single ? "usage.ticket.date" : "usage.ticket.from"),
 			toLabel: t(single ? "usage.ticket.total" : "usage.ticket.to"),
 			total: { big: formatters.tokens(summary.tokens), sub: "TOKEN" },
 			corners: [
@@ -510,11 +510,8 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 			from: end(span.start),
 			to: end(span.end),
 			span: t("usage.ticket.span", { count: summary.dayCount }),
-			badge: single
-				? isToday
-					? t("usage.presets.today")
-					: ""
-				: t("usage.ticket.active", { count: summary.activeDays }),
+			// A one-day ticket names the day in its header; the pill only belongs between two dates.
+			badge: single ? "" : t("usage.ticket.active", { count: summary.activeDays }),
 			highlights: [
 				{ label: t("usage.hero.label"), value: formatters.tokens(summary.tokens) },
 				{ label: t("usage.cards.input"), value: formatters.tokens(promptTokens) },

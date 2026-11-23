@@ -2360,7 +2360,8 @@
       "issued": "出票日",
       "footer": "VETTA · TOKEN PASS",
       "date": "DATE",
-      "total": "TOTAL"
+      "total": "TOTAL",
+      "today": "TODAY"
     }
   }
 }
