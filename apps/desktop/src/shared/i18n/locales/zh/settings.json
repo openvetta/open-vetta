@@ -2266,7 +2266,7 @@
   "section_usage-heatmap": "每日活跃",
   "usage": {
     "title": "用量",
-    "subtitle": "在 Vetta 中消耗的 token，按天和模型汇总",
+    "subtitle": "在 Vetta 中消耗的 token",
     "refresh": "刷新",
     "presets": {
       "today": "今天",

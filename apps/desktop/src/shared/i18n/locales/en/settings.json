@@ -2266,7 +2266,7 @@
   "section_usage-heatmap": "Daily activity",
   "usage": {
     "title": "Usage",
-    "subtitle": "Tokens used in Vetta, by day and by model",
+    "subtitle": "Tokens used in Vetta",
     "refresh": "Refresh",
     "presets": {
       "today": "Today",
