@@ -106,7 +106,6 @@ export interface UsageSettingsModel {
 		emptyRange: string;
 		errorTitle: string;
 		retry: string;
-		coverage: string;
 	};
 	actions: {
 		selectPreset: (preset: UsageRangePreset) => void;
@@ -434,7 +433,6 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 			emptyRange: t("usage.emptyRange"),
 			errorTitle: t("usage.errorTitle"),
 			retry: t("usage.retry"),
-			coverage: t("usage.coverage"),
 		},
 		actions: { selectPreset, selectCustomRange, selectDay, reload },
 	};

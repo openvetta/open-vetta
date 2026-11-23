@@ -2335,7 +2335,6 @@
     "emptyDescription": "Once you start chatting, token usage is summarized here by day and by model.",
     "emptyRange": "No usage in this period",
     "errorTitle": "Couldn't load usage",
-    "retry": "Retry",
-    "coverage": "Covers model calls from conversations, automations and batch tasks, plus knowledge base processing. Subagents, team members, session title generation, context compaction and plugin-initiated calls aren't counted yet. Earlier records only have totals and show as \"Unattributed\"."
+    "retry": "Retry"
   }
 }

@@ -344,10 +344,6 @@ export function UsageSettingsView({ model }: { model: UsageSettingsModel }): JSX
 							</Panel>
 						)}
 
-						<p className="flex gap-1.5 text-[11px] leading-relaxed text-muted-foreground/80">
-							<span className="icon-[solar--info-circle-linear] mt-0.5 h-3 w-3 shrink-0" />
-							<span>{labels.coverage}</span>
-						</p>
 					</div>
 				</>
 			)}
