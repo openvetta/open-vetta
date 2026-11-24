@@ -73,10 +73,28 @@ export function CommandMenuView({
 		else rowRefs.current.delete(id);
 	}, []);
 
-	// 选中项滚动跟随。用 "nearest" 且不带 smooth：连续按方向键时平滑滚动会排队堆积。
+	// 鼠标悬停也会改选中项，但指针指着的行本来就在眼前，此时滚动只会让列表从指针下溜走。
+	const selectedByPointerRef = useRef(false);
+	const handleHoverItem = useCallback(
+		(id: string) => {
+			// mousemove 会在同一行上反复触发；选中项没变就不会有滚动副作用，别留下标记吞掉下一次键盘跟随。
+			if (id !== selectedId) selectedByPointerRef.current = true;
+			onHoverItem(id);
+		},
+		[onHoverItem, selectedId],
+	);
+
+	// 键盘选中项滚动跟随。用 "nearest" 且不带 smooth：连续按方向键时平滑滚动会排队堆积。
+	// 留白靠列表的 scroll-padding（见下方 className）：底部要越过渐隐区和浮动按钮组再多留一行，
+	// 选中行才不会沉到按钮后面，往下按时也总能看到下一行是什么；顶部同样多留一行。
+	// 不用 "center"：那样每按一下整张列表都要挪动，眼睛跟不住。
 	// 可选链到方法本身：jsdom 与部分老 webview 没有实现 scrollIntoView，不能让它把渲染打断。
 	useEffect(() => {
 		if (!open || !selectedId) return;
+		if (selectedByPointerRef.current) {
+			selectedByPointerRef.current = false;
+			return;
+		}
 		rowRefs.current.get(selectedId)?.scrollIntoView?.({ block: "nearest" });
 	}, [open, selectedId]);
 
@@ -115,7 +133,7 @@ export function CommandMenuView({
 				aria-label={labels.title}
 				// 底部留出浮动按钮组的高度，最后一行滚到底时不会被它盖住；同一段高度做渐隐，
 				// 滚动中的内容在按钮后面淡出，而不是被按钮生硬地截断。
-				className="min-h-0 max-h-[min(460px,60vh)] overflow-y-auto overscroll-contain px-1.5 pt-1.5 pb-14 [mask-image:linear-gradient(to_bottom,black_calc(100%-56px),transparent)]"
+				className="min-h-0 max-h-[min(460px,60vh)] overflow-y-auto overscroll-contain px-1.5 pt-1.5 pb-14 scroll-pt-10 scroll-pb-24 [mask-image:linear-gradient(to_bottom,black_calc(100%-56px),transparent)]"
 			>
 			{groups.map((group) => {
 				if (group.items.length === 0 && !group.loading) return null;
@@ -131,7 +149,7 @@ export function CommandMenuView({
 								active={item.id === selectedId}
 								suppressSelectionAnimation={suppressSelectionAnimation}
 								onActivate={onActivateItem}
-								onHover={onHoverItem}
+								onHover={handleHoverItem}
 								registerRef={registerRef}
 							/>
 						))}

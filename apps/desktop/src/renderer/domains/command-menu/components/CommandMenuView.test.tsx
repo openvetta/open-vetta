@@ -255,4 +255,45 @@ describe("CommandMenuView", () => {
 		const open = within(screen.getByRole("group", { name: "Actions" })).getByRole("button", { name: /Open/ });
 		expect((open as HTMLButtonElement).disabled).toBe(true);
 	});
+
+	it("scrolls the row chosen by keyboard into view but leaves a hovered row where the pointer is", () => {
+		const scrollIntoView = vi.fn();
+		const original = HTMLElement.prototype.scrollIntoView;
+		HTMLElement.prototype.scrollIntoView = scrollIntoView;
+		try {
+			const groups = [
+				group({
+					items: [item({ id: "a", title: "alpha" }), item({ id: "b", title: "beta" }), item({ id: "c", title: "gamma" })],
+				}),
+			];
+			// 宿主把悬停回调落到 selectedId 上，模拟真实 model 的行为。
+			let current = "a";
+			const onHoverItem = vi.fn((id: string) => {
+				current = id;
+			});
+			const { rerender } = render(<CommandMenuView {...props({ groups, selectedId: "a", onHoverItem })} />);
+			scrollIntoView.mockClear();
+
+			// 键盘下移：选中项变化来自宿主，没有指针参与 → 跟随滚动。
+			rerender(<CommandMenuView {...props({ groups, selectedId: "b", onHoverItem })} />);
+			expect(scrollIntoView).toHaveBeenCalledTimes(1);
+			expect(scrollIntoView).toHaveBeenLastCalledWith({ block: "nearest" });
+			current = "b";
+
+			// 指针移到另一行：选中项跟着变，但不应滚动。
+			scrollIntoView.mockClear();
+			const gamma = screen.getByRole("option", { name: /gamma/ });
+			gamma.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+			expect(onHoverItem).toHaveBeenLastCalledWith("c");
+			rerender(<CommandMenuView {...props({ groups, selectedId: current, onHoverItem })} />);
+			expect(scrollIntoView).not.toHaveBeenCalled();
+
+			// 指针停在已选中的行上反复 mousemove，不能吞掉之后的键盘跟随。
+			gamma.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+			rerender(<CommandMenuView {...props({ groups, selectedId: "a", onHoverItem })} />);
+			expect(scrollIntoView).toHaveBeenCalledTimes(1);
+		} finally {
+			HTMLElement.prototype.scrollIntoView = original;
+		}
+	});
 });
