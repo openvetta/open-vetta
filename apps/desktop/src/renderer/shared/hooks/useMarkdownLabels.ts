@@ -1,3 +1,4 @@
+import { isMac, isWindows } from "@shared/lib/platform";
 import type { MarkdownLabels } from "@vetta-org/theme-ui/markdown";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,6 +9,14 @@ export function useMarkdownLabels(): MarkdownLabels {
 		() => ({
 			copy: t("copyButton.label"),
 			copied: t("copyButton.copied"),
+			fileLink: {
+				open: t("markdown.openFile"),
+				reveal: isMac
+					? t("markdown.revealInFinder")
+					: isWindows
+						? t("markdown.revealInExplorer")
+						: t("markdown.revealInFileManager"),
+			},
 			rich: {
 				preview: t("markdown.preview"),
 				source: t("markdown.source"),

@@ -149,6 +149,8 @@ export interface UsageSettingsModel {
 }
 
 const DISTRIBUTION_MAX_SEGMENTS = 5;
+/** Model rows printed on the usage ticket, the last one folding the rest into "other". */
+const TICKET_MAX_MODELS = 5;
 
 /** First letter or digit of a model name, for its avatar. */
 function initialOf(name: string): string {
@@ -162,6 +164,26 @@ function seriesColor(series: UsageReportSeries | { kind: "other" }, slot: number
 }
 
 /** Colours follow the range's ranking so the biggest model always gets the accent colour. */
+/**
+ * Rows printed on the ticket: up to TICKET_MAX_MODELS, the last one standing in for everything
+ * past the first four when there are more (`series: null`).
+ */
+function ticketModelRows(
+	rows: readonly UsageSeriesRow[],
+): Array<{ series: UsageSeriesRow["series"] | null; tokens: number; share: number }> {
+	if (rows.length <= TICKET_MAX_MODELS) return rows.map(({ series, tokens, share }) => ({ series, tokens, share }));
+	const head = rows.slice(0, TICKET_MAX_MODELS - 1);
+	const tail = rows.slice(TICKET_MAX_MODELS - 1);
+	return [
+		...head.map(({ series, tokens, share }) => ({ series, tokens, share })),
+		{
+			series: null,
+			tokens: tail.reduce((sum, row) => sum + row.tokens, 0),
+			share: tail.reduce((sum, row) => sum + row.share, 0),
+		},
+	];
+}
+
 function assignSeriesColors(rows: readonly UsageSeriesRow[]): Map<string, string> {
 	const colors = new Map<string, string>();
 	let slot = 0;
@@ -510,7 +532,7 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 				{ label: t("usage.cards.output"), value: formatters.tokens(totals.outputTokens) },
 			],
 			details: [
-				{ label: t("usage.ticket.topModel"), value: top ? seriesLabel(top.series, top.series.key) : "—" },
+				{ label: t("usage.ticket.streak"), value: t("usage.ticket.days", { count: summary.longestStreak }) },
 				{ label: t("usage.ticket.topShare"), value: top ? formatters.share(top.share) : "—" },
 				{
 					label: t("usage.ticket.cacheHit"),
@@ -518,10 +540,24 @@ export function useUsageSettingsModel(): UsageSettingsModel {
 				},
 			],
 			meta: [
-				{ label: t("usage.ticket.timeZone"), value: report.timeZone },
-				{ label: t("usage.ticket.models"), value: String(summary.rows.length) },
+				{
+					label: t("usage.ticket.peakHour"),
+					value:
+						summary.peakHour === null
+							? "—"
+							: t("usage.ticket.hour", { start: summary.peakHour, end: summary.peakHour + 1 }),
+				},
+				{ label: t("usage.ticket.models"), value: t("usage.ticket.modelCount", { count: summary.rows.length }) },
 				{ label: t("usage.ticket.issued"), value: formatters.monthDay(report.today) },
 			],
+			models: {
+				label: t("usage.ticket.modelList"),
+				rows: ticketModelRows(summary.rows).map((row) => ({
+					name: row.series ? seriesLabel(row.series, row.series.key) : t("usage.series.other"),
+					value: formatters.tokens(row.tokens),
+					share: formatters.share(row.share),
+				})),
+			},
 			serial: `VT-${span.end.replaceAll("-", "")}-${serialTokens}`,
 			footer: t("usage.ticket.footer"),
 			fileName: `vetta-usage-${span.start}_${span.end}.png`,

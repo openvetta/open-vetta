@@ -1,3 +1,5 @@
+import type { FileLinkMenuLabels } from "./FileLinkBadge";
+
 export interface RichContentLabels {
 	preview: string;
 	source: string;
@@ -45,5 +47,7 @@ export const defaultRichContentLabels: RichContentLabels = {
 export interface MarkdownLabels {
 	copy: string;
 	copied: string;
+	/** 文件徽标右键菜单文案；缺省时不出菜单。 */
+	fileLink?: FileLinkMenuLabels;
 	rich?: RichContentLabels;
 }

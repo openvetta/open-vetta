@@ -26,6 +26,11 @@
 		}
 	},
 	"markdown": {
+		"fileMissing": "文件不存在：{{path}}",
+		"openFile": "打开",
+		"revealInFinder": "在访达中显示",
+		"revealInExplorer": "在资源管理器中显示",
+		"revealInFileManager": "在文件管理器中显示",
 		"preview": "预览",
 		"source": "源码",
 		"run": "在独立窗口运行",

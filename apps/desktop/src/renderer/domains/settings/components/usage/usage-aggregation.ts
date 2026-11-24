@@ -19,11 +19,15 @@ export interface UsageRangeSummary {
 	range: UsageDayRange;
 	dayCount: number;
 	activeDays: number;
+	/** Longest run of consecutive days with usage inside the range. */
+	longestStreak: number;
 	totals: UsageTokenTotals;
 	tokens: number;
 	/** cacheRead / every prompt-side token; null when nothing was sent. */
 	cacheHitRate: number | null;
 	peak: { day: string; tokens: number } | null;
+	/** Hour of day (0–23) with the most tokens summed over the range; null without hourly data. */
+	peakHour: number | null;
 	/** Sorted by tokens, largest first. */
 	rows: UsageSeriesRow[];
 }
@@ -137,10 +141,23 @@ export function summarizeUsageRange(report: UsageReport, range: UsageDayRange): 
 	const totals = createEmptyTotals();
 	const bySeries = new Map<string, UsageTokenTotals>();
 	let activeDays = 0;
+	let longestStreak = 0;
+	let streak = 0;
+	let lastActive: string | null = null;
 	let peak: UsageRangeSummary["peak"] = null;
+	const hourly = new Array<number>(24).fill(0);
 	for (const day of daysInRange(report, range)) {
 		const dayTokens = totalTokens(day.totals);
-		if (dayTokens > 0) activeDays += 1;
+		day.hourlyTokens?.forEach((tokens, hour) => {
+			hourly[hour] = (hourly[hour] ?? 0) + tokens;
+		});
+		if (dayTokens > 0) {
+			activeDays += 1;
+			// report.days is sparse, so a gap in the keys is a day without usage.
+			streak = lastActive !== null && addDays(lastActive, 1) === day.day ? streak + 1 : 1;
+			lastActive = day.day;
+			longestStreak = Math.max(longestStreak, streak);
+		}
 		if (dayTokens > 0 && (!peak || dayTokens > peak.tokens)) peak = { day: day.day, tokens: dayTokens };
 		addTotals(totals, day.totals);
 		for (const [key, seriesTotals] of Object.entries(day.bySeries)) {
@@ -153,6 +170,10 @@ export function summarizeUsageRange(report: UsageReport, range: UsageDayRange): 
 		}
 	}
 	const tokens = totalTokens(totals);
+	let peakHour: number | null = null;
+	hourly.forEach((value, hour) => {
+		if (value > 0 && (peakHour === null || value > (hourly[peakHour] ?? 0))) peakHour = hour;
+	});
 	const rows: UsageSeriesRow[] = [];
 	for (const [key, seriesTotals] of bySeries) {
 		const series = seriesByKey.get(key) ?? { key, kind: "unknown" as const, provider: "", model: key };
@@ -166,10 +187,12 @@ export function summarizeUsageRange(report: UsageReport, range: UsageDayRange): 
 		range,
 		dayCount: daysBetweenInclusive(range),
 		activeDays,
+		longestStreak,
 		totals,
 		tokens,
 		cacheHitRate: promptSide > 0 ? totals.cacheReadTokens / promptSide : null,
 		peak,
+		peakHour,
 		rows,
 	};
 }

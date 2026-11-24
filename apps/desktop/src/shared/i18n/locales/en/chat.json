@@ -26,6 +26,11 @@
 		}
 	},
 	"markdown": {
+		"fileMissing": "File not found: {{path}}",
+		"openFile": "Open",
+		"revealInFinder": "Reveal in Finder",
+		"revealInExplorer": "Show in Explorer",
+		"revealInFileManager": "Show in File Manager",
 		"preview": "Preview",
 		"source": "Source",
 		"run": "Run in separate window",

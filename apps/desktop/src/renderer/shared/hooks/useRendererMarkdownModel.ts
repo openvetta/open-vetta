@@ -11,10 +11,13 @@ import {
 	openUrlInActivityWorkspaceAtom,
 	resolvedThemeAtom,
 } from "@shared/store/atoms";
+import { showToast } from "@shared/store/toast-atoms";
+import { isSshProjectUri } from "@vetta/ssh-transport/project-uri";
 import { getFileIcon } from "@vetta-org/theme-ui/shared/fileIcons";
 import { atom, useAtomValue, useSetAtom } from "jotai";
 import { selectAtom } from "jotai/utils";
 import { useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useMarkdownHost } from "./useMarkdownHost";
 import { useMarkdownLabels } from "./useMarkdownLabels";
 
@@ -28,6 +31,7 @@ export function useRendererMarkdownModel(
 	workspaceIdOverride?: string,
 ): RendererMarkdownModel {
 	const labels = useMarkdownLabels();
+	const { t } = useTranslation("chat");
 	const theme = useAtomValue(resolvedThemeAtom);
 	const activeCwd = useAtomValue(cwdOverride === undefined ? activeCwdAtom : noActiveCwdAtom);
 	const setFilePreview = useSetAtom(filePreviewAtom);
@@ -65,6 +69,25 @@ export function useRendererMarkdownModel(
 			setActivityTabByProject,
 		],
 	);
+	const revealFile = useCallback(
+		(path: string) => {
+			const resolved = resolveLocalFilePath(path, cwd);
+			// showItemInFolder 遇到不存在的路径会静默无反应，先确认文件还在。
+			void window.vetta.fs
+				.stat(resolved)
+				.catch(() => null)
+				.then((stat) => {
+					if (stat) {
+						void window.vetta.shell.showItemInFolder(resolved);
+						return;
+					}
+					showToast({ variant: "warning", message: t("markdown.fileMissing", { path: resolved }) });
+				});
+		},
+		[cwd, t],
+	);
+	// 远程项目里的文件在远端机器上，本机文件管理器定位不到。
+	const onRevealFile = cwd && isSshProjectUri(cwd) ? undefined : revealFile;
 	const onOpenUrl = useCallback(
 		(url: string) => {
 			if (workspaceId) openUrlInWorkspace({ workspaceId, url });
@@ -80,8 +103,9 @@ export function useRendererMarkdownModel(
 			host,
 			getFileIconClass,
 			onOpenFile,
+			onRevealFile,
 			onOpenUrl,
 		}),
-		[theme, labels, host, getFileIconClass, onOpenFile, onOpenUrl],
+		[theme, labels, host, getFileIconClass, onOpenFile, onRevealFile, onOpenUrl],
 	);
 }

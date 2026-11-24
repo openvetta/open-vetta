@@ -2,7 +2,7 @@ import { Button } from "@shared/components/ui/button";
 import { showToast } from "@shared/store/toast-atoms";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useRef, useState } from "react";
-import { POSTER_HEIGHT, POSTER_WIDTH, renderTicketPng, UsageTicket, type UsageTicketModel } from "./UsageTicket";
+import { POSTER_WIDTH, renderTicketPng, ticketLayout, UsageTicket, type UsageTicketModel } from "./UsageTicket";
 
 /** Pixel ratio of the saved PNG; the caption under the button quotes the resulting size. */
 const EXPORT_SCALE = 2;
@@ -37,6 +37,7 @@ export function UsageTicketDialog({
 }): JSX.Element {
 	const svgRef = useRef<SVGSVGElement>(null);
 	const [busy, setBusy] = useState(false);
+	const posterHeight = ticketLayout(ticket.models.rows.length).posterHeight;
 
 	const exportImage = async (action: (dataUrl: string) => Promise<void> | void, done: string) => {
 		const svg = svgRef.current;
@@ -86,7 +87,7 @@ export function UsageTicketDialog({
 						<div className="pointer-events-auto flex flex-wrap items-start justify-center gap-x-10 gap-y-6">
 							<div
 								className="w-[min(420px,calc(100vw-64px))] overflow-hidden rounded-2xl"
-								style={{ aspectRatio: `${POSTER_WIDTH} / ${POSTER_HEIGHT}` }}
+								style={{ aspectRatio: `${POSTER_WIDTH} / ${posterHeight}` }}
 							>
 								<UsageTicket ref={svgRef} ticket={ticket} />
 							</div>
@@ -110,7 +111,7 @@ export function UsageTicketDialog({
 									<div className="flex items-baseline justify-between gap-3">
 										<dt className="text-muted-foreground">{labels.image}</dt>
 										<dd className="font-medium tabular-nums text-foreground">
-											{POSTER_WIDTH * EXPORT_SCALE} × {POSTER_HEIGHT * EXPORT_SCALE} PNG
+											{POSTER_WIDTH * EXPORT_SCALE} × {posterHeight * EXPORT_SCALE} PNG
 										</dd>
 									</div>
 								</dl>
