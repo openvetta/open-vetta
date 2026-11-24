@@ -1748,15 +1748,7 @@
     "pressBefore": "Press",
     "pressAfter": "anywhere in the app to open it",
     "tryNow": "Try it now",
-    "previewPlaceholder": "Search projects, sessions, abilities, settings…",
-    "status": {
-      "waiting": "Needs you",
-      "running": "Running",
-      "unread": "Just finished"
-    },
     "preview": {
-      "activeGroup": "In progress",
-      "recentGroup": "Recently opened",
       "waitingSession": "Refactor the sign-in flow",
       "waitingMeta": "2 min ago",
       "runningSession": "Draft this week's release notes",

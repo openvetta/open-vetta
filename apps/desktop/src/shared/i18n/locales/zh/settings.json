@@ -1748,15 +1748,7 @@
     "pressBefore": "在应用里随时按",
     "pressAfter": "唤起启动器",
     "tryNow": "立即试试",
-    "previewPlaceholder": "搜索项目、会话、能力、设置…",
-    "status": {
-      "waiting": "等你回答",
-      "running": "运行中",
-      "unread": "刚完成"
-    },
     "preview": {
-      "activeGroup": "进行中",
-      "recentGroup": "最近打开",
       "waitingSession": "重构登录流程",
       "waitingMeta": "2 分钟前",
       "runningSession": "整理本周的发布说明",

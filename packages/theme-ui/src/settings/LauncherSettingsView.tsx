@@ -1,6 +1,11 @@
-import type { JSX } from "react";
+import { ButtonGroup, ButtonGroupItem } from "@vetta-org/ui/button-group";
 import { Button } from "@vetta-org/ui/button";
-import { cn } from "@vetta-org/ui/utils";
+import { cn, GLASS_PANEL_CLASS } from "@vetta-org/ui/utils";
+import { LayoutGroup } from "motion/react";
+import type { JSX } from "react";
+import { CommandMenuRow } from "../overlays/CommandMenuRow";
+import { COMMAND_MENU_FLOATING_GROUP_CLASS } from "../overlays/CommandMenuView";
+import { SplashInputHeader } from "../overlays/SplashParts";
 import { VettaKbd } from "../shared/VettaKbd";
 import { SettingHeading, SettingRow, SettingSection, type SettingSectionMeta } from "./SettingChrome";
 import { ShortcutRecorderView } from "./ShortcutRecorderView";
@@ -33,6 +38,10 @@ export interface LauncherSettingsViewLabels {
 	readonly pressAfter: string;
 	readonly tryNow: string;
 	readonly previewPlaceholder: string;
+	/** 预览底部按钮组的文案，与真实面板同一套（「新会话」「打开」「关闭」）。 */
+	readonly previewNewSession: string;
+	readonly previewOpen: string;
+	readonly previewClose: string;
 	readonly status: Record<LauncherPreviewStatusView, string>;
 	readonly featuresTitle: string;
 	readonly shortcutSectionTitle: string;
@@ -58,23 +67,11 @@ export interface LauncherSettingsViewProps {
 	readonly onOpenLauncher: () => void;
 }
 
-const STATUS_CLASS: Record<LauncherPreviewStatusView, string> = {
-	waiting: "bg-amber-500/15 text-amber-500",
-	running: "bg-primary/10 text-primary",
-	unread: "bg-emerald-500/15 text-emerald-500",
-};
-
-const STATUS_DOT_CLASS: Record<LauncherPreviewStatusView, string> = {
-	waiting: "bg-amber-500",
-	running: "bg-primary",
-	unread: "bg-emerald-500",
-};
-
 /**
  * 设置 → 启动器。
  *
  * ⌘T 面板没有常驻入口，没用过 Arc / Raycast 的人不会下意识去按，这一页负责让人「看见」它：
- * Hero 里放一张静态的面板缩影（不放动效，装饰件宁可静止），底栏给出当前快捷键和「立即试试」；
+ * Hero 里把真实面板放在液态渐变底上（静止，装饰件宁可不动），底栏给出当前快捷键和「立即试试」；
  * 下面讲它能做什么，最后是改键。缩影里的分组与状态和真实面板同名同色，用户打开后能对上号。
  */
 export function LauncherSettingsView({
@@ -96,13 +93,9 @@ export function LauncherSettingsView({
 			<p className="mb-6 text-[13px] leading-relaxed text-muted-foreground">{labels.subtitle}</p>
 
 			<section className="mb-8 overflow-hidden rounded-2xl border border-border bg-card">
-				<div className="relative flex justify-center bg-gradient-to-b from-primary/10 via-primary/5 to-transparent px-6 pt-8 pb-6">
-					<LauncherPreview
-						groups={previewGroups}
-						placeholder={labels.previewPlaceholder}
-						shortcut={shortcut}
-						statusLabels={labels.status}
-					/>
+				<div className="relative px-6 pt-10 pb-8">
+					<LiquidBackdrop />
+					<LauncherPreview groups={previewGroups} labels={labels} shortcut={shortcut} />
 				</div>
 				<div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 px-4 py-3">
 					<p className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground">
@@ -162,62 +155,119 @@ export function LauncherSettingsView({
 	);
 }
 
-/** 面板缩影：纯展示，不可交互，读屏器只需知道这是一张示意图。 */
+/**
+ * 面板缩影：直接用真实面板的部件（玻璃底、输入头、行、浮动按钮组），只把交互关掉，
+ * 这样面板改版时预览自动跟上，不会与真实 UI 走样。
+ *
+ * - inert：整块不进 Tab 顺序、不响应点击；aria-hidden 让读屏器只当它是示意图。
+ * - LayoutGroup：真实面板的选中条用 layoutId 做滑动，不隔开的话打开 ⌘T 时选中条会从预览里「飞」过去。
+ * - 静止：行首状态图标在真实面板里会转 / 呼吸，预览里一律停住（装饰件宁可静止，毛玻璃窗口每帧都要重合成）。
+ */
 function LauncherPreview({
 	groups,
-	placeholder,
+	labels,
 	shortcut,
-	statusLabels,
 }: {
 	groups: readonly LauncherPreviewGroupView[];
-	placeholder: string;
+	labels: LauncherSettingsViewLabels;
 	shortcut: string;
-	statusLabels: LauncherSettingsViewLabels["status"];
 }): JSX.Element {
+	const firstId = groups[0]?.rows[0] ? rowId(0, 0) : undefined;
 	return (
-		<div
-			aria-hidden="true"
-			className="pointer-events-none w-full max-w-[440px] select-none overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-lg"
-		>
-			<div className="flex h-11 items-center gap-2.5 border-b border-border/60 px-3.5">
-				<span className="icon-[solar--magnifer-linear] h-4 w-4 shrink-0 text-muted-foreground" />
-				<span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground/70">{placeholder}</span>
-				<VettaKbd keys={shortcut} variant="flat" />
-			</div>
-			<div className="px-1.5 pt-1.5 pb-2">
-				{groups.map((group) => (
-					<div key={group.label} className="mb-1 last:mb-0">
-						<div className="px-2 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground/70">
-							{group.label}
-						</div>
-						{group.rows.map((row, index) => (
-							<div
-								key={row.title}
-								className={cn(
-									"flex h-9 items-center gap-2.5 rounded-lg px-2.5",
-									// 第一行模拟键盘选中态，让人一眼看出「回车就打开它」。
-									group === groups[0] && index === 0 && "bg-accent",
-								)}
-							>
-								<span className={cn(row.icon, "h-4 w-4 shrink-0 text-muted-foreground")} />
-								<span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{row.title}</span>
-								{row.status ? (
-									<span
-										className={cn(
-											"inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-											STATUS_CLASS[row.status],
-										)}
-									>
-										<span className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT_CLASS[row.status])} />
-										{statusLabels[row.status]}
-									</span>
-								) : null}
-								<span className="shrink-0 text-[11px] text-muted-foreground/60">{row.meta}</span>
+		<div aria-hidden="true" inert className="relative flex w-full select-none justify-center [&_*]:animate-none!">
+			<LayoutGroup id="launcher-settings-preview">
+				<div className={cn("relative w-full max-w-[460px] overflow-hidden rounded-2xl", GLASS_PANEL_CLASS)}>
+					<SplashInputHeader
+						icon="icon-[solar--magnifer-linear]"
+						label={labels.title}
+						value=""
+						placeholder={labels.previewPlaceholder}
+						onChange={noop}
+						autoFocus={false}
+						inputProps={{ readOnly: true, tabIndex: -1 }}
+						trailing={<VettaKbd keys={shortcut} size="sm" variant="flat" />}
+					/>
+					<div className="relative px-1.5 pt-1.5 pb-14">
+						{groups.map((group, groupIndex) => (
+							<div key={group.label} className="mb-1 last:mb-0">
+								<div className="px-2 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground/70">
+									{group.label}
+								</div>
+								{group.rows.map((row, index) => (
+									<CommandMenuRow
+										key={row.title}
+										item={{
+											id: rowId(groupIndex, index),
+											title: row.title,
+											titleHighlights: [],
+											subtitle: row.meta,
+											icon: row.icon,
+											status: row.status,
+											statusLabel: row.status ? labels.status[row.status] : undefined,
+										}}
+										active={rowId(groupIndex, index) === firstId}
+										suppressSelectionAnimation
+										onActivate={noop}
+										onHover={noop}
+										registerRef={noop}
+									/>
+								))}
 							</div>
 						))}
+						<div className="absolute inset-x-2.5 bottom-2.5 flex items-center justify-between gap-2">
+							<ButtonGroup className={COMMAND_MENU_FLOATING_GROUP_CLASS}>
+								<ButtonGroupItem
+									tabIndex={-1}
+									aria-label={labels.previewNewSession}
+									icon={<span aria-hidden="true" className="icon-[solar--pen-new-square-linear] size-4" />}
+								/>
+							</ButtonGroup>
+							<ButtonGroup className={COMMAND_MENU_FLOATING_GROUP_CLASS}>
+								<ButtonGroupItem
+									tabIndex={-1}
+									label={
+										<span className="inline-flex items-center gap-2">
+											{labels.previewOpen}
+											<VettaKbd keys="enter" size="sm" variant="flat" />
+										</span>
+									}
+								/>
+								<ButtonGroupItem
+									tabIndex={-1}
+									label={
+										<span className="inline-flex items-center gap-2">
+											{labels.previewClose}
+											<VettaKbd keys="esc" size="sm" variant="flat" />
+										</span>
+									}
+								/>
+							</ButtonGroup>
+						</div>
 					</div>
-				))}
-			</div>
+				</div>
+			</LayoutGroup>
 		</div>
 	);
 }
+
+/**
+ * 液态渐变底：几团互相交叠的模糊色斑，给玻璃面板一个有颜色起伏的背景，模糊与饱和度增强才看得出来。
+ * 只用主题色与语义白名单里的 emerald / amber；静止不动。深色下整体压一档，避免色斑透过玻璃发刺。
+ */
+function LiquidBackdrop(): JSX.Element {
+	return (
+		<div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden bg-muted/40 dark:opacity-80">
+			<span className="absolute -top-20 -left-12 h-64 w-64 rounded-full bg-primary/60 blur-3xl" />
+			<span className="absolute top-10 -right-16 h-56 w-72 rounded-full bg-emerald-500/40 blur-3xl" />
+			<span className="absolute -bottom-24 left-1/4 h-60 w-80 rounded-full bg-amber-500/40 blur-3xl" />
+			<span className="absolute right-1/4 bottom-6 h-36 w-36 rounded-full bg-primary/40 blur-2xl" />
+			<span className="absolute top-1/3 left-1/3 h-28 w-40 rounded-full bg-emerald-500/30 blur-2xl" />
+		</div>
+	);
+}
+
+function rowId(group: number, row: number): string {
+	return `preview-${group}-${row}`;
+}
+
+function noop(): void {}

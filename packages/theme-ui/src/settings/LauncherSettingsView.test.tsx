@@ -25,6 +25,9 @@ function render(overrides: Partial<LauncherSettingsViewProps> = {}): HTMLDivElem
 			pressAfter: "to open",
 			tryNow: "Try it now",
 			previewPlaceholder: "Search…",
+			previewNewSession: "New session",
+			previewOpen: "Open",
+			previewClose: "Close",
 			status: { waiting: "Needs you", running: "Running", unread: "Just finished" },
 			featuresTitle: "What it does",
 			shortcutSectionTitle: "Shortcut",
@@ -69,14 +72,18 @@ describe("LauncherSettingsView", () => {
 		expect(onOpenLauncher).toHaveBeenCalledTimes(1);
 	});
 
-	it("keeps the panel preview out of the accessibility tree and non-interactive", () => {
-		const container = render();
-		const preview = Array.from(container.querySelectorAll('[aria-hidden="true"]')).find((el) =>
-			el.textContent?.includes("Refactor sign-in"),
-		);
-		expect(preview).toBeDefined();
-		expect(preview?.querySelector("button")).toBeNull();
+	it("renders the real panel parts but keeps them inert and hidden from assistive tech", () => {
+		const onOpenLauncher = vi.fn();
+		const container = render({ onOpenLauncher });
+		const preview = container.querySelector("[inert]");
+		expect(preview).not.toBeNull();
+		expect(preview?.getAttribute("aria-hidden")).toBe("true");
+		expect(preview?.textContent).toContain("Refactor sign-in");
 		expect(preview?.textContent).toContain("Needs you");
+		// 预览里的输入框不能被聚焦或输入：它只是示意图。
+		expect(preview?.querySelector("input")?.readOnly).toBe(true);
+		// 渲染预览不会顺带触发打开启动器。
+		expect(onOpenLauncher).not.toHaveBeenCalled();
 	});
 
 	it("shows the user's current shortcut, not a hard-coded default", () => {

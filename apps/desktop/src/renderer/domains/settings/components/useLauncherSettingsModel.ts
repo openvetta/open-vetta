@@ -24,6 +24,7 @@ export type LauncherSettingsModel = LauncherSettingsViewProps;
  */
 export function useLauncherSettingsModel(): LauncherSettingsModel {
 	const { t } = useTranslation("settings");
+	const { t: tCommon } = useTranslation("common");
 	const setLauncherOpen = useSetAtom(commandMenuOpenAtom);
 	const [bindings, setBindings] = useState<ShortcutBindings>({});
 
@@ -67,11 +68,15 @@ export function useLauncherSettingsModel(): LauncherSettingsModel {
 			pressBefore: t("launcher.pressBefore"),
 			pressAfter: t("launcher.pressAfter"),
 			tryNow: t("launcher.tryNow"),
-			previewPlaceholder: t("launcher.previewPlaceholder"),
+			previewPlaceholder: tCommon("commandMenu.placeholder"),
+			previewNewSession: tCommon("commandMenu.newSession"),
+			previewOpen: tCommon("commandMenu.hintSelect"),
+			previewClose: tCommon("commandMenu.hintClose"),
+			// 预览与真实面板共用文案，改一处两边一致。
 			status: {
-				waiting: t("launcher.status.waiting"),
-				running: t("launcher.status.running"),
-				unread: t("launcher.status.unread"),
+				waiting: tCommon("commandMenu.sessionStatus.waiting"),
+				running: tCommon("commandMenu.sessionStatus.running"),
+				unread: tCommon("commandMenu.sessionStatus.unread"),
 			},
 			featuresTitle: t("section_launcher-features"),
 			shortcutSectionTitle: t("section_launcher-shortcut"),
@@ -81,13 +86,13 @@ export function useLauncherSettingsModel(): LauncherSettingsModel {
 			resetLabel: t("reset"),
 			sidebarHint: t("launcher.sidebarHint"),
 		}),
-		[t],
+		[t, tCommon],
 	);
 
 	const previewGroups = useMemo(
 		() => [
 			{
-				label: t("launcher.preview.activeGroup"),
+				label: tCommon("commandMenu.groups.activeSessions"),
 				rows: [
 					{
 						icon: "icon-[solar--chat-round-line-linear]",
@@ -104,7 +109,7 @@ export function useLauncherSettingsModel(): LauncherSettingsModel {
 				],
 			},
 			{
-				label: t("launcher.preview.recentGroup"),
+				label: tCommon("commandMenu.groups.recentSessions"),
 				rows: [
 					{
 						icon: "icon-[solar--folder-linear]",
@@ -114,7 +119,7 @@ export function useLauncherSettingsModel(): LauncherSettingsModel {
 				],
 			},
 		],
-		[t],
+		[t, tCommon],
 	);
 
 	const features = useMemo(
