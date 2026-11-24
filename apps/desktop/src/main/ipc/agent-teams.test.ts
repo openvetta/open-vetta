@@ -2,6 +2,7 @@ import { createAgentTeamFixture, createEmptyAgentTeamDocument } from "@vetta/age
 import { providerModelNotFoundError } from "@vetta/ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveTeamSessionWorkspace } from "../agent-teams/team-workspace.js";
+import { SLIM_ASSISTANT_PARTIAL } from "../conversations/slim-session-event-for-ipc.js";
 import { type AgentTeamsIpcDependencies, registerAgentTeamsIpc } from "./agent-teams.js";
 
 const ipc = vi.hoisted(() => ({
@@ -482,6 +483,31 @@ describe("Agent Team IPC contract", () => {
 			"vetta:agent-teams:stream-event",
 			result.subscriptionId,
 			expect.objectContaining({ type: "conversation.agent-message-discard", reason: "completed" }),
+		);
+		const fatPartial = {
+			...SLIM_ASSISTANT_PARTIAL,
+			provider: "openai",
+			content: [{ type: "text" as const, text: "answer ".repeat(1_000) }],
+		};
+		streamHandler({
+			type: "conversation.agent-message-event",
+			conversationId: "session",
+			messageId: "message-2",
+			turnId: "request",
+			author: { kind: "agent", id: "m" },
+			sequence: 2,
+			timestamp: 2,
+			event: { type: "text_delta", contentIndex: 0, delta: "answer ", partial: fatPartial },
+		});
+		await vi.waitFor(() =>
+			expect(sender.send).toHaveBeenCalledWith(
+				"vetta:agent-teams:stream-event",
+				result.subscriptionId,
+				expect.objectContaining({
+					type: "conversation.agent-message-event",
+					event: expect.objectContaining({ delta: "answer ", partial: SLIM_ASSISTANT_PARTIAL }),
+				}),
+			),
 		);
 		const onDestroyed = sender.once.mock.calls[0]?.[1] as (() => void) | undefined;
 		onDestroyed?.();
