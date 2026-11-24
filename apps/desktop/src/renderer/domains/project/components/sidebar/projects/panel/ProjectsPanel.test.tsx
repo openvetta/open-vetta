@@ -8,6 +8,8 @@ import {
 	projectsInitializedAtom,
 	sessionsMapAtom,
 } from "@shared/store/atoms";
+import { pendingInteractionPathsAtom } from "@shared/store/pending-interactions-atoms";
+import { runningSessionPathsAtom } from "@shared/store/running-sessions-atoms";
 import project from "@/shared/i18n/locales/en/project.json";
 import { shortcutParts } from "@shared/lib/platform";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -87,11 +89,14 @@ function renderPanel(withSpaces = false, extraSpaces = false, extraSpaceCount = 
 			updatedAt: 1,
 		}],
 	}]);
-	return render(
-		<I18nextProvider i18n={i18n}>
-			<Provider store={store}>{withSpaces && <SpaceSwitcher />}<ProjectsPanel onOpenSession={vi.fn()} /></Provider>
-		</I18nextProvider>,
-	);
+	return {
+		...render(
+			<I18nextProvider i18n={i18n}>
+				<Provider store={store}>{withSpaces && <SpaceSwitcher />}<ProjectsPanel onOpenSession={vi.fn()} /></Provider>
+			</I18nextProvider>,
+		),
+		store,
+	};
 }
 
 beforeEach(() => {
@@ -294,4 +299,27 @@ it("restores the last project in the destination workspace and opens a new chat 
 	await waitFor(() => expect(routedPath.value).toBe("/project/$cwd"));
 	fireEvent.click(screen.getByRole("button", { name: "Main workspace" }));
 	await waitFor(() => expect(routedPath.value).toBe("/new-session/$cwd"));
+});
+
+// 回归：agent 提问期间 running 仍为 true，只有 waiting 翻转。列表行曾经因为视图对象
+// 被按 path 复用（比较时漏了 waiting）而继续显示旋转图标，必须切换会话才会刷新。
+it("flips a session row between running and waiting without reselecting it", async () => {
+	const { store } = renderPanel();
+	const sessionPath = `${DEFAULT_CWD}/chat.jsonl`;
+	const leading = () =>
+		screen.getByRole("button", { name: "Existing conversation" }).querySelector(
+			"[data-session-leading-icon]",
+		);
+	await screen.findByRole("button", { name: "Existing conversation" });
+	expect(leading()).toBeNull();
+
+	act(() => store.set(runningSessionPathsAtom, new Set([sessionPath])));
+	await waitFor(() => expect(leading()?.classList.contains("project-running-icon")).toBe(true));
+
+	act(() => store.set(pendingInteractionPathsAtom, new Map([[sessionPath, 1]])));
+	await waitFor(() => expect(leading()?.getAttribute("data-session-waiting")).toBe("true"));
+
+	act(() => store.set(pendingInteractionPathsAtom, new Map()));
+	await waitFor(() => expect(leading()?.getAttribute("data-session-waiting")).toBeNull());
+	expect(leading()?.classList.contains("project-running-icon")).toBe(true);
 });
