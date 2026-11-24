@@ -11,7 +11,8 @@
 			"darwin-x64": { "filename": "node-v22.22.2-darwin-x64.tar.gz", "dir": "node-v22.22.2-darwin-x64", "archive": "tar.gz" },
 			"linux-x64": { "filename": "node-v22.22.2-linux-x64.tar.gz", "dir": "node-v22.22.2-linux-x64", "archive": "tar.gz" },
 			"linux-arm64": { "filename": "node-v22.22.2-linux-arm64.tar.gz", "dir": "node-v22.22.2-linux-arm64", "archive": "tar.gz" },
-			"win32-x64": { "filename": "node-v22.22.2-win-x64.zip", "dir": "node-v22.22.2-win-x64", "archive": "zip" }
+			"win32-x64": { "filename": "node-v22.22.2-win-x64.zip", "dir": "node-v22.22.2-win-x64", "archive": "zip" },
+			"win32-arm64": { "filename": "node-v22.22.2-win-arm64.zip", "dir": "node-v22.22.2-win-arm64", "archive": "zip" }
 		}
 	},
 	"python": {
@@ -25,7 +26,8 @@
 			"darwin-x64": { "filename": "cpython-3.13.12+20260203-x86_64-apple-darwin-install_only.tar.gz", "dir": "python", "archive": "tar.gz" },
 			"linux-x64": { "filename": "cpython-3.13.12+20260203-x86_64-unknown-linux-gnu-install_only.tar.gz", "dir": "python", "archive": "tar.gz" },
 			"linux-arm64": { "filename": "cpython-3.13.12+20260203-aarch64-unknown-linux-gnu-install_only.tar.gz", "dir": "python", "archive": "tar.gz" },
-			"win32-x64": { "filename": "cpython-3.13.12+20260203-x86_64-pc-windows-msvc-install_only.tar.gz", "dir": "python", "archive": "tar.gz" }
+			"win32-x64": { "filename": "cpython-3.13.12+20260203-x86_64-pc-windows-msvc-install_only.tar.gz", "dir": "python", "archive": "tar.gz" },
+			"win32-arm64": { "filename": "cpython-3.13.12+20260203-aarch64-pc-windows-msvc-install_only.tar.gz", "dir": "python", "archive": "tar.gz" }
 		}
 	},
 	"git": {

@@ -62,14 +62,14 @@ test("rejects removed server urls and reports all independent problems", () => {
 					VETTA_SERVER_URL: "https://api.example.com/api/v1",
 					VETTA_POSTHOG_REPLAY_ENABLED: "yes",
 					VETTA_SENTRY_TRACES_SAMPLE_RATE: "2",
-					VETTA_VENDOR_PLATFORM: "win32-arm64",
+					VETTA_VENDOR_PLATFORM: "win32-ia32",
 				},
 			}),
 		(error) => {
 			assert.match(error.message, /VETTA_SERVER_URL is no longer supported/);
 			assert.match(error.message, /VETTA_POSTHOG_REPLAY_ENABLED/);
 			assert.match(error.message, /VETTA_SENTRY_TRACES_SAMPLE_RATE/);
-			assert.match(error.message, /win32-arm64/);
+			assert.match(error.message, /win32-ia32/);
 			return true;
 		},
 	);

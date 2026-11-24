@@ -39,6 +39,9 @@ CreateUninstallRegKey=not IsBackgroundUpdate
 #if Arch == "x64"
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+#elif Arch == "arm64"
+ArchitecturesAllowed=arm64
+ArchitecturesInstallIn64BitMode=arm64
 #else
   #error Unsupported architecture
 #endif
