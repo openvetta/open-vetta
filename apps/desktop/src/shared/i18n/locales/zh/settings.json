@@ -1740,7 +1740,7 @@
   "shortcutOpenProjectDesc": "选择并打开一个项目文件夹",
   "shortcutOpenSettingsLabel": "打开设置",
   "shortcutOpenSettingsDesc": "打开设置页面",
-  "shortcutOpenCommandMenuLabel": "打开命令面板",
+  "shortcutOpenCommandMenuLabel": "打开启动器",
   "shortcutOpenCommandMenuDesc": "居中弹出，搜索项目、会话、能力、设置与插件视图",
   "launcher": {
     "title": "启动器",

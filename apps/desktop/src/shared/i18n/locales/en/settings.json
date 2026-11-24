@@ -1740,7 +1740,7 @@
   "shortcutOpenProjectDesc": "Select and open a project folder",
   "shortcutOpenSettingsLabel": "Open Settings",
   "shortcutOpenSettingsDesc": "Open the settings page",
-  "shortcutOpenCommandMenuLabel": "Open command menu",
+  "shortcutOpenCommandMenuLabel": "Open launcher",
   "shortcutOpenCommandMenuDesc": "Centered palette for projects, sessions, abilities, settings and plugin views",
   "launcher": {
     "title": "Launcher",
