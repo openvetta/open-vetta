@@ -57,6 +57,7 @@ export const pageHeaderImmersiveAtom = atom<boolean>(false);
 export type SettingsTab =
 	| "usage"
 	| "general"
+	| "launcher"
 	| "appearance"
 	| "models"
 	| "mcp"
