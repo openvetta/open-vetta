@@ -240,20 +240,21 @@ gh run rerun <run id> --failed
 
 ### 8. 验证线上更新源
 
-run 成功（包括最后的 `promote update metadata`）后，确认旧版本真的能更新：
+run 成功后，确认旧版本真的能更新。现在内置的更新源是 GitHub Release（`release_target=github`）：更新清单由 `publish update metadata to GitHub Release` 上传，`promote update metadata` 只在 `release_target=r2` 时运行，显示 skipped 是正常的。R2 的 `releases.openvetta.com/desktop/stable` 已停用，清单停在 0.5.72，不要拿它判断这次发版成没成功。
 
 ```bash
-B=https://releases.openvetta.com/desktop/stable
-for f in latest.yml latest-mac.yml latest-linux.yml; do curl -fsS --max-time 40 "$B/$f" | grep -E '^version|url:|size:'; done
+B=https://github.com/openvetta/open-vetta/releases/latest/download
+for f in latest.yml latest-mac.yml latest-linux.yml; do curl -fsSL --max-time 60 "$B/$f" | grep -E '^version|url:|size:'; done
 gh release view v<版本> --json isDraft,isPrerelease,assets --jq '.isDraft, .isPrerelease, (.assets | length)'
+gh api repos/openvetta/open-vetta/releases/latest --jq .tag_name
 ```
 
-- 三份清单的 `version` 都是新版本。
-- 清单里每个文件用 `curl -sSI` 拿到 200，`content-length` 与清单里的 `size` 一致。
-- GitHub Release 不是草稿、不是预发布，资源齐全（0.5.69 是 19 个）。
-- 从国内直连 `releases.openvetta.com` 偶尔超时或 TLS 中断，重试几次即可，不算发版失败；但要在汇报里提一句。
+- 三份清单的 `version` 都是新版本，`releases/latest` 指向这次的 tag。
+- 清单里每个文件 `https://github.com/openvetta/open-vetta/releases/download/v<版本>/<url>` 用 `curl -sSIL` 拿到 200，最后一跳的 `content-length` 与清单里的 `size` 一致。
+- GitHub Release 不是草稿、不是预发布，资源齐全（0.6.18 是 19 个）。
+- 网络超时或 TLS 中断就重试几次，不算发版失败；但要在汇报里提一句。
 
-更新地址以构建日志里的 `VETTA_UPDATE_URL` 为准，默认是上面这个。
+如果构建日志里的 `release_target` 是 `r2`，改为核对 `VETTA_UPDATE_URL` 指向的 R2 清单，并且要等 `promote update metadata` 成功。
 
 ### 9. 收尾：标记已发布，开下一个版本（在 dev 上）
 
