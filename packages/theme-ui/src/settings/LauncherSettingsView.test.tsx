@@ -2,7 +2,7 @@
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { LauncherSettingsView, type LauncherSettingsViewProps } from "./LauncherSettingsView";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -64,17 +64,17 @@ function render(overrides: Partial<LauncherSettingsViewProps> = {}): HTMLDivElem
 
 describe("LauncherSettingsView", () => {
 	it("opens the launcher from the try-it button", () => {
-		const onOpenLauncher = vi.fn();
-		const container = render({ onOpenLauncher });
+		let opened = 0;
+		const container = render({ onOpenLauncher: () => (opened += 1) });
 		const button = Array.from(container.querySelectorAll("button")).find((el) => el.textContent?.includes("Try it now"));
 		expect(button).toBeDefined();
 		act(() => button?.click());
-		expect(onOpenLauncher).toHaveBeenCalledTimes(1);
+		expect(opened).toBe(1);
 	});
 
 	it("renders the real panel parts but keeps them inert and hidden from assistive tech", () => {
-		const onOpenLauncher = vi.fn();
-		const container = render({ onOpenLauncher });
+		let opened = 0;
+		const container = render({ onOpenLauncher: () => (opened += 1) });
 		const preview = container.querySelector("[inert]");
 		expect(preview).not.toBeNull();
 		expect(preview?.getAttribute("aria-hidden")).toBe("true");
@@ -83,7 +83,7 @@ describe("LauncherSettingsView", () => {
 		// 预览里的输入框不能被聚焦或输入：它只是示意图。
 		expect(preview?.querySelector("input")?.readOnly).toBe(true);
 		// 渲染预览不会顺带触发打开启动器。
-		expect(onOpenLauncher).not.toHaveBeenCalled();
+		expect(opened).toBe(0);
 	});
 
 	it("shows the user's current shortcut, not a hard-coded default", () => {

@@ -39,7 +39,7 @@ function renderSettings(paths: readonly string[], fail: ReadonlySet<string> = ne
 			</Provider>
 		</I18nextProvider>,
 	);
-	return { store, unarchive, remove };
+	return { store, archived, unarchive, remove };
 }
 
 afterEach(() => {
@@ -61,11 +61,12 @@ it("unarchives only the checked projects in one go", async () => {
 });
 
 it("select all deletes every project after a single confirmation", async () => {
-	const { store, remove } = renderSettings(["/a", "/b"]);
+	const { store, archived, remove } = renderSettings(["/a", "/b"]);
 	fireEvent.click(await screen.findByRole("checkbox", { name: "Select all" }));
 	expect(screen.getByRole("checkbox", { name: "Select a" }).getAttribute("aria-checked")).toBe("true");
 	fireEvent.click(screen.getByRole("button", { name: "Delete selected" }));
-	expect(remove).not.toHaveBeenCalled();
+	// 确认之前什么都没删：归档列表原样保留。
+	expect([...archived]).toEqual(["/a", "/b"]);
 	const dialog = store.get(confirmDialogAtom);
 	expect(dialog?.message).toContain("2 selected projects");
 	act(() => dialog?.onConfirm(false));

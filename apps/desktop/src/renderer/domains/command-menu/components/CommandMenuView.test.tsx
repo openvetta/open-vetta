@@ -257,9 +257,12 @@ describe("CommandMenuView", () => {
 	});
 
 	it("scrolls the row chosen by keyboard into view but leaves a hovered row where the pointer is", () => {
-		const scrollIntoView = vi.fn();
+		// 记下每次被滚进视野的是哪一行，断言列表最终露出的行，而不是数调用次数。
+		const scrolled: Array<{ row: string | null; options: unknown }> = [];
 		const original = HTMLElement.prototype.scrollIntoView;
-		HTMLElement.prototype.scrollIntoView = scrollIntoView;
+		HTMLElement.prototype.scrollIntoView = function (this: HTMLElement, options?: unknown) {
+			scrolled.push({ row: this.textContent, options });
+		};
 		try {
 			const groups = [
 				group({
@@ -268,30 +271,32 @@ describe("CommandMenuView", () => {
 			];
 			// 宿主把悬停回调落到 selectedId 上，模拟真实 model 的行为。
 			let current = "a";
-			const onHoverItem = vi.fn((id: string) => {
+			const onHoverItem = (id: string) => {
 				current = id;
-			});
+			};
 			const { rerender } = render(<CommandMenuView {...props({ groups, selectedId: "a", onHoverItem })} />);
-			scrollIntoView.mockClear();
+			scrolled.length = 0;
 
 			// 键盘下移：选中项变化来自宿主，没有指针参与 → 跟随滚动。
-			rerender(<CommandMenuView {...props({ groups, selectedId: "b", onHoverItem })} />);
-			expect(scrollIntoView).toHaveBeenCalledTimes(1);
-			expect(scrollIntoView).toHaveBeenLastCalledWith({ block: "nearest" });
 			current = "b";
+			rerender(<CommandMenuView {...props({ groups, selectedId: current, onHoverItem })} />);
+			expect(scrolled).toHaveLength(1);
+			expect(scrolled[0]?.row).toContain("beta");
+			expect(scrolled[0]?.options).toEqual({ block: "nearest" });
 
 			// 指针移到另一行：选中项跟着变，但不应滚动。
-			scrollIntoView.mockClear();
+			scrolled.length = 0;
 			const gamma = screen.getByRole("option", { name: /gamma/ });
 			gamma.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
-			expect(onHoverItem).toHaveBeenLastCalledWith("c");
+			expect(current).toBe("c");
 			rerender(<CommandMenuView {...props({ groups, selectedId: current, onHoverItem })} />);
-			expect(scrollIntoView).not.toHaveBeenCalled();
+			expect(scrolled).toEqual([]);
 
 			// 指针停在已选中的行上反复 mousemove，不能吞掉之后的键盘跟随。
 			gamma.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
 			rerender(<CommandMenuView {...props({ groups, selectedId: "a", onHoverItem })} />);
-			expect(scrollIntoView).toHaveBeenCalledTimes(1);
+			expect(scrolled).toHaveLength(1);
+			expect(scrolled[0]?.row).toContain("alpha");
 		} finally {
 			HTMLElement.prototype.scrollIntoView = original;
 		}
