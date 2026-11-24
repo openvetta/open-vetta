@@ -9,29 +9,6 @@ import {
 	SPEECH_INPUT_ENABLED_ENV,
 } from "./scripts/speech-input-build-config.js";
 
-function themeDevelopmentReload(): Plugin {
-	const themeSourceDir = resolve(__dirname, "../../packages/themes/builtin/xianxia/src");
-	return {
-		name: "vetta-theme-development-reload",
-		configureServer(server) {
-			const reloadRenderer = (file: string): void => {
-				const relativePath = path.relative(themeSourceDir, file);
-				if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) return;
-				server.ws.send({ type: "full-reload" });
-			};
-			server.watcher.add(themeSourceDir);
-			server.watcher.on("add", reloadRenderer);
-			server.watcher.on("change", reloadRenderer);
-			server.watcher.on("unlink", reloadRenderer);
-			server.httpServer?.once("close", () => {
-				server.watcher.off("add", reloadRenderer);
-				server.watcher.off("change", reloadRenderer);
-				server.watcher.off("unlink", reloadRenderer);
-			});
-		},
-	};
-}
-
 function hostApiAccessTransform(): Plugin {
 	const rendererRoot = path.resolve(__dirname, "src/renderer").replaceAll("\\", "/");
 	const hostApiModule = `${rendererRoot}/shared/host-api.ts`;
@@ -79,8 +56,6 @@ export default defineConfig(({ mode }) => {
 		if (key.startsWith("VETTA_") && value !== undefined) env[key] = value;
 	}
 	const speechInputBuildConfig = resolveSpeechInputBuildConfig({ env });
-	const themeDevelopmentEnabled =
-		(process.env.VETTA_THEME_DEV_SERVER ?? env.VETTA_THEME_DEV_SERVER) === "1";
 	const rawDevServerPort = process.env.VETTA_DESKTOP_DEV_PORT ?? env.VETTA_DESKTOP_DEV_PORT ?? "3020";
 	const devServerPort = Number(rawDevServerPort);
 	if (!Number.isInteger(devServerPort) || devServerPort < 1 || devServerPort > 65_535) {
@@ -115,7 +90,6 @@ export default defineConfig(({ mode }) => {
 			hostApiAccessTransform(),
 			react(),
 			tailwindcss(),
-			...(themeDevelopmentEnabled ? [themeDevelopmentReload()] : []),
 			...sentry.plugins,
 		],
 		root: "src/renderer",
@@ -146,7 +120,7 @@ export default defineConfig(({ mode }) => {
 			},
 		},
 		server: {
-			// Keep off 3000 (apps/site Next) and 3010 (xianxia theme dev).
+			// Keep off 3000 (apps/site Next).
 			host: "127.0.0.1",
 			port: devServerPort,
 			strictPort: true,

@@ -1192,8 +1192,6 @@
   "themeSystem": "System",
   "uiThemeDefault": "Default theme",
   "uiThemeDefaultHint": "Use the standard desktop interface",
-  "uiThemeXianxia": "Xianxia theme",
-  "uiThemeXianxiaHint": "Use the Xianxia-styled interface",
   "uiThemeUnavailable": "Coming soon",
   "colorThemes": {
     "mono": "Default",

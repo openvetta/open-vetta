@@ -1192,8 +1192,6 @@
   "themeSystem": "跟随系统",
   "uiThemeDefault": "默认主题",
   "uiThemeDefaultHint": "使用标准桌面界面",
-  "uiThemeXianxia": "修仙主题",
-  "uiThemeXianxiaHint": "使用修仙风格界面",
   "uiThemeUnavailable": "尽请期待",
   "colorThemes": {
     "mono": "默认",
