@@ -1,12 +1,6 @@
 {
-	"defaultSetId": "fanren",
+	"defaultSetId": "classic",
 	"sets": [
-		{
-			"id": "fanren",
-			"labelKey": "achievement.sets.fanren",
-			"subtitleKey": "achievement.setSubtitles.fanren",
-			"source": "fanren"
-		},
 		{
 			"id": "classic",
 			"labelKey": "achievement.sets.classic",

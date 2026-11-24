@@ -1,6 +1,5 @@
 import type { CornerImageFrameDecoration } from "@vetta-org/theme-sdk";
 import classicAchievementSetData from "./achievement-set-data/classic.json";
-import fanrenAchievementSetData from "./achievement-set-data/fanren.json";
 import achievementSetIndexData from "./achievement-sets.json";
 
 export type AchievementId = string;
@@ -43,7 +42,6 @@ interface AchievementSetData {
 
 const BUNDLED_ACHIEVEMENT_SET_DATA: Readonly<Record<string, AchievementSetData>> = {
 	classic: classicAchievementSetData,
-	fanren: fanrenAchievementSetData,
 };
 
 function validateAchievementSet(set: AchievementSet): void {
