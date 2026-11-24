@@ -357,6 +357,13 @@ async function disablePetFromContextMenu(): Promise<void> {
 	destroyPetWindow();
 }
 
+/** 右键菜单的开关要落盘并广播，否则设置页显示旧值、重启后也会丢。 */
+function persistPetConfigFromContextMenu(): void {
+	void writePetConfig(petConfig).catch((error: unknown) => {
+		log.error("persist context menu change failed", error);
+	});
+}
+
 function showContextMenu(win: BrowserWindow): void {
 	const alwaysOnTop = win.isAlwaysOnTop();
 	const template: MenuItemConstructorOptions[] = [
@@ -385,6 +392,7 @@ function showContextMenu(win: BrowserWindow): void {
 			click: (menuItem) => {
 				petConfig = { ...petConfig, autoMode: menuItem.checked };
 				sendPetCommand(win, { type: "set-auto-mode", enabled: petConfig.autoMode });
+				persistPetConfigFromContextMenu();
 			},
 		},
 		{ type: "separator" },
@@ -400,7 +408,9 @@ function showContextMenu(win: BrowserWindow): void {
 		{
 			label: alwaysOnTop ? "取消置顶" : "保持置顶",
 			click: () => {
-				win.setAlwaysOnTop(!alwaysOnTop, "screen-saver");
+				petConfig = { ...petConfig, alwaysOnTop: !alwaysOnTop };
+				win.setAlwaysOnTop(petConfig.alwaysOnTop, "screen-saver");
+				persistPetConfigFromContextMenu();
 			},
 		},
 		...(shouldShowPetDevToolsMenuItem()
