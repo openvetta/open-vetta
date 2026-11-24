@@ -731,6 +731,7 @@
         "@vetta-org/theme-ui": "workspace:*",
         "@vetta-org/ui": "workspace:*",
         "jsdom": "26.1.0",
+        "motion": "^12.23.12",
         "react": "19.1.1",
         "react-dom": "19.1.1",
         "tailwindcss": "^4.1.12",

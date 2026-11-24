@@ -64,18 +64,6 @@ export function TreeViewIcon({ className }: IconProps): JSX.Element {
 	);
 }
 
-export function GraphIcon({ className }: IconProps): JSX.Element {
-	return (
-		<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-			<circle cx="5" cy="6" r="2" />
-			<circle cx="5" cy="18" r="2" />
-			<circle cx="15" cy="12" r="2" />
-			<path d="M5 8v8" />
-			<path d="M5 12h4a4 4 0 0 0 4-4V8" />
-		</svg>
-	);
-}
-
 export function BranchIcon({ className }: IconProps): JSX.Element {
 	return (
 		<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>

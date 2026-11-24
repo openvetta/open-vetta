@@ -96,8 +96,9 @@ export function BranchBar({ root }: { root: string }): JSX.Element {
 		<div className="flex min-w-0 items-center">
 			<Select
 				// 当前分支必须真的在列表里才算选中：空仓库（还没有任何提交）git 会报出分支名，
-				// 但 `git branch` 一个都列不出来；此时回落成 placeholder，否则触发器会空白一片。
-				value={branch && locals.some((item) => item.name === branch) ? refValue("local", branch) : undefined}
+				// 但 `git branch` 一个都列不出来；此时回落成空值（走 placeholder），否则触发器会空白一片。
+				// 始终传字符串而不是 undefined：Radix 从非受控切到受控会告警。
+				value={branch && locals.some((item) => item.name === branch) ? refValue("local", branch) : ""}
 				onValueChange={(value) => {
 					if (value === CREATE_VALUE) {
 						setCreating(true);

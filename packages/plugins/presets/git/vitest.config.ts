@@ -3,7 +3,9 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
 	esbuild: { jsx: "automatic" },
 	resolve: {
-		dedupe: ["react", "react-dom"],
+		// 宿主组件（SegmentedControl 等）依赖 motion，它自带一份 React 解析路径；
+		// 不一起去重会拿到第二个 React 实例，渲染时 useContext 为 null。
+		dedupe: ["react", "react-dom", "motion", "framer-motion"],
 	},
 	ssr: { resolve: { mainFields: ["module", "main"] } },
 	test: {
