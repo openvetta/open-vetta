@@ -59,13 +59,27 @@ describe("slimSessionEventForIpc", () => {
 		expect(decodeSessionEvent(thinking)).toBe(thinking);
 	});
 
-	it("keeps tool-call partials and non-assistant deltas intact", () => {
-		const partial = fatPartial();
-		const toolEvent = assistantDelta("toolcall_delta", partial);
-		expect(slimSessionEventForIpc(toolEvent)).toBe(toolEvent);
-		if (toolEvent.type !== "toolcall_delta") throw new Error("expected assistant toolcall_delta");
-		expect(toolEvent.partial.content[0]).toEqual({ type: "text", text: "hello ".repeat(2_000) });
+	it("keeps only the streaming tool-call block in tool-call partials", () => {
+		const toolCall = { type: "toolCall" as const, id: "call-1", name: "write", arguments: { path: "a.ts" } };
+		const partial: AssistantMessage = {
+			...fatPartial(),
+			content: [{ type: "thinking", thinking: "plan ".repeat(2_000) }, { type: "text", text: "hi" }, toolCall],
+		};
+		const toolEvent = { ...assistantDelta("toolcall_delta", partial), contentIndex: 2 };
+		const slimed = slimSessionEventForIpc(toolEvent);
+		if (slimed.channel !== "assistant" || slimed.type !== "toolcall_delta") {
+			throw new Error("expected assistant toolcall_delta");
+		}
+		expect(slimed.partial.content[2]).toBe(toolCall);
+		expect(slimed.partial.content).toHaveLength(3);
+		expect(0 in slimed.partial.content).toBe(false);
+		expect(1 in slimed.partial.content).toBe(false);
+		expect(partial.content).toHaveLength(3);
+		expect(decodeSessionEvent(slimed)).toBe(slimed);
+		expect(slimSessionEventForIpc(slimed)).toBe(slimed);
+	});
 
+	it("keeps non-assistant events intact", () => {
 		const runtimeEvent: SessionEvent = {
 			schemaVersion: 1,
 			sessionId: "session-1",
