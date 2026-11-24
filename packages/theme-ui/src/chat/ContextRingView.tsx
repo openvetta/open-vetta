@@ -7,6 +7,18 @@ const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const SPIN_ARC = CIRCUMFERENCE * 0.25;
 
+/**
+ * 空着那段（轨道）的颜色与浓度。
+ *
+ * 不用 --secondary：它在多数主题里与输入栏底色只差几级（深色约 1.0~1.1:1），再乘 50%
+ * 铺上去等于没画，用户看不出圈里还剩多少。--muted-foreground 是各主题都保证与表面拉得
+ * 开的文字级灰，取 35% 后深浅两套配色与全部内置主题都稳定落在 1.6~2.0:1——是一道看得
+ * 见的槽，又压不过 --primary 画的进度弧。透明度留在属性上而不是写进 color-mix，是为了
+ * 让半透明输入栏、插件浮层下面透出的东西都照常参与合成。
+ */
+const TRACK_STROKE = "var(--muted-foreground, #888)";
+const TRACK_OPACITY = 0.35;
+
 export interface ContextRingViewProps {
 	/** Progress 0–100; ignored while compacting. */
 	percent: number;
@@ -46,9 +58,9 @@ export function ContextRingView({
 					cy={SIZE / 2}
 					r={RADIUS}
 					fill="none"
-					stroke="var(--secondary, #333)"
+					stroke={TRACK_STROKE}
 					strokeWidth={STROKE}
-					opacity={0.5}
+					opacity={TRACK_OPACITY}
 				/>
 				{isCompacting ? (
 					<circle
