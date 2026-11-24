@@ -1,5 +1,4 @@
 import type { PetActionId } from "./pet-actions.js";
-import type { PetBubbleStyleId } from "./pet-bubbles.js";
 
 export const PET_COMMAND_CHANNEL = "vetta:pet:command";
 export const PET_CONFIG_CHANGED_CHANNEL = "vetta:pet:config-changed";
@@ -106,11 +105,6 @@ export type PetCommand =
 			type: "set-video-base-size";
 			actionId: PetActionId;
 			baseSize: number;
-	  }
-	| {
-			type: "set-bubble-style";
-			styleId: PetBubbleStyleId;
-			decorUrl?: string;
 	  }
 	| {
 			type: "set-content-offset";

@@ -113,10 +113,7 @@ export type {
 	PermissionsSettingsViewProps,
 } from "./PermissionsSettingsView";
 export { PermissionsSettingsView } from "./PermissionsSettingsView";
-export type { PetBubbleStylePreviewViewProps } from "./PetBubbleStylePreviewView";
-export { PetBubbleStylePreviewView } from "./PetBubbleStylePreviewView";
 export type {
-	PetBubbleStyleOptionView,
 	PetDecorationView,
 	PetSettingsViewLabels,
 	PetSettingsViewProps,

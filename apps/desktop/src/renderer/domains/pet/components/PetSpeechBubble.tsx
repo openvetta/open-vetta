@@ -1,5 +1,4 @@
 import type { CSSProperties } from "react";
-import type { PetBubbleStyleId } from "../../../../shared/pet-bubbles";
 import { PetBubbleFrame } from "../../../shared/components/pet/PetBubbleFrame";
 
 const PET_BUBBLE_VISUAL_INSET_PX = 40;
@@ -15,15 +14,7 @@ export interface PetSpeechBubbleMessage {
 	text: string;
 }
 
-export function PetSpeechBubble({
-	decorUrl,
-	message,
-	styleId,
-}: {
-	decorUrl: string | undefined;
-	message: PetSpeechBubbleMessage | undefined;
-	styleId: PetBubbleStyleId;
-}): JSX.Element | null {
+export function PetSpeechBubble({ message }: { message: PetSpeechBubbleMessage | undefined }): JSX.Element | null {
 	if (!message) return null;
 
 	return (
@@ -31,12 +22,7 @@ export function PetSpeechBubble({
 			className="pointer-events-none z-10 select-none"
 			style={PET_BUBBLE_VISUAL_BOUNDS_STYLE}
 		>
-			<PetBubbleFrame
-				decorUrl={decorUrl}
-				styleId={styleId}
-			>
-				{message.text}
-			</PetBubbleFrame>
+			<PetBubbleFrame>{message.text}</PetBubbleFrame>
 		</div>
 	);
 }

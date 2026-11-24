@@ -14,7 +14,6 @@ import { getActionDuration, pickNextAction } from "../services/pet-action-picker
 import {
 	getInitialAction,
 	getInitialAutoMode,
-	getInitialBubbleStyle,
 	getInitialContentOffset,
 	getInitialDebugFrame,
 	getInitialVideoBaseSizeByAction,
@@ -45,7 +44,6 @@ export function PetApp(): JSX.Element {
 	const videos = useMemo(() => getVideoMap(), []);
 	const [actionId, setActionId] = useState<PetActionId | undefined>(() => getInitialAction(videos));
 	const [activityState, setActivityState] = useState<PetActivityState>("idle");
-	const [bubbleStyle, setBubbleStyle] = useState(getInitialBubbleStyle);
 	const [autoMode, setAutoMode] = useState(getInitialAutoMode);
 	const [debugFrame, setDebugFrame] = useState(getInitialDebugFrame);
 	const [videoScale, setVideoScale] = useState(getInitialVideoScale);
@@ -202,13 +200,6 @@ export function PetApp(): JSX.Element {
 				}));
 				return;
 			}
-			if (command.type === "set-bubble-style") {
-				setBubbleStyle({
-					styleId: command.styleId,
-					...(command.decorUrl === undefined ? {} : { decorUrl: command.decorUrl }),
-				});
-				return;
-			}
 			if (command.type === "set-content-offset") {
 				setContentOffset({ x: command.x, y: command.y });
 				return;
@@ -252,11 +243,7 @@ export function PetApp(): JSX.Element {
 	}, [clearPresentationThrottle, hideBubble, queueAppAction, showBubble, videos]);
 
 	const speechBubble = (
-		<PetSpeechBubble
-			decorUrl={bubbleStyle.decorUrl}
-			message={bubble}
-			styleId={bubbleStyle.styleId}
-		/>
+<PetSpeechBubble message={bubble} />
 	);
 
 	return (

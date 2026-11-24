@@ -1,29 +1,10 @@
-import type { CSSProperties, ReactNode } from "react";
-import { CornerImageFrame } from "@vetta-org/theme-ui/appearance";
-import { getPetBubbleStyle, type PetBubbleStyleId } from "../../../../shared/pet-bubbles";
+import type { ReactNode } from "react";
+import { PET_BUBBLE_SURFACE } from "../../../../shared/pet-bubbles";
 
-export function PetBubbleFrame({
-	children,
-	decorUrl,
-	styleId,
-}: {
-	children: ReactNode;
-	decorUrl: string | undefined;
-	styleId: PetBubbleStyleId;
-}): JSX.Element {
-	const bubbleStyle = getPetBubbleStyle(styleId);
-	const decor = bubbleStyle.decor;
-	const surfaceStyle = bubbleStyle.surface.style as CSSProperties | undefined;
-
+export function PetBubbleFrame({ children }: { children: ReactNode }): JSX.Element {
 	return (
-		<CornerImageFrame
-			className={bubbleStyle.surface.bodyClassName}
-			contentClassName={bubbleStyle.surface.textClassName}
-			decoration={decor}
-			imageUrl={decorUrl}
-			style={surfaceStyle}
-		>
-			{children}
-		</CornerImageFrame>
+		<div className={PET_BUBBLE_SURFACE.bodyClassName}>
+			<div className={PET_BUBBLE_SURFACE.textClassName}>{children}</div>
+		</div>
 	);
 }

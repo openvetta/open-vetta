@@ -1,5 +1,4 @@
 import { PET_ACTIONS, type PetActionId } from "./pet-actions.js";
-import { DEFAULT_PET_BUBBLE_STYLE_ID, normalizePetBubbleStyleId, type PetBubbleStyleId } from "./pet-bubbles.js";
 
 export interface PetConfig {
 	schemaVersion: typeof PET_CONFIG_SCHEMA_VERSION;
@@ -8,7 +7,6 @@ export interface PetConfig {
 	alwaysOnTop: boolean;
 	size: number;
 	debugFrame: boolean;
-	bubbleStyleId: PetBubbleStyleId;
 	videoScale: number;
 	videoBaseSizeByAction: PetVideoBaseSizeByAction;
 }
@@ -41,7 +39,6 @@ export const DEFAULT_PET_CONFIG: PetConfig = {
 	alwaysOnTop: true,
 	size: 220,
 	debugFrame: false,
-	bubbleStyleId: DEFAULT_PET_BUBBLE_STYLE_ID,
 	videoScale: DEFAULT_PET_VIDEO_SCALE,
 	videoBaseSizeByAction: createDefaultVideoBaseSizeByAction(),
 };
@@ -128,7 +125,6 @@ export function normalizePetConfig(value: unknown): PetConfig {
 		debugFrame: typeof config.debugFrame === "boolean" ? config.debugFrame : DEFAULT_PET_CONFIG.debugFrame,
 		size: normalizePetSize(config.size),
 		videoScale: normalizePetVideoScale(config.videoScale),
-		bubbleStyleId: normalizePetBubbleStyleId(config.bubbleStyleId),
 		videoBaseSizeByAction: normalizeVideoBaseSizeByAction(config.videoBaseSizeByAction),
 	};
 }

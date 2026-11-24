@@ -9,13 +9,6 @@ export interface PetDecorationView {
 	readonly url: string;
 }
 
-export interface PetBubbleStyleOptionView {
-	readonly id: string;
-	readonly label: string;
-	readonly description: string;
-	readonly decorUrl?: string;
-}
-
 export interface PetSettingsViewLabels {
 	readonly pageTitle: string;
 	readonly materialMissing: string;
@@ -26,14 +19,12 @@ export interface PetSettingsViewLabels {
 	readonly alwaysOnTop: string;
 	readonly alwaysOnTopDescription: string;
 	readonly decorationSectionDescription: string;
-	readonly bubbleSectionDescription: string;
 	readonly developerDescription: string;
 	readonly debugFrame: string;
 	readonly debugFrameDescription: string;
 	readonly sections: {
 		readonly display: string;
 		readonly decoration: string;
-		readonly bubble: string;
 		readonly developer: string;
 	};
 }
@@ -43,7 +34,6 @@ export interface PetSettingsViewProps {
 	readonly sections: {
 		readonly display: SettingSectionMeta;
 		readonly decoration: SettingSectionMeta;
-		readonly bubble: SettingSectionMeta;
 		readonly developer: SettingSectionMeta;
 	};
 	readonly enabled: boolean;
@@ -53,7 +43,6 @@ export interface PetSettingsViewProps {
 	/** 是否展示「桌宠装饰」分区；组件与数据链路保留，默认 true。 */
 	readonly showDecorationSection?: boolean;
 	readonly aiAssistSlot: ReactNode;
-	readonly bubbleGrid: ReactNode;
 	readonly onChangeEnabled: (value: boolean) => void;
 	readonly onChangeAlwaysOnTop: (value: boolean) => void;
 	readonly onChangeDebugFrame: (value: boolean) => void;
@@ -68,7 +57,6 @@ export function PetSettingsView({
 	decorations,
 	showDecorationSection = true,
 	aiAssistSlot,
-	bubbleGrid,
 	onChangeEnabled,
 	onChangeAlwaysOnTop,
 	onChangeDebugFrame,
@@ -134,14 +122,6 @@ export function PetSettingsView({
 					</div>
 				</SettingSection>
 			)}
-
-			<SettingSection
-				title={labels.sections.bubble}
-				section={sections.bubble}
-				description={labels.bubbleSectionDescription}
-			>
-				{bubbleGrid}
-			</SettingSection>
 
 			<SettingSection
 				title={labels.sections.developer}

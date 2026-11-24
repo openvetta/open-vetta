@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, Menu, type MenuItemConstructorOptions, screen } from "electron";
 import { PET_ACTIONS } from "../shared/pet-actions.js";
-import { getPetBubbleStyle, type PetBubbleStyleId } from "../shared/pet-bubbles.js";
 import {
 	DEFAULT_PET_CONFIG,
 	getPetScaledVideoSize,
@@ -106,15 +105,6 @@ function resolvePetVideo(action: (typeof PET_ACTIONS)[number]): PetVideoResoluti
 	};
 }
 
-function resolvePetBubbleDecorUrl(styleId: PetBubbleStyleId): string | undefined {
-	const decor = getPetBubbleStyle(styleId).decor;
-	if (!decor) return undefined;
-
-	const decorPath = join(petMediaDir, decor.fileName);
-	if (!existsSync(decorPath)) return undefined;
-	return `${MEDIA_PROTOCOL_SCHEME}://local/stream?path=${encodeURIComponent(decorPath)}`;
-}
-
 function getStoredPetConfig(): PetConfig {
 	return readPetConfigSync();
 }
@@ -134,9 +124,6 @@ function getInitialBounds(): Electron.Rectangle {
 
 function buildPetQuery(config: PetConfig, contentOffset: Electron.Point): string {
 	const params = new URLSearchParams();
-	const bubbleDecorUrl = resolvePetBubbleDecorUrl(config.bubbleStyleId);
-	params.set("bubbleStyle", config.bubbleStyleId);
-	if (bubbleDecorUrl) params.set("bubbleDecor", bubbleDecorUrl);
 	for (const action of PET_ACTIONS) {
 		const video = resolvePetVideo(action);
 		if (video.url) {
@@ -633,12 +620,6 @@ export function applyPetConfig(config: PetConfig): void {
 	sendPetCommand(win, { type: "set-auto-mode", enabled: petConfig.autoMode });
 	sendPetCommand(win, { type: "set-debug-frame", enabled: petConfig.debugFrame });
 	sendPetCommand(win, { type: "set-video-scale", scale: petConfig.videoScale });
-	const bubbleDecorUrl = resolvePetBubbleDecorUrl(petConfig.bubbleStyleId);
-	sendPetCommand(win, {
-		type: "set-bubble-style",
-		styleId: petConfig.bubbleStyleId,
-		...(bubbleDecorUrl ? { decorUrl: bubbleDecorUrl } : {}),
-	});
 	for (const action of PET_ACTIONS) {
 		sendPetCommand(win, {
 			type: "set-video-base-size",
