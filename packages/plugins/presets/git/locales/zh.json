@@ -1,6 +1,6 @@
 {
 	"plugin.name": "Git",
-	"plugin.description": "在项目活动面板里查看 Git 变更状态树与文件 diff；非 Git 项目可一键初始化仓库。",
+	"plugin.description": "在项目活动面板里查看 Git 变更列表、提交历史与文件 diff；非 Git 项目可一键初始化仓库。",
 	"tab.label": "Git",
 	"panel.title": "变更",
 	"action.refresh": "刷新",
@@ -10,8 +10,6 @@
 	"action.syncLabel": "同步",
 	"action.sync": "同步（先拉取后推送）",
 	"action.close": "关闭",
-	"action.showTree": "显示文件树",
-	"action.hideTree": "隐藏文件树",
 	"view.switchToFlat": "切换到平铺视图",
 	"view.switchToTree": "切换到层级视图",
 	"view.tabChanges": "变更",

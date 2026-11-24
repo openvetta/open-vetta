@@ -70,7 +70,7 @@ afterEach(() => {
 describe("diff pane virtualization", () => {
 	it("keeps the rendered line count bounded instead of materializing the whole patch", async () => {
 		const { container } = render(
-			<DiffPane root="/repo" entry={entry} section="unstaged" onToggleTree={() => {}} treeCollapsed={false} />,
+			<DiffPane root="/repo" entry={entry} section="unstaged" />,
 		);
 
 		await waitFor(() => expect(renderedLineCount(container)).toBeGreaterThan(0));

@@ -18,12 +18,12 @@ import { FileIcon, StageIcon, UnstageIcon } from "./icons";
 import { SplitHandle } from "./SplitHandle";
 import { useChangeActions } from "./useChangeActions";
 
-// 容器宽于此值时显示右侧 diff 区；窄于此值只显示文件树（拖窄自动收起 diff）。
-// 阈值要留得住「树 + 一屏能读的 diff」，否则一拉宽就挤出一条读不了的窄 diff。
+// 容器宽于此值时显示右侧 diff 区；窄于此值只显示文件列表（拖窄自动收起 diff）。
+// 阈值要留得住「列表 + 一屏能读的 diff」，否则一拉宽就挤出一条读不了的窄 diff。
 const DIFF_MIN_WIDTH = 560;
-const TREE_DEFAULT_WIDTH = 300;
-const TREE_MIN_WIDTH = 180;
-// diff 展开时给右侧 diff 保留的最小宽度，限制树列最大宽度。
+const LIST_DEFAULT_WIDTH = 300;
+const LIST_MIN_WIDTH = 180;
+// diff 展开时给右侧 diff 保留的最小宽度，限制文件列最大宽度。
 const DIFF_RESERVED_WIDTH = 260;
 
 /** Files listed by name in the discard confirmation before it says "and N more". */
@@ -38,7 +38,7 @@ interface Selection {
 	paths: readonly string[];
 }
 
-/** Ready-state body: sectioned change list on the left, width-gated diff pane on the right. */
+/** Ready-state body: sectioned flat change list on the left, width-gated diff pane on the right. */
 export function GitChanges({ root, groups, onOpenGraph }: { root: string; groups: StatusGroups; onOpenGraph: () => void }): JSX.Element {
 	const { t } = useTranslation();
 	const [containerWidth, setContainerWidth] = useState(0);
@@ -49,8 +49,7 @@ export function GitChanges({ root, groups, onOpenGraph }: { root: string; groups
 		staged: false,
 		unstaged: false,
 	});
-	const [treeWidth, setTreeWidth] = useState(TREE_DEFAULT_WIDTH);
-	const [treeCollapsed, setTreeCollapsed] = useState(false);
+	const [listWidth, setListWidth] = useState(LIST_DEFAULT_WIDTH);
 	const actions = useChangeActions(root, groups);
 
 	// 预热 diff 高亮器：共享高亮器是会话级单例，首个 diff 渲染时若主题尚未挂载，
@@ -64,9 +63,9 @@ export function GitChanges({ root, groups, onOpenGraph }: { root: string; groups
 	 * Width probe as a callback ref, not a mount effect.
 	 *
 	 * The measured element only exists while there are changes, so a `[]` effect
-	 * would run once against a null ref on a clean tree and never retry — the
-	 * panel then stayed in its narrow single-column layout no matter how wide the
-	 * user dragged it, and the diff pane never appeared.
+	 * would run once against a null ref when nothing is changed and never retry —
+	 * the panel then stayed in its narrow single-column layout no matter how wide
+	 * the user dragged it, and the diff pane never appeared.
 	 */
 	const observerRef = useRef<ResizeObserver | null>(null);
 	const measureRef = useCallback((el: HTMLDivElement | null) => {
@@ -86,7 +85,6 @@ export function GitChanges({ root, groups, onOpenGraph }: { root: string; groups
 	const total = groups.conflict.length + groups.staged.length + groups.unstaged.length;
 	const wide = containerWidth >= DIFF_MIN_WIDTH;
 	const activeEntry = active ? findEntry(groups[active.section], active.path) : null;
-	const showTree = !wide || !treeCollapsed;
 
 	// 拉宽且无有效选择时，默认选中第一个变更文件（仿文件活动面板）。
 	// 选中文件被移除（刷新后失效）时也回落到第一个。
@@ -100,11 +98,6 @@ export function GitChanges({ root, groups, onOpenGraph }: { root: string; groups
 			}
 		}
 	}, [wide, activeEntry, groups]);
-
-	// 收起 diff（窄屏或无选择）时复位树折叠态，避免残留隐藏。
-	useEffect(() => {
-		if (!wide || !activeEntry) setTreeCollapsed(false);
-	}, [wide, activeEntry]);
 
 	// 选中变化：只保留一个分区的多选，并把「刚进入选中的那个文件」作为 diff 的对象。
 	// 窄屏点文件时把面板拉到最大并打开 diff（仿文件面板）。
@@ -121,9 +114,9 @@ export function GitChanges({ root, groups, onOpenGraph }: { root: string; groups
 
 	const onSplitDrag = useCallback(
 		(deltaX: number) => {
-			setTreeWidth((w) => {
-				const max = Math.max(TREE_MIN_WIDTH, containerWidth - DIFF_RESERVED_WIDTH);
-				return Math.max(TREE_MIN_WIDTH, Math.min(max, w + deltaX));
+			setListWidth((w) => {
+				const max = Math.max(LIST_MIN_WIDTH, containerWidth - DIFF_RESERVED_WIDTH);
+				return Math.max(LIST_MIN_WIDTH, Math.min(max, w + deltaX));
 			});
 		},
 		[containerWidth],
@@ -179,45 +172,37 @@ export function GitChanges({ root, groups, onOpenGraph }: { root: string; groups
 				<CleanState root={root} onOpenGraph={onOpenGraph} />
 			) : (
 				<div ref={measureRef} className="flex min-h-0 flex-1 overflow-hidden">
-					{showTree && (
-						<div
-							className={
-								wide
-									? "relative flex min-h-0 shrink-0 flex-col overflow-hidden bg-muted"
-									: "flex min-h-0 flex-1 flex-col overflow-hidden bg-muted"
-							}
-							style={wide ? { width: treeWidth } : undefined}
-						>
-							<CommitBox root={root} groups={groups} />
-							{/* 分区自己吃满剩余高度并各自内部滚动，外层不再整体滚动。 */}
-							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-								{SECTION_ORDER.map((section) => (
-									<ChangeSectionList
-										key={section}
-										title={sectionTitles[section]}
-										entries={groups[section]}
-										collapsed={collapsed[section]}
-										onToggleCollapsed={() => setCollapsed((prev) => ({ ...prev, [section]: !prev[section] }))}
-										selectedPaths={selection.section === section ? selection.paths : []}
-										onSelectionChange={(paths, added) => handleSelection(section, paths, added)}
-										renderMenu={(paths, close, point) => renderSectionMenu(section, paths, close, point)}
-										actions={renderSectionActions(section)}
-										tone={section === "conflict" ? "danger" : undefined}
-									/>
-								))}
-							</div>
-							{wide && <SplitHandle onDrag={onSplitDrag} />}
+					<div
+						className={
+							wide
+								? "relative flex min-h-0 shrink-0 flex-col overflow-hidden bg-transparent"
+								: "flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent"
+						}
+						style={wide ? { width: listWidth } : undefined}
+					>
+						<CommitBox root={root} groups={groups} />
+						{/* 分区自己吃满剩余高度并各自内部滚动，外层不再整体滚动。 */}
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+							{SECTION_ORDER.map((section) => (
+								<ChangeSectionList
+									key={section}
+									title={sectionTitles[section]}
+									entries={groups[section]}
+									collapsed={collapsed[section]}
+									onToggleCollapsed={() => setCollapsed((prev) => ({ ...prev, [section]: !prev[section] }))}
+									selectedPaths={selection.section === section ? selection.paths : []}
+									onSelectionChange={(paths, added) => handleSelection(section, paths, added)}
+									renderMenu={(paths, close, point) => renderSectionMenu(section, paths, close, point)}
+									actions={renderSectionActions(section)}
+									tone={section === "conflict" ? "danger" : undefined}
+								/>
+							))}
 						</div>
-					)}
+						{wide && <SplitHandle onDrag={onSplitDrag} />}
+					</div>
 					{wide &&
 						(activeEntry && active ? (
-							<DiffPane
-								root={root}
-								entry={activeEntry}
-								section={active.section}
-								onToggleTree={() => setTreeCollapsed((c) => !c)}
-								treeCollapsed={treeCollapsed}
-							/>
+							<DiffPane root={root} entry={activeEntry} section={active.section} />
 						) : (
 							<div className="mb-2 ml-0.5 mr-2 mt-1 flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-border/70 bg-background text-muted-foreground">
 								<FileIcon className="h-6 w-6 opacity-50" />

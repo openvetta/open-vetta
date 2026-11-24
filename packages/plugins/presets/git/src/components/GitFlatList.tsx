@@ -6,8 +6,12 @@ import { FileIcon } from "./icons";
 import { StatusBadge } from "./StatusBadge";
 
 /**
- * Flat ("平铺") view: every changed file as a single row showing basename +
- * dimmed directory + status badge, sorted by path. No directory nesting.
+ * Flat ("平铺") view: every changed file as a single row sorted by path, no
+ * directory nesting.
+ *
+ * Rows show the basename plus a dimmed parent directory by default. Callers
+ * whose detail pane already prints the full path pass `showDirectory={false}`
+ * to keep rows to the file name alone.
  *
  * Mirrors {@link GitFileTree}, including its click semantics: plain click
  * replaces the selection, ctrl/cmd toggles one row, shift extends from the last
@@ -18,6 +22,7 @@ export function GitFlatList({
 	selectedPaths,
 	onSelectionChange,
 	renderMenu,
+	showDirectory = true,
 }: {
 	entries: readonly ChangeEntry[];
 	selectedPaths: readonly string[];
@@ -25,6 +30,8 @@ export function GitFlatList({
 	onSelectionChange: (paths: string[], added: string | null) => void;
 	/** Context-menu body for the right-clicked paths; omit to disable the menu. */
 	renderMenu?: (paths: string[], close: () => void, point?: MenuPoint) => ReactNode;
+	/** Dimmed parent directory after the name. Off when the pane header already shows the path. */
+	showDirectory?: boolean;
 }): JSX.Element {
 	const sorted = useMemo(() => [...entries].sort((a, b) => a.path.localeCompare(b.path)), [entries]);
 	// Anchor for shift-range selection: the row of the last unmodified click.
@@ -86,7 +93,7 @@ export function GitFlatList({
 						<FileIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
 						<span className="min-w-0 flex-1 truncate">
 							<span>{name}</span>
-							{dir && <span className="text-muted-foreground/60"> {dir}</span>}
+							{showDirectory && dir && <span className="text-muted-foreground/60"> {dir}</span>}
 						</span>
 						<StatusBadge code={entry.code} />
 					</button>

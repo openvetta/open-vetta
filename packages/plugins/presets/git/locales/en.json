@@ -1,6 +1,6 @@
 {
 	"plugin.name": "Git",
-	"plugin.description": "View the Git change-status tree and file diffs in the project activity panel; initialize a repository in one click for non-Git projects.",
+	"plugin.description": "View Git changes, history and file diffs in the project activity panel; initialize a repository in one click for non-Git projects.",
 	"tab.label": "Git",
 	"panel.title": "Changes",
 	"action.refresh": "Refresh",
@@ -10,8 +10,6 @@
 	"action.syncLabel": "Sync",
 	"action.sync": "Sync (pull then push)",
 	"action.close": "Close",
-	"action.showTree": "Show file tree",
-	"action.hideTree": "Hide file tree",
 	"view.switchToFlat": "Switch to flat view",
 	"view.switchToTree": "Switch to tree view",
 	"view.tabChanges": "Changes",

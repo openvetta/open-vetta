@@ -64,15 +64,6 @@ export function TreeViewIcon({ className }: IconProps): JSX.Element {
 	);
 }
 
-export function SidebarIcon({ className }: IconProps): JSX.Element {
-	return (
-		<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-			<rect x="3" y="4" width="18" height="16" rx="2" />
-			<path d="M9 4v16" />
-		</svg>
-	);
-}
-
 export function GraphIcon({ className }: IconProps): JSX.Element {
 	return (
 		<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>

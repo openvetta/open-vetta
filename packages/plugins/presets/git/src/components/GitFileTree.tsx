@@ -49,7 +49,9 @@ export function GitFileTree({
 		paths,
 		gitStatus,
 		initialExpansion: "open",
-		flattenEmptyDirectories: true,
+		// 不做「单子目录链压成一行」的紧凑显示：面板很窄时这条链会被逐段截成
+		// `pack…/plu…/pre…`，反而看不出文件到底在哪。每级目录独占一行，缩进即层级。
+		flattenEmptyDirectories: false,
 		onSelectionChange: (selected) => {
 			const next = [...selected];
 			if (sameSet(next, knownRef.current)) return;
@@ -88,13 +90,13 @@ export function GitFileTree({
 	}, [model, selectedPaths]);
 
 	const style = useMemo<React.CSSProperties>(() => {
-		// 树沿用文件列的 --muted 表面，和右侧 --background 的 diff 区形成层级。
-		const bg = readCssVar("--muted");
+		// 树自身不画底色，透出宿主活动面板的默认表面；层级只靠右侧 diff 区的边框卡片区分。
+		// 悬停/选中仍走 --trees-*-override，透明背景不会影响可读性。
 		const fg = readCssVar("--foreground");
 		const border = readCssVar("--border");
 		const accent = readCssVar("--accent");
 		return {
-			...(themeToTreeStyles({ type: mode, bg, fg }) as React.CSSProperties),
+			...(themeToTreeStyles({ type: mode, bg: "transparent", fg }) as React.CSSProperties),
 			"--trees-fg-override": fg,
 			"--trees-border-color-override": border,
 			"--trees-selected-bg-override": accent,
