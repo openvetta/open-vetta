@@ -76,6 +76,10 @@ Task details include execution history with success, failure, running, and abort
 
 The activity panel also shows project-level automation summaries, today's executions, enabled tasks, and recent records.
 
+## Send results to Claw
+
+Turn on **Send via Claw** under the task's **Notification** section. After each successful or failed run, the result goes to the chat on the current Claw channel that most recently messaged Vetta; aborted runs send nothing. After the app restarts and before a new message arrives, the result goes to the only Claw chat if there is exactly one; otherwise, send a message in Claw first. When a result is not sent, the reason appears in execution history and the run status is unchanged.
+
 ## Common failures
 
 | Symptom | Check |
