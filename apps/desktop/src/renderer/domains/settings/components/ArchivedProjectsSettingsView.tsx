@@ -12,8 +12,16 @@ export function ArchivedProjectsSettingsView({ model }: ArchivedProjectsSettings
 			labels={model.labels}
 			projects={model.projects}
 			section={SETTINGS_SECTION["archived-list"]}
+			selected={model.selected}
+			busy={model.busy}
+			failedCount={model.failedCount}
 			onUnarchive={(path) => void model.actions.unarchive(path)}
 			onDelete={(path) => model.actions.delete(path)}
+			onToggleSelected={model.actions.toggleSelected}
+			onToggleAll={model.actions.toggleAll}
+			onClearSelection={model.actions.clearSelection}
+			onUnarchiveSelected={() => void model.actions.unarchiveSelected()}
+			onDeleteSelected={model.actions.deleteSelected}
 		/>
 	);
 }
