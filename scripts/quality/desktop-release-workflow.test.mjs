@@ -53,12 +53,16 @@ describe("Desktop release workflow contracts", () => {
 		const build = index("Build updater artifacts");
 		const verify = index("Verify updater artifacts");
 		const rename = index("Name macOS update metadata per architecture");
+		const renameWindows = index("Name Windows update metadata per architecture");
 		const upload = index("Upload updater artifacts");
 		const r2 = index("Publish installers to R2 and stage update metadata");
 		const github = index("Add installers to GitHub Release");
 		expect(build).toBeLessThan(verify);
 		expect(verify).toBeLessThan(rename);
 		expect(rename).toBeLessThan(upload);
+		expect(verify).toBeLessThan(renameWindows);
+		expect(renameWindows).toBeLessThan(upload);
+		expect(buildSteps[renameWindows].run).toContain("latest-win-$" + "{{ matrix.winArch }}.yml");
 		expect(upload).toBeLessThan(r2);
 		expect(r2).toBeLessThan(github);
 		expect(buildSteps[upload].with.name).toBe("desktop-$" + "{{ matrix.platform }}");
@@ -129,8 +133,14 @@ describe("Desktop release workflow contracts", () => {
 		expect(job.if).not.toContain("always()");
 		expect(job.if).not.toContain("failure()");
 		expect(job.permissions).toEqual({ contents: "write" });
-		const upload = job.steps.find((step) => step.name === "Merge macOS metadata and upload to GitHub Release");
+		const upload = job.steps.find(
+			(step) => step.name === "Merge per-architecture metadata and upload to GitHub Release",
+		);
 		expect(upload.run).toContain("merge-mac-update-metadata.mjs");
+		expect(upload.run).toContain("merge-windows-update-metadata.mjs");
+		expect(upload.run.indexOf("merge-windows-update-metadata.mjs")).toBeLessThan(
+			upload.run.indexOf("gh release upload"),
+		);
 		expect(upload.run).toContain("latest*.yml");
 	});
 
@@ -258,6 +268,14 @@ describe("Desktop release workflow contracts", () => {
 		expect(qualityJob).toContain("go test ./...");
 		expect(qualityJob).toContain("working-directory: apps/im-gateway");
 		expect(qualityJob).toContain("go-version-file: apps/im-gateway/go.mod");
+	});
+
+	it("builds each Windows architecture on a matching hosted runner", () => {
+		const windowsBuilds = jobs.build.strategy.matrix.include.filter((entry) => entry.winArch);
+		expect(windowsBuilds.map(({ runner, command, winArch }) => ({ runner, command, winArch }))).toEqual([
+			{ runner: "windows-latest", command: "dist:win", winArch: "x64" },
+			{ runner: "windows-11-arm", command: "dist:win:arm64", winArch: "arm64" },
+		]);
 	});
 
 	it("builds each macOS architecture on a matching hosted runner", () => {

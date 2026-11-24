@@ -35,7 +35,10 @@ async function withStagedMetadata(files, run) {
 }
 
 const allPlatforms = {
-	"latest.yml": metadata("1.2.3", [{ url: "Vetta-1.2.3-win-x64.exe", sha512: sha("win"), size: 3 }]),
+	"latest-win-x64.yml": metadata("1.2.3", [{ url: "Vetta-1.2.3-win-x64.exe", sha512: sha("win"), size: 3 }]),
+	"latest-win-arm64.yml": metadata("1.2.3", [
+		{ url: "Vetta-1.2.3-win-arm64.exe", sha512: sha("win-arm"), size: 3 },
+	]),
 	"latest-linux.yml": metadata("1.2.3", [{ url: "Vetta-1.2.3.AppImage", sha512: sha("linux"), size: 5 }]),
 	"latest-mac-arm64.yml": metadata("1.2.3", [{ url: "Vetta-1.2.3-arm64-mac.zip", sha512: sha("arm"), size: 3 }]),
 	"latest-mac-x64.yml": metadata("1.2.3", [{ url: "Vetta-1.2.3-mac.zip", sha512: sha("x64"), size: 3 }]),
@@ -47,13 +50,13 @@ test("parsePlatforms deduplicates and rejects unknown platforms", () => {
 	assert.throws(() => parsePlatforms(" , "), /no platform selected/);
 });
 
-test("preparePromotion merges both macOS architectures and lists referenced installers", async () => {
+test("preparePromotion merges both architectures of macOS and Windows and lists referenced installers", async () => {
 	await withStagedMetadata(allPlatforms, async (directory) => {
 		const plan = await preparePromotion({ directory, version: "1.2.3", platforms: ["windows", "mac", "linux"] });
 		assert.deepEqual(
 			plan.map(({ fileName, artifacts }) => [fileName, artifacts.map(({ name }) => name)]),
 			[
-				["latest.yml", ["Vetta-1.2.3-win-x64.exe"]],
+				["latest.yml", ["Vetta-1.2.3-win-x64.exe", "Vetta-1.2.3-win-arm64.exe"]],
 				["latest-mac.yml", ["Vetta-1.2.3-mac.zip", "Vetta-1.2.3-arm64-mac.zip"]],
 				["latest-linux.yml", ["Vetta-1.2.3.AppImage"]],
 			],
@@ -65,17 +68,21 @@ test("preparePromotion merges both macOS architectures and lists referenced inst
 	});
 });
 
-test("preparePromotion refuses to promote a macOS feed with one architecture missing", async () => {
-	const { "latest-mac-x64.yml": _omitted, ...partial } = allPlatforms;
+test("preparePromotion refuses to promote a feed with one architecture missing", async () => {
+	const { "latest-mac-x64.yml": _omitted, "latest-win-arm64.yml": _omittedWindows, ...partial } = allPlatforms;
 	await withStagedMetadata(partial, async (directory) => {
 		await assert.rejects(
 			preparePromotion({ directory, version: "1.2.3", platforms: ["mac"] }),
 			/missing latest-mac-x64\.yml/,
 		);
-		const plan = await preparePromotion({ directory, version: "1.2.3", platforms: ["windows"] });
+		await assert.rejects(
+			preparePromotion({ directory, version: "1.2.3", platforms: ["windows"] }),
+			/missing latest-win-arm64\.yml/,
+		);
+		const plan = await preparePromotion({ directory, version: "1.2.3", platforms: ["linux"] });
 		assert.deepEqual(
 			plan.map(({ fileName }) => fileName),
-			["latest.yml"],
+			["latest-linux.yml"],
 		);
 	});
 });

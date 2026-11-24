@@ -1,5 +1,5 @@
 // 把发版流水线暂存在 <prefix>/pending/<版本>/ 的更新清单上线到 <prefix>/：
-// 合并 macOS 两个架构的清单，确认清单引用的安装包已在 R2 且哈希、大小一致，
+// 合并 macOS 与 Windows 各自两个架构的清单，确认清单引用的安装包已在 R2 且哈希、大小一致，
 // 拒绝降级，最后上传清单并通过公网地址复核。用户从这一刻起收到新版本。
 import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -15,6 +15,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { parse } from "yaml";
 import { mergeMacUpdateMetadata } from "./merge-mac-update-metadata.mjs";
+import { mergeWindowsUpdateMetadata } from "./merge-windows-update-metadata.mjs";
 import {
 	contentTypeFor,
 	METADATA_CACHE_CONTROL,
@@ -30,7 +31,7 @@ import { verifyUpdateFeed } from "./verify-update-feed.mjs";
 const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
 
 export const PLATFORM_METADATA = Object.freeze({
-	windows: { published: "latest.yml", staged: ["latest.yml"] },
+	windows: { published: "latest.yml", staged: ["latest-win-arm64.yml", "latest-win-x64.yml"] },
 	mac: { published: "latest-mac.yml", staged: ["latest-mac-arm64.yml", "latest-mac-x64.yml"] },
 	linux: { published: "latest-linux.yml", staged: ["latest-linux.yml"] },
 });
@@ -59,7 +60,7 @@ function sha512Hex(base64) {
 }
 
 /**
- * 在只含待上线清单的目录里合并 macOS 清单，并列出每份清单要求 R2 上已存在的安装包。
+ * 在只含待上线清单的目录里合并 macOS 与 Windows 清单，并列出每份清单要求 R2 上已存在的安装包。
  */
 export async function preparePromotion({ directory, version, platforms }) {
 	const available = new Set(await readdir(directory));
@@ -72,6 +73,7 @@ export async function preparePromotion({ directory, version, platforms }) {
 		);
 	}
 	if (platforms.includes("mac")) await mergeMacUpdateMetadata({ releaseDir: directory });
+	if (platforms.includes("windows")) await mergeWindowsUpdateMetadata({ releaseDir: directory });
 
 	const plan = [];
 	for (const platform of platforms) {

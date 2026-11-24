@@ -221,7 +221,7 @@ Windows ARM64 用 `bun run package:win:arm64`，同样一次生成 Inno、MSI �
 
 这些入口也都有 `:test` 变体，原有 `dist:win:*` 是兼容别名。`latest.yml` 始终只引用支持现有版本目录切换和差分更新的 Inno 安装器；MSI 与 ZIP 是同版本的补充分发制品，不会改写自动更新清单。
 
-正式发布 workflow 会先运行根 `check`、质量脚本测试和 Desktop packaging 测试，全部通过后才启动四个 Windows / macOS 双架构 / Linux 构建任务。Windows x64 在同一次构建中生成 Inno、MSI 和 ZIP，Linux x64 在同一次 electron-builder 调用中生成 AppImage、DEB 和 RPM，避免多个目标分别覆盖更新清单。每个平台构建后都会启动真实 packaged 应用并运行启动与 updater E2E，再校验 updater metadata、hash、blockmap 和可安装内容；MSI/ZIP 会在 Windows 上解包检查版本目录，DEB/RPM 还会分别在 Ubuntu/Fedora 容器中完成真实安装。真正发布到 R2 或 GitHub 后，再由 `verify-update-feed.mjs` 通过公开 URL 检查三平台 metadata 与其引用的安装包是否可读。
+正式发布 workflow 会先运行根 `check`、质量脚本测试和 Desktop packaging 测试，全部通过后才启动五个构建任务：Windows 与 macOS 各两个架构、Linux 一个。Windows 每个架构在同一次构建中生成 Inno、MSI 和 ZIP，`latest.yml` 改名为 `latest-win-<arch>.yml` 上传，发布前由 `merge-windows-update-metadata.mjs` 合并回单一 `latest.yml`（x64 在前，旧客户端读顶层 `path` 仍拿到 x64 安装包）；Linux x64 在同一次 electron-builder 调用中生成 AppImage、DEB 和 RPM，避免多个目标分别覆盖更新清单。每个平台构建后都会启动真实 packaged 应用并运行启动与 updater E2E，再校验 updater metadata、hash、blockmap 和可安装内容；MSI/ZIP 会在 Windows 上解包检查版本目录，DEB/RPM 还会分别在 Ubuntu/Fedora 容器中完成真实安装。真正发布到 R2 或 GitHub 后，再由 `verify-update-feed.mjs` 通过公开 URL 检查三平台 metadata 与其引用的安装包是否可读。
 
 ## Desktop 自动更新发布
 
