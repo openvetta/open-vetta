@@ -27,7 +27,6 @@ const PET_TIP_ICONS = {
 	move: "icon-[solar--cursor-linear]",
 	resize: "icon-[solar--mouse-minimalistic-linear]",
 	menu: "icon-[solar--menu-dots-linear]",
-	notices: "icon-[solar--chat-round-dots-linear]",
 } as const;
 
 export interface PetSettingsModel {

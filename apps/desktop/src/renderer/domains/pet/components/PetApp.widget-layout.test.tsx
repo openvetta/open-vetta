@@ -56,17 +56,21 @@ describe("PetApp widget layout", () => {
 		};
 	}
 
-	it("shifts the sprite inside the window when the main process asks for a horizontal content offset", () => {
+	it("renders nothing above or below the sprite, so no bubble layer is left in the window", () => {
 		const bridge = installPetBridge();
-		const { getByTestId } = render(<PetApp />);
-		const slot = getByTestId("pet-video-slot");
-		expect(slot.style.transform).toBe("");
+		const { container, getByTestId } = render(<PetApp />);
 
-		act(() => bridge.dispatch({ type: "set-content-offset", x: 46, y: 1 }));
-		expect(slot.style.transform).toBe("translateX(46px)");
+		act(() =>
+			bridge.dispatch({
+				type: "set-state",
+				state: "working",
+				actionId: "stoat_work_laptop_typing_desk_cushion",
+			}),
+		);
 
-		act(() => bridge.dispatch({ type: "set-content-offset", x: 0, y: 1 }));
-		expect(slot.style.transform).toBe("");
+		const root = container.firstElementChild as HTMLElement;
+		expect(root.children).toHaveLength(1);
+		expect(root.firstElementChild).toBe(getByTestId("pet-video-slot"));
 	});
 
 	it("shrink-wraps to the sprite instead of covering the desktop", () => {

@@ -1507,7 +1507,7 @@
       "im": "e.g. Enable Claw and set up Feishu…",
       "webhook": "e.g. Add a channel that notifies me when a task finishes…",
       "appearance": "e.g. Switch to dark mode and use the stoat cursor…",
-      "pet": "e.g. Show the pet and change the bubble style…",
+      "pet": "e.g. Show the pet and keep it on top…",
       "environment": "e.g. Check whether Node/Python runtimes look healthy…",
       "shortcuts": "e.g. Review global shortcuts or reset to defaults…",
       "agent": "e.g. Pick a pragmatic persona and write custom instructions…"
@@ -1592,7 +1592,7 @@
       "pet": {
         "show": "Show the desktop pet",
         "size": "Make the pet window a bit larger",
-        "bubble": "Change the bubble style"
+        "onTop": "Keep the pet on top"
       },
       "environment": {
         "status": "Check Node/Python runtime status",

@@ -1,7 +1,6 @@
 import type { SessionEvent } from "@vetta/runtime-core";
 import type { PetActionId } from "../../shared/pet-actions.js";
-import type { PetActivityState, PetBubbleNotice, PetCommand } from "../../shared/pet-ipc.js";
-import { createPetBubbleCommand } from "./pet-bubble-command.js";
+import type { PetActivityState, PetCommand } from "../../shared/pet-ipc.js";
 import {
 	createPetStatePresentation,
 	mapSessionEventToPetPresentation,
@@ -12,10 +11,9 @@ export const PET_PRESENTATION_MIN_HOLD_MS = 3_000;
 
 interface SessionPresentationRecord {
 	base: PetPresentation & { state: PetActivityState; actionId: PetActionId };
-	waiting: Map<string, PetBubbleNotice>;
+	waiting: Set<string>;
 	failed: boolean;
 	aborted: boolean;
-	hasFinalBody: boolean;
 	updatedAt: number;
 	terminalTimer?: ReturnType<typeof setTimeout>;
 }
@@ -72,7 +70,6 @@ export class PetSessionPresentationController {
 			this.clearTerminalTimer(record);
 			record.failed = false;
 			record.aborted = false;
-			record.hasFinalBody = false;
 		}
 
 		const stopReason = assistantStopReason(event);
@@ -81,39 +78,20 @@ export class PetSessionPresentationController {
 			record.aborted = true;
 		}
 
-		let presentation = mapSessionEventToPetPresentation(event);
-		if (event.type === "session.lifecycle" && event.phase === "agent_end") {
-			presentation = record.failed
-				? createPetStatePresentation("error")
-				: record.aborted
-					? createPetStatePresentation("paused", presentation?.bubble)
-					: createPetStatePresentation("success", record.hasFinalBody ? undefined : presentation?.bubble);
-		}
-
-		if (presentation?.bubble) {
-			const command = createPetBubbleCommand(presentation.bubble, event.sessionId);
-			if (command) this.send(command);
-			if (presentation.bubble.body && this.isAssistantFinal(event)) record.hasFinalBody = true;
-		}
+		const presentation =
+			event.type === "session.lifecycle" && event.phase === "agent_end"
+				? createPetStatePresentation(record.failed ? "error" : record.aborted ? "paused" : "success")
+				: mapSessionEventToPetPresentation(event);
 
 		if (presentation?.state && presentation.actionId) {
 			this.setBase(record, presentation.state, presentation.actionId);
 		}
 	}
 
-	beginWaiting(sessionId: string, requestKey: string, messageKey: string): void {
+	beginWaiting(sessionId: string, requestKey: string): void {
 		const record = this.getRecord(sessionId);
-		const notice: PetBubbleNotice = {
-			kind: "warning",
-			messageKey,
-			persistent: true,
-			ttlMs: PET_PRESENTATION_MIN_HOLD_MS,
-			dedupeKey: "session-status",
-		};
-		record.waiting.set(requestKey, notice);
+		record.waiting.add(requestKey);
 		record.updatedAt = ++this.sequence;
-		const command = createPetBubbleCommand(notice, sessionId);
-		if (command) this.send(command);
 		this.recompute();
 	}
 
@@ -121,19 +99,6 @@ export class PetSessionPresentationController {
 		const record = this.records.get(sessionId);
 		if (!record?.waiting.delete(requestKey)) return;
 		record.updatedAt = ++this.sequence;
-		if (record.waiting.size === 0 && (record.base.state === "thinking" || record.base.state === "working")) {
-			const command = createPetBubbleCommand(
-				{
-					kind: "status",
-					messageKey: "notice.lifecycle.resumed",
-					persistent: true,
-					ttlMs: PET_PRESENTATION_MIN_HOLD_MS,
-					dedupeKey: "session-status",
-				},
-				sessionId,
-			);
-			if (command) this.send(command);
-		}
 		this.recompute();
 	}
 
@@ -158,10 +123,9 @@ export class PetSessionPresentationController {
 		if (existing) return existing;
 		const created: SessionPresentationRecord = {
 			base: createPetStatePresentation("idle"),
-			waiting: new Map(),
+			waiting: new Set(),
 			failed: false,
 			aborted: false,
-			hasFinalBody: false,
 			updatedAt: ++this.sequence,
 		};
 		this.records.set(sessionId, created);
@@ -252,9 +216,5 @@ export class PetSessionPresentationController {
 	private clearTerminalTimer(record: SessionPresentationRecord): void {
 		if (record.terminalTimer) clearTimeout(record.terminalTimer);
 		record.terminalTimer = undefined;
-	}
-
-	private isAssistantFinal(event: SessionEvent): boolean {
-		return event.channel === "assistant" && (event.type === "done" || event.type === "error");
 	}
 }

@@ -8,27 +8,23 @@ import {
 } from "../../../../shared/pet-config";
 import type { PetActivityState, PetBridge } from "../../../../shared/pet-ipc";
 import { PetDebugOverlay } from "./PetDebugOverlay";
-import { PetSpeechBubble } from "./PetSpeechBubble";
 import { PetVideoSurface } from "./PetVideoSurface";
 import { getActionDuration, pickNextAction } from "../services/pet-action-picker";
 import {
 	getInitialAction,
 	getInitialAutoMode,
-	getInitialContentOffset,
 	getInitialDebugFrame,
 	getInitialVideoBaseSizeByAction,
 	getInitialVideoScale,
 	getVideoMap,
 } from "../services/pet-url-options";
 import { getVideoDisplaySize } from "../services/pet-video-size";
-import { usePetBubble } from "../hooks/usePetBubble";
 import { usePetWidgetLayout } from "../hooks/usePetWidgetLayout";
 import {
 	PET_APP_PRESENTATION_MIN_HOLD_MS,
 	type PetAppActionUpdate,
 	usePetPresentationThrottle,
 } from "../hooks/usePetPresentationThrottle";
-import { getShowPetBubbleInput } from "../services/pet-bubble-state";
 import { usePetWindowInteractions } from "../hooks/usePetWindowInteractions";
 import { useWindowSize } from "../hooks/useWindowSize";
 
@@ -48,7 +44,6 @@ export function PetApp(): JSX.Element {
 	const [debugFrame, setDebugFrame] = useState(getInitialDebugFrame);
 	const [videoScale, setVideoScale] = useState(getInitialVideoScale);
 	const [videoBaseSizeByAction, setVideoBaseSizeByAction] = useState(getInitialVideoBaseSizeByAction);
-	const [contentOffset, setContentOffset] = useState(getInitialContentOffset);
 	const [failedVideoSrc, setFailedVideoSrc] = useState<string | undefined>();
 	const [playbackPaused, setPlaybackPaused] = useState(false);
 	const [windowSize] = useWindowSize();
@@ -60,7 +55,6 @@ export function PetApp(): JSX.Element {
 	const appActivityStateRef = useRef<PetActivityState>("idle");
 	const userOverrideUntilRef = useRef(0);
 	const userOverrideTimerRef = useRef<number | undefined>(undefined);
-	const { bubble, hideBubble, showBubble } = usePetBubble();
 
 	const action = PET_ACTIONS.find((item) => item.id === actionId);
 	const videoSrc = actionId ? videos[actionId] : undefined;
@@ -70,7 +64,6 @@ export function PetApp(): JSX.Element {
 	const targetVideoSize = selectedVideoSize;
 	const effectiveVideoSize = normalizePetVideoSizeForWindow(targetVideoSize, PET_SIZE_MAX);
 	const videoSize = getVideoDisplaySize(videoNaturalSize, effectiveVideoSize);
-	const bubblePlacement = bubble && contentOffset.y < 0 ? "below" : "above";
 
 	const clearUserOverrideTimer = () => {
 		if (userOverrideTimerRef.current == null) return;
@@ -132,7 +125,6 @@ export function PetApp(): JSX.Element {
 	usePetWidgetLayout({
 		shellRef,
 		videoRef,
-		contentOffset,
 	});
 
 	useEffect(() => {
@@ -176,15 +168,6 @@ export function PetApp(): JSX.Element {
 				}
 				return;
 			}
-			if (command.type === "show-bubble") {
-				const input = getShowPetBubbleInput(command);
-				if (input) showBubble(input);
-				return;
-			}
-			if (command.type === "hide-bubble") {
-				hideBubble(command.source ?? "app");
-				return;
-			}
 			if (command.type === "set-debug-frame") {
 				setDebugFrame(command.enabled);
 				return;
@@ -198,10 +181,6 @@ export function PetApp(): JSX.Element {
 					...current,
 					[command.actionId]: command.baseSize,
 				}));
-				return;
-			}
-			if (command.type === "set-content-offset") {
-				setContentOffset({ x: command.x, y: command.y });
 				return;
 			}
 			if (command.type === "set-playback") {
@@ -240,11 +219,7 @@ export function PetApp(): JSX.Element {
 			setActionId((current) => pickNextAction(videos, current));
 			scheduleUserActionRelease(command.holdMs);
 		});
-	}, [clearPresentationThrottle, hideBubble, queueAppAction, showBubble, videos]);
-
-	const speechBubble = (
-<PetSpeechBubble message={bubble} />
-	);
+	}, [clearPresentationThrottle, queueAppAction, videos]);
 
 	return (
 		<div
@@ -261,15 +236,12 @@ export function PetApp(): JSX.Element {
 				videoSize={videoSize}
 				windowSize={windowSize}
 			/>
-			{bubblePlacement === "above" ? speechBubble : null}
 			<div
 				className="relative flex cursor-move items-center justify-center"
 				data-testid="pet-video-slot"
 				style={{
 					width: `${videoSize.width}px`,
 					height: `${videoSize.height}px`,
-					// 气泡贴边放不下时主进程让精灵在窗口内平移，精灵的屏幕位置由此保持不变。
-					...(contentOffset.x !== 0 ? { transform: `translateX(${contentOffset.x}px)` } : {}),
 				}}
 			>
 				<PetVideoSurface
@@ -284,7 +256,6 @@ export function PetApp(): JSX.Element {
 					onLoadedMetadata={(size) => setVideoNaturalSize(size)}
 				/>
 			</div>
-			{bubblePlacement === "below" ? speechBubble : null}
 		</div>
 	);
 }

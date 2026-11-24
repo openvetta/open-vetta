@@ -74,10 +74,6 @@
 				"menu": {
 					"title": "Right-click menu",
 					"description": "Switch actions, toggle automatic switching, or hide Vivi."
-				},
-				"notices": {
-					"title": "Session notices",
-					"description": "Speech bubbles appear when a session starts, finishes, or needs you."
 				}
 			}
 		},
@@ -99,36 +95,5 @@
 	"video": {
 		"missingTitle": "Pet video",
 		"missingSubtitle": "Not provided"
-	},
-	"notice": {
-		"lifecycle": {
-			"started": "I'll take care of this",
-			"resumed": "I'll keep going",
-			"completed": "All done",
-			"paused": "Paused until you continue"
-		},
-		"waiting": {
-			"question": "I have a question for you",
-			"planReview": "The plan is ready for your review",
-			"mcp": "An external service needs your confirmation",
-			"permission": "This action needs your permission"
-		},
-		"context": {
-			"compacting": "Let me tidy up the context"
-		},
-		"tool": {
-			"running": "Running a tool",
-			"runningWithDescription": "{{description}}",
-			"completed": "Tool completed"
-		},
-		"retry": { "running": "Retrying ({{attempt}}/{{maxAttempts}})" },
-		"background": {
-			"running": "Background task is running",
-			"completed": "Background task completed",
-			"failed": "Background task ran into a problem"
-		},
-		"error": {
-			"generic": "This step ran into a problem"
-		}
 	}
 }

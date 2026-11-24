@@ -74,10 +74,6 @@
 				"menu": {
 					"title": "右键菜单",
 					"description": "切换动作、开关自动切换或隐藏 Vivi。"
-				},
-				"notices": {
-					"title": "会话提醒",
-					"description": "会话开始、完成或需要你确认时冒出气泡。"
 				}
 			}
 		},
@@ -99,36 +95,5 @@
 	"video": {
 		"missingTitle": "桌宠视频",
 		"missingSubtitle": "未提供"
-	},
-	"notice": {
-		"lifecycle": {
-			"started": "我来处理这个",
-			"resumed": "我继续处理",
-			"completed": "搞定了",
-			"paused": "已暂停，等你继续"
-		},
-		"waiting": {
-			"question": "有个问题需要你回答",
-			"planReview": "计划准备好了，等你确认",
-			"mcp": "需要你确认外部服务的请求",
-			"permission": "需要你确认这次权限"
-		},
-		"context": {
-			"compacting": "我整理一下上下文"
-		},
-		"tool": {
-			"running": "正在执行工具",
-			"runningWithDescription": "{{description}}",
-			"completed": "工具执行完成"
-		},
-		"retry": { "running": "正在重试第 {{attempt}}/{{maxAttempts}} 次" },
-		"background": {
-			"running": "后台任务运行中",
-			"completed": "后台任务已完成",
-			"failed": "后台任务遇到问题"
-		},
-		"error": {
-			"generic": "这一步遇到问题了"
-		}
 	}
 }

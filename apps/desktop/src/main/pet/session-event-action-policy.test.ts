@@ -11,38 +11,33 @@ const eventBase = {
 } as const;
 
 describe("mapSessionEventToPetPresentation", () => {
-	it("keeps the lifecycle notice visible while the session is running", () => {
+	it("switches to the working animation when a session starts", () => {
 		const event: SessionEvent = { ...eventBase, type: "session.lifecycle", phase: "agent_start" };
 
-		expect(mapSessionEventToPetPresentation(event)?.bubble).toEqual({
-			kind: "status",
-			messageKey: "notice.lifecycle.started",
-			persistent: true,
-			ttlMs: 3_000,
-			dedupeKey: "session-status",
+		expect(mapSessionEventToPetPresentation(event)).toEqual({
+			state: "thinking",
+			actionId: "stoat_work_laptop_typing_desk_cushion",
 		});
 	});
 
-	it("uses a safe, truncated tool description as the running body", () => {
-		const description = "长工具描述".repeat(16);
+	it("shows working while a tool runs", () => {
 		const event: SessionEvent = {
 			...eventBase,
 			type: "tool.start",
 			toolCallId: "tool-1",
 			toolName: "read",
-			args: { description },
+			args: { description: "读取配置文件" },
 			startedAt: 1,
 			source: "tool",
 		};
 
-		const notice = mapSessionEventToPetPresentation(event)?.bubble;
-		expect(notice?.body).toBe(`${description.slice(0, 47)}…`);
-		expect(notice?.messageKey).toBeUndefined();
-		expect(notice?.persistent).toBe(true);
-		expect(notice?.dedupeKey).toBe("session-status");
+		expect(mapSessionEventToPetPresentation(event)).toEqual({
+			state: "working",
+			actionId: "stoat_work_laptop_typing_desk_cushion",
+		});
 	});
 
-	it("uses assistant final text as the terminal bubble body", () => {
+	it("keeps the previous state for an assistant final message", () => {
 		const event = {
 			...eventBase,
 			channel: "assistant",
@@ -53,37 +48,19 @@ describe("mapSessionEventToPetPresentation", () => {
 			message: { role: "assistant", content: [{ type: "text", text: "已完成配置迁移" }] },
 		} as unknown as SessionEvent;
 
-		expect(mapSessionEventToPetPresentation(event)?.bubble).toMatchObject({
-			body: "已完成配置迁移",
-			messageKey: "notice.lifecycle.completed",
-		});
-	});
-
-	it("does not mark a tool-call-only assistant message as completed", () => {
-		const event = {
-			...eventBase,
-			channel: "assistant",
-			source: "agent",
-			modelCallIndex: 0,
-			type: "done",
-			reason: "toolUse",
-			message: { role: "assistant", content: [] },
-		} as unknown as SessionEvent;
-
 		expect(mapSessionEventToPetPresentation(event)).toBeNull();
 	});
 
-	it("marks errors as high-priority structured notices", () => {
+	it("switches to the error animation on failure", () => {
 		const event: SessionEvent = {
 			...eventBase,
 			type: "error",
 			error: { code: "boom", message: "failed", retryable: false, origin: "runtime" },
 		};
 
-		expect(mapSessionEventToPetPresentation(event)?.bubble).toMatchObject({
-			kind: "error",
-			messageKey: "notice.error.generic",
-			priority: "high",
+		expect(mapSessionEventToPetPresentation(event)).toEqual({
+			state: "error",
+			actionId: "stoat_wave_backflip_smoke_fade_exit",
 		});
 	});
 });
