@@ -575,9 +575,10 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 	selectedIdRef.current = selectedId;
 
 	/**
-	 * exclusive：面板打开期间未匹配的键不下沉到 app 层，否则在面板里敲 mod+n
-	 * 会在背后新建会话。开关键显式绑成关闭——app 层那条是 `when: "always"`，
-	 * 不在这里拦下就会被再次「打开」，表现为按了没反应；用的是生效绑定而非默认键。
+	 * exclusive：面板打开期间未匹配的键不下沉到 app 层，避免在背后触发别的全局动作。
+	 * 开关键显式绑成关闭——app 层那条是 `when: "always"`，不在这里拦下就会被再次「打开」，
+	 * 表现为按了没反应。新建会话键绑到面板自己的「新会话」：左下角按钮提示的就是这个键，
+	 * 按下应当关掉面板再新建，而不是被独占吞掉。都用生效绑定而非默认键。
 	 */
 	useShortcutScope({
 		id: "overlay:command-menu",
@@ -591,8 +592,9 @@ export function useCommandMenuModel({ onOpenSession }: UseCommandMenuModelArgs):
 				{ key: "enter", run: () => selectedIdRef.current && activate(selectedIdRef.current) },
 				{ key: "escape", run: () => close() },
 				{ key: toggleKey, run: () => close() },
+				...(newSessionKey ? [{ key: newSessionKey, run: () => newSession() }] : []),
 			],
-			[move, activate, close, toggleKey],
+			[move, activate, close, toggleKey, newSessionKey, newSession],
 		),
 	});
 
