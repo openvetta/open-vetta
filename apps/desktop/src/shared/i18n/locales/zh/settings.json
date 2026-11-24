@@ -1775,7 +1775,7 @@
       }
     },
     "shortcutTitle": "唤起启动器",
-    "shortcutDescription": "在应用内任何地方按下即可打开，按 Esc 关闭",
+    "shortcutDescription": "在应用内任何地方按下即可打开，再按一次或按 Esc 关闭",
     "sidebarHint": "侧栏顶部的搜索按钮也能打开启动器"
   },
   "shortcutOpenModelSelectorLabel": "打开模型选择",

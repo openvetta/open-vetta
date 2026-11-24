@@ -1775,7 +1775,7 @@
       }
     },
     "shortcutTitle": "Open the launcher",
-    "shortcutDescription": "Works anywhere in the app. Press Esc to close",
+    "shortcutDescription": "Works anywhere in the app. Press it again or hit Esc to close",
     "sidebarHint": "The search button at the top of the sidebar opens the launcher too"
   },
   "shortcutOpenModelSelectorLabel": "Open model menu",
