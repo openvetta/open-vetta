@@ -319,6 +319,16 @@ it("starts a new conversation from the panel and closes it", () => {
 	expect(navigate).toHaveBeenLastCalledWith({ to: "/new-session/$cwd", params: { cwd: encodeURIComponent("/w/chat") } });
 });
 
+it("starts a new conversation when the new-session shortcut is pressed inside the panel", () => {
+	store.set(defaultConversationCwdAtom, "/w/chat");
+	render();
+
+	// 面板独占键盘；新建会话键必须由面板自己接住，否则按了没反应。默认绑定即 mod+n。
+	press("mod+n");
+	expect(store.get(commandMenuOpenAtom)).toBe(false);
+	expect(navigate).toHaveBeenLastCalledWith({ to: "/new-session/$cwd", params: { cwd: encodeURIComponent("/w/chat") } });
+});
+
 it("slides the selection only for arrow keys, not when the pointer hovers a row", () => {
 	store.set(projectsAtom, [
 		{ cwd: "/w/a", name: "A", sessionCount: 0, type: "normal" },

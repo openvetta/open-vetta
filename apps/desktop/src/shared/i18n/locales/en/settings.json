@@ -1158,6 +1158,16 @@
   "noArchivedProjects": "No archived projects",
   "unarchive": "Unarchive",
   "deleteProject": "Delete",
+  "archivedSelectAll": "Select all",
+  "archivedSelectProject": "Select {{name}}",
+  "archivedSelectedCount": "{{count}} selected",
+  "archivedClearSelection": "Clear selection",
+  "archivedUnarchiveSelected": "Unarchive selected",
+  "archivedDeleteSelected": "Delete selected",
+  "archivedDeleteSelectedConfirm": "Delete Archived Projects",
+  "archivedDeleteSelectedMessage_one": "Permanently remove {{count}} selected project from the archive list? Files on disk are not deleted.",
+  "archivedDeleteSelectedMessage_other": "Permanently remove {{count}} selected projects from the archive list? Files on disk are not deleted.",
+  "archivedBatchFailed": "{{count}} could not be processed. You can try again.",
   "appearanceTitle": "Appearance",
   "generalTitle": "General",
   "modelTitle": "Model",
@@ -1234,6 +1244,7 @@
   "onboardingAllGranted": "All permissions granted",
   "onboardingDragError": "Drag failed: the Vetta Computer Use helper app could not be found. Please rebuild or reinstall the app",
   "tabGeneral": "General",
+  "tabLauncher": "Launcher",
   "tabAppearance": "Appearance",
   "tabContext": "Agent",
   "tabModels": "Models",
@@ -1252,6 +1263,8 @@
   "tabRemote": "Remote access",
   "section_remote-pairing": "Add a phone",
   "section_general-basics": "Basics",
+  "section_launcher-features": "What it does",
+  "section_launcher-shortcut": "Shortcut",
   "section_general-notifications": "Notifications",
   "section_general-network": "Network proxy",
   "section_general-app": "App",
@@ -1737,8 +1750,44 @@
   "shortcutOpenProjectDesc": "Select and open a project folder",
   "shortcutOpenSettingsLabel": "Open Settings",
   "shortcutOpenSettingsDesc": "Open the settings page",
-  "shortcutOpenCommandMenuLabel": "Open command menu",
+  "shortcutOpenCommandMenuLabel": "Open launcher",
   "shortcutOpenCommandMenuDesc": "Centered palette for projects, sessions, abilities, settings and plugin views",
+  "launcher": {
+    "title": "Launcher",
+    "subtitle": "One entry point, always a keystroke away. Jump back into running sessions, find any project or setting, or start a new conversation without leaving the keyboard.",
+    "pressBefore": "Press",
+    "pressAfter": "anywhere in the app to open it",
+    "tryNow": "Try it now",
+    "preview": {
+      "waitingSession": "Refactor the sign-in flow",
+      "waitingMeta": "2 min ago",
+      "runningSession": "Draft this week's release notes",
+      "runningMeta": "Just now",
+      "recentProject": "my-website",
+      "recentMeta": "Project"
+    },
+    "features": {
+      "active": {
+        "title": "Sessions in progress",
+        "description": "Sessions that need you, are running, or just finished come first"
+      },
+      "search": {
+        "title": "Search everything",
+        "description": "Projects, sessions, abilities and settings in a few keystrokes"
+      },
+      "newSession": {
+        "title": "Start right away",
+        "description": "Open a new session without hunting for a button"
+      },
+      "plugins": {
+        "title": "Plugin views",
+        "description": "Pages from your installed plugins open from here too"
+      }
+    },
+    "shortcutTitle": "Open the launcher",
+    "shortcutDescription": "Works anywhere in the app. Press it again or hit Esc to close",
+    "sidebarHint": "The search button at the top of the sidebar opens the launcher too"
+  },
   "shortcutOpenModelSelectorLabel": "Open model menu",
   "shortcutOpenModelSelectorDesc": "Open the model menu in the input to pick model, reasoning and sandbox access; press again to close.",
   "shortcutSaveFileLabel": "Save File",

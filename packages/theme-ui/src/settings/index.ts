@@ -99,6 +99,15 @@ export type { ImStatusBadgeStatus, ImStatusBadgeViewProps } from "./ImStatusBadg
 export { ImStatusBadgeView } from "./ImStatusBadgeView";
 export type { JsonConfigInputViewProps } from "./JsonConfigInputView";
 export { JsonConfigInputView } from "./JsonConfigInputView";
+export type {
+	LauncherFeatureView,
+	LauncherPreviewGroupView,
+	LauncherPreviewRowView,
+	LauncherPreviewStatusView,
+	LauncherSettingsViewLabels,
+	LauncherSettingsViewProps,
+} from "./LauncherSettingsView";
+export { LauncherSettingsView } from "./LauncherSettingsView";
 export { McpDefaultIcon } from "./McpDefaultIcon";
 export type { McpJsonEditorViewProps } from "./McpJsonEditorView";
 export { McpJsonEditorView } from "./McpJsonEditorView";
@@ -214,6 +223,7 @@ export type {
 } from "./SpaceEditorDialogView";
 export { SpaceEditorDialogView } from "./SpaceEditorDialogView";
 export type {
+	SpacesFeatureView,
 	SpacesSettingsViewItem,
 	SpacesSettingsViewLabels,
 	SpacesSettingsViewProps,

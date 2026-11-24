@@ -20,7 +20,7 @@ import "./command-menu.css";
  * 压在白色玻璃面板和列表内容上就成了一块灰片。这里只覆盖浅色的底色与阴影（深色沿用 ButtonGroup
  * 自带的 dark: 样式不变），不改通用组件。
  */
-const FLOATING_GROUP_CLASS =
+export const COMMAND_MENU_FLOATING_GROUP_CLASS =
 	"pointer-events-auto bg-white/65 shadow-[inset_0_1px_0_rgb(255_255_255/0.95),0_0_0_1px_rgb(0_0_0/0.07),0_6px_18px_-6px_rgb(0_0_0/0.18)]";
 
 /** 悬停提示里的快捷键文字，例如 mac 上的「⌘N」、Windows 上的「Ctrl N」。 */
@@ -73,10 +73,28 @@ export function CommandMenuView({
 		else rowRefs.current.delete(id);
 	}, []);
 
-	// 选中项滚动跟随。用 "nearest" 且不带 smooth：连续按方向键时平滑滚动会排队堆积。
+	// 鼠标悬停也会改选中项，但指针指着的行本来就在眼前，此时滚动只会让列表从指针下溜走。
+	const selectedByPointerRef = useRef(false);
+	const handleHoverItem = useCallback(
+		(id: string) => {
+			// mousemove 会在同一行上反复触发；选中项没变就不会有滚动副作用，别留下标记吞掉下一次键盘跟随。
+			if (id !== selectedId) selectedByPointerRef.current = true;
+			onHoverItem(id);
+		},
+		[onHoverItem, selectedId],
+	);
+
+	// 键盘选中项滚动跟随。用 "nearest" 且不带 smooth：连续按方向键时平滑滚动会排队堆积。
+	// 留白靠列表的 scroll-padding（见下方 className）：底部要越过渐隐区和浮动按钮组再多留一行，
+	// 选中行才不会沉到按钮后面，往下按时也总能看到下一行是什么；顶部同样多留一行。
+	// 不用 "center"：那样每按一下整张列表都要挪动，眼睛跟不住。
 	// 可选链到方法本身：jsdom 与部分老 webview 没有实现 scrollIntoView，不能让它把渲染打断。
 	useEffect(() => {
 		if (!open || !selectedId) return;
+		if (selectedByPointerRef.current) {
+			selectedByPointerRef.current = false;
+			return;
+		}
 		rowRefs.current.get(selectedId)?.scrollIntoView?.({ block: "nearest" });
 	}, [open, selectedId]);
 
@@ -115,7 +133,7 @@ export function CommandMenuView({
 				aria-label={labels.title}
 				// 底部留出浮动按钮组的高度，最后一行滚到底时不会被它盖住；同一段高度做渐隐，
 				// 滚动中的内容在按钮后面淡出，而不是被按钮生硬地截断。
-				className="min-h-0 max-h-[min(460px,60vh)] overflow-y-auto overscroll-contain px-1.5 pt-1.5 pb-14 [mask-image:linear-gradient(to_bottom,black_calc(100%-56px),transparent)]"
+				className="min-h-0 max-h-[min(460px,60vh)] overflow-y-auto overscroll-contain px-1.5 pt-1.5 pb-14 scroll-pt-10 scroll-pb-24 [mask-image:linear-gradient(to_bottom,black_calc(100%-56px),transparent)]"
 			>
 			{groups.map((group) => {
 				if (group.items.length === 0 && !group.loading) return null;
@@ -131,7 +149,7 @@ export function CommandMenuView({
 								active={item.id === selectedId}
 								suppressSelectionAnimation={suppressSelectionAnimation}
 								onActivate={onActivateItem}
-								onHover={onHoverItem}
+								onHover={handleHoverItem}
 								registerRef={registerRef}
 							/>
 						))}
@@ -169,7 +187,7 @@ export function CommandMenuView({
 			<div className="pointer-events-none absolute inset-x-2.5 bottom-2.5 z-10 flex items-center justify-between gap-2">
 				{onNewSession ? (
 					// 只有图标的圆形按钮：胶囊里单个纯图标项正好是一颗与右侧按钮组等高的圆。
-					<ButtonGroup className={FLOATING_GROUP_CLASS}>
+					<ButtonGroup className={COMMAND_MENU_FLOATING_GROUP_CLASS}>
 						<ButtonGroupItem
 							onClick={onNewSession}
 							aria-label={labels.newSession}
@@ -180,7 +198,7 @@ export function CommandMenuView({
 				) : (
 					<span />
 				)}
-				<ButtonGroup className={FLOATING_GROUP_CLASS} aria-label={labels.actionsLabel}>
+				<ButtonGroup className={COMMAND_MENU_FLOATING_GROUP_CLASS} aria-label={labels.actionsLabel}>
 					<ButtonGroupItem
 						disabled={!selectedId}
 						onClick={() => {

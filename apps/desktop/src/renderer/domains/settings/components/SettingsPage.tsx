@@ -11,6 +11,7 @@ import "./settings-highlight.css";
 const SETTINGS_CONTENT: Record<Exclude<SettingsTab, "mcp">, LazyExoticComponent<ComponentType>> = {
 	usage: lazy(SETTINGS_TAB_LOADERS.usage),
 	general: lazy(SETTINGS_TAB_LOADERS.general),
+	launcher: lazy(SETTINGS_TAB_LOADERS.launcher),
 	appearance: lazy(SETTINGS_TAB_LOADERS.appearance),
 	models: lazy(SETTINGS_TAB_LOADERS.models),
 	environment: lazy(SETTINGS_TAB_LOADERS.environment),

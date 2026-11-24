@@ -3,6 +3,7 @@ import type { SettingsTab } from "@shared/store/atoms";
 export type SettingsTabLabelKey =
 	| "tabUsage"
 	| "tabGeneral"
+	| "tabLauncher"
 	| "tabAppearance"
 	| "tabContext"
 	| "tabModels"
@@ -41,6 +42,8 @@ export interface SettingsSectionRegistration {
 export const SETTINGS_TABS: readonly SettingsTabRegistration[] = [
 	{ key: "usage", label: "用量", labelKey: "tabUsage", icon: "icon-[solar--chart-2-linear]" },
 	{ key: "general", label: "通用设置", labelKey: "tabGeneral", icon: "icon-[mdi--cog-outline]" },
+	// ⌘T 面板没有常驻入口，放在靠前的位置让人能发现它。
+	{ key: "launcher", label: "启动器", labelKey: "tabLauncher", icon: "icon-[solar--rocket-2-linear]" },
 	{
 		key: "remote",
 		label: "远程连接",
@@ -97,6 +100,8 @@ export const SETTINGS_SECTIONS = [
 	{ tab: "general", id: "general-network", title: "网络代理", titleKey: "section_general-network" },
 	{ tab: "general", id: "general-app", title: "应用", titleKey: "section_general-app" },
 	{ tab: "general", id: "general-developer", title: "开发者", titleKey: "section_general-developer" },
+	{ tab: "launcher", id: "launcher-features", title: "能做什么", titleKey: "section_launcher-features" },
+	{ tab: "launcher", id: "launcher-shortcut", title: "快捷键", titleKey: "section_launcher-shortcut" },
 	{ tab: "remote", id: "remote-devices", title: "已配对的手机", titleKey: "section_remote-devices" },
 	{ tab: "remote", id: "remote-pairing", title: "添加手机", titleKey: "section_remote-pairing" },
 	{ tab: "remote", id: "remote-cloud", title: "外网访问", titleKey: "section_remote-cloud" },

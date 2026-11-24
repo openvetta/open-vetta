@@ -1158,6 +1158,16 @@
   "noArchivedProjects": "暂无归档项目",
   "unarchive": "取消归档",
   "deleteProject": "删除",
+  "archivedSelectAll": "全选",
+  "archivedSelectProject": "选择「{{name}}」",
+  "archivedSelectedCount": "已选 {{count}} 个",
+  "archivedClearSelection": "取消选择",
+  "archivedUnarchiveSelected": "取消归档所选",
+  "archivedDeleteSelected": "删除所选",
+  "archivedDeleteSelectedConfirm": "删除归档项目",
+  "archivedDeleteSelectedMessage_one": "确定要永久移除所选的 {{count}} 个项目吗？此操作不会删除磁盘上的文件，仅从归档列表中移除。",
+  "archivedDeleteSelectedMessage_other": "确定要永久移除所选的 {{count}} 个项目吗？此操作不会删除磁盘上的文件，仅从归档列表中移除。",
+  "archivedBatchFailed": "有 {{count}} 个未能处理，可以重试。",
   "appearanceTitle": "外观",
   "modelTitle": "模型",
   "mcpTitle": "MCP 管理",
@@ -1234,6 +1244,7 @@
   "onboardingAllGranted": "已完成授权",
   "onboardingDragError": "拖拽失败：未找到 Vetta Computer Use 辅助程序，请重新构建或重装应用",
   "tabGeneral": "通用设置",
+  "tabLauncher": "启动器",
   "tabAppearance": "外观",
   "tabContext": "Agent配置",
   "tabModels": "模型配置",
@@ -1252,6 +1263,8 @@
   "tabRemote": "远程连接",
   "section_remote-pairing": "添加手机",
   "section_general-basics": "基础",
+  "section_launcher-features": "能做什么",
+  "section_launcher-shortcut": "快捷键",
   "section_general-notifications": "通知",
   "section_general-network": "网络代理",
   "section_general-app": "应用",
@@ -1737,8 +1750,44 @@
   "shortcutOpenProjectDesc": "选择并打开一个项目文件夹",
   "shortcutOpenSettingsLabel": "打开设置",
   "shortcutOpenSettingsDesc": "打开设置页面",
-  "shortcutOpenCommandMenuLabel": "打开命令面板",
+  "shortcutOpenCommandMenuLabel": "打开启动器",
   "shortcutOpenCommandMenuDesc": "居中弹出，搜索项目、会话、能力、设置与插件视图",
+  "launcher": {
+    "title": "启动器",
+    "subtitle": "一个随叫随到的入口。不用离开键盘，就能回到进行中的会话、找到任何项目和设置，或者马上开始新的对话。",
+    "pressBefore": "在应用里随时按",
+    "pressAfter": "唤起启动器",
+    "tryNow": "立即试试",
+    "preview": {
+      "waitingSession": "重构登录流程",
+      "waitingMeta": "2 分钟前",
+      "runningSession": "整理本周的发布说明",
+      "runningMeta": "刚刚",
+      "recentProject": "my-website",
+      "recentMeta": "项目"
+    },
+    "features": {
+      "active": {
+        "title": "进行中的会话",
+        "description": "等你回答、运行中、刚完成的会话排在最前，回车直接回去"
+      },
+      "search": {
+        "title": "搜索一切",
+        "description": "项目、会话、能力、设置，输入几个字就能找到"
+      },
+      "newSession": {
+        "title": "马上开始",
+        "description": "不用找按钮，直接开一个新会话"
+      },
+      "plugins": {
+        "title": "插件视图",
+        "description": "已安装插件提供的页面，也能从这里打开"
+      }
+    },
+    "shortcutTitle": "唤起启动器",
+    "shortcutDescription": "在应用内任何地方按下即可打开，再按一次或按 Esc 关闭",
+    "sidebarHint": "侧栏顶部的搜索按钮也能打开启动器"
+  },
   "shortcutOpenModelSelectorLabel": "打开模型选择",
   "shortcutOpenModelSelectorDesc": "在输入框弹出模型菜单，可选模型、思考强度与沙箱权限；再按一次收起。",
   "shortcutSaveFileLabel": "保存文件",
