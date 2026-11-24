@@ -107,7 +107,7 @@ Theme component
 import { useThemeStorage, useThemeUsageStats } from "@vetta-org/theme-sdk";
 ```
 
-`ThemeUsageStats` 来自 app-monitor 聚合（经 host IPC 读取），只含使用指标，不含用户内容。主题修为规则由主题自己定义，**不**复用设置页 fanren/classic 成就阶梯。
+`ThemeUsageStats` 来自 app-monitor 聚合（经 host IPC 读取），只含使用指标，不含用户内容。主题自己的计分规则由主题定义，**不**复用设置页成就阶梯。
 
 远程主题若直接 import `@vetta-org/theme-sdk/storage` 或 `/usage` 子路径，必须在主题包 MF `shared` 中声明对应 singleton（与 host `themeSharedModules` 对齐）；否则会打入第二份 SDK Context，运行时报 `ThemeHostProvider is required`。
 
@@ -118,13 +118,7 @@ import { useThemeStorage, useThemeUsageStats } from "@vetta-org/theme-sdk";
 runtime: [MyCultivationRuntime]
 ```
 
-desktop 在主题激活时挂载 `runtime`。xianxia 示例：
-
-- 组件：`XianxiaCultivationRuntime`（无 UI）
-- 规则：多指标合成 `score`（活跃时长、消息、回合、工具、会话、token、连续活跃天、批量/自动化、知识库、项目、长会话深度等），再按主题自有 `targetScore` 映射 15 境
-- 写入 key：`cultivation`（snapshot version 2）
-- 落盘：`~/.vetta/desktop-app/themes/xianxia/data.json`
-- 验证：DevTools 日志 `[xianxia-cultivation] synced ...`，或直接读 data.json
+desktop 在主题激活时挂载 `runtime`，数据落盘到 `~/.vetta/desktop-app/themes/<themeId>/data.json`。
 
 ## 暂不支持
 
