@@ -88,6 +88,30 @@ describe("区间汇总", () => {
 		expect(summary.dayCount).toBe(7);
 	});
 
+	it("连续使用取区间内最长的一段，中间断一天就重新计", () => {
+		expect(summarizeUsageRange(data, resolveUsageRange("7d", data, null)).longestStreak).toBe(2);
+		const streaky = report([
+			day("2026-11-17", { "a/opus": totals(1) }),
+			day("2026-11-18", { "a/opus": totals(1) }),
+			day("2026-11-19", { "a/opus": totals(1) }),
+			day("2026-11-20", { "a/opus": totals(0, 0, 0, 0) }),
+			day("2026-11-21", { "a/opus": totals(1) }),
+		]);
+		expect(summarizeUsageRange(streaky, resolveUsageRange("7d", streaky, null)).longestStreak).toBe(3);
+		expect(summarizeUsageRange(streaky, { start: "2026-11-18", end: "2026-11-21" }).longestStreak).toBe(2);
+	});
+
+	it("高峰时段按区间内各天同一小时的 token 累加取最大；没有小时数据为空", () => {
+		const hours = (entries: Record<number, number>) => Array.from({ length: 24 }, (_, hour) => entries[hour] ?? 0);
+		const hourly = report([
+			day("2026-11-22", { "a/opus": totals(500) }, hours({ 9: 300, 23: 200 })),
+			day("2026-11-23", { "a/opus": totals(400) }, hours({ 9: 100, 23: 300 })),
+		]);
+		expect(summarizeUsageRange(hourly, resolveUsageRange("3d", hourly, null)).peakHour).toBe(23);
+		expect(summarizeUsageRange(hourly, { start: "2026-11-22", end: "2026-11-22" }).peakHour).toBe(9);
+		expect(summarizeUsageRange(data, resolveUsageRange("7d", data, null)).peakHour).toBeNull();
+	});
+
 	it("缓存命中率 = 缓存读取 / 全部输入侧 token", () => {
 		const summary = summarizeUsageRange(data, { start: "2026-11-20", end: "2026-11-20" });
 		expect(summary.cacheHitRate).toBeCloseTo(300 / (150 + 300));

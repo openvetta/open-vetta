@@ -161,6 +161,14 @@ describe("用量设置页", () => {
 		expect(within(ticket).getByText("活跃 2 天")).toBeTruthy();
 		expect(within(ticket).getByText("5.5K")).toBeTruthy();
 		expect(within(ticket).queryByText("模型请求")).toBeNull();
+		expect(within(ticket).getByText("连续使用")).toBeTruthy();
+		expect(within(ticket).getByText("1 天")).toBeTruthy();
+		expect(within(ticket).getByText("2 个")).toBeTruthy();
+		expect(within(ticket).queryByText("主力模型")).toBeNull();
+		// Model list: names only, no provider / id.
+		expect(within(ticket).getByText("gpt-5")).toBeTruthy();
+		expect(within(ticket).getByText("claude-opus")).toBeTruthy();
+		expect(within(ticket).queryByText(/anthropic|openai/)).toBeNull();
 		await userEvent.keyboard("{Escape}");
 
 		await userEvent.click(screen.getByRole("button", { name: "今天" }));
@@ -171,5 +179,34 @@ describe("用量设置页", () => {
 		expect(within(todayTicket).getByText("TODAY")).toBeTruthy();
 		expect(within(todayTicket).getAllByText("今天").length).toBeGreaterThan(0);
 		expect(within(todayTicket).getAllByText("1.5K").length).toBeGreaterThan(0);
+		expect(within(todayTicket).getByText("高峰时段")).toBeTruthy();
+		expect(within(todayTicket).getByText("9–10 点")).toBeTruthy();
+		expect(within(todayTicket).queryByText("Asia/Shanghai")).toBeNull();
+	});
+
+	it("制作小票：模型超过 5 个时列前 4 个，第 5 行合并为「其他」", async () => {
+		const keys = ["m1", "m2", "m3", "m4", "m5", "m6"];
+		mockReport(async () => ({
+			...REPORT,
+			series: keys.map((key) => ({ key: `p/${key}`, kind: "model" as const, provider: "p", model: key })),
+			days: [
+				{
+					day: "2026-11-23",
+					totals: totals(2100, 0, 6),
+					bySeries: Object.fromEntries(keys.map((key, index) => [`p/${key}`, totals(600 - index * 100, 0, 1)])),
+					hourlyTokens: null,
+				},
+			],
+		}));
+		renderPage();
+		await screen.findByRole("table");
+
+		await userEvent.click(screen.getByRole("button", { name: "制作小票" }));
+		const ticket = within(await screen.findByRole("dialog")).getByRole("img");
+		for (const key of ["m1", "m2", "m3", "m4"]) expect(within(ticket).getByText(key)).toBeTruthy();
+		expect(within(ticket).queryByText("m5")).toBeNull();
+		expect(within(ticket).queryByText("m6")).toBeNull();
+		expect(within(ticket).getByText("其他")).toBeTruthy();
+		expect(within(ticket).getByText("6 个")).toBeTruthy();
 	});
 });

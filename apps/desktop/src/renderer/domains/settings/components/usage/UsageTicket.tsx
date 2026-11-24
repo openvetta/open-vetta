@@ -17,6 +17,8 @@ export interface UsageTicketModel {
 	/** Two rows of three fields under the band. */
 	details: UsageTicketField[];
 	meta: UsageTicketField[];
+	/** Per-model list under the six fields; at most five rows, already folded into "other". */
+	models: { label: string; rows: Array<{ name: string; value: string; share: string }> };
 	/** One-day range: the header shows that date and the total instead of FROM → TO. */
 	single: boolean;
 	/** Right-hand header of a one-day ticket. */
@@ -29,17 +31,28 @@ export interface UsageTicketModel {
 }
 
 export const TICKET_WIDTH = 340;
-export const TICKET_HEIGHT = 560;
 /** The saved image is a poster: the ticket centred on a backdrop with corner captions. */
 export const POSTER_WIDTH = 560;
-export const POSTER_HEIGHT = 760;
 const TICKET_X = (POSTER_WIDTH - TICKET_WIDTH) / 2;
-const TICKET_Y = (POSTER_HEIGHT - TICKET_HEIGHT) / 2;
+/** Backdrop above and below the ticket. */
+const POSTER_MARGIN = 100;
 const CORNER = 28;
-/** Left edge of the middle column under the band. */
-const DETAIL_SECOND_X = 206;
 const PAD = 24;
-const PERFORATION_Y = 360;
+/**
+ * Values in the first column under the band ellipsise before reaching the centred middle one;
+ * wide enough for "23:00–24:00", the longest peak-hour range.
+ */
+const DETAIL_FIRST_WIDTH = TICKET_WIDTH / 2 - PAD - 34;
+/** Baseline of the model list's caption, under the second row of fields. */
+const MODEL_LIST_Y = 340;
+const MODEL_ROW_FIRST = 370;
+const MODEL_ROW_STEP = 20;
+/** Right edge of the token column in the model list; the share sits at the ticket's right padding. */
+const MODEL_VALUE_X = TICKET_WIDTH - PAD - 56;
+/** Perforation of a ticket with no model rows; each row pushes it down. */
+const BASE_PERFORATION_Y = 360;
+/** Stub under the perforation: barcode, serial and footer. */
+const STUB_HEIGHT = 200;
 const NOTCH = 14;
 const RADIUS = 18;
 
@@ -105,12 +118,26 @@ function BrandIcon({ href, x, y, size, clipId }: { href: string; x: number; y: n
 	);
 }
 
-function ticketPath(): string {
+export interface TicketLayout {
+	perforationY: number;
+	ticketHeight: number;
+	posterHeight: number;
+}
+
+/** The ticket grows with its model list, so the poster's height depends on the row count. */
+export function ticketLayout(modelRows: number): TicketLayout {
+	const perforationY =
+		modelRows > 0 ? MODEL_ROW_FIRST + (modelRows - 1) * MODEL_ROW_STEP + 30 : BASE_PERFORATION_Y;
+	const ticketHeight = perforationY + STUB_HEIGHT;
+	return { perforationY, ticketHeight, posterHeight: ticketHeight + POSTER_MARGIN * 2 };
+}
+
+function ticketPath({ perforationY, ticketHeight }: TicketLayout): string {
 	const w = TICKET_WIDTH;
-	const h = TICKET_HEIGHT;
+	const h = ticketHeight;
 	const r = RADIUS;
 	const n = NOTCH;
-	const y = PERFORATION_Y;
+	const y = perforationY;
 	return [
 		`M ${r} 0 H ${w - r} A ${r} ${r} 0 0 1 ${w} ${r}`,
 		`V ${y - n} A ${n} ${n} 0 0 0 ${w} ${y + n}`,
@@ -211,6 +238,8 @@ function Field({
 export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel }>(
 	function UsageTicket({ ticket }, ref) {
 		const palette = TICKET_PALETTE;
+		const layout = ticketLayout(ticket.models.rows.length);
+		const { perforationY, ticketHeight, posterHeight } = layout;
 
 		const iconHref = useBrandIconDataUrl();
 		const clipBase = useId().replace(/[^a-zA-Z0-9_-]/g, "");
@@ -237,14 +266,14 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel 
 						ref={ref}
 						xmlns="http://www.w3.org/2000/svg"
 						width={POSTER_WIDTH}
-						height={POSTER_HEIGHT}
-						viewBox={`0 0 ${POSTER_WIDTH} ${POSTER_HEIGHT}`}
+						height={posterHeight}
+						viewBox={`0 0 ${POSTER_WIDTH} ${posterHeight}`}
 						className="h-auto max-w-full"
 						fontFamily={TICKET_FONT}
 						role="img"
 						aria-label={`${ticket.from.big} – ${ticket.to.big} · ${ticket.highlights[0]?.value ?? ""}`}
 					>
-						<rect width={POSTER_WIDTH} height={POSTER_HEIGHT} fill={palette.backdrop} />
+						<rect width={POSTER_WIDTH} height={posterHeight} fill={palette.backdrop} />
 						{iconHref && (
 							<BrandIcon href={iconHref} x={CORNER} y={CORNER - 4} size={22} clipId={`${clipBase}-corner`} />
 						)}
@@ -252,7 +281,7 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel 
 							<text
 								key={`${index}-${caption}`}
 								x={index === 0 && iconHref ? CORNER + 30 : index % 2 === 0 ? CORNER : POSTER_WIDTH - CORNER}
-								y={index < 2 ? CORNER + 12 : POSTER_HEIGHT - CORNER}
+								y={index < 2 ? CORNER + 12 : posterHeight - CORNER}
 								textAnchor={index % 2 === 0 ? "start" : "end"}
 								fontSize={13}
 								fill={palette.caption}
@@ -261,8 +290,8 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel 
 								{caption}
 							</text>
 						))}
-						<g transform={`translate(${TICKET_X}, ${TICKET_Y})`}>
-						<path d={ticketPath()} fill={palette.paper} />
+						<g transform={`translate(${TICKET_X}, ${POSTER_MARGIN})`}>
+						<path d={ticketPath(layout)} fill={palette.paper} />
 
 						{ticket.single ? (
 							<>
@@ -390,47 +419,79 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel 
 							<Field
 								key={field.label}
 								field={field}
-								x={index === 0 ? PAD : index === 1 ? DETAIL_SECOND_X : w - PAD}
-								anchor={index === 2 ? "end" : "start"}
+								x={index === 0 ? PAD : index === 1 ? mid : w - PAD}
+								anchor={index === 0 ? "start" : index === 1 ? "middle" : "end"}
 								y={230}
 								palette={palette}
 								max={8}
-								clipWidth={index === 0 ? DETAIL_SECOND_X - PAD - 14 : undefined}
+								clipWidth={index === 0 ? DETAIL_FIRST_WIDTH : undefined}
 							/>
 						))}
 						{ticket.meta.map((field, index) => (
 							<Field
 								key={field.label}
 								field={field}
-								x={index === 0 ? PAD : index === 1 ? DETAIL_SECOND_X : w - PAD}
-								anchor={index === 2 ? "end" : "start"}
+								x={index === 0 ? PAD : index === 1 ? mid : w - PAD}
+								anchor={index === 0 ? "start" : index === 1 ? "middle" : "end"}
 								y={290}
 								palette={palette}
 								size={13}
 								max={10}
-								clipWidth={index === 0 ? DETAIL_SECOND_X - PAD - 14 : undefined}
+								clipWidth={index === 0 ? DETAIL_FIRST_WIDTH : undefined}
 							/>
 						))}
+
+						{ticket.models.rows.length > 0 && (
+							<g>
+								<text x={PAD} y={MODEL_LIST_Y} fontSize={10} fill={palette.muted}>
+									{ticket.models.label}
+								</text>
+								<line
+									x1={PAD}
+									x2={w - PAD}
+									y1={MODEL_LIST_Y + 7}
+									y2={MODEL_LIST_Y + 7}
+									stroke={palette.faint}
+									strokeDasharray="2 3"
+								/>
+								{ticket.models.rows.map((row, index) => {
+									const y = MODEL_ROW_FIRST + index * MODEL_ROW_STEP;
+									return (
+										<g key={`${index}-${row.name}`}>
+											<text x={PAD} y={y} fontSize={12} fontWeight={600} fill={palette.ink}>
+												{clipToWidth(row.name, 12, MODEL_VALUE_X - PAD - 24)}
+											</text>
+											<text x={MODEL_VALUE_X} y={y} fontSize={12} fill={palette.muted} textAnchor="end">
+												{row.value}
+											</text>
+											<text x={w - PAD} y={y} fontSize={12} fontWeight={600} fill={palette.ink} textAnchor="end">
+												{row.share}
+											</text>
+										</g>
+									);
+								})}
+							</g>
+						)}
 
 						{/* Perforation */}
 						<line
 							x1={NOTCH + 10}
 							x2={w - NOTCH - 10}
-							y1={PERFORATION_Y}
-							y2={PERFORATION_Y}
+							y1={perforationY}
+							y2={perforationY}
 							stroke={palette.faint}
 							strokeDasharray="3 3"
 						/>
 
 						{/* Barcode */}
-						<g transform={`translate(${PAD}, ${PERFORATION_Y + 34})`}>
+						<g transform={`translate(${PAD}, ${perforationY + 34})`}>
 							{bars.map((bar) => (
 								<rect key={bar.x} x={bar.x} y={0} width={bar.w} height={88} fill={palette.ink} />
 							))}
 						</g>
 						<text
 							x={mid}
-							y={PERFORATION_Y + 144}
+							y={perforationY + 144}
 							fontSize={10}
 							fill={palette.ink}
 							textAnchor="middle"
@@ -439,7 +500,7 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel 
 						>
 							{ticket.serial}
 						</text>
-						<text x={mid} y={TICKET_HEIGHT - 22} fontSize={9} fill={palette.muted} textAnchor="middle" letterSpacing={1.6}>
+						<text x={mid} y={ticketHeight - 22} fontSize={9} fill={palette.muted} textAnchor="middle" letterSpacing={1.6}>
 							{ticket.footer}
 						</text>
 						</g>
@@ -452,6 +513,7 @@ export const UsageTicket = forwardRef<SVGSVGElement, { ticket: UsageTicketModel 
 
 /** Rasterises the ticket SVG to a PNG data URL at the given pixel ratio. */
 export async function renderTicketPng(svg: SVGSVGElement, scale = 2): Promise<string> {
+	const posterHeight = svg.viewBox.baseVal.height;
 	const markup = new XMLSerializer().serializeToString(svg);
 	const url = URL.createObjectURL(new Blob([markup], { type: "image/svg+xml;charset=utf-8" }));
 	try {
@@ -461,11 +523,11 @@ export async function renderTicketPng(svg: SVGSVGElement, scale = 2): Promise<st
 		await image.decode();
 		const canvas = document.createElement("canvas");
 		canvas.width = POSTER_WIDTH * scale;
-		canvas.height = POSTER_HEIGHT * scale;
+		canvas.height = posterHeight * scale;
 		const ctx = canvas.getContext("2d");
 		if (!ctx) throw new Error("canvas unavailable");
 		ctx.scale(scale, scale);
-		ctx.drawImage(image, 0, 0, POSTER_WIDTH, POSTER_HEIGHT);
+		ctx.drawImage(image, 0, 0, POSTER_WIDTH, posterHeight);
 		return canvas.toDataURL("image/png");
 	} finally {
 		URL.revokeObjectURL(url);
