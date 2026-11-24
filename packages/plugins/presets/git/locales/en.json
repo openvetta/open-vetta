@@ -29,6 +29,7 @@
 	"publish.confirm": "Publish and push",
 	"error.detachedHead": "HEAD is detached — check out a branch before pushing.",
 	"error.noRemote": "This repository has no remote configured.",
+	"section.resize": "Drag to resize",
 	"section.conflict": "Merge conflicts",
 	"section.staged": "Staged changes",
 	"section.unstaged": "Changes",

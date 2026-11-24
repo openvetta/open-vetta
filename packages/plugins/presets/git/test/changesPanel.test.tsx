@@ -56,10 +56,30 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-function setup() {
+/** 用原生指针事件驱动手柄：jsdom 里 fireEvent.pointer* 依赖 PointerEvent，直接派发鼠标事件更稳。 */
+function drag(handle: HTMLElement, fromY: number, toY: number): void {
+	handle.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, clientY: fromY }));
+	window.dispatchEvent(new MouseEvent("pointermove", { clientY: toY }));
+	window.dispatchEvent(new MouseEvent("pointerup", {}));
+}
+
+/** 同时有暂存与未暂存两段的分区，用来验证分区之间的拉伸。 */
+const MIXED: StatusGroups = {
+	conflict: [],
+	staged: [
+		{ path: "packages/plugins/presets/git/src/staged-a.ts", code: "M" },
+		{ path: "packages/plugins/presets/git/src/staged-b.ts", code: "A" },
+	],
+	unstaged: [
+		{ path: NESTED, code: "M" },
+		{ path: SHALLOW, code: "D" },
+	],
+};
+
+function setup(sections: StatusGroups = groups) {
 	const run = vi.fn(async (_file: string, args: string[] = []) => ({ exitCode: 0, stderr: "", stdout: patch(args.at(-1) ?? "") }));
 	setGitCommand({ run });
-	const view = render(<GitChanges root="/repo" groups={groups} onOpenGraph={() => {}} />);
+	const view = render(<GitChanges root="/repo" groups={sections} onOpenGraph={() => {}} />);
 	// 行的 title 是完整路径，用它定位行；行内文本即「文件名 + 状态字母」。
 	const row = (path: string): HTMLElement => {
 		const el = view.container.querySelector<HTMLElement>(`button[title="${path}"]`);
@@ -92,6 +112,41 @@ describe("changes panel", () => {
 		expect(row(NESTED).className.split(" ")).not.toContain("bg-accent");
 	});
 
+
+	it("lets the lower section grow by dragging the divider", async () => {
+		setup(MIXED);
+
+		// 两个分区（展开）之间才会有一个可拖手柄。
+		const handle = await screen.findByTitle("section.resize");
+		const staged = handle.parentElement as HTMLElement;
+		const unstaged = staged.nextElementSibling as HTMLElement;
+		const weightOf = (el: HTMLElement): number => Number.parseFloat(el.style.flex.split(" ")[0] ?? "0");
+		const before = { staged: weightOf(staged), unstaged: weightOf(unstaged) };
+
+		// 向上拖：上方分区让出高度，下方分区变高（权重按 px 换算）。
+		drag(handle, 300, 180);
+
+		await waitFor(() => expect(weightOf(staged)).toBeLessThan(before.staged));
+		expect(weightOf(unstaged)).toBeGreaterThan(before.unstaged);
+		// 上下两边的总权重不变，容器变高变矮时比例仍然成立。
+		expect(weightOf(staged) + weightOf(unstaged)).toBeCloseTo(before.staged + before.unstaged, 5);
+	});
+
+	it("stops shrinking a section at its usable minimum", async () => {
+		setup(MIXED);
+
+		const handle = await screen.findByTitle("section.resize");
+		const staged = handle.parentElement as HTMLElement;
+		const unstaged = staged.nextElementSibling as HTMLElement;
+		const weightOf = (el: HTMLElement): number => Number.parseFloat(el.style.flex.split(" ")[0] ?? "0");
+
+		// 向上拖一个远超可用空间的距离：上方分区不许被拖没，停在最小可用高度。
+		drag(handle, 300, -100000);
+
+		const total = weightOf(staged) + weightOf(unstaged);
+		const pxPerWeight = 600 / total;
+		await waitFor(() => expect(weightOf(staged) * pxPerWeight).toBeGreaterThanOrEqual(76));
+	});
 
 	it("shows the selected file's full path under its name in the diff header", async () => {
 		const { container, row, run } = setup();

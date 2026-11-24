@@ -1,18 +1,33 @@
 import { useRef } from "react";
 
 /**
- * Thin vertical drag handle for the tree/diff splitter. Reports incremental
- * horizontal deltas; the parent clamps and applies the width.
+ * Thin drag handle for a splitter. Reports incremental deltas along the split
+ * axis: `vertical` (a column divider, reports X) or `horizontal` (a row
+ * divider, reports Y).
  */
-export function SplitHandle({ onDrag }: { onDrag: (deltaX: number) => void }): JSX.Element {
-	const lastX = useRef(0);
+export function SplitHandle({
+	onDrag,
+	onDragStart,
+	orientation = "vertical",
+	title,
+}: {
+	onDrag: (delta: number) => void;
+	/** Called once when the drag begins — the moment to snapshot current sizes. */
+	onDragStart?: () => void;
+	orientation?: "vertical" | "horizontal";
+	/** Optional hint shown on hover; omit for purely decorative dividers. */
+	title?: string;
+}): JSX.Element {
+	const last = useRef(0);
 
 	const onPointerDown = (event: React.PointerEvent<HTMLDivElement>): void => {
 		event.preventDefault();
-		lastX.current = event.clientX;
+		onDragStart?.();
+		last.current = orientation === "vertical" ? event.clientX : event.clientY;
 		const move = (ev: PointerEvent): void => {
-			onDrag(ev.clientX - lastX.current);
-			lastX.current = ev.clientX;
+			const current = orientation === "vertical" ? ev.clientX : ev.clientY;
+			onDrag(current - last.current);
+			last.current = current;
 		};
 		const up = (): void => {
 			window.removeEventListener("pointermove", move);
@@ -25,7 +40,12 @@ export function SplitHandle({ onDrag }: { onDrag: (deltaX: number) => void }): J
 	return (
 		<div
 			onPointerDown={onPointerDown}
-			className="absolute right-0 top-0 z-10 h-full w-1 cursor-col-resize bg-transparent transition-colors hover:bg-accent"
+			title={title}
+			className={
+				orientation === "vertical"
+					? "absolute right-0 top-0 z-10 h-full w-1 cursor-col-resize bg-transparent transition-colors hover:bg-accent"
+					: "absolute bottom-0 left-0 z-10 h-1 w-full cursor-row-resize bg-transparent transition-colors hover:bg-accent"
+			}
 		/>
 	);
 }

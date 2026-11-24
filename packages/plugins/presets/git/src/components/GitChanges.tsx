@@ -8,7 +8,7 @@ import type { ChangeRef, ChangeSection, StatusGroups } from "../git/types";
 import type { MenuPoint } from "./ChangeMenu";
 import { FloatingChangeMenu } from "./ChangeMenu";
 import { BranchBar } from "./BranchBar";
-import { ChangeSectionList } from "./ChangeSectionList";
+import { ChangeSectionList, SECTION_MIN_HEIGHT } from "./ChangeSectionList";
 import { CleanState } from "./CleanState";
 import { CommitBox } from "./CommitBox";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -112,6 +112,67 @@ export function GitChanges({ root, groups, onOpenGraph }: { root: string; groups
 		[wide],
 	);
 
+	/**
+	 * 分区间的高度权重。
+	 *
+	 * 未拖动时按文件数分配（小数区分区不会挤成一条），一旦用户拖动就冻结成权重：
+	 * 高度 = 权重 / 总权重 × 可用高度，所以容器变高变矮时比例仍然成立，不会把
+	 * 最后一个分区顶出可视区。分区增删（例如提交后暂存区清空）时回到默认比例，
+	 * 免得上一次的比例套在完全不同的内容上。
+	 */
+	const sectionsBodyRef = useRef<HTMLDivElement | null>(null);
+	const [weights, setWeights] = useState<Partial<Record<ChangeSection, number>>>({});
+	const weightsRef = useRef(weights);
+	weightsRef.current = weights;
+	// 一次拖拽会话内的换算基准：可用高度与权重总和。
+	const dragScaleRef = useRef<{ available: number; total: number } | null>(null);
+
+	const visibleSections = SECTION_ORDER.filter((section) => groups[section].length > 0 && !collapsed[section]);
+	const visibleKey = visibleSections.join(",");
+
+	// 可见分区集合变化时回到默认比例。
+	useEffect(() => {
+		setWeights({});
+		weightsRef.current = {};
+	}, [visibleKey]);
+
+	const beginSectionResize = useCallback(() => {
+		const el = sectionsBodyRef.current;
+		if (!el) return;
+		const seeded: Partial<Record<ChangeSection, number>> = {};
+		let total = 0;
+		for (const section of visibleSections) {
+			const weight = weightsRef.current[section] ?? groups[section].length;
+			seeded[section] = weight;
+			total += weight;
+		}
+		if (total <= 0) return;
+		setWeights(seeded);
+		weightsRef.current = seeded;
+		dragScaleRef.current = { available: el.clientHeight, total };
+	}, [visibleSections, groups]);
+
+	const resizeSections = useCallback(
+		(above: ChangeSection, below: ChangeSection, deltaY: number) => {
+			const scale = dragScaleRef.current;
+			if (!scale || scale.available <= 0) return;
+			const pxPerWeight = scale.available / scale.total;
+			const minWeight = SECTION_MIN_HEIGHT / pxPerWeight;
+			const current = weightsRef.current;
+			const aboveWeight = current[above] ?? 0;
+			const belowWeight = current[below] ?? 0;
+			// 两边都不许被拖到小于最小可用高度，超出部分直接丢弃（继续拖不会累积）。
+			let dw = deltaY / pxPerWeight;
+			dw = Math.min(dw, belowWeight - minWeight);
+			dw = Math.max(dw, minWeight - aboveWeight);
+			if (dw === 0) return;
+			const next = { ...current, [above]: aboveWeight + dw, [below]: belowWeight - dw };
+			weightsRef.current = next;
+			setWeights(next);
+		},
+		[],
+	);
+
 	const onSplitDrag = useCallback(
 		(deltaX: number) => {
 			setListWidth((w) => {
@@ -182,21 +243,30 @@ export function GitChanges({ root, groups, onOpenGraph }: { root: string; groups
 					>
 						<CommitBox root={root} groups={groups} />
 						{/* 分区自己吃满剩余高度并各自内部滚动，外层不再整体滚动。 */}
-						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-							{SECTION_ORDER.map((section) => (
-								<ChangeSectionList
-									key={section}
-									title={sectionTitles[section]}
-									entries={groups[section]}
-									collapsed={collapsed[section]}
-									onToggleCollapsed={() => setCollapsed((prev) => ({ ...prev, [section]: !prev[section] }))}
-									selectedPaths={selection.section === section ? selection.paths : []}
-									onSelectionChange={(paths, added) => handleSelection(section, paths, added)}
-									renderMenu={(paths, close, point) => renderSectionMenu(section, paths, close, point)}
-									actions={renderSectionActions(section)}
-									tone={section === "conflict" ? "danger" : undefined}
-								/>
-							))}
+						<div ref={sectionsBodyRef} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+							{SECTION_ORDER.map((section) => {
+								// 只有下面确实还有展开的分区时才给手柄（空分区与折叠分区都不参与分配）。
+								const visibleIndex = visibleSections.indexOf(section);
+								const resizableBelow = visibleIndex < 0 ? undefined : visibleSections[visibleIndex + 1];
+								return (
+									<ChangeSectionList
+										key={section}
+										title={sectionTitles[section]}
+										entries={groups[section]}
+										collapsed={collapsed[section]}
+										onToggleCollapsed={() => setCollapsed((prev) => ({ ...prev, [section]: !prev[section] }))}
+										selectedPaths={selection.section === section ? selection.paths : []}
+										onSelectionChange={(paths, added) => handleSelection(section, paths, added)}
+										renderMenu={(paths, close, point) => renderSectionMenu(section, paths, close, point)}
+										actions={renderSectionActions(section)}
+										tone={section === "conflict" ? "danger" : undefined}
+										weight={weights[section]}
+										onResizeStart={beginSectionResize}
+										onResize={resizableBelow ? (deltaY) => resizeSections(section, resizableBelow, deltaY) : undefined}
+										resizeTitle={resizableBelow ? t("section.resize") : undefined}
+									/>
+								);
+							})}
 						</div>
 						{wide && <SplitHandle onDrag={onSplitDrag} />}
 					</div>
