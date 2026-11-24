@@ -19,7 +19,11 @@ afterEach(() => {
 const section = (id: string) => ({ id });
 
 function renderView(overrides: Partial<PetSettingsViewProps> = {}) {
-	const onCommit = vi.fn();
+	// Sizes the view committed, in order.
+	const committedSizes: number[] = [];
+	const onCommit = vi.fn((value: number) => {
+		committedSizes.push(value);
+	});
 	const onChangeAutoMode = vi.fn();
 	const props: PetSettingsViewProps = {
 		labels: {
@@ -79,7 +83,7 @@ function renderView(overrides: Partial<PetSettingsViewProps> = {}) {
 	const root = createRoot(container);
 	mounted.push({ root, container });
 	act(() => root.render(<PetSettingsView {...props} />));
-	return { container, onCommit, onChangeAutoMode };
+	return { container, committedSizes, onChangeAutoMode };
 }
 
 describe("Vetta Vivi 设置页", () => {
@@ -95,15 +99,15 @@ describe("Vetta Vivi 设置页", () => {
 	});
 
 	it("键盘调整大小时提交新的缩放值", () => {
-		const { container, onCommit } = renderView();
+		const { container, committedSizes } = renderView();
 		const slider = container.querySelector<HTMLInputElement>('input[type="range"][aria-label="大小"]');
 
 		act(() => {
 			slider?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
 		});
 
-		expect(onCommit).toHaveBeenCalledTimes(1);
-		expect(onCommit.mock.calls[0]?.[0]).toBeCloseTo(1.05);
+		expect(committedSizes).toHaveLength(1);
+		expect(committedSizes[0]).toBeCloseTo(1.05);
 	});
 
 	it("桌宠隐藏时大小与自动切换不可调", () => {

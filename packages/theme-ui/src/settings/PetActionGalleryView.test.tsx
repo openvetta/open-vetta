@@ -15,8 +15,15 @@ let reducedMotion = false;
 beforeEach(() => {
 	vi.useFakeTimers();
 	reducedMotion = false;
-	play = vi.fn(() => Promise.resolve());
-	pause = vi.fn();
+	// Playback state lands on the element itself, so tests read what the preview is doing.
+	play = vi.fn(function (this: HTMLMediaElement) {
+		this.dataset.playback = "playing";
+		this.dataset.everPlayed = "true";
+		return Promise.resolve();
+	});
+	pause = vi.fn(function (this: HTMLMediaElement) {
+		this.dataset.playback = "paused";
+	});
 	Object.defineProperty(HTMLMediaElement.prototype, "play", { configurable: true, value: play });
 	Object.defineProperty(HTMLMediaElement.prototype, "pause", { configurable: true, value: pause });
 	Object.defineProperty(window, "matchMedia", {
@@ -58,7 +65,11 @@ const groups: PetActionGalleryViewProps["groups"] = [
 ];
 
 function renderGallery(overrides: Partial<PetActionGalleryViewProps> = {}) {
-	const onPlay = vi.fn();
+	// Actions handed to the desktop pet, in order.
+	const played: string[] = [];
+	const onPlay = vi.fn((actionId: string) => {
+		played.push(actionId);
+	});
 	const container = document.createElement("div");
 	document.body.append(container);
 	const root = createRoot(container);
@@ -74,7 +85,7 @@ function renderGallery(overrides: Partial<PetActionGalleryViewProps> = {}) {
 		) as HTMLButtonElement;
 	const playButton = () => container.querySelector<HTMLButtonElement>('button[aria-label^="播放"]') as HTMLButtonElement;
 	const video = () => container.querySelector("video");
-	return { container, onPlay, chip, playButton, video };
+	return { container, played, chip, playButton, video };
 }
 
 describe("桌宠动作画廊", () => {
@@ -85,7 +96,7 @@ describe("桌宠动作画廊", () => {
 		expect(container.querySelectorAll('button[aria-label^="播放"]')).toHaveLength(1);
 		expect(container.querySelectorAll("video")).toHaveLength(1);
 		expect(video()?.getAttribute("src")).toBe("vetta-media://sleep.webm");
-		expect(play).not.toHaveBeenCalled();
+		expect(video()?.dataset.everPlayed).toBeUndefined();
 	});
 
 	it("聚焦某个动作时预览它并显示说明，焦点离开画廊后暂停", () => {
@@ -96,15 +107,14 @@ describe("桌宠动作画廊", () => {
 
 		expect(video()?.getAttribute("src")).toBe("vetta-media://tea.webm");
 		expect(container.textContent).toContain("慢慢喝");
-		expect(play).toHaveBeenCalled();
+		expect(video()?.dataset.playback).toBe("playing");
 
-		pause.mockClear();
 		act(() => chip("喝茶").blur());
-		expect(pause).toHaveBeenCalled();
+		expect(video()?.dataset.playback).toBe("paused");
 	});
 
 	it("只是划过不选中时，播放的仍是已选动作，预览回到它", () => {
-		const { chip, playButton, video, onPlay } = renderGallery();
+		const { chip, playButton, video, played } = renderGallery();
 
 		act(() => chip("喝茶").focus());
 		act(() => vi.advanceTimersByTime(200));
@@ -113,17 +123,17 @@ describe("桌宠动作画廊", () => {
 
 		expect(video()?.getAttribute("src")).toBe("vetta-media://sleep.webm");
 		act(() => playButton().click());
-		expect(onPlay).toHaveBeenCalledWith("sleep");
+		expect(played).toEqual(["sleep"]);
 	});
 
 	it("点选动作后播放交给桌宠，并短暂显示已开始", () => {
-		const { chip, playButton, onPlay } = renderGallery();
+		const { chip, playButton, played } = renderGallery();
 
 		act(() => chip("喝茶").click());
 		expect(chip("喝茶").getAttribute("aria-pressed")).toBe("true");
 
 		act(() => playButton().click());
-		expect(onPlay).toHaveBeenCalledWith("tea");
+		expect(played).toEqual(["tea"]);
 		expect(playButton().textContent).toContain("已开始");
 		act(() => vi.advanceTimersByTime(2000));
 		expect(playButton().textContent).toContain("播放");
@@ -136,7 +146,7 @@ describe("桌宠动作画廊", () => {
 		act(() => chip("喝茶").click());
 
 		expect(video()?.getAttribute("src")).toBe("vetta-media://tea.webm");
-		expect(play).not.toHaveBeenCalled();
+		expect(video()?.dataset.everPlayed).toBeUndefined();
 	});
 
 	it("桌宠没显示或选中的动作缺素材时不能播放", () => {

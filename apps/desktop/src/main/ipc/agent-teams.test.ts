@@ -499,16 +499,16 @@ describe("Agent Team IPC contract", () => {
 			timestamp: 2,
 			event: { type: "text_delta", contentIndex: 0, delta: "answer ", partial: fatPartial },
 		});
-		await vi.waitFor(() =>
-			expect(sender.send).toHaveBeenCalledWith(
-				"vetta:agent-teams:stream-event",
-				result.subscriptionId,
-				expect.objectContaining({
-					type: "conversation.agent-message-event",
-					event: expect.objectContaining({ delta: "answer ", partial: SLIM_ASSISTANT_PARTIAL }),
-				}),
-			),
-		);
+		// What the renderer receives: the token delta without the growing message.
+		const delivered = await vi.waitFor(() => {
+			const payload = sender.send.mock.calls
+				.map((call) => call[2] as { type: string; event?: { delta?: string; partial?: unknown } })
+				.find((sent) => sent.type === "conversation.agent-message-event");
+			if (!payload?.event) throw new Error("agent message event not delivered yet");
+			return payload.event;
+		});
+		expect(delivered.delta).toBe("answer ");
+		expect(delivered.partial).toBe(SLIM_ASSISTANT_PARTIAL);
 		const onDestroyed = sender.once.mock.calls[0]?.[1] as (() => void) | undefined;
 		onDestroyed?.();
 		expect(unsubscribe).toHaveBeenCalledOnce();

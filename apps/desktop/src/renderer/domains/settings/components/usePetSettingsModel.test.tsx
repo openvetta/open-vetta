@@ -8,17 +8,21 @@ vi.mock("react-i18next", () => ({
 	useTranslation: () => ({ t: (key: string) => key }),
 }));
 
+/** What the desktop pet side received: persisted config patches and actions it was told to play. */
+const desktop = { savedPatches: [] as Partial<PetConfig>[], playedActions: [] as string[] };
+
 const pet = {
 	getConfig: vi.fn(async (): Promise<PetConfig> => ({ ...DEFAULT_PET_CONFIG, enabled: true })),
-	setConfig: vi.fn(async (patch: Partial<PetConfig>): Promise<PetConfig> => ({
-		...DEFAULT_PET_CONFIG,
-		enabled: true,
-		...patch,
-	})),
+	setConfig: vi.fn(async (patch: Partial<PetConfig>): Promise<PetConfig> => {
+		desktop.savedPatches.push(patch);
+		return { ...DEFAULT_PET_CONFIG, enabled: true, ...patch };
+	}),
 	onConfigChanged: vi.fn(() => () => {}),
 	show: vi.fn(),
 	hide: vi.fn(),
-	setAction: vi.fn(async () => {}),
+	setAction: vi.fn(async (action: string) => {
+		desktop.playedActions.push(action);
+	}),
 	getDecorations: vi.fn(async () => []),
 	getActionVideos: vi.fn(async () => [
 		{ id: "stoat_sleep_lie_on_cushion", found: true, url: "vetta-media://sleep.webm" },
@@ -42,6 +46,8 @@ async function renderModel() {
 describe("Vetta Vivi 设置模型", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		desktop.savedPatches = [];
+		desktop.playedActions = [];
 		vi.useFakeTimers();
 	});
 
@@ -56,14 +62,14 @@ describe("Vetta Vivi 设置模型", () => {
 		act(() => result.current.size.onCommit(1.1));
 		act(() => result.current.size.onCommit(1.15));
 		expect(result.current.config.videoScale).toBeCloseTo(1.15);
-		expect(pet.setConfig).not.toHaveBeenCalled();
+		expect(desktop.savedPatches).toEqual([]);
 
 		await act(async () => {
 			vi.advanceTimersByTime(250);
 		});
 
-		expect(pet.setConfig).toHaveBeenCalledTimes(1);
-		expect(pet.setConfig.mock.calls[0]?.[0].videoScale).toBeCloseTo(1.15);
+		expect(desktop.savedPatches).toHaveLength(1);
+		expect(desktop.savedPatches[0]?.videoScale).toBeCloseTo(1.15);
 	});
 
 	it("按分组列出动作，带上可播放的视频地址", async () => {
@@ -82,11 +88,11 @@ describe("Vetta Vivi 设置模型", () => {
 		const { result } = await renderModel();
 
 		act(() => result.current.actions.playAction("stoat_skip_rope_jump"));
-		expect(pet.setAction).toHaveBeenCalledWith("stoat_skip_rope_jump");
+		expect(desktop.playedActions).toEqual(["stoat_skip_rope_jump"]);
 
 		await act(async () => {
 			result.current.actions.changeAutoMode(false);
 		});
-		expect(pet.setConfig).toHaveBeenCalledWith({ autoMode: false });
+		expect(desktop.savedPatches).toEqual([{ autoMode: false }]);
 	});
 });

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 
@@ -23,10 +23,11 @@ function renderPreview(props: Parameters<typeof TextPreviewRenderer>[0]) {
 const huge = "const value = 1;\n".repeat(Math.ceil((RENDERED_PREVIEW_SIZE_LIMIT + 1) / 17));
 
 describe("TextPreviewRenderer", () => {
-	it("shows huge sources in the virtualized editor instead of highlighting them whole", () => {
+	it("shows huge sources in the virtualized editor instead of highlighting them whole", async () => {
 		const { container } = renderPreview({ content: huge, extension: "ts" });
 		expect(container.querySelector(".cm-editor")).not.toBeNull();
-		expect(shiki.codeToHtml).not.toHaveBeenCalled();
+		await act(async () => {});
+		expect(screen.queryByText("highlighted")).toBeNull();
 	});
 
 	it("highlights small sources", async () => {
