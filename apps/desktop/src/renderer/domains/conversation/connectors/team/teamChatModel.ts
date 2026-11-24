@@ -470,7 +470,8 @@ export function projectTeamConversationTimeline({
 	// member histories are available. Member Runtime histories contain their own
 	// user input entries as execution context; those entries are not user-authored
 	// Team messages and never enter either aggregate or member-scoped display.
-	const coordinationItems = snapshot ? projectLegacySnapshotMessages(snapshot) : [];
+	const coordination = snapshot ? projectCoordination(snapshot) : EMPTY_COORDINATION;
+	const coordinationItems = coordination.items;
 	const coordinationUserItems = coordinationItems.filter((item) => item.kind === "user");
 	const userAnnotationsByMessageId = new Map(
 		(snapshot?.userMessageAnnotations ?? []).map((annotation) => [annotation.messageEntryId, annotation]),
@@ -485,9 +486,7 @@ export function projectTeamConversationTimeline({
 			: annotatedCoordinationUserItems.filter((item) =>
 					userAnnotationsByMessageId.get(item.entryId ?? item.id)?.participantIds.includes(memberId),
 				);
-	const coordinationAgentItems = mergeTeamAgentTurns(
-		coordinationItems.filter((item): item is ConversationAgentMessageViewModel => item.kind === "agent"),
-	);
+	const coordinationAgentItems = coordination.agentItems;
 	const coordinationDisplayItems = [...visibleCoordinationUserItems, ...coordinationAgentItems].sort(
 		(left, right) => itemTimestamp(left) - itemTimestamp(right),
 	);
@@ -763,6 +762,36 @@ export function projectTeamConversationTimeline({
 	return items;
 }
 
+/**
+ * The timeline is re-projected whenever the stream state changes, and projection wraps
+ * items in fresh objects even when nothing in them changed. Rows memoize on item identity,
+ * so an item whose fields are all identical to the previous projection's keeps its previous
+ * object; when no item changed, the previous array itself is returned.
+ */
+export function reuseUnchangedTimelineItems(
+	previous: readonly ChatConversationItem[],
+	next: ChatConversationItem[],
+): ChatConversationItem[] {
+	if (previous.length === 0) return next;
+	const previousById = new Map(previous.map((item) => [item.id, item]));
+	let changed = previous.length !== next.length;
+	const result = next.map((item, index) => {
+		const prior = previousById.get(item.id);
+		const kept = prior !== undefined && prior !== item && shallowEqualItems(prior, item) ? prior : item;
+		if (kept !== previous[index]) changed = true;
+		return kept;
+	});
+	return changed ? result : (previous as ChatConversationItem[]);
+}
+
+function shallowEqualItems(left: ChatConversationItem, right: ChatConversationItem): boolean {
+	const leftRecord = left as unknown as Record<string, unknown>;
+	const rightRecord = right as unknown as Record<string, unknown>;
+	const leftKeys = Object.keys(leftRecord);
+	if (leftKeys.length !== Object.keys(rightRecord).length) return false;
+	return leftKeys.every((key) => Object.hasOwn(rightRecord, key) && leftRecord[key] === rightRecord[key]);
+}
+
 export function placeTeamErrorInTimeline(
 	items: readonly ChatConversationItem[],
 	error: TeamDisplayError | undefined,
@@ -837,7 +866,28 @@ function dedupeTeamUserItems(items: readonly ChatConversationItem[]): ChatConver
 	});
 }
 
-function projectMemberConversation(memberId: string, history: readonly HistoryEntry[]) {
+/**
+ * Snapshot projections are pure in their inputs, and a snapshot only changes when the
+ * session is persisted. Caching by input identity keeps streaming updates from re-projecting
+ * every member history and coordination record, and returns the same item objects so rows
+ * that did not change are not re-rendered.
+ */
+const memberConversationCache = new WeakMap<readonly HistoryEntry[], Map<string, ChatConversationItem[]>>();
+
+function projectMemberConversation(memberId: string, history: readonly HistoryEntry[]): ChatConversationItem[] {
+	let byMember = memberConversationCache.get(history);
+	if (!byMember) {
+		byMember = new Map();
+		memberConversationCache.set(history, byMember);
+	}
+	const cached = byMember.get(memberId);
+	if (cached) return cached;
+	const projected = projectMemberConversationUncached(memberId, history);
+	byMember.set(memberId, projected);
+	return projected;
+}
+
+function projectMemberConversationUncached(memberId: string, history: readonly HistoryEntry[]): ChatConversationItem[] {
 	const projected = splitTeamMemberHistoryTurns(history).flatMap((turn) => fullHistoryToChat([...turn]));
 	return projected.map((item, index) => {
 		const renderKey = `team:member:${memberId}:${index}:${item.entryId ?? item.id}`;
@@ -869,6 +919,28 @@ function splitTeamMemberHistoryTurns(history: readonly HistoryEntry[]): HistoryE
 	}
 	if (current.length > 0) turns.push(current);
 	return turns;
+}
+
+interface CoordinationProjection {
+	readonly items: readonly ChatConversationItem[];
+	readonly agentItems: readonly ConversationAgentMessageViewModel[];
+}
+
+const EMPTY_COORDINATION: CoordinationProjection = { items: [], agentItems: [] };
+const coordinationCache = new WeakMap<DesktopTeamSessionSnapshot, CoordinationProjection>();
+
+function projectCoordination(snapshot: DesktopTeamSessionSnapshot): CoordinationProjection {
+	const cached = coordinationCache.get(snapshot);
+	if (cached) return cached;
+	const items = projectLegacySnapshotMessages(snapshot);
+	const projection = {
+		items,
+		agentItems: mergeTeamAgentTurns(
+			items.filter((item): item is ConversationAgentMessageViewModel => item.kind === "agent"),
+		),
+	};
+	coordinationCache.set(snapshot, projection);
+	return projection;
 }
 
 /** Compatibility for legacy Team snapshots that predate member histories. */

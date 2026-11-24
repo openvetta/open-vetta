@@ -20,7 +20,7 @@ import {
 } from "@shared/lib/input-tokens";
 import { persistBase64Images } from "@shared/lib/persist-input-images";
 import { pathBasename } from "@shared/lib/utils";
-import { reasoningByModelAtom, selectedModelAtom } from "@shared/store/atoms";
+import { type ChatConversationItem, reasoningByModelAtom, selectedModelAtom } from "@shared/store/atoms";
 import { createActivityWorkspace } from "@shared/workspace/activity-workspace";
 import type { AgentTeamDocument, TeamSessionListItem } from "@vetta/agent-team";
 import type { PromptAttachmentRef, SessionExecutionMode } from "@vetta/runtime-core";
@@ -50,6 +50,7 @@ import {
 	projectTeamConversationTimeline,
 	reduceTeamStreamState,
 	resolveTeamMembers,
+	reuseUnchangedTimelineItems,
 	type TeamAttachmentViewModel,
 	type TeamChatActions,
 	type TeamChatStatus,
@@ -580,8 +581,10 @@ export function useTeamChatModel(
 		visiblePending && !pendingHasVisibleStream
 			? t(modelRequestedIds.has(visiblePending.requestId) ? "chat.waitingModel" : "chat.teamLoading")
 			: undefined;
-	const feedItems = useMemo(
-		() =>
+	const previousFeedItemsRef = useRef<ChatConversationItem[]>([]);
+	const feedItems = useMemo(() => {
+		const next = reuseUnchangedTimelineItems(
+			previousFeedItemsRef.current,
 			placeTeamErrorInTimeline(
 				projectTeamConversationTimeline({
 					snapshot,
@@ -597,18 +600,20 @@ export function useTeamChatModel(
 				error,
 				session?.leaderMemberId ?? team?.leaderMemberId ?? "leader",
 			),
-		[
-			error,
-			memberViewId,
-			members,
-			session?.leaderMemberId,
-			snapshot,
-			streams,
-			t,
-			team?.leaderMemberId,
-			visiblePending,
-		],
-	);
+		);
+		previousFeedItemsRef.current = next;
+		return next;
+	}, [
+		error,
+		memberViewId,
+		members,
+		session?.leaderMemberId,
+		snapshot,
+		streams,
+		t,
+		team?.leaderMemberId,
+		visiblePending,
+	]);
 
 	const addAttachments = useCallback(
 		(additions: readonly TeamAttachmentViewModel[]) => {
