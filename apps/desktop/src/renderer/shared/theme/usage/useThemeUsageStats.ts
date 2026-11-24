@@ -22,7 +22,7 @@ const EMPTY_STATS: ThemeUsageStats = {
 
 /**
  * Host implementation of theme-sdk `useThemeUsageStats`.
- * Reads privacy-safe aggregates from app-monitor (same source as settings achievements).
+ * Reads privacy-safe aggregates from app-monitor.
  */
 export function useThemeUsageStats(): ThemeUsageModel {
 	const [stats, setStats] = useState<ThemeUsageStats | null>(null);
