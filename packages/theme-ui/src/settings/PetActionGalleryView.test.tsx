@@ -36,7 +36,7 @@ afterEach(() => {
 const labels: PetActionGalleryViewProps["labels"] = {
 	play: "播放",
 	played: "已开始",
-	previewHint: "悬停预览",
+	previewHint: "动作",
 	needShowPet: "先打开显示桌宠",
 	videoMissing: "缺少动画素材",
 };
@@ -68,65 +68,86 @@ function renderGallery(overrides: Partial<PetActionGalleryViewProps> = {}) {
 			<PetActionGalleryView groups={groups} labels={labels} playDisabled={false} onPlay={onPlay} {...overrides} />,
 		);
 	});
-	const button = (name: string) =>
-		container.querySelector<HTMLButtonElement>(`button[aria-label="播放 ${name}"]`) as HTMLButtonElement;
-	return { container, onPlay, button };
+	const chip = (name: string) =>
+		[...container.querySelectorAll<HTMLButtonElement>("button[aria-pressed]")].find(
+			(button) => button.textContent === name,
+		) as HTMLButtonElement;
+	const playButton = () => container.querySelector<HTMLButtonElement>('button[aria-label^="播放"]') as HTMLButtonElement;
+	const video = () => container.querySelector("video");
+	return { container, onPlay, chip, playButton, video };
 }
 
 describe("桌宠动作画廊", () => {
-	it("整页只放一个预览视频，打开时不播放", () => {
-		const { container } = renderGallery();
+	it("每个动作是一个紧凑标签，整页只有一个预览视频和一个播放按钮，打开时不播放", () => {
+		const { container, video } = renderGallery();
 
+		expect(container.querySelectorAll("button[aria-pressed]")).toHaveLength(3);
+		expect(container.querySelectorAll('button[aria-label^="播放"]')).toHaveLength(1);
 		expect(container.querySelectorAll("video")).toHaveLength(1);
-		expect(container.querySelector("video")?.getAttribute("src")).toBe("vetta-media://sleep.webm");
+		expect(video()?.getAttribute("src")).toBe("vetta-media://sleep.webm");
 		expect(play).not.toHaveBeenCalled();
 	});
 
-	it("聚焦某个动作时切到它的预览并播放，离开后暂停", () => {
-		const { container, button } = renderGallery();
+	it("聚焦某个动作时预览它并显示说明，焦点离开画廊后暂停", () => {
+		const { container, chip, video } = renderGallery();
 
-		act(() => button("喝茶").focus());
+		act(() => chip("喝茶").focus());
 		act(() => vi.advanceTimersByTime(200));
 
-		expect(container.querySelector("video")?.getAttribute("src")).toBe("vetta-media://tea.webm");
+		expect(video()?.getAttribute("src")).toBe("vetta-media://tea.webm");
+		expect(container.textContent).toContain("慢慢喝");
 		expect(play).toHaveBeenCalled();
 
 		pause.mockClear();
-		act(() => button("喝茶").blur());
+		act(() => chip("喝茶").blur());
 		expect(pause).toHaveBeenCalled();
+	});
+
+	it("只是划过不选中时，播放的仍是已选动作，预览回到它", () => {
+		const { chip, playButton, video, onPlay } = renderGallery();
+
+		act(() => chip("喝茶").focus());
+		act(() => vi.advanceTimersByTime(200));
+		act(() => chip("喝茶").blur());
+		act(() => vi.advanceTimersByTime(200));
+
+		expect(video()?.getAttribute("src")).toBe("vetta-media://sleep.webm");
+		act(() => playButton().click());
+		expect(onPlay).toHaveBeenCalledWith("sleep");
+	});
+
+	it("点选动作后播放交给桌宠，并短暂显示已开始", () => {
+		const { chip, playButton, onPlay } = renderGallery();
+
+		act(() => chip("喝茶").click());
+		expect(chip("喝茶").getAttribute("aria-pressed")).toBe("true");
+
+		act(() => playButton().click());
+		expect(onPlay).toHaveBeenCalledWith("tea");
+		expect(playButton().textContent).toContain("已开始");
+		act(() => vi.advanceTimersByTime(2000));
+		expect(playButton().textContent).toContain("播放");
 	});
 
 	it("系统开启减少动态效果时只切换画面，不播放", () => {
 		reducedMotion = true;
-		const { container, button } = renderGallery();
+		const { chip, video } = renderGallery();
 
-		act(() => button("喝茶").focus());
-		act(() => vi.advanceTimersByTime(200));
+		act(() => chip("喝茶").click());
 
-		expect(container.querySelector("video")?.getAttribute("src")).toBe("vetta-media://tea.webm");
+		expect(video()?.getAttribute("src")).toBe("vetta-media://tea.webm");
 		expect(play).not.toHaveBeenCalled();
 	});
 
-	it("点播放把动作交给桌宠，并短暂显示已开始", () => {
-		const { container, onPlay, button } = renderGallery();
+	it("桌宠没显示或选中的动作缺素材时不能播放", () => {
+		const hidden = renderGallery({ playDisabled: true });
+		expect(hidden.playButton().disabled).toBe(true);
+		expect(hidden.container.textContent).toContain("先打开显示桌宠");
 
-		act(() => button("喝茶").click());
-
-		expect(onPlay).toHaveBeenCalledWith("tea");
-		expect(button("喝茶").textContent).toContain("已开始");
-		act(() => vi.advanceTimersByTime(2000));
-		expect(button("喝茶").textContent).toContain("播放");
-		expect(container.textContent).toContain("悬停预览");
-	});
-
-	it("桌宠没显示或缺素材时不能播放", () => {
-		const { container, button } = renderGallery({ playDisabled: true });
-
-		expect(button("睡觉").disabled).toBe(true);
-		expect(container.textContent).toContain("先打开显示桌宠");
-
-		const enabled = renderGallery();
-		expect(enabled.button("再见").disabled).toBe(true);
-		expect(enabled.button("睡觉").disabled).toBe(false);
+		const shown = renderGallery();
+		expect(shown.playButton().disabled).toBe(false);
+		act(() => shown.chip("再见").click());
+		expect(shown.playButton().disabled).toBe(true);
+		expect(shown.container.textContent).toContain("缺少动画素材");
 	});
 });
