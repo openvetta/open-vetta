@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
+import { appendFile, mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { MessageAppendedEvent, TurnCompletedEvent, TurnStartedEvent } from "@vetta/runtime-core/kernel";
@@ -160,6 +160,50 @@ describe("Greenfield runtime session services", () => {
 		expect(existsSync(`${sessionPath}.lock`)).toBe(false);
 		expect(existsSync(`${sessionPath}.owner.lock`)).toBe(false);
 		expect(existsSync(snapshotPath)).toBe(false);
+	});
+
+	it("reads only appended records of a watched session and keeps the history identity while unchanged", async () => {
+		const rootDir = await createTemporaryRoot();
+		const sessionId = "watched";
+		const repository = new FileConversationRepository({ rootDir });
+		await repository.create({ sessionId, createdAt: 10 });
+		const first = await repository.append(sessionId, 0, [
+			started(sessionId, 100),
+			userMessage(sessionId, "first question", 110),
+			assistantMessage(sessionId, "first answer", 120),
+			completed(sessionId, 130),
+		]);
+		const sessionPath = repository.resolveConversationPath(sessionId);
+		const firstText = await readFile(sessionPath, "utf8");
+		await repository.append(sessionId, first.version, [
+			{ ...started(sessionId, 200), turnId: "turn-2" },
+			{ ...userMessage(sessionId, "second question", 210), turnId: "turn-2" },
+			{ ...assistantMessage(sessionId, "second answer", 220), turnId: "turn-2" },
+			{ ...completed(sessionId, 230), turnId: "turn-2" },
+		]);
+		await repository.close();
+		const fullText = await readFile(sessionPath, "utf8");
+		const expected = new FileConversationRuntimeSessionFileHistoryReader().read(sessionPath).history;
+		const appended = fullText.slice(firstText.length);
+		const cut = Math.floor(appended.indexOf("\n") / 2);
+
+		await writeFile(sessionPath, firstText, "utf8");
+		const reader = new FileConversationRuntimeSessionFileHistoryReader();
+		const initial = reader.read(sessionPath).history;
+		expect(reader.read(sessionPath).history).toBe(initial);
+
+		// A writer caught mid-record: the half line is not parsed yet.
+		await appendFile(sessionPath, appended.slice(0, cut), "utf8");
+		expect(reader.read(sessionPath).history).toBe(initial);
+
+		await appendFile(sessionPath, appended.slice(cut), "utf8");
+		const grown = reader.read(sessionPath).history;
+		expect(grown).not.toBe(initial);
+		expect(grown).toEqual(expected);
+
+		// Any rewrite other than an append falls back to a whole read.
+		await writeFile(sessionPath, firstText, "utf8");
+		expect(reader.read(sessionPath).history).toEqual(initial);
 	});
 
 	it("keeps the session file when auxiliary artifact cleanup fails so deletion can be retried", async () => {

@@ -280,6 +280,44 @@ export function documentFromFile(sessionId: string, file: ParsedConversationFile
 	}
 }
 
+/**
+ * 解析接在一份已校验文件之后的整行记录，事件按与整份解析相同的规则校验版本、序号与内容。
+ * 种子记录只允许出现在文件开头，遇到时返回 undefined，调用方回退整份解析；格式错误直接抛出。
+ * 文档节点的重复与父节点检查留给 {@link extendDocumentWithRecords} 的重放。
+ */
+export function parseAppendedConversationRecords(
+	text: string,
+	sessionId: string,
+	header: ReadConversationFileHeader,
+	expectedEventSequence: number,
+): { readonly records: ConversationBodyRecord[]; readonly nextEventSequence: number } | undefined {
+	const records: ConversationBodyRecord[] = [];
+	let nextEventSequence = expectedEventSequence;
+	for (const record of parseRecords(text, sessionId)) {
+		if (isConversationDocumentOperationRecord(record)) {
+			if (header.schemaVersion !== CONVERSATION_SCHEMA_VERSION) return undefined;
+			records.push(record);
+			continue;
+		}
+		const eventRecord = readConversationEventRecord(record);
+		if (!eventRecord) return undefined;
+		if (eventRecord.schemaVersion !== header.schemaVersion || eventRecord.sequence !== nextEventSequence) {
+			return undefined;
+		}
+		validateConversationEvent(sessionId, eventRecord.event);
+		if (
+			eventRecord.schemaVersion === CONVERSATION_SCHEMA_VERSION &&
+			(eventRecord.documentEntry !== null) !==
+				(conversationDocumentEntryPersistence(eventRecord.event) === "reference")
+		) {
+			return undefined;
+		}
+		nextEventSequence += 1;
+		records.push(eventRecord);
+	}
+	return { records, nextEventSequence };
+}
+
 /** 在已有文档投影上按读盘规则重放记录；增量追加与整份投影共用，保证两条路径结果一致。 */
 export function extendDocumentWithRecords(
 	sessionId: string,

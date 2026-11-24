@@ -1809,11 +1809,15 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		// Debounce flurries of write events (jsonl is append-only but
 		// editors/fs sometimes fire multiple change events per write).
 		let pending: NodeJS.Timeout | undefined;
+		// The reader returns the same history array while the file has no new complete record.
+		let lastHistory: unknown;
 		const emit = () => {
 			pending = undefined;
 			if (webContents.isDestroyed()) return;
 			try {
 				const snapshot = runtime.readSessionHistoryFromFile(abs);
+				if (snapshot.history === lastHistory) return;
+				lastHistory = snapshot.history;
 				webContents.send(CHANNELS.VIEWER_EVENT, subscriptionId, snapshot);
 			} catch {
 				// File may have been deleted between events; ignore.
