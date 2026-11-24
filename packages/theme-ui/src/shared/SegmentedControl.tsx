@@ -9,8 +9,13 @@ export interface SegmentedControlItem<T extends string> {
 	key: T;
 	label: string;
 	icon?: string;
-	/** 可选未读小红点（>0 显示） */
+	/** 可选未读小红点（>0 显示）。表达「有待处理的新内容」，与 count 的语义不同。 */
 	badge?: number;
+	/**
+	 * 可选计数（0 不显示）：跟在标题后面的灰字数字，用于「这一栏里有多少条」这类
+	 * 中性的量，例如变更数、任务数。需要告警语气时用 badge。
+	 */
+	count?: number;
 }
 
 export interface SegmentedControlProps<T extends string> {
@@ -38,7 +43,7 @@ export function SegmentedControl<T extends string>({
 				className,
 			)}
 		>
-			{items.map(({ key, label, icon, badge }) => {
+			{items.map(({ key, label, icon, badge, count }) => {
 				const active = value === key;
 				return (
 					<button
@@ -68,6 +73,9 @@ export function SegmentedControl<T extends string>({
 						>
 							{icon && <span className={cn(icon, "h-3 w-3")} />}
 							{label}
+							{count && count > 0 ? (
+								<span className="text-[10px] font-medium tabular-nums text-muted-foreground">{count}</span>
+							) : null}
 							{badge && badge > 0 ? (
 								<span className="ml-0.5 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-semibold leading-none text-white">
 									{badge > 99 ? "99+" : badge}
