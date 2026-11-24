@@ -80,13 +80,17 @@ describe("Markdown file links", () => {
 		);
 	}
 
-	function stubDesktop(stat: { size: number } | null): { showItemInFolder: ReturnType<typeof vi.fn> } {
-		const showItemInFolder = vi.fn(async () => undefined);
+	function stubDesktop(stat: { size: number } | null): { revealedPaths: string[] } {
+		const revealedPaths: string[] = [];
 		vi.stubGlobal("vetta", {
-			fs: { stat: vi.fn(async () => (stat ? { ...stat, modifiedAt: 0, createdAt: 0 } : null)) },
-			shell: { showItemInFolder },
+			fs: { stat: async () => (stat ? { ...stat, modifiedAt: 0, createdAt: 0 } : null) },
+			shell: {
+				showItemInFolder: async (path: string) => {
+					revealedPaths.push(path);
+				},
+			},
 		});
-		return { showItemInFolder };
+		return { revealedPaths };
 	}
 
 	afterEach(() => {
@@ -95,17 +99,17 @@ describe("Markdown file links", () => {
 	});
 
 	it("reveals the resolved file in the system file manager from the context menu", async () => {
-		const { showItemInFolder } = stubDesktop({ size: 12 });
+		const { revealedPaths } = stubDesktop({ size: 12 });
 		renderFileLink("/Users/me/project");
 
 		fireEvent.contextMenu(screen.getByRole("button", { name: /showcase\.tsx/ }));
 		fireEvent.click(await screen.findByRole("menuitem", { name: /markdown\.reveal/ }));
 
-		await waitFor(() => expect(showItemInFolder).toHaveBeenCalledWith("/Users/me/project/src/showcase.tsx"));
+		await waitFor(() => expect(revealedPaths).toEqual(["/Users/me/project/src/showcase.tsx"]));
 	});
 
 	it("tells the user when the file no longer exists instead of doing nothing", async () => {
-		const { showItemInFolder } = stubDesktop(null);
+		const { revealedPaths } = stubDesktop(null);
 		renderFileLink("/Users/me/project");
 
 		fireEvent.contextMenu(screen.getByRole("button", { name: /showcase\.tsx/ }));
@@ -114,7 +118,7 @@ describe("Markdown file links", () => {
 		await waitFor(() =>
 			expect(getDefaultStore().get(toastsAtom).map((toast) => toast.message)).toEqual(["markdown.fileMissing"]),
 		);
-		expect(showItemInFolder).not.toHaveBeenCalled();
+		expect(revealedPaths).toEqual([]);
 	});
 
 	it("offers no reveal menu for files in a remote project", () => {
