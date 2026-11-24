@@ -1,4 +1,4 @@
-import type { PetDecoration } from "../../preload/api-types/pet.js";
+import type { PetActionVideo, PetDecoration } from "../../preload/api-types/pet.js";
 import type { PetActionId } from "../../shared/pet-actions.js";
 import { normalizePetConfig, type PetConfig } from "../../shared/pet-config.js";
 import type { PetContentBounds, PetResizeCorner, PetVideoHitbox } from "../../shared/pet-ipc.js";
@@ -9,6 +9,7 @@ import {
 	beginPetWindowResize,
 	endPetWindowMove,
 	endPetWindowResize,
+	listPetActionVideos,
 	movePetWindow,
 	resizePetVideoByWheel,
 	resizePetWindowByWheel,
@@ -52,6 +53,10 @@ export async function hideDesktopPet(): Promise<PetConfig> {
 
 export function setDesktopPetActionFromUser(actionId: PetActionId): void {
 	sendPetCommandToWindow({ type: "set-action", actionId, source: "user", holdMs: USER_ACTION_HOLD_MS });
+}
+
+export function listDesktopPetActionVideos(): PetActionVideo[] {
+	return listPetActionVideos();
 }
 
 export function listPetDecorations(): PetDecoration[] {

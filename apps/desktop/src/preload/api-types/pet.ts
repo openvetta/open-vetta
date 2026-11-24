@@ -1,3 +1,4 @@
+import type { PetActionId } from "../../shared/pet-actions.js";
 import type { PetConfig } from "../../shared/pet-config.js";
 
 export type PetDecorationLabelKey =
@@ -17,6 +18,12 @@ export interface PetDecoration {
 	url: string;
 }
 
+export interface PetActionVideo {
+	id: PetActionId;
+	found: boolean;
+	url?: string;
+}
+
 export type PetConfigListener = (config: PetConfig) => void;
 
 export interface DesktopPetApi {
@@ -27,4 +34,5 @@ export interface DesktopPetApi {
 	hide(): Promise<PetConfig>;
 	setAction(actionId: string): Promise<void>;
 	getDecorations(): Promise<PetDecoration[]>;
+	getActionVideos(): Promise<PetActionVideo[]>;
 }

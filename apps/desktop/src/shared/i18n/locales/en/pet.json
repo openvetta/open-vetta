@@ -8,6 +8,79 @@
 		"developerDesc": "Used to distinguish the pet window bounds from the actual video display area.",
 		"debugFrame": "Debug Frame",
 		"debugFrameDesc": "Show the window bounds and video area bounds, and display the live window and video sizes inside the pet window.",
+		"size": "Size",
+		"sizeDesc": "Change how big Vivi appears on your desktop. You can also scroll over Vivi to fine-tune.",
+		"autoMode": "Switch actions automatically",
+		"autoModeDesc": "Vivi picks actions based on the time and your sessions. Turn off to keep the action you chose.",
+		"actions": {
+			"sectionDescription": "Hover an action to preview it, then click Play to have Vivi perform it on your desktop.",
+			"play": "Play",
+			"played": "Playing",
+			"previewHint": "Hover an action to preview",
+			"needShowPet": "Turn on Show Pet to play actions",
+			"videoMissing": "Animation missing",
+			"groups": {
+				"idle": "Idle",
+				"working": "Working",
+				"resting": "Resting",
+				"feedback": "Feedback"
+			},
+			"items": {
+				"stoat_sleep_lie_on_cushion": {
+					"label": "Sleep",
+					"description": "Naps on a cushion after a long idle stretch or late at night."
+				},
+				"stoat_stand_lift_barbell_one_hand_fast": {
+					"label": "Lift weights",
+					"description": "A cheerful reaction when a task finishes or during a short break."
+				},
+				"stoat_work_laptop_typing_desk_cushion": {
+					"label": "Type",
+					"description": "Keeps busy alongside you while you code or the app is active."
+				},
+				"stoat_listen_music_headphones_nod": {
+					"label": "Listen to music",
+					"description": "Nods along with headphones in the evening or when relaxing."
+				},
+				"stoat_spin_color_hula_hoop": {
+					"label": "Hula hoop",
+					"description": "A lively move while idling."
+				},
+				"stoat_skip_rope_jump": {
+					"label": "Jump rope",
+					"description": "A nudge to get up and move after sitting for a while."
+				},
+				"stoat_sit_cushion_drink_tea_slow": {
+					"label": "Drink tea",
+					"description": "Sips tea while waiting for a model reply or idling quietly."
+				},
+				"stoat_wave_backflip_smoke_fade_exit": {
+					"label": "Goodbye",
+					"description": "Waves, backflips, and vanishes in a puff of smoke."
+				}
+			}
+		},
+		"tips": {
+			"sectionDescription": "Interact with Vivi right on your desktop.",
+			"items": {
+				"move": {
+					"title": "Drag",
+					"description": "Hold and drag Vivi anywhere."
+				},
+				"resize": {
+					"title": "Scroll to resize",
+					"description": "Scroll over Vivi to change its size."
+				},
+				"menu": {
+					"title": "Right-click menu",
+					"description": "Switch actions, toggle automatic switching, or hide Vivi."
+				},
+				"notices": {
+					"title": "Session notices",
+					"description": "Speech bubbles appear when a session starts, finishes, or needs you."
+				}
+			}
+		},
 		"decoration": {
 			"sectionDescription": "Currently only shows available decoration materials; actual decoration logic can be connected later.",
 			"materialMissing": "Material missing",

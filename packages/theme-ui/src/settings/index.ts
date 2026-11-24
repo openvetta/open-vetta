@@ -114,9 +114,18 @@ export type {
 } from "./PermissionsSettingsView";
 export { PermissionsSettingsView } from "./PermissionsSettingsView";
 export type {
+	PetActionGalleryViewLabels,
+	PetActionGalleryViewProps,
+	PetActionGroupView,
+	PetActionView,
+} from "./PetActionGalleryView";
+export { PetActionGalleryView } from "./PetActionGalleryView";
+export type {
 	PetDecorationView,
 	PetSettingsViewLabels,
 	PetSettingsViewProps,
+	PetSizeControlView,
+	PetTipView,
 } from "./PetSettingsView";
 export { PetSettingsView } from "./PetSettingsView";
 export type {

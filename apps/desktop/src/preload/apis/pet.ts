@@ -10,6 +10,7 @@ const CHANNELS = {
 	HIDE: "vetta:pet:hide",
 	SET_ACTION: "vetta:pet:set-action",
 	GET_DECORATIONS: "vetta:pet:get-decorations",
+	GET_ACTION_VIDEOS: "vetta:pet:get-action-videos",
 } as const;
 
 export function createPetApi(ipc: IpcRenderer): Pick<DesktopApi, "pet"> {
@@ -26,6 +27,7 @@ export function createPetApi(ipc: IpcRenderer): Pick<DesktopApi, "pet"> {
 			hide: () => ipc.invoke(CHANNELS.HIDE),
 			setAction: (actionId) => ipc.invoke(CHANNELS.SET_ACTION, actionId),
 			getDecorations: () => ipc.invoke(CHANNELS.GET_DECORATIONS),
+			getActionVideos: () => ipc.invoke(CHANNELS.GET_ACTION_VIDEOS),
 		},
 	};
 }

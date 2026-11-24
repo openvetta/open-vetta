@@ -105,6 +105,15 @@ function resolvePetVideo(action: (typeof PET_ACTIONS)[number]): PetVideoResoluti
 	};
 }
 
+/** 设置页预览动作用：只返回视频地址，不创建桌宠窗口。 */
+export function listPetActionVideos(): Array<{ id: (typeof PET_ACTIONS)[number]["id"]; found: boolean; url?: string }> {
+	allowProjectRoot(petMediaDir);
+	return PET_ACTIONS.map((action) => {
+		const video = resolvePetVideo(action);
+		return video.url ? { id: action.id, found: true, url: video.url } : { id: action.id, found: false };
+	});
+}
+
 function getStoredPetConfig(): PetConfig {
 	return readPetConfigSync();
 }

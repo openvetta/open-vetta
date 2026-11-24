@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import type { PetDecoration } from "../../preload/api-types/pet.js";
+import type { PetActionVideo, PetDecoration } from "../../preload/api-types/pet.js";
 import { isPetActionId, type PetConfig } from "../../shared/pet-config.js";
 import {
 	PET_BEGIN_WINDOW_MOVE_CHANNEL,
@@ -24,6 +24,7 @@ import {
 	endDesktopPetWindowMove,
 	endDesktopPetWindowResize,
 	hideDesktopPet,
+	listDesktopPetActionVideos,
 	listPetDecorations,
 	moveDesktopPetWindow,
 	readCurrentPetConfig,
@@ -46,6 +47,7 @@ const CHANNELS = {
 	HIDE: "vetta:pet:hide",
 	SET_ACTION: "vetta:pet:set-action",
 	GET_DECORATIONS: "vetta:pet:get-decorations",
+	GET_ACTION_VIDEOS: "vetta:pet:get-action-videos",
 } as const;
 
 const PET_RESIZE_CORNERS = new Set<PetResizeCorner>(["top-left", "top-right", "bottom-left", "bottom-right"]);
@@ -119,6 +121,10 @@ export function registerPetIpc(): () => void {
 		return listPetDecorations();
 	});
 
+	ipcMain.handle(CHANNELS.GET_ACTION_VIDEOS, (): PetActionVideo[] => {
+		return listDesktopPetActionVideos();
+	});
+
 	ipcMain.handle(PET_RESIZE_BY_WHEEL_CHANNEL, async (_event, deltaY: unknown): Promise<void> => {
 		if (typeof deltaY !== "number") return;
 		await resizeDesktopPetWindowByWheel(deltaY);
@@ -188,6 +194,7 @@ export function registerPetIpc(): () => void {
 		ipcMain.removeHandler(CHANNELS.HIDE);
 		ipcMain.removeHandler(CHANNELS.SET_ACTION);
 		ipcMain.removeHandler(CHANNELS.GET_DECORATIONS);
+		ipcMain.removeHandler(CHANNELS.GET_ACTION_VIDEOS);
 		ipcMain.removeHandler(PET_RESIZE_BY_WHEEL_CHANNEL);
 		ipcMain.removeHandler(PET_RESIZE_VIDEO_BY_WHEEL_CHANNEL);
 		ipcMain.removeHandler(PET_BEGIN_WINDOW_MOVE_CHANNEL);
