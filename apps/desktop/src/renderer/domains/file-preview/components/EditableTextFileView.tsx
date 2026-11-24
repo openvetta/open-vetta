@@ -3,27 +3,18 @@ import { FS_EDITABLE_TEXT_ERROR } from "@/preload/fs-types";
 import { getExtension } from "@vetta-org/theme-ui/file-preview/types";
 import { TextFileEditorView } from "@vetta-org/theme-ui/file-preview/TextFileEditorView";
 import type { FilePreviewItem, TextFileEditorMode, TextFileEditorViewState } from "@vetta-org/theme-ui/file-preview";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTextFileEditor } from "../hooks/useTextFileEditor";
-import { TextPreviewRenderer } from "./TextPreviewRenderer";
-
-/** Formats with a real rendered surface (not just re-showing source). */
-const RENDERED_PREVIEW_EXTENSIONS = new Set([
-	"html",
-	"htm",
-	"xhtml",
-	"md",
-	"mdx",
-	"markdown",
-]);
+import { isRenderedPreviewExtension, RENDERED_PREVIEW_SIZE_LIMIT, TextPreviewRenderer } from "./TextPreviewRenderer";
 
 function resolvePreviewExtension(item: FilePreviewItem): string {
 	return getExtension(item.name) || (item.path ? getExtension(item.path) : "");
 }
 
+/** Formats with a real rendered surface (not just re-showing source). */
 function hasRenderedPreview(extension: string): boolean {
-	return RENDERED_PREVIEW_EXTENSIONS.has(extension);
+	return isRenderedPreviewExtension(extension);
 }
 
 function defaultEditorMode(extension: string): TextFileEditorMode {
@@ -39,13 +30,26 @@ export function EditableTextFileView({
 }): JSX.Element {
 	const { t } = useTranslation("chat");
 	const extension = resolvePreviewExtension(item);
-	const [mode, setMode] = useState<TextFileEditorMode>(() => defaultEditorMode(extension));
+	// null = not chosen by the user yet; the default then depends on the loaded size.
+	const [chosenMode, setMode] = useState<TextFileEditorMode | null>(null);
 	const model = useTextFileEditor(item.path, refreshNonce);
 	const { document } = model;
 
 	useEffect(() => {
-		setMode(defaultEditorMode(resolvePreviewExtension(item)));
+		setMode(null);
 	}, [item.path, item.name]);
+
+	// A huge Markdown/HTML file opens on its source: rendering it whole would freeze the
+	// window. The user can still switch to the preview themselves.
+	// Decided once per file when it loads, so editing across the limit never flips the view.
+	const loadedModeRef = useRef<{ path: string; mode: TextFileEditorMode } | null>(null);
+	if (document && loadedModeRef.current?.path !== item.path) {
+		loadedModeRef.current = {
+			path: item.path,
+			mode: document.draftContent.length > RENDERED_PREVIEW_SIZE_LIMIT ? "edit" : defaultEditorMode(extension),
+		};
+	}
+	const mode = chosenMode ?? loadedModeRef.current?.mode ?? defaultEditorMode(extension);
 
 	useEffect(() => {
 		const handleSave = () => void model.save();
@@ -92,7 +96,12 @@ export function EditableTextFileView({
 			extension,
 			lineEnding: document.lineEnding,
 			previewContent: rendered ? (
-				<TextPreviewRenderer content={document.draftContent} extension={extension} sourcePath={item.path} />
+				<TextPreviewRenderer
+					content={document.draftContent}
+					extension={extension}
+					sourcePath={item.path}
+					renderLargeDocuments
+				/>
 			) : undefined,
 		};
 	}

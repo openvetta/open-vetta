@@ -23,7 +23,7 @@ export function startSessionSearchWorker(port: Pick<MessagePort, "on" | "postMes
 	);
 	const reader = new CompositeRuntimeSessionFileHistoryReader([
 		historical.sessionFileHistoryReader,
-		new FileConversationRuntimeSessionFileHistoryReader(),
+		new FileConversationRuntimeSessionFileHistoryReader({ cacheEntries: 0 }),
 	]);
 	const ownership = new ConversationOwnershipCatalog();
 	const legacyOwnedPaths = listLegacyTeamSessionDocuments().then(

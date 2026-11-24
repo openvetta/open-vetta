@@ -2,7 +2,6 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { PET_BUBBLE_STYLES } from "../../../../shared/pet-bubbles";
 import { PetSpeechBubble } from "./PetSpeechBubble";
 
 const EXPECTED_VISUAL_INSET_PX = 40;
@@ -15,11 +14,7 @@ vi.mock("../../../shared/components/pet/PetBubbleFrame", () => ({
 describe("PetSpeechBubble", () => {
 	it("renders the notice in document flow so the widget window can grow around it", () => {
 		const { container } = render(
-			<PetSpeechBubble
-				decorUrl={undefined}
-				message={{ text: "正在处理任务" }}
-				styleId="default"
-			/>,
+<PetSpeechBubble message={{ text: "正在处理任务" }} />,
 		);
 		const root = container.firstElementChild as HTMLElement | null;
 		expect(screen.getByText("正在处理任务")).toBeTruthy();
@@ -27,13 +22,9 @@ describe("PetSpeechBubble", () => {
 		expect(root?.getAttribute("style") ?? "").not.toContain("50%");
 	});
 
-	it("reserves space around the bubble surface for decorations and shadow", () => {
+	it("reserves space around the bubble surface for its shadow", () => {
 		const { container } = render(
-			<PetSpeechBubble
-				decorUrl="vetta-media://bubble/decor.png"
-				message={{ text: "正在处理任务" }}
-				styleId="stoat_spring_festival_corner_border_set"
-			/>,
+<PetSpeechBubble message={{ text: "正在处理任务" }} />,
 		);
 		const root = container.firstElementChild as HTMLElement;
 
@@ -45,14 +36,4 @@ describe("PetSpeechBubble", () => {
 		expect(root.style.width).toBe("max-content");
 	});
 
-	it("keeps every built-in corner decoration inside the shared visual inset", () => {
-		for (const style of PET_BUBBLE_STYLES) {
-			for (const corner of style.decor?.corners ?? []) {
-				for (const value of Object.values(corner.position)) {
-					const offset = Number.parseFloat(value ?? "0");
-					if (offset < 0) expect(-offset, `${style.id}/${corner.id}`).toBeLessThanOrEqual(EXPECTED_VISUAL_INSET_PX);
-				}
-			}
-		}
-	});
 });

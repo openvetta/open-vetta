@@ -223,7 +223,9 @@ const ThemeCard = memo(function ThemeCard({
 				style={{ background: palette.background }}
 			>
 				<div className="absolute inset-0 flex items-center justify-center">
-					<div className="relative aspect-square w-[180%]" style={{ filter: "blur(28px) saturate(115%)" }}>
+					{/* 色斑的柔边用径向渐变画，不用 filter: blur——大半径模糊要整块离屏栅格化，
+					    冷启动后首次进外观页会叠在首帧上明显卡一下。 */}
+					<div className="relative aspect-square w-[180%]">
 						{BLOB_LAYOUT.map((b, i) => (
 							<div
 								key={`${theme.id}-${i}`}
@@ -237,12 +239,8 @@ const ThemeCard = memo(function ThemeCard({
 								}}
 							>
 								<div
-									className="h-full w-full rounded-full"
-									style={{
-										background: colors[i],
-										animationDuration: `${5 + i * 1.3}s`,
-										animationDelay: `${i * -1.7}s`,
-									}}
+									className="h-full w-full"
+									style={{ background: `radial-gradient(closest-side, ${colors[i]} 45%, transparent)` }}
 								/>
 							</div>
 						))}

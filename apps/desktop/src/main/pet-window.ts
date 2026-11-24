@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, Menu, type MenuItemConstructorOptions, screen } from "electron";
 import { PET_ACTIONS } from "../shared/pet-actions.js";
-import { getPetBubbleStyle, type PetBubbleStyleId } from "../shared/pet-bubbles.js";
 import {
 	DEFAULT_PET_CONFIG,
 	getPetScaledVideoSize,
@@ -106,13 +105,13 @@ function resolvePetVideo(action: (typeof PET_ACTIONS)[number]): PetVideoResoluti
 	};
 }
 
-function resolvePetBubbleDecorUrl(styleId: PetBubbleStyleId): string | undefined {
-	const decor = getPetBubbleStyle(styleId).decor;
-	if (!decor) return undefined;
-
-	const decorPath = join(petMediaDir, decor.fileName);
-	if (!existsSync(decorPath)) return undefined;
-	return `${MEDIA_PROTOCOL_SCHEME}://local/stream?path=${encodeURIComponent(decorPath)}`;
+/** 设置页预览动作用：只返回视频地址，不创建桌宠窗口。 */
+export function listPetActionVideos(): Array<{ id: (typeof PET_ACTIONS)[number]["id"]; found: boolean; url?: string }> {
+	allowProjectRoot(petMediaDir);
+	return PET_ACTIONS.map((action) => {
+		const video = resolvePetVideo(action);
+		return video.url ? { id: action.id, found: true, url: video.url } : { id: action.id, found: false };
+	});
 }
 
 function getStoredPetConfig(): PetConfig {
@@ -134,9 +133,6 @@ function getInitialBounds(): Electron.Rectangle {
 
 function buildPetQuery(config: PetConfig, contentOffset: Electron.Point): string {
 	const params = new URLSearchParams();
-	const bubbleDecorUrl = resolvePetBubbleDecorUrl(config.bubbleStyleId);
-	params.set("bubbleStyle", config.bubbleStyleId);
-	if (bubbleDecorUrl) params.set("bubbleDecor", bubbleDecorUrl);
 	for (const action of PET_ACTIONS) {
 		const video = resolvePetVideo(action);
 		if (video.url) {
@@ -370,6 +366,13 @@ async function disablePetFromContextMenu(): Promise<void> {
 	destroyPetWindow();
 }
 
+/** 右键菜单的开关要落盘并广播，否则设置页显示旧值、重启后也会丢。 */
+function persistPetConfigFromContextMenu(): void {
+	void writePetConfig(petConfig).catch((error: unknown) => {
+		log.error("persist context menu change failed", error);
+	});
+}
+
 function showContextMenu(win: BrowserWindow): void {
 	const alwaysOnTop = win.isAlwaysOnTop();
 	const template: MenuItemConstructorOptions[] = [
@@ -398,6 +401,7 @@ function showContextMenu(win: BrowserWindow): void {
 			click: (menuItem) => {
 				petConfig = { ...petConfig, autoMode: menuItem.checked };
 				sendPetCommand(win, { type: "set-auto-mode", enabled: petConfig.autoMode });
+				persistPetConfigFromContextMenu();
 			},
 		},
 		{ type: "separator" },
@@ -413,7 +417,9 @@ function showContextMenu(win: BrowserWindow): void {
 		{
 			label: alwaysOnTop ? "取消置顶" : "保持置顶",
 			click: () => {
-				win.setAlwaysOnTop(!alwaysOnTop, "screen-saver");
+				petConfig = { ...petConfig, alwaysOnTop: !alwaysOnTop };
+				win.setAlwaysOnTop(petConfig.alwaysOnTop, "screen-saver");
+				persistPetConfigFromContextMenu();
 			},
 		},
 		...(shouldShowPetDevToolsMenuItem()
@@ -633,12 +639,6 @@ export function applyPetConfig(config: PetConfig): void {
 	sendPetCommand(win, { type: "set-auto-mode", enabled: petConfig.autoMode });
 	sendPetCommand(win, { type: "set-debug-frame", enabled: petConfig.debugFrame });
 	sendPetCommand(win, { type: "set-video-scale", scale: petConfig.videoScale });
-	const bubbleDecorUrl = resolvePetBubbleDecorUrl(petConfig.bubbleStyleId);
-	sendPetCommand(win, {
-		type: "set-bubble-style",
-		styleId: petConfig.bubbleStyleId,
-		...(bubbleDecorUrl ? { decorUrl: bubbleDecorUrl } : {}),
-	});
 	for (const action of PET_ACTIONS) {
 		sendPetCommand(win, {
 			type: "set-video-base-size",

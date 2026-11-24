@@ -33,13 +33,13 @@
 - 侧边栏入口支持 `regions.sidebar` 完整接管。
 - 默认侧边栏已接入 `sidebar.navItem` 和 `sidebar.settingsTrigger` 组件覆盖点。
 - 侧边栏组件支持 `className` / `classNames`，便于主题复用默认组件时做局部视觉调整。
-- 新增内置 Xianxia 主题包，用于验证 appearance 和组件覆盖能力。
+- 曾用内置 Xianxia 主题包验证 appearance 和组件覆盖能力，该主题包已移除，目前没有内置主题。
 - `PageHeader` 已从 `App.tsx` 拆出，并接入 `app.pageHeader` region/surface 与 `app.pageHeaderSidebarTrigger` 覆盖点。
 - `useSidebarModel`、`usePageHeaderModel`、`useWindowControlsModel` 已作为 SDK facade hook 暴露，真实实现由 desktop 通过 `ThemeHostProvider` 注入。
 - Root global overlays 已开始按 connected container / props-driven view 拆分，审批、登录、文件预览、流转、更新提示等浮层已接入 view override 和 surface slot。
 - 主题模块已支持声明自有页面，desktop 通过固定 `/theme/$themeId/$pageId` 路由承载，并支持 `content` / `main` / `app` 三档受控覆盖范围。
 - 主题自有数据存储：SDK 提供 `useThemeStorage` / `useThemeStorageValue`，desktop host 落盘到 `~/.vetta/desktop-app/themes/<themeId>/data.json`。
-- 主题 usage host：`useThemeUsageStats` 暴露 app-monitor 聚合；`ThemeModule.runtime` 可挂载无 UI 同步逻辑。xianxia 用多指标 score 映射境界，写入 theme storage key `cultivation`（与设置页 fanren 成就阶梯无关）。
+- 主题 usage host：`useThemeUsageStats` 暴露 app-monitor 聚合；`ThemeModule.runtime` 可挂载无 UI 同步逻辑。
 
 当前仍未实现：
 

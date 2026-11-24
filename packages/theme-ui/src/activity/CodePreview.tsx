@@ -1,6 +1,13 @@
 import { useEffect, useState, type JSX } from "react";
 import { codeToHtml } from "shiki";
+import { ReadonlyCodeView } from "../file-preview/ReadonlyCodeView";
 import { getTextEditorLanguageId } from "../file-preview/text-editor-language";
+
+/**
+ * Shiki tokenizes the whole source on the renderer thread (about 1.4 ms per KB) and the
+ * result is one unvirtualized DOM tree; past this size the preview switches to CodeMirror.
+ */
+export const CODE_PREVIEW_HIGHLIGHT_LIMIT = 100_000;
 
 export interface CodePreviewProps {
 	content: string;
@@ -8,7 +15,14 @@ export interface CodePreviewProps {
 	theme: "light" | "dark";
 }
 
-export function CodePreview({ content, extension, theme }: CodePreviewProps): JSX.Element {
+export function CodePreview(props: CodePreviewProps): JSX.Element {
+	if (props.content.length > CODE_PREVIEW_HIGHLIGHT_LIMIT) {
+		return <ReadonlyCodeView content={props.content} extension={props.extension} />;
+	}
+	return <HighlightedCodePreview {...props} />;
+}
+
+function HighlightedCodePreview({ content, extension, theme }: CodePreviewProps): JSX.Element {
 	const [html, setHtml] = useState<string | null>(null);
 
 	useEffect(() => {

@@ -100,8 +100,7 @@ desktop 不应该要求主题 import 内部路径，例如 `@shared/*`、`@domai
 
 ```txt
 packages/themes/
-  builtin/
-    xianxia/
+  builtin/   # 目前为空
   remote/
 ```
 
@@ -148,7 +147,6 @@ packages/themes/
 - `packages/theme-sdk`：主题协议和运行时上下文。
 - `packages/theme-ui`：`ThemeSurface`、`CornerImageFrame` 和基础 layout primitives。
 - desktop：通过 `apps/desktop/src/renderer/shared/theme/registry.ts` 声明当前支持的 region/component/surface id。
-- `packages/themes/builtin/xianxia`：第一个独立内置主题包。
 - desktop：主进程扫描内置/远程主题目录，renderer 通过统一 runtime loader 恢复已选择主题并在失败时回退默认主题。
 
 当前仍保留在 desktop：

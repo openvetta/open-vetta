@@ -1,4 +1,4 @@
-import type { PetBubbleStyleId } from "../../shared/pet-bubbles.js";
+import type { PetActionId } from "../../shared/pet-actions.js";
 import type { PetConfig } from "../../shared/pet-config.js";
 
 export type PetDecorationLabelKey =
@@ -18,8 +18,8 @@ export interface PetDecoration {
 	url: string;
 }
 
-export interface PetBubbleStyleAsset {
-	id: PetBubbleStyleId;
+export interface PetActionVideo {
+	id: PetActionId;
 	found: boolean;
 	url?: string;
 }
@@ -34,5 +34,5 @@ export interface DesktopPetApi {
 	hide(): Promise<PetConfig>;
 	setAction(actionId: string): Promise<void>;
 	getDecorations(): Promise<PetDecoration[]>;
-	getBubbleStyleAssets(): Promise<PetBubbleStyleAsset[]>;
+	getActionVideos(): Promise<PetActionVideo[]>;
 }

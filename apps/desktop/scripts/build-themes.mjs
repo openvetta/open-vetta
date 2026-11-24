@@ -31,10 +31,10 @@ function packageTheme(themeDir) {
 
 if (process.argv.includes("--development")) {
 	stageSystemThemeManifests(devSystemThemesDir, "stage-themes-dev");
-} else if (existsSync(builtinThemesDir)) {
-	const entries = readdirSync(builtinThemesDir).filter((name) =>
-		existsSync(join(builtinThemesDir, name, "theme.json")),
-	);
+} else {
+	const entries = existsSync(builtinThemesDir)
+		? readdirSync(builtinThemesDir).filter((name) => existsSync(join(builtinThemesDir, name, "theme.json")))
+		: [];
 	for (const name of entries) {
 		const themeDir = join(builtinThemesDir, name);
 		await run("bun", ["run", "build"], themeDir);

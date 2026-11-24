@@ -45,6 +45,7 @@ import { DEFAULT_AGENT_MODE, isAgentMode, MODE_PROMPTS } from "../agent-modes/in
 import { stopSessionBackgroundWork } from "../agent-runtime/stop-session-work.js";
 import { agentTeamSessionService } from "../agent-teams/team-session-service.js";
 import { stopMonitoringRuntimeSession } from "../app-monitor/app-monitor-service.js";
+import { createToolCallDeltaCoalescer } from "../conversations/coalesce-tool-call-deltas.js";
 import { onConversationListChanged } from "../conversations/conversation-list-events.js";
 import { getDesktopConversationService } from "../conversations/desktop-conversation-service.js";
 import { DesktopGoalController } from "../conversations/desktop-goal-controller.js";
@@ -1582,9 +1583,19 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		return snap != null;
 	});
 
-	const forwardSessionEvents =
-		(sessionId: string, subscriptionId: string) =>
-		(runtimeEvent: SessionEvent): void => {
+	const forwardSessionEvents = (
+		sessionId: string,
+		subscriptionId: string,
+	): { listener: (runtimeEvent: SessionEvent) => void; dispose: () => void } => {
+		const sender = createToolCallDeltaCoalescer((event) => {
+			// 渲染进程崩溃后 webContents 短暂处于"frame 已 disposed"状态——
+			// runtime 这边 agent 还在跑，每个事件都尝试 send 就会刷屏
+			// "Render frame was disposed before WebFrameMain could be accessed"。
+			// 此处提前 bail，避免把事件 buffer 灌进死掉的渲染端。
+			if (webContents.isDestroyed()) return;
+			webContents.send(CHANNELS.EVENT, subscriptionId, event);
+		});
+		const listener = (runtimeEvent: SessionEvent): void => {
 			// Debug mode: intercept events for request history recording
 			try {
 				if (runtimeEvent.type === "session.lifecycle" && runtimeEvent.phase === "turn_start") {
@@ -1623,13 +1634,11 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			} catch {
 				// Debug recording should never break the event pipeline
 			}
-			// 渲染进程崩溃后 webContents 短暂处于"frame 已 disposed"状态——
-			// runtime 这边 agent 还在跑，每个事件都尝试 send 就会刷屏
-			// "Render frame was disposed before WebFrameMain could be accessed"。
-			// 此处提前 bail，避免把事件 buffer 灌进死掉的渲染端。
 			if (webContents.isDestroyed()) return;
-			webContents.send(CHANNELS.EVENT, subscriptionId, slimSessionEventForIpc(runtimeEvent));
+			sender.push(slimSessionEventForIpc(runtimeEvent));
 		};
+		return { listener, dispose: sender.dispose };
+	};
 
 	/** Session-wide state that is pushed only on change; a new subscriber needs it replayed once. */
 	const replaySessionRegistries = async (sessionId: string, subscriptionId: string): Promise<void> => {
@@ -1689,10 +1698,12 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.SUBSCRIBE, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		const subscriptionId = `${sessionId}:${randomUUID()}`;
-		subscriptionMap.set(
-			subscriptionId,
-			runtime.subscribe(sessionId, forwardSessionEvents(sessionId, subscriptionId)),
-		);
+		const forwarder = forwardSessionEvents(sessionId, subscriptionId);
+		const unsubscribe = runtime.subscribe(sessionId, forwarder.listener);
+		subscriptionMap.set(subscriptionId, () => {
+			unsubscribe();
+			forwarder.dispose();
+		});
 		await replaySessionRegistries(sessionId, subscriptionId);
 		return { subscriptionId };
 	});
@@ -1703,8 +1714,12 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.ATTACH, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		const subscriptionId = `${sessionId}:${randomUUID()}`;
-		const attachment = runtime.attach(sessionId, forwardSessionEvents(sessionId, subscriptionId));
-		subscriptionMap.set(subscriptionId, attachment.unsubscribe);
+		const forwarder = forwardSessionEvents(sessionId, subscriptionId);
+		const attachment = runtime.attach(sessionId, forwarder.listener);
+		subscriptionMap.set(subscriptionId, () => {
+			attachment.unsubscribe();
+			forwarder.dispose();
+		});
 		const snapshot = {
 			history: attachment.history,
 			...(attachment.runningTurnId ? { runningTurnId: attachment.runningTurnId } : {}),
@@ -1794,11 +1809,15 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		// Debounce flurries of write events (jsonl is append-only but
 		// editors/fs sometimes fire multiple change events per write).
 		let pending: NodeJS.Timeout | undefined;
+		// The reader returns the same history array while the file has no new complete record.
+		let lastHistory: unknown;
 		const emit = () => {
 			pending = undefined;
 			if (webContents.isDestroyed()) return;
 			try {
 				const snapshot = runtime.readSessionHistoryFromFile(abs);
+				if (snapshot.history === lastHistory) return;
+				lastHistory = snapshot.history;
 				webContents.send(CHANNELS.VIEWER_EVENT, subscriptionId, snapshot);
 			} catch {
 				// File may have been deleted between events; ignore.

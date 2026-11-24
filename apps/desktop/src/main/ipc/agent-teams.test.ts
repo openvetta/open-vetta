@@ -2,6 +2,7 @@ import { createAgentTeamFixture, createEmptyAgentTeamDocument } from "@vetta/age
 import { providerModelNotFoundError } from "@vetta/ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveTeamSessionWorkspace } from "../agent-teams/team-workspace.js";
+import { SLIM_ASSISTANT_PARTIAL } from "../conversations/slim-session-event-for-ipc.js";
 import { type AgentTeamsIpcDependencies, registerAgentTeamsIpc } from "./agent-teams.js";
 
 const ipc = vi.hoisted(() => ({
@@ -483,6 +484,31 @@ describe("Agent Team IPC contract", () => {
 			result.subscriptionId,
 			expect.objectContaining({ type: "conversation.agent-message-discard", reason: "completed" }),
 		);
+		const fatPartial = {
+			...SLIM_ASSISTANT_PARTIAL,
+			provider: "openai",
+			content: [{ type: "text" as const, text: "answer ".repeat(1_000) }],
+		};
+		streamHandler({
+			type: "conversation.agent-message-event",
+			conversationId: "session",
+			messageId: "message-2",
+			turnId: "request",
+			author: { kind: "agent", id: "m" },
+			sequence: 2,
+			timestamp: 2,
+			event: { type: "text_delta", contentIndex: 0, delta: "answer ", partial: fatPartial },
+		});
+		// What the renderer receives: the token delta without the growing message.
+		const delivered = await vi.waitFor(() => {
+			const payload = sender.send.mock.calls
+				.map((call) => call[2] as { type: string; event?: { delta?: string; partial?: unknown } })
+				.find((sent) => sent.type === "conversation.agent-message-event");
+			if (!payload?.event) throw new Error("agent message event not delivered yet");
+			return payload.event;
+		});
+		expect(delivered.delta).toBe("answer ");
+		expect(delivered.partial).toBe(SLIM_ASSISTANT_PARTIAL);
 		const onDestroyed = sender.once.mock.calls[0]?.[1] as (() => void) | undefined;
 		onDestroyed?.();
 		expect(unsubscribe).toHaveBeenCalledOnce();

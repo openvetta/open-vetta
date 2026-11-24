@@ -31,6 +31,7 @@ import {
 } from "../agent-teams/team-member-model-preferences.js";
 import { agentTeamSessionService } from "../agent-teams/team-session-service.js";
 import { resolveTeamSessionWorkspace } from "../agent-teams/team-workspace.js";
+import { slimAssistantEventForIpc } from "../conversations/slim-session-event-for-ipc.js";
 import { listTeamSidebarConversations } from "../conversations/team-sidebar-conversation-projection.js";
 import { getAppLogger } from "../logger.js";
 
@@ -153,6 +154,11 @@ async function enrichTeamEvent(
 ): Promise<DesktopTeamSessionStreamEvent> {
 	if (event.type === "session-snapshot" || event.type === "session-updated") {
 		return { ...event, snapshot: await withDisplayProjection(event.snapshot, displayProjection) };
+	}
+	// Member streams publish the whole public partial with every token; the renderer
+	// reducer reads only the delta or the streaming tool-call block.
+	if (event.type === "conversation.agent-message-event") {
+		return { ...event, event: slimAssistantEventForIpc(event.event) } as DesktopTeamSessionStreamEvent;
 	}
 	return event as DesktopTeamSessionStreamEvent;
 }

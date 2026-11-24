@@ -39,6 +39,28 @@ describe("message navigation model", () => {
 		expect(buildMessageFeedNavigationOutline(turns, "TARGET")).toHaveLength(1);
 	});
 
+	it("cuts previews on code points and leaves exactly full-length text untouched", () => {
+		const emoji = "😀".repeat(130);
+		const [cut] = buildMessageNavigationTurns([createConversationUserMessage({ id: "u", text: emoji })]);
+		expect(cut.entries[0].preview).toBe(`${"😀".repeat(119)}…`);
+
+		const exact = "😀".repeat(120);
+		const [kept] = buildMessageNavigationTurns([createConversationUserMessage({ id: "u", text: exact })]);
+		expect(kept.entries[0].preview).toBe(exact);
+	});
+
+	it("projects only changed messages again while a reply streams", () => {
+		const user = createConversationUserMessage({ id: "user", text: "question" });
+		const draft = createConversationAgentMessage({ id: "reply", text: "partial", blocks: [] });
+		buildMessageNavigationTurns([user, draft]);
+		// Unchanged items keep their identity, so their projection is reused, not recomputed.
+		(user as { text: string }).text = "mutated in place";
+		const second = buildMessageNavigationTurns([user, { ...draft, text: "partial answer" }]);
+
+		expect(second[0].entries[0].preview).toBe("question");
+		expect(second[0].entries[1].preview).toBe("partial answer");
+	});
+
 	it("lists one outline row per turn and jumps to the matching message", () => {
 		const turns = buildMessageNavigationTurns(messages);
 

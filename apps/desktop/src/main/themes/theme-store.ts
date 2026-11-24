@@ -97,8 +97,7 @@ export function listThemes(): DesktopThemePackage[] {
 	const builtin = discoverFrom(systemThemesBaseDir(), "builtin");
 	const builtinIds = new Set(builtin.map((theme) => theme.id));
 	const remote = discoverFrom(remoteThemesBaseDir(), "remote").filter((theme) => !builtinIds.has(theme.id));
-	const themes = [...builtin, ...remote];
-	return app.isPackaged ? themes.filter((theme) => theme.id !== "xianxia") : themes;
+	return [...builtin, ...remote];
 }
 
 export function resolveThemeFilePath(themeId: string, source: DesktopThemePackageSource, relativePath: string): string {

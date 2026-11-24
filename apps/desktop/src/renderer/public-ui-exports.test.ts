@@ -40,7 +40,7 @@ describe("source UI package public entrypoints", () => {
 	});
 });
 
-it("keeps remote themes, hidden global views and 3D achievements outside the initial application graph", () => {
+it("keeps remote themes and hidden global views outside the initial application graph", () => {
 	const configPath = resolve(repoRoot, "apps/desktop/tsconfig.json");
 	const config = ts.readConfigFile(configPath, ts.sys.readFile);
 	const options = ts.parseJsonConfigFileContent(config.config, ts.sys, resolve(repoRoot, "apps/desktop")).options;
@@ -78,7 +78,5 @@ it("keeps remote themes, hidden global views and 3D achievements outside the ini
 		}
 	}
 	expect(imports.has("three")).toBe(false);
-	expect(
-		[...visited].filter((file) => /(?:RootOverlayViews|themeLoader|AchievementPromotionBadge3D)\.tsx?$/.test(file)),
-	).toEqual([]);
+	expect([...visited].filter((file) => /(?:RootOverlayViews|themeLoader)\.tsx?$/.test(file))).toEqual([]);
 });

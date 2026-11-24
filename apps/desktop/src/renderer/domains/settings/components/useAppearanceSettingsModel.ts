@@ -30,7 +30,6 @@ import appIconStudyPreview from "../assets/app-icons/study.png";
 import appIconTravelPreview from "../assets/app-icons/travel.png";
 import appIconWorkPreview from "../assets/app-icons/work.png";
 import defaultThemePreview from "../assets/default.webp";
-import xianxiaThemePreview from "../assets/xianxia.webp";
 import { SETTINGS_SECTION } from "../registry";
 import { recordSettingsUsage } from "./recordSettingsUsage";
 
@@ -189,12 +188,6 @@ const UI_THEME_OPTIONS = [
 		labelKey: "uiThemeDefault",
 		hintKey: "uiThemeDefaultHint",
 		preview: defaultThemePreview,
-	},
-	{
-		id: "xianxia",
-		labelKey: "uiThemeXianxia",
-		hintKey: "uiThemeXianxiaHint",
-		preview: xianxiaThemePreview,
 	},
 ] as const;
 

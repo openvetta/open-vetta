@@ -1,4 +1,7 @@
-import type { DesktopTeamSessionSnapshot } from "@preload/api-types/team-conversation-display";
+import type {
+	DesktopTeamSessionSnapshot,
+	DesktopTeamSessionStreamEvent,
+} from "@preload/api-types/team-conversation-display";
 import { useAgentAvatarResolver } from "@shared/agent-teams/agent-avatar";
 import { useLocalizedAgentTeamDocument } from "@shared/agent-teams/agent-team-localization";
 import { agentDisplayName, teamDisplayName } from "@shared/agent-teams/agent-team-presentation";
@@ -17,7 +20,7 @@ import {
 } from "@shared/lib/input-tokens";
 import { persistBase64Images } from "@shared/lib/persist-input-images";
 import { pathBasename } from "@shared/lib/utils";
-import { reasoningByModelAtom, selectedModelAtom } from "@shared/store/atoms";
+import { type ChatConversationItem, reasoningByModelAtom, selectedModelAtom } from "@shared/store/atoms";
 import { createActivityWorkspace } from "@shared/workspace/activity-workspace";
 import type { AgentTeamDocument, TeamSessionListItem } from "@vetta/agent-team";
 import type { PromptAttachmentRef, SessionExecutionMode } from "@vetta/runtime-core";
@@ -47,6 +50,7 @@ import {
 	projectTeamConversationTimeline,
 	reduceTeamStreamState,
 	resolveTeamMembers,
+	reuseUnchangedTimelineItems,
 	type TeamAttachmentViewModel,
 	type TeamChatActions,
 	type TeamChatStatus,
@@ -356,6 +360,25 @@ export function useTeamChatModel(
 		if (!session?.id) return;
 		let mounted = true;
 		let unsubscribe: (() => void) | undefined;
+		// Token deltas are applied to the ref at once but published to React at most once per
+		// TEAM_STREAM_FLUSH_MS, like the single-agent chat. The first delta after a quiet period
+		// publishes immediately so a reply starts without delay; every other event publishes now.
+		let streamsFlushTimer: number | undefined;
+		let lastStreamsFlushAt = Number.NEGATIVE_INFINITY;
+		const flushStreams = (): void => {
+			if (streamsFlushTimer !== undefined) {
+				window.clearTimeout(streamsFlushTimer);
+				streamsFlushTimer = undefined;
+			}
+			lastStreamsFlushAt = performance.now();
+			setStreams(streamsRef.current);
+		};
+		const throttleStreamsFlush = (): void => {
+			if (streamsFlushTimer !== undefined) return;
+			const wait = lastStreamsFlushAt + TEAM_STREAM_FLUSH_MS - performance.now();
+			if (wait <= 0) flushStreams();
+			else streamsFlushTimer = window.setTimeout(flushStreams, wait);
+		};
 		const subscription = window.vetta.agentTeams.subscribe(session.id, (event) => {
 			const eventSessionId =
 				event.type === "session-snapshot" || event.type === "session-updated"
@@ -429,7 +452,11 @@ export function useTeamChatModel(
 			}
 			const nextStreams = staleUpdatePrune ? streamsRef.current : reduceTeamStreamState(streamsRef.current, event);
 			streamsRef.current = nextStreams;
-			setStreams(nextStreams);
+			if (isTeamStreamDelta(event)) {
+				throttleStreamsFlush();
+			} else {
+				flushStreams();
+			}
 			const hasRunningTurn = Object.values(nextStreams).some((turn) => turn.message.phase === "streaming");
 			if (
 				event.type === "conversation.agent-message-event" ||
@@ -464,6 +491,7 @@ export function useTeamChatModel(
 			});
 		return () => {
 			mounted = false;
+			if (streamsFlushTimer !== undefined) window.clearTimeout(streamsFlushTimer);
 			unsubscribe?.();
 		};
 	}, [session?.id, t, teamId]);
@@ -553,8 +581,10 @@ export function useTeamChatModel(
 		visiblePending && !pendingHasVisibleStream
 			? t(modelRequestedIds.has(visiblePending.requestId) ? "chat.waitingModel" : "chat.teamLoading")
 			: undefined;
-	const feedItems = useMemo(
-		() =>
+	const previousFeedItemsRef = useRef<ChatConversationItem[]>([]);
+	const feedItems = useMemo(() => {
+		const next = reuseUnchangedTimelineItems(
+			previousFeedItemsRef.current,
 			placeTeamErrorInTimeline(
 				projectTeamConversationTimeline({
 					snapshot,
@@ -570,18 +600,20 @@ export function useTeamChatModel(
 				error,
 				session?.leaderMemberId ?? team?.leaderMemberId ?? "leader",
 			),
-		[
-			error,
-			memberViewId,
-			members,
-			session?.leaderMemberId,
-			snapshot,
-			streams,
-			t,
-			team?.leaderMemberId,
-			visiblePending,
-		],
-	);
+		);
+		previousFeedItemsRef.current = next;
+		return next;
+	}, [
+		error,
+		memberViewId,
+		members,
+		session?.leaderMemberId,
+		snapshot,
+		streams,
+		t,
+		team?.leaderMemberId,
+		visiblePending,
+	]);
 
 	const addAttachments = useCallback(
 		(additions: readonly TeamAttachmentViewModel[]) => {
@@ -1142,4 +1174,15 @@ function resolveTeamContextUsage(
 		? resolveSessionContextComposition(runtime.sessionPath, usage.composition)
 		: usage.composition;
 	return composition && !usage.composition ? { ...usage, composition } : usage;
+}
+
+const TEAM_STREAM_FLUSH_MS = 100;
+
+function isTeamStreamDelta(event: DesktopTeamSessionStreamEvent): boolean {
+	return (
+		event.type === "conversation.agent-message-event" &&
+		(event.event.type === "text_delta" ||
+			event.event.type === "thinking_delta" ||
+			event.event.type === "toolcall_delta")
+	);
 }

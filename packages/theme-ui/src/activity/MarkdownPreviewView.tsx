@@ -3,9 +3,9 @@ import { cn } from "@vetta-org/ui";
 import { MarkdownHostProvider } from "../markdown/host";
 import type { MarkdownHost } from "../markdown/host";
 import { MarkdownImage } from "../markdown/MarkdownImage";
-import { memo, useMemo, type JSX, type MouseEvent } from "react";
+import { Fragment, memo, useEffect, useMemo, useState, type JSX, type MouseEvent } from "react";
 import ReactMarkdown from "react-markdown";
-import type { Components } from "react-markdown";
+import type { Components, Options as ReactMarkdownOptions } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
 	MarkdownTable,
@@ -17,6 +17,7 @@ import {
 } from "../shared/MarkdownTable";
 import { useMarkdownDefinition } from "../markdown/definition";
 import { BuiltinCodeBlock, Formula } from "../markdown/builtin-renderers";
+import { splitMarkdownForProgressiveRender } from "../markdown/progressive-chunks";
 import { richRemarkPlugins } from "../markdown/rich-syntax";
 import { SvgPreview } from "../markdown/SvgPreview";
 import { WebsiteIcon } from "../markdown/WebsiteIcon";
@@ -198,17 +199,92 @@ export const MarkdownPreviewView = memo(function MarkdownPreviewView({
 		};
 	}, [theme, onOpenExternal, definition, labels]);
 
+	const remarkPlugins = useMemo(
+		() => [...MARKDOWN_REMARK_PLUGINS, ...(definition.remarkPlugins ?? [])],
+		[definition.remarkPlugins],
+	);
+	const chunks = useMemo(() => splitMarkdownForProgressiveRender(body), [body]);
+	const mountedChunks = useProgressiveChunkCount(chunks.length);
+	const progressive = chunks.length > 1;
+
 	return (
 		<MarkdownHostProvider host={host}><div className={cn("markdown-body break-words p-4", className)}>
 			{parsed && parsed.entries.length > 0 && <Frontmatter entries={parsed.entries} />}
-			<ReactMarkdown
-				urlTransform={chatUrlTransform}
-				remarkPlugins={[...MARKDOWN_REMARK_PLUGINS, ...(definition.remarkPlugins ?? [])]}
-				rehypePlugins={definition.rehypePlugins}
-				components={components}
-			>
-				{body}
-			</ReactMarkdown>
+			{chunks.slice(0, mountedChunks).map((chunk, index) => {
+				const rendered = (
+					<MarkdownChunk
+						markdown={chunk}
+						remarkPlugins={remarkPlugins}
+						rehypePlugins={definition.rehypePlugins}
+						components={components}
+					/>
+				);
+				return progressive ? (
+					// Off-screen sections skip layout and paint; "auto" remembers each measured height.
+					<div key={index} style={PROGRESSIVE_CHUNK_STYLE}>
+						{rendered}
+					</div>
+				) : (
+					<Fragment key={index}>{rendered}</Fragment>
+				);
+			})}
 		</div></MarkdownHostProvider>
 	);
 });
+
+const PROGRESSIVE_CHUNK_STYLE = { contentVisibility: "auto", containIntrinsicSize: "auto 800px" } as const;
+/** Sections rendered in the first frame; enough to fill the pane. */
+const INITIAL_CHUNKS = 2;
+
+const MarkdownChunk = memo(function MarkdownChunk({
+	markdown,
+	remarkPlugins,
+	rehypePlugins,
+	components,
+}: {
+	markdown: string;
+	remarkPlugins: ReactMarkdownOptions["remarkPlugins"];
+	rehypePlugins: ReactMarkdownOptions["rehypePlugins"];
+	components: Components;
+}): JSX.Element {
+	return (
+		<ReactMarkdown
+			urlTransform={chatUrlTransform}
+			remarkPlugins={remarkPlugins}
+			rehypePlugins={rehypePlugins}
+			components={components}
+		>
+			{markdown}
+		</ReactMarkdown>
+	);
+});
+
+/**
+ * Parsing and rendering a large document in one task blocks the window for seconds. The
+ * first sections render at once and the rest are added one per idle period, so the preview
+ * appears immediately and input stays responsive while it fills in.
+ */
+function useProgressiveChunkCount(total: number): number {
+	const [count, setCount] = useState(() => Math.min(total, INITIAL_CHUNKS));
+	useEffect(() => {
+		if (count >= total) return;
+		const handle = scheduleIdle(() => setCount((current) => Math.min(total, current + 1)));
+		return () => cancelIdle(handle);
+	}, [count, total]);
+	return Math.min(count, total);
+}
+
+function scheduleIdle(callback: () => void): number {
+	if (typeof window !== "undefined" && typeof window.requestIdleCallback === "function") {
+		return window.requestIdleCallback(callback, { timeout: 200 });
+	}
+	return setTimeout(callback, 16) as unknown as number;
+}
+
+function cancelIdle(handle: number): void {
+	if (typeof window !== "undefined" && typeof window.cancelIdleCallback === "function") {
+		window.cancelIdleCallback(handle);
+		return;
+	}
+	clearTimeout(handle);
+}

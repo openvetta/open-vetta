@@ -5,7 +5,7 @@
  * Hosts that already define `[data-mode]` can rely on these as baselines.
  * Themes override any subset, e.g.:
  *
- *   [data-theme="xianxia"] {
+ *   [data-theme="my-theme"] {
  *     --syntax-keyword: #c9a227;
  *     --syntax-string: #7d9b76;
  *   }

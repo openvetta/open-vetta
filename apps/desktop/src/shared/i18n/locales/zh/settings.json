@@ -1192,8 +1192,6 @@
   "themeSystem": "跟随系统",
   "uiThemeDefault": "默认主题",
   "uiThemeDefaultHint": "使用标准桌面界面",
-  "uiThemeXianxia": "修仙主题",
-  "uiThemeXianxiaHint": "使用修仙风格界面",
   "uiThemeUnavailable": "尽请期待",
   "colorThemes": {
     "mono": "默认",
@@ -1381,8 +1379,9 @@
   "section_knowledge-actions": "手动操作",
   "section_pet-display": "显示与窗口",
   "section_pet-behavior": "行为",
+  "section_pet-actions": "动作",
+  "section_pet-tips": "互动方式",
   "section_pet-decoration": "桌宠装饰",
-  "section_pet-bubble": "气泡样式",
   "section_pet-developer": "开发调试",
   "updaterChecking": "正在检查...",
   "appVersion": "当前版本",
@@ -2097,154 +2096,6 @@
   "bound": "已绑定",
   "permDiskFullAccess": "完全磁盘访问",
   "permDiskFullAccessDesc": "允许读写项目目录之外的文件；未授权时 macOS 会静默拦截。",
-  "tabAchievements": "成就",
-  "achievement": {
-    "title": "成就",
-    "subtitle": "沿着九个阶段前进，查看已经获得和即将解锁的徽章。",
-    "setSelector": "徽章系列",
-    "sets": {
-      "fanren": "凡人修仙传境界",
-      "classic": "经典徽章"
-    },
-    "setSubtitles": {
-      "fanren": "以原著正统十五大境界推进，查看当前修行阶段与后续境界徽章。",
-      "classic": "沿着九个阶段前进，查看已经获得和即将解锁的徽章。"
-    },
-    "dragHint": "拖动或滚动查看全部成就",
-    "previous": "查看上一个成就",
-    "next": "查看下一个成就",
-    "current": "当前成就",
-    "stage": "第 {{current}} / {{total}} 阶段",
-    "stageProgress": "阶段进度",
-    "startingPoint": "启程阶段",
-    "completed": "已完成",
-    "inProgress": "进行中",
-    "targetValue": "目标：{{target}}",
-    "promotion": {
-      "title": "成就晋升",
-      "stageName": "已晋升至「{{name}}」"
-    },
-    "metrics": {
-      "activeTime": "有效使用时长",
-      "activeStreak": "连续使用",
-      "todayActiveTime": "今日活跃",
-      "todayMessages": "今日消息",
-      "sessions": "交互会话",
-      "turns": "对话轮次",
-      "messages": "完成消息",
-      "longestConversation": "最长单次对话",
-      "tools": "完成工具调用",
-      "tokens": "输入输出 Token",
-      "projects": "项目 / 知识库",
-      "fileOperations": "文件操作",
-      "batchRuns": "批量任务运行",
-      "automationRuns": "自动化运行"
-    },
-    "durationMinutes": "{{count}} 分钟",
-    "durationHours": "{{count}} 小时",
-    "durationHoursMinutes": "{{hours}} 小时 {{minutes}} 分钟",
-    "days": "{{count}} 天",
-    "longestConversationValue": "{{turns}} 轮 / {{messages}} 条",
-    "projectsValue": "{{projects}} 项目 / {{kb}} 知识库",
-    "stages": {
-      "awakeningSpark": {
-        "name": "觉醒星火",
-        "meaning": "纪念新文化运动、五四运动思想觉醒，致敬传播马克思主义的先驱，象征破除旧思想、点燃民族救亡的思想火种，代表坚守初心、勤学明理的精神底色。"
-      },
-      "redBoatVoyage": {
-        "name": "红船初航",
-        "meaning": "溯源红船精神，铭记建党伟业与早期工农革命探索，象征敢为人先、忠诚为民的建党底色，代表立足根基、勇担使命的奋斗起点。"
-      },
-      "jinggangFire": {
-        "name": "井冈星火",
-        "meaning": "传承八一精神、井冈山精神、苏区精神，纪念工农武装割据创建革命根据地，象征扎根群众、艰苦奋斗、武装救国的革命意志。"
-      },
-      "longMarch": {
-        "name": "万里长征",
-        "meaning": "弘扬长征精神，铭记绝境中坚守理想信念的英雄壮举，象征不畏艰险、团结奋进、矢志不渝的坚定信仰。"
-      },
-      "yananBeacon": {
-        "name": "延河灯塔",
-        "meaning": "践行延安精神，纪念抗战时期思想整风、革命文艺大众化探索，象征实事求是、全心为民、自力更生的优良作风。"
-      },
-      "governanceTest": {
-        "name": "赶考初心",
-        "meaning": "牢记西柏坡精神与“两个务必”赶考嘱托，纪念解放全国、筹备人民政权历程，象征居安思危、谦虚谨慎、执政为民的清醒自觉。"
-      },
-      "constructionGlory": {
-        "name": "建设宏图",
-        "meaning": "传承大庆精神、两弹一星精神、雷锋焦裕禄精神，致敬艰苦创业的建设者，象征自力更生、报国奉献、实干兴邦的建设品格。"
-      },
-      "reformTide": {
-        "name": "改革潮涌",
-        "meaning": "弘扬特区精神、抗洪、载人航天等时代精神，铭记改革开放开拓历程，象征敢闯敢试、开放包容、锐意进取的改革魄力。"
-      },
-      "rejuvenationEpic": {
-        "name": "复兴华章",
-        "meaning": "立足文化自信，传承红色基因，聚焦中国式现代化、民族复兴伟业，象征守正创新、实干奋进、奔赴民族复兴的时代担当。"
-      },
-      "mortalWarrior": {
-        "name": "凡人武者",
-        "meaning": "处于凡俗习武层次，未引天地灵气入体，无正统修仙修为。体魄与常人差距较小，尚未踏入真正的修行大道。"
-      },
-      "qiRefiningRealm": {
-        "name": "炼气期",
-        "meaning": "修仙初始入门境界，分为一至十三层。修士引纳天地灵气转化为自身法力，根基孱弱，寿元与凡人相近，为修仙起步阶段。"
-      },
-      "foundationBuildingRealm": {
-        "name": "筑基期",
-        "meaning": "稳固修行道基，将散乱法力凝实固化。修士可御器飞行、施展术法、辟谷存生，寿元显著提升，正式立足修仙道途。"
-      },
-      "goldenCoreRealm": {
-        "name": "结丹期",
-        "meaning": "丹田法力凝练为金丹，神识、肉身与战力全方位提升。可祭炼专属本命法宝，修为稳固，成为修行界的中坚力量。"
-      },
-      "nascentSoulRealm": {
-        "name": "元婴期",
-        "meaning": "金丹破碎化生出元婴，神魂得以独立存续。元婴可离体游走，肉身损毁仍有重生之机，是人界高阶修行境界。"
-      },
-      "spiritTransformationRealm": {
-        "name": "化神期",
-        "meaning": "修行突破自身桎梏，可感应并借引天地元气加持自身。为人界修为极限，具备横渡虚空、飞升更高界面的修行资质。"
-      },
-      "voidRefiningRealm": {
-        "name": "炼虚期",
-        "meaning": "高阶修行起步境界，元婴与元神完成深度蜕变。修士调动天地规则的能力大幅增强，神通与寿元实现跨越式提升。"
-      },
-      "bodyFusionRealm": {
-        "name": "合体期",
-        "meaning": "肉身、元神与法力彻底相融归一，修行根基圆满无缺。战力远超炼虚修士，具备镇守一方疆域的强大实力。"
-      },
-      "greatAscensionRealm": {
-        "name": "大乘期",
-        "meaning": "下界修行的顶级境界，肉身、神识与法则感悟尽数抵达俗世极致，修为圆满，拥有冲击仙界的修行底蕴。"
-      },
-      "tribulationTranscendRealm": {
-        "name": "渡劫期",
-        "meaning": "境界飞升的专属过渡关卡，修士需承受九天雷劫淬炼身躯与神魂。成功渡过雷劫，即可挣脱下界桎梏，踏入仙界修行体系。"
-      },
-      "trueImmortalRealm": {
-        "name": "真仙境",
-        "meaning": "仙界正统初始境界，彻底褪去凡俗法力，凝练纯粹仙元力。脱离下界修行规则，位列仙班，拥有绵长不朽仙寿。"
-      },
-      "goldenImmortalRealm": {
-        "name": "金仙境",
-        "meaning": "真仙进阶的高阶仙位，需打通周身仙窍、参悟本源法则。历经三重衰劫淬炼仙体仙魂，综合战力远超普通真仙。"
-      },
-      "taiyiJadeImmortalRealm": {
-        "name": "太乙玉仙",
-        "meaning": "仙界顶尖修行境界，突破金仙修行桎梏，渡过双重衰劫。法则领悟极为精深，可执掌一方仙域，威慑四方修士。"
-      },
-      "daluoGoldenImmortalRealm": {
-        "name": "大罗金仙",
-        "meaning": "仙界高阶顶级境界，深度参悟并掌控天地大道法则，可影响寰宇秩序。需斩断自身三尸执念，修为强横无匹。"
-      },
-      "daoAncestorRealm": {
-        "name": "道祖境",
-        "meaning": "修行体系的终极境界，斩尽三尸执念，彻底勘破大道本源。执掌完整天地法则，超脱诸天修行桎梏，屹立修为顶点。"
-      }
-    }
-  },
   "feishuBindTitle": "扫码接入飞书",
   "feishuBind": "扫码接入",
   "feishuManage": "管理 / 解绑",

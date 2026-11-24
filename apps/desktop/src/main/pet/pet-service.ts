@@ -1,4 +1,4 @@
-import type { PetBubbleStyleAsset, PetDecoration } from "../../preload/api-types/pet.js";
+import type { PetActionVideo, PetDecoration } from "../../preload/api-types/pet.js";
 import type { PetActionId } from "../../shared/pet-actions.js";
 import { normalizePetConfig, type PetConfig } from "../../shared/pet-config.js";
 import type { PetContentBounds, PetResizeCorner, PetVideoHitbox } from "../../shared/pet-ipc.js";
@@ -9,6 +9,7 @@ import {
 	beginPetWindowResize,
 	endPetWindowMove,
 	endPetWindowResize,
+	listPetActionVideos,
 	movePetWindow,
 	resizePetVideoByWheel,
 	resizePetWindowByWheel,
@@ -20,7 +21,6 @@ import {
 	setPetWindowSize,
 	showPetWindow,
 } from "../pet-window.js";
-import { getPetBubbleStyleAssets } from "./pet-bubble-style-assets.js";
 import { getPetDecorations } from "./pet-decorations.js";
 
 const USER_ACTION_HOLD_MS = 10_000;
@@ -55,12 +55,12 @@ export function setDesktopPetActionFromUser(actionId: PetActionId): void {
 	sendPetCommandToWindow({ type: "set-action", actionId, source: "user", holdMs: USER_ACTION_HOLD_MS });
 }
 
-export function listPetDecorations(): PetDecoration[] {
-	return getPetDecorations();
+export function listDesktopPetActionVideos(): PetActionVideo[] {
+	return listPetActionVideos();
 }
 
-export function listPetBubbleStyleAssets(): PetBubbleStyleAsset[] {
-	return getPetBubbleStyleAssets();
+export function listPetDecorations(): PetDecoration[] {
+	return getPetDecorations();
 }
 
 export async function resizeDesktopPetWindowByWheel(deltaY: number): Promise<void> {
