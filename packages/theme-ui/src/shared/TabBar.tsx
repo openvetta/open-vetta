@@ -153,7 +153,7 @@ function ActiveTabIndicator({
 				<svg
 					viewBox={`0 0 ${geometry.width} ${geometry.height}`}
 					aria-hidden
-					className="absolute top-0 overflow-visible fill-muted stroke-border"
+					className="absolute top-0 overflow-visible fill-card stroke-border dark:fill-muted"
 					data-connected-tab-outline
 					shapeRendering="geometricPrecision"
 					style={{
@@ -178,7 +178,7 @@ function ActiveTabIndicator({
 	// 否则轮廓整体下移 1px，下探量会多出一像素压到内容卡片上。
 	const indicatorProps = {
 		"aria-hidden": true,
-		className: "pointer-events-none absolute -inset-x-px -top-px -bottom-px rounded-t-lg bg-muted",
+		className: "pointer-events-none absolute -inset-x-px -top-px -bottom-px rounded-t-lg bg-card dark:bg-muted",
 		"data-active-tab-indicator": true,
 	};
 
