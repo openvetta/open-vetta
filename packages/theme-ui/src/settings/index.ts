@@ -1,19 +1,4 @@
 export type {
-	AchievementNavigationAssets,
-	AchievementNavigationButtonViewProps,
-} from "./AchievementNavigationButtonView";
-export { AchievementNavigationButtonView } from "./AchievementNavigationButtonView";
-export type {
-	AchievementPromotionDialogViewLabels,
-	AchievementPromotionDialogViewProps,
-} from "./AchievementPromotionDialogView";
-export { AchievementPromotionDialogView } from "./AchievementPromotionDialogView";
-export type {
-	AchievementSetOptionView,
-	AchievementSettingsViewProps,
-} from "./AchievementSettingsView";
-export { AchievementSettingsView } from "./AchievementSettingsView";
-export type {
 	AppshotPermissionStatusView,
 	AppshotSettingsViewLabels,
 	AppshotSettingsViewProps,
@@ -25,22 +10,6 @@ export type {
 	ArchivedProjectsSettingsViewProps,
 } from "./ArchivedProjectsSettingsView";
 export { ArchivedProjectsSettingsView } from "./ArchivedProjectsSettingsView";
-export type {
-	AchievementCurtainSideLayout,
-	AchievementCurtainsAssets,
-	AchievementCurtainsLayout,
-	AchievementCurtainsProps,
-	AchievementPromotionBadge3DProps,
-	AchievementPromotionConfettiProps,
-	AchievementTitleLayout,
-	AchievementTitleProps,
-} from "./achievements";
-export {
-	AchievementCurtains,
-	AchievementPromotionBadge3D,
-	AchievementPromotionConfetti,
-	AchievementTitle,
-} from "./achievements";
 export type {
 	BuiltinMcpSecretFieldView,
 	BuiltinMcpSecretsDialogViewLabels,

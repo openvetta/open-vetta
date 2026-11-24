@@ -216,7 +216,7 @@ function classify(abs, text, deferrals) {
 		hasTheme &&
 		lines <= 70 &&
 		!dataHeavy &&
-		(hasI18n || /ACHIEVEMENT_|useCodeClipboard|as Theme|formatResetCountdown/.test(text));
+		(hasI18n || /useCodeClipboard|as Theme|formatResetCountdown/.test(text));
 	if (isThinReexport || isAdapter) return { status: "migrated", rel, lines };
 
 	if (!hasExport) return { status: "skip", rel, lines };
