@@ -53,9 +53,13 @@ export const MessageInputSurface = forwardRef<
 	const { focused, topConnected } = useMessageInputContext("Surface");
 	const Comp = asChild ? Slot.Root : "div";
 	const surfaceClassName = cn(
+		// 边框保留，但深浅两色都压淡：浅色白底上原灰线偏硬，深色也偏亮。
+		// 聚焦态只比静态态偏一点主色，不再抢视觉，所以与静态态互斥：
+		// 否则 dark: 变体在输出里靠后，会盖掉聚焦色。主色浓度压到 10%，
+		// 浅色几乎只看出一点冷调，深色也只是比常态略偏蓝。
 		"input-card relative z-10 overflow-visible border bg-input-bar-bg shadow-[0_8px_28px_-14px_rgb(0_0_0/0.10)] transition-[border-color,box-shadow,transform] duration-200 dark:shadow-none",
 		topConnected ? "rounded-b-[20px] rounded-t-none" : "rounded-[20px]",
-		focused ? "border-primary/20" : "border-border",
+		focused ? "border-primary/10" : "border-border/60 dark:border-border/70",
 		className,
 	);
 
