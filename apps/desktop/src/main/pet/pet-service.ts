@@ -1,7 +1,7 @@
 import type { PetActionVideo, PetDecoration } from "../../preload/api-types/pet.js";
 import type { PetActionId } from "../../shared/pet-actions.js";
 import { normalizePetConfig, type PetConfig } from "../../shared/pet-config.js";
-import type { PetContentBounds, PetResizeCorner, PetVideoHitbox } from "../../shared/pet-ipc.js";
+import type { PetContentSize, PetResizeCorner, PetVideoHitbox } from "../../shared/pet-ipc.js";
 import { readPetConfig, writePetConfig } from "../pet-config-store.js";
 import {
 	applyPetConfig,
@@ -91,7 +91,7 @@ export async function setDesktopPetWindowSize(size: number, corner?: PetResizeCo
 	await setPetWindowSize(size, corner);
 }
 
-export function setDesktopPetContentSize(content: number | PetContentBounds): void {
+export function setDesktopPetContentSize(content: number | PetContentSize): void {
 	setPetWindowContentSize(content);
 }
 

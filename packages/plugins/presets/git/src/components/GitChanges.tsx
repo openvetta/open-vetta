@@ -8,7 +8,7 @@ import type { ChangeRef, ChangeSection, StatusGroups } from "../git/types";
 import type { MenuPoint } from "./ChangeMenu";
 import { FloatingChangeMenu } from "./ChangeMenu";
 import { BranchBar } from "./BranchBar";
-import { ChangeSectionList } from "./ChangeSectionList";
+import { ChangeSectionList, SECTION_MIN_HEIGHT } from "./ChangeSectionList";
 import { CleanState } from "./CleanState";
 import { CommitBox } from "./CommitBox";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -18,12 +18,12 @@ import { FileIcon, StageIcon, UnstageIcon } from "./icons";
 import { SplitHandle } from "./SplitHandle";
 import { useChangeActions } from "./useChangeActions";
 
-// 容器宽于此值时显示右侧 diff 区；窄于此值只显示文件树（拖窄自动收起 diff）。
-// 阈值要留得住「树 + 一屏能读的 diff」，否则一拉宽就挤出一条读不了的窄 diff。
+// 容器宽于此值时显示右侧 diff 区；窄于此值只显示文件列表（拖窄自动收起 diff）。
+// 阈值要留得住「列表 + 一屏能读的 diff」，否则一拉宽就挤出一条读不了的窄 diff。
 const DIFF_MIN_WIDTH = 560;
-const TREE_DEFAULT_WIDTH = 300;
-const TREE_MIN_WIDTH = 180;
-// diff 展开时给右侧 diff 保留的最小宽度，限制树列最大宽度。
+const LIST_DEFAULT_WIDTH = 300;
+const LIST_MIN_WIDTH = 180;
+// diff 展开时给右侧 diff 保留的最小宽度，限制文件列最大宽度。
 const DIFF_RESERVED_WIDTH = 260;
 
 /** Files listed by name in the discard confirmation before it says "and N more". */
@@ -38,7 +38,7 @@ interface Selection {
 	paths: readonly string[];
 }
 
-/** Ready-state body: sectioned change list on the left, width-gated diff pane on the right. */
+/** Ready-state body: sectioned flat change list on the left, width-gated diff pane on the right. */
 export function GitChanges({ root, groups, onOpenGraph }: { root: string; groups: StatusGroups; onOpenGraph: () => void }): JSX.Element {
 	const { t } = useTranslation();
 	const [containerWidth, setContainerWidth] = useState(0);
@@ -49,8 +49,7 @@ export function GitChanges({ root, groups, onOpenGraph }: { root: string; groups
 		staged: false,
 		unstaged: false,
 	});
-	const [treeWidth, setTreeWidth] = useState(TREE_DEFAULT_WIDTH);
-	const [treeCollapsed, setTreeCollapsed] = useState(false);
+	const [listWidth, setListWidth] = useState(LIST_DEFAULT_WIDTH);
 	const actions = useChangeActions(root, groups);
 
 	// 预热 diff 高亮器：共享高亮器是会话级单例，首个 diff 渲染时若主题尚未挂载，
@@ -64,9 +63,9 @@ export function GitChanges({ root, groups, onOpenGraph }: { root: string; groups
 	 * Width probe as a callback ref, not a mount effect.
 	 *
 	 * The measured element only exists while there are changes, so a `[]` effect
-	 * would run once against a null ref on a clean tree and never retry — the
-	 * panel then stayed in its narrow single-column layout no matter how wide the
-	 * user dragged it, and the diff pane never appeared.
+	 * would run once against a null ref when nothing is changed and never retry —
+	 * the panel then stayed in its narrow single-column layout no matter how wide
+	 * the user dragged it, and the diff pane never appeared.
 	 */
 	const observerRef = useRef<ResizeObserver | null>(null);
 	const measureRef = useCallback((el: HTMLDivElement | null) => {
@@ -86,7 +85,6 @@ export function GitChanges({ root, groups, onOpenGraph }: { root: string; groups
 	const total = groups.conflict.length + groups.staged.length + groups.unstaged.length;
 	const wide = containerWidth >= DIFF_MIN_WIDTH;
 	const activeEntry = active ? findEntry(groups[active.section], active.path) : null;
-	const showTree = !wide || !treeCollapsed;
 
 	// 拉宽且无有效选择时，默认选中第一个变更文件（仿文件活动面板）。
 	// 选中文件被移除（刷新后失效）时也回落到第一个。
@@ -101,11 +99,6 @@ export function GitChanges({ root, groups, onOpenGraph }: { root: string; groups
 		}
 	}, [wide, activeEntry, groups]);
 
-	// 收起 diff（窄屏或无选择）时复位树折叠态，避免残留隐藏。
-	useEffect(() => {
-		if (!wide || !activeEntry) setTreeCollapsed(false);
-	}, [wide, activeEntry]);
-
 	// 选中变化：只保留一个分区的多选，并把「刚进入选中的那个文件」作为 diff 的对象。
 	// 窄屏点文件时把面板拉到最大并打开 diff（仿文件面板）。
 	const handleSelection = useCallback(
@@ -119,11 +112,72 @@ export function GitChanges({ root, groups, onOpenGraph }: { root: string; groups
 		[wide],
 	);
 
+	/**
+	 * 分区间的高度权重。
+	 *
+	 * 未拖动时按文件数分配（小数区分区不会挤成一条），一旦用户拖动就冻结成权重：
+	 * 高度 = 权重 / 总权重 × 可用高度，所以容器变高变矮时比例仍然成立，不会把
+	 * 最后一个分区顶出可视区。分区增删（例如提交后暂存区清空）时回到默认比例，
+	 * 免得上一次的比例套在完全不同的内容上。
+	 */
+	const sectionsBodyRef = useRef<HTMLDivElement | null>(null);
+	const [weights, setWeights] = useState<Partial<Record<ChangeSection, number>>>({});
+	const weightsRef = useRef(weights);
+	weightsRef.current = weights;
+	// 一次拖拽会话内的换算基准：可用高度与权重总和。
+	const dragScaleRef = useRef<{ available: number; total: number } | null>(null);
+
+	const visibleSections = SECTION_ORDER.filter((section) => groups[section].length > 0 && !collapsed[section]);
+	const visibleKey = visibleSections.join(",");
+
+	// 可见分区集合变化时回到默认比例。
+	useEffect(() => {
+		setWeights({});
+		weightsRef.current = {};
+	}, [visibleKey]);
+
+	const beginSectionResize = useCallback(() => {
+		const el = sectionsBodyRef.current;
+		if (!el) return;
+		const seeded: Partial<Record<ChangeSection, number>> = {};
+		let total = 0;
+		for (const section of visibleSections) {
+			const weight = weightsRef.current[section] ?? groups[section].length;
+			seeded[section] = weight;
+			total += weight;
+		}
+		if (total <= 0) return;
+		setWeights(seeded);
+		weightsRef.current = seeded;
+		dragScaleRef.current = { available: el.clientHeight, total };
+	}, [visibleSections, groups]);
+
+	const resizeSections = useCallback(
+		(above: ChangeSection, below: ChangeSection, deltaY: number) => {
+			const scale = dragScaleRef.current;
+			if (!scale || scale.available <= 0) return;
+			const pxPerWeight = scale.available / scale.total;
+			const minWeight = SECTION_MIN_HEIGHT / pxPerWeight;
+			const current = weightsRef.current;
+			const aboveWeight = current[above] ?? 0;
+			const belowWeight = current[below] ?? 0;
+			// 两边都不许被拖到小于最小可用高度，超出部分直接丢弃（继续拖不会累积）。
+			let dw = deltaY / pxPerWeight;
+			dw = Math.min(dw, belowWeight - minWeight);
+			dw = Math.max(dw, minWeight - aboveWeight);
+			if (dw === 0) return;
+			const next = { ...current, [above]: aboveWeight + dw, [below]: belowWeight - dw };
+			weightsRef.current = next;
+			setWeights(next);
+		},
+		[],
+	);
+
 	const onSplitDrag = useCallback(
 		(deltaX: number) => {
-			setTreeWidth((w) => {
-				const max = Math.max(TREE_MIN_WIDTH, containerWidth - DIFF_RESERVED_WIDTH);
-				return Math.max(TREE_MIN_WIDTH, Math.min(max, w + deltaX));
+			setListWidth((w) => {
+				const max = Math.max(LIST_MIN_WIDTH, containerWidth - DIFF_RESERVED_WIDTH);
+				return Math.max(LIST_MIN_WIDTH, Math.min(max, w + deltaX));
 			});
 		},
 		[containerWidth],
@@ -179,19 +233,22 @@ export function GitChanges({ root, groups, onOpenGraph }: { root: string; groups
 				<CleanState root={root} onOpenGraph={onOpenGraph} />
 			) : (
 				<div ref={measureRef} className="flex min-h-0 flex-1 overflow-hidden">
-					{showTree && (
-						<div
-							className={
-								wide
-									? "relative flex min-h-0 shrink-0 flex-col overflow-hidden bg-muted"
-									: "flex min-h-0 flex-1 flex-col overflow-hidden bg-muted"
-							}
-							style={wide ? { width: treeWidth } : undefined}
-						>
-							<CommitBox root={root} groups={groups} />
-							{/* 分区自己吃满剩余高度并各自内部滚动，外层不再整体滚动。 */}
-							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-								{SECTION_ORDER.map((section) => (
+					<div
+						className={
+							wide
+								? "relative flex min-h-0 shrink-0 flex-col overflow-hidden bg-transparent"
+								: "flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent"
+						}
+						style={wide ? { width: listWidth } : undefined}
+					>
+						<CommitBox root={root} groups={groups} />
+						{/* 分区自己吃满剩余高度并各自内部滚动，外层不再整体滚动。 */}
+						<div ref={sectionsBodyRef} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+							{SECTION_ORDER.map((section) => {
+								// 只有下面确实还有展开的分区时才给手柄（空分区与折叠分区都不参与分配）。
+								const visibleIndex = visibleSections.indexOf(section);
+								const resizableBelow = visibleIndex < 0 ? undefined : visibleSections[visibleIndex + 1];
+								return (
 									<ChangeSectionList
 										key={section}
 										title={sectionTitles[section]}
@@ -203,21 +260,19 @@ export function GitChanges({ root, groups, onOpenGraph }: { root: string; groups
 										renderMenu={(paths, close, point) => renderSectionMenu(section, paths, close, point)}
 										actions={renderSectionActions(section)}
 										tone={section === "conflict" ? "danger" : undefined}
+										weight={weights[section]}
+										onResizeStart={beginSectionResize}
+										onResize={resizableBelow ? (deltaY) => resizeSections(section, resizableBelow, deltaY) : undefined}
+										resizeTitle={resizableBelow ? t("section.resize") : undefined}
 									/>
-								))}
-							</div>
-							{wide && <SplitHandle onDrag={onSplitDrag} />}
+								);
+							})}
 						</div>
-					)}
+						{wide && <SplitHandle onDrag={onSplitDrag} />}
+					</div>
 					{wide &&
 						(activeEntry && active ? (
-							<DiffPane
-								root={root}
-								entry={activeEntry}
-								section={active.section}
-								onToggleTree={() => setTreeCollapsed((c) => !c)}
-								treeCollapsed={treeCollapsed}
-							/>
+							<DiffPane root={root} entry={activeEntry} section={active.section} />
 						) : (
 							<div className="mb-2 ml-0.5 mr-2 mt-1 flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-border/70 bg-background text-muted-foreground">
 								<FileIcon className="h-6 w-6 opacity-50" />

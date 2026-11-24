@@ -32,7 +32,10 @@ describe("MessageInput compound primitives", () => {
 
 		const surface = screen.getByTestId("surface");
 		expect(surface.className).toContain("rounded-b-[20px]");
-		expect(surface.className).toContain("border-primary/20");
+		// 聚焦态只比静态态轻微偏主色，不同时输出静态态的淡边框。
+		expect(surface.className.split(" ")).toContain("border-primary/10");
+		expect(surface.className.split(" ")).not.toContain("border-primary/15");
+		expect(surface.className.split(" ")).not.toContain("border-border/60");
 		expect(screen.getByTestId("editor").tagName).toBe("SECTION");
 		expect(screen.getByText("Members").tagName).toBe("NAV");
 		expect(
@@ -76,6 +79,11 @@ describe("MessageInput compound primitives", () => {
 		const surface = screen.getByTestId("surface");
 		expect(surface.getAttribute("data-vetta-drop-scope")).toBe("input");
 		expect(surface.className).toContain("input-card");
+		// 静态描边保留，但深浅两色都压到半透明，不再用满强度的 border-border。
+		const tokens = surface.className.split(" ");
+		expect(tokens).toContain("border-border/60");
+		expect(tokens).toContain("dark:border-border/70");
+		expect(tokens).not.toContain("border-border");
 		expect(surface.querySelector('[data-theme-surface="chat.inputBar"]')).toBeTruthy();
 	});
 

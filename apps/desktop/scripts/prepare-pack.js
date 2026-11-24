@@ -44,6 +44,7 @@ const cliAppCompileTargets = {
 	"darwin-x64": { platformTag: "darwin-x64", bunTarget: "bun-darwin-x64", binaryName: "vetta" },
 	"linux-arm64": { platformTag: "linux-arm64", bunTarget: "bun-linux-arm64", binaryName: "vetta" },
 	"linux-x64": { platformTag: "linux-x64", bunTarget: "bun-linux-x64", binaryName: "vetta" },
+	"win32-arm64": { platformTag: "win32-arm64", bunTarget: "bun-windows-arm64", binaryName: "vetta.exe" },
 	"win32-x64": { platformTag: "win32-x64", bunTarget: "bun-windows-x64", binaryName: "vetta.exe" },
 };
 const imGatewayTargetByPlatformTag = {
@@ -51,6 +52,7 @@ const imGatewayTargetByPlatformTag = {
 	"darwin-x64": { arch: "amd64", os: "darwin" },
 	"linux-arm64": { arch: "arm64", os: "linux" },
 	"linux-x64": { arch: "amd64", os: "linux" },
+	"win32-arm64": { arch: "arm64", os: "windows" },
 	"win32-x64": { arch: "amd64", os: "windows" },
 };
 

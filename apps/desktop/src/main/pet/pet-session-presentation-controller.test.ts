@@ -46,7 +46,7 @@ describe("PetSessionPresentationController", () => {
 			startedAt: 1,
 			source: "tool",
 		});
-		controller.beginWaiting("session-1", "question:q-1", "notice.waiting.question");
+		controller.beginWaiting("session-1", "question:q-1");
 
 		expect(stateCommands(commands).map((command) => command.state)).toEqual(["thinking"]);
 		vi.advanceTimersByTime(PET_PRESENTATION_MIN_HOLD_MS - 1);
@@ -75,7 +75,7 @@ describe("PetSessionPresentationController", () => {
 		});
 		vi.advanceTimersByTime(PET_PRESENTATION_MIN_HOLD_MS);
 
-		controller.beginWaiting("session-1", "question:q-1", "notice.waiting.question");
+		controller.beginWaiting("session-1", "question:q-1");
 		vi.advanceTimersByTime(PET_PRESENTATION_MIN_HOLD_MS);
 		controller.endWaiting("session-1", "question:q-1");
 		vi.advanceTimersByTime(PET_PRESENTATION_MIN_HOLD_MS);

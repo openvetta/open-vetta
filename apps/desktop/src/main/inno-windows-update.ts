@@ -56,6 +56,8 @@ export interface InnoUpdateRuntime {
 	) => Promise<void>;
 	relaunch(executablePath: string): void;
 	quit(): void;
+	/** 本机架构，默认 process.arch；测试时注入。 */
+	arch?: string;
 }
 
 function isValidVersion(version: string): boolean {
@@ -110,24 +112,36 @@ function fileNameFromUrl(url: string): string {
 	}
 }
 
+// x64 与 arm64 的安装包写在同一份 latest.yml 里。下载由 electron-updater 的 findFile
+// 完成，它优先取 URL 含本机架构名的 .exe、找不到再退回第一个；这里必须用同一规则，
+// 否则 arm64 机器上记下的文件名与大小会是 x64 安装包的。
+function pickInstallerForArch(
+	resolvedFiles: readonly ResolvedUpdateFileInfo[],
+	arch: string,
+): ResolvedUpdateFileInfo | undefined {
+	const installers = resolvedFiles.filter((file) => file.url.pathname.toLowerCase().endsWith(".exe"));
+	return (
+		installers.find((file) => [file.url.pathname, file.info.url].some((name) => name.includes(arch))) ?? installers[0]
+	);
+}
+
 function findWindowsInstaller(
 	info: UpdateInfo,
 	resolvedFiles: readonly ResolvedUpdateFileInfo[],
+	arch: string,
 ): InnoUpdateSelection | null {
-	for (const file of resolvedFiles) {
-		if (!file.url.pathname.toLowerCase().endsWith(".exe")) continue;
-		if (typeof file.info.sha512 !== "string" || file.info.sha512.length === 0) return null;
-		if (typeof file.info.size !== "number" || !Number.isSafeInteger(file.info.size) || file.info.size <= 0) {
-			return null;
-		}
-		if (!isValidVersion(info.version)) return null;
-		return {
-			version: info.version,
-			size: file.info.size,
-			fileName: fileNameFromUrl(file.url.href),
-		};
+	const file = pickInstallerForArch(resolvedFiles, arch);
+	if (!file) return null;
+	if (typeof file.info.sha512 !== "string" || file.info.sha512.length === 0) return null;
+	if (typeof file.info.size !== "number" || !Number.isSafeInteger(file.info.size) || file.info.size <= 0) {
+		return null;
 	}
-	return null;
+	if (!isValidVersion(info.version)) return null;
+	return {
+		version: info.version,
+		size: file.info.size,
+		fileName: fileNameFromUrl(file.url.href),
+	};
 }
 
 export function buildInnoUpdateArguments(storeRoot: string, progressPath: string, logPath: string): string[] {
@@ -290,7 +304,7 @@ export class InnoWindowsUpdateController {
 	}
 
 	select(info: UpdateInfo, resolvedFiles: readonly ResolvedUpdateFileInfo[]): InnoUpdateAsset | null {
-		this.selection = findWindowsInstaller(info, resolvedFiles);
+		this.selection = findWindowsInstaller(info, resolvedFiles, this.runtime.arch ?? process.arch);
 		this.prepared = null;
 		return this.selection
 			? {

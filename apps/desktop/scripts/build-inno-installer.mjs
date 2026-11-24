@@ -39,9 +39,13 @@ export function resolveInnoCompiler(environment = process.env) {
 	);
 }
 
-function unpackedDirectory(arch) {
-	if (arch !== "x64") throw new Error(`[build-inno] unsupported Windows architecture: ${arch}`);
-	return join(releaseDir, "win-unpacked");
+// electron-builder 只给 x64 用不带架构名的 win-unpacked，其余架构是 win-<arch>-unpacked。
+const UNPACKED_DIRECTORY_BY_ARCH = { x64: "win-unpacked", arm64: "win-arm64-unpacked" };
+
+export function unpackedDirectory(arch, root = releaseDir) {
+	const directory = UNPACKED_DIRECTORY_BY_ARCH[arch];
+	if (!directory) throw new Error(`[build-inno] unsupported Windows architecture: ${arch}`);
+	return join(root, directory);
 }
 
 export async function writeAppUpdateConfig(sourceDir, version, publishConfig) {

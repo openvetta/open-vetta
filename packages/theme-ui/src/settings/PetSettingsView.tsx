@@ -28,23 +28,13 @@ export interface PetSettingsViewLabels {
 	readonly autoMode: string;
 	readonly autoModeDescription: string;
 	readonly actionsSectionDescription: string;
-	readonly tipsSectionDescription: string;
 	readonly sections: {
 		readonly display: string;
 		readonly behavior: string;
 		readonly actions: string;
-		readonly tips: string;
 		readonly decoration: string;
 		readonly developer: string;
 	};
-}
-
-export interface PetTipView {
-	readonly id: string;
-	/** iconify 类名，例如 `icon-[solar--cursor-linear]`。 */
-	readonly iconClassName: string;
-	readonly title: string;
-	readonly description: string;
 }
 
 export interface PetSizeControlView {
@@ -62,7 +52,6 @@ export interface PetSettingsViewProps {
 		readonly display: SettingSectionMeta;
 		readonly behavior: SettingSectionMeta;
 		readonly actions: SettingSectionMeta;
-		readonly tips: SettingSectionMeta;
 		readonly decoration: SettingSectionMeta;
 		readonly developer: SettingSectionMeta;
 	};
@@ -71,7 +60,6 @@ export interface PetSettingsViewProps {
 	readonly size: PetSizeControlView;
 	/** 动作预览与播放，通常放 `PetActionGalleryView`。 */
 	readonly actionGallery: ReactNode;
-	readonly tips: readonly PetTipView[];
 	readonly alwaysOnTop: boolean;
 	readonly debugFrame: boolean;
 	readonly decorations: readonly PetDecorationView[];
@@ -130,7 +118,6 @@ export function PetSettingsView({
 	autoMode,
 	size,
 	actionGallery,
-	tips,
 	alwaysOnTop,
 	debugFrame,
 	decorations,
@@ -176,27 +163,6 @@ export function PetSettingsView({
 				description={labels.actionsSectionDescription}
 			>
 				{actionGallery}
-			</SettingSection>
-
-			<SettingSection
-				title={labels.sections.tips}
-				section={sections.tips}
-				description={labels.tipsSectionDescription}
-			>
-				<ul className="grid grid-cols-2 gap-px bg-border">
-					{tips.map((tip) => (
-						<li key={tip.id} className="flex items-start gap-3 bg-card px-4 py-3">
-							<span
-								aria-hidden
-								className={`${tip.iconClassName} mt-0.5 size-4 shrink-0 text-muted-foreground`}
-							/>
-							<div className="min-w-0">
-								<div className="text-[13px] font-medium text-foreground">{tip.title}</div>
-								<div className="mt-0.5 text-[12px] text-muted-foreground">{tip.description}</div>
-							</div>
-						</li>
-					))}
-				</ul>
 			</SettingSection>
 
 			{showDecorationSection && (

@@ -1,232 +1,107 @@
 import { describe, expect, it } from "vitest";
-import type { PetContentBounds } from "../../shared/pet-ipc";
 import {
 	initialPetVideoScreen,
-	layoutPetWidget,
-	normalizePetContentBounds,
+	normalizePetContentSize,
+	petWindowBoundsForAnchor,
+	petWindowBoundsForScreen,
 	squarePetContent,
-	videoScreenForContentResize,
 	videoScreenRectFromWindow,
-} from "./pet-widget-bounds";
+} from "./pet-widget-bounds.js";
 
 const workArea = { x: 0, y: 25, width: 1440, height: 875 };
-const SPRITE = 220;
-const BUBBLE_EXTRA_LEFT = 70;
-const BUBBLE_EXTRA_HEIGHT = 80;
 
-/** 渲染层按给定放置方向 / 平移排好长气泡后会上报的布局（宽 360、高 300、精灵 220）。 */
-function longBubbleContent(offset: { x: number; y: number }): PetContentBounds {
-	return {
-		bounds: { x: 0, y: 0, width: 360, height: SPRITE + BUBBLE_EXTRA_HEIGHT },
-		anchor: {
-			x: BUBBLE_EXTRA_LEFT + offset.x,
-			y: offset.y < 0 ? 0 : BUBBLE_EXTRA_HEIGHT,
-			width: SPRITE,
-			height: SPRITE,
-		},
-		contentOffset: offset,
-	};
-}
-
-describe("layoutPetWidget", () => {
-	it("keeps the video's screen position when the window shrinks to the sprite", () => {
-		const layout = layoutPetWidget({
-			workArea,
-			videoScreen: { x: 1100, y: 600, width: SPRITE, height: SPRITE },
-			content: squarePetContent(SPRITE),
-		});
-		expect(layout.windowBounds).toEqual({ x: 1100, y: 600, width: SPRITE, height: SPRITE });
-		expect(layout.videoScreen).toEqual({ x: 1100, y: 600, width: SPRITE, height: SPRITE });
-		expect(layout.contentOffset).toEqual({ x: 0, y: 1 });
-		expect(layout.contentInSync).toBe(true);
+describe("normalizePetContentSize", () => {
+	it("treats a bare number as a square edge", () => {
+		expect(normalizePetContentSize(180)).toEqual({ width: 180, height: 180 });
+		expect(squarePetContent(180.4)).toEqual({ width: 180, height: 180 });
 	});
 
-	it("grows upward for a bubble above the sprite without moving the video", () => {
-		const layout = layoutPetWidget({
-			workArea,
-			videoScreen: { x: 1100, y: 600, width: SPRITE, height: SPRITE },
-			content: longBubbleContent({ x: 0, y: 1 }),
-		});
-		expect(layout.windowBounds).toEqual({ x: 1030, y: 520, width: 360, height: 300 });
-		expect(layout.windowBounds.x + BUBBLE_EXTRA_LEFT).toBe(1100);
-		expect(layout.windowBounds.y + BUBBLE_EXTRA_HEIGHT).toBe(600);
-		expect(layout.contentInSync).toBe(true);
-	});
-
-	it("keeps the sprite still when a bubble appears and the old window clips the new hitbox", () => {
-		const lastVideoScreen = { x: 1100, y: 600, width: SPRITE, height: SPRITE };
-		const videoScreen = videoScreenForContentResize({
-			lastVideoScreen,
-			windowBounds: lastVideoScreen,
-			hitbox: { x: 70, y: 80, width: SPRITE, height: 140 },
-		});
-		const layout = layoutPetWidget({ workArea, videoScreen, content: longBubbleContent({ x: 0, y: 1 }) });
-		expect(layout.windowBounds.x + BUBBLE_EXTRA_LEFT).toBe(1100);
-		expect(layout.windowBounds.y + BUBBLE_EXTRA_HEIGHT).toBe(600);
-	});
-
-	describe("long bubble at the default lower-right position", () => {
-		const defaultSprite = initialPetVideoScreen(workArea, SPRITE, 24);
-
-		it("shifts the bubble inward instead of pushing the sprite off its spot", () => {
-			const layout = layoutPetWidget({
-				workArea,
-				videoScreen: defaultSprite,
-				content: longBubbleContent({ x: 0, y: 1 }),
-			});
-			// 精灵的逻辑位置不变，需要渲染层把精灵在窗口内右移 46px 让气泡内收。
-			expect(layout.videoScreen).toEqual(defaultSprite);
-			expect(layout.contentOffset).toEqual({ x: 46, y: 1 });
-			expect(layout.contentInSync).toBe(false);
-			// 预测窗口就已经让精灵留在原地、气泡在工作区内。
-			expect(layout.windowBounds.x + BUBBLE_EXTRA_LEFT + 46).toBe(defaultSprite.x);
-			expect(layout.windowBounds.y + BUBBLE_EXTRA_HEIGHT).toBe(defaultSprite.y);
-			expect(layout.windowBounds.x + layout.windowBounds.width).toBe(workArea.x + workArea.width);
-		});
-
-		it("aligns the window exactly once the renderer reports the shifted layout", () => {
-			const layout = layoutPetWidget({
-				workArea,
-				videoScreen: defaultSprite,
-				content: longBubbleContent({ x: 46, y: 1 }),
-			});
-			expect(layout.contentInSync).toBe(true);
-			expect(layout.contentOffset).toEqual({ x: 46, y: 1 });
-			expect(layout.videoScreen).toEqual(defaultSprite);
-			expect(layout.windowBounds).toEqual({ x: 1080, y: 576, width: 360, height: 300 });
-			expect(layout.windowBounds.x + BUBBLE_EXTRA_LEFT + 46).toBe(defaultSprite.x);
-			expect(layout.windowBounds.y + BUBBLE_EXTRA_HEIGHT).toBe(defaultSprite.y);
-			expect(layout.windowBounds.x + layout.windowBounds.width).toBeLessThanOrEqual(workArea.x + workArea.width);
-			expect(layout.windowBounds.y + layout.windowBounds.height).toBeLessThanOrEqual(workArea.y + workArea.height);
-		});
-
-		it("shrinks the window back to the untouched sprite position when the bubble disappears", () => {
-			const layout = layoutPetWidget({
-				workArea,
-				videoScreen: defaultSprite,
-				content: {
-					...squarePetContent(SPRITE),
-					// 气泡刚消失时渲染层仍带着上一轮的平移。
-					anchor: { x: 46, y: 0, width: SPRITE, height: SPRITE },
-					contentOffset: { x: 46, y: 1 },
-				},
-			});
-			expect(layout.contentOffset).toEqual({ x: 0, y: 1 });
-			expect(layout.videoScreen).toEqual(defaultSprite);
-			expect(layout.windowBounds).toEqual(defaultSprite);
-		});
-	});
-
-	it("shifts the sprite the other way when the bubble would spill past the left edge", () => {
-		const layout = layoutPetWidget({
-			workArea,
-			videoScreen: { x: 24, y: 600, width: SPRITE, height: SPRITE },
-			content: longBubbleContent({ x: 0, y: 1 }),
-		});
-		expect(layout.contentOffset).toEqual({ x: -46, y: 1 });
-		expect(layout.videoScreen.x).toBe(24);
-		expect(layout.windowBounds.x).toBe(workArea.x);
-		expect(layout.windowBounds.x + BUBBLE_EXTRA_LEFT - 46).toBe(24);
-	});
-
-	describe("sprite against the top edge", () => {
-		const topSprite = { x: 700, y: workArea.y, width: SPRITE, height: SPRITE };
-
-		it("decides on placing the bubble below before any clamping, so the window never starts above", () => {
-			const layout = layoutPetWidget({
-				workArea,
-				videoScreen: topSprite,
-				content: longBubbleContent({ x: 0, y: 1 }),
-			});
-			expect(layout.contentOffset).toEqual({ x: 0, y: -1 });
-			expect(layout.contentInSync).toBe(false);
-			expect(layout.videoScreen).toEqual(topSprite);
-			expect(layout.windowBounds).toEqual({ x: 630, y: workArea.y, width: 360, height: 300 });
-		});
-
-		it("keeps the same placement once the renderer reports the bubble below", () => {
-			const layout = layoutPetWidget({
-				workArea,
-				videoScreen: topSprite,
-				content: longBubbleContent({ x: 0, y: -1 }),
-			});
-			expect(layout.contentOffset).toEqual({ x: 0, y: -1 });
-			expect(layout.contentInSync).toBe(true);
-			expect(layout.windowBounds).toEqual({ x: 630, y: workArea.y, width: 360, height: 300 });
-		});
-
-		it("pre-selects below while the sprite is docked at the top even without a bubble", () => {
-			const layout = layoutPetWidget({ workArea, videoScreen: topSprite, content: squarePetContent(SPRITE) });
-			expect(layout.contentOffset).toEqual({ x: 0, y: -1 });
-			expect(layout.windowBounds).toEqual(topSprite);
-		});
-
-		it("keeps the bubble above when the sprite has room above it", () => {
-			const layout = layoutPetWidget({
-				workArea,
-				videoScreen: { x: 1100, y: 600, width: SPRITE, height: SPRITE },
-				content: longBubbleContent({ x: 0, y: 1 }),
-			});
-			expect(layout.contentOffset).toEqual({ x: 0, y: 1 });
-		});
-	});
-
-	it("clamps only the sprite itself when it falls outside the work area", () => {
-		const layout = layoutPetWidget({
-			workArea,
-			videoScreen: { x: 1500, y: 900, width: SPRITE, height: SPRITE },
-			content: squarePetContent(SPRITE),
-		});
-		expect(layout.videoScreen).toEqual({ x: 1220, y: 680, width: SPRITE, height: SPRITE });
-		expect(layout.windowBounds).toEqual({ x: 1220, y: 680, width: SPRITE, height: SPRITE });
+	it("rounds fractional report sizes up and never collapses to zero", () => {
+		expect(normalizePetContentSize({ width: 219.2, height: 0 })).toEqual({ width: 220, height: 1 });
 	});
 });
 
-describe("videoScreenRectFromWindow", () => {
-	it("maps the window-local hitbox onto the screen", () => {
+describe("petWindowBoundsForScreen", () => {
+	it("sizes the window to the reported content and keeps the requested top-left", () => {
 		expect(
-			videoScreenRectFromWindow(
-				{ x: 100, y: 200, width: 400, height: 400 },
-				{ x: 10, y: 20, width: 220, height: 220 },
-			),
-		).toEqual({ x: 110, y: 220, width: 220, height: 220 });
+			petWindowBoundsForScreen({
+				workArea,
+				screen: { x: 400, y: 300 },
+				content: { width: 220, height: 260 },
+			}),
+		).toEqual({ x: 400, y: 300, width: 220, height: 260 });
+	});
+
+	it("clamps the window inside the work area instead of letting the sprite leave the screen", () => {
+		expect(
+			petWindowBoundsForScreen({
+				workArea,
+				screen: { x: 1400, y: 1000 },
+				content: { width: 220, height: 220 },
+			}),
+		).toEqual({ x: 1220, y: 680, width: 220, height: 220 });
+		expect(
+			petWindowBoundsForScreen({
+				workArea,
+				screen: { x: -50, y: -50 },
+				content: { width: 220, height: 220 },
+			}),
+		).toEqual({ x: 0, y: 25, width: 220, height: 220 });
+	});
+
+	it("keeps the sprite's top-left when the reported content grows", () => {
+		const small = petWindowBoundsForScreen({ workArea, screen: { x: 400, y: 300 }, content: squarePetContent(180) });
+		const large = petWindowBoundsForScreen({
+			workArea,
+			screen: { x: small.x, y: small.y },
+			content: squarePetContent(240),
+		});
+
+		expect(large).toEqual({ x: 400, y: 300, width: 240, height: 240 });
 	});
 });
 
-describe("normalizePetContentBounds", () => {
-	it("treats a numeric size as a square sprite window", () => {
-		expect(normalizePetContentBounds(180)).toEqual(squarePetContent(180));
+describe("petWindowBoundsForAnchor", () => {
+	it("centers the window on the drag anchor", () => {
+		expect(
+			petWindowBoundsForAnchor({ workArea, anchor: { x: 700, y: 500 }, content: squarePetContent(220) }),
+		).toEqual({ x: 590, y: 390, width: 220, height: 220 });
 	});
 
-	it("defaults a missing content offset to bubble above with no shift", () => {
+	it("clamps a drag past the screen edge without moving the anchor off-screen", () => {
 		expect(
-			normalizePetContentBounds({
-				bounds: { x: 0, y: 0, width: 220, height: 220 },
-				anchor: { x: 0, y: 0, width: 220, height: 220 },
-			}).contentOffset,
-		).toEqual({ x: 0, y: 1 });
+			petWindowBoundsForAnchor({ workArea, anchor: { x: 1430, y: 890 }, content: squarePetContent(220) }),
+		).toEqual({ x: 1220, y: 680, width: 220, height: 220 });
 	});
 });
 
 describe("initialPetVideoScreen", () => {
-	it("places the default sprite at the lower-right of the work area", () => {
-		expect(initialPetVideoScreen({ x: 0, y: 25, width: 1440, height: 875 }, 220, 24)).toEqual({
-			x: 1196,
-			y: 656,
+	it("docks the pet in the bottom-right corner of the work area", () => {
+		expect(initialPetVideoScreen(workArea, 220, 24)).toEqual({
+			x: 1440 - 220 - 24,
+			y: 900 - 220 - 24,
 			width: 220,
 			height: 220,
 		});
 	});
 });
 
-describe("videoScreenForContentResize", () => {
-	it("keeps the previous sprite screen position when a bubble reflows inside the old window", () => {
+describe("videoScreenRectFromWindow", () => {
+	it("offsets the hitbox by the window position", () => {
 		expect(
-			videoScreenForContentResize({
-				lastVideoScreen: { x: 1100, y: 600, width: 220, height: 220 },
-				windowBounds: { x: 1100, y: 600, width: 220, height: 220 },
-				hitbox: { x: 70, y: 80, width: 220, height: 140 },
-			}),
-		).toEqual({ x: 1100, y: 600, width: 220, height: 220 });
+			videoScreenRectFromWindow(
+				{ x: 100, y: 200, width: 240, height: 240 },
+				{ x: 10, y: 20, width: 220, height: 220 },
+			),
+		).toEqual({ x: 110, y: 220, width: 220, height: 220 });
+	});
+
+	it("falls back to the window rect when the hitbox is not measured yet", () => {
+		expect(videoScreenRectFromWindow({ x: 100, y: 200, width: 240, height: 240 }, undefined)).toEqual({
+			x: 100,
+			y: 200,
+			width: 240,
+			height: 240,
+		});
 	});
 });

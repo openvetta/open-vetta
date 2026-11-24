@@ -1,6 +1,7 @@
 import { useActivityTab, useTranslation } from "@vetta-org/plugin-sdk";
+import { SegmentedControl } from "@vetta-org/theme-ui/plugin-ui";
 import { Button } from "@vetta-org/ui";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { countChanges, parseStatus } from "../git/parseStatus";
 import { initRepo, resolveRepoRoot, statusPorcelain } from "../git/run";
 import { getGitCommand, invalidateGitTabProbe, onRefreshSignal } from "../git/runtime";
@@ -9,7 +10,7 @@ import type { StatusGroups } from "../git/types";
 import { DiffStat } from "./DiffStat";
 import { GitChanges } from "./GitChanges";
 import { GraphView } from "./graph/GraphView";
-import { GitIcon, GraphIcon, RefreshIcon } from "./icons";
+import { GitIcon, RefreshIcon } from "./icons";
 import { InitRepoCta } from "./InitRepoCta";
 import { NoGitCta } from "./NoGitCta";
 
@@ -89,26 +90,26 @@ export function GitPanel(): JSX.Element {
 		else void load();
 	}, [view, load]);
 
-	const seg = (active: boolean): string =>
-		`flex items-center gap-1 rounded px-2 py-0.5 transition-colors ${
-			active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-		}`;
+	// 视图切换与提交图的作用域切换共用宿主的 SegmentedControl，勾选滑块与宿主设置页一致。
+	const viewItems = useMemo(
+		() => [
+			{ key: "changes" as ViewTab, label: t("view.tabChanges"), count: count ?? undefined },
+			{ key: "graph" as ViewTab, label: t("view.tabGraph") },
+		],
+		[count, t],
+	);
 
 	return (
 		<div className="flex h-full flex-col">
-			<div className="flex h-9 shrink-0 items-center justify-between px-3">
+			{/*
+			 * px-2 与下方内容列（提交卡片、分支行）对齐：分段控件的左缘正好压在分支下拉的
+			 * 左缘上，右侧刷新键也与 diff 卡片的 mr-2 同一条线。
+			 * 分段控件再加 h-7，与分支下拉（SelectTrigger size="sm"）等高——两个胶囊一上
+			 * 一下，高度差 2px 就会读成两套控件。
+			 */}
+			<div className="flex h-9 shrink-0 items-center justify-between px-2">
 				{state.kind === "ready" ? (
-					<div className="flex items-center rounded-md bg-muted/60 p-0.5 text-[11px] font-medium">
-						<button type="button" onClick={() => setView("changes")} className={seg(view === "changes")}>
-							<GitIcon className="h-3 w-3" />
-							{t("view.tabChanges")}
-							{count !== null && <span className="text-muted-foreground">{count}</span>}
-						</button>
-						<button type="button" onClick={() => setView("graph")} className={seg(view === "graph")}>
-							<GraphIcon className="h-3 w-3" />
-							{t("view.tabGraph")}
-						</button>
-					</div>
+					<SegmentedControl items={viewItems} value={view} onChange={setView} className="h-7" />
 				) : (
 					<div className="flex items-center gap-1.5 text-[12px] font-medium text-foreground">
 						<GitIcon className="h-3.5 w-3.5 text-muted-foreground" />

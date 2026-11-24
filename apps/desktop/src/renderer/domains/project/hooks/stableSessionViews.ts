@@ -16,6 +16,8 @@ interface SessionRowViewLike {
 	active: boolean;
 	renaming: boolean;
 	running: boolean;
+	/** 会话在等用户处理；与 running 会独立翻转，必须参与比较。 */
+	waiting?: boolean;
 	scheduled: boolean;
 	pinned: boolean;
 	groupCount?: number;
@@ -44,6 +46,7 @@ export function reuseUnchangedSessionViews<T extends SessionRowViewLike>(cache: 
 			cached.active === view.active &&
 			cached.renaming === view.renaming &&
 			cached.running === view.running &&
+			cached.waiting === view.waiting &&
 			cached.scheduled === view.scheduled &&
 			cached.pinned === view.pinned &&
 			cached.groupCount === view.groupCount &&

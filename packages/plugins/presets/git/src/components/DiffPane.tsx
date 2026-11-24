@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { fileDiff } from "../git/run";
 import type { ChangeEntry, ChangeSection } from "../git/types";
 import { FileTypeIcon } from "./FileTypeIcon";
-import { SidebarIcon, SplitViewIcon, UnifiedViewIcon } from "./icons";
+import { SplitViewIcon, UnifiedViewIcon } from "./icons";
 import { PatchContent } from "./PatchContent";
 import { StatusBadge } from "./StatusBadge";
 
@@ -21,15 +21,11 @@ export function DiffPane({
 	root,
 	entry,
 	section,
-	onToggleTree,
-	treeCollapsed,
 }: {
 	root: string;
 	entry: ChangeEntry;
 	/** Which list the file was picked from — decides index vs worktree diff. */
 	section: ChangeSection;
-	onToggleTree: () => void;
-	treeCollapsed: boolean;
 }): JSX.Element {
 	const { t } = useTranslation();
 	const [diffStyle, setDiffStyle] = useState<"unified" | "split">(() =>
@@ -63,24 +59,26 @@ export function DiffPane({
 		// 顶部内缩与提交卡片一致（pt-1 = mt-1），两块的上沿才在同一条线上；左上角用同一档
 		// 圆角，否则一块圆角卡片紧挨着一个直角色块，接缝会很突兀。
 		<div className="mb-2 ml-0.5 mr-2 mt-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border/70 bg-background">
-			<div className="flex h-9 shrink-0 items-center gap-1.5 px-2">
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon-xs"
-					onClick={onToggleTree}
-					title={treeCollapsed ? t("action.showTree") : t("action.hideTree")}
-				>
-					<SidebarIcon className="h-3.5 w-3.5" />
-				</Button>
-				<FileTypeIcon path={entry.path} className="h-4 w-4 shrink-0" />
-				<span
-					className="min-w-0 flex-1 truncate text-[12px] text-foreground"
-					title={entry.origPath ? `${entry.origPath} → ${entry.path}` : entry.path}
-				>
-					{basename(entry.path)}
-				</span>
-				<StatusBadge code={entry.code} />
+			{/*
+			 * 两行：文件名在上，完整路径以灰字在下。左侧列表只留文件名，
+			 * 文件到底在哪一层靠这里读。
+			 */}
+			<div className="flex shrink-0 items-center gap-1.5 px-2 py-1.5">
+				<div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+					<div className="flex items-center gap-1.5">
+						<FileTypeIcon path={entry.path} className="h-4 w-4 shrink-0" />
+						<span
+							className="min-w-0 flex-1 truncate text-[12px] text-foreground"
+							title={entry.origPath ? `${entry.origPath} → ${entry.path}` : entry.path}
+						>
+							{basename(entry.path)}
+						</span>
+						<StatusBadge code={entry.code} />
+					</div>
+					<span className="git-mono truncate text-[11px] leading-[1.35] text-muted-foreground" title={entry.path}>
+						{entry.path}
+					</span>
+				</div>
 				<Button
 					type="button"
 					variant="ghost"

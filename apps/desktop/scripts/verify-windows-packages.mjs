@@ -90,7 +90,7 @@ export async function verifyWindowsPackages({ releaseDir = defaultReleaseDir } =
 		throw new Error("[verify-windows-packages] native Windows package verification must run on Windows");
 	}
 	const expectedVersion = await readExpectedWindowsVersion(releaseDir);
-	const [msiFileName, zipFileName] = windowsSupplementalArtifactNames(expectedVersion);
+	const [msiFileName, zipFileName] = windowsSupplementalArtifactNames(expectedVersion, process.arch);
 	const msiPath = join(releaseDir, msiFileName);
 	const zipPath = join(releaseDir, zipFileName);
 	await Promise.all([assertNonEmptyFile(msiPath), assertNonEmptyFile(zipPath)]);

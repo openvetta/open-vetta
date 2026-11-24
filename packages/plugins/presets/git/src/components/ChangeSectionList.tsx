@@ -1,19 +1,26 @@
 import type { ReactNode } from "react";
 import type { ChangeEntry } from "../git/types";
 import type { MenuPoint } from "./ChangeMenu";
-import { GitFileTree } from "./GitFileTree";
+import { GitFlatList } from "./GitFlatList";
 import { ChevronIcon } from "./icons";
+import { SplitHandle } from "./SplitHandle";
 
 /** Floor for a section body, so a one-file section is still usable when squeezed. */
 const MIN_BODY = 48;
+/** Header row height (h-7). */
+const HEADER = 28;
+/** Smallest height an expanded section may be dragged to: header plus a usable body. */
+export const SECTION_MIN_HEIGHT = MIN_BODY + HEADER;
 
 /**
  * One labelled, collapsible section of the change list (conflicts / staged /
- * unstaged) wrapping either view mode.
+ * unstaged) listing its files as flat rows.
  *
- * Each section gets its own tree model, so selection is per-section by
- * construction; the parent keeps at most one section selected at a time and
- * batch actions therefore always address a single, unambiguous side.
+ * A flat list keeps every file on one line with its own name only — a nested
+ * tree pushed names out of the narrow panel and hid where a file actually lives.
+ * The full path is shown by the diff pane once a file is picked. Each section
+ * owns its own selection, so batch actions always address a single, unambiguous
+ * side.
  */
 export function ChangeSectionList({
 	title,
@@ -25,6 +32,10 @@ export function ChangeSectionList({
 	renderMenu,
 	actions,
 	tone,
+	weight,
+	onResize,
+	onResizeStart,
+	resizeTitle,
 }: {
 	title: string;
 	entries: readonly ChangeEntry[];
@@ -37,6 +48,13 @@ export function ChangeSectionList({
 	/** Section-level buttons, revealed on hover of the header. */
 	actions?: ReactNode;
 	tone?: "danger";
+	/** Flex weight; defaults to the file count so sections start proportional to their size. */
+	weight?: number;
+	/** Present when the section below can be resized against this one. */
+	onResize?: (deltaY: number) => void;
+	onResizeStart?: () => void;
+	/** Hover hint for the resize handle. */
+	resizeTitle?: string;
 }): JSX.Element | null {
 	if (entries.length === 0) return null;
 
@@ -45,8 +63,8 @@ export function ChangeSectionList({
 		// proportion to how many files each holds; the tree scrolls internally once
 		// its share is too small. A collapsed section keeps only its header.
 		<div
-			className={`flex flex-col ${collapsed ? "shrink-0" : "min-h-0"}`}
-			style={collapsed ? undefined : { flex: `${entries.length} 1 0`, minHeight: MIN_BODY }}
+			className={`relative flex flex-col ${collapsed ? "shrink-0" : "min-h-0"}`}
+			style={collapsed ? undefined : { flex: `${weight ?? entries.length} 1 0`, minHeight: MIN_BODY }}
 		>
 			<div className="group flex h-7 items-center gap-1 px-1.5">
 				<button
@@ -61,9 +79,19 @@ export function ChangeSectionList({
 				{actions && <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">{actions}</div>}
 			</div>
 			{!collapsed && (
-				<div className="min-h-0 flex-1 overflow-hidden">
-					<GitFileTree entries={entries} selectedPaths={selectedPaths} onSelectionChange={onSelectionChange} renderMenu={renderMenu} />
+				<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+					<GitFlatList
+						entries={entries}
+						selectedPaths={selectedPaths}
+						onSelectionChange={onSelectionChange}
+						renderMenu={renderMenu}
+						showDirectory={false}
+					/>
 				</div>
+			)}
+			{/* 分区间可上下拉伸：把下方分区的可视高度调大，不必靠折叠整个分区。 */}
+			{!collapsed && onResize && (
+				<SplitHandle orientation="horizontal" onDrag={onResize} onDragStart={onResizeStart} title={resizeTitle} />
 			)}
 		</div>
 	);

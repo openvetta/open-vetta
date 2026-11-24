@@ -3,7 +3,8 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { writeAppUpdateConfig, writeInnoVerificationManifest } from "./build-inno-installer.mjs";
+import { unpackedDirectory, writeAppUpdateConfig, writeInnoVerificationManifest } from "./build-inno-installer.mjs";
+import { windowsSupplementalArtifactNames } from "./windows-packaging-contract.mjs";
 import { resolveUpdatePublishConfig } from "./resolve-update-publish-config.mjs";
 
 test("writes updater config into the version directory installed by Inno", async () => {
@@ -52,4 +53,18 @@ test("writes a stable versioned file manifest for pre-publish verification", asy
 	} finally {
 		await rm(sourceDir, { recursive: true, force: true });
 	}
+});
+
+test("maps each Windows architecture to the electron-builder unpacked directory", () => {
+	assert.equal(unpackedDirectory("x64", "release"), join("release", "win-unpacked"));
+	assert.equal(unpackedDirectory("arm64", "release"), join("release", "win-arm64-unpacked"));
+	assert.throws(() => unpackedDirectory("ia32", "release"), /unsupported Windows architecture: ia32/);
+});
+
+test("names supplemental Windows packages per architecture", () => {
+	assert.deepEqual(windowsSupplementalArtifactNames("1.2.3"), ["Vetta-1.2.3-win-x64.msi", "Vetta-1.2.3-win-x64.zip"]);
+	assert.deepEqual(windowsSupplementalArtifactNames("1.2.3", "arm64"), [
+		"Vetta-1.2.3-win-arm64.msi",
+		"Vetta-1.2.3-win-arm64.zip",
+	]);
 });

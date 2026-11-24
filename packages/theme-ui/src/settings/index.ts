@@ -125,7 +125,6 @@ export type {
 	PetSettingsViewLabels,
 	PetSettingsViewProps,
 	PetSizeControlView,
-	PetTipView,
 } from "./PetSettingsView";
 export { PetSettingsView } from "./PetSettingsView";
 export type {

@@ -534,7 +534,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			}
 			if (signal) signal.addEventListener("abort", onAbort, { once: true });
 			questionMap.set(request.requestId, finish);
-			petPresentationController.beginWaiting(request.sessionId, waitingKey, "notice.waiting.question");
+			petPresentationController.beginWaiting(request.sessionId, waitingKey);
 			webContents.send(CHANNELS.QUESTION_REQUEST, request);
 			// 广播「待答」给所有窗口。
 			if (sessionPath) setPendingInteraction(sessionPath, waitingKey, true);
@@ -567,11 +567,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 				planReviewBroker.respond(request.requestId, undefined);
 				return;
 			}
-			petPresentationController.beginWaiting(
-				request.sessionId,
-				`plan-review:${request.requestId}`,
-				"notice.waiting.planReview",
-			);
+			petPresentationController.beginWaiting(request.sessionId, `plan-review:${request.requestId}`);
 			webContents.send(CHANNELS.PLAN_REVIEW_REQUEST, request);
 			const sessionPath = runtime.getSessionPath(request.sessionId);
 			const cwd = sessionCwdMap.get(request.sessionId);
@@ -605,7 +601,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			}
 			signal?.addEventListener("abort", onAbort, { once: true });
 			mcpElicitationMap.set(request.requestId, finish);
-			petPresentationController.beginWaiting(request.sessionId, waitingKey, "notice.waiting.mcp");
+			petPresentationController.beginWaiting(request.sessionId, waitingKey);
 			webContents.send(CHANNELS.MCP_ELICITATION_REQUEST, request);
 			const sessionPath = runtime.getSessionPath(request.sessionId);
 			if (sessionPath) setPendingInteraction(sessionPath, waitingKey, true);
@@ -642,7 +638,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			}
 			if (signal) signal.addEventListener("abort", onAbort, { once: true });
 			sandboxGrantMap.set(request.requestId, finish);
-			petPresentationController.beginWaiting(request.sessionId, waitingKey, "notice.waiting.permission");
+			petPresentationController.beginWaiting(request.sessionId, waitingKey);
 			webContents.send(CHANNELS.SANDBOX_GRANT_REQUEST, request);
 			const sessionPath = runtime.getSessionPath(request.sessionId);
 			if (sessionPath) setPendingInteraction(sessionPath, waitingKey, true);

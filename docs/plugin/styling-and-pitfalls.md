@@ -238,6 +238,7 @@ vettaPluginFederation({
 | `SettingSection` | 设置分组卡片：可选标题 / 说明 + 圆角边框容器。`section` 传 `{ id, title? }`，`id` 用作锚点 |
 | `SettingRow` | 分组卡片里的一行设置项卡片：左侧 `title` / `description`，右侧放控件（`children`）；`border={false}` 去掉底部分隔线（最后一行） |
 | `SettingHeading` | 与分组同款的 15px 小节标题。**必填 `section={{ id, title? }}`**（与 `SettingSection` 同形）：只传 `title` 会在渲染期读 `section.id` 而抛错 |
+| `SegmentedControl` | **分段控件**：胶囊里并排若干互斥选项，选中项带滑动指示器（弹簧动画），与宿主设置页、能力页同一套。`items` 传 `{ key, label, icon?, count?, badge? }[]`（`count` 是跟在标题后的灰字计数，0 不显示；`badge` 是红色未读徽标）、`value` / `onChange` 受控，泛型推断 `key` 联合类型；`className` 加在容器上，`suppressLayoutAnimation` 在容器尺寸动画期间关掉指示器滑动以免抖动 |
 | `VettaKbd` | **快捷键键帽**：`keys` 传快捷键串（`"mod+shift+k"`）或键位数组，渲染成一组浮雕键帽，与设置页快捷键、应用快照的键盘预览同一套质感。`mod` 在 macOS 显示 ⌘、Windows 显示 Ctrl；`ctrl` 始终是物理 Control 键（mac 上 ⌃）；需要完全分系统时把该项写成 `{ mac, windows, linux }`。另有 `size`（`xs` 默认 / `sm`）、`separator`（键之间显示 `+`）、`platform`（强制平台，缺省按窗口判断）。键帽整体带读屏文案（「⌘ K」读作「Command K」） |
 
 ```tsx

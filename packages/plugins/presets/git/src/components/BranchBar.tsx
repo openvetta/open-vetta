@@ -7,20 +7,21 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
 	Input,
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectLabel,
+	SelectTrigger,
+	SelectValue,
 } from "@vetta-org/ui";
 import { useCallback, useEffect, useState } from "react";
 import { listBranches } from "../git/log";
 import { checkoutBranch, createBranch, currentBranch } from "../git/run";
 import { emitRefreshSignal, notifyError, onRefreshSignal } from "../git/runtime";
 import type { BranchRef } from "../git/types";
-import { BranchIcon, ChevronIcon } from "./icons";
+import { BranchIcon } from "./icons";
 
 /** Branch names git itself rejects; validated up front for a clearer message. */
 export function invalidBranchName(name: string, existing: readonly string[]): "empty" | "chars" | "taken" | null {
@@ -30,6 +31,17 @@ export function invalidBranchName(name: string, existing: readonly string[]): "e
 	if (existing.includes(trimmed)) return "taken";
 	return null;
 }
+
+/**
+ * Select 的值带上作用域，本地 `dev` 与远程 `origin/dev` 永不撞车；Radix 也不允许
+ * 两个条目同值。
+ */
+function refValue(scope: "local" | "remote", name: string): string {
+	return `${scope}:${name}`;
+}
+
+/** 下拉里的「新建分支…」入口：它打开对话框，而不是切分支。 */
+const CREATE_VALUE = "create";
 
 /**
  * Current branch plus the switcher, at the top of the change column.
@@ -82,42 +94,72 @@ export function BranchBar({ root }: { root: string }): JSX.Element {
 	return (
 		// 不再自占一条通栏：分支是个标识，挤在工具栏里就够，省下一条分隔线和 8px 高度。
 		<div className="flex min-w-0 items-center">
-			<>
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<Button type="button" variant="ghost" size="xs" className="min-w-0 max-w-[160px] gap-1 px-1.5" disabled={busy} title={t("branch.switch")}>
-							<BranchIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-							<span className="truncate text-[12px] font-medium">{branch ?? t("branch.detached")}</span>
-							<ChevronIcon className="h-3 w-3 shrink-0 text-muted-foreground/70" />
-						</Button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="start" className="max-h-80 overflow-y-auto" data-vetta-plugin-root="git">
-						<DropdownMenuItem onSelect={() => setCreating(true)}>{t("branch.create")}</DropdownMenuItem>
-						{locals.length > 0 && (
-							<>
-								<DropdownMenuSeparator />
-								<DropdownMenuLabel>{t("branch.scopeLocal")}</DropdownMenuLabel>
-								{locals.map((item) => (
-									<DropdownMenuItem key={item.name} disabled={item.name === branch} onSelect={() => switchTo(item.name)}>
-										{item.name}
-									</DropdownMenuItem>
-								))}
-							</>
-						)}
-						{remotes.length > 0 && (
-							<>
-								<DropdownMenuSeparator />
-								<DropdownMenuLabel>{t("branch.scopeRemote")}</DropdownMenuLabel>
-								{remotes.map((item) => (
-									<DropdownMenuItem key={item.name} onSelect={() => switchTo(item.name)}>
-										{item.name}
-									</DropdownMenuItem>
-								))}
-							</>
-						)}
-					</DropdownMenuContent>
-				</DropdownMenu>
-			</>
+			<Select
+				// 当前分支必须真的在列表里才算选中：空仓库（还没有任何提交）git 会报出分支名，
+				// 但 `git branch` 一个都列不出来；此时回落成空值（走 placeholder），否则触发器会空白一片。
+				// 始终传字符串而不是 undefined：Radix 从非受控切到受控会告警。
+				value={branch && locals.some((item) => item.name === branch) ? refValue("local", branch) : ""}
+				onValueChange={(value) => {
+					if (value === CREATE_VALUE) {
+						setCreating(true);
+						return;
+					}
+					switchTo(value.slice(value.indexOf(":") + 1));
+				}}
+			>
+				<SelectTrigger
+					size="sm"
+					className="min-w-0 max-w-[180px] gap-1 px-1.5"
+					disabled={busy}
+					title={t("branch.switch")}
+				>
+					<BranchIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+					<SelectValue placeholder={branch ?? t("branch.detached")} />
+				</SelectTrigger>
+				{/*
+				 * 分支名可以很长，浮层给一档固定宽度并让名字自己截断（悬停看全名），
+				 * 否则面板会被最长的那个远程分支撑到很宽。分组靠标签和留白区分，
+				 * 不用横贯整块的分割线——那种线在这种密度的列表里显得很硬。
+				 */}
+				<SelectContent className="max-h-72 w-56 p-1 [&_[data-slot=select-item-text]]:min-w-0 [&_[data-slot=select-item-text]]:truncate">
+					<SelectItem value={CREATE_VALUE}>{t("branch.create")}</SelectItem>
+					{locals.length > 0 && (
+						<SelectGroup>
+							<SelectLabel className="px-2 pb-0.5 pt-1.5 text-[10.5px] font-medium tracking-wide">
+								{t("branch.scopeLocal")}
+							</SelectLabel>
+							{locals.map((item) => (
+								<SelectItem
+									key={refValue("local", item.name)}
+									value={refValue("local", item.name)}
+									title={item.name}
+									disabled={item.name === branch}
+									className="py-[3px]"
+								>
+									{item.name}
+								</SelectItem>
+							))}
+						</SelectGroup>
+					)}
+					{remotes.length > 0 && (
+						<SelectGroup>
+							<SelectLabel className="px-2 pb-0.5 pt-1.5 text-[10.5px] font-medium tracking-wide">
+								{t("branch.scopeRemote")}
+							</SelectLabel>
+							{remotes.map((item) => (
+								<SelectItem
+									key={refValue("remote", item.name)}
+									value={refValue("remote", item.name)}
+									title={item.name}
+									className="py-[3px]"
+								>
+									{item.name}
+								</SelectItem>
+							))}
+						</SelectGroup>
+					)}
+				</SelectContent>
+			</Select>
 
 			<Dialog open={creating} onOpenChange={(open) => !open && setCreating(false)}>
 				<DialogContent data-vetta-plugin-root="git" className="max-w-sm">

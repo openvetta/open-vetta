@@ -15,8 +15,6 @@
         "git",
         "scripts",
         "plugin-workbench",
-        "comfyui-media-provider",
-        "content-creation",
         "browser",
         "open-in-app"
       ]

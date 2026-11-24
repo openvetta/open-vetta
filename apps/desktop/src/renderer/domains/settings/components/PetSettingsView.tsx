@@ -14,7 +14,6 @@ export function PetSettingsView({ model }: { model: PetSettingsModel }): JSX.Ele
 				display: SETTINGS_SECTION["pet-display"],
 				behavior: SETTINGS_SECTION["pet-behavior"],
 				actions: SETTINGS_SECTION["pet-actions"],
-				tips: SETTINGS_SECTION["pet-tips"],
 				decoration: SETTINGS_SECTION["pet-decoration"],
 				developer: SETTINGS_SECTION["pet-developer"],
 			}}
@@ -31,7 +30,6 @@ export function PetSettingsView({ model }: { model: PetSettingsModel }): JSX.Ele
 					onPlay={model.actions.playAction}
 				/>
 			}
-			tips={model.tips}
 			decorations={model.decorations}
 			// 装饰分区暂时隐藏；组件、数据与注册项均保留，恢复时改回 true 即可。
 			showDecorationSection={false}

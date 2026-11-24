@@ -1380,7 +1380,6 @@
   "section_pet-display": "显示与窗口",
   "section_pet-behavior": "行为",
   "section_pet-actions": "动作",
-  "section_pet-tips": "互动方式",
   "section_pet-decoration": "桌宠装饰",
   "section_pet-developer": "开发调试",
   "updaterChecking": "正在检查...",
@@ -1507,7 +1506,7 @@
       "im": "例如：开启 Claw 并帮我配置飞书…",
       "webhook": "例如：新增一个任务完成时推送的渠道…",
       "appearance": "例如：切到深色模式，并把指针换成白鼬…",
-      "pet": "例如：显示桌宠，并把气泡换成节日样式…",
+      "pet": "例如：显示桌宠，并让它保持在最前…",
       "environment": "例如：检查 Node/Python 运行时是否正常…",
       "shortcuts": "例如：看看全局快捷键，或恢复默认…",
       "agent": "例如：选一个务实人设，并写一段自定义指令…"
@@ -1592,7 +1591,7 @@
       "pet": {
         "show": "显示桌宠",
         "size": "把桌宠窗口调大一点",
-        "bubble": "换一种气泡样式"
+        "onTop": "让桌宠保持在最前"
       },
       "environment": {
         "status": "看看 Node/Python 运行时状态",

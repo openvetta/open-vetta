@@ -17,26 +17,7 @@ export const PET_SET_VIDEO_HITBOX_CHANNEL = "vetta:pet:set-video-hitbox";
 
 export type PetResizeCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 export type PetCommandSource = "app" | "user" | "config";
-export type PetBubblePriority = "normal" | "high";
-export type PetBubbleKind = "status" | "tool" | "success" | "warning" | "error";
 export type PetActivityState = "idle" | "thinking" | "working" | "waiting_input" | "success" | "error" | "paused";
-
-export interface PetBubbleNotice {
-	readonly kind?: PetBubbleKind;
-	/** i18n key resolved at the main-process command boundary. */
-	readonly messageKey?: string;
-	readonly params?: Readonly<Record<string, string | number>>;
-	/** Dynamic, sanitized content takes precedence over the i18n fallback. */
-	readonly body?: string;
-	/** Legacy/custom text fallback for callers that do not use i18n. */
-	readonly text?: string;
-	/** Keep the running-session notice visible until a terminal notice replaces it. */
-	readonly persistent?: boolean;
-	readonly ttlMs?: number;
-	readonly priority?: PetBubblePriority;
-	readonly dedupeKey?: string;
-	readonly sessionId?: string;
-}
 
 export type PetVideoHitbox = {
 	x: number;
@@ -45,30 +26,10 @@ export type PetVideoHitbox = {
 	height: number;
 };
 
-/**
- * 主进程下发给渲染层的内容偏移：y>0 气泡在精灵上方，y<0 在下方；
- * x 为精灵在窗口内的水平平移量（气泡贴边放不下时让精灵留在原地、气泡内收）。
- */
-export type PetContentOffset = {
-	x: number;
-	y: number;
-};
-
-export type PetContentBounds = {
-	bounds: {
-		x: number;
-		y: number;
-		width: number;
-		height: number;
-	};
-	anchor: {
-		x: number;
-		y: number;
-		width: number;
-		height: number;
-	};
-	/** 渲染层测量这份布局时生效的内容偏移；缺省视为气泡在上方、精灵未平移。 */
-	contentOffset?: PetContentOffset;
+/** 桌宠窗口贴合的内容尺寸，由渲染层按实际画面测量后上报。 */
+export type PetContentSize = {
+	width: number;
+	height: number;
 };
 
 export type PetCommand =
@@ -107,23 +68,6 @@ export type PetCommand =
 			baseSize: number;
 	  }
 	| {
-			type: "set-content-offset";
-			x: number;
-			y: number;
-	  }
-	| {
-			type: "show-bubble";
-			text?: string;
-			notice?: PetBubbleNotice;
-			source?: PetCommandSource;
-			ttlMs?: number;
-			priority?: PetBubblePriority;
-	  }
-	| {
-			type: "hide-bubble";
-			source?: PetCommandSource;
-	  }
-	| {
 			// 系统锁屏或休眠时暂停桌宠视频解码，解锁或唤醒后恢复。
 			type: "set-playback";
 			playing: boolean;
@@ -140,7 +84,7 @@ export type PetBridge = {
 	endWindowMove(): Promise<void>;
 	beginWindowResize(corner: PetResizeCorner): Promise<void>;
 	setWindowSize(size: number, corner?: PetResizeCorner): Promise<void>;
-	setContentSize(content: number | PetContentBounds): Promise<void>;
+	setContentSize(content: number | PetContentSize): Promise<void>;
 	endWindowResize(size: number): Promise<void>;
 	setVideoBaseSize(actionId: PetActionId, baseSize: number): Promise<void>;
 	setMousePassthrough(enabled: boolean): Promise<void>;

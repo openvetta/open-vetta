@@ -139,6 +139,7 @@ export const ModelPicker = sdk.ModelPicker;
 const themeUi = globalThis.__VETTA_PLUGIN_HOST__.themeUiPlugin;
 export const ModelSelectorView = themeUi.ModelSelectorView;
 export const MotionSelect = themeUi.MotionSelect;
+export const SegmentedControl = themeUi.SegmentedControl;
 export const SettingHeading = themeUi.SettingHeading;
 export const SettingRow = themeUi.SettingRow;
 export const SettingSection = themeUi.SettingSection;

@@ -134,7 +134,7 @@ const CATALOG = [
 			WHAT_CAN_YOU_CONFIGURE,
 			"aiAssist.examples.pet.show",
 			"aiAssist.examples.pet.size",
-			"aiAssist.examples.pet.bubble",
+			"aiAssist.examples.pet.onTop",
 		],
 	},
 	{

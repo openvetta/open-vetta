@@ -48,6 +48,36 @@ describe("InnoWindowsUpdateController", () => {
 		await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 	});
 
+	it("selects the installer that matches the machine architecture from a multi-arch feed", () => {
+		const resolvedFile = (fileName: string, size: number): ResolvedUpdateFileInfo => ({
+			url: new URL(`https://releases.example.com/${fileName}`),
+			info: { url: fileName, sha512: fileName, size },
+		});
+		const files = [resolvedFile("Vetta-1.2.3-win-x64.exe", 10), resolvedFile("Vetta-1.2.3-win-arm64.exe", 20)];
+		const controllerFor = (arch: string) =>
+			new InnoWindowsUpdateController({
+				currentVersion: "1.2.2",
+				storeRoot: join(tmpdir(), "unused"),
+				relaunch: vi.fn(),
+				quit: vi.fn(),
+				arch,
+			});
+
+		expect(controllerFor("arm64").select(createUpdateInfo(), files)).toEqual({
+			assetFileName: "Vetta-1.2.3-win-arm64.exe",
+			totalBytes: 20,
+		});
+		expect(controllerFor("x64").select(createUpdateInfo(), files)).toEqual({
+			assetFileName: "Vetta-1.2.3-win-x64.exe",
+			totalBytes: 10,
+		});
+		// 只发了 x64 的旧版本清单：arm64 机器退回第一个安装包，与 electron-updater 的下载选择一致。
+		expect(controllerFor("arm64").select(createUpdateInfo(), files.slice(0, 1))).toEqual({
+			assetFileName: "Vetta-1.2.3-win-x64.exe",
+			totalBytes: 10,
+		});
+	});
+
 	it("prepares a downloaded installer, activates it, and marks the version healthy", async () => {
 		const root = await createTemporaryRoot();
 		const storeRoot = join(root, "store");

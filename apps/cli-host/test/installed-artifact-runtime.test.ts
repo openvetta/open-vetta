@@ -46,6 +46,7 @@ const compileTargetByPlatform = {
 	"darwin-x64": "bun-darwin-x64",
 	"linux-arm64": "bun-linux-arm64",
 	"linux-x64": "bun-linux-x64",
+	"win32-arm64": "bun-windows-arm64",
 	"win32-x64": "bun-windows-x64",
 } as const;
 
