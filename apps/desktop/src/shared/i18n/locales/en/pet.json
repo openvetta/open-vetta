@@ -60,23 +60,7 @@
 				}
 			}
 		},
-		"tips": {
-			"sectionDescription": "Interact with Vivi right on your desktop.",
-			"items": {
-				"move": {
-					"title": "Drag",
-					"description": "Hold and drag Vivi anywhere."
-				},
-				"resize": {
-					"title": "Scroll to resize",
-					"description": "Scroll over Vivi to change its size."
-				},
-				"menu": {
-					"title": "Right-click menu",
-					"description": "Switch actions, toggle automatic switching, or hide Vivi."
-				}
-			}
-		},
+
 		"decoration": {
 			"sectionDescription": "Currently only shows available decoration materials; actual decoration logic can be connected later.",
 			"materialMissing": "Material missing",

@@ -1,9 +1,4 @@
-import type {
-	PetActionGalleryViewLabels,
-	PetActionGroupView,
-	PetSizeControlView,
-	PetTipView,
-} from "@vetta-org/theme-ui/settings";
+import type { PetActionGalleryViewLabels, PetActionGroupView, PetSizeControlView } from "@vetta-org/theme-ui/settings";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PetActionVideo, PetDecoration } from "../../../../preload/api-types/pet";
@@ -23,12 +18,6 @@ const PET_SIZE_SLIDER_STEP = 0.05;
 /** 键盘连按方向键时每次都会提交，合并成一次写配置。 */
 const PET_SIZE_PERSIST_DELAY_MS = 200;
 
-const PET_TIP_ICONS = {
-	move: "icon-[solar--cursor-linear]",
-	resize: "icon-[solar--mouse-minimalistic-linear]",
-	menu: "icon-[solar--menu-dots-linear]",
-} as const;
-
 export interface PetSettingsModel {
 	actions: {
 		changeAlwaysOnTop: (checked: boolean) => void;
@@ -42,7 +31,6 @@ export interface PetSettingsModel {
 	config: PetConfig;
 	decorations: PetDecoration[];
 	size: PetSizeControlView;
-	tips: PetTipView[];
 	labels: {
 		actionsSectionDescription: string;
 		alwaysOnTop: string;
@@ -63,13 +51,11 @@ export interface PetSettingsModel {
 			decoration: string;
 			developer: string;
 			display: string;
-			tips: string;
 		};
 		showPet: string;
 		showPetDescription: string;
 		size: string;
 		sizeDescription: string;
-		tipsSectionDescription: string;
 	};
 }
 
@@ -184,17 +170,6 @@ export function usePetSettingsModel(): PetSettingsModel {
 		[t],
 	);
 
-	const tips = useMemo<PetTipView[]>(
-		() =>
-			(Object.keys(PET_TIP_ICONS) as (keyof typeof PET_TIP_ICONS)[]).map((id) => ({
-				id,
-				iconClassName: PET_TIP_ICONS[id],
-				title: t(`settings.tips.items.${id}.title`),
-				description: t(`settings.tips.items.${id}.description`),
-			})),
-		[t],
-	);
-
 	const size = useMemo<PetSizeControlView>(
 		() => ({
 			value: config.videoScale,
@@ -236,13 +211,11 @@ export function usePetSettingsModel(): PetSettingsModel {
 				decoration: tSettings(SETTINGS_SECTION["pet-decoration"].titleKey),
 				developer: tSettings(SETTINGS_SECTION["pet-developer"].titleKey),
 				display: tSettings(SETTINGS_SECTION["pet-display"].titleKey),
-				tips: tSettings(SETTINGS_SECTION["pet-tips"].titleKey),
 			},
 			showPet: t("settings.showPet"),
 			showPetDescription: t("settings.showPetDesc"),
 			size: t("settings.size"),
 			sizeDescription: t("settings.sizeDesc"),
-			tipsSectionDescription: t("settings.tips.sectionDescription"),
 		}),
 		[t, tSettings],
 	);
@@ -261,6 +234,5 @@ export function usePetSettingsModel(): PetSettingsModel {
 		decorations: localizedDecorations,
 		labels,
 		size,
-		tips,
 	};
 }

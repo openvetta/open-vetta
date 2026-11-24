@@ -60,23 +60,7 @@
 				}
 			}
 		},
-		"tips": {
-			"sectionDescription": "在桌面上直接和 Vivi 互动。",
-			"items": {
-				"move": {
-					"title": "拖动",
-					"description": "按住 Vivi 拖到任意位置。"
-				},
-				"resize": {
-					"title": "滚轮缩放",
-					"description": "在 Vivi 身上滚动滚轮调整大小。"
-				},
-				"menu": {
-					"title": "右键菜单",
-					"description": "切换动作、开关自动切换或隐藏 Vivi。"
-				}
-			}
-		},
+
 		"decoration": {
 			"sectionDescription": "当前仅展示可用的装饰素材，后续可接入实际装饰逻辑。",
 			"materialMissing": "素材缺失",

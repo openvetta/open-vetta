@@ -44,12 +44,10 @@ function renderView(overrides: Partial<PetSettingsViewProps> = {}) {
 			autoMode: "自动切换动作",
 			autoModeDescription: "",
 			actionsSectionDescription: "",
-			tipsSectionDescription: "",
 			sections: {
 				display: "显示与窗口",
 				behavior: "行为",
 				actions: "动作",
-				tips: "互动方式",
 				decoration: "装饰",
 				developer: "开发调试",
 			},
@@ -58,7 +56,6 @@ function renderView(overrides: Partial<PetSettingsViewProps> = {}) {
 			display: section("pet-display"),
 			behavior: section("pet-behavior"),
 			actions: section("pet-actions"),
-			tips: section("pet-tips"),
 			decoration: section("pet-decoration"),
 			developer: section("pet-developer"),
 		},
@@ -68,7 +65,6 @@ function renderView(overrides: Partial<PetSettingsViewProps> = {}) {
 		debugFrame: false,
 		size: { value: 1, min: 0.4, max: 2.5, step: 0.05, onCommit },
 		actionGallery: <div>动作画廊</div>,
-		tips: [{ id: "move", iconClassName: "icon-[solar--cursor-linear]", title: "拖动", description: "按住拖动" }],
 		decorations: [],
 		showDecorationSection: false,
 		aiAssistSlot: null,
@@ -87,15 +83,16 @@ function renderView(overrides: Partial<PetSettingsViewProps> = {}) {
 }
 
 describe("Vetta Vivi 设置页", () => {
-	it("展示大小、行为、动作与互动方式分区", () => {
+	it("展示显示、行为、动作与开发调试分区", () => {
 		const { container } = renderView();
 
-		for (const title of ["显示与窗口", "行为", "动作", "互动方式", "开发调试"]) {
+		for (const title of ["显示与窗口", "行为", "动作", "开发调试"]) {
 			expect(container.textContent).toContain(title);
 		}
 		expect(container.textContent).toContain("动作画廊");
 		expect(container.textContent).toContain("100%");
 		expect(container.textContent).not.toContain("气泡样式");
+		expect(container.textContent).not.toContain("互动方式");
 	});
 
 	it("键盘调整大小时提交新的缩放值", () => {
