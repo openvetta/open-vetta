@@ -110,3 +110,18 @@ it("reorders rows by dragging and edits a workspace from the row actions", () =>
 	fireEvent.click(screen.getByRole("button", { name: "Edit Personal" }));
 	expect(store.get(spaceEditorAtom)).toMatchObject({ space: { id: "personal", name: "Personal" } });
 });
+
+it("explains what workspaces are above the list and still creates one from the list header", () => {
+	const store = createStore();
+	store.set(defaultConversationCwdAtom, "/test/chat");
+	render(<I18nextProvider i18n={i18n}><Provider store={store}><SpacesSettings /></Provider></I18nextProvider>);
+	expect(screen.getByText(project.spaces.intro.subtitle)).toBeTruthy();
+	for (const key of ["group", "switch", "resume", "safe"] as const) {
+		expect(screen.getByText(project.spaces.intro[key].title)).toBeTruthy();
+		expect(screen.getByText(project.spaces.intro[key].description)).toBeTruthy();
+	}
+	const list = screen.getByText("Your workspaces");
+	expect(list.compareDocumentPosition(screen.getByText(project.spaces.intro.safe.title)) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+	fireEvent.click(screen.getByRole("button", { name: "New workspace" }));
+	expect(store.get(spaceEditorAtom)).toEqual({});
+});

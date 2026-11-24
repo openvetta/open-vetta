@@ -21,6 +21,27 @@
 		"confirmName": "Type {{name}} to confirm",
 		"running": "Stop these conversations or wait for them to finish before removing the workspace.",
 		"error": "Could not complete the operation. You can try again.",
+		"intro": {
+			"subtitle": "Workspaces group your sidebar. Keep projects and sessions apart by what you're working on — the sidebar shows only the current workspace, so other work stays out of the way.",
+			"title": "How it works",
+			"listTitle": "Your workspaces",
+			"group": {
+				"title": "Group by what you're working on",
+				"description": "Right-click a project or session and choose Move to workspace. Anything unassigned stays in the main workspace."
+			},
+			"switch": {
+				"title": "Switch from the bottom of the sidebar",
+				"description": "Click a workspace icon at the bottom of the sidebar, or press Control + a number key to jump straight to it."
+			},
+			"resume": {
+				"title": "Pick up where you left off",
+				"description": "Each workspace remembers the project or session you last opened and takes you back to it."
+			},
+			"safe": {
+				"title": "Grouping only, files stay put",
+				"description": "Creating workspaces and moving items between them only changes grouping. Project files stay where they are, and search still finds everything."
+			}
+		},
 		"icons": {
 			"folder": "Folder",
 			"code": "Code",

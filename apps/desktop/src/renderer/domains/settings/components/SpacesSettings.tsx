@@ -12,6 +12,13 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const SPACES_SECTION = { id: "workspaces", titleKey: "spaces.settingsTitle" } as const;
+/** 顶部讲解的四条，顺序即阅读顺序：怎么分 → 怎么切 → 切回来什么样 → 不会动什么。 */
+const SPACES_FEATURES = [
+	{ key: "group", icon: "icon-[solar--widget-linear]" },
+	{ key: "switch", icon: "icon-[solar--square-transfer-horizontal-linear]" },
+	{ key: "resume", icon: "icon-[solar--history-linear]" },
+	{ key: "safe", icon: "icon-[solar--shield-check-linear]" },
+] as const;
 
 export function SpacesSettings(): JSX.Element {
 	const { t } = useTranslation("project");
@@ -23,8 +30,16 @@ export function SpacesSettings(): JSX.Element {
 		<>
 			<SpacesSettingsView
 				section={SPACES_SECTION}
+				features={SPACES_FEATURES.map(({ icon, key }) => ({
+					icon,
+					title: t(`spaces.intro.${key}.title`),
+					description: t(`spaces.intro.${key}.description`),
+				}))}
 				labels={{
 					title: t("spaces.settingsTitle"),
+					subtitle: t("spaces.intro.subtitle"),
+					featuresTitle: t("spaces.intro.title"),
+					listTitle: t("spaces.intro.listTitle"),
 					newSpace: t("spaces.new"),
 					edit: (name) => t("spaces.spaceEdit", { name }),
 					remove: (name) => t("spaces.spaceRemove", { name }),

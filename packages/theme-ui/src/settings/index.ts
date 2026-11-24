@@ -223,6 +223,7 @@ export type {
 } from "./SpaceEditorDialogView";
 export { SpaceEditorDialogView } from "./SpaceEditorDialogView";
 export type {
+	SpacesFeatureView,
 	SpacesSettingsViewItem,
 	SpacesSettingsViewLabels,
 	SpacesSettingsViewProps,
