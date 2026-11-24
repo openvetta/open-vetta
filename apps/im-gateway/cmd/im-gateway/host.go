@@ -231,9 +231,10 @@ func runHostWithIO(opts hostOptions) int {
 
 	// 5. Emit ready + initial status.
 	if err := out.WriteFrame(hostproto.ReadyEvent{
-		Type:      hostproto.TypeReady,
-		Version:   version,
-		Transport: tr.Name(),
+		Type:         hostproto.TypeReady,
+		Version:      version,
+		Transport:    tr.Name(),
+		Capabilities: []string{hostproto.CapabilityAutomationDelivery},
 	}); err != nil {
 		emitLog("error", "write ready", map[string]any{"err": err.Error()})
 	}
@@ -323,6 +324,10 @@ loop:
 				// EOF == implicit shutdown.
 				break loop
 			}
+			if request, isDelivery := frame.(*hostproto.AutomationDeliveryFrame); isDelivery {
+				go deliverAutomationResult(r, out, request)
+				continue
+			}
 			action := hostState.handleFrame(frame)
 			if action.stop {
 				shutdownReason = "shutdown frame"
@@ -409,6 +414,30 @@ loop:
 		return 1
 	}
 	return 0
+}
+
+// automationDeliveryTimeout bounds one delivery so the parent always gets a
+// result before its own wait expires.
+const automationDeliveryTimeout = 15 * time.Second
+
+// deliverAutomationResult sends one automation result and reports the
+// outcome with the request's ID.
+func deliverAutomationResult(r *router.Router, out *hostproto.Writer, request *hostproto.AutomationDeliveryFrame) {
+	ctx, cancel := context.WithTimeout(context.Background(), automationDeliveryTimeout)
+	defer cancel()
+	result := hostproto.AutomationDeliveryResultEvent{
+		Type:      hostproto.TypeAutomationDeliveryResult,
+		RequestID: request.RequestID,
+		OK:        true,
+	}
+	if err := r.DeliverAutomationResult(ctx, request.Text); err != nil {
+		result.OK = false
+		result.Error = err.Error()
+		if errors.Is(err, router.ErrNoDeliveryChat) {
+			result.Code = hostproto.AutomationDeliveryNoChat
+		}
+	}
+	_ = out.WriteFrame(result)
 }
 
 // hostRuntime bundles helpers shared by frame handlers so the main loop

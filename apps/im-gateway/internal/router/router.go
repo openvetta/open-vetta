@@ -42,6 +42,9 @@ type Router struct {
 	mu     sync.Mutex
 	queues map[string]chan transport.InboundMessage
 	closed bool
+	// lastChatID is the chat of the most recent inbound message; automation
+	// results are delivered there.
+	lastChatID string
 
 	wg sync.WaitGroup
 }
@@ -104,6 +107,9 @@ func (r *Router) HandleInbound(ctx context.Context, msg transport.InboundMessage
 	}
 
 	key := convKey(msg.UserID, msg.ChatID)
+	if msg.ChatID != "" {
+		r.lastChatID = msg.ChatID
+	}
 	q, ok := r.queues[key]
 	if !ok {
 		q = make(chan transport.InboundMessage, 32)
