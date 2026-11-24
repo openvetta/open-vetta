@@ -22,6 +22,7 @@ import {
 } from "../shared/MarkdownTable";
 import { SkillTypeIcon } from "../skills/skill-icon";
 import { InlineTokenChip } from "./InlineTokenChip";
+import { FileLinkBadge } from "./FileLinkBadge";
 import { WebsiteIcon } from "./WebsiteIcon";
 import { useRenderSnapshot } from "./use-render-snapshot";
 import { chatUrlTransform, classifyMarkdownLink, normalizeLocalFileLinksInMarkdown } from "./markdown-link";
@@ -60,6 +61,8 @@ export interface MarkdownContentProps {
 	labels: MarkdownLabels;
 	getFileIconClass: (fileName: string) => string;
 	onOpenFile: (path: string) => void;
+	/** 在系统文件管理器中定位文件；传入后文件徽标右键出现「在访达中显示」。 */
+	onRevealFile?: (path: string) => void;
 	onOpenUrl: (url: string) => void;
 	/** 传入即启用行内 token 渲染；仅用户消息需要，助手 markdown 不受影响。 */
 	inlineTokens?: InlineTokenSupport;
@@ -154,6 +157,7 @@ export const MarkdownContent = memo(function MarkdownContent({
 	labels,
 	getFileIconClass,
 	onOpenFile,
+	onRevealFile,
 	onOpenUrl,
 	inlineTokens,
 	definition: definitionOverride,
@@ -185,11 +189,13 @@ export const MarkdownContent = memo(function MarkdownContent({
 	const labelsRef = useRef(labels);
 	const getFileIconClassRef = useRef(getFileIconClass);
 	const onOpenFileRef = useRef(onOpenFile);
+	const onRevealFileRef = useRef(onRevealFile);
 	const onOpenUrlRef = useRef(onOpenUrl);
 	const inlineTokensRef = useRef(inlineTokens);
 	labelsRef.current = labels;
 	getFileIconClassRef.current = getFileIconClass;
 	onOpenFileRef.current = onOpenFile;
+	onRevealFileRef.current = onRevealFile;
 	onOpenUrlRef.current = onOpenUrl;
 	inlineTokensRef.current = inlineTokens;
 
@@ -253,15 +259,16 @@ export const MarkdownContent = memo(function MarkdownContent({
 					const label =
 						typeof children === "string" && ABSOLUTE_PATH_LABEL.test(children.trim()) ? basename(children.trim()) : children;
 					return (
-						<button
-							type="button"
-							title={kind.path}
+						<FileLinkBadge
+							path={kind.path}
 							className={cn(LINK_BADGE_CLASS, "cursor-pointer")}
-							onClick={() => onOpenFileRef.current(kind.path)}
+							menuLabels={labelsRef.current.fileLink}
+							onOpen={(path) => onOpenFileRef.current(path)}
+							onReveal={onRevealFileRef.current ? (path) => onRevealFileRef.current?.(path) : undefined}
 						>
 							<span className={cn(getFileIconClassRef.current(fileName), "h-3.5 w-3.5 shrink-0")} />
 							<span className="truncate">{label}</span>
-						</button>
+						</FileLinkBadge>
 					);
 				}
 				if (kind.type === "url") {

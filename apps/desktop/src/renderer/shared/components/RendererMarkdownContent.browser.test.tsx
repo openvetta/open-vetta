@@ -9,8 +9,10 @@ import {
 	browserUrlByWorkspaceAtom,
 } from "@shared/store/atoms";
 import { createActivityWorkspace } from "@shared/workspace/activity-workspace";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { createStore, Provider } from "jotai";
+import { formatSshProjectUri } from "@vetta/ssh-transport/project-uri";
+import { toastsAtom } from "@shared/store/toast-atoms";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { createStore, getDefaultStore, Provider } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RendererMarkdownContent } from "./RendererMarkdownContent";
 import { RendererMarkdownScope } from "./RendererMarkdownScope";
@@ -58,5 +60,69 @@ describe("Markdown browser links", () => {
 		expect(store.get(activityPanelTabByProjectAtom).get(workspace.id)).toBe("browser");
 		expect(store.get(activityPanelOpenAtom)).toBe(true);
 		expect(screen.getByTestId("browser-target").textContent).toBe(`${workspace.id}:true`);
+	});
+});
+
+describe("Markdown file links", () => {
+	function renderFileLink(cwd: string): void {
+		function MarkdownFile(): JSX.Element {
+			const model = useRendererMarkdownModel(cwd);
+			return (
+				<RendererMarkdownScope value={model}>
+					<RendererMarkdownContent text="交付物：[showcase.tsx](src/showcase.tsx)" />
+				</RendererMarkdownScope>
+			);
+		}
+		render(
+			<Provider store={createStore()}>
+				<MarkdownFile />
+			</Provider>,
+		);
+	}
+
+	function stubDesktop(stat: { size: number } | null): { showItemInFolder: ReturnType<typeof vi.fn> } {
+		const showItemInFolder = vi.fn(async () => undefined);
+		vi.stubGlobal("vetta", {
+			fs: { stat: vi.fn(async () => (stat ? { ...stat, modifiedAt: 0, createdAt: 0 } : null)) },
+			shell: { showItemInFolder },
+		});
+		return { showItemInFolder };
+	}
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		getDefaultStore().set(toastsAtom, []);
+	});
+
+	it("reveals the resolved file in the system file manager from the context menu", async () => {
+		const { showItemInFolder } = stubDesktop({ size: 12 });
+		renderFileLink("/Users/me/project");
+
+		fireEvent.contextMenu(screen.getByRole("button", { name: /showcase\.tsx/ }));
+		fireEvent.click(await screen.findByRole("menuitem", { name: /markdown\.reveal/ }));
+
+		await waitFor(() => expect(showItemInFolder).toHaveBeenCalledWith("/Users/me/project/src/showcase.tsx"));
+	});
+
+	it("tells the user when the file no longer exists instead of doing nothing", async () => {
+		const { showItemInFolder } = stubDesktop(null);
+		renderFileLink("/Users/me/project");
+
+		fireEvent.contextMenu(screen.getByRole("button", { name: /showcase\.tsx/ }));
+		fireEvent.click(await screen.findByRole("menuitem", { name: /markdown\.reveal/ }));
+
+		await waitFor(() =>
+			expect(getDefaultStore().get(toastsAtom).map((toast) => toast.message)).toEqual(["markdown.fileMissing"]),
+		);
+		expect(showItemInFolder).not.toHaveBeenCalled();
+	});
+
+	it("offers no reveal menu for files in a remote project", () => {
+		stubDesktop({ size: 12 });
+		renderFileLink(formatSshProjectUri("host-1", "/srv/app"));
+
+		fireEvent.contextMenu(screen.getByRole("button", { name: /showcase\.tsx/ }));
+
+		expect(screen.queryByRole("menuitem")).toBeNull();
 	});
 });
