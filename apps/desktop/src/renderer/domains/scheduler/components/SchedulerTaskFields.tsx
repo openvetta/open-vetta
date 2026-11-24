@@ -9,6 +9,8 @@ interface SchedulerTaskFieldsProps {
 	onChange: (value: AutomationDraft) => void;
 	namePlaceholder?: string;
 	showEnabled?: boolean;
+	/** 插件与 Agent 的接口不含 Claw 发送，审批表单关掉这一项。 */
+	showClaw?: boolean;
 	promptMinHeight?: number;
 }
 
@@ -17,12 +19,14 @@ export function SchedulerTaskFields({
 	onChange,
 	namePlaceholder,
 	showEnabled = false,
+	showClaw = true,
 	promptMinHeight = 120,
 }: SchedulerTaskFieldsProps): JSX.Element {
 	return (
 		<SchedulerTaskFieldsView
 			{...useSchedulerTaskFieldsModel({ namePlaceholder, onChange, value, showEnabled })}
 			promptMinHeight={promptMinHeight}
+			showClaw={showClaw}
 		/>
 	);
 }
