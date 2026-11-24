@@ -100,6 +100,16 @@ describe("changes panel", () => {
 		expect(row(SHALLOW).textContent).not.toContain("src");
 	});
 
+	it("gives each row the icon of its file type", async () => {
+		const { row } = setup();
+
+		// 两种扩展名必须拿到不同的类型图标，而不是一律那张白纸图标。
+		const tokenOf = (path: string): string | null => row(path).querySelector("svg")?.getAttribute("data-icon-token") ?? null;
+		expect(tokenOf(NESTED)).toBe("react");
+		expect(tokenOf(SHALLOW)).toBe("typescript");
+		expect(tokenOf(NESTED)).not.toBe(tokenOf(SHALLOW));
+	});
+
 	it("keeps the file list visible without a collapse control", async () => {
 		const { row } = setup();
 

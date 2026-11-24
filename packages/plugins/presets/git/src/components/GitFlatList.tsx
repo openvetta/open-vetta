@@ -2,7 +2,7 @@ import type { MouseEvent, ReactNode } from "react";
 import { useMemo, useRef, useState } from "react";
 import type { ChangeEntry } from "../git/types";
 import type { MenuPoint } from "./ChangeMenu";
-import { FileIcon } from "./icons";
+import { FileTypeIcon } from "./FileTypeIcon";
 import { StatusBadge } from "./StatusBadge";
 
 /**
@@ -90,7 +90,8 @@ export function GitFlatList({
 							selected ? "bg-accent text-foreground" : "text-foreground hover:bg-accent/50"
 						}`}
 					>
-						<FileIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+						{/* 按文件类型取图标与配色，和回合卡片、树视图里的同一个文件长得一样。 */}
+						<FileTypeIcon path={entry.path} className="h-4 w-4 shrink-0" />
 						<span className="min-w-0 flex-1 truncate">
 							<span>{name}</span>
 							{showDirectory && dir && <span className="text-muted-foreground/60"> {dir}</span>}
