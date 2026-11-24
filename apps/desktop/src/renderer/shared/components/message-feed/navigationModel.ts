@@ -42,12 +42,21 @@ export function createMessageFeedNavigationText(
 	previewMaxCharacters = 120,
 ): { readonly preview: string; readonly searchText: string } {
 	const compact = compactText(text);
-	const characters = Array.from(compact);
-	const preview =
-		characters.length <= previewMaxCharacters
-			? compact
-			: `${characters.slice(0, Math.max(0, previewMaxCharacters - 1)).join("")}…`;
-	return { preview, searchText: compact.toLocaleLowerCase() };
+	return { preview: truncateCodePoints(compact, previewMaxCharacters), searchText: compact.toLocaleLowerCase() };
+}
+
+/** Walks only as far as the preview needs; long replies must not be split whole into code points. */
+function truncateCodePoints(text: string, maxCharacters: number): string {
+	if (text.length <= maxCharacters) return text;
+	const keep = Math.max(0, maxCharacters - 1);
+	let count = 0;
+	let end = 0;
+	for (const character of text) {
+		if (count === maxCharacters) return `${text.slice(0, end)}…`;
+		if (count < keep) end += character.length;
+		count += 1;
+	}
+	return text;
 }
 
 function headlineEntry(turn: MessageFeedNavigationTurn): MessageFeedNavigationEntry | undefined {
