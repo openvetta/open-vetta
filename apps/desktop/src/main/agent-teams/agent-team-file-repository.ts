@@ -90,7 +90,17 @@ class DirectoryAgentTeamRepository implements AgentTeamFileRepository {
 			},
 			this.extensions,
 		);
-		return await this.installPresets(document, index);
+		try {
+			return await this.installPresets(document, index);
+		} catch (error) {
+			// 已存的配置刚刚完整通过了校验，预设对齐失败只说明这一轮重铺不成立。为它让整份配置
+			// 读废，用户失去的就是全部智能体、团队和团队对话；退回已存的那一份，下次启动再对齐。
+			log.error("agent preset reconcile failed; using stored configuration", {
+				error: error instanceof Error ? error.message : String(error),
+			});
+			this.storageIndex = index;
+			return document;
+		}
 	}
 
 	/**
