@@ -19,6 +19,7 @@ import { isAppearanceUiThemeEnabled } from "@/shared/feature-flags";
 import type { LanguagePreference } from "@/shared/i18n/config";
 import { UI_ZOOM_DEFAULT, UI_ZOOM_STEPS, uiZoomStepIndex } from "@/shared/ui-zoom";
 import appIconBinaryPreview from "../assets/app-icons/binary.png";
+import appIconBlackPreview from "../assets/app-icons/black.png";
 import appIconCodingPreview from "../assets/app-icons/coding.png";
 import appIconCookPreview from "../assets/app-icons/cook.png";
 import appIconDarkPreview from "../assets/app-icons/dark.png";
@@ -26,7 +27,9 @@ import appIconDefaultPreview from "../assets/app-icons/default.png";
 import appIconDesignPreview from "../assets/app-icons/design.png";
 import appIconErminePreview from "../assets/app-icons/ermine.png";
 import appIconGamePreview from "../assets/app-icons/game.png";
+import appIconLightPreview from "../assets/app-icons/light.png";
 import appIconReadPreview from "../assets/app-icons/read.png";
+import appIconRedPreview from "../assets/app-icons/red.png";
 import appIconSleepPreview from "../assets/app-icons/sleep.png";
 import appIconSportPreview from "../assets/app-icons/sport.png";
 import appIconStudyPreview from "../assets/app-icons/study.png";
@@ -196,6 +199,9 @@ const UI_THEME_OPTIONS = [
 
 const APP_ICON_PREVIEWS: Record<AppIconId, string> = {
 	default: appIconDefaultPreview,
+	red: appIconRedPreview,
+	black: appIconBlackPreview,
+	light: appIconLightPreview,
 	dark: appIconDarkPreview,
 	binary: appIconBinaryPreview,
 	ermine: appIconErminePreview,
