@@ -31,7 +31,7 @@ describe("Node coding tool environment", () => {
 					ocrExecutionGate: { run: (operation) => operation() },
 				})
 				.map(({ tool }) => tool.name),
-		).toEqual(["doc_to_pdf", "html_to_pdf", "extract_text_from_pdf", "extract_text_from_img", "render_pdf_page"]);
+		).toEqual(["doc_to_pdf", "extract_text_from_pdf", "extract_text_from_img", "render_pdf_page"]);
 		expect(() => environment.dispose()).not.toThrow();
 	});
 

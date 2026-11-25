@@ -3,7 +3,6 @@ import type { AsyncExecutionGate, CommandProcessPort } from "../shared/desktop-c
 import { createDocToPdfToolRegistration } from "../tools/doc-to-pdf/index.js";
 import { createExtractTextFromImageToolRegistration } from "../tools/extract-text-from-image/index.js";
 import { createExtractTextFromPdfToolRegistration } from "../tools/extract-text-from-pdf/index.js";
-import { createHtmlToPdfToolRegistration } from "../tools/html-to-pdf/index.js";
 import {
 	createRenderPdfPageToolRegistration,
 	RenderPdfPageProcessAbortedError,
@@ -29,7 +28,6 @@ export function createNodeSpecializedToolRegistrations(
 		createDocToPdfToolRegistration(cwd, {
 			operations: createNodeDocToPdfOperations({ commandProcess }),
 		}),
-		createHtmlToPdfToolRegistration(cwd, { desktop }),
 		createExtractTextFromPdfToolRegistration(cwd, {
 			desktop,
 			process: desktop,

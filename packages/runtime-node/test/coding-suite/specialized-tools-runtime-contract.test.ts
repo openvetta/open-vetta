@@ -8,7 +8,6 @@ import {
 	createDocToPdfToolRegistration,
 	createExtractTextFromImageToolRegistration,
 	createExtractTextFromPdfToolRegistration,
-	createHtmlToPdfToolRegistration,
 	createRenderPdfPageToolRegistration,
 	type DesktopCommandPort,
 	type DocToPdfOperations,
@@ -31,7 +30,6 @@ describe("runtime specialized tool contracts", () => {
 		const desktop = successfulDesktop("C:output.json");
 		const registrations = [
 			createDocToPdfToolRegistration(cwd, { operations: successfulDocOperations() }),
-			createHtmlToPdfToolRegistration(cwd, { desktop }),
 			createExtractTextFromPdfToolRegistration(cwd, {
 				desktop,
 				process: desktop,
@@ -43,7 +41,6 @@ describe("runtime specialized tool contracts", () => {
 
 		expect(registrations.map(({ tool }) => tool.name)).toEqual([
 			"doc_to_pdf",
-			"html_to_pdf",
 			"extract_text_from_pdf",
 			"extract_text_from_img",
 			"render_pdf_page",
@@ -83,46 +80,6 @@ describe("runtime specialized tool contracts", () => {
 			],
 			details: undefined,
 		});
-	});
-
-	it("passes session-local HTML paths and renderer options through the desktop port", async () => {
-		const cwd = await temporaryDirectory("html");
-		await writeFile(join(cwd, "source.html"), "<p>test</p>", "utf8");
-		const calls: Array<{ executable: string; args: readonly string[] }> = [];
-		const desktop: DesktopCommandPort = {
-			locate: async () => ({ path: "Vetta.exe" }),
-			async run(executable, args) {
-				calls.push({ executable, args });
-				return {
-					code: 0,
-					stdout: JSON.stringify({ ok: true, output: join(cwd, "result.pdf"), renderer: "electron" }),
-					stderr: "",
-				};
-			},
-		};
-		const tool = createHtmlToPdfToolRegistration(cwd, { desktop }).tool;
-		const result = await tool.execute({
-			sessionId: "session",
-			turnId: "turn",
-			toolCallId: "call",
-			input: { input: "source.html", output: "result.pdf", marginTop: 0.5 },
-			signal,
-		});
-
-		expect(calls).toEqual([
-			{
-				executable: "Vetta.exe",
-				args: [
-					"--html-to-pdf",
-					join(cwd, "source.html"),
-					"--output",
-					join(cwd, "result.pdf"),
-					"--margin-top",
-					"0.5",
-				],
-			},
-		]);
-		expect(result.content[0]).toMatchObject({ text: expect.stringContaining(`Output: ${join(cwd, "result.pdf")}`) });
 	});
 
 	it("runs image OCR through the shared gate and validates the structured document", async () => {

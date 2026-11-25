@@ -50,7 +50,6 @@ const PLATFORM_TOOL_DECLARATIONS: Readonly<Record<string, PlatformToolDeclaratio
 	ls: EXPLICIT_ONLY_CORE,
 	find: EXPLICIT_ONLY_CORE,
 	doc_to_pdf: ALL_SCENARIO_DOCUMENT,
-	html_to_pdf: ALL_SCENARIO_DOCUMENT,
 	render_pdf_page: ALL_SCENARIO_DOCUMENT,
 	extract_text_from_pdf: ALL_SCENARIO_DOCUMENT,
 	extract_text_from_img: ALL_SCENARIO_DOCUMENT,

@@ -34,7 +34,6 @@ describe("Coding Agent specialized tool surface", () => {
 		const registrations = createCodingAgentSpecializedToolRegistrations({
 			platformRegistrations: [
 				platformRegistration("doc_to_pdf"),
-				platformRegistration("html_to_pdf"),
 				platformRegistration("extract_text_from_pdf"),
 				platformRegistration("extract_text_from_img"),
 				platformRegistration("render_pdf_page"),
@@ -43,7 +42,6 @@ describe("Coding Agent specialized tool surface", () => {
 		});
 		expect(registrations.map(runtimeActivationDefinition)).toEqual([
 			toolContract("doc_to_pdf", ALL_SCENARIOS, "doc"),
-			toolContract("html_to_pdf", ALL_SCENARIOS, "doc"),
 			toolContract("extract_text_from_pdf", ALL_SCENARIOS, "doc"),
 			toolContract("extract_text_from_img", ALL_SCENARIOS, "doc"),
 			toolContract("render_pdf_page", ALL_SCENARIOS, "doc"),
@@ -60,9 +58,7 @@ describe("Coding Agent specialized tool surface", () => {
 			expect(tool.description.length).toBeGreaterThan(0);
 			expect(tool.inputSchema).toMatchObject({ type: "object" });
 		}
-		expect(registrations.map(({ tool }) => tool.modelOrder)).toEqual([
-			1_000, 1_100, 1_200, 1_300, 1_400, 1_600, 1_700,
-		]);
+		expect(registrations.map(({ tool }) => tool.modelOrder)).toEqual([1_000, 1_200, 1_300, 1_400, 1_600, 1_700]);
 	});
 
 	it("freezes skill visibility and content per Turn", async () => {
