@@ -1,12 +1,26 @@
 import { Button } from "@vetta-org/ui";
+import type { MouseEvent } from "react";
 import { memo, useEffect, useState } from "react";
 import { CodeBlock } from "./CodeBlock";
 import type { MarkdownCodeBlockProps } from "./definition";
 import { useMarkdownHost } from "./host";
-import { MarkdownImage } from "./MarkdownImage";
+import { useImageActions } from "./image-actions";
 import { svgImageSource, withIntrinsicSize } from "./preview-policy";
 import { defaultRichContentLabels } from "./rich-labels";
 import { useRichVisibility } from "./use-rich-visibility";
+
+function DiagramAction({ label, icon, disabled, onClick }: { label: string; icon: string; disabled?: boolean; onClick: () => void }) {
+	const handle = (event: MouseEvent<HTMLButtonElement>) => {
+		event.preventDefault();
+		event.stopPropagation();
+		onClick();
+	};
+	return (
+		<Button variant="ghost" size="icon-sm" aria-label={label} title={label} disabled={disabled} onClick={handle} className="text-muted-foreground hover:text-foreground">
+			<span className={`${icon} h-4 w-4`} />
+		</Button>
+	);
+}
 
 export const MermaidBlock = memo(function MermaidBlock(props: MarkdownCodeBlockProps) {
 	const { code, theme, live } = props;
@@ -29,15 +43,31 @@ export const MermaidBlock = memo(function MermaidBlock(props: MarkdownCodeBlockP
 	}, [host, active, live, source, oversized, key, code, theme, attempt]);
 	const current = result?.key === key ? result : undefined;
 	const image = current?.svg ? svgImageSource(withIntrinsicSize(current.svg)) : null;
+	const { action, setAction, run, busy } = useImageActions(host, image ?? undefined, key);
+	useEffect(() => {
+		if (action !== "copied") return;
+		const timer = setTimeout(() => setAction(null), 1500);
+		return () => clearTimeout(timer);
+	}, [action, setAction]);
+	const showing = !(source || live || oversized || !host || current?.svg === null);
+	const diagram = labels.diagram ?? "Diagram";
 	return <CodeBlock.Root {...props}><CodeBlock.Copy><CodeBlock.Frame><div ref={ref}>
 		<div className="flex items-center gap-2 py-1.5 pr-12 pl-4">
 			<span className="text-[12px] text-muted-foreground">Mermaid</span>
 			<Button variant="ghost" size="sm" aria-pressed={source} onClick={() => setSource(!source)}>{source ? labels.preview : labels.source}</Button>
 			{current?.svg === null && <Button variant="ghost" size="sm" onClick={() => { setResult(undefined); setAttempt((value) => value + 1); }}>{labels.retry ?? "Retry"}</Button>}
+			{showing && image && host && <div className="ml-auto flex items-center gap-0.5">
+				{action === "failed" && <span role="status" className="mr-1 text-[12px] text-muted-foreground">{labels.actionFailed ?? labels.failed}</span>}
+				<div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/code-block:opacity-100 focus-within:opacity-100">
+					<DiagramAction label={labels.enlarge ?? "Enlarge"} icon="icon-[solar--maximize-square-minimalistic-linear]" onClick={() => host.openImage(image, diagram)} />
+					<DiagramAction label={action === "copied" ? props.labels.copied : (labels.copyImage ?? "Copy image")} icon={action === "copied" ? "icon-[mdi--check]" : "icon-[solar--gallery-send-linear]"} disabled={busy} onClick={() => void run("copy")} />
+					<DiagramAction label={labels.save ?? "Save"} icon="icon-[solar--download-minimalistic-linear]" disabled={busy} onClick={() => void run("save")} />
+				</div>
+			</div>}
 		</div>
-		{source || live || oversized || !host || current?.svg === null ? <>
+		{!showing ? <>
 			{!source && <p role="status" className="px-4 pb-2 text-[12px] text-muted-foreground">{oversized ? labels.tooLarge : live ? labels.waiting : labels.failed}</p>}
 			<CodeBlock.Content />
-		</> : image ? <CodeBlock.Body><div className="p-4"><MarkdownImage src={image} alt={labels.diagram ?? "Diagram"} labels={props.labels} /></div></CodeBlock.Body> : <CodeBlock.Body><div className="min-h-24 p-4" role="status">{labels.loading ?? labels.waiting}</div></CodeBlock.Body>}
+		</> : image ? <CodeBlock.Body><div className="overflow-x-auto p-4"><img src={image} alt={diagram} decoding="async" className="mx-auto block h-auto max-w-full" /></div></CodeBlock.Body> : <CodeBlock.Body><div className="min-h-24 p-4" role="status">{labels.loading ?? labels.waiting}</div></CodeBlock.Body>}
 	</div></CodeBlock.Frame></CodeBlock.Copy></CodeBlock.Root>;
 });

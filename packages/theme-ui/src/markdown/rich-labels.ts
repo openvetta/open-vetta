@@ -16,6 +16,7 @@ export interface RichContentLabels {
 	loading?: string;
 	retry?: string;
 	enlarge?: string;
+	copyImage?: string;
 	save?: string;
 	diagram?: string;
 	imageFailed?: string;
@@ -38,6 +39,7 @@ export const defaultRichContentLabels: RichContentLabels = {
 	loading: "Loading preview…",
 	retry: "Retry",
 	enlarge: "Enlarge",
+	copyImage: "Copy image",
 	save: "Save",
 	diagram: "Diagram",
 	imageFailed: "Could not load image.",

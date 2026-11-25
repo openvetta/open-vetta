@@ -84,6 +84,11 @@ describe("Markdown media workflows", () => {
 		view.rerender(<MarkdownContent {...props} host={host} text={text} />);
 		await screen.findByRole("img", { name: "Diagram" });
 		expect(host.renderMermaid).toHaveBeenCalledWith("graph TD; A-->B", "light");
+		fireEvent.click(screen.getByRole("button", { name: "Enlarge" }));
+		expect(host.openImage).toHaveBeenCalledWith(expect.stringMatching(/^data:image\/svg\+xml/), "Diagram");
+		fireEvent.click(screen.getByRole("button", { name: "Copy image" }));
+		await screen.findByRole("button", { name: "Copied" });
+		expect(host.copyImage).toHaveBeenCalledWith(expect.stringMatching(/^data:image\/svg\+xml/));
 		fireEvent.click(screen.getByRole("button", { name: "Save" }));
 		await waitFor(() => expect(host.saveImage).toHaveBeenCalledWith(expect.stringMatching(/^data:image\/svg\+xml/)));
 		fireEvent.click(screen.getByRole("button", { name: "Source" }));
