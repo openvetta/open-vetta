@@ -4,6 +4,7 @@ import type { SshProcessInvocation, SshProcessResult, SshProcessRunner } from ".
 import { buildKillCommand, buildRemoteCommand, buildWriteFileCommand } from "./remote-command.js";
 import { SshConnection } from "./ssh-connection.js";
 import type { SshHost } from "./ssh-host.js";
+import { unwrapLoginShellCommand } from "./testing.js";
 
 const host: SshHost = { id: "build-01", label: "构建机", target: "build", source: "manual" };
 
@@ -15,6 +16,11 @@ function ok(stdout: string): SshProcessResult {
 	return { exitCode: 0, stdout: encode(stdout), stderr: "", aborted: false };
 }
 
+/** 这次调用真正要远端 `/bin/sh` 执行的命令行。 */
+function commandOf(invocation: SshProcessInvocation): string {
+	return unwrapLoginShellCommand(String(invocation.argv.at(-1)));
+}
+
 /** 按远端命令内容依次应答，并记录每次调用，便于断言真正发出去的是什么。 */
 function createRunner(reply: (remoteCommand: string) => SshProcessResult): {
 	runner: SshProcessRunner;
@@ -24,7 +30,7 @@ function createRunner(reply: (remoteCommand: string) => SshProcessResult): {
 	const runner: SshProcessRunner = {
 		run: async (invocation) => {
 			calls.push(invocation);
-			return reply(String(invocation.argv[invocation.argv.length - 1]));
+			return reply(commandOf(invocation));
 		},
 	};
 	return { runner, calls };
@@ -60,7 +66,7 @@ describe("远端文件读写", () => {
 	it("读文件走原始字节，不经登录 shell——profile 的输出会混进文件内容", async () => {
 		const { connection, calls } = connect(() => ok("file body"));
 		await expect(connection.readFile("/srv/a.txt")).resolves.toEqual(encode("file body"));
-		const remoteCommand = String(calls[0].argv[calls[0].argv.length - 1]);
+		const remoteCommand = commandOf(calls[0]);
 		expect(remoteCommand).toBe("cat -- '/srv/a.txt'");
 		expect(remoteCommand).not.toContain("SHELL");
 	});
@@ -68,7 +74,7 @@ describe("远端文件读写", () => {
 	it("写文件先写同目录临时文件再 mv，内容走 stdin 而不是命令行", async () => {
 		const { connection, calls } = connect(() => ok(""));
 		await connection.writeFile("/srv/a.txt", encode("hello"));
-		const remoteCommand = String(calls[0].argv[calls[0].argv.length - 1]);
+		const remoteCommand = commandOf(calls[0]);
 		expect(remoteCommand).toBe(
 			buildWriteFileCommand("/srv/a.txt", remoteCommand.match(/\.vetta-tmp-[a-z0-9]+/)?.[0] ?? ""),
 		);
@@ -149,7 +155,7 @@ describe("失败分类（ADR-0124 执行边界）", () => {
 		const runner: SshProcessRunner = {
 			run: (invocation) => {
 				calls.push(invocation);
-				const remoteCommand = String(invocation.argv[invocation.argv.length - 1]);
+				const remoteCommand = commandOf(invocation);
 				if (remoteCommand.includes("uname")) return Promise.resolve(ok("Linux\nx86_64\n"));
 				if (!remoteCommand.includes("npm run dev")) return Promise.resolve(ok(""));
 				// 用户命令一直不结束，直到被掐断。
@@ -169,7 +175,7 @@ describe("失败分类（ADR-0124 执行边界）", () => {
 		const error = await pending;
 		expect(error).toBeInstanceOf(SshOperationAbortedError);
 		expect((error as SshOperationAbortedError).reason).toBe("aborted");
-		const commands = calls.map((call) => String(call.argv[call.argv.length - 1]));
+		const commands = calls.map((call) => commandOf(call));
 		const token = commands[1].match(/vetta-exec-[0-9a-f]+/)?.[0] ?? "";
 		expect(commands[2]).toBe(buildKillCommand(token));
 	});
@@ -178,7 +184,7 @@ describe("失败分类（ADR-0124 执行边界）", () => {
 		const calls: string[] = [];
 		const runner: SshProcessRunner = {
 			run: (invocation) => {
-				const remoteCommand = String(invocation.argv[invocation.argv.length - 1]);
+				const remoteCommand = commandOf(invocation);
 				calls.push(remoteCommand);
 				if (remoteCommand.includes("uname")) return Promise.resolve(ok("Linux\nx86_64\n"));
 				if (!remoteCommand.includes("sleep 999")) return Promise.resolve(ok(""));
@@ -230,7 +236,7 @@ describe("用户命令执行", () => {
 
 		await connection.exec("npm test", { timeoutMs: 1_000 });
 
-		expect(String(calls[0].argv[calls[0].argv.length - 1])).toContain("uname");
+		expect(commandOf(calls[0])).toContain("uname");
 		expect(calls[0].timeoutMs).toBeGreaterThan(60_000);
 	});
 
@@ -246,7 +252,7 @@ describe("用户命令执行", () => {
 			exitCode: 1,
 		});
 		// 引用语义由 remote-command 的测试守住，这里只证明 cwd 确实被透传下去。
-		const userCommand = calls.map((call) => String(call.argv[call.argv.length - 1])).at(-1);
+		const userCommand = calls.map((call) => commandOf(call)).at(-1);
 		const processToken = userCommand?.match(/vetta-exec-[0-9a-f]+/)?.[0];
 		expect(userCommand).toBe(buildRemoteCommand("npm test", { cwd: "/srv/app", processToken }));
 	});
@@ -272,7 +278,7 @@ describe("远端端口与进程", () => {
 		const scan = await connection.listListeningPorts();
 
 		// 一次 ps 问完所有 pid，不按端口逐个往返。
-		expect(calls.filter((call) => String(call.argv.at(-1)).includes("ps -o pid="))).toHaveLength(1);
+		expect(calls.filter((call) => commandOf(call).includes("ps -o pid="))).toHaveLength(1);
 		const app = scan.ports.find((port) => port.port === 3000);
 		expect(app).toMatchObject({ command: "node server.js", sensitive: false });
 		expect(app?.startedAt).toBeLessThanOrEqual(Date.now() - 10_000);
@@ -298,11 +304,11 @@ describe("远端端口与进程", () => {
 	it("终止进程：退出、还活着、没权限三种结局分得开", async () => {
 		const exited = connect(() => ok(""));
 		await expect(exited.connection.terminateProcess(1234)).resolves.toEqual({ exited: true });
-		expect(String(exited.calls[0].argv.at(-1))).toContain("kill -s TERM 1234");
+		expect(commandOf(exited.calls[0])).toContain("kill -s TERM 1234");
 
 		const alive = connect(() => ({ exitCode: 3, stdout: encode(""), stderr: "", aborted: false }));
 		await expect(alive.connection.terminateProcess(1234, { force: true })).resolves.toEqual({ exited: false });
-		expect(String(alive.calls[0].argv.at(-1))).toContain("kill -s KILL 1234");
+		expect(commandOf(alive.calls[0])).toContain("kill -s KILL 1234");
 
 		const denied = connect(() => ({
 			exitCode: 1,

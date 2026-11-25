@@ -8,6 +8,23 @@ import type { SshProcessRunner } from "./process-runner.js";
 import { formatSshProjectUri } from "./project-uri.js";
 import { SshConnection, type SshConnectionOptions } from "./ssh-connection.js";
 
+/**
+ * 还原 {@link wrapForLoginShell} 包过的命令串，拿回真正交给 `/bin/sh` 的那条命令行。
+ *
+ * 只供断言用：测试关心的是「发出去的是哪条命令」，不是它为了过登录 shell 穿了哪层外衣。
+ * 认不出的输入原样返回。
+ */
+export function unwrapLoginShellCommand(remoteCommand: string): string {
+	const outer = /^\/bin\/sh -c '((?:[^']|'\\'')*)'$/.exec(remoteCommand);
+	if (!outer) return remoteCommand;
+	const command = outer[1].replaceAll("'\\''", "'");
+	const encoded = /^eval "\$\(printf '([^']*)'\)"$/.exec(command);
+	if (!encoded) return command;
+	return encoded[1].replace(/%%|\\([0-7]{3})/g, (_match, octal: string | undefined) =>
+		octal === undefined ? "%" : String.fromCharCode(Number.parseInt(octal, 8)),
+	);
+}
+
 /** Map a local fixture to the POSIX path seen by the loopback shell. */
 export function toLoopbackRemotePath(localPath: string): string {
 	if (process.platform !== "win32") return localPath;
@@ -114,8 +131,15 @@ function createWindowsLoopbackRunner(home: string): SshProcessRunner {
  */
 export function createLoopbackSshConnection(
 	hostId = "loopback",
-	options: Pick<SshConnectionOptions, "helper"> = {},
+	options: Pick<SshConnectionOptions, "helper"> & {
+		/**
+		 * 「远端」账号的登录 shell。sshd 用它解释整条远端命令串，并把它放进 `SHELL`；
+		 * 缺省 `/bin/sh`。用来证明命令在 csh、fish 这类非 POSIX 登录 shell 下照样能跑。
+		 */
+		readonly loginShell?: string;
+	} = {},
 ): SshConnection {
+	const { loginShell = "/bin/sh", ...connectionOptions } = options;
 	const directory = mkdtempSync(join(tmpdir(), "vetta-loopback-ssh-"));
 	// 「远端」有自己的家目录：helper 会往 ~/.cache 里装东西，不能装进开发者真实的家目录。
 	const home = join(directory, "home");
@@ -130,9 +154,9 @@ export function createLoopbackSshConnection(
 			"#!/bin/sh",
 			"for last; do :; done",
 			"if command -v perl >/dev/null 2>&1; then",
-			"  exec perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV' /bin/sh -c \"$last\"",
+			`  exec perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV' ${loginShell} -c "$last"`,
 			"fi",
-			'exec /bin/sh -c "$last"',
+			`exec ${loginShell} -c "$last"`,
 			"",
 		].join("\n"),
 	);
@@ -147,10 +171,10 @@ export function createLoopbackSshConnection(
 					? createWindowsLoopbackRunner(home)
 					: createNodeSshProcessRunner({
 							sshBinary: fakeSsh,
-							baseEnv: { ...process.env, SHELL: "/bin/sh", HOME: home },
+							baseEnv: { ...process.env, SHELL: loginShell, HOME: home },
 						}),
 			controlPath: join(directory, "cp"),
-			...options,
+			...connectionOptions,
 		},
 	);
 }

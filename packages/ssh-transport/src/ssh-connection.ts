@@ -24,6 +24,7 @@ import {
 	quoteShellArgument,
 	REMOTE_ENTRY_EXISTS_EXIT_CODE,
 	type RemoteStatFlavor,
+	wrapForLoginShell,
 } from "./remote-command.js";
 import {
 	buildListListeningPortsCommand,
@@ -591,7 +592,7 @@ export class SshConnection {
 				connectTimeoutSeconds: this.options.connectTimeoutSeconds,
 				requestTty: options.requestTty,
 			},
-			remoteCommand,
+			wrapForLoginShell(remoteCommand),
 		);
 		return this.options.runner.open({ argv, onStdout, env: this.options.env });
 	}
@@ -762,7 +763,7 @@ export class SshConnection {
 		const argv = buildSshArgv(
 			this.host,
 			{ controlPath: this.options.controlPath, connectTimeoutSeconds: this.options.connectTimeoutSeconds },
-			remoteCommand,
+			wrapForLoginShell(remoteCommand),
 		);
 		const result = await this.options.runner.run({
 			argv,

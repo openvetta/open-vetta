@@ -28,6 +28,7 @@ import {
 	parseListFilesRecursiveOutput,
 	quoteShellArgument,
 	REMOTE_ENTRY_EXISTS_EXIT_CODE,
+	wrapForLoginShell,
 } from "./remote-command.js";
 
 describe("quoteShellArgument", () => {
@@ -60,6 +61,58 @@ describe("quoteShellArgument", () => {
 	it("保留空串与空白", () => {
 		expect(quoteShellArgument("")).toBe("''");
 		expect(quoteShellArgument("a b")).toBe("'a b'");
+	});
+});
+
+describe("wrapForLoginShell（经各种登录 shell 解释一遍）", () => {
+	// sshd 拿账号的登录 shell 解释整条命令串。合同是：无论那是哪种 shell，最后交给 /bin/sh
+	// 的都是原来那条命令行，一个字节都不差。
+	const loginShells = [
+		"/bin/sh",
+		"/bin/bash",
+		"/bin/zsh",
+		"/bin/dash",
+		"/bin/csh",
+		"/bin/tcsh",
+		"/usr/bin/fish",
+		"/opt/homebrew/bin/fish",
+		"/usr/local/bin/fish",
+	].filter((shell) => process.platform !== "win32" && existsSync(shell));
+	const tricky = [
+		"uname -s && uname -m",
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: 远端 shell 语法。
+		'printf %s "${HOME:?no home}"',
+		"echo 'it'\"'\"'s' \"$((1 + 2))\" `echo tick` 50% \\n back\\\\slash; echo hi!",
+		"-n starts with a dash",
+		"line one\nline\ttwo\n\nlast 中文路径",
+	];
+
+	it.each(loginShells)("%s 下原样还原", (loginShell) => {
+		for (const command of tricky) {
+			const wrapped = wrapForLoginShell(`printf '%s' ${quoteShellArgument(command)}`);
+			const result = spawnSync(loginShell, ["-c", wrapped], { encoding: "utf8" });
+			expect({ command, stdout: result.stdout, stderr: result.stderr }).toEqual({
+				command,
+				stdout: command,
+				stderr: "",
+			});
+		}
+	});
+
+	it.skipIf(!existsSync("/bin/csh"))("登录 shell 为 csh 时，用户命令改由 /bin/sh -l 执行，POSIX 语法照常生效", () => {
+		const dir = realpathSync(mkdtempSync(join(tmpdir(), "vetta-csh-")));
+		const command = buildRemoteCommand('echo "$FOO $(pwd)" 2>&1; exit 3', { cwd: dir, env: { FOO: "x" } });
+		const result = spawnSync("/bin/csh", ["-c", wrapForLoginShell(command)], {
+			encoding: "utf8",
+			env: { ...process.env, SHELL: "/bin/csh" },
+		});
+		expect(result.stderr).toBe("");
+		expect(result.stdout).toBe(`x ${dir}\n`);
+		expect(result.status).toBe(3);
+	});
+
+	it("单行且没有特殊字符的命令保持原样可读，远端 ps 里看得懂", () => {
+		expect(wrapForLoginShell("cat -- '/srv/a b.txt'")).toBe(`/bin/sh -c 'cat -- '\\''/srv/a b.txt'\\'''`);
 	});
 });
 

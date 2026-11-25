@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { RuntimeToolResult } from "@vetta/runtime-core/kernel";
 import type { CodingToolRegistration } from "@vetta/runtime-tools";
 import { SshConnection, type SshHost, type SshProcessResult, type SshProcessRunner } from "@vetta/ssh-transport";
+import { unwrapLoginShellCommand } from "@vetta/ssh-transport/testing";
 import { describe, expect, it } from "vitest";
 import { createSshCodingToolEnvironment } from "./ssh-tool-environment.js";
 
@@ -29,7 +30,7 @@ function createFakeHost(
 	const commands: string[] = [];
 	const runner: SshProcessRunner = {
 		run: async (invocation): Promise<SshProcessResult> => {
-			const remoteCommand = String(invocation.argv[invocation.argv.length - 1]);
+			const remoteCommand = unwrapLoginShellCommand(String(invocation.argv.at(-1)));
 			commands.push(remoteCommand);
 			const ok = (stdout: string): SshProcessResult => ({
 				exitCode: 0,
