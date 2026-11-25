@@ -66,7 +66,7 @@
 		},
 		"notify": "Webhook 通知",
 		"notifyClaw": "通过 Claw 发送",
-		"notifyClawHint": "每次执行完成后，结果发到最近一次与 Claw 对话的聊天",
+		"notifyClawHint": "每次执行完成后，结果发到 Claw 的接收对话，可在 Claw 设置中查看",
 		"notifyEndpoints": "通知到",
 		"notifyGoSettings": "还没有 webhook，去设置里新增",
 		"notifyEndpointDisabled": "该 webhook 已停用，不会发送",
@@ -208,7 +208,7 @@
 			},
 			"offline": "Claw 未连接",
 			"unsupported": "Claw 网关版本过旧，请更新应用",
-			"no_chat": "Claw 还没有对话，请先在 Claw 里发一条消息",
+			"no_chat": "Claw 还没有接收对话：私聊机器人发一条消息，或在想接收的聊天里发 /notify",
 			"unconfirmed": "Claw 未确认送达，请在聊天中查看是否收到",
 			"send_failed": "Claw：{{detail}}"
 		}

@@ -5,9 +5,11 @@ import {
 	type AutomationDeliveryResultEvent,
 	CAPABILITY_AUTOMATION_DELIVERY,
 	type CodingAgentSpec,
+	type DeliveryChatEvent,
 	type DiscordConfig,
 	decodeEvent,
 	EVENT_AUTOMATION_DELIVERY_RESULT,
+	EVENT_DELIVERY_CHAT,
 	EVENT_FEISHU_BIND_STATUS,
 	EVENT_FEISHU_BOUND,
 	EVENT_FEISHU_QR,
@@ -98,6 +100,8 @@ export interface SidecarHooks {
 	onLog?: (event: LogEvent) => void;
 	/** Routing-table mutation; the parent persists this. */
 	onStatePatch?: (event: StatePatchEvent) => void;
+	/** A chat proposed as the automation delivery target; the parent decides and persists. */
+	onDeliveryChat?: (event: DeliveryChatEvent) => void;
 	/** Generic numeric metric. */
 	onMetric?: (event: MetricEvent) => void;
 	/** Backoff/restart-cycle reported a definitive failure. */
@@ -287,10 +291,11 @@ export class SidecarManager {
 	}
 
 	/**
-	 * Send an automation result to the active channel. Resolves to undefined
-	 * once the sidecar confirms the send. Never starts or restarts the sidecar.
+	 * Send an automation result to `chatId` on the active channel. Resolves to
+	 * undefined once the sidecar confirms the send. Never starts or restarts
+	 * the sidecar.
 	 */
-	deliverAutomationResult(text: string): Promise<AutomationDeliveryFailure | undefined> {
+	deliverAutomationResult(chatId: string, text: string): Promise<AutomationDeliveryFailure | undefined> {
 		if (this.state.kind !== "running") return Promise.resolve({ reason: "offline" });
 		if (!this.state.acceptsAutomationDelivery) return Promise.resolve({ reason: "unsupported" });
 
@@ -303,7 +308,7 @@ export class SidecarManager {
 			};
 			const timeoutTimer = setTimeout(() => settle({ reason: "unconfirmed" }), this.automationDeliveryTimeoutMs);
 			this.pendingAutomationDeliveries.set(requestId, settle);
-			this.writeFrame({ type: FRAME_AUTOMATION_DELIVERY, requestId, text });
+			this.writeFrame({ type: FRAME_AUTOMATION_DELIVERY, requestId, chatId, text });
 		});
 	}
 
@@ -586,6 +591,9 @@ export class SidecarManager {
 				break;
 			case EVENT_AUTOMATION_DELIVERY_RESULT:
 				this.settleAutomationDelivery(event);
+				break;
+			case EVENT_DELIVERY_CHAT:
+				this.hooks.onDeliveryChat?.(event);
 				break;
 			case EVENT_STATUS:
 				this.hooks.onStatus?.(event);

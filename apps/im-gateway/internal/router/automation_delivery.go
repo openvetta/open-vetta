@@ -9,18 +9,30 @@ import (
 	"vetta-im-gateway/internal/transport"
 )
 
-// ErrNoDeliveryChat means the active channel has no chat to send an
-// automation result to.
+// ErrNoDeliveryChat means the request named no chat to send an automation
+// result to.
 var ErrNoDeliveryChat = errors.New("no chat to deliver to")
 
-// DeliverAutomationResult sends text to the chat that most recently messaged
-// the gateway. Until a message arrives after a restart, it uses the routed
-// chat when the routing table holds exactly one. Text longer than the
-// channel's message limit is sent as several messages.
-func (r *Router) DeliverAutomationResult(ctx context.Context, text string) error {
-	chatID, err := r.automationDeliveryChatID(ctx)
-	if err != nil {
-		return err
+// DeliveryChatHandler receives chats proposed as the automation delivery
+// target. explicit is true when the user ran /notify in that chat; otherwise
+// it is a private chat that just sent a message. The host owns the decision
+// and persists the target; the router keeps no copy.
+type DeliveryChatHandler func(chatID, userID string, explicit bool)
+
+// SetDeliveryChatHandler installs the proposal hook. Only private chats are
+// proposed implicitly, so a group mention never becomes the target by
+// accident; groups can still be chosen explicitly with /notify.
+func (r *Router) SetDeliveryChatHandler(handler DeliveryChatHandler) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.onDeliveryChat = handler
+}
+
+// DeliverAutomationResult sends text to chatID on the active transport. Text
+// longer than the channel's message limit is sent as several messages.
+func (r *Router) DeliverAutomationResult(ctx context.Context, chatID, text string) error {
+	if chatID == "" {
+		return ErrNoDeliveryChat
 	}
 	activeTransport := r.getTransport()
 	for _, part := range splitAtMessageLimit(text, activeTransport.Capabilities().MaxMessageLength) {
@@ -29,34 +41,6 @@ func (r *Router) DeliverAutomationResult(ctx context.Context, text string) error
 		}
 	}
 	return nil
-}
-
-func (r *Router) automationDeliveryChatID(ctx context.Context) (string, error) {
-	r.mu.Lock()
-	lastChatID := r.lastChatID
-	r.mu.Unlock()
-	if lastChatID != "" {
-		return lastChatID, nil
-	}
-
-	routes, err := r.state.Load(ctx)
-	if err != nil {
-		return "", err
-	}
-	routedChatID := ""
-	for _, entry := range routes.Sessions {
-		if entry.ChatID == "" || entry.ChatID == routedChatID {
-			continue
-		}
-		if routedChatID != "" {
-			return "", ErrNoDeliveryChat
-		}
-		routedChatID = entry.ChatID
-	}
-	if routedChatID == "" {
-		return "", ErrNoDeliveryChat
-	}
-	return routedChatID, nil
 }
 
 // splitAtMessageLimit follows the bridge's chunking rule: each part is at

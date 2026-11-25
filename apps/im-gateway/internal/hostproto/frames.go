@@ -47,10 +47,12 @@ const (
 
 // Automation delivery frames. TypeAutomationDelivery (parent → child) is only
 // sent to a sidecar whose ready event lists CapabilityAutomationDelivery;
-// TypeAutomationDeliveryResult (child → parent) answers it.
+// TypeAutomationDeliveryResult (child → parent) answers it. TypeDeliveryChat
+// (child → parent) proposes the chat that should receive automation results.
 const (
 	TypeAutomationDelivery       = "automation_delivery"
 	TypeAutomationDeliveryResult = "automation_delivery_result"
+	TypeDeliveryChat             = "delivery_chat"
 )
 
 // Transport status values reported on TypeStatus events.
@@ -304,15 +306,29 @@ type ReadyEvent struct {
 const CapabilityAutomationDelivery = "automation_delivery"
 
 // AutomationDeliveryFrame asks the sidecar to send a finished automation's
-// result text to the active channel's chat.
+// result text to ChatID. The parent owns the choice of chat (it persists the
+// target per channel from DeliveryChatEvent); the sidecar only sends.
 type AutomationDeliveryFrame struct {
 	Type      string `json:"type"` // always TypeAutomationDelivery
 	RequestID string `json:"requestId"`
+	ChatID    string `json:"chatId"`
 	Text      string `json:"text"`
 }
 
-// AutomationDeliveryNoChat is the result code used when the active channel
-// has no chat to send to yet.
+// DeliveryChatEvent proposes ChatID as the chat that receives automation
+// results. Explicit is true when the user asked for it with /notify, and the
+// parent always adopts it. Otherwise it comes from a private chat and the
+// parent adopts it only while no target is set. Implicit proposals are sent
+// for every private message so a cleared target can be filled again.
+type DeliveryChatEvent struct {
+	Type     string `json:"type"` // always TypeDeliveryChat
+	ChatID   string `json:"chatId"`
+	UserID   string `json:"userId"`
+	Explicit bool   `json:"explicit"`
+}
+
+// AutomationDeliveryNoChat is the result code used when the frame carries no
+// chat to send to.
 const AutomationDeliveryNoChat = "no_chat"
 
 // AutomationDeliveryResultEvent answers one AutomationDeliveryFrame with the

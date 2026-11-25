@@ -209,6 +209,16 @@ func runHostWithIO(opts hostOptions) int {
 	// Dated work log (ADR-0009): run each agent in <conversationCwd>/<date>/ so
 	// artifacts, inbound media, and JOURNAL.md group by day.
 	r.SetDatedCwd(true)
+	// The desktop host persists the automation delivery target per channel;
+	// the router only proposes chats (first private chat, or /notify).
+	r.SetDeliveryChatHandler(func(chatID, userID string, explicit bool) {
+		_ = out.WriteFrame(hostproto.DeliveryChatEvent{
+			Type:     hostproto.TypeDeliveryChat,
+			ChatID:   chatID,
+			UserID:   userID,
+			Explicit: explicit,
+		})
+	})
 
 	// 4. Start transport (or skip if awaiting bind).
 	tCtx, tCancel := context.WithCancel(context.Background())
@@ -430,7 +440,7 @@ func deliverAutomationResult(r *router.Router, out *hostproto.Writer, request *h
 		RequestID: request.RequestID,
 		OK:        true,
 	}
-	if err := r.DeliverAutomationResult(ctx, request.Text); err != nil {
+	if err := r.DeliverAutomationResult(ctx, request.ChatID, request.Text); err != nil {
 		result.OK = false
 		result.Error = err.Error()
 		if errors.Is(err, router.ErrNoDeliveryChat) {

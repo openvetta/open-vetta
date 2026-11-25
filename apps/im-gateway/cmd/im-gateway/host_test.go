@@ -316,7 +316,7 @@ func TestHost_StdinEOFShutdown(t *testing.T) {
 }
 
 // TestHost_AutomationDeliveryAnswersWithRequestID covers the capability
-// handshake and one delivery to the only routed chat.
+// handshake and one delivery to the chat named in the frame.
 func TestHost_AutomationDeliveryAnswersWithRequestID(t *testing.T) {
 	in := newPipeReader()
 	out := &captureWriter{}
@@ -347,7 +347,7 @@ func TestHost_AutomationDeliveryAnswersWithRequestID(t *testing.T) {
 	}
 
 	deliveryData, _ := hostproto.EncodeFrame(hostproto.AutomationDeliveryFrame{
-		Type: hostproto.TypeAutomationDelivery, RequestID: "req-1", Text: "daily brief",
+		Type: hostproto.TypeAutomationDelivery, RequestID: "req-1", ChatID: "c1", Text: "daily brief",
 	})
 	in.Write(deliveryData)
 
