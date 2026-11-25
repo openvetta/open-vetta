@@ -2,6 +2,7 @@
 import type { ImBridgeConfig } from "@preload/api";
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("react-i18next", () => ({
@@ -107,19 +108,28 @@ describe("ImBridgeSettingsView", () => {
 		expect(view.queryByRole("button", { name: "imbAutomationDeliveryChatClear" })).toBeNull();
 	});
 
-	it("显示接收对话的来源，并能清除", async () => {
-		const onClearAutomationDeliveryChat = vi.fn();
-		const status = {
+	it("显示接收对话的来源，清除后回到未设置", async () => {
+		const chosen = {
 			transport: "online" as const,
 			activeSessions: 0,
 			consecutiveStartFailures: 0,
 			automationDeliveryChat: { explicit: true, setAt: "2026-11-25T09:00:00.000Z" },
 		};
-		const view = render(<ImBridgeSettingsView model={model({ status, onClearAutomationDeliveryChat })} />);
+		function Harness() {
+			const [status, setStatus] = useState<Model["status"]>(chosen);
+			const onClearAutomationDeliveryChat = () => {
+				const { automationDeliveryChat: _cleared, ...rest } = chosen;
+				setStatus(rest);
+			};
+			return <ImBridgeSettingsView model={model({ status, onClearAutomationDeliveryChat })} />;
+		}
+		const view = render(<Harness />);
 
 		expect(view.getByText("imbAutomationDeliveryChatChosen")).toBeDefined();
 		await userEvent.click(view.getByRole("button", { name: "imbAutomationDeliveryChatClear" }));
-		expect(onClearAutomationDeliveryChat).toHaveBeenCalledTimes(1);
+		expect(view.queryByText("imbAutomationDeliveryChatChosen")).toBeNull();
+		expect(view.getByText("notSet")).toBeDefined();
+		expect(view.queryByRole("button", { name: "imbAutomationDeliveryChatClear" })).toBeNull();
 	});
 
 	it("渠道网格渲染全部渠道，各自一张卡", () => {
