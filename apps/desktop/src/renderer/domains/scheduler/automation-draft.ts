@@ -25,6 +25,7 @@ export interface AutomationDraft {
 	readonly webhookIds: readonly string[];
 	readonly notifyWhen: AutomationNotifyWhen;
 	readonly template: string;
+	readonly notifyClaw: boolean;
 	readonly enabled: boolean;
 }
 
@@ -47,6 +48,7 @@ export function emptyAutomationDraft(defaults: AutomationDraftDefaults): Automat
 		webhookIds: [],
 		notifyWhen: "always",
 		template: defaults.template,
+		notifyClaw: false,
 		enabled: true,
 	};
 }
@@ -71,6 +73,7 @@ export function automationDraftFrom(
 		webhookIds: source.notification?.webhookIds ?? base.webhookIds,
 		notifyWhen: source.notification?.when ?? base.notifyWhen,
 		template: source.notification?.template ?? base.template,
+		notifyClaw: source.notifyClaw ?? base.notifyClaw,
 		enabled: source.enabled ?? base.enabled,
 	};
 }
@@ -115,6 +118,7 @@ export function automationDraftToInput(draft: AutomationDraft): AutomationTaskIn
 		...(draft.notifyEnabled
 			? { notification: { webhookIds: [...draft.webhookIds], when: draft.notifyWhen, template: draft.template } }
 			: {}),
+		...(draft.notifyClaw ? { notifyClaw: true } : {}),
 		enabled: draft.enabled,
 	};
 }
@@ -122,7 +126,12 @@ export function automationDraftToInput(draft: AutomationDraft): AutomationTaskIn
 /** 编辑保存：整份提交，并显式清除被关掉的可选项。 */
 export function automationDraftToPatch(draft: AutomationDraft): AutomationTaskPatch {
 	const input = automationDraftToInput(draft);
-	return { ...input, model: input.model ?? null, notification: input.notification ?? null };
+	return {
+		...input,
+		model: input.model ?? null,
+		notification: input.notification ?? null,
+		notifyClaw: draft.notifyClaw,
+	};
 }
 
 // ── 任务正文开头的技能 token：表单里以技能胶囊展示，存储时还原为行内 token ──

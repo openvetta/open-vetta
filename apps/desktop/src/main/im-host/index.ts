@@ -47,7 +47,7 @@ import type {
 import { LogBuffer } from "./log-buffer.js";
 import { archiveLegacyFiles, detectLegacyImGateway, type LegacyDetection } from "./migration.js";
 import { electronProxyResolver, resolveSidecarProxyEnv } from "./proxy-env.js";
-import { type SidecarConfig, SidecarManager } from "./sidecar-manager.js";
+import { type AutomationDeliveryFailure, type SidecarConfig, SidecarManager } from "./sidecar-manager.js";
 import { detectSignalCli } from "./signal-cli-locator.js";
 import { applyStatePatch, defaultImStatePath, type ImStateFile, loadImState, saveImState } from "./state-store.js";
 import { type ImBridgeStatus, StatusStore } from "./status-store.js";
@@ -1062,6 +1062,12 @@ export class ImHost {
 
 	async shutdownForQuit(): Promise<void> {
 		await this.manager.shutdownForQuit();
+	}
+
+	/** Send a finished automation's result to the active Claw channel. */
+	async deliverAutomationResult(text: string): Promise<AutomationDeliveryFailure | undefined> {
+		if (!this.config.enabled) return { reason: "offline" };
+		return await this.manager.deliverAutomationResult(text);
 	}
 
 	getStatus(): ImBridgeStatus {

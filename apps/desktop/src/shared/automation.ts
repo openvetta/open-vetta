@@ -71,6 +71,8 @@ export interface ScheduledTask {
 	readonly runTarget: AutomationRunTarget;
 	readonly model?: AutomationModel;
 	readonly notification?: AutomationNotification;
+	/** 执行成功或失败后把结果发到当前 Claw 对话。 */
+	readonly notifyClaw?: boolean;
 	readonly enabled: boolean;
 	readonly suspendedReason?: AutomationSuspendReason;
 	readonly createdAt: number;
@@ -81,7 +83,7 @@ export interface ScheduledTask {
 
 export type AutomationTaskInput = Pick<
 	ScheduledTask,
-	"name" | "prompt" | "schedule" | "runTarget" | "model" | "notification" | "enabled"
+	"name" | "prompt" | "schedule" | "runTarget" | "model" | "notification" | "notifyClaw" | "enabled"
 >;
 
 export type AutomationTaskCreateRequest = Omit<AutomationTaskInput, "runTarget"> & {
@@ -123,7 +125,7 @@ export interface TaskExecutionRecord {
 	/** missed 记录合并了连续错过的次数；startedAt 为首次错过时刻，missedUntil 为最后一次。 */
 	readonly missedCount?: number;
 	readonly missedUntil?: number;
-	/** webhook 发送失败的说明；不影响执行状态本身。 */
+	/** Webhook 或 Claw 发送失败的说明；不影响执行状态本身。 */
 	readonly notifyError?: string;
 }
 

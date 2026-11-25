@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	type AutomationDraft,
 	automationDraftToInput,
+	automationDraftToPatch,
 	canSubmitAutomationDraft,
 	emptyAutomationDraft,
 } from "./automation-draft";
@@ -26,5 +27,13 @@ describe("automation draft title", () => {
 	it("keeps an explicit title and still requires a prompt", () => {
 		expect(automationDraftToInput(draftWith({ name: "  Daily  ", prompt: "Summarize" })).name).toBe("Daily");
 		expect(canSubmitAutomationDraft(draftWith({ name: "Daily", prompt: "   " }))).toBe(false);
+	});
+});
+
+describe("automation draft Claw delivery", () => {
+	it("only adds notifyClaw to new tasks when it is on, and always states it when editing", () => {
+		expect(automationDraftToInput(draftWith({ prompt: "Summarize" }))).not.toHaveProperty("notifyClaw");
+		expect(automationDraftToInput(draftWith({ prompt: "Summarize", notifyClaw: true })).notifyClaw).toBe(true);
+		expect(automationDraftToPatch(draftWith({ prompt: "Summarize" })).notifyClaw).toBe(false);
 	});
 });

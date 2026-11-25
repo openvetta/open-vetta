@@ -12,6 +12,7 @@ import { ScheduleEditorView } from "./schedule-picker/ScheduleEditorView";
 
 export interface SchedulerTaskFieldsViewProps extends SchedulerTaskFieldsModel {
 	readonly promptMinHeight: number;
+	readonly showClaw: boolean;
 }
 
 const RUN_MODES: readonly AutomationRunTargetMode[] = ["new-session", "same-session"];
@@ -32,6 +33,7 @@ export function SchedulerTaskFieldsView({
 	webhooks,
 	templateVariables,
 	showEnabled,
+	showClaw,
 	onChange,
 	onPromptChange,
 	onScheduleKindChange,
@@ -238,6 +240,15 @@ export function SchedulerTaskFieldsView({
 							</div>
 						</FieldRow>
 					</>
+				)}
+				{showClaw && (
+					<FieldRow label={t("form.notifyClaw")} hint={t("form.notifyClawHint")}>
+						<Switch
+							checked={draft.notifyClaw}
+							aria-label={t("form.notifyClaw")}
+							onCheckedChange={(notifyClaw) => onChange({ notifyClaw })}
+						/>
+					</FieldRow>
 				)}
 			</FieldGroup>
 		</div>
