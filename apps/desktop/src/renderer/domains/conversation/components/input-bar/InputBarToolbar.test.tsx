@@ -102,6 +102,14 @@ describe("InputBar toolbar abilities", () => {
 		);
 		expect(screen.getByRole("button", { name: "Send" })).toBeTruthy();
 	});
+
+	it("keeps the send slot out of an inline line box so swapping to queue does not change the toolbar height", () => {
+		const view = render(
+			<InputBarSendAction canSend isEmpty isStreaming queueTitle="Queue" onAbort={vi.fn()} onSend={vi.fn()} />,
+		);
+		// 块级外壳会给 inline-flex 的 SendButton 留出行盒下沿空隙，比 32px 的队列按钮高几像素。
+		expect((view.container.firstElementChild as HTMLElement).classList.contains("flex")).toBe(true);
+	});
 });
 
 describe("InputBar leading toolbar divider", () => {

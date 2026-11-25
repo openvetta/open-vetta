@@ -74,6 +74,7 @@ export const UserMessage = memo(function UserMessage({
 	const hasFileBadges = projection.fileBadges.length > 0;
 	const hasAppshot = Boolean(projection.appshot);
 	const empty = !projection.displayText && !hasSettingsAssistBadge && !hasFileBadges && !hasImages && !hasAppshot;
+	const hasBubble = Boolean(projection.displayText) || empty;
 
 	return (
 		<>
@@ -115,31 +116,40 @@ export const UserMessage = memo(function UserMessage({
 								</div>
 							) : null}
 							{projection.appshot ? <AppshotCard data={projection.appshot} /> : null}
-							{projection.displayText ? (
-								<MessageVisual.OutgoingBubble
-									className={`cursor-text ${hasImages || hasAppshot || hasSettingsAssistBadge ? "mt-2" : ""} ${pending ? "ring-1 ring-primary/40" : ""}`}
-									style={{ wordBreak: "break-word" }}
+							{/* Side actions centre on the bubble alone, not on images, appshots or file badges around it;
+							    without a bubble they fall back to centring on the whole message. */}
+							{hasBubble ? (
+								<div
+									className={`relative flex max-w-full flex-col items-end ${hasImages || hasAppshot || hasSettingsAssistBadge ? "mt-2" : ""}`}
 								>
-									<UserMessagePrimitive.Text
-										contentKey={projection.displayText}
-										entryState="static"
-										expandLabel={t("messageList.userMessage.expand")}
-									>
-										<TextBlockView
-											text={projection.displayText}
-											inlineTokens={inlineTokens}
-											className="max-w-full overflow-x-auto [overflow-wrap:anywhere] [&_code]:break-all"
-										/>
-									</UserMessagePrimitive.Text>
-								</MessageVisual.OutgoingBubble>
-							) : null}
-							{empty ? (
-								<MessageVisual.OutgoingBubble
-									className="cursor-text"
-									style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-								>
-									{"\u2026"}
-								</MessageVisual.OutgoingBubble>
+									{projection.displayText ? (
+										<MessageVisual.OutgoingBubble
+											className={`cursor-text ${pending ? "ring-1 ring-primary/40" : ""}`}
+											style={{ wordBreak: "break-word" }}
+										>
+											<UserMessagePrimitive.Text
+												contentKey={projection.displayText}
+												entryState="static"
+												expandLabel={t("messageList.userMessage.expand")}
+											>
+												<TextBlockView
+													text={projection.displayText}
+													inlineTokens={inlineTokens}
+													className="max-w-full overflow-x-auto [overflow-wrap:anywhere] [&_code]:break-all"
+												/>
+											</UserMessagePrimitive.Text>
+										</MessageVisual.OutgoingBubble>
+									) : null}
+									{empty ? (
+										<MessageVisual.OutgoingBubble
+											className="cursor-text"
+											style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+										>
+											{"\u2026"}
+										</MessageVisual.OutgoingBubble>
+									) : null}
+									{children}
+								</div>
 							) : null}
 							{hasFileBadges ? (
 								<div className="mt-1 flex flex-wrap justify-end gap-1">
@@ -160,7 +170,7 @@ export const UserMessage = memo(function UserMessage({
 									})}
 								</div>
 							) : null}
-							{children}
+							{hasBubble ? null : children}
 						</MessageLayout.OutgoingContent>
 					</UserMessagePrimitive.Frame>
 				</MessageLayout.Outgoing>

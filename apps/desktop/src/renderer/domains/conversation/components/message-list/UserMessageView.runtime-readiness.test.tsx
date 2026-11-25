@@ -148,11 +148,41 @@ it("图片附件与随附正文留出间距，只有正文时不增加顶部留�
 	const { rerender } = render(<UserMessage message={withImage} />);
 	const bubble = screen.getByText("随附正文").closest('[data-message-visual="outgoingbubble"]');
 	expect(screen.getByRole("img")).toBeTruthy();
-	expect(bubble?.classList.contains("mt-2")).toBe(true);
+	expect(bubble?.parentElement?.classList.contains("mt-2")).toBe(true);
 
 	rerender(<UserMessage message={createConversationUserMessage({ id: "text-only", text: "只有正文" })} />);
 	const textOnly = screen.getByText("只有正文").closest('[data-message-visual="outgoingbubble"]');
-	expect(textOnly?.classList.contains("mt-2")).toBe(false);
+	expect(textOnly?.parentElement?.classList.contains("mt-2")).toBe(false);
+});
+
+it("带图片的消息，侧边操作按钮只对准正文气泡居中，不把图片算进去", () => {
+	const withImage = createConversationUserMessage({
+		id: "actions-with-image",
+		text: "看这张图",
+		attachments: [{ kind: "image", path: "/workspace/example.png" }],
+	});
+	const { rerender } = render(
+		<UserMessage message={withImage}>
+			<div data-testid="side-actions" />
+		</UserMessage>,
+	);
+	const anchor = screen.getByTestId("side-actions").parentElement;
+	expect(anchor?.classList.contains("relative")).toBe(true);
+	expect(anchor?.contains(screen.getByText("看这张图"))).toBe(true);
+	expect(anchor?.contains(screen.getByRole("img"))).toBe(false);
+
+	rerender(
+		<UserMessage
+			message={createConversationUserMessage({
+				id: "image-only",
+				text: "",
+				attachments: [{ kind: "image", path: "/workspace/example.png" }],
+			})}
+		>
+			<div data-testid="side-actions" />
+		</UserMessage>,
+	);
+	expect(screen.getByTestId("side-actions").parentElement?.contains(screen.getByRole("img"))).toBe(true);
 });
 
 it("发送包含正文、表格和代码的 Markdown 时，富内容保留独立的主题面板", () => {
