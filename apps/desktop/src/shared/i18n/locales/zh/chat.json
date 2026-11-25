@@ -615,7 +615,7 @@
 				"粘贴截图或 @ 引用文件，直接开始"
 			],
 			"noSession": "选择或创建会话以开始",
-			"suggestion": "↵ {{suggestion}}",
+			"suggestion": "Tab ⇥  {{suggestion}}",
 			"thinking": "Vetta 正在思考…"
 		},
 		"mention": {

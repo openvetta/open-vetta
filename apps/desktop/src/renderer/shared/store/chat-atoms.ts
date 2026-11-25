@@ -373,6 +373,13 @@ export const pendingMcpElicitationsAtom = atom<Record<string, DesktopMcpElicitat
 export const promptSuggestionsAtom = atom<Record<string, string[]>>({});
 
 /**
+ * 输入框里那条预测（第一条）已被放弃的会话：记下当时那组预测的数组引用。
+ * 用户打字、按 Esc 或按 Tab 填入后，这一组的第一条不再出现在输入框里；
+ * 新一轮预测会换一个新数组，自然重新显示，不需要另外清理。
+ */
+export const promptSuggestionDismissedAtom = atom<Record<string, readonly string[]>>({});
+
+/**
  * 输入预测「生成中」状态，按会话 runtimeId 索引。生成调用在飞时为 true，
  * 用于在该会话末条 assistant 消息的操作栏右侧显示「Vetta 正在预测…」闪光提示。
  */

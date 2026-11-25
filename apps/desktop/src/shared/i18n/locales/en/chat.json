@@ -615,7 +615,7 @@
 				"Paste a screenshot or @ a file to get started"
 			],
 			"noSession": "Select or create a session to start",
-			"suggestion": "↵ {{suggestion}}",
+			"suggestion": "Tab ⇥  {{suggestion}}",
 			"thinking": "Vetta is thinking…"
 		},
 		"mention": {
