@@ -176,7 +176,9 @@ export function InputBarSendAction({
 			<span className="icon-[solar--add-square-linear] h-[18px] w-[18px]" />
 		</button>
 	) : (
-		<div className="shrink-0">
+		// flex 外壳：SendButton 根节点是 inline-flex，放在块级 div 里会落进行盒，
+		// 基线下方的留白把这一格撑高几像素，切到 32px 的队列按钮时整个输入框跟着变矮。
+		<div className="flex shrink-0">
 			<SendButton
 				canSend={canSend}
 				isStreaming={isStreaming}
