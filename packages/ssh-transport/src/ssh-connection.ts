@@ -5,7 +5,7 @@ import { SshOperationAbortedError, SshRemoteCommandError, SshTransportError } fr
 import { type SshHelperClient, SshHelperClosedError, SshHelperError } from "./helper-client.js";
 import { type ConnectSshHelperOptions, connectSshHelper } from "./helper-deployment.js";
 import {
-	SSH_TRANSPORT_FAILURE_EXIT_CODE,
+	isSshTransportFailureExitCode,
 	type SshProcessChannel,
 	type SshProcessResult,
 	type SshProcessRunner,
@@ -852,7 +852,7 @@ export class SshConnection {
 		// 255 是 OpenSSH 表示连接层失败的保留码。远端命令本身也可能返回 255，两者无法
 		// 完全区分；宁可报成「问不到」——把连接故障误判成「命令失败」会让上层以为拿到了
 		// 远端的答复，而反过来只是多一次重试。
-		if (result.exitCode === SSH_TRANSPORT_FAILURE_EXIT_CODE) {
+		if (isSshTransportFailureExitCode(result.exitCode)) {
 			throw new SshTransportError(
 				`Cannot reach ${this.host.label}: ${result.stderr.trim()}`,
 				this.host.id,

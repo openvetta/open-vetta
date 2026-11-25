@@ -132,6 +132,19 @@ describe("失败分类（ADR-0124 执行边界）", () => {
 		expect((error as SshTransportError).verdict).toBe("unverifiable");
 	});
 
+	it("Windows 上 ssh 以 -1 退出（Node 报成 4294967295）同样是传输故障", async () => {
+		// 远端命令的退出码只能落在 0–255，这个值只可能是本机 ssh 自己给的。
+		const { connection } = connect(() => ({
+			exitCode: 4294967295,
+			stdout: new Uint8Array(),
+			stderr: "Read from remote host 192.0.2.10: Unknown error",
+			aborted: false,
+		}));
+		const error = await connection.probePlatform().catch((e: unknown) => e);
+		expect(error).toBeInstanceOf(SshTransportError);
+		expect((error as Error).message).toMatch(/^Cannot reach 构建机: Read from remote host/);
+	});
+
 	it("取消同样是 unverifiable：远端可能已经执行完了", async () => {
 		const { connection } = connect(() => ({
 			exitCode: null,

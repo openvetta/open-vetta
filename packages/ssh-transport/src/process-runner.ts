@@ -58,3 +58,14 @@ export interface SshProcessRunner {
 
 /** `ssh` 自身的退出码。255 是 OpenSSH 用来表示「连接层失败」的保留值。 */
 export const SSH_TRANSPORT_FAILURE_EXIT_CODE = 255;
+
+/**
+ * 这个退出码是不是本机 ssh 自己的失败，而不是远端命令的答复。
+ *
+ * 除了 255，还要认 Windows 上的 -1：Windows 版 OpenSSH 连接层出错时以 -1 退出，Node
+ * 按无符号数报成 4294967295。远端命令的退出码只可能落在 0–255，所以这个值不会误判；
+ * 不认它的话，「连不上」会被当成「远端命令失败」报给用户。
+ */
+export function isSshTransportFailureExitCode(exitCode: number | null): boolean {
+	return exitCode === SSH_TRANSPORT_FAILURE_EXIT_CODE || exitCode === 0xffff_ffff || exitCode === -1;
+}
