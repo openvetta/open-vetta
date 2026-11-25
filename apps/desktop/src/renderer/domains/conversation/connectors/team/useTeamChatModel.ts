@@ -46,6 +46,7 @@ import {
 	type TeamSessionSendHandoff,
 } from "./team-session-handoff";
 import {
+	adoptTeamSessionSnapshot,
 	placeTeamErrorInTimeline,
 	projectTeamConversationTimeline,
 	reduceTeamStreamState,
@@ -333,6 +334,8 @@ export function useTeamChatModel(
 					modelKey,
 					...(reasoning ? { reasoning } : {}),
 				});
+				// Stream events judge staleness against the ref; it must see the switch before the next render.
+				snapshotRef.current = next;
 				setSnapshot(next);
 			} catch (cause) {
 				setError({ message: errorMessage(cause) });
@@ -403,18 +406,15 @@ export function useTeamChatModel(
 			let staleUpdatePrune = false;
 			if (event.type === "session-snapshot" || event.type === "session-updated") {
 				const current = snapshotRef.current;
-				const titleChanged = event.snapshot.session.title !== current?.session.title;
-				const stale =
-					!!current &&
-					event.snapshot.session.revision <= current.session.revision &&
-					event.snapshot.conversationRevision < current.conversationRevision;
-				staleUpdatePrune = stale && event.type === "session-updated";
+				const adopted = adoptTeamSessionSnapshot(current, event.snapshot);
+				staleUpdatePrune = !adopted && event.type === "session-updated";
 				setContextUsages((cur) => ({ ...cur, ...readSnapshotContextUsages(event.snapshot) }));
-				if (!stale) {
-					snapshotRef.current = event.snapshot;
-					setSnapshot(event.snapshot);
+				if (adopted) {
+					const titleChanged = adopted.session.title !== current?.session.title;
+					snapshotRef.current = adopted;
+					setSnapshot(adopted);
 					if (titleChanged) {
-						setSessions((current) => withTeamChatSnapshot(current, event.snapshot));
+						setSessions((current) => withTeamChatSnapshot(current, adopted));
 						notifyTeamSessionsChanged(teamId);
 					}
 				}
@@ -818,13 +818,7 @@ export function useTeamChatModel(
 					...(requestReasoning ? { reasoning: requestReasoning } : {}),
 					...(streamingBehavior ? { streamingBehavior } : {}),
 				});
-				setSnapshot((current) =>
-					!current ||
-					next.session.revision > current.session.revision ||
-					next.conversationRevision >= current.conversationRevision
-						? next
-						: current,
-				);
+				setSnapshot((current) => adoptTeamSessionSnapshot(current, next) ?? current);
 				setSessions((current) => withTeamChatSnapshot(current, next));
 				setContextUsages((current) => ({ ...current, ...readSnapshotContextUsages(next) }));
 				setError(undefined);
