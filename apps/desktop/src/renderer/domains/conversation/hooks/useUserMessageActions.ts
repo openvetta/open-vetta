@@ -16,6 +16,7 @@ import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { fullHistoryToChat, isUserImageFile } from "../services/chat-service";
 import { dispatchConversationFeed } from "../services/conversation-feed-store";
+import { canEditUserMessage, isEditingUserMessage, messageEditMode } from "../services/message-edit";
 import { getSessionRuntimeWhenReady } from "../services/session-runtime-readiness";
 import { cancelStagedPendingSessionSend, restoreStagedPendingSessionSend } from "../services/staged-new-session-send";
 
@@ -153,15 +154,12 @@ export function useUserMessageEditAction({
 }) {
 	const { t } = useTranslation("chat");
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
-	const available = enabled && isLastUserMessage;
 	// 每条用户消息都挂这个 hook：只订阅「是不是我在编辑」，进出编辑时不让整列消息重渲染。
 	const entryId = message.entryId;
+	const available = canEditUserMessage({ enabled, isLastUserMessage, entryId });
+	const mode = messageEditMode(isLastUserMessage);
 	const pendingAtom = useMemo(
-		() =>
-			atom((get) => {
-				const pendingEdit = get(pendingMessageEditAtom);
-				return Boolean(pendingEdit && isLastUserMessage && (!entryId || pendingEdit.entryId === entryId));
-			}),
+		() => atom((get) => isEditingUserMessage(get(pendingMessageEditAtom), entryId, isLastUserMessage)),
 		[entryId, isLastUserMessage],
 	);
 	const pending = useAtomValue(pendingAtom);
@@ -188,9 +186,9 @@ export function useUserMessageEditAction({
 			}
 			if (!entryId) return;
 			fillInputFromUserMessage(message);
-			getDefaultStore().set(pendingMessageEditAtom, { entryId });
+			getDefaultStore().set(pendingMessageEditAtom, { entryId, mode });
 		},
-		[message],
+		[message, mode],
 	);
 	const onEdit = useCallback(() => {
 		const target = getSessionRuntimeWhenReady();
@@ -212,7 +210,7 @@ export function useUserMessageEditAction({
 		start();
 	}, [fill, pending, setConfirmDialog, t]);
 
-	return { available, onEdit, pending };
+	return { available, mode, onEdit, pending };
 }
 
 export function useUserMessageHistoryActions({

@@ -171,7 +171,11 @@ const UserMessageEditAction = withCommands(function EditAction({ commands }) {
 	return (
 		<UserMessagePrimitive.Action
 			onClick={edit.onEdit}
-			title={edit.pending ? t("messageList.edit.pendingHint") : t("messageList.editButton")}
+			title={
+				edit.pending
+					? t(edit.mode === "branch" ? "messageList.edit.pendingBranchHint" : "messageList.edit.pendingHint")
+					: t("messageList.editButton")
+			}
 			aria-label={t("messageList.editButton")}
 			className={edit.pending ? "text-primary" : undefined}
 		>

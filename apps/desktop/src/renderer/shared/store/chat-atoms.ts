@@ -75,11 +75,15 @@ export type {
 } from "@shared/conversation";
 
 /**
- * Pending replacement of the latest user message. The destructive backend change
- * runs on send (not on click), so cancelling the edit has no session side effects.
+ * A user message being edited in the composer. The history change runs on send
+ * (not on click), so cancelling the edit has no session side effects.
+ * - `replace`: the latest user message; it and its reply are replaced in place.
+ * - `branch`: an earlier one; the edit grows a sibling branch from its parent and
+ *   the original message with everything after it stays on the old branch.
  */
 export interface PendingMessageEdit {
 	entryId: string;
+	mode: "replace" | "branch";
 }
 
 export interface ActiveSession {

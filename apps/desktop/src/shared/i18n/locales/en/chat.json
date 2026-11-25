@@ -878,8 +878,9 @@
 		},
 		"edit": {
 			"pendingHint": "Editing the last message — send to replace the original message and reply",
+			"pendingBranchHint": "Editing an earlier message — send to answer again from here; the later conversation stays as another version",
 			"overwriteDraftTitle": "Overwrite current draft?",
-			"overwriteDraftBody": "The input already has content. Editing the last message will replace your draft.",
+			"overwriteDraftBody": "The input already has content. Editing this message will replace your draft.",
 			"overwriteDraftConfirm": "Overwrite and edit"
 		},
 		"interrupt": {

@@ -223,7 +223,9 @@ export const DefaultInputBarConnector = memo(function DefaultInputBarConnector(p
 		promptAttachmentLabel: draft.promptAttachment?.label,
 		promptAttachmentLabels: draft.promptAttachment?.labels ?? (draft.promptAttachment ? [draft.promptAttachment.label] : undefined),
 		pendingMessageEdit: Boolean(draft.pendingMessageEdit),
-		pendingEditHint: t("messageList.edit.pendingHint"),
+		pendingEditHint: t(
+			draft.pendingMessageEdit?.mode === "branch" ? "messageList.edit.pendingBranchHint" : "messageList.edit.pendingHint",
+		),
 		cancelPendingEditLabel: t("messageList.interrupt.cancel"),
 		contextMenu,
 		editor: { namespace: "chat-input" },

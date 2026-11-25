@@ -50,6 +50,7 @@ import { useCallback, useRef } from "react";
 import { fullHistoryToChat, isUserImageFile, nextId, toChatErrorDetails } from "../services/chat-service";
 import { claimUnboundConversationFeed, dispatchConversationFeed } from "../services/conversation-feed-store";
 import { planFailedResendRollback } from "../services/failed-resend-rollback";
+import { rewindForMessageEdit } from "../services/message-edit";
 import { applyDraftPlanMode } from "../services/plan-mode-draft";
 import { getSessionRuntimeWhenReady } from "../services/session-runtime-readiness";
 import {
@@ -247,8 +248,9 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 				}
 				perfSendMark("clear-draft-end", interactionId);
 			}
-			// 最后一条用户消息重编辑：提交时先中止当前生成，再删除旧消息及其回复子树；
-			// 随后的正常 prompt 从原 parent 继续，因此不会创建会话内分支。
+			// 用户消息重编辑：提交时先中止当前生成，再把会话退回到被编辑消息之前，随后的正常
+			// prompt 从原 parent 继续。最后一条原地替换（删掉旧消息与回复）；更早的长出同级
+			// 分支，原消息及其后续留在旧分支上可切回。只动对话，工作区文件保持原样。
 			const pendingEdit = store.get(pendingMessageEditAtom);
 			if (pendingEdit) {
 				if (store.get(isStreamingAtom)) {
@@ -276,13 +278,13 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 					});
 				}
 				try {
-					await window.vetta.session.replaceLastUserMessage(session.runtimeId, pendingEdit.entryId);
+					await rewindForMessageEdit(window.vetta.session, session.runtimeId, pendingEdit);
 					const history = await window.vetta.session.getFullHistory(session.runtimeId);
 					dispatchConversationFeed({ type: "feed.replaced", items: fullHistoryToChat(history) });
 					store.set(pendingMessageEditAtom, null);
 				} catch (err) {
 					const message = err instanceof Error ? err.message : String(err);
-					console.error("[useSessionManager.sendMessage] replaceLastUserMessage failed:", err);
+					console.error("[useSessionManager.sendMessage] rewind for message edit failed:", err);
 					store.set(pendingMessageEditAtom, null);
 					dispatchConversationFeed({
 						type: "error.appended",
