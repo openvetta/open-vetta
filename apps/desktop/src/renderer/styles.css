@@ -663,6 +663,11 @@ textarea:focus {
 	border-radius: 1.25rem;
 }
 
+/* The tail's bottom margin sits below the bubble; keep the side actions centred on the bubble itself. */
+:root[data-user-bubble-shape="chat"] [data-user-message-actions] {
+	margin-top: -3.5px;
+}
+
 :root[data-user-bubble-shape="chat"] [data-message-visual="outgoingbubble"]::after {
 	position: absolute;
 	right: max(12px, 6%);
