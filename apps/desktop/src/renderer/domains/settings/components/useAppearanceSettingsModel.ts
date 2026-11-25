@@ -19,6 +19,7 @@ import { isAppearanceUiThemeEnabled } from "@/shared/feature-flags";
 import type { LanguagePreference } from "@/shared/i18n/config";
 import { UI_ZOOM_DEFAULT, UI_ZOOM_STEPS, uiZoomStepIndex } from "@/shared/ui-zoom";
 import appIconBinaryPreview from "../assets/app-icons/binary.png";
+import appIconBluePreview from "../assets/app-icons/blue.png";
 import appIconCodingPreview from "../assets/app-icons/coding.png";
 import appIconCookPreview from "../assets/app-icons/cook.png";
 import appIconDefaultPreview from "../assets/app-icons/default.png";
@@ -196,6 +197,7 @@ const UI_THEME_OPTIONS = [
 const APP_ICON_PREVIEWS: Record<AppIconId, string> = {
 	default: appIconDefaultPreview,
 	binary: appIconBinaryPreview,
+	blue: appIconBluePreview,
 	ermine: appIconErminePreview,
 	coding: appIconCodingPreview,
 	design: appIconDesignPreview,
