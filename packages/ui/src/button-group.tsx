@@ -11,6 +11,7 @@ import { cn } from "./utils";
  * 外观：浅色 / 深色都用「前景色 + 低透明度」叠出玻璃感，所以放在任何背景上都成立。
  * 外缘用内阴影，不是均匀描边。深色是上沿亮线、下沿淡线和一层投影。浅色不再加投影和高亮，只留半透明底。
  * 不跟指针、不做折射。模糊只给 `blur` 属性开启（默认开）；容器本身已经半透明，贴在纯色背景上时可以关掉，省一层合成。
+ * Windows 不要玻璃：深色也和浅色一样只留半透明底，去掉内阴影、投影和背景模糊（按 `<html data-platform>` 判断）。
  */
 
 export type ButtonGroupShape = "pill" | "square";
@@ -45,6 +46,7 @@ function ButtonGroup({ className, blur = true, shape = "pill", children, ...prop
 					"shadow-none",
 					"dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.22),inset_0_-1px_0_rgb(255_255_255/0.1),inset_0_0_20px_rgb(255_255_255/0.05),0_8px_32px_rgb(0_0_0/0.18)]",
 					blur && "backdrop-blur-md backdrop-saturate-150",
+					"[:root[data-platform=windows]_&]:shadow-none [:root[data-platform=windows]_&]:[backdrop-filter:none]",
 					className,
 				)}
 				{...props}
