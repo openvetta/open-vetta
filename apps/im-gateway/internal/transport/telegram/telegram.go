@@ -283,6 +283,7 @@ func (t *Transport) handleMessage(ctx context.Context, m *tgMessage, handler tra
 		Platform:    "telegram",
 		ChatID:      chatID,
 		UserID:      strconv.FormatInt(m.From.ID, 10),
+		Private:     m.Chat.Type == "private",
 		MessageID:   strconv.FormatInt(m.MessageID, 10),
 		ReplyToID:   replyTo,
 		Text:        text,

@@ -299,6 +299,7 @@ func (t *Transport) pollOnce(ctx context.Context, handler transport.MessageHandl
 			Platform:    "imessage",
 			ChatID:      chatGUID,
 			UserID:      handle,
+			Private:     isDirectChatGUID(chatGUID),
 			MessageID:   guid,
 			Text:        body,
 			Attachments: attachments,
@@ -539,4 +540,10 @@ func escapeDSNPath(p string) string {
 // syntheticMessageID fabricates an outbound message ID. See SendMessage.
 func syntheticMessageID() string {
 	return fmt.Sprintf("osa:%d", time.Now().UnixNano())
+}
+
+// isDirectChatGUID reports whether a chat.guid names a one-on-one chat.
+// Direct chats look like "iMessage;-;+15551234567"; group chats use ";+;".
+func isDirectChatGUID(guid string) bool {
+	return strings.Contains(guid, ";-;")
 }

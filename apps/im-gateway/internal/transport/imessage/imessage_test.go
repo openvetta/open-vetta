@@ -724,3 +724,17 @@ func TestIntegration_RealChatDB(t *testing.T) {
 		t.Fatalf("pollOnce: %v", err)
 	}
 }
+
+func TestIsDirectChatGUID(t *testing.T) {
+	cases := map[string]bool{
+		"iMessage;-;+15551234567":  true,
+		"SMS;-;+15551234567":       true,
+		"iMessage;+;chat123456789": false,
+		"":                         false,
+	}
+	for guid, want := range cases {
+		if got := isDirectChatGUID(guid); got != want {
+			t.Errorf("isDirectChatGUID(%q) = %v, want %v", guid, got, want)
+		}
+	}
+}

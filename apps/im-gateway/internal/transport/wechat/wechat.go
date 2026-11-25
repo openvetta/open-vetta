@@ -299,6 +299,7 @@ func (t *Transport) dispatchInbound(ctx context.Context, msg *ilink.WeixinMessag
 	in := transport.InboundMessage{
 		Platform:    "wechat",
 		ChatID:      peer, // 1-on-1 only in M1: chat == peer
+		Private:     true,
 		UserID:      peer,
 		MessageID:   formatMessageID(msg),
 		Text:        text,

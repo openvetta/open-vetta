@@ -822,6 +822,7 @@ func normalizeEnvelope(env *envelope) (transport.InboundMessage, bool) {
 		Platform:   "signal",
 		ChatID:     chatID,
 		UserID:     userID,
+		Private:    dm.GroupInfo == nil || dm.GroupInfo.GroupID == "",
 		MessageID:  strconv.FormatInt(ts, 10),
 		ReplyToID:  replyTo,
 		Text:       dm.Message,

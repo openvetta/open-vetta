@@ -14,13 +14,18 @@ import (
 // use (e.g. echoing a reply with platform-specific metadata) but the upper
 // layers MUST NOT read it.
 type InboundMessage struct {
-	Platform    string       // "feishu", "mock", ...
-	ChatID      string       // platform-native, opaque to upper layers
-	UserID      string       // platform-native (e.g. open_id for feishu)
-	MessageID   string       // platform-native
-	ReplyToID   string       // empty if not a reply
-	Text        string       // already stripped of @bot prefixes and command noise marker is preserved
-	ActionID    string       // non-empty when this message is a button/interaction callback; Text carries the pressed Button.Value
+	Platform  string // "feishu", "mock", ...
+	ChatID    string // platform-native, opaque to upper layers
+	UserID    string // platform-native (e.g. open_id for feishu)
+	MessageID string // platform-native
+	ReplyToID string // empty if not a reply
+	Text      string // already stripped of @bot prefixes and command noise marker is preserved
+	ActionID  string // non-empty when this message is a button/interaction callback; Text carries the pressed Button.Value
+	// Private is true only when the transport knows the chat is a one-on-one
+	// conversation with UserID. Group chats, channels and unknown cases leave
+	// it false; the router only picks private chats as the default
+	// automation delivery target.
+	Private     bool
 	Attachments []Attachment // empty for first milestone (text-only)
 	ReceivedAt  time.Time
 	Raw         any // platform-specific, do not touch from upper layers
