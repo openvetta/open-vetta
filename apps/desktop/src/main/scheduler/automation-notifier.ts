@@ -12,6 +12,11 @@ import { getWebhookManager } from "../webhook/index.js";
 
 /** webhook 单条消息的保守长度：飞书/钉钉文本上限都在数千字符，回复截断到这里。 */
 const MAX_REPLY_CHARS = 3000;
+/**
+ * Claw 网关会按各渠道的单条上限把长文本拆成多条发送，所以不必跟 webhook 一样截到 3000；
+ * 只设一个兜底，避免一份超长回复在聊天里刷出几十条消息。
+ */
+const MAX_CLAW_REPLY_CHARS = 20_000;
 
 type FinishedStatus = "success" | "failed";
 type TemplateValues = Readonly<Record<AutomationTemplateVariable, string>>;
@@ -27,6 +32,10 @@ function formatDuration(ms: number | undefined): string {
 	if (seconds < 60) return `${seconds}s`;
 	const minutes = Math.floor(seconds / 60);
 	return minutes < 60 ? `${minutes}m ${seconds % 60}s` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+
+function truncateReply(reply: string, maxChars: number): string {
+	return reply.length > maxChars ? `${reply.slice(0, maxChars)}…` : reply;
 }
 
 function errorMessage(error: unknown): string {
@@ -86,12 +95,14 @@ export async function notifyAutomationFinished(
 		status: mainT(`automation:notify.status.${status}`),
 		startedAt: new Date(record.startedAt).toLocaleString(),
 		duration: formatDuration(record.durationMs),
-		reply: reply.length > MAX_REPLY_CHARS ? `${reply.slice(0, MAX_REPLY_CHARS)}…` : reply,
+		reply: truncateReply(reply, MAX_REPLY_CHARS),
 		error: record.error ?? "",
 	};
 	const failures = await Promise.all([
 		webhookDue ? sendToWebhooks(task, notification, status, templateValues) : undefined,
-		task.notifyClaw ? sendToClaw(status, templateValues) : undefined,
+		task.notifyClaw
+			? sendToClaw(status, { ...templateValues, reply: truncateReply(reply, MAX_CLAW_REPLY_CHARS) })
+			: undefined,
 	]);
 	const failureMessages = failures.filter((failure): failure is string => Boolean(failure));
 	return failureMessages.length > 0 ? failureMessages.join("; ") : undefined;

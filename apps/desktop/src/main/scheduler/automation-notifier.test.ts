@@ -83,6 +83,19 @@ describe("自动化结果发送到 Claw", () => {
 		expect(channels.clawTexts).toEqual([]);
 	});
 
+	it("Claw 收到完整的长回复，webhook 仍截断到 3000 字", async () => {
+		const longReply = "长".repeat(5_000);
+		const task = taskWith({
+			notifyClaw: true,
+			notification: { webhookIds: ["team"], when: "always", template: "{{reply}}" },
+		});
+
+		await notifyAutomationFinished(task, recordWith("success"), longReply);
+
+		expect(channels.clawTexts[0]).toContain(longReply);
+		expect(channels.webhookTexts[0]).toBe(`${"长".repeat(3_000)}…`);
+	});
+
 	it("Claw 发送失败记入通知错误，webhook 照常发送", async () => {
 		channels.clawFailure = { reason: "no_chat" };
 		const task = taskWith({
