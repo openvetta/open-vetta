@@ -90,6 +90,7 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 
 	const activeChannel = IM_CHANNELS.find((channel) => channel.transport === config.transport) ?? IM_CHANNELS[0];
 	const activePresentation = describe(activeChannel);
+	const deliveryChat = model.status?.automationDeliveryChat;
 	const feedback = model.saveError ?? model.saveOk;
 	const feedbackIsError = model.saveError !== null;
 
@@ -161,7 +162,7 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 						disabled={model.saving}
 					/>
 				</SettingRow>
-				<SettingRow title={t("dialogModel")} description={t("dialogModelDesc")} border={false}>
+				<SettingRow title={t("dialogModel")} description={t("dialogModelDesc")}>
 					<div className="flex flex-wrap items-center justify-end gap-2">
 						<ModelSelect
 							value={config.agentModel ? `${config.agentModel.provider}/${config.agentModel.model}` : null}
@@ -209,6 +210,24 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 								<span className="icon-[mdi--close] h-3.5 w-3.5 text-destructive" />
 							) : null}
 						</Button>
+					</div>
+				</SettingRow>
+				<SettingRow
+					title={t("imbAutomationDeliveryChat")}
+					description={t("imbAutomationDeliveryChatDesc")}
+					border={false}
+				>
+					<div className="flex flex-wrap items-center justify-end gap-2">
+						<span className="text-[13px] text-muted-foreground">
+							{deliveryChat
+								? t(deliveryChat.explicit ? "imbAutomationDeliveryChatChosen" : "imbAutomationDeliveryChatFirstPrivate")
+								: t("notSet")}
+						</span>
+						{deliveryChat && (
+							<Button variant="field" onClick={() => void model.onClearAutomationDeliveryChat()}>
+								{t("imbAutomationDeliveryChatClear")}
+							</Button>
+						)}
 					</div>
 				</SettingRow>
 			</SettingSection>

@@ -53,6 +53,7 @@ const CHANNELS = {
 	FEISHU_UNSUBSCRIBE: "vetta:im:feishu:unsubscribe",
 	FEISHU_BIND_EVENT: "vetta:im:feishu:bind-event",
 	CLEAR_CHANNEL: "vetta:im:clear-channel",
+	CLEAR_AUTOMATION_DELIVERY_CHAT: "vetta:im:clear-automation-delivery-chat",
 	// Fire-and-forget broadcast: "something in the IM routing table
 	// changed, you may want to refresh." No payload, no subscription
 	// handshake — every webContents that wants it just listens.
@@ -280,6 +281,10 @@ export function registerImIpc(webContents: WebContents): () => void {
 		return host.clearChannel(transport);
 	});
 
+	ipcMain.handle(CHANNELS.CLEAR_AUTOMATION_DELIVERY_CHAT, () => {
+		host.clearAutomationDeliveryChat();
+	});
+
 	ipcMain.handle(CHANNELS.SIGNAL_START_BIND, async () => {
 		return host.startSignalBind();
 	});
@@ -364,6 +369,7 @@ export function registerImIpc(webContents: WebContents): () => void {
 		ipcMain.removeHandler(CHANNELS.WHATSAPP_SUBSCRIBE);
 		ipcMain.removeHandler(CHANNELS.WHATSAPP_UNSUBSCRIBE);
 		ipcMain.removeHandler(CHANNELS.CLEAR_CHANNEL);
+		ipcMain.removeHandler(CHANNELS.CLEAR_AUTOMATION_DELIVERY_CHAT);
 		ipcMain.removeHandler(CHANNELS.SIGNAL_START_BIND);
 		ipcMain.removeHandler(CHANNELS.SIGNAL_LOGOUT);
 		ipcMain.removeHandler(CHANNELS.SIGNAL_SUBSCRIBE);

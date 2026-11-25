@@ -37,6 +37,7 @@ const IM_CHANNELS = {
 	FEISHU_UNSUBSCRIBE: "vetta:im:feishu:unsubscribe",
 	FEISHU_BIND_EVENT: "vetta:im:feishu:bind-event",
 	CLEAR_CHANNEL: "vetta:im:clear-channel",
+	CLEAR_AUTOMATION_DELIVERY_CHAT: "vetta:im:clear-automation-delivery-chat",
 	SESSION_CHANGED: "vetta:im:session-changed",
 } as const;
 
@@ -93,6 +94,7 @@ export function createImApi(ipc: IpcRenderer): Pick<DesktopApi, "im"> {
 			getRecentLogs: () => ipc.invoke(IM_CHANNELS.GET_RECENT_LOGS),
 			getPaths: () => ipc.invoke(IM_CHANNELS.GET_PATHS),
 			clearChannel: (transport) => ipc.invoke(IM_CHANNELS.CLEAR_CHANNEL, transport),
+			clearAutomationDeliveryChat: () => ipc.invoke(IM_CHANNELS.CLEAR_AUTOMATION_DELIVERY_CHAT),
 			probeAgentModel: (ref) => ipc.invoke(IM_CHANNELS.PROBE_AGENT_MODEL, ref),
 			detectLegacy: () => ipc.invoke(IM_CHANNELS.DETECT_LEGACY),
 			importLegacy: (detection) => ipc.invoke(IM_CHANNELS.IMPORT_LEGACY, detection),

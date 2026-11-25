@@ -92,6 +92,7 @@ function model(overrides: Partial<Model> = {}): Model {
 		onSaveFeishu: vi.fn(),
 		onTestFeishu: vi.fn(),
 		onRestart: vi.fn(),
+		onClearAutomationDeliveryChat: vi.fn(),
 		onOpenLogs: vi.fn(),
 		onWechatConfirmedRefresh: vi.fn(),
 		onDismissFeedback: vi.fn(),
@@ -100,6 +101,27 @@ function model(overrides: Partial<Model> = {}): Model {
 }
 
 describe("ImBridgeSettingsView", () => {
+	it("没有接收对话时显示未设置，也没有清除按钮", () => {
+		const view = render(<ImBridgeSettingsView model={model()} />);
+		expect(view.getByText("imbAutomationDeliveryChat")).toBeDefined();
+		expect(view.queryByRole("button", { name: "imbAutomationDeliveryChatClear" })).toBeNull();
+	});
+
+	it("显示接收对话的来源，并能清除", async () => {
+		const onClearAutomationDeliveryChat = vi.fn();
+		const status = {
+			transport: "online" as const,
+			activeSessions: 0,
+			consecutiveStartFailures: 0,
+			automationDeliveryChat: { explicit: true, setAt: "2026-11-25T09:00:00.000Z" },
+		};
+		const view = render(<ImBridgeSettingsView model={model({ status, onClearAutomationDeliveryChat })} />);
+
+		expect(view.getByText("imbAutomationDeliveryChatChosen")).toBeDefined();
+		await userEvent.click(view.getByRole("button", { name: "imbAutomationDeliveryChatClear" }));
+		expect(onClearAutomationDeliveryChat).toHaveBeenCalledTimes(1);
+	});
+
 	it("渠道网格渲染全部渠道，各自一张卡", () => {
 		const view = render(<ImBridgeSettingsView model={model()} />);
 		expect(view.getByText("Telegram")).toBeDefined();
