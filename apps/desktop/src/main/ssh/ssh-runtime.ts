@@ -26,8 +26,13 @@ let manager: SshConnectionManager | undefined;
  * Vetta 主目录下（通常很短），但用户的家目录可能很长——例如域账号或中文用户名——
  * 那时退回 `/tmp`。两者都超长时 buildControlPath 会抛，让失败在连接前就暴露出来，
  * 而不是变成一次原因完全看不出的连接超时。
+ *
+ * Windows 上返回 undefined，即不复用连接：系统自带的 OpenSSH 不支持 ControlMaster，
+ * 带上相关选项的每条命令都以 `getsockname failed: Not a socket` 失败。代价是每次操作
+ * 都要重新握手；文件读写在 helper 就绪后走它的常驻通道，受影响的主要是执行命令。
  */
-function resolveControlDirectory(): string {
+function resolveControlDirectory(): string | undefined {
+	if (process.platform === "win32") return undefined;
 	const candidates = [join(getVettaHomePath(), "ssh"), join(tmpdir(), "vetta-ssh")];
 	for (const candidate of candidates) {
 		try {

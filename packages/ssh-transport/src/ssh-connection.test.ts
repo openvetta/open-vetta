@@ -1,6 +1,12 @@
+import { type AddressInfo, createServer, type Server } from "node:net";
 import { describe, expect, it, vi } from "vitest";
 import { SshOperationAbortedError, SshRemoteCommandError, SshTransportError } from "./errors.js";
-import type { SshProcessInvocation, SshProcessResult, SshProcessRunner } from "./process-runner.js";
+import type {
+	SshChannelInvocation,
+	SshProcessInvocation,
+	SshProcessResult,
+	SshProcessRunner,
+} from "./process-runner.js";
 import { buildKillCommand, buildRemoteCommand, buildWriteFileCommand } from "./remote-command.js";
 import { SshConnection } from "./ssh-connection.js";
 import type { SshHost } from "./ssh-host.js";
@@ -317,5 +323,79 @@ describe("远端端口与进程", () => {
 			aborted: false,
 		}));
 		await expect(denied.connection.terminateProcess(800)).rejects.toThrow(/Operation not permitted/);
+	});
+});
+
+describe("不复用连接时的端口转发", () => {
+	/** 一个能开通道的执行器：`ssh -N` 被替换成 `behave` 描述的行为。 */
+	function connectWithChannels(
+		behave: (localPort: number) => { exited: Promise<{ exitCode: number | null; stderr: string }>; kill: () => void },
+	) {
+		const opened: SshChannelInvocation[] = [];
+		const runner: SshProcessRunner = {
+			run: async () => ok("Linux\nx86_64\n"),
+			open: (invocation) => {
+				opened.push(invocation);
+				const spec = invocation.argv[invocation.argv.indexOf("-L") + 1] ?? "";
+				const channel = behave(Number(spec.split(":")[0]));
+				return { write: () => {}, end: () => {}, kill: channel.kill, exited: channel.exited };
+			},
+		};
+		return { connection: new SshConnection(host, { runner }), opened };
+	}
+
+	async function freePort(): Promise<number> {
+		const server = createServer();
+		await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+		const port = (server.address() as AddressInfo).port;
+		await new Promise((resolve) => server.close(resolve));
+		return port;
+	}
+
+	it("本机端口能连上即算建成；撤销时结束那个 ssh 进程", async () => {
+		const localPort = await freePort();
+		let server: Server | undefined;
+		let finish: (exit: { exitCode: number | null; stderr: string }) => void = () => {};
+		const { connection, opened } = connectWithChannels((port) => {
+			// 模拟 ssh 认证花了一点时间才开始监听。
+			setTimeout(() => {
+				server = createServer((socket) => socket.destroy()).listen(port, "127.0.0.1");
+			}, 150);
+			return {
+				exited: new Promise((resolve) => {
+					finish = resolve;
+				}),
+				kill: () => {
+					server?.close();
+					finish({ exitCode: null, stderr: "" });
+				},
+			};
+		});
+
+		await connection.forwardPort(localPort, 3000);
+		expect(opened).toHaveLength(1);
+		// 同一条转发再要一次不会多起一个进程。
+		await connection.forwardPort(localPort, 3000);
+		expect(opened).toHaveLength(1);
+
+		await connection.cancelPortForward(localPort, 3000);
+		await connection.forwardPort(localPort, 3000);
+		expect(opened).toHaveLength(2);
+		await connection.cancelPortForward(localPort, 3000);
+	});
+
+	it("ssh 在转发建成前退出时，把它给的原因报出来", async () => {
+		const localPort = await freePort();
+		const { connection } = connectWithChannels(() => ({
+			exited: Promise.resolve({
+				exitCode: 255,
+				stderr: "channel_setup_fwd_listener_tcpip: cannot listen to port\n",
+			}),
+			kill: () => {},
+		}));
+
+		const error = await connection.forwardPort(localPort, 3000).catch((e: unknown) => e);
+		expect(error).toBeInstanceOf(SshTransportError);
+		expect((error as Error).message).toMatch(/cannot listen to port/);
 	});
 });
