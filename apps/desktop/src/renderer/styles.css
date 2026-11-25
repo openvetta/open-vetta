@@ -672,6 +672,17 @@ textarea:focus {
 	position: relative;
 	margin-bottom: 7px;
 	border-radius: 1.25rem;
+	/* A one-character bubble is narrower than its two corner radii, so its bottom edge is all curve and the
+	   tail's flat top shows a notch. Keep enough width for a flat stretch and centre short content in it;
+	   longer content is unaffected because it already fills the bubble. */
+	display: flex;
+	justify-content: center;
+	min-width: 3rem;
+}
+
+:root[data-user-bubble-shape="chat"] [data-message-visual="outgoingbubble"] > * {
+	min-width: 0;
+	max-width: 100%;
 }
 
 /* The tail's bottom margin sits below the bubble; keep the side actions centred on the bubble itself. */
