@@ -2279,6 +2279,40 @@ describe("Team member concurrency", () => {
 		}
 	});
 
+	it("never republishes an older session document after the user switches model mid-turn", async () => {
+		const fixture = await createFixture();
+		const [leader] = fixture.members;
+		await fixture.service.updateModelSettings(fixture.session.id, { modelKey: "agy/opus" });
+		const published: TeamSessionDocument[] = [];
+		const subscription = fixture.service.subscribe(fixture.session.id, (event) => {
+			if (event.type === "session-updated") published.push(event.snapshot.session);
+		});
+		const turn = fixture.turn(leader, "quota turn");
+		turn.failure = { code: "AI_PROVIDER_ERROR", retryable: false, message: "quota reached", origin: "provider" };
+		const send = fixture.service
+			.send(fixture.session.id, {
+				requestId: "quota",
+				text: "quota turn",
+				targetMemberIds: [leader],
+				modelKey: "agy/opus",
+			})
+			.catch(() => undefined);
+		await turn.started.promise;
+		// The user switches model while the turn that will hit the quota is still running.
+		const switched = await fixture.service.updateModelSettings(fixture.session.id, { modelKey: "openai/gpt-5" });
+		const afterSwitch = published.length;
+		turn.finish.resolve();
+		await send;
+		subscription.unsubscribe();
+
+		const later = published.slice(afterSwitch);
+		expect(later.length).toBeGreaterThan(0);
+		for (const session of later) {
+			expect(session.revision).toBeGreaterThanOrEqual(switched.revision);
+			expect(session.modelSettings).toEqual({ modelKey: "openai/gpt-5" });
+		}
+	});
+
 	it("surfaces an unavailable model from a reopened Team instead of completing the send as interrupted", async () => {
 		const fixture = await createFixture();
 		const [member] = fixture.members;

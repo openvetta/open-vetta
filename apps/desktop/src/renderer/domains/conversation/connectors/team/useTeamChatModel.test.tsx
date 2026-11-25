@@ -1471,6 +1471,39 @@ describe("useTeamChatModel streaming flow", () => {
 		});
 	});
 
+	it("keeps the switched model when a late update still carries the previous session settings", async () => {
+		vi.mocked(loadTeamChatSession).mockResolvedValueOnce({
+			document,
+			snapshot: { ...baseSnapshot, session: { ...baseSession, revision: 2, modelSettings: { modelKey: "agy/opus" } } },
+			sessions: [],
+		});
+		vi.mocked(window.vetta.agentTeams.updateModelSettings).mockImplementationOnce(async (_id, settings) => ({
+			...baseSnapshot,
+			session: { ...baseSession, revision: 3, modelSettings: settings },
+		}));
+		const { result } = renderHook(() => useTeamChatModel(team.id, baseSession.id));
+		await waitFor(() => expect(result.current.model.modelKey).toBe("agy/opus"));
+		await waitFor(() => expect(streamListener).toBeTypeOf("function"));
+
+		// The quota-hit model is replaced while a turn is still settling.
+		await act(async () => result.current.actions.selectModel("openai/gpt-5"));
+		expect(result.current.model.modelKey).toBe("openai/gpt-5");
+		// That turn then reports progress with the session document it started from.
+		act(() =>
+			streamListener?.({
+				type: "session-updated",
+				teamSessionId: baseSession.id,
+				snapshot: {
+					...baseSnapshot,
+					session: { ...baseSession, revision: 2, modelSettings: { modelKey: "agy/opus" } },
+					conversationRevision: 4,
+				},
+			}),
+		);
+		// The composer's model is the one the next send carries.
+		expect(result.current.model.modelKey).toBe("openai/gpt-5");
+	});
+
 	it("does not drop a streamed reply when the snapshot carrying it is rejected as stale", async () => {
 		// The send response advances the local snapshot revisions.
 		vi.mocked(window.vetta.agentTeams.sendMessage).mockResolvedValueOnce({

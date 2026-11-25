@@ -299,6 +299,29 @@ function buildTeamMemberReplySummary(input: TeamMemberReplySummaryInput): ChatCo
 	};
 }
 
+/**
+ * Adopts a pushed or returned Team snapshot. `undefined` means it trails on both
+ * the session document and the conversation, so the current one stays.
+ *
+ * A snapshot can carry newer conversation entries next to an older session
+ * document. The conversation is taken, but the session document never moves back:
+ * it holds the model the user just switched to, and the next send reads it.
+ */
+export function adoptTeamSessionSnapshot(
+	current: DesktopTeamSessionSnapshot | undefined,
+	incoming: DesktopTeamSessionSnapshot,
+): DesktopTeamSessionSnapshot | undefined {
+	if (!current) return incoming;
+	const olderSession = incoming.session.revision < current.session.revision;
+	if (
+		incoming.session.revision <= current.session.revision &&
+		incoming.conversationRevision < current.conversationRevision
+	) {
+		return undefined;
+	}
+	return olderSession ? { ...incoming, session: current.session } : incoming;
+}
+
 export function reduceTeamStreamState(state: TeamStreamState, event: DesktopTeamSessionStreamEvent): TeamStreamState {
 	if (event.type === "session-snapshot") {
 		return (event.activeStreamEvents ?? event.activeMessageEvents).reduce(reduceTeamStreamState, {});

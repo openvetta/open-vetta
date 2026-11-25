@@ -1,11 +1,15 @@
 // 应用图标（设置 → 外观 → 应用图标）。主进程持久化并应用，renderer 只读写同一个 id。
 
 /**
- * 可选图标：default 是出厂图标（蓝底二进制玻璃版小圆脸），dark 是它的深色底版，binary 是二进制背景版，ermine 是旧版出厂的白鼬，
+ * 可选图标：default 是出厂图标（蓝底眼镜水滴），red / black / light 是它的红、黑、浅色底版，dark 是深色底的小圆脸，
+ * binary 是二进制背景版，ermine 是旧版出厂的白鼬，
  * 其余是场景像素图标（图片在 build/app-icons/<id>.png）。
  */
 export const APP_ICON_IDS = [
 	"default",
+	"red",
+	"black",
+	"light",
 	"dark",
 	"binary",
 	"ermine",

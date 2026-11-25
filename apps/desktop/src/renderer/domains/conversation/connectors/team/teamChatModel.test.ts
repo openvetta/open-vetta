@@ -6,6 +6,7 @@ import type { TeamDefinition, TeamSessionDocument } from "@vetta/agent-team";
 import { createAssistantMessage } from "@vetta/ai";
 import { describe, expect, it } from "vitest";
 import {
+	adoptTeamSessionSnapshot,
 	placeTeamErrorInTimeline,
 	projectTeamConversationTimeline,
 	reduceTeamStreamState,
@@ -173,6 +174,35 @@ describe("resolveTeamMembers", () => {
 		const [resolved] = resolveTeamMembers(undefined, team, [], {}, (_profileId, fallbackHandle) => fallbackHandle);
 
 		expect(resolved?.avatar).toMatch(/agent-team-avatars\/[a-z]+\.webp$/u);
+	});
+});
+
+describe("adoptTeamSessionSnapshot", () => {
+	const current = snapshot({
+		session: { ...session, revision: 3, modelSettings: { modelKey: "openai/gpt-5" } },
+		conversationRevision: 2,
+	});
+
+	it("takes newer conversation entries without moving the session document back", () => {
+		const incoming = snapshot({
+			session: { ...session, revision: 2, modelSettings: { modelKey: "agy/opus" } },
+			conversationRevision: 4,
+		});
+
+		expect(adoptTeamSessionSnapshot(current, incoming)).toEqual({ ...incoming, session: current.session });
+	});
+
+	it("rejects a snapshot that trails on both revisions", () => {
+		const incoming = snapshot({ session: { ...session, revision: 2 }, conversationRevision: 1 });
+
+		expect(adoptTeamSessionSnapshot(current, incoming)).toBeUndefined();
+	});
+
+	it("adopts a newer session document as a whole", () => {
+		const incoming = snapshot({ session: { ...session, revision: 4 }, conversationRevision: 1 });
+
+		expect(adoptTeamSessionSnapshot(current, incoming)).toBe(incoming);
+		expect(adoptTeamSessionSnapshot(undefined, incoming)).toBe(incoming);
 	});
 });
 

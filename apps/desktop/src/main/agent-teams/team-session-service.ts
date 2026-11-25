@@ -365,10 +365,15 @@ export class AgentTeamSessionService {
 	}
 
 	private publishSessionUpdated(session: TeamSessionDocument): void {
+		// Attempts and deliveries publish the document they started from. A newer one
+		// (e.g. a model switch made while the turn ran) must win, or the renderer adopts
+		// the old modelSettings and sends its next request to the replaced model.
+		const loaded = this.sessionState.get(session.id);
+		const latest = loaded && loaded.revision >= session.revision ? loaded : session;
 		this.eventHub.publish({
 			type: "session-updated",
-			teamSessionId: session.id,
-			snapshot: this.snapshot(session),
+			teamSessionId: latest.id,
+			snapshot: this.snapshot(latest),
 		});
 	}
 
