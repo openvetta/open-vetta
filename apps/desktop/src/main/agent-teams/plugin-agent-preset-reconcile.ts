@@ -170,15 +170,25 @@ function applyPluginPresets(
 	const installedTeamIds: string[] = [];
 	let changed = false;
 
-	// @handle 要在整个智能体库里唯一。先占掉不由插件维护的那些，插件档案再按清单里的短名让号。
+	// 先定下每份预设认领哪一份档案，再分 @handle：只有这一轮真的会被重铺的档案才让出号，
+	// 其余档案（含同 blueprint 的用户自建档案）手里的号原样占着，不然重铺出来的号会和它们撞。
+	const claims = new Map<PluginAgentPreset, number>();
+	const claimed = new Set<number>();
+	for (const preset of agentPresets) {
+		const index = findPresetAgent(agents, preset, claimed);
+		if (index < 0) continue;
+		claims.set(preset, index);
+		claimed.add(index);
+	}
+	// @handle 要在整个智能体库里唯一。先占掉不被重铺的那些，插件档案再按清单里的短名让号。
 	const handles = new Set(
 		agents
-			.filter((agent) => agent.scope.kind === "library" && !isPresetOwned(agent, agentPresets))
+			.filter((agent, index) => agent.scope.kind === "library" && !claimed.has(index))
 			.map((agent) => normalizeMentionHandle(agent.mentionHandle)),
 	);
 
 	for (const preset of agentPresets) {
-		const index = findPresetAgent(agents, preset);
+		const index = claims.get(preset) ?? -1;
 		const current = index >= 0 ? agents[index]! : undefined;
 		const next = presetAgentProfile(preset, current, handles, now);
 		if (!current) {
@@ -217,24 +227,38 @@ function applyPluginPresets(
 	return { document: { ...document, agents, teams }, installedAgentIds, installedTeamIds };
 }
 
-function isPresetOwned(agent: AgentProfile, presets: readonly PluginAgentPreset[]): boolean {
-	return presets.some((preset) => matchesAgentPreset(agent, preset));
-}
-
-function matchesAgentPreset(agent: AgentProfile, preset: PluginAgentPreset): boolean {
-	if (agent.scope.kind !== "library") return false;
-	if (agent.id === pluginAgentProfileId(preset.pluginId, preset.agentId)) return true;
-	return agent.blueprintId === preset.blueprint.id || preset.legacyBlueprintIds.includes(agent.blueprintId);
-}
-
 /**
- * 找到这份预设对应的既有档案：规范 id 优先，其次按 blueprint（含历史 id）认领。
+ * 找到这份预设对应的既有档案，按可信度从高到低：规范 id、同一提供方盖过戳的档案、宿主年代
+ * 留下的历史 blueprint 档案。
  *
  * 认领而不是新铺一份，是为了保住档案 id：用户自建的团队、会话里的引用都挂在它上面，换 id
  * 等于把这些引用全部作废。
+ *
+ * 没盖提供方戳、blueprint 又是现行 id 的档案是**用户基于这个人设自建的**，永远不认领：
+ * 认领会把它整份改写成预设，用户起的名字、@handle 和能力一并丢掉，而它原本那份 @handle
+ * 还会和真正的预设档案撞号，让整份配置读不出来。
  */
-function findPresetAgent(agents: readonly AgentProfile[], preset: PluginAgentPreset): number {
-	return agents.findIndex((agent) => matchesAgentPreset(agent, preset));
+function findPresetAgent(
+	agents: readonly AgentProfile[],
+	preset: PluginAgentPreset,
+	taken: ReadonlySet<number>,
+): number {
+	const canonicalId = pluginAgentProfileId(preset.pluginId, preset.agentId);
+	const candidates = [
+		(agent: AgentProfile) => agent.id === canonicalId,
+		(agent: AgentProfile) =>
+			agent.source?.kind === "plugin" &&
+			agent.source.pluginId === preset.pluginId &&
+			(agent.blueprintId === preset.blueprint.id || preset.legacyBlueprintIds.includes(agent.blueprintId)),
+		(agent: AgentProfile) => agent.source === undefined && preset.legacyBlueprintIds.includes(agent.blueprintId),
+	];
+	for (const matches of candidates) {
+		const index = agents.findIndex(
+			(agent, position) => !taken.has(position) && agent.scope.kind === "library" && matches(agent),
+		);
+		if (index >= 0) return index;
+	}
+	return -1;
 }
 
 function findPresetTeam(teams: readonly TeamDefinition[], preset: PluginTeamPreset): number {
@@ -353,8 +377,11 @@ function memberAssignment(
 	};
 }
 
+/** 只认提供方铺下的那一份：用户基于同一人设自建的档案不该被拉进插件团队。 */
 function findLibraryProfile(agents: readonly AgentProfile[], blueprintId: string): AgentProfile | undefined {
-	return agents.find((agent) => agent.scope.kind === "library" && agent.blueprintId === blueprintId);
+	return agents.find(
+		(agent) => agent.scope.kind === "library" && agent.blueprintId === blueprintId && agent.source !== undefined,
+	);
 }
 
 /** 只比内容，不比 `revision` / `updatedAt`：同步是幂等的，没改出东西就不该让版本号往前走。 */

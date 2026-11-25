@@ -1,5 +1,5 @@
 import type { AgentBlueprint, AgentTeamDocument, TeamDefinition } from "@vetta/agent-team";
-import { createAgentTeamFixture, pluginBlueprintId } from "@vetta/agent-team";
+import { createAgentTeamFixture, parseAgentTeamDocument, pluginBlueprintId } from "@vetta/agent-team";
 import { describe, expect, it } from "vitest";
 import {
 	type PluginPresetDeclarations,
@@ -350,5 +350,67 @@ describe("plugin agent preset reconcile", () => {
 		if (!result) throw new Error("expected a reconcile result");
 		const installed = result.document.agents.find((agent) => agent.blueprintId === BLUEPRINT_ID);
 		expect(installed?.mentionHandle).toBe("designer-2");
+	});
+
+	it("leaves agents the user built on a preset's persona alone", () => {
+		const installed = reconcilePluginAgentPresets({ document: baseDocument(), agents: [agentPreset], teams: [] });
+		if (!installed) throw new Error("expected a reconcile result");
+		// 用户基于「设计师」人设自建的档案：没有提供方戳，blueprint 是现行 id。它排在预设档案前面，
+		// 正是用户目录名排序后会出现的形状。
+		const own = {
+			...installed.document.agents.find((agent) => agent.blueprintId === BLUEPRINT_ID)!,
+			id: "0a1a65a5-e2e0-456f-a9ce-486b2afa2f07",
+			name: "我的设计师",
+			mentionHandle: "my-designer",
+			source: undefined,
+		};
+		const document: AgentTeamDocument = { ...installed.document, agents: [own, ...installed.document.agents] };
+
+		const next = reconcilePluginAgentPresets({ document, agents: [agentPreset], teams: [teamPreset] });
+		if (!next) throw new Error("expected the team to be installed");
+		// 名字、@handle、无提供方戳都原样留着，没被改写成预设。
+		expect(next.document.agents.find((agent) => agent.id === own.id)).toEqual(own);
+		// 插件团队里那名成员仍是提供方的档案，不是用户自建的那份。
+		expect(designTeam(next.document)?.members[0]?.binding).toEqual({
+			kind: "reference",
+			agentProfileId: pluginAgentProfileId(PLUGIN_ID, "designer"),
+		});
+		// 整份配置仍然读得出来：@handle 没有撞号。
+		expect(() => parseAgentTeamDocument(next.document)).not.toThrow();
+	});
+
+	it("does not hand a preset a handle that an unclaimed legacy profile still holds", () => {
+		const installed = reconcilePluginAgentPresets({ document: baseDocument(), agents: [agentPreset], teams: [] });
+		if (!installed) throw new Error("expected a reconcile result");
+		const canonical = installed.document.agents.find((agent) => agent.blueprintId === BLUEPRINT_ID)!;
+		// 预设档案被用户改了号；另有一份历史 blueprint 档案占着清单里的短名。
+		const legacy = {
+			...canonical,
+			id: "d9e51357-0000-4000-8000-000000000001",
+			blueprintId: "executor",
+			source: undefined,
+			mentionHandle: "designer",
+		};
+		const document: AgentTeamDocument = {
+			...installed.document,
+			agents: [
+				legacy,
+				...installed.document.agents.map((agent) =>
+					agent.id === canonical.id ? { ...agent, mentionHandle: "renamed" } : agent,
+				),
+			],
+		};
+
+		const result = reconcilePluginAgentPresets({
+			document,
+			agents: [{ ...agentPreset, legacyBlueprintIds: ["executor"] }],
+			teams: [],
+		});
+
+		if (!result) throw new Error("expected a reconcile result");
+		// 规范 id 优先认领，历史档案不被动，也就保住了它手里的号。
+		expect(result.document.agents.find((agent) => agent.id === legacy.id)).toEqual(legacy);
+		expect(result.document.agents.find((agent) => agent.id === canonical.id)?.mentionHandle).toBe("designer-2");
+		expect(() => parseAgentTeamDocument(result.document)).not.toThrow();
 	});
 });
