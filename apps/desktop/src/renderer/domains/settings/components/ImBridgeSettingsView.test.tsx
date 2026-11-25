@@ -117,7 +117,7 @@ describe("ImBridgeSettingsView", () => {
 		};
 		function Harness() {
 			const [status, setStatus] = useState<Model["status"]>(chosen);
-			const onClearAutomationDeliveryChat = () => {
+			const onClearAutomationDeliveryChat = async () => {
 				const { automationDeliveryChat: _cleared, ...rest } = chosen;
 				setStatus(rest);
 			};
