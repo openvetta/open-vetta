@@ -88,9 +88,10 @@ describe("Markdown media workflows", () => {
 		expect(host.openImage).toHaveBeenCalledWith(expect.stringMatching(/^data:image\/svg\+xml/), "Diagram");
 		fireEvent.click(screen.getByRole("button", { name: "Copy image" }));
 		await screen.findByRole("button", { name: "Copied" });
-		expect(host.copyImage).toHaveBeenCalledWith(expect.stringMatching(/^data:image\/svg\+xml/));
+		expect(host.copyImage).toHaveBeenCalledWith(expect.stringContaining(encodeURIComponent("background-color: #ffffff;")));
 		fireEvent.click(screen.getByRole("button", { name: "Save" }));
 		await waitFor(() => expect(host.saveImage).toHaveBeenCalledWith(expect.stringMatching(/^data:image\/svg\+xml/)));
+		expect(host.saveImage).toHaveBeenCalledWith(expect.stringContaining(encodeURIComponent("background-color: #ffffff;")));
 		fireEvent.click(screen.getByRole("button", { name: "Source" }));
 		expect(view.container.textContent).toContain("graph TD; A-->B");
 		fireEvent.click(screen.getByRole("button", { name: "Preview" }));
@@ -102,6 +103,9 @@ describe("Markdown media workflows", () => {
 		const image = await screen.findByRole("img", { name: "Diagram" });
 		expect(host.renderMermaid).toHaveBeenCalledWith("graph TD; A-->B", "light");
 		expect(decodeURIComponent(image.getAttribute("src") ?? "")).toContain("background-color: #e4e4e7;");
+		fireEvent.click(screen.getByRole("button", { name: "Save" }));
+		await waitFor(() => expect(host.saveImage).toHaveBeenCalled());
+		expect(host.saveImage).toHaveBeenCalledWith(expect.stringContaining(encodeURIComponent("background-color: #ffffff;")));
 	});
 	it("retries a diagram error and also renders diagrams from file preview", async () => {
 		const { host } = createMarkdownHostFixture();

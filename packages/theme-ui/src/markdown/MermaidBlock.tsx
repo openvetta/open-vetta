@@ -14,6 +14,8 @@ import { useRichVisibility } from "./use-rich-visibility";
  * In dark mode they sit on a soft gray canvas instead of a glaring white one.
  */
 const DARK_MODE_CANVAS = "#e4e4e7";
+/** Copies and saved files are shared elsewhere; a transparent diagram looks broken there. */
+const EXPORT_CANVAS = "#ffffff";
 
 function DiagramAction({ label, icon, disabled, onClick }: { label: string; icon: string; disabled?: boolean; onClick: () => void }) {
 	const handle = (event: MouseEvent<HTMLButtonElement>) => {
@@ -49,7 +51,8 @@ export const MermaidBlock = memo(function MermaidBlock(props: MarkdownCodeBlockP
 	const current = result?.key === code ? result : undefined;
 	const dark = theme === "dark";
 	const image = current?.svg ? svgImageSource(withIntrinsicSize(dark ? withBackground(current.svg, DARK_MODE_CANVAS) : current.svg)) : null;
-	const { action, setAction, run, busy } = useImageActions(host, image ?? undefined, `${theme}:${code}`);
+	const exported = current?.svg ? svgImageSource(withIntrinsicSize(withBackground(current.svg, EXPORT_CANVAS))) : null;
+	const { action, setAction, run, busy } = useImageActions(host, exported ?? undefined, code);
 	useEffect(() => {
 		if (action !== "copied") return;
 		const timer = setTimeout(() => setAction(null), 1500);
