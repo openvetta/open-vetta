@@ -103,7 +103,7 @@ describe("Markdown media workflows", () => {
 	it("renders dark-mode diagrams with the light palette on a gray canvas", async () => {
 		const { host, saved } = createMarkdownHostFixture();
 		host.renderMermaid.mockImplementation(
-			async (_source: string, theme: string) => `<svg xmlns="http://www.w3.org/2000/svg"><text>palette-${theme}</text></svg>`,
+			async (_source: string, theme: "light" | "dark") => `<svg xmlns="http://www.w3.org/2000/svg"><text>palette-${theme}</text></svg>`,
 		);
 		render(<MarkdownContent {...props} theme="dark" host={host} text={"```mermaid\ngraph TD; A-->B\n```"} />);
 		const image = await screen.findByRole("img", { name: "Diagram" });

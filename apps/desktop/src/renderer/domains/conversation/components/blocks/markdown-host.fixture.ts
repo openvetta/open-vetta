@@ -9,7 +9,10 @@ export function createMarkdownHostFixture() {
 	const opened: Array<[src: string, title: string | undefined]> = [];
 	const host = {
 		openHtml: vi.fn(async () => close),
-		renderMermaid: vi.fn(async () => '<svg xmlns="http://www.w3.org/2000/svg"><text>Rendered</text></svg>'),
+		renderMermaid: vi.fn(
+			async (_source: string, _theme: "light" | "dark") =>
+				'<svg xmlns="http://www.w3.org/2000/svg"><text>Rendered</text></svg>',
+		),
 		favicon: vi.fn(async () => null),
 		resolveImage: vi.fn(async (src: string) => src),
 		copyImage: vi.fn(async (src: string) => {
