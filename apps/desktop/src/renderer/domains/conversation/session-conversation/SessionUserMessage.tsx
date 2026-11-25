@@ -3,7 +3,7 @@ import { AnnotationMarker } from "./session-extensions";
 
 /**
  * A user message in the active session: edit, fork, copy and saved annotations
- * under the bubble, sibling branches below, and delete in the context menu.
+ * to the left of the bubble, sibling branches below them, and delete in the context menu.
  * Each command shows only when the feed offers it.
  */
 export function SessionUserMessage() {

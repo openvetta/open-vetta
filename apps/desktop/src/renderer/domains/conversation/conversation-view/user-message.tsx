@@ -114,13 +114,13 @@ function UserMessageRoot({ children }: { readonly children?: ReactNode }) {
 	);
 }
 
-/** Actions under the bubble: shown on hover, or while an action needs attention. */
+/** Actions beside the bubble, on its left: shown on hover, or while an action needs attention. */
 function UserMessageActions({ children }: { readonly children?: ReactNode }) {
 	const { hovered, pinned } = useUserMessageState("UserMessage.Actions");
 	return (
 		<MessageLayout.Footer asChild>
 			<div
-				className={`flex-col items-end gap-0.5 transition-opacity duration-150 focus-within:pointer-events-auto focus-within:opacity-100 [&:not(:has(>:not(:empty)))]:hidden ${hovered || pinned ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
+				className={`absolute right-full bottom-0 mt-0 mr-1.5 flex-col items-end gap-0.5 transition-opacity duration-150 focus-within:pointer-events-auto focus-within:opacity-100 [&:not(:has(>:not(:empty)))]:hidden ${hovered || pinned ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
 			>
 				{children}
 			</div>
