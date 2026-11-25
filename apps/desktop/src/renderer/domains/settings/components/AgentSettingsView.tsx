@@ -103,9 +103,18 @@ export function AgentSettingsView({ model, imageGeneration, runtimeConfiguration
 				<SettingRow
 					title={model.labels.customInstructions}
 					description={model.labels.customInstructionsDescription}
-					border={false}
 				>
 					<CustomInstructionsDialog model={model} />
+				</SettingRow>
+				<SettingRow
+					title={model.labels.inputPrediction}
+					description={model.labels.inputPredictionDescription}
+					border={false}
+				>
+					<Switch
+						checked={model.promptPredictionEnabled}
+						onCheckedChange={model.actions.togglePromptPrediction}
+					/>
 				</SettingRow>
 			</SettingSection>
 
@@ -118,15 +127,6 @@ export function AgentSettingsView({ model, imageGeneration, runtimeConfiguration
 						description={model.labels.appOpDescription}
 					>
 						<Switch checked={model.vettaCliEnabled} onCheckedChange={model.actions.toggleVettaCli} />
-					</SettingRow>
-					<SettingRow
-						title={model.labels.inputPrediction}
-						description={model.labels.inputPredictionDescription}
-					>
-						<Switch
-							checked={model.promptPredictionEnabled}
-							onCheckedChange={model.actions.togglePromptPrediction}
-						/>
 					</SettingRow>
 					<SettingRow
 						title={model.labels.agentSkill}
