@@ -9,6 +9,7 @@ import {
 	DropdownMenuTrigger,
 } from "@vetta-org/ui";
 import { ButtonGroup, ButtonGroupItem } from "@vetta-org/ui/button-group";
+import { chromeButtonGroupVariant } from "../shared/platform";
 import { SessionTopMenuItems } from "@vetta-org/ui/session-top-item";
 import type { HeaderActionBarItem } from "./HeaderActionBarView";
 import { headerActionToneBadgeClass } from "./HeaderActionBarView";
@@ -106,7 +107,7 @@ export function HeaderActionOverflowMenu({
 	const [menuOpen, setMenuOpen] = useState(false);
 	return (
 		<DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-			<ButtonGroup blur={false}>
+			<ButtonGroup blur={false} variant={chromeButtonGroupVariant}>
 				<DropdownMenuTrigger asChild>
 					<ButtonGroupItem
 						title={label}
