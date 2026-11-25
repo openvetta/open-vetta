@@ -11,8 +11,8 @@ import {
 	openSessionFnRef,
 	pendingMessageEditAtom,
 } from "@shared/store/atoms";
-import { getDefaultStore, useAtomValue, useSetAtom } from "jotai";
-import { useCallback } from "react";
+import { atom, getDefaultStore, useAtomValue, useSetAtom } from "jotai";
+import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { fullHistoryToChat, isUserImageFile } from "../services/chat-service";
 import { dispatchConversationFeed } from "../services/conversation-feed-store";
@@ -152,12 +152,19 @@ export function useUserMessageEditAction({
 	readonly enabled: boolean;
 }) {
 	const { t } = useTranslation("chat");
-	const pendingEdit = useAtomValue(pendingMessageEditAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const available = enabled && isLastUserMessage;
-	const pending = Boolean(
-		pendingEdit && isLastUserMessage && (!message.entryId || pendingEdit.entryId === message.entryId),
+	// 每条用户消息都挂这个 hook：只订阅「是不是我在编辑」，进出编辑时不让整列消息重渲染。
+	const entryId = message.entryId;
+	const pendingAtom = useMemo(
+		() =>
+			atom((get) => {
+				const pendingEdit = get(pendingMessageEditAtom);
+				return Boolean(pendingEdit && isLastUserMessage && (!entryId || pendingEdit.entryId === entryId));
+			}),
+		[entryId, isLastUserMessage],
 	);
+	const pending = useAtomValue(pendingAtom);
 	const fill = useCallback(
 		async (target: Promise<ActiveSession | null>) => {
 			let entryId = message.entryId;
@@ -272,7 +279,6 @@ export function useUserMessageDeleteAction({
 	readonly enabled: boolean;
 }) {
 	const { t } = useTranslation("chat");
-	const pendingEdit = useAtomValue(pendingMessageEditAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const available = enabled && Boolean(message.entryId);
 	const perform = useCallback(
@@ -289,15 +295,16 @@ export function useUserMessageDeleteAction({
 			if (suppressForOneMinute) {
 				deleteConfirmationSuppressedUntil = Date.now() + DELETE_CONFIRMATION_SUPPRESSION_MS;
 			}
+			const store = getDefaultStore();
 			if (
-				pendingEdit?.entryId === entryId &&
-				getDefaultStore().get(activeSessionAtom)?.runtimeId === session.runtimeId
+				store.get(pendingMessageEditAtom)?.entryId === entryId &&
+				store.get(activeSessionAtom)?.runtimeId === session.runtimeId
 			) {
-				getDefaultStore().set(pendingMessageEditAtom, null);
+				store.set(pendingMessageEditAtom, null);
 			}
 			await reloadChatHistory(session.runtimeId);
 		},
-		[isStreaming, message.entryId, onAbortEdit, pendingEdit?.entryId],
+		[isStreaming, message.entryId, onAbortEdit],
 	);
 	const onDelete = useCallback(() => {
 		if (!available) return;
