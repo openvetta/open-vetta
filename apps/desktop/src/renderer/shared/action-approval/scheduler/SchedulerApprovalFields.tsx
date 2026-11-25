@@ -25,6 +25,7 @@ export function SchedulerApprovalFields({ value, onChange }: SchedulerApprovalFi
 			onChange={onChange}
 			namePlaceholder={t("schedulerApproval.taskNamePlaceholder")}
 			showEnabled
+			showClaw={false}
 			promptMinHeight={160}
 		/>
 	);
@@ -34,11 +35,15 @@ export function canSubmitSchedulerApproval(value: SchedulerEditableData): boolea
 	return canSubmitAutomationDraft(value);
 }
 
-/** 审批通过后回填给 action 的 data：创建给完整输入，更新给显式清除可选项的整份补丁。 */
+/**
+ * 审批通过后回填给 action 的 data：创建给完整输入，更新给显式清除可选项的整份补丁。
+ * action 的数据结构不含 notifyClaw，更新时任务原有的 Claw 设置保持不变。
+ */
 export function toSchedulerApprovalJsonData(
 	value: SchedulerEditableData,
 	operation: "create" | "update",
 ): SchedulerApprovalJsonData {
-	const data = operation === "create" ? automationDraftToInput(value) : automationDraftToPatch(value);
+	const { notifyClaw: _notifyClaw, ...data } =
+		operation === "create" ? automationDraftToInput(value) : automationDraftToPatch(value);
 	return JSON.parse(JSON.stringify(data)) as SchedulerApprovalJsonData;
 }

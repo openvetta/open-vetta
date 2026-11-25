@@ -106,6 +106,9 @@ func TestHandleMessageCreate_DMDelivered(t *testing.T) {
 	if m.ActionID != "" {
 		t.Errorf("ActionID should be empty for a plain message, got %q", m.ActionID)
 	}
+	if !m.Private {
+		t.Error("a DM must be marked private")
+	}
 }
 
 func TestHandleMessageCreate_BotAndSelfIgnored(t *testing.T) {
@@ -149,6 +152,9 @@ func TestHandleMessageCreate_GuildRequiresMention(t *testing.T) {
 	}
 	if got[0].Text != "do the thing" {
 		t.Errorf("mention not stripped: %q", got[0].Text)
+	}
+	if got[0].Private {
+		t.Error("a guild channel message must not be marked private")
 	}
 }
 

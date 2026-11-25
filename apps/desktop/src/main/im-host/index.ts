@@ -47,9 +47,17 @@ import type {
 import { LogBuffer } from "./log-buffer.js";
 import { archiveLegacyFiles, detectLegacyImGateway, type LegacyDetection } from "./migration.js";
 import { electronProxyResolver, resolveSidecarProxyEnv } from "./proxy-env.js";
-import { type SidecarConfig, SidecarManager } from "./sidecar-manager.js";
+import { type AutomationDeliveryFailure, type SidecarConfig, SidecarManager } from "./sidecar-manager.js";
 import { detectSignalCli } from "./signal-cli-locator.js";
-import { applyStatePatch, defaultImStatePath, type ImStateFile, loadImState, saveImState } from "./state-store.js";
+import {
+	applyDeliveryChat,
+	applyStatePatch,
+	clearDeliveryChat,
+	defaultImStatePath,
+	type ImStateFile,
+	loadImState,
+	saveImState,
+} from "./state-store.js";
 import { type ImBridgeStatus, StatusStore } from "./status-store.js";
 
 /**
@@ -319,6 +327,17 @@ export class ImHost {
 						}
 					}
 				},
+				onDeliveryChat: (event) => {
+					const next = applyDeliveryChat(this.state, this.config.transport, event);
+					if (next === this.state) return;
+					this.state = next;
+					this.persistState();
+					this.syncDeliveryChatStatus();
+					this.appendLog(
+						"info",
+						`automation results now go to ${event.explicit ? "the chat chosen with /notify" : "the first private chat"}`,
+					);
+				},
 				onSpawned: (pid) => {
 					this.statusStore.patch({
 						sidecarPid: pid,
@@ -514,6 +533,7 @@ export class ImHost {
 		} catch {
 			this.state = { version: 3, sessions: [] };
 		}
+		this.syncDeliveryChatStatus();
 
 		if (this.config.enabled && this.hasRequiredCredentials()) {
 			await this.startSidecar();
@@ -827,6 +847,12 @@ export class ImHost {
 
 		this.appendLog("info", `channel ${transport} disconnected by user`);
 
+		// A reconnected channel may be a different account, so its old chat
+		// id must not keep receiving automation results.
+		this.state = clearDeliveryChat(this.state, transport);
+		this.persistState();
+		this.syncDeliveryChatStatus();
+
 		if (!isActive) {
 			return { ok: true };
 		}
@@ -1039,6 +1065,8 @@ export class ImHost {
 			return { ok: false, error: `save credentials failed: ${(err as Error).message}` };
 		}
 
+		this.syncDeliveryChatStatus();
+
 		// Apply runtime change.
 		if (this.config.enabled && this.hasRequiredCredentials()) {
 			if (this.manager.getCurrentChild()) {
@@ -1062,6 +1090,37 @@ export class ImHost {
 
 	async shutdownForQuit(): Promise<void> {
 		await this.manager.shutdownForQuit();
+	}
+
+	/** Send a finished automation's result to the active channel's delivery chat. */
+	async deliverAutomationResult(text: string): Promise<AutomationDeliveryFailure | undefined> {
+		if (!this.config.enabled) return { reason: "offline" };
+		const target = this.state.deliveryChats?.[this.config.transport];
+		if (!target) return this.manager.getCurrentChild() ? { reason: "no_chat" } : { reason: "offline" };
+		return await this.manager.deliverAutomationResult(target.chatId, text);
+	}
+
+	/** Forget the active channel's delivery chat; the next private chat sets it again. */
+	clearAutomationDeliveryChat(): void {
+		this.state = clearDeliveryChat(this.state, this.config.transport);
+		this.persistState();
+		this.syncDeliveryChatStatus();
+	}
+
+	private persistState(): void {
+		try {
+			saveImState(this.state);
+		} catch (err) {
+			this.appendLog("warn", `state save failed: ${(err as Error).message}`);
+		}
+	}
+
+	/** Mirror the active channel's delivery chat into the status snapshot the settings page reads. */
+	private syncDeliveryChatStatus(): void {
+		const target = this.state.deliveryChats?.[this.config.transport];
+		this.statusStore.patch({
+			automationDeliveryChat: target ? { explicit: target.explicit, setAt: target.setAt } : undefined,
+		});
 	}
 
 	getStatus(): ImBridgeStatus {

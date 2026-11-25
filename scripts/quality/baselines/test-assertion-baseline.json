@@ -37,7 +37,7 @@
     "packages/plugins/presets/content-creation/test/generation-service.test.ts": 13,
     "apps/desktop/src/main/projects/project-service.test.ts": 12,
     "apps/desktop/src/renderer/domains/agent-teams/components/AgentProfileEditor.test.tsx": 12,
-    "apps/desktop/src/renderer/domains/conversation/components/blocks/MarkdownMedia.test.tsx": 12,
+    "apps/desktop/src/renderer/domains/conversation/components/blocks/MarkdownMedia.test.tsx": 11,
     "packages/coding-agent/test/runtime-core/session-controls.test.ts": 12,
     "packages/coding-agent/test/runtime-core/turn-executor.test.ts": 12,
     "packages/plugins/presets/content-creation/test/artifact-store.test.ts": 12,

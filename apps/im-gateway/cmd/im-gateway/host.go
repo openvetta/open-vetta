@@ -209,6 +209,16 @@ func runHostWithIO(opts hostOptions) int {
 	// Dated work log (ADR-0009): run each agent in <conversationCwd>/<date>/ so
 	// artifacts, inbound media, and JOURNAL.md group by day.
 	r.SetDatedCwd(true)
+	// The desktop host persists the automation delivery target per channel;
+	// the router only proposes chats (first private chat, or /notify).
+	r.SetDeliveryChatHandler(func(chatID, userID string, explicit bool) {
+		_ = out.WriteFrame(hostproto.DeliveryChatEvent{
+			Type:     hostproto.TypeDeliveryChat,
+			ChatID:   chatID,
+			UserID:   userID,
+			Explicit: explicit,
+		})
+	})
 
 	// 4. Start transport (or skip if awaiting bind).
 	tCtx, tCancel := context.WithCancel(context.Background())
@@ -231,9 +241,10 @@ func runHostWithIO(opts hostOptions) int {
 
 	// 5. Emit ready + initial status.
 	if err := out.WriteFrame(hostproto.ReadyEvent{
-		Type:      hostproto.TypeReady,
-		Version:   version,
-		Transport: tr.Name(),
+		Type:         hostproto.TypeReady,
+		Version:      version,
+		Transport:    tr.Name(),
+		Capabilities: []string{hostproto.CapabilityAutomationDelivery},
 	}); err != nil {
 		emitLog("error", "write ready", map[string]any{"err": err.Error()})
 	}
@@ -323,6 +334,10 @@ loop:
 				// EOF == implicit shutdown.
 				break loop
 			}
+			if request, isDelivery := frame.(*hostproto.AutomationDeliveryFrame); isDelivery {
+				go deliverAutomationResult(r, out, request)
+				continue
+			}
 			action := hostState.handleFrame(frame)
 			if action.stop {
 				shutdownReason = "shutdown frame"
@@ -409,6 +424,30 @@ loop:
 		return 1
 	}
 	return 0
+}
+
+// automationDeliveryTimeout bounds one delivery so the parent always gets a
+// result before its own wait expires.
+const automationDeliveryTimeout = 15 * time.Second
+
+// deliverAutomationResult sends one automation result and reports the
+// outcome with the request's ID.
+func deliverAutomationResult(r *router.Router, out *hostproto.Writer, request *hostproto.AutomationDeliveryFrame) {
+	ctx, cancel := context.WithTimeout(context.Background(), automationDeliveryTimeout)
+	defer cancel()
+	result := hostproto.AutomationDeliveryResultEvent{
+		Type:      hostproto.TypeAutomationDeliveryResult,
+		RequestID: request.RequestID,
+		OK:        true,
+	}
+	if err := r.DeliverAutomationResult(ctx, request.ChatID, request.Text); err != nil {
+		result.OK = false
+		result.Error = err.Error()
+		if errors.Is(err, router.ErrNoDeliveryChat) {
+			result.Code = hostproto.AutomationDeliveryNoChat
+		}
+	}
+	_ = out.WriteFrame(result)
 }
 
 // hostRuntime bundles helpers shared by frame handlers so the main loop

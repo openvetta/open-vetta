@@ -83,6 +83,9 @@ func TestNormalizePrivateText(t *testing.T) {
 	if msg.ReplyToID != "" {
 		t.Errorf("ReplyToID = %q, want empty", msg.ReplyToID)
 	}
+	if !msg.Private {
+		t.Error("a direct chat must be marked private")
+	}
 }
 
 func TestNormalizeIgnoresFromMe(t *testing.T) {
@@ -146,6 +149,9 @@ func TestNormalizeGroupMentionStripped(t *testing.T) {
 	}
 	if want := peerUser + "@s.whatsapp.net"; msg.UserID != want {
 		t.Errorf("UserID = %q, want %q", msg.UserID, want)
+	}
+	if msg.Private {
+		t.Error("a group message must not be marked private")
 	}
 }
 

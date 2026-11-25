@@ -110,6 +110,7 @@ export interface ImBridgeSettingsModel {
 	onSaveFeishu: () => Promise<void>;
 	onTestFeishu: () => Promise<void>;
 	onRestart: () => Promise<void>;
+	onClearAutomationDeliveryChat: () => Promise<void>;
 	onOpenLogs: () => Promise<void>;
 	onWechatConfirmedRefresh: () => void;
 	onSignalConfirmedRefresh: () => void;
@@ -642,6 +643,9 @@ export function useImBridgeSettingsModel(): ImBridgeSettingsModel {
 		onTestFeishu: handleTestFeishu,
 		onRestart: async () => {
 			await window.vetta.im.restart();
+		},
+		onClearAutomationDeliveryChat: async () => {
+			await window.vetta.im.clearAutomationDeliveryChat();
 		},
 		onOpenLogs: handleOpenLogs,
 		onWechatConfirmedRefresh: () => {

@@ -39,7 +39,8 @@ export function ReadonlyUserMessage({ message, participants }: Pick<UserMessageP
 			>
 				{canCopy ? (
 					<MessageLayout.Footer
-						className={`justify-end transition-opacity duration-150 ${actionsVisible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
+						data-user-message-actions=""
+						className={`absolute right-full top-1/2 -translate-y-1/2 mt-0 mr-1.5 justify-end transition-opacity duration-150 ${actionsVisible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
 					>
 						<CopyButton getText={() => projection.copyText} onCopy={onCopy} />
 					</MessageLayout.Footer>

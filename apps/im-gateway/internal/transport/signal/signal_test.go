@@ -95,6 +95,9 @@ func TestNormalizeEnvelope_Private(t *testing.T) {
 	if msg.Text != "hello" || msg.ReplyToID != "" {
 		t.Errorf("text/reply: %q %q", msg.Text, msg.ReplyToID)
 	}
+	if !msg.Private {
+		t.Error("a direct message must be marked private")
+	}
 }
 
 func TestNormalizeEnvelope_GroupWithQuote(t *testing.T) {
@@ -113,6 +116,9 @@ func TestNormalizeEnvelope_GroupWithQuote(t *testing.T) {
 	}
 	if msg.ChatID != "group:Z3JvdXAtaWQ=" {
 		t.Errorf("ChatID: %q", msg.ChatID)
+	}
+	if msg.Private {
+		t.Error("a group message must not be marked private")
 	}
 	if msg.UserID != "+8613900000002" {
 		t.Errorf("UserID: %q", msg.UserID)

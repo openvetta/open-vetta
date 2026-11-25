@@ -211,14 +211,6 @@ export {
 	type GrepToolOptions,
 } from "./tools/grep/index.js";
 export {
-	createHtmlToPdfTool,
-	createHtmlToPdfToolRegistration,
-	HTML_TO_PDF_TOOL_DESCRIPTION,
-	type HtmlToPdfToolInput,
-	HtmlToPdfToolInputSchema,
-	type HtmlToPdfToolOptions,
-} from "./tools/html-to-pdf/index.js";
-export {
 	createLsTool,
 	createLsToolRegistration,
 	LS_TOOL_DESCRIPTION,

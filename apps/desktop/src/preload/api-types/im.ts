@@ -142,6 +142,8 @@ export interface ImBridgeStatus {
 	sidecarStartedAt?: string;
 	consecutiveStartFailures: number;
 	binaryPath?: string;
+	/** Where the active channel sends automation results; absent until a chat is chosen. */
+	automationDeliveryChat?: { explicit: boolean; setAt: string };
 }
 
 export interface ImLogEvent {
@@ -407,6 +409,8 @@ export interface DesktopImApi {
 	 * longer run.
 	 */
 	clearChannel(transport: ImTransportSelector): Promise<{ ok: boolean; error?: string }>;
+	/** Forget which chat receives automation results on the active channel. */
+	clearAutomationDeliveryChat(): Promise<void>;
 	/** Reachability check for an IM-session model. Used by the bridge
 	 * settings page's "测试连通" button and gated automatically on
 	 * setConfig(enabled=true). ok=true also for HTTP 4xx — host is up,

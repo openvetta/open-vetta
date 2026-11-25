@@ -315,6 +315,55 @@ func TestHost_StdinEOFShutdown(t *testing.T) {
 	}
 }
 
+// TestHost_AutomationDeliveryAnswersWithRequestID covers the capability
+// handshake and one delivery to the chat named in the frame.
+func TestHost_AutomationDeliveryAnswersWithRequestID(t *testing.T) {
+	in := newPipeReader()
+	out := &captureWriter{}
+
+	done := make(chan int, 1)
+	go func() {
+		done <- runHostWithIO(hostOptions{
+			stdin:          in,
+			stdout:         out,
+			buildTransport: stubBuilder,
+			initTimeout:    2 * time.Second,
+			shutdownGrace:  500 * time.Millisecond,
+		})
+	}()
+
+	initData, _ := hostproto.EncodeFrame(hostproto.InitFrame{
+		Type:            hostproto.TypeInit,
+		Feishu:          &hostproto.FeishuConfig{AppID: "x", AppSecret: "y"},
+		ConversationCwd: testConversationCwd,
+		State:           []hostproto.SessionStateEntry{{UserID: "u1", ChatID: "c1", SessionPath: "/s.jsonl"}},
+	})
+	in.Write(initData)
+
+	ready := waitForType(t, out, hostproto.TypeReady, 2*time.Second)
+	capabilities, _ := ready["capabilities"].([]any)
+	if len(capabilities) != 1 || capabilities[0] != hostproto.CapabilityAutomationDelivery {
+		t.Fatalf("ready capabilities = %v", ready["capabilities"])
+	}
+
+	deliveryData, _ := hostproto.EncodeFrame(hostproto.AutomationDeliveryFrame{
+		Type: hostproto.TypeAutomationDelivery, RequestID: "req-1", ChatID: "c1", Text: "daily brief",
+	})
+	in.Write(deliveryData)
+
+	result := waitForType(t, out, hostproto.TypeAutomationDeliveryResult, 2*time.Second)
+	if result["requestId"] != "req-1" || result["ok"] != true {
+		t.Fatalf("delivery result = %v", result)
+	}
+
+	in.Close()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("runHostWithIO did not return after stdin EOF")
+	}
+}
+
 // TestHost_BadInitFrameType verifies that the first non-init frame causes
 // a non-zero exit.
 func TestHost_BadInitFrameType(t *testing.T) {

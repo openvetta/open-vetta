@@ -49,7 +49,6 @@ export function createCodingAgentSpecializedToolRegistrations(
 
 const SPECIALIZED_TOOL_MODEL_ORDER: Readonly<Record<string, number>> = {
 	doc_to_pdf: CODING_AGENT_MODEL_TOOL_ORDER.docToPdf,
-	html_to_pdf: CODING_AGENT_MODEL_TOOL_ORDER.htmlToPdf,
 	extract_text_from_pdf: CODING_AGENT_MODEL_TOOL_ORDER.extractTextFromPdf,
 	extract_text_from_img: CODING_AGENT_MODEL_TOOL_ORDER.extractTextFromImage,
 	render_pdf_page: CODING_AGENT_MODEL_TOOL_ORDER.renderPdfPage,

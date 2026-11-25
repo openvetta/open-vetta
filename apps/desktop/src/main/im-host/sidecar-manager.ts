@@ -1,9 +1,15 @@
 import { type ChildProcess, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { createInterface, type Interface } from "node:readline";
 import {
+	type AutomationDeliveryResultEvent,
+	CAPABILITY_AUTOMATION_DELIVERY,
 	type CodingAgentSpec,
+	type DeliveryChatEvent,
 	type DiscordConfig,
 	decodeEvent,
+	EVENT_AUTOMATION_DELIVERY_RESULT,
+	EVENT_DELIVERY_CHAT,
 	EVENT_FEISHU_BIND_STATUS,
 	EVENT_FEISHU_BOUND,
 	EVENT_FEISHU_QR,
@@ -31,6 +37,7 @@ import {
 	type FeishuConfig,
 	type FeishuQREvent,
 	type FeishuUnboundEvent,
+	FRAME_AUTOMATION_DELIVERY,
 	FRAME_CONFIG_UPDATE,
 	FRAME_FEISHU_BIND_START,
 	FRAME_FEISHU_LOGOUT,
@@ -93,6 +100,8 @@ export interface SidecarHooks {
 	onLog?: (event: LogEvent) => void;
 	/** Routing-table mutation; the parent persists this. */
 	onStatePatch?: (event: StatePatchEvent) => void;
+	/** A chat proposed as the automation delivery target; the parent decides and persists. */
+	onDeliveryChat?: (event: DeliveryChatEvent) => void;
 	/** Generic numeric metric. */
 	onMetric?: (event: MetricEvent) => void;
 	/** Backoff/restart-cycle reported a definitive failure. */
@@ -198,17 +207,30 @@ export interface SidecarManagerOptions {
 	shutdownGraceMs?: number;
 	backoffMs?: number[];
 	maxRestartAttempts?: number;
+	automationDeliveryTimeoutMs?: number;
+}
+
+/**
+ * Why an automation result did not reach the Claw channel. `unconfirmed`
+ * means the sidecar never answered, so the message may still have arrived.
+ */
+export interface AutomationDeliveryFailure {
+	readonly reason: "offline" | "unsupported" | "no_chat" | "unconfirmed" | "send_failed";
+	/** The channel's own error text for `send_failed`. */
+	readonly detail?: string;
 }
 
 const DEFAULT_READY_TIMEOUT = 10_000;
 const DEFAULT_SHUTDOWN_GRACE = 5_000;
 const DEFAULT_BACKOFF = [5_000, 15_000, 60_000];
 const DEFAULT_MAX_RESTARTS = 5;
+/** Longer than the sidecar's own 15s send limit, so its answer normally arrives first. */
+const DEFAULT_AUTOMATION_DELIVERY_TIMEOUT = 20_000;
 
 type ManagerState =
 	| { kind: "idle" }
 	| { kind: "spawning"; child: ChildProcess; readyTimer: NodeJS.Timeout }
-	| { kind: "running"; child: ChildProcess }
+	| { kind: "running"; child: ChildProcess; acceptsAutomationDelivery: boolean }
 	| { kind: "stopping"; child: ChildProcess }
 	| { kind: "backoff"; timer: NodeJS.Timeout }
 	| { kind: "fatal"; reason: string };
@@ -222,6 +244,11 @@ export class SidecarManager {
 	private readonly shutdownGraceMs: number;
 	private readonly backoffMs: number[];
 	private readonly maxRestartAttempts: number;
+	private readonly automationDeliveryTimeoutMs: number;
+	private readonly pendingAutomationDeliveries = new Map<
+		string,
+		(failure: AutomationDeliveryFailure | undefined) => void
+	>();
 
 	constructor(opts: SidecarManagerOptions = {}) {
 		this.hooks = opts.hooks ?? {};
@@ -229,6 +256,7 @@ export class SidecarManager {
 		this.shutdownGraceMs = opts.shutdownGraceMs ?? DEFAULT_SHUTDOWN_GRACE;
 		this.backoffMs = opts.backoffMs ?? DEFAULT_BACKOFF;
 		this.maxRestartAttempts = opts.maxRestartAttempts ?? DEFAULT_MAX_RESTARTS;
+		this.automationDeliveryTimeoutMs = opts.automationDeliveryTimeoutMs ?? DEFAULT_AUTOMATION_DELIVERY_TIMEOUT;
 	}
 
 	/**
@@ -260,6 +288,28 @@ export class SidecarManager {
 		await this.stopInternal();
 		this.restartAttempts = 0;
 		this.spawn();
+	}
+
+	/**
+	 * Send an automation result to `chatId` on the active channel. Resolves to
+	 * undefined once the sidecar confirms the send. Never starts or restarts
+	 * the sidecar.
+	 */
+	deliverAutomationResult(chatId: string, text: string): Promise<AutomationDeliveryFailure | undefined> {
+		if (this.state.kind !== "running") return Promise.resolve({ reason: "offline" });
+		if (!this.state.acceptsAutomationDelivery) return Promise.resolve({ reason: "unsupported" });
+
+		const requestId = randomUUID();
+		return new Promise((resolve) => {
+			const settle = (failure: AutomationDeliveryFailure | undefined): void => {
+				clearTimeout(timeoutTimer);
+				this.pendingAutomationDeliveries.delete(requestId);
+				resolve(failure);
+			};
+			const timeoutTimer = setTimeout(() => settle({ reason: "unconfirmed" }), this.automationDeliveryTimeoutMs);
+			this.pendingAutomationDeliveries.set(requestId, settle);
+			this.writeFrame({ type: FRAME_AUTOMATION_DELIVERY, requestId, chatId, text });
+		});
 	}
 
 	/** Permanently stop the sidecar. */
@@ -539,6 +589,12 @@ export class SidecarManager {
 			case EVENT_READY:
 				this.handleReady(event);
 				break;
+			case EVENT_AUTOMATION_DELIVERY_RESULT:
+				this.settleAutomationDelivery(event);
+				break;
+			case EVENT_DELIVERY_CHAT:
+				this.hooks.onDeliveryChat?.(event);
+				break;
 			case EVENT_STATUS:
 				this.hooks.onStatus?.(event);
 				break;
@@ -606,8 +662,26 @@ export class SidecarManager {
 		if (this.state.kind !== "spawning") return;
 		clearTimeout(this.state.readyTimer);
 		this.restartAttempts = 0;
-		this.state = { kind: "running", child: this.state.child };
+		this.state = {
+			kind: "running",
+			child: this.state.child,
+			acceptsAutomationDelivery: event.capabilities?.includes(CAPABILITY_AUTOMATION_DELIVERY) ?? false,
+		};
 		this.hooks.onReady?.(event);
+	}
+
+	private settleAutomationDelivery(event: AutomationDeliveryResultEvent): void {
+		const settle = this.pendingAutomationDeliveries.get(event.requestId);
+		if (!settle) return;
+		if (event.ok) {
+			settle(undefined);
+			return;
+		}
+		settle({ reason: event.code === "no_chat" ? "no_chat" : "send_failed", detail: event.error });
+	}
+
+	private abandonPendingAutomationDeliveries(): void {
+		for (const settle of [...this.pendingAutomationDeliveries.values()]) settle({ reason: "unconfirmed" });
 	}
 
 	private handleSpawnFailure(reason: string): void {
@@ -638,6 +712,7 @@ export class SidecarManager {
 	}
 
 	private handleExit(child: ChildProcess, code: number | null, signal: NodeJS.Signals | null): void {
+		this.abandonPendingAutomationDeliveries();
 		this.hooks.onExit?.(code, signal);
 
 		if (this.state.kind === "stopping") {

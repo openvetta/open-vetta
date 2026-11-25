@@ -246,6 +246,7 @@ func (t *Transport) handleMessageEvent(ctx context.Context, ev *slackevents.Mess
 		Platform:  "slack",
 		ChatID:    ev.Channel,
 		UserID:    ev.User,
+		Private:   true, // only ChannelTypeIM reaches here
 		MessageID: ev.TimeStamp,
 		ReplyToID: ev.ThreadTimeStamp,
 		Text:      strings.TrimSpace(ev.Text),

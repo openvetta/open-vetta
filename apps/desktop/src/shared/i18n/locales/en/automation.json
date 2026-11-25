@@ -65,6 +65,8 @@
 			"weekday": "Weekday"
 		},
 		"notify": "Webhook notification",
+		"notifyClaw": "Send via Claw",
+		"notifyClawHint": "After each run, the result goes to Claw's result chat. You can see which chat in Claw settings.",
 		"notifyEndpoints": "Notify",
 		"notifyGoSettings": "No webhooks yet — add one in Settings",
 		"notifyEndpointDisabled": "This webhook is disabled and won't send",
@@ -198,7 +200,18 @@
 			"failed": "failed",
 			"aborted": "aborted"
 		},
-		"noEndpoint": "All selected webhooks are disabled or deleted"
+		"noEndpoint": "All selected webhooks are disabled or deleted",
+		"claw": {
+			"message": {
+				"success": "{{name}} {{status}} ({{duration}})\n\n{{reply}}",
+				"failed": "{{name}} {{status}} ({{duration}})\n\n{{error}}"
+			},
+			"offline": "Claw isn't connected",
+			"unsupported": "The Claw gateway is out of date. Update the app.",
+			"no_chat": "Claw has no chat for results yet. Message the bot privately, or send /notify in the chat that should get them.",
+			"unconfirmed": "Claw didn't confirm delivery. Check the chat.",
+			"send_failed": "Claw: {{detail}}"
+		}
 	},
 	"detail": {
 		"status": {

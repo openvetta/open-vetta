@@ -45,6 +45,16 @@ const (
 	TypeFeishuUnbound      = "feishu_unbound"
 )
 
+// Automation delivery frames. TypeAutomationDelivery (parent → child) is only
+// sent to a sidecar whose ready event lists CapabilityAutomationDelivery;
+// TypeAutomationDeliveryResult (child → parent) answers it. TypeDeliveryChat
+// (child → parent) proposes the chat that should receive automation results.
+const (
+	TypeAutomationDelivery       = "automation_delivery"
+	TypeAutomationDeliveryResult = "automation_delivery_result"
+	TypeDeliveryChat             = "delivery_chat"
+)
+
 // Transport status values reported on TypeStatus events.
 //
 // TransportStatusAwaitingBind is wechat-specific: the sidecar is up and the
@@ -286,6 +296,50 @@ type ReadyEvent struct {
 	Type      string `json:"type"` // always TypeReady
 	Version   string `json:"version"`
 	Transport string `json:"transport"`
+	// Capabilities lists optional inbound frames this sidecar accepts. An
+	// older sidecar exits on unknown frames, so the parent must not send
+	// them unless they are listed here.
+	Capabilities []string `json:"capabilities,omitempty"`
+}
+
+// CapabilityAutomationDelivery marks support for TypeAutomationDelivery.
+const CapabilityAutomationDelivery = "automation_delivery"
+
+// AutomationDeliveryFrame asks the sidecar to send a finished automation's
+// result text to ChatID. The parent owns the choice of chat (it persists the
+// target per channel from DeliveryChatEvent); the sidecar only sends.
+type AutomationDeliveryFrame struct {
+	Type      string `json:"type"` // always TypeAutomationDelivery
+	RequestID string `json:"requestId"`
+	ChatID    string `json:"chatId"`
+	Text      string `json:"text"`
+}
+
+// DeliveryChatEvent proposes ChatID as the chat that receives automation
+// results. Explicit is true when the user asked for it with /notify, and the
+// parent always adopts it. Otherwise it comes from a private chat and the
+// parent adopts it only while no target is set. Implicit proposals are sent
+// for every private message so a cleared target can be filled again.
+type DeliveryChatEvent struct {
+	Type     string `json:"type"` // always TypeDeliveryChat
+	ChatID   string `json:"chatId"`
+	UserID   string `json:"userId"`
+	Explicit bool   `json:"explicit"`
+}
+
+// AutomationDeliveryNoChat is the result code used when the frame carries no
+// chat to send to.
+const AutomationDeliveryNoChat = "no_chat"
+
+// AutomationDeliveryResultEvent answers one AutomationDeliveryFrame with the
+// same RequestID. Code is AutomationDeliveryNoChat or empty; Error carries
+// the transport's failure message.
+type AutomationDeliveryResultEvent struct {
+	Type      string `json:"type"` // always TypeAutomationDeliveryResult
+	RequestID string `json:"requestId"`
+	OK        bool   `json:"ok"`
+	Code      string `json:"code,omitempty"`
+	Error     string `json:"error,omitempty"`
 }
 
 // LogEvent is a structured log line. Replaces file-based logging in host
@@ -607,6 +661,12 @@ func DecodeInbound(line []byte) (any, error) {
 		var f FeishuLogoutFrame
 		if err := json.Unmarshal(line, &f); err != nil {
 			return nil, fmt.Errorf("hostproto: parse feishu_logout: %w", err)
+		}
+		return &f, nil
+	case TypeAutomationDelivery:
+		var f AutomationDeliveryFrame
+		if err := json.Unmarshal(line, &f); err != nil {
+			return nil, fmt.Errorf("hostproto: parse automation_delivery: %w", err)
 		}
 		return &f, nil
 	case "":

@@ -18,6 +18,7 @@ import {
 	DOMAIN_UPDATER_CAPABILITIES,
 	DOMAIN_WEBHOOK_CAPABILITIES,
 } from "@vetta-org/capability-sdk";
+import type { ScheduledTask } from "../../shared/automation.js";
 import { getDesktopAgentSettingsService } from "../agent-settings/agent-settings-service.js";
 import type { ArtifactStore } from "../artifacts/artifact-store.js";
 import { getDesktopBatchTaskService } from "../batch-tasks/batch-task-service.js";
@@ -25,6 +26,7 @@ import { listRuntimeSessionProjects, listSessionHistory } from "../conversations
 import { getDesktopDownloadService } from "../downloads/download-service.js";
 import { getDesktopGeneralSettingsService } from "../general-settings/general-settings-service.js";
 import { getImHost } from "../im-host/index.js";
+import type { ImBridgeStatus } from "../im-host/status-store.js";
 import type { JobManager } from "../jobs/job-manager.js";
 import { getKnowledgeService } from "../knowledge/knowledge-service.js";
 import { getPluginBlobFile } from "../plugins/plugin-storage-service.js";
@@ -59,6 +61,16 @@ function assertNotAborted(signal: AbortSignal): void {
 	if (signal.aborted) {
 		throw new CapabilityError(CAPABILITY_ERROR_CODES.ABORTED, "Capability invocation was aborted");
 	}
+}
+
+/** 定时任务的能力接口不含 Claw 发送设置，只在桌面自动化页配置。 */
+function schedulerTaskForCapability({ notifyClaw: _notifyClaw, ...task }: ScheduledTask) {
+	return task;
+}
+
+/** IM 能力接口的运行状态不含自动化接收对话，只在 Claw 设置页展示。 */
+function imStatusForCapability({ automationDeliveryChat: _automationDeliveryChat, ...status }: ImBridgeStatus) {
+	return status;
 }
 
 export function registerDesktopDomainProviders(
@@ -211,7 +223,7 @@ export function registerDesktopDomainProviders(
 					agentModel: config.agentModel ?? null,
 					wechatBound: config.wechat.bound,
 					feishuAppId: config.feishu.appId || null,
-					runtime: im.getStatus(),
+					runtime: imStatusForCapability(im.getStatus()),
 				};
 			},
 		}),
@@ -234,14 +246,14 @@ export function registerDesktopDomainProviders(
 				assertNotAborted(context.signal);
 				const result = await im.setConfig({ enabled });
 				if (!result.ok) throw new Error(result.error ?? "Failed to update IM config");
-				return im.getStatus();
+				return imStatusForCapability(im.getStatus());
 			},
 		}),
 		bindCapability(DOMAIN_IM_CAPABILITIES.RESTART, {
 			execute: async (_input, context) => {
 				assertNotAborted(context.signal);
 				await im.restart();
-				return im.getStatus();
+				return imStatusForCapability(im.getStatus());
 			},
 		}),
 		bindCapability(DOMAIN_IM_CAPABILITIES.SET_AGENT_MODEL, {
@@ -250,7 +262,7 @@ export function registerDesktopDomainProviders(
 				const config = im.getPublicConfig();
 				const result = await im.setConfig({ enabled: config.enabled, agentModel });
 				if (!result.ok) throw new Error(result.error ?? "Failed to set IM agent model");
-				return im.getStatus();
+				return imStatusForCapability(im.getStatus());
 			},
 		}),
 	]);
@@ -560,13 +572,13 @@ export function registerDesktopDomainProviders(
 		bindCapability(DOMAIN_SCHEDULER_CAPABILITIES.LIST_TASKS, {
 			execute: async (_input, context) => {
 				assertNotAborted(context.signal);
-				return scheduler.listTasks();
+				return (await scheduler.listTasks()).map(schedulerTaskForCapability);
 			},
 		}),
 		bindCapability(DOMAIN_SCHEDULER_CAPABILITIES.GET_TASK, {
 			execute: async ({ taskId }, context) => {
 				assertNotAborted(context.signal);
-				return scheduler.getTask(taskId);
+				return schedulerTaskForCapability(await scheduler.getTask(taskId));
 			},
 		}),
 		bindCapability(DOMAIN_SCHEDULER_CAPABILITIES.LIST_HISTORY, {
@@ -578,13 +590,13 @@ export function registerDesktopDomainProviders(
 		bindCapability(DOMAIN_SCHEDULER_CAPABILITIES.CREATE_TASK, {
 			execute: async ({ data }, context) => {
 				assertNotAborted(context.signal);
-				return scheduler.createTask({ ...data });
+				return schedulerTaskForCapability(await scheduler.createTask({ ...data }));
 			},
 		}),
 		bindCapability(DOMAIN_SCHEDULER_CAPABILITIES.UPDATE_TASK, {
 			execute: async ({ taskId, data }, context) => {
 				assertNotAborted(context.signal);
-				return scheduler.updateTask(taskId, { ...data });
+				return schedulerTaskForCapability(await scheduler.updateTask(taskId, { ...data }));
 			},
 		}),
 		bindCapability(DOMAIN_SCHEDULER_CAPABILITIES.DELETE_TASK, {
@@ -596,7 +608,7 @@ export function registerDesktopDomainProviders(
 		bindCapability(DOMAIN_SCHEDULER_CAPABILITIES.SET_ENABLED, {
 			execute: async ({ taskId, enabled }, context) => {
 				assertNotAborted(context.signal);
-				return scheduler.setEnabled(taskId, enabled);
+				return schedulerTaskForCapability(await scheduler.setEnabled(taskId, enabled));
 			},
 		}),
 		bindCapability(DOMAIN_SCHEDULER_CAPABILITIES.RUN_TASK, {

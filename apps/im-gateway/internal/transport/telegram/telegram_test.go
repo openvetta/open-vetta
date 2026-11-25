@@ -296,7 +296,7 @@ func TestStart_PrivateMessageDelivered(t *testing.T) {
 	select {
 	case m := <-ch:
 		if m.Platform != "telegram" || m.ChatID != "100" || m.UserID != "100" ||
-			m.MessageID != "7" || m.Text != "hello agent" || m.ReplyToID != "5" || m.ActionID != "" {
+			m.MessageID != "7" || m.Text != "hello agent" || m.ReplyToID != "5" || m.ActionID != "" || !m.Private {
 			t.Errorf("unexpected inbound: %+v", m)
 		}
 	case <-time.After(5 * time.Second):
@@ -422,6 +422,9 @@ func TestStart_GroupMentionGating(t *testing.T) {
 		}
 		if m.ChatID != "-200" {
 			t.Errorf("ChatID: %q", m.ChatID)
+		}
+		if m.Private {
+			t.Error("a group message must not be marked private")
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("mentioned group message never arrived")

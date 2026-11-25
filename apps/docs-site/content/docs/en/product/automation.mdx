@@ -76,6 +76,10 @@ Task details include execution history with success, failure, running, and abort
 
 The activity panel also shows project-level automation summaries, today's executions, enabled tasks, and recent records.
 
+## Send results to Claw
+
+Turn on **Send via Claw** under the task's **Notification** section. After each successful or failed run, the result goes to the current Claw channel's result chat; aborted runs send nothing. The first private chat with the bot becomes the result chat, and later messages from other people don't change it. To send results somewhere else, including a group, send `/notify` in that chat. Claw settings show whether a result chat is set and let you clear it. Each channel keeps its own result chat, and disconnecting a channel clears it. When a result is not sent, the reason appears in execution history and the run status is unchanged.
+
 ## Common failures
 
 | Symptom | Check |

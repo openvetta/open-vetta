@@ -33,6 +33,7 @@ export function useMarkdownLabels(): MarkdownLabels {
 				loading: t("markdown.loading"),
 				retry: t("markdown.retry"),
 				enlarge: t("markdown.enlarge"),
+				copyImage: t("markdown.copyImage"),
 				save: t("markdown.save"),
 				diagram: t("markdown.diagram"),
 				imageFailed: t("markdown.imageFailed"),

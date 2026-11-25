@@ -223,7 +223,7 @@ func TestHandleEventsAPI_DMText(t *testing.T) {
 		t.Fatalf("expected 1 inbound, got %d", len(got))
 	}
 	m := got[0]
-	if m.Platform != "slack" || m.ChatID != "D1" || m.UserID != "U1" {
+	if m.Platform != "slack" || m.ChatID != "D1" || m.UserID != "U1" || !m.Private {
 		t.Errorf("routing fields wrong: %+v", m)
 	}
 	if m.MessageID != "1700000000.000100" {

@@ -13,6 +13,8 @@ export interface ImBridgeStatus {
 	sidecarStartedAt?: string;
 	consecutiveStartFailures: number;
 	binaryPath?: string;
+	/** Where the active channel sends automation results; absent until a chat is chosen. */
+	automationDeliveryChat?: { explicit: boolean; setAt: string };
 }
 
 export function defaultStatus(): ImBridgeStatus {

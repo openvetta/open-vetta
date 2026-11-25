@@ -6,6 +6,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMarkdownHostFixture } from "./markdown-host.fixture";
 
 afterEach(cleanup);
+/** Copied and saved diagrams are SVG data URLs painted on white, whatever the theme. */
+const WHITE_SVG_EXPORT = expect.stringMatching(
+	new RegExp(`^data:image/svg\\+xml.*${encodeURIComponent("background-color: #ffffff;")}`),
+);
 const props = { theme: "light" as const, labels: { copy: "Copy", copied: "Copied" }, getFileIconClass: () => "", onOpenFile: vi.fn(), onOpenUrl: vi.fn() };
 
 describe("Markdown media workflows", () => {
@@ -74,7 +78,7 @@ describe("Markdown media workflows", () => {
 		await screen.findByRole("button", { name: "Copied" });
 	});
 	it("renders a diagram after streaming finishes, switches source and exports the SVG", async () => {
-		const { host } = createMarkdownHostFixture();
+		const { host, copied, saved, opened } = createMarkdownHostFixture();
 		const text = "```mermaid\ngraph TD; A-->B\n```";
 		const view = render(<MarkdownContent {...props} host={host} text={text} isStreamingTail />);
 		await screen.findByText(/^graph/, {}, { timeout: 3000 });
@@ -84,12 +88,31 @@ describe("Markdown media workflows", () => {
 		view.rerender(<MarkdownContent {...props} host={host} text={text} />);
 		await screen.findByRole("img", { name: "Diagram" });
 		expect(host.renderMermaid).toHaveBeenCalledWith("graph TD; A-->B", "light");
+		fireEvent.click(screen.getByRole("button", { name: "Enlarge" }));
+		expect(opened).toEqual([[expect.stringMatching(/^data:image\/svg\+xml/), "Diagram"]]);
+		fireEvent.click(screen.getByRole("button", { name: "Copy image" }));
+		await screen.findByRole("button", { name: "Copied" });
+		expect(copied).toEqual([WHITE_SVG_EXPORT]);
 		fireEvent.click(screen.getByRole("button", { name: "Save" }));
-		await waitFor(() => expect(host.saveImage).toHaveBeenCalledWith(expect.stringMatching(/^data:image\/svg\+xml/)));
+		await waitFor(() => expect(saved).toEqual([WHITE_SVG_EXPORT]));
 		fireEvent.click(screen.getByRole("button", { name: "Source" }));
 		expect(view.container.textContent).toContain("graph TD; A-->B");
 		fireEvent.click(screen.getByRole("button", { name: "Preview" }));
 		await screen.findByRole("img", { name: "Diagram" });
+	});
+	it("renders dark-mode diagrams with the light palette on a gray canvas", async () => {
+		const { host, saved } = createMarkdownHostFixture();
+		host.renderMermaid.mockImplementation(
+			async (_source: string, theme: "light" | "dark") => `<svg xmlns="http://www.w3.org/2000/svg"><text>palette-${theme}</text></svg>`,
+		);
+		render(<MarkdownContent {...props} theme="dark" host={host} text={"```mermaid\ngraph TD; A-->B\n```"} />);
+		const image = await screen.findByRole("img", { name: "Diagram" });
+		const shown = decodeURIComponent(image.getAttribute("src") ?? "");
+		expect(shown).toContain("palette-light");
+		expect(shown).not.toContain("palette-dark");
+		expect(shown).toContain("background-color: #e4e4e7;");
+		fireEvent.click(screen.getByRole("button", { name: "Save" }));
+		await waitFor(() => expect(saved).toEqual([WHITE_SVG_EXPORT]));
 	});
 	it("retries a diagram error and also renders diagrams from file preview", async () => {
 		const { host } = createMarkdownHostFixture();

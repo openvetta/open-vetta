@@ -361,6 +361,7 @@ func (t *Transport) handleMessageCreate(ctx context.Context, m *discordgo.Messag
 		Platform:    "discord",
 		ChatID:      m.ChannelID,
 		UserID:      m.Author.ID,
+		Private:     m.GuildID == "", // bots cannot join group DMs
 		MessageID:   m.ID,
 		ReplyToID:   replyTo,
 		Text:        text,

@@ -51,6 +51,7 @@ func (t *Transport) normalizeMessage(evt *events.Message) (*transport.InboundMes
 		Platform:   "whatsapp",
 		ChatID:     evt.Info.Chat.ToNonAD().String(),
 		UserID:     evt.Info.Sender.ToNonAD().String(),
+		Private:    !evt.Info.IsGroup,
 		MessageID:  evt.Info.ID,
 		ReplyToID:  ctxInfo.GetStanzaID(),
 		Text:       text,

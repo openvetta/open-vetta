@@ -11,7 +11,7 @@ import chalk from "chalk";
 /** Render the Node CLI help text. Product option names come from Coding Agent; terminal presentation stays here. */
 export function printAgentHelp(): void {
 	const defaultCommandTool = process.platform === "win32" ? "shell" : "bash";
-	const defaultTools = `read,${defaultCommandTool},edit,write,grep,glob,dir_tree,doc_to_pdf,html_to_pdf,extract_text_from_pdf,extract_text_from_img,render_pdf_page,current_time`;
+	const defaultTools = `read,${defaultCommandTool},edit,write,grep,glob,dir_tree,doc_to_pdf,extract_text_from_pdf,extract_text_from_img,render_pdf_page,current_time`;
 
 	console.log(`${chalk.bold(APP_NAME)} - AI coding assistant with ${defaultTools} tools
 
@@ -111,7 +111,7 @@ ${chalk.bold("Environment Variables:")}
 
 ${chalk.bold(`Available Tools (default: ${defaultTools}):`)}
   read, bash, shell, edit, write, grep, glob, find, ls, dir_tree,
-  doc_to_pdf, html_to_pdf, extract_text_from_pdf, extract_text_from_img,
+  doc_to_pdf, extract_text_from_pdf, extract_text_from_img,
   render_pdf_page, current_time, progress, tool_search
 `);
 }

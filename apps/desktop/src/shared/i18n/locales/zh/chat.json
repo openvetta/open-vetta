@@ -46,6 +46,7 @@
 		"loading": "正在生成预览…",
 		"retry": "重试",
 		"enlarge": "放大",
+		"copyImage": "复制图片",
 		"save": "另存为",
 		"diagram": "图表",
 		"imageFailed": "图片加载失败。",

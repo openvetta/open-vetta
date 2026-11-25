@@ -16,7 +16,6 @@ export const CODING_AGENT_BUILT_IN_TOOL_NAMES = [
 	"ls",
 	"dir_tree",
 	"doc_to_pdf",
-	"html_to_pdf",
 	"extract_text_from_pdf",
 	"extract_text_from_img",
 	"render_pdf_page",

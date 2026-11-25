@@ -41,3 +41,36 @@ export function svgImageSource(source: string): string | null {
 		return null;
 	}
 }
+
+/**
+ * Mermaid emits `width="100%"` with no height. As an `<img>`, such an SVG has no intrinsic size,
+ * so the browser fits it into the 300×150 default box. Give it the viewBox size instead.
+ */
+export function withIntrinsicSize(source: string): string {
+	return source.replace(/<svg\b([^>]*)>/i, (tag: string, attributes: string) => {
+		const width = /\swidth\s*=\s*["']([^"']*)["']/i.exec(attributes)?.[1]?.trim();
+		if (width && !width.endsWith("%")) return tag;
+		const box = /\sviewBox\s*=\s*["']([^"']*)["']/i
+			.exec(attributes)?.[1]
+			?.trim()
+			.split(/[\s,]+/)
+			.map(Number);
+		const [, , w = 0, h = 0] = box ?? [];
+		if (box?.length !== 4 || !(w > 0) || !(h > 0)) return tag;
+		const rest = attributes
+			.replace(/\s(?:width|height)\s*=\s*(["'])[^"']*\1/gi, "")
+			.replace(/max-width\s*:\s*[^;"']*;?\s*/i, "");
+		return `<svg${rest} width="${w}" height="${h}">`;
+	});
+}
+
+/** Paints the SVG root so a diagram stays readable when enlarged, copied or saved onto a dark surface. */
+export function withBackground(source: string, color: string): string {
+	return source.replace(/<svg\b([^>]*)>/i, (_tag: string, attributes: string) => {
+		const style = /\sstyle\s*=\s*(["'])([^"']*)\1/i.exec(attributes);
+		if (!style) return `<svg${attributes} style="background-color: ${color};">`;
+		const rest = (style[2] ?? "").replace(/background(?:-color)?\s*:\s*[^;]*;?\s*/gi, "").trim();
+		const merged = `${rest}${rest && !rest.endsWith(";") ? ";" : ""}${rest ? " " : ""}background-color: ${color};`;
+		return `<svg${attributes.replace(style[0], ` style="${merged}"`)}>`;
+	});
+}

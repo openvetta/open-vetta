@@ -42,6 +42,9 @@ type Router struct {
 	mu     sync.Mutex
 	queues map[string]chan transport.InboundMessage
 	closed bool
+	// onDeliveryChat reports chats proposed as the automation delivery target
+	// (see SetDeliveryChatHandler).
+	onDeliveryChat DeliveryChatHandler
 
 	wg sync.WaitGroup
 }
@@ -104,6 +107,11 @@ func (r *Router) HandleInbound(ctx context.Context, msg transport.InboundMessage
 	}
 
 	key := convKey(msg.UserID, msg.ChatID)
+	// Every private message is proposed, not only the first: the host ignores
+	// proposals while a target is set, and after the user clears it the next
+	// private message must be able to fill it again.
+	onDeliveryChat := r.onDeliveryChat
+	offer := onDeliveryChat != nil && msg.Private && msg.ActionID == "" && msg.ChatID != ""
 	q, ok := r.queues[key]
 	if !ok {
 		q = make(chan transport.InboundMessage, 32)
@@ -112,6 +120,10 @@ func (r *Router) HandleInbound(ctx context.Context, msg transport.InboundMessage
 		go r.processConversation(ctx, q)
 	}
 	r.mu.Unlock()
+
+	if offer {
+		onDeliveryChat(msg.ChatID, msg.UserID, false)
+	}
 
 	select {
 	case q <- msg:
@@ -198,6 +210,11 @@ func (r *Router) tryCommand(ctx context.Context, msg transport.InboundMessage) (
 		State:           r.state,
 		HostPool:        r.pool,
 	}
+	r.mu.Lock()
+	if onDeliveryChat := r.onDeliveryChat; onDeliveryChat != nil {
+		env.ChooseDeliveryChat = func() { onDeliveryChat(msg.ChatID, msg.UserID, true) }
+	}
+	r.mu.Unlock()
 	res, err := r.commands.Dispatch(ctx, env, msg.Text)
 	if err != nil {
 		return false, err

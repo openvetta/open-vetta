@@ -45,6 +45,9 @@ type Env struct {
 	State           state.Store
 	HostPool        HostPool
 	HostBin         string // for /whoami diagnostic only
+	// ChooseDeliveryChat makes this chat the automation delivery target.
+	// Nil when the gateway runs without a desktop host (standalone dev mode).
+	ChooseDeliveryChat func()
 }
 
 // HostPool is the subset of hostclient.ProcessPool the command layer needs.
@@ -61,12 +64,13 @@ type Router struct {
 }
 
 // NewRouter constructs a router pre-populated with the post-collapse
-// command set: /new /whoami /help. Project commands (/projects /use)
+// command set: /new /whoami /notify /help. Project commands (/projects /use)
 // are gone — every IM session lives in conversationCwd.
 func NewRouter() *Router {
 	r := &Router{handlers: make(map[string]Handler)}
 	r.Register(&newCmd{})
 	r.Register(&whoamiCmd{})
+	r.Register(&notifyCmd{})
 	r.Register(&helpCmd{router: r})
 	return r
 }
@@ -270,4 +274,26 @@ func (h helpCmd) Run(_ context.Context, _ Env, _ []string) (Result, error) {
 		fmt.Fprintf(&b, "- %s\n", h.router.handlers[n].Help())
 	}
 	return reply(strings.TrimRight(b.String(), "\n")), nil
+}
+
+// =============================================================================
+// /notify
+// =============================================================================
+
+// notifyCmd makes the current chat the one that receives automation results.
+// The first private chat is picked automatically; this is how a user moves
+// the target, including into a group.
+type notifyCmd struct{}
+
+func (notifyCmd) Name() string { return "notify" }
+func (notifyCmd) Help() string {
+	return "`/notify` — 以后的自动化结果发到这个对话"
+}
+
+func (notifyCmd) Run(_ context.Context, env Env, _ []string) (Result, error) {
+	if env.ChooseDeliveryChat == nil {
+		return reply("当前运行方式不支持接收自动化结果。"), nil
+	}
+	env.ChooseDeliveryChat()
+	return reply("好的，以后开启「通过 Claw 发送」的自动化结果都会发到这个对话。"), nil
 }

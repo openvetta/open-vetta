@@ -24,7 +24,12 @@ export const FRAME_SIGNAL_BIND_START = "signal_bind_start" as const;
 export const FRAME_SIGNAL_LOGOUT = "signal_logout" as const;
 export const FRAME_FEISHU_BIND_START = "feishu_bind_start" as const;
 export const FRAME_FEISHU_LOGOUT = "feishu_logout" as const;
+/** Only sent to a sidecar whose ready event lists CAPABILITY_AUTOMATION_DELIVERY. */
+export const FRAME_AUTOMATION_DELIVERY = "automation_delivery" as const;
+export const CAPABILITY_AUTOMATION_DELIVERY = "automation_delivery" as const;
 
+export const EVENT_AUTOMATION_DELIVERY_RESULT = "automation_delivery_result" as const;
+export const EVENT_DELIVERY_CHAT = "delivery_chat" as const;
 export const EVENT_READY = "ready" as const;
 export const EVENT_LOG = "log" as const;
 export const EVENT_STATUS = "status" as const;
@@ -330,6 +335,18 @@ export interface FeishuLogoutFrame {
 	type: typeof FRAME_FEISHU_LOGOUT;
 }
 
+/**
+ * Send a finished automation's result text to `chatId` on the active
+ * channel. The parent picks the chat (see DeliveryChatEvent); the sidecar
+ * only sends.
+ */
+export interface AutomationDeliveryFrame {
+	type: typeof FRAME_AUTOMATION_DELIVERY;
+	requestId: string;
+	chatId: string;
+	text: string;
+}
+
 export type InboundFrame =
 	| InitFrame
 	| ConfigUpdateFrame
@@ -341,7 +358,8 @@ export type InboundFrame =
 	| SignalBindStartFrame
 	| SignalLogoutFrame
 	| FeishuBindStartFrame
-	| FeishuLogoutFrame;
+	| FeishuLogoutFrame
+	| AutomationDeliveryFrame;
 
 // =============================================================================
 // Outbound events (child → parent)
@@ -355,6 +373,33 @@ export interface ReadyEvent {
 	type: typeof EVENT_READY;
 	version: string;
 	transport: string;
+	/** Optional inbound frames this sidecar accepts; older sidecars omit it. */
+	capabilities?: string[];
+}
+
+/**
+ * The sidecar proposes `chatId` as the chat that receives automation
+ * results. `explicit` means the user ran /notify there and the proposal
+ * always wins; otherwise it is a private chat (sent for every private
+ * message), adopted only while the channel has no target yet.
+ */
+export interface DeliveryChatEvent {
+	type: typeof EVENT_DELIVERY_CHAT;
+	chatId: string;
+	userId: string;
+	explicit: boolean;
+}
+
+/**
+ * Answer to one AutomationDeliveryFrame. `code` is "no_chat" when the frame
+ * named no chat; `error` carries the send failure.
+ */
+export interface AutomationDeliveryResultEvent {
+	type: typeof EVENT_AUTOMATION_DELIVERY_RESULT;
+	requestId: string;
+	ok: boolean;
+	code?: string;
+	error?: string;
 }
 
 export interface LogEvent {
@@ -545,6 +590,8 @@ export interface FeishuUnboundEvent {
 
 export type OutboundEvent =
 	| ReadyEvent
+	| AutomationDeliveryResultEvent
+	| DeliveryChatEvent
 	| LogEvent
 	| StatusEvent
 	| StatePatchEvent
@@ -591,6 +638,8 @@ export function decodeEvent(line: string): OutboundEvent | null {
 	}
 	switch (parsed.type) {
 		case EVENT_READY:
+		case EVENT_AUTOMATION_DELIVERY_RESULT:
+		case EVENT_DELIVERY_CHAT:
 		case EVENT_LOG:
 		case EVENT_STATUS:
 		case EVENT_STATE_PATCH:

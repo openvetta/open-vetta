@@ -56,7 +56,16 @@ export class SchedulerServiceError extends Error {
 	}
 }
 
-const INPUT_KEYS = new Set(["name", "prompt", "schedule", "runTarget", "model", "notification", "enabled"]);
+const INPUT_KEYS = new Set([
+	"name",
+	"prompt",
+	"schedule",
+	"runTarget",
+	"model",
+	"notification",
+	"notifyClaw",
+	"enabled",
+]);
 
 function isNonBlankString(value: unknown): value is string {
 	return typeof value === "string" && value.trim().length > 0;
@@ -71,6 +80,9 @@ function assertFieldShapes(input: Record<string, unknown>): void {
 	if (input.name !== undefined && !isNonBlankString(input.name)) throw invalid("Task name must not be blank.");
 	if (input.prompt !== undefined && !isNonBlankString(input.prompt)) throw invalid("Task prompt must not be blank.");
 	if (input.enabled !== undefined && typeof input.enabled !== "boolean") throw invalid("enabled must be a boolean.");
+	if (input.notifyClaw !== undefined && typeof input.notifyClaw !== "boolean") {
+		throw invalid("notifyClaw must be a boolean.");
+	}
 	if (input.schedule !== undefined) {
 		if (!isAutomationSchedule(input.schedule) || !isValidSchedule(input.schedule)) {
 			throw new SchedulerServiceError("SCHEDULER_SCHEDULE_INVALID", "Invalid automation schedule.");

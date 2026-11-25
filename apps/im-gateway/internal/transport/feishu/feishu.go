@@ -338,6 +338,7 @@ func (t *Transport) handleInbound(ctx context.Context, event *larkim.P2MessageRe
 	inbound := transport.InboundMessage{
 		Platform:    "feishu",
 		ChatID:      chatID,
+		Private:     true, // group chats are dropped above
 		UserID:      userID,
 		MessageID:   msgID,
 		Text:        text,
