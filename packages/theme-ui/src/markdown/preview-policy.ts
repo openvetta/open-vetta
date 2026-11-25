@@ -63,3 +63,14 @@ export function withIntrinsicSize(source: string): string {
 		return `<svg${rest} width="${w}" height="${h}">`;
 	});
 }
+
+/** Paints the SVG root so a diagram stays readable when enlarged, copied or saved onto a dark surface. */
+export function withBackground(source: string, color: string): string {
+	return source.replace(/<svg\b([^>]*)>/i, (_tag: string, attributes: string) => {
+		const style = /\sstyle\s*=\s*(["'])([^"']*)\1/i.exec(attributes);
+		if (!style) return `<svg${attributes} style="background-color: ${color};">`;
+		const rest = (style[2] ?? "").replace(/background(?:-color)?\s*:\s*[^;]*;?\s*/gi, "").trim();
+		const merged = `${rest}${rest && !rest.endsWith(";") ? ";" : ""}${rest ? " " : ""}background-color: ${color};`;
+		return `<svg${attributes.replace(style[0], ` style="${merged}"`)}>`;
+	});
+}

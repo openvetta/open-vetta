@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { withIntrinsicSize } from "./preview-policy";
+import { withBackground, withIntrinsicSize } from "./preview-policy";
 
 describe("withIntrinsicSize", () => {
 	it("sizes a Mermaid diagram from its viewBox so an image is not shrunk to the default box", () => {
@@ -16,5 +16,16 @@ describe("withIntrinsicSize", () => {
 			'<svg width="100%" viewBox="0 0 0 10"></svg>',
 		])
 			expect(withIntrinsicSize(svg)).toBe(svg);
+	});
+});
+
+describe("withBackground", () => {
+	it("replaces Mermaid's own background so a dark-mode diagram keeps a light canvas", () => {
+		expect(
+			withBackground('<svg id="d" style="max-width: 10px; background-color: white;"><g/></svg>', "#e8e8ea"),
+		).toBe('<svg id="d" style="max-width: 10px; background-color: #e8e8ea;"><g/></svg>');
+		expect(withBackground('<svg viewBox="0 0 1 1"></svg>', "#e8e8ea")).toBe(
+			'<svg viewBox="0 0 1 1" style="background-color: #e8e8ea;"></svg>',
+		);
 	});
 });

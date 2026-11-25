@@ -96,6 +96,13 @@ describe("Markdown media workflows", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Preview" }));
 		await screen.findByRole("img", { name: "Diagram" });
 	});
+	it("renders dark-mode diagrams with the light palette on a gray canvas", async () => {
+		const { host } = createMarkdownHostFixture();
+		render(<MarkdownContent {...props} theme="dark" host={host} text={"```mermaid\ngraph TD; A-->B\n```"} />);
+		const image = await screen.findByRole("img", { name: "Diagram" });
+		expect(host.renderMermaid).toHaveBeenCalledWith("graph TD; A-->B", "light");
+		expect(decodeURIComponent(image.getAttribute("src") ?? "")).toContain("background-color: #e4e4e7;");
+	});
 	it("retries a diagram error and also renders diagrams from file preview", async () => {
 		const { host } = createMarkdownHostFixture();
 		host.renderMermaid.mockRejectedValueOnce(new Error("Worker stopped"));

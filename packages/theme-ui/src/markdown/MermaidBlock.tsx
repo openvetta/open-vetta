@@ -5,9 +5,15 @@ import { CodeBlock } from "./CodeBlock";
 import type { MarkdownCodeBlockProps } from "./definition";
 import { useMarkdownHost } from "./host";
 import { useImageActions } from "./image-actions";
-import { svgImageSource, withIntrinsicSize } from "./preview-policy";
+import { svgImageSource, withBackground, withIntrinsicSize } from "./preview-policy";
 import { defaultRichContentLabels } from "./rich-labels";
 import { useRichVisibility } from "./use-rich-visibility";
+
+/**
+ * Mermaid's dark theme renders poorly, so diagrams always use the light palette.
+ * In dark mode they sit on a soft gray canvas instead of a glaring white one.
+ */
+const DARK_MODE_CANVAS = "#e4e4e7";
 
 function DiagramAction({ label, icon, disabled, onClick }: { label: string; icon: string; disabled?: boolean; onClick: () => void }) {
 	const handle = (event: MouseEvent<HTMLButtonElement>) => {
@@ -30,20 +36,20 @@ export const MermaidBlock = memo(function MermaidBlock(props: MarkdownCodeBlockP
 	const [source, setSource] = useState(false);
 	const [attempt, setAttempt] = useState(0);
 	const [result, setResult] = useState<{ key: string; svg: string | null }>();
-	const key = `${theme}:${code}`;
 	const oversized = code.length > 12_000;
 	useEffect(() => {
 		if (!host || !active || live || source || oversized) return;
 		let cancelled = false;
-		void host.renderMermaid(code, theme).then(
-			(svg) => { if (!cancelled) setResult({ key, svg }); },
-			() => { if (!cancelled) setResult({ key, svg: null }); },
+		void host.renderMermaid(code, "light").then(
+			(svg) => { if (!cancelled) setResult({ key: code, svg }); },
+			() => { if (!cancelled) setResult({ key: code, svg: null }); },
 		);
 		return () => { cancelled = true; };
-	}, [host, active, live, source, oversized, key, code, theme, attempt]);
-	const current = result?.key === key ? result : undefined;
-	const image = current?.svg ? svgImageSource(withIntrinsicSize(current.svg)) : null;
-	const { action, setAction, run, busy } = useImageActions(host, image ?? undefined, key);
+	}, [host, active, live, source, oversized, code, attempt]);
+	const current = result?.key === code ? result : undefined;
+	const dark = theme === "dark";
+	const image = current?.svg ? svgImageSource(withIntrinsicSize(dark ? withBackground(current.svg, DARK_MODE_CANVAS) : current.svg)) : null;
+	const { action, setAction, run, busy } = useImageActions(host, image ?? undefined, `${theme}:${code}`);
 	useEffect(() => {
 		if (action !== "copied") return;
 		const timer = setTimeout(() => setAction(null), 1500);
@@ -68,6 +74,6 @@ export const MermaidBlock = memo(function MermaidBlock(props: MarkdownCodeBlockP
 		{!showing ? <>
 			{!source && <p role="status" className="px-4 pb-2 text-[12px] text-muted-foreground">{oversized ? labels.tooLarge : live ? labels.waiting : labels.failed}</p>}
 			<CodeBlock.Content />
-		</> : image ? <CodeBlock.Body><div className="overflow-x-auto p-4"><img src={image} alt={diagram} decoding="async" className="mx-auto block h-auto max-w-full" /></div></CodeBlock.Body> : <CodeBlock.Body><div className="min-h-24 p-4" role="status">{labels.loading ?? labels.waiting}</div></CodeBlock.Body>}
+		</> : image ? <CodeBlock.Body><div className="overflow-x-auto p-4" style={dark ? { backgroundColor: DARK_MODE_CANVAS } : undefined}><img src={image} alt={diagram} decoding="async" className="mx-auto block h-auto max-w-full" /></div></CodeBlock.Body> : <CodeBlock.Body><div className="min-h-24 p-4" role="status">{labels.loading ?? labels.waiting}</div></CodeBlock.Body>}
 	</div></CodeBlock.Frame></CodeBlock.Copy></CodeBlock.Root>;
 });
