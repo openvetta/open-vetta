@@ -4,7 +4,7 @@ import { CodeBlock } from "./CodeBlock";
 import type { MarkdownCodeBlockProps } from "./definition";
 import { useMarkdownHost } from "./host";
 import { MarkdownImage } from "./MarkdownImage";
-import { svgImageSource } from "./preview-policy";
+import { svgImageSource, withIntrinsicSize } from "./preview-policy";
 import { defaultRichContentLabels } from "./rich-labels";
 import { useRichVisibility } from "./use-rich-visibility";
 
@@ -28,7 +28,7 @@ export const MermaidBlock = memo(function MermaidBlock(props: MarkdownCodeBlockP
 		return () => { cancelled = true; };
 	}, [host, active, live, source, oversized, key, code, theme, attempt]);
 	const current = result?.key === key ? result : undefined;
-	const image = current?.svg ? svgImageSource(current.svg) : null;
+	const image = current?.svg ? svgImageSource(withIntrinsicSize(current.svg)) : null;
 	return <CodeBlock.Root {...props}><CodeBlock.Copy><CodeBlock.Frame><div ref={ref}>
 		<div className="flex items-center gap-2 py-1.5 pr-12 pl-4">
 			<span className="text-[12px] text-muted-foreground">Mermaid</span>
