@@ -11,6 +11,12 @@ describe("app-icon", () => {
 		expect(isAppIconId(42)).toBe(false);
 	});
 
+	it("蓝色版已并入出厂图标：存过 blue 的配置回落默认，深色版作为可选风格保留", () => {
+		expect(isAppIconId("blue")).toBe(false);
+		expect(normalizeAppIconId("blue")).toBe(APP_ICON_DEFAULT);
+		expect(normalizeAppIconId("dark")).toBe("dark");
+	});
+
 	it("除默认外，每个图标都有打包进应用的图片和设置页预览图", () => {
 		for (const id of APP_ICON_IDS) {
 			if (id === APP_ICON_DEFAULT) continue;
