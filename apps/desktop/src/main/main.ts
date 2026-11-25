@@ -626,7 +626,7 @@ if (!gotSingleLock) {
 			getTray()?.setToolTip(tooltip);
 		});
 
-		// Dock 图标按用户在「设置 → 外观 → 应用图标」里的选择套用（默认仍是 icon-dock.png）。
+		// Dock 图标按用户在「设置 → 外观 → 应用图标」里的选择套用（开发态默认图标用 icon-dock.png）。
 		if (process.platform === "darwin") applyAppIcon();
 
 		// 默认「对话」项目目录：保证一直存在。
