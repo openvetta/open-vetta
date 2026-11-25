@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -12,6 +12,13 @@ function createRemoteDirectory(): string {
 }
 
 const helperBinary = buildSshHelperForTests();
+
+/**
+ * 账号登录 shell 是 csh 的远端（CentOS 上的老账号常见）。sshd 拿它解释整条命令串，它既不认
+ * POSIX 语法，也不接受 `-l -c` 组合——命令构造必须绕开它，而不是指望它。
+ */
+const CSH = "/bin/csh";
+const hasCsh = process.platform !== "win32" && existsSync(CSH);
 
 /**
  * 同一组行为在两条路上各跑一遍：每次操作新起一个 ssh 进程的 `ssh exec`，以及经远端 helper
@@ -28,7 +35,71 @@ const modes: { name: string; skip: boolean; connect: () => Promise<SshConnection
 			return connection;
 		},
 	},
+	{
+		name: "ssh exec，登录 shell 为 csh",
+		skip: !hasCsh,
+		connect: async () => createLoopbackSshConnection("loopback", { loginShell: CSH }),
+	},
+	{
+		name: "远端 helper，登录 shell 为 csh",
+		skip: !hasCsh || !helperBinary,
+		connect: async () => {
+			const connection = createLoopbackSshConnection("loopback", {
+				loginShell: CSH,
+				helper: { resolveBinary: () => helperBinary },
+			});
+			if (!(await connection.helper())) throw new Error("helper did not come up");
+			return connection;
+		},
+	},
 ];
+
+describe.skipIf(!hasCsh)("登录 shell 为 csh 的远端（回环 SSH）", () => {
+	baseIt("执行用户命令：POSIX 语法、工作目录、环境变量与退出码都照常生效", async () => {
+		const dir = createRemoteDirectory();
+		const connection = createLoopbackSshConnection("loopback", { loginShell: CSH });
+
+		const result = await connection.exec('echo "cwd=$(pwd) foo=$FOO" 2>&1; exit 3', {
+			cwd: dir,
+			env: { FOO: "it's bar" },
+		});
+
+		expect(new TextDecoder().decode(result.stdout)).toBe(`cwd=${dir} foo=it's bar\n`);
+		expect(result.exitCode).toBe(3);
+	});
+
+	baseIt("解析家目录", async () => {
+		const connection = createLoopbackSshConnection("loopback", { loginShell: CSH });
+		await expect(connection.resolveHomeDirectory()).resolves.toMatch(/\/home$/);
+	});
+
+	baseIt.skipIf(!helperBinary)("helper 的后台任务经登录 shell 跑完并记下退出码", async () => {
+		const cwd = createRemoteDirectory();
+		const connection = createLoopbackSshConnection("loopback", {
+			loginShell: CSH,
+			helper: { resolveBinary: () => helperBinary },
+		});
+		const helper = await connection.helper();
+		if (!helper) throw new Error("helper did not come up");
+		const started = await helper.call<{ id: string }>("proc.spawn", { command: "echo $((1 + 2)); exit 4", cwd });
+
+		let output = "";
+		let offset = 0;
+		let status: { state: string; exitCode?: number };
+		do {
+			const read = await helper.call<{ data: string; nextOffset: number; status: typeof status }>("proc.read", {
+				id: started.id,
+				offset,
+				waitMs: 5000,
+			});
+			output += read.data;
+			offset = read.nextOffset;
+			status = read.status;
+		} while (status.state === "live");
+		expect(output).toBe("3\n");
+		expect(status).toMatchObject({ state: "exited", exitCode: 4 });
+	});
+});
 
 describe.each(modes)("SshConnection 的文件操作（回环 SSH，$name）", ({ skip, connect }) => {
 	const it = skip ? baseIt.skip : baseIt;

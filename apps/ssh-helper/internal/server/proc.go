@@ -81,7 +81,12 @@ type spawnParams struct {
 // pyenv and friends are on PATH) and records the exit code afterwards. The
 // code lands in a temp name first: a reader must never see a half-written file
 // and mistake "" for a status.
-const wrapperScript = `"${SHELL:-/bin/sh}" -l -c "$1"
+//
+// csh and tcsh accounts get /bin/sh instead: tcsh rejects "-l -c" outright, and
+// the command is POSIX syntax anyway. Same rule as SELECT_LOGIN_SHELL in
+// packages/ssh-transport/src/remote-command.ts; change both together.
+const wrapperScript = `case "x${SHELL##*/}" in x | xcsh | xtcsh) l=/bin/sh ;; *) l=$SHELL ;; esac
+"$l" -l -c "$1"
 code=$?
 printf %s "$code" > "$2.tmp" && mv -f "$2.tmp" "$2"
 exit "$code"`

@@ -15,7 +15,7 @@ import { Button } from "@vetta-org/ui/button";
 import { ButtonGroup, ButtonGroupItem } from "@vetta-org/ui/button-group";
 import { useNavigate } from "@tanstack/react-router";
 import { RunningPulseDot, WaitingPulseBadge } from "@vetta-org/theme-ui/sidebar";
-import { VettaKbd } from "@vetta-org/theme-ui/shared";
+import { chromeButtonGroupVariant, VettaKbd } from "@vetta-org/theme-ui/shared";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -82,7 +82,7 @@ export function SpaceSwitcher(): JSX.Element {
 	}
 	return (
 		<div ref={row} className="flex min-w-0 flex-1 items-center">
-			<ButtonGroup blur={false} aria-label={t("spaces.settingsTitle")}>
+			<ButtonGroup blur={false} variant={chromeButtonGroupVariant} aria-label={t("spaces.settingsTitle")}>
 				<ButtonGroupItem
 					active={state.selected === MAIN_SPACE}
 					aria-pressed={state.selected === MAIN_SPACE}

@@ -39,15 +39,19 @@ export interface RemoteCommandOptions {
  * 命令属于「静默换了个仓库」，正是执行边界规则要禁止的。
  *
  * 最外层固定交给 `/bin/sh`：sshd 用账号的登录 shell 解释这条命令串，而 fish 之类
- * 不认 `${VAR:-default}`。外层只用「命令 + 单引号参数」这一种所有 shell 都认的写法。
+ * 不认 `${VAR:-default}`。到 sshd 为止的那一层由 {@link wrapForLoginShell} 负责。
+ *
+ * 登录 shell 是 csh/tcsh 时改用 `/bin/sh -l`：tcsh 只在 `-l` 是唯一参数时才接受它，
+ * `-l -c` 直接报 `Unknown option`；而且这段脚本本身是 POSIX 语法，csh 也解析不了。
+ * 代价是读不到 `~/.login`；`~/.cshrc` 不受影响——sshd 起的 `csh -c` 已经读过它，
+ * 设下的环境变量会一路继承下来。
  */
 export function buildRemoteCommand(command: string, options: RemoteCommandOptions = {}): string {
 	// 整段脚本会作为位置参数再被引用一层，因此这里的引号会在最终命令串里出现二次转义。
 	// 两层分开构造，才能各自断言。
 	const script = quoteShellArgument(buildRemoteScript(command, options));
-	// `${SHELL:-/bin/sh}`：远端账号可能没设 SHELL（cron、部分容器镜像），缺省回落到 sh。
 	if (options.processToken === undefined) {
-		return `/bin/sh -c 'exec "\${SHELL:-/bin/sh}" -l -c "$1"' vetta ${script}`;
+		return `/bin/sh -c ${quoteShellArgument(`${SELECT_LOGIN_SHELL}; exec "$l" -l -c "$1"`)} vetta ${script}`;
 	}
 	assertProcessToken(options.processToken);
 	const launcher = [
@@ -62,13 +66,56 @@ export function buildRemoteCommand(command: string, options: RemoteCommandOption
 		// 自己的 pid（前缀 p），终止时退化为杀单个进程及其直接子进程。
 		`g=$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')`,
 		`if [ -n "$g" ] && { [ "$g" = "$$" ] || [ "$g" = "$PPID" ]; }; then printf 'g%s' "$g" > "$f"; else printf 'p%s' "$$" > "$f"; fi`,
-		`"\${SHELL:-/bin/sh}" -l -c "$1"`,
+		SELECT_LOGIN_SHELL,
+		`"$l" -l -c "$1"`,
 		"s=$?",
 		`rm -f -- "$f"`,
 		"exit $s",
 	].join("\n");
 	return `/bin/sh -c ${quoteShellArgument(launcher)} vetta ${script}`;
 }
+
+/**
+ * 在远端 `/bin/sh` 里挑出用来跑用户命令的登录 shell，放进 `$l`。
+ *
+ * 账号可能没设 SHELL（cron、部分容器镜像），此时回落到 sh；csh 家族的原因见
+ * {@link buildRemoteCommand}。helper 的后台任务（`apps/ssh-helper` 的 `wrapperScript`）
+ * 用的是同一条规则，改这里要一起改。
+ */
+// biome-ignore lint/suspicious/noTemplateCurlyInString: 交给远端 shell 展开，不是 JS 模板。
+const SELECT_LOGIN_SHELL = 'case "x${SHELL##*/}" in x | xcsh | xtcsh) l=/bin/sh ;; *) l=$SHELL ;; esac';
+
+/**
+ * 把一条 POSIX 命令行变成交给 sshd 的命令串。
+ *
+ * sshd 不直接执行远端命令，而是交给账号的登录 shell 解释一遍。这里保证登录 shell 只看到
+ * 「`/bin/sh -c` 加一个单引号参数」——csh、fish、bash、zsh 对它的理解完全一致——真正的
+ * 命令行再由 `/bin/sh` 解释。不这样做，csh 账号会在 `${HOME:?}`、`export` 这类 POSIX
+ * 写法上逐条失败。
+ *
+ * 单引号也不是处处安全：csh 不允许单引号里出现换行（报 `Unmatched '`），`!` 即使在
+ * 非交互的 `csh -c` 里也会触发历史替换。含有这些字符（多行脚本、写文件的模板几乎都含
+ * 换行）时，改为把命令行编码成 `printf` 的格式串，由远端 sh 还原后 `eval`：格式串里
+ * 只剩可打印字符，反斜杠也写成八进制，免得 fish 在单引号里把 `\\` 吃成一个。非 ASCII
+ * 字节原样保留，中文路径不会膨胀四倍。
+ */
+export function wrapForLoginShell(command: string): string {
+	if (!LOGIN_SHELL_UNSAFE.test(command)) return `/bin/sh -c ${quoteShellArgument(command)}`;
+	let format = "";
+	for (const char of command) {
+		const code = char.codePointAt(0) ?? 0;
+		if (char === "%") format += "%%";
+		else if (code < 0x20 || code === 0x7f || char === "!" || char === "'" || char === "\\") {
+			format += `\\${code.toString(8).padStart(3, "0")}`;
+		} else format += char;
+	}
+	// 开头的 `-` 会被 printf 当成选项。
+	if (format.startsWith("-")) format = `\\055${format.slice(1)}`;
+	return `/bin/sh -c ${quoteShellArgument(`eval "$(printf '${format}')"`)}`;
+}
+
+/** 放进单引号后，至少有一种常见登录 shell 不按字面量处理的字符。制表符不在其中。 */
+const LOGIN_SHELL_UNSAFE = /[\x00-\x08\x0a-\x1f\x7f!]/;
 
 /**
  * 终止一条带 `processToken` 启动的命令及其派生的全部进程。

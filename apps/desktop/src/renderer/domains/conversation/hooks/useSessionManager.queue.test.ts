@@ -537,6 +537,39 @@ it("空闲发送：正常上屏乐观气泡并返回 sent", async () => {
 	);
 });
 
+it("编辑较早的消息后发送：退回到它之前另开分支再发，不删后续对话", async () => {
+	const sessionApi = (window as unknown as { vetta: { session: Record<string, unknown> } }).vetta.session;
+	// 主进程边界按到达顺序记账：先回退历史，再发 prompt。
+	const historyLog: string[] = [];
+	sessionApi.navigateForEdit = async (_sessionId: string, entryId: string) => {
+		historyLog.push(`branch-from:${entryId}`);
+		return { text: "原来的问题", cancelled: false };
+	};
+	sessionApi.replaceLastUserMessage = async (_sessionId: string, entryId: string) => {
+		historyLog.push(`delete:${entryId}`);
+		return { leafId: null };
+	};
+	mocks.prompt.mockImplementation(async (...args: unknown[]) => {
+		historyLog.push(`prompt:${(args[1] as { text: string }).text}`);
+		return { status: "completed" };
+	});
+	const store = await mount("改过的问题", false);
+	const { chatMessagesAtom, pendingMessageEditAtom } = await import("@shared/store/atoms");
+	store.set(pendingMessageEditAtom, { entryId: "entry-early", mode: "branch" });
+
+	let result: Awaited<ReturnType<SessionManagerProbe["sendMessage"]>>;
+	await act(async () => {
+		result = await manager?.sendMessage();
+	});
+
+	expect(result).toEqual({ status: "sent" });
+	expect(historyLog).toEqual(["branch-from:entry-early", "prompt:改过的问题"]);
+	expect(store.get(pendingMessageEditAtom)).toBeNull();
+	expect(store.get(chatMessagesAtom).flatMap((message) => (message.kind === "user" ? [message.text] : []))).toEqual([
+		"改过的问题",
+	]);
+});
+
 it("失败回执：即使 error 事件未到达也上屏错误并返回 failed", async () => {
 	mocks.prompt.mockImplementation(async () => ({
 		status: "failed",

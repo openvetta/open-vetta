@@ -28,6 +28,7 @@ export {
 export type { MultiplierTagProps } from "./MultiplierTag";
 export { fmtMultiplier, MultiplierTag } from "./MultiplierTag";
 export { readTableCells, toCsv, toMarkdown } from "./markdown-table-clipboard";
+export { chromeButtonGroupVariant } from "./platform";
 export { getProviderIcon, PROVIDER_ICONS, ProviderIcon } from "./provider-icon";
 export type { ScrollFadeProps } from "./ScrollFade";
 export { ScrollFade } from "./ScrollFade";

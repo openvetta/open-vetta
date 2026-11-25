@@ -1,9 +1,16 @@
+import { type AddressInfo, createServer, type Server } from "node:net";
 import { describe, expect, it, vi } from "vitest";
 import { SshOperationAbortedError, SshRemoteCommandError, SshTransportError } from "./errors.js";
-import type { SshProcessInvocation, SshProcessResult, SshProcessRunner } from "./process-runner.js";
+import type {
+	SshChannelInvocation,
+	SshProcessInvocation,
+	SshProcessResult,
+	SshProcessRunner,
+} from "./process-runner.js";
 import { buildKillCommand, buildRemoteCommand, buildWriteFileCommand } from "./remote-command.js";
 import { SshConnection } from "./ssh-connection.js";
 import type { SshHost } from "./ssh-host.js";
+import { unwrapLoginShellCommand } from "./testing.js";
 
 const host: SshHost = { id: "build-01", label: "构建机", target: "build", source: "manual" };
 
@@ -15,6 +22,11 @@ function ok(stdout: string): SshProcessResult {
 	return { exitCode: 0, stdout: encode(stdout), stderr: "", aborted: false };
 }
 
+/** 这次调用真正要远端 `/bin/sh` 执行的命令行。 */
+function commandOf(invocation: SshProcessInvocation): string {
+	return unwrapLoginShellCommand(String(invocation.argv.at(-1)));
+}
+
 /** 按远端命令内容依次应答，并记录每次调用，便于断言真正发出去的是什么。 */
 function createRunner(reply: (remoteCommand: string) => SshProcessResult): {
 	runner: SshProcessRunner;
@@ -24,7 +36,7 @@ function createRunner(reply: (remoteCommand: string) => SshProcessResult): {
 	const runner: SshProcessRunner = {
 		run: async (invocation) => {
 			calls.push(invocation);
-			return reply(String(invocation.argv[invocation.argv.length - 1]));
+			return reply(commandOf(invocation));
 		},
 	};
 	return { runner, calls };
@@ -60,7 +72,7 @@ describe("远端文件读写", () => {
 	it("读文件走原始字节，不经登录 shell——profile 的输出会混进文件内容", async () => {
 		const { connection, calls } = connect(() => ok("file body"));
 		await expect(connection.readFile("/srv/a.txt")).resolves.toEqual(encode("file body"));
-		const remoteCommand = String(calls[0].argv[calls[0].argv.length - 1]);
+		const remoteCommand = commandOf(calls[0]);
 		expect(remoteCommand).toBe("cat -- '/srv/a.txt'");
 		expect(remoteCommand).not.toContain("SHELL");
 	});
@@ -68,7 +80,7 @@ describe("远端文件读写", () => {
 	it("写文件先写同目录临时文件再 mv，内容走 stdin 而不是命令行", async () => {
 		const { connection, calls } = connect(() => ok(""));
 		await connection.writeFile("/srv/a.txt", encode("hello"));
-		const remoteCommand = String(calls[0].argv[calls[0].argv.length - 1]);
+		const remoteCommand = commandOf(calls[0]);
 		expect(remoteCommand).toBe(
 			buildWriteFileCommand("/srv/a.txt", remoteCommand.match(/\.vetta-tmp-[a-z0-9]+/)?.[0] ?? ""),
 		);
@@ -120,6 +132,19 @@ describe("失败分类（ADR-0124 执行边界）", () => {
 		expect((error as SshTransportError).verdict).toBe("unverifiable");
 	});
 
+	it("Windows 上 ssh 以 -1 退出（Node 报成 4294967295）同样是传输故障", async () => {
+		// 远端命令的退出码只能落在 0–255，这个值只可能是本机 ssh 自己给的。
+		const { connection } = connect(() => ({
+			exitCode: 4294967295,
+			stdout: new Uint8Array(),
+			stderr: "Read from remote host 192.0.2.10: Unknown error",
+			aborted: false,
+		}));
+		const error = await connection.probePlatform().catch((e: unknown) => e);
+		expect(error).toBeInstanceOf(SshTransportError);
+		expect((error as Error).message).toMatch(/^Cannot reach 构建机: Read from remote host/);
+	});
+
 	it("取消同样是 unverifiable：远端可能已经执行完了", async () => {
 		const { connection } = connect(() => ({
 			exitCode: null,
@@ -149,7 +174,7 @@ describe("失败分类（ADR-0124 执行边界）", () => {
 		const runner: SshProcessRunner = {
 			run: (invocation) => {
 				calls.push(invocation);
-				const remoteCommand = String(invocation.argv[invocation.argv.length - 1]);
+				const remoteCommand = commandOf(invocation);
 				if (remoteCommand.includes("uname")) return Promise.resolve(ok("Linux\nx86_64\n"));
 				if (!remoteCommand.includes("npm run dev")) return Promise.resolve(ok(""));
 				// 用户命令一直不结束，直到被掐断。
@@ -169,7 +194,7 @@ describe("失败分类（ADR-0124 执行边界）", () => {
 		const error = await pending;
 		expect(error).toBeInstanceOf(SshOperationAbortedError);
 		expect((error as SshOperationAbortedError).reason).toBe("aborted");
-		const commands = calls.map((call) => String(call.argv[call.argv.length - 1]));
+		const commands = calls.map((call) => commandOf(call));
 		const token = commands[1].match(/vetta-exec-[0-9a-f]+/)?.[0] ?? "";
 		expect(commands[2]).toBe(buildKillCommand(token));
 	});
@@ -178,7 +203,7 @@ describe("失败分类（ADR-0124 执行边界）", () => {
 		const calls: string[] = [];
 		const runner: SshProcessRunner = {
 			run: (invocation) => {
-				const remoteCommand = String(invocation.argv[invocation.argv.length - 1]);
+				const remoteCommand = commandOf(invocation);
 				calls.push(remoteCommand);
 				if (remoteCommand.includes("uname")) return Promise.resolve(ok("Linux\nx86_64\n"));
 				if (!remoteCommand.includes("sleep 999")) return Promise.resolve(ok(""));
@@ -230,7 +255,7 @@ describe("用户命令执行", () => {
 
 		await connection.exec("npm test", { timeoutMs: 1_000 });
 
-		expect(String(calls[0].argv[calls[0].argv.length - 1])).toContain("uname");
+		expect(commandOf(calls[0])).toContain("uname");
 		expect(calls[0].timeoutMs).toBeGreaterThan(60_000);
 	});
 
@@ -246,7 +271,7 @@ describe("用户命令执行", () => {
 			exitCode: 1,
 		});
 		// 引用语义由 remote-command 的测试守住，这里只证明 cwd 确实被透传下去。
-		const userCommand = calls.map((call) => String(call.argv[call.argv.length - 1])).at(-1);
+		const userCommand = calls.map((call) => commandOf(call)).at(-1);
 		const processToken = userCommand?.match(/vetta-exec-[0-9a-f]+/)?.[0];
 		expect(userCommand).toBe(buildRemoteCommand("npm test", { cwd: "/srv/app", processToken }));
 	});
@@ -272,7 +297,7 @@ describe("远端端口与进程", () => {
 		const scan = await connection.listListeningPorts();
 
 		// 一次 ps 问完所有 pid，不按端口逐个往返。
-		expect(calls.filter((call) => String(call.argv.at(-1)).includes("ps -o pid="))).toHaveLength(1);
+		expect(calls.filter((call) => commandOf(call).includes("ps -o pid="))).toHaveLength(1);
 		const app = scan.ports.find((port) => port.port === 3000);
 		expect(app).toMatchObject({ command: "node server.js", sensitive: false });
 		expect(app?.startedAt).toBeLessThanOrEqual(Date.now() - 10_000);
@@ -298,11 +323,11 @@ describe("远端端口与进程", () => {
 	it("终止进程：退出、还活着、没权限三种结局分得开", async () => {
 		const exited = connect(() => ok(""));
 		await expect(exited.connection.terminateProcess(1234)).resolves.toEqual({ exited: true });
-		expect(String(exited.calls[0].argv.at(-1))).toContain("kill -s TERM 1234");
+		expect(commandOf(exited.calls[0])).toContain("kill -s TERM 1234");
 
 		const alive = connect(() => ({ exitCode: 3, stdout: encode(""), stderr: "", aborted: false }));
 		await expect(alive.connection.terminateProcess(1234, { force: true })).resolves.toEqual({ exited: false });
-		expect(String(alive.calls[0].argv.at(-1))).toContain("kill -s KILL 1234");
+		expect(commandOf(alive.calls[0])).toContain("kill -s KILL 1234");
 
 		const denied = connect(() => ({
 			exitCode: 1,
@@ -311,5 +336,79 @@ describe("远端端口与进程", () => {
 			aborted: false,
 		}));
 		await expect(denied.connection.terminateProcess(800)).rejects.toThrow(/Operation not permitted/);
+	});
+});
+
+describe("不复用连接时的端口转发", () => {
+	/** 一个能开通道的执行器：`ssh -N` 被替换成 `behave` 描述的行为。 */
+	function connectWithChannels(
+		behave: (localPort: number) => { exited: Promise<{ exitCode: number | null; stderr: string }>; kill: () => void },
+	) {
+		const opened: SshChannelInvocation[] = [];
+		const runner: SshProcessRunner = {
+			run: async () => ok("Linux\nx86_64\n"),
+			open: (invocation) => {
+				opened.push(invocation);
+				const spec = invocation.argv[invocation.argv.indexOf("-L") + 1] ?? "";
+				const channel = behave(Number(spec.split(":")[0]));
+				return { write: () => {}, end: () => {}, kill: channel.kill, exited: channel.exited };
+			},
+		};
+		return { connection: new SshConnection(host, { runner }), opened };
+	}
+
+	async function freePort(): Promise<number> {
+		const server = createServer();
+		await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+		const port = (server.address() as AddressInfo).port;
+		await new Promise((resolve) => server.close(resolve));
+		return port;
+	}
+
+	it("本机端口能连上即算建成；撤销时结束那个 ssh 进程", async () => {
+		const localPort = await freePort();
+		let server: Server | undefined;
+		let finish: (exit: { exitCode: number | null; stderr: string }) => void = () => {};
+		const { connection, opened } = connectWithChannels((port) => {
+			// 模拟 ssh 认证花了一点时间才开始监听。
+			setTimeout(() => {
+				server = createServer((socket) => socket.destroy()).listen(port, "127.0.0.1");
+			}, 150);
+			return {
+				exited: new Promise((resolve) => {
+					finish = resolve;
+				}),
+				kill: () => {
+					server?.close();
+					finish({ exitCode: null, stderr: "" });
+				},
+			};
+		});
+
+		await connection.forwardPort(localPort, 3000);
+		expect(opened).toHaveLength(1);
+		// 同一条转发再要一次不会多起一个进程。
+		await connection.forwardPort(localPort, 3000);
+		expect(opened).toHaveLength(1);
+
+		await connection.cancelPortForward(localPort, 3000);
+		await connection.forwardPort(localPort, 3000);
+		expect(opened).toHaveLength(2);
+		await connection.cancelPortForward(localPort, 3000);
+	});
+
+	it("ssh 在转发建成前退出时，把它给的原因报出来", async () => {
+		const localPort = await freePort();
+		const { connection } = connectWithChannels(() => ({
+			exited: Promise.resolve({
+				exitCode: 255,
+				stderr: "channel_setup_fwd_listener_tcpip: cannot listen to port\n",
+			}),
+			kill: () => {},
+		}));
+
+		const error = await connection.forwardPort(localPort, 3000).catch((e: unknown) => e);
+		expect(error).toBeInstanceOf(SshTransportError);
+		expect((error as Error).message).toMatch(/cannot listen to port/);
 	});
 });

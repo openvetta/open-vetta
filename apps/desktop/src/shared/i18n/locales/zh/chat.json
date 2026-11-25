@@ -615,7 +615,7 @@
 				"粘贴截图或 @ 引用文件，直接开始"
 			],
 			"noSession": "选择或创建会话以开始",
-			"suggestion": "↵ {{suggestion}}",
+			"suggestion": "Tab ⇥  {{suggestion}}",
 			"thinking": "Vetta 正在思考…"
 		},
 		"mention": {
@@ -878,8 +878,9 @@
 		},
 		"edit": {
 			"pendingHint": "正在编辑最后一条消息，发送后将替换原消息和回复",
+			"pendingBranchHint": "正在编辑较早的消息，发送后从这里重新回答，原来的后续对话保留为另一个版本",
 			"overwriteDraftTitle": "覆盖当前输入？",
-			"overwriteDraftBody": "输入框中已有内容。继续编辑最后一条消息将覆盖当前草稿。",
+			"overwriteDraftBody": "输入框中已有内容。继续编辑这条消息将覆盖当前草稿。",
 			"overwriteDraftConfirm": "覆盖并编辑"
 		},
 		"interrupt": {

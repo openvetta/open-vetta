@@ -46,7 +46,7 @@ function Scope({ children }: { children: ReactNode }) {
 }
 
 /** The session's user message template inside the active session's feed, as the session view mounts it. */
-function SessionUserRow({ abort }: { abort?: () => void }) {
+function SessionUserRow({ abort, isLastUserMessage = true }: { abort?: () => void; isLastUserMessage?: boolean }) {
 	const feed = useMemo(
 		() =>
 			createConversationFeed({
@@ -60,7 +60,7 @@ function SessionUserRow({ abort }: { abort?: () => void }) {
 	);
 	return (
 		<ConversationFeedContext.Provider value={feed}>
-			<ConversationMessageScope row={{ message, index: 0, isTail: true, isLastUserMessage: true }}>
+			<ConversationMessageScope row={{ message, index: 0, isTail: isLastUserMessage, isLastUserMessage }}>
 				<SessionUserMessage />
 			</ConversationMessageScope>
 		</ConversationFeedContext.Provider>
@@ -133,7 +133,7 @@ describe("message extension workflows", () => {
 		act(() => {
 			store.set(activeSessionAtom, { ...session, runtimeId: "runtime-b", sessionPath: "C:/b.jsonl" });
 			store.set(inputValueAtom, "New draft");
-			store.set(pendingMessageEditAtom, { entryId: "entry-b" });
+			store.set(pendingMessageEditAtom, { entryId: "entry-b", mode: "replace" });
 		});
 		view.unmount();
 		await act(async () => {
@@ -144,7 +144,7 @@ describe("message extension workflows", () => {
 		expect(onAbortEdit).not.toHaveBeenCalled();
 		expect(openSession).not.toHaveBeenCalled();
 		expect(store.get(inputValueAtom)).toBe("New draft");
-		expect(store.get(pendingMessageEditAtom)).toEqual({ entryId: "entry-b" });
+		expect(store.get(pendingMessageEditAtom)).toEqual({ entryId: "entry-b", mode: "replace" });
 	});
 
 	it("stages an edit without changing history, then forks through the session extension", async () => {
@@ -155,11 +155,29 @@ describe("message extension workflows", () => {
 		);
 		fireEvent.click(screen.getByRole("button", { name: "编辑" }));
 		await waitFor(() => expect(store.get(inputValueAtom)).toBe("Original message"));
-		expect(store.get(pendingMessageEditAtom)).toEqual({ entryId: "entry-a" });
+		expect(store.get(pendingMessageEditAtom)).toEqual({ entryId: "entry-a", mode: "replace" });
 		expect(store.get(chatMessagesAtom)).toEqual([message]);
 		fireEvent.click(screen.getByRole("button", { name: "分叉为新会话" }));
 		await waitFor(() => expect(openSession).toHaveBeenCalledWith("C:/repo", "C:/fork.jsonl"));
 		expect(forkSession).toHaveBeenCalledWith("runtime-a", "entry-a");
+	});
+
+	it("edits an earlier message as a new branch without touching history until send", async () => {
+		render(
+			<Scope>
+				<SessionUserRow isLastUserMessage={false} />
+			</Scope>,
+		);
+		const editButton = screen.getByRole("button", { name: "编辑" });
+		fireEvent.click(editButton);
+		await waitFor(() => expect(store.get(inputValueAtom)).toBe("Original message"));
+		expect(store.get(pendingMessageEditAtom)).toEqual({ entryId: "entry-a", mode: "branch" });
+		expect(store.get(chatMessagesAtom)).toEqual([message]);
+		await waitFor(() =>
+			expect(editButton.getAttribute("title")).toBe(
+				"正在编辑较早的消息，发送后从这里重新回答，原来的后续对话保留为另一个版本",
+			),
+		);
 	});
 
 	it("read-only composition exposes content and copy but no session mutations", () => {

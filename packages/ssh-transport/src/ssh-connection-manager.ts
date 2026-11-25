@@ -6,8 +6,12 @@ import type { SshConnectionStatus, SshHost } from "./ssh-host.js";
 
 export interface SshConnectionManagerOptions {
 	readonly runner: SshProcessRunner;
-	/** ControlMaster socket 所在目录。必须短，见 {@link buildControlPath}。 */
-	readonly controlDirectory: string;
+	/**
+	 * ControlMaster socket 所在目录。必须短，见 {@link buildControlPath}。
+	 *
+	 * 不给就不复用连接：本机的 ssh 不支持时（Windows 自带的 OpenSSH）只能这样。
+	 */
+	readonly controlDirectory?: string;
 	/** 查主机。返回 undefined 表示这台主机已经被用户删掉。 */
 	readonly resolveHost: (hostId: string) => SshHost | undefined;
 	/**
@@ -56,7 +60,10 @@ export class SshConnectionManager {
 		}
 		const connection = new SshConnection(host, {
 			runner: this.options.runner,
-			controlPath: buildControlPath(this.options.controlDirectory, hostId),
+			controlPath:
+				this.options.controlDirectory === undefined
+					? undefined
+					: buildControlPath(this.options.controlDirectory, hostId),
 			env: this.options.resolveEnv?.(hostId),
 			onTrace: this.options.onTrace,
 			helper: this.options.helper,

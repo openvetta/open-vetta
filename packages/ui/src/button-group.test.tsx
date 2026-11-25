@@ -83,6 +83,45 @@ describe("ButtonGroup", () => {
 		expect(groups[1]?.querySelector("button")?.className).toContain("rounded-[10px]");
 	});
 
+	test("variant: glass by default, flat drops the glass rim, ghost drops the container fill and dividers", async () => {
+		await mount(
+			<>
+				<ButtonGroup>
+					<ButtonGroupItem title="a" />
+				</ButtonGroup>
+				<ButtonGroup variant="flat">
+					<ButtonGroupItem title="b" />
+				</ButtonGroup>
+				<ButtonGroup variant="ghost">
+					<ButtonGroupItem title="c" active />
+				</ButtonGroup>
+			</>,
+		);
+		const [glass, flat, ghost] = Array.from(document.querySelectorAll<HTMLElement>("[data-slot=button-group]"));
+		const rim = "dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.22)";
+
+		expect(glass?.dataset.variant).toBe("glass");
+		expect(glass?.className).toContain("bg-foreground/[0.06]");
+		expect(glass?.className).toContain(rim);
+		expect(glass?.className).toContain("backdrop-blur-md");
+
+		// 扁平：深浅色都只留半透明底。
+		expect(flat?.dataset.variant).toBe("flat");
+		expect(flat?.className).toContain("bg-foreground/[0.06]");
+		expect(flat?.className).toContain("dark:bg-white/[0.08]");
+		expect(flat?.className).not.toContain(rim);
+		expect(flat?.className).not.toContain("backdrop-blur");
+
+		// 幽灵：容器没有底色、阴影和分隔线，选中项仍有自己的底色。
+		expect(ghost?.dataset.variant).toBe("ghost");
+		expect(ghost?.className).not.toContain("bg-foreground/[0.06]");
+		expect(ghost?.className).not.toContain("dark:bg-white");
+		expect(ghost?.className).not.toContain(rim);
+		expect(ghost?.className).not.toContain("backdrop-blur");
+		expect(ghost?.className).toContain("*:before:hidden");
+		expect(ghost?.querySelector("button")?.className).toContain("data-[active]:bg-foreground/[0.1]");
+	});
+
 	test("divider pseudo-element is out of flow for every item, so an active first item cannot be pushed off-centre", async () => {
 		await mount(
 			<ButtonGroup>

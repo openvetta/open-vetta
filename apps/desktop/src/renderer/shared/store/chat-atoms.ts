@@ -75,11 +75,15 @@ export type {
 } from "@shared/conversation";
 
 /**
- * Pending replacement of the latest user message. The destructive backend change
- * runs on send (not on click), so cancelling the edit has no session side effects.
+ * A user message being edited in the composer. The history change runs on send
+ * (not on click), so cancelling the edit has no session side effects.
+ * - `replace`: the latest user message; it and its reply are replaced in place.
+ * - `branch`: an earlier one; the edit grows a sibling branch from its parent and
+ *   the original message with everything after it stays on the old branch.
  */
 export interface PendingMessageEdit {
 	entryId: string;
+	mode: "replace" | "branch";
 }
 
 export interface ActiveSession {
@@ -371,6 +375,13 @@ export const pendingMcpElicitationsAtom = atom<Record<string, DesktopMcpElicitat
  * 隐藏、切回恢复；纯内存态，不持久化。首条同时作为 InputBar placeholder。
  */
 export const promptSuggestionsAtom = atom<Record<string, string[]>>({});
+
+/**
+ * 输入框里那条预测（第一条）已被放弃的会话：记下当时那组预测的数组引用。
+ * 用户打字、按 Esc 或按 Tab 填入后，这一组的第一条不再出现在输入框里；
+ * 新一轮预测会换一个新数组，自然重新显示，不需要另外清理。
+ */
+export const promptSuggestionDismissedAtom = atom<Record<string, readonly string[]>>({});
 
 /**
  * 输入预测「生成中」状态，按会话 runtimeId 索引。生成调用在飞时为 true，

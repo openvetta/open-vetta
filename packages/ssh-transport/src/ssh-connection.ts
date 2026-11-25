@@ -1,10 +1,11 @@
 import { randomBytes } from "node:crypto";
+import { connect as connectTcp } from "node:net";
 import { parseRemoteDirectoryListing, type RemoteDirectoryEntry } from "./directory-listing.js";
 import { SshOperationAbortedError, SshRemoteCommandError, SshTransportError } from "./errors.js";
 import { type SshHelperClient, SshHelperClosedError, SshHelperError } from "./helper-client.js";
 import { type ConnectSshHelperOptions, connectSshHelper } from "./helper-deployment.js";
 import {
-	SSH_TRANSPORT_FAILURE_EXIT_CODE,
+	isSshTransportFailureExitCode,
 	type SshProcessChannel,
 	type SshProcessResult,
 	type SshProcessRunner,
@@ -24,6 +25,7 @@ import {
 	quoteShellArgument,
 	REMOTE_ENTRY_EXISTS_EXIT_CODE,
 	type RemoteStatFlavor,
+	wrapForLoginShell,
 } from "./remote-command.js";
 import {
 	buildListListeningPortsCommand,
@@ -47,7 +49,7 @@ import {
 	type OpenRemotePtyOptions,
 	type RemotePtySession,
 } from "./remote-pty.js";
-import { buildPortForwardArgv, buildSshArgv } from "./ssh-argv.js";
+import { buildPortForwardArgv, buildPortForwardProcessArgv, buildSshArgv } from "./ssh-argv.js";
 import type { SshHost } from "./ssh-host.js";
 
 /**
@@ -89,7 +91,8 @@ export interface SshExecResult {
 
 export interface SshConnectionOptions {
 	readonly runner: SshProcessRunner;
-	readonly controlPath: string;
+	/** ControlMaster 的 socket 路径。不给就不复用连接，见 `SshArgvOptions.controlPath`。 */
+	readonly controlPath?: string;
 	/** 传给 ssh 子进程的额外环境变量，用于挂 askpass。 */
 	readonly env?: Readonly<Record<string, string>>;
 	readonly connectTimeoutSeconds?: number;
@@ -130,6 +133,8 @@ export class SshConnection {
 	private helperClient: Promise<SshHelperClient | undefined> | undefined;
 	/** 已经握手成功、可以直接用的 helper。部署过程中为空，那时文件操作走 `ssh exec`。 */
 	private readyHelper: SshHelperClient | undefined;
+	/** 不复用连接时承载各条端口转发的 `ssh -N` 进程，键为 `本机端口:远端端口`。 */
+	private readonly forwardProcesses = new Map<string, SshProcessChannel>();
 
 	constructor(
 		readonly host: SshHost,
@@ -450,36 +455,98 @@ export class SshConnection {
 	 * 表现为莫名其妙的 connection reset。
 	 */
 	async forwardPort(localPort: number, remotePort: number, signal?: AbortSignal): Promise<void> {
-		// 先确保 master 在：`-O forward` 只对已建立的控制连接有效。
+		// 先把连接建起来：复用时 `-O forward` 只对已建立的 master 有效；不复用时认证也已
+		// 在这一步完成，不会落进下面那段等待。
 		await this.probePlatform(signal);
+		const controlPath = this.options.controlPath;
+		if (controlPath === undefined) {
+			await this.forwardPortWithOwnProcess(localPort, remotePort, signal);
+			return;
+		}
 		const result = await this.options.runner.run({
-			argv: buildPortForwardArgv(this.host, { controlPath: this.options.controlPath }, { localPort, remotePort }),
+			argv: buildPortForwardArgv(this.host, { controlPath }, { localPort, remotePort }),
 			signal,
 			env: this.options.env,
 		});
-		if (result.exitCode !== 0) {
-			const detail = result.stderr.trim();
-			throw new SshTransportError(
-				`Cannot forward port ${remotePort} from ${this.host.label}` +
-					`${detail ? `: ${detail}` : "."} The SSH server may have TCP forwarding disabled (AllowTcpForwarding).`,
-				this.host.id,
-				result.stderr,
-			);
-		}
+		if (result.exitCode !== 0) throw this.portForwardError(remotePort, result.stderr);
 	}
 
 	/** 撤掉一条转发。失败不抛：转发会随 master 一起消失，清理不掉不该拖累调用方收尾。 */
 	async cancelPortForward(localPort: number, remotePort: number): Promise<void> {
+		const controlPath = this.options.controlPath;
+		if (controlPath === undefined) {
+			const key = `${localPort}:${remotePort}`;
+			this.forwardProcesses.get(key)?.kill();
+			this.forwardProcesses.delete(key);
+			return;
+		}
 		await this.options.runner
 			.run({
-				argv: buildPortForwardArgv(
-					this.host,
-					{ controlPath: this.options.controlPath },
-					{ localPort, remotePort, cancel: true },
-				),
+				argv: buildPortForwardArgv(this.host, { controlPath }, { localPort, remotePort, cancel: true }),
 				env: this.options.env,
 			})
 			.catch(() => undefined);
+	}
+
+	/**
+	 * 没有 master 可挂时，每条转发由一个自己的 `ssh -N` 进程承载。
+	 *
+	 * `ssh -N` 建好转发也不会说一声，所以「成功」的判据是本机端口能连上；在那之前进程
+	 * 先退出就是失败（`ExitOnForwardFailure`），stderr 里是 ssh 给的原因。
+	 */
+	private async forwardPortWithOwnProcess(localPort: number, remotePort: number, signal?: AbortSignal): Promise<void> {
+		const key = `${localPort}:${remotePort}`;
+		if (this.forwardProcesses.has(key)) return;
+		if (!this.options.runner.open) {
+			throw new SshTransportError(`Cannot forward port ${remotePort} from ${this.host.label}.`, this.host.id, "");
+		}
+		const channel = this.options.runner.open({
+			argv: buildPortForwardProcessArgv(
+				this.host,
+				{ connectTimeoutSeconds: this.options.connectTimeoutSeconds },
+				{ localPort, remotePort },
+			),
+			onStdout: () => {},
+			env: this.options.env,
+		});
+		const settled = new AbortController();
+		const onAbort = (): void => settled.abort();
+		signal?.addEventListener("abort", onAbort, { once: true });
+		try {
+			const outcome = await Promise.race([
+				channel.exited.then((exit) => ({ exit })),
+				waitForLocalPort(localPort, PORT_FORWARD_READY_TIMEOUT_MS, settled.signal).then((ready) => ({ ready })),
+			]);
+			if ("exit" in outcome) throw this.portForwardError(remotePort, outcome.exit.stderr);
+			if (!outcome.ready) {
+				channel.kill();
+				if (signal?.aborted) {
+					throw new SshOperationAbortedError(
+						`Remote operation on ${this.host.label} was cancelled.`,
+						this.host.id,
+						"aborted",
+					);
+				}
+				throw this.portForwardError(remotePort, "");
+			}
+		} finally {
+			settled.abort();
+			signal?.removeEventListener("abort", onAbort);
+		}
+		this.forwardProcesses.set(key, channel);
+		void channel.exited.then(() => {
+			if (this.forwardProcesses.get(key) === channel) this.forwardProcesses.delete(key);
+		});
+	}
+
+	private portForwardError(remotePort: number, stderr: string): SshTransportError {
+		const detail = stderr.trim();
+		return new SshTransportError(
+			`Cannot forward port ${remotePort} from ${this.host.label}` +
+				`${detail ? `: ${detail}` : "."} The SSH server may have TCP forwarding disabled (AllowTcpForwarding).`,
+			this.host.id,
+			stderr,
+		);
 	}
 
 	/**
@@ -591,7 +658,7 @@ export class SshConnection {
 				connectTimeoutSeconds: this.options.connectTimeoutSeconds,
 				requestTty: options.requestTty,
 			},
-			remoteCommand,
+			wrapForLoginShell(remoteCommand),
 		);
 		return this.options.runner.open({ argv, onStdout, env: this.options.env });
 	}
@@ -762,7 +829,7 @@ export class SshConnection {
 		const argv = buildSshArgv(
 			this.host,
 			{ controlPath: this.options.controlPath, connectTimeoutSeconds: this.options.connectTimeoutSeconds },
-			remoteCommand,
+			wrapForLoginShell(remoteCommand),
 		);
 		const result = await this.options.runner.run({
 			argv,
@@ -785,7 +852,7 @@ export class SshConnection {
 		// 255 是 OpenSSH 表示连接层失败的保留码。远端命令本身也可能返回 255，两者无法
 		// 完全区分；宁可报成「问不到」——把连接故障误判成「命令失败」会让上层以为拿到了
 		// 远端的答复，而反过来只是多一次重试。
-		if (result.exitCode === SSH_TRANSPORT_FAILURE_EXIT_CODE) {
+		if (isSshTransportFailureExitCode(result.exitCode)) {
 			throw new SshTransportError(
 				`Cannot reach ${this.host.label}: ${result.stderr.trim()}`,
 				this.host.id,
@@ -857,4 +924,27 @@ function keepNamedFiles(files: readonly string[], names: readonly string[] | und
 	if (!names?.length) return [...files];
 	const wanted = new Set(names);
 	return files.filter((file) => file.endsWith("/") || wanted.has(basename(file)));
+}
+
+/**
+ * 等 `ssh -N` 建好转发的上限。包括认证：口令或首次指纹确认要等用户在弹窗里答完。
+ */
+const PORT_FORWARD_READY_TIMEOUT_MS = 120_000;
+
+/** 反复尝试连本机端口，连上即为 true；超时或被中止为 false。 */
+async function waitForLocalPort(port: number, timeoutMs: number, signal: AbortSignal): Promise<boolean> {
+	const deadline = Date.now() + timeoutMs;
+	while (!signal.aborted && Date.now() < deadline) {
+		const connected = await new Promise<boolean>((resolve) => {
+			const socket = connectTcp({ host: "127.0.0.1", port });
+			socket.once("connect", () => {
+				socket.destroy();
+				resolve(true);
+			});
+			socket.once("error", () => resolve(false));
+		});
+		if (connected) return true;
+		await new Promise((resolve) => setTimeout(resolve, 100));
+	}
+	return false;
 }

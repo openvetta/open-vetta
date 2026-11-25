@@ -1,5 +1,6 @@
 import { forwardRef, type ComponentPropsWithoutRef, type JSX } from "react";
 import { ButtonGroup, ButtonGroupItem } from "@vetta-org/ui/button-group";
+import { chromeButtonGroupVariant } from "../shared/platform";
 import { cn } from "@vetta-org/ui/utils";
 
 export interface SettingsMenuTriggerViewProps extends ComponentPropsWithoutRef<"button"> {
@@ -21,7 +22,7 @@ export const SettingsMenuTriggerView = forwardRef<HTMLButtonElement, SettingsMen
 		const label = clawOnline && clawTitle ? `${settingsFallbackLabel} · ${clawTitle}` : settingsFallbackLabel;
 
 		return (
-			<ButtonGroup blur={false} className="no-drag shrink-0">
+			<ButtonGroup blur={false} variant={chromeButtonGroupVariant} className="no-drag shrink-0">
 				<ButtonGroupItem
 					ref={ref}
 					active={Boolean(active)}

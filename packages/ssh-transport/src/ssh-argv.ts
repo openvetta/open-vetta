@@ -10,8 +10,13 @@ import type { SshHost } from "./ssh-host.js";
 export const CONTROL_PERSIST_SECONDS = 600;
 
 export interface SshArgvOptions {
-	/** ControlMaster 的 socket 路径。 */
-	readonly controlPath: string;
+	/**
+	 * ControlMaster 的 socket 路径。不给就不复用连接，每次都是一次完整的握手。
+	 *
+	 * Windows 自带的 OpenSSH 不支持连接复用：带上这几个选项，每条命令都以
+	 * `getsockname failed: Not a socket` 失败，连「测试连接」都过不去。
+	 */
+	readonly controlPath?: string;
 	/** 建连超时（秒）。只影响建立阶段，不影响已建立连接上的长命令。 */
 	readonly connectTimeoutSeconds?: number;
 	/** 是否分配 pty。批量取文件、跑非交互命令时必须为 false，否则输出会被 tty 改写。 */
@@ -30,29 +35,62 @@ export interface SshArgvOptions {
  * 禁止的；设成 `accept-new` 则跳过了首次确认。
  */
 export function buildSshArgv(host: SshHost, options: SshArgvOptions, remoteCommand?: string): string[] {
-	const argv: string[] = [
+	const argv = buildConnectionOptions(host, options);
+	argv.push(options.requestTty ? "-tt" : "-T");
+	// `--` 之后 OpenSSH 不再解析选项，目标和远端命令都按字面量处理。
+	argv.push("--", host.target);
+	if (remoteCommand !== undefined) argv.push(remoteCommand);
+	return argv;
+}
+
+/** 建连本身的选项：复用、超时、端口、私钥与认证方式。 */
+function buildConnectionOptions(host: SshHost, options: SshArgvOptions): string[] {
+	const argv: string[] = [];
+	if (options.controlPath !== undefined) {
 		// 复用同一条连接：认证只在建立 master 时发生一次，之后每次操作只是开一个 channel，
 		// 否则每读一个文件都要重新握手加认证，一次几百毫秒。
-		"-o",
-		"ControlMaster=auto",
-		"-o",
-		`ControlPath=${options.controlPath}`,
-		"-o",
-		`ControlPersist=${CONTROL_PERSIST_SECONDS}`,
-		"-o",
-		`ConnectTimeout=${options.connectTimeoutSeconds ?? 15}`,
-	];
+		argv.push(
+			"-o",
+			"ControlMaster=auto",
+			"-o",
+			`ControlPath=${options.controlPath}`,
+			"-o",
+			`ControlPersist=${CONTROL_PERSIST_SECONDS}`,
+		);
+	}
+	argv.push("-o", `ConnectTimeout=${options.connectTimeoutSeconds ?? 15}`);
 	if (host.port !== undefined) argv.push("-p", String(host.port));
 	if (host.identityFile) argv.push("-i", host.identityFile);
 	// 密码登录：不让 ssh 先拿本机所有私钥逐个试错（会耗尽服务端 MaxAuthTries），直接走口令。
 	if (host.authMethod === "password") {
 		argv.push("-o", "PreferredAuthentications=password,keyboard-interactive", "-o", "PubkeyAuthentication=no");
 	}
-	argv.push(options.requestTty ? "-tt" : "-T");
-	// `--` 之后 OpenSSH 不再解析选项，目标和远端命令都按字面量处理。
-	argv.push("--", host.target);
-	if (remoteCommand !== undefined) argv.push(remoteCommand);
 	return argv;
+}
+
+/**
+ * 不复用连接时的端口转发：单独起一个只转发、不执行命令的 `ssh -N`，转发随它的退出而消失。
+ *
+ * `ExitOnForwardFailure`：本机端口绑不上、或服务端拒绝转发时让 ssh 直接退出，调用方
+ * 才分得出「转发没建起来」和「建起来了」——否则它会带着一条失效的转发一直挂着。
+ */
+export function buildPortForwardProcessArgv(
+	host: SshHost,
+	options: Pick<SshArgvOptions, "connectTimeoutSeconds">,
+	forward: { readonly localPort: number; readonly remotePort: number },
+): string[] {
+	return [
+		...buildConnectionOptions(host, options),
+		"-N",
+		"-T",
+		"-o",
+		"ExitOnForwardFailure=yes",
+		"-L",
+		// 远端一侧固定 127.0.0.1，理由同 buildPortForwardArgv。
+		`${forward.localPort}:127.0.0.1:${forward.remotePort}`,
+		"--",
+		host.target,
+	];
 }
 
 /**
@@ -80,7 +118,7 @@ export function buildControlPath(baseDirectory: string, hostId: string): string 
  */
 export function buildPortForwardArgv(
 	host: SshHost,
-	options: SshArgvOptions,
+	options: SshArgvOptions & { readonly controlPath: string },
 	forward: { readonly localPort: number; readonly remotePort: number; readonly cancel?: boolean },
 ): string[] {
 	return [

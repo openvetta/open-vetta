@@ -8,12 +8,17 @@ import { cn } from "./utils";
  * 用法：`<ButtonGroup><ButtonGroupItem icon={…} title="运行" /><ButtonGroupItem icon={…} label="提交" badge={3} /></ButtonGroup>`。
  * 需要多组并排时，外面套一层 flex + gap 即可，每组各自成胶囊。
  *
- * 外观：浅色 / 深色都用「前景色 + 低透明度」叠出玻璃感，所以放在任何背景上都成立。
- * 外缘用内阴影，不是均匀描边。深色是上沿亮线、下沿淡线和一层投影。浅色不再加投影和高亮，只留半透明底。
- * 不跟指针、不做折射。模糊只给 `blur` 属性开启（默认开）；容器本身已经半透明，贴在纯色背景上时可以关掉，省一层合成。
+ * 外观（`variant`）：
+ * - `glass`（默认）：深色是玻璃——上沿亮线、下沿淡线、一层投影，可选背景模糊；浅色只留半透明底（浅色上的玻璃不好看）。
+ * - `flat`：深浅色都只留半透明底，不加阴影、高光和模糊。
+ * - `ghost`：深浅色都不画容器底和分隔线，只有悬停 / 选中的按钮自己有底色。
+ * 底色都是「前景色 + 低透明度」叠出来的，放在任何背景上都成立。不跟指针、不做折射。
+ * 模糊只对 `glass` 生效，由 `blur` 属性开启（默认开）；贴在纯色背景上时可以关掉，省一层合成。
+ * 组件不判断平台；某个平台要换外观，由调用方传 `variant`，或在应用样式里按 `data-variant` 覆盖。
  */
 
 export type ButtonGroupShape = "pill" | "square";
+export type ButtonGroupVariant = "glass" | "flat" | "ghost";
 
 const ShapeContext = React.createContext<ButtonGroupShape>("pill");
 const InGroupContext = React.createContext(false);
@@ -26,25 +31,37 @@ function useInButtonGroup(): boolean {
 export interface ButtonGroupProps extends React.ComponentProps<"div"> {
 	/** 外观：`pill` 胶囊（默认）或 `square` 圆角方形。 */
 	shape?: ButtonGroupShape;
-	/** 是否给胶囊加背景模糊，默认开。贴在纯色背景上没有可模糊的内容时可关。 */
+	/** 外观：`glass` 玻璃（默认，浅色下是扁平）、`flat` 扁平、`ghost` 幽灵（无容器底）。 */
+	variant?: ButtonGroupVariant;
+	/** 是否给胶囊加背景模糊，默认开，只对 `glass` 生效。贴在纯色背景上没有可模糊的内容时可关。 */
 	blur?: boolean;
 }
 
-function ButtonGroup({ className, blur = true, shape = "pill", children, ...props }: ButtonGroupProps) {
+function ButtonGroup({
+	className,
+	variant = "glass",
+	blur = true,
+	shape = "pill",
+	children,
+	...props
+}: ButtonGroupProps) {
 	return (
 		<ShapeContext.Provider value={shape}>
 			<InGroupContext.Provider value={true}>
 			<div
 				role="group"
 				data-slot="button-group"
+				data-variant={variant}
 				className={cn(
 					"inline-flex items-center p-0.5",
 					shape === "square" ? "rounded-xl" : "rounded-full",
-					"bg-foreground/[0.06]",
-					"dark:bg-white/[0.08]",
 					"shadow-none",
-					"dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.22),inset_0_-1px_0_rgb(255_255_255/0.1),inset_0_0_20px_rgb(255_255_255/0.05),0_8px_32px_rgb(0_0_0/0.18)]",
-					blur && "backdrop-blur-md backdrop-saturate-150",
+					variant !== "ghost" && "bg-foreground/[0.06] dark:bg-white/[0.08]",
+					variant === "glass" &&
+						"dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.22),inset_0_-1px_0_rgb(255_255_255/0.1),inset_0_0_20px_rgb(255_255_255/0.05),0_8px_32px_rgb(0_0_0/0.18)]",
+					variant === "glass" && blur && "backdrop-blur-md backdrop-saturate-150",
+					// 幽灵态没有容器底，分隔线会悬空，一并去掉。
+					variant === "ghost" && "*:before:hidden",
 					className,
 				)}
 				{...props}

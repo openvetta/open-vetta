@@ -10,11 +10,17 @@ import { createContext, useContext } from "react";
  * a child that only mounts when the capability exists.
  */
 export interface UserMessageCommands {
-	/** Replace the last user message: fills the composer, replaced on send. */
+	/** Edit a user message in the composer; the latest is replaced on send, an earlier one branches. */
 	readonly useEdit: (
 		message: ConversationUserMessageViewModel,
 		isLastUserMessage: boolean,
-	) => { readonly available: boolean; readonly pending: boolean; readonly onEdit: () => void };
+	) => {
+		readonly available: boolean;
+		readonly pending: boolean;
+		/** How the edit rewrites history on send; `branch` keeps the later conversation as a sibling. */
+		readonly mode?: "replace" | "branch";
+		readonly onEdit: () => void;
+	};
 	/** Switch between sibling branches and fork a new conversation from a message. */
 	readonly useHistory: (message: ConversationUserMessageViewModel) => {
 		readonly canSwitch: boolean;
