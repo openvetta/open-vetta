@@ -369,23 +369,23 @@ describe("ModelSettingsService", () => {
 
 describe("ModelSettingsService.reloadAfterExternalChange", () => {
 	it("外部改动后让运行时重读，并只通知改动了的服务商，不写盘", async () => {
-		const refreshRegistry = vi.fn(async () => {});
-		const writeConfig = vi.fn(async () => {});
-		const onConfigChanged = vi.fn();
-		const onProviderAccessChanged = vi.fn();
+		const events: string[] = [];
+		const writes: ModelsConfig[] = [];
 		const service = new ModelSettingsService({
 			readConfig: async () => ({ providers: {} }),
-			writeConfig,
-			refreshRegistry,
+			writeConfig: async (next) => {
+				writes.push(next);
+			},
+			refreshRegistry: async () => {
+				events.push("registry refreshed");
+			},
 			credentials: createCredentialStore(),
-			onConfigChanged,
-			onProviderAccessChanged,
+			onConfigChanged: (ids) => events.push(`config changed: ${ids.join(",")}`),
+			onProviderAccessChanged: (ids) => events.push(`access changed: ${ids.join(",")}`),
 		});
 		await service.reloadAfterExternalChange(["magpie"]);
-		expect(refreshRegistry).toHaveBeenCalledOnce();
-		expect(onConfigChanged).toHaveBeenCalledWith(["magpie"]);
-		expect(onProviderAccessChanged).toHaveBeenCalledWith(["magpie"]);
-		expect(writeConfig).not.toHaveBeenCalled();
+		expect(events).toEqual(["registry refreshed", "access changed: magpie", "config changed: magpie"]);
+		expect(writes).toEqual([]);
 	});
 });
 

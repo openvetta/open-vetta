@@ -65,7 +65,7 @@ function magpieRow(adopted: boolean): PresetProviderRowModel {
 	};
 }
 
-function renderRow(row: PresetProviderRowModel, onOpenManagedGuide = vi.fn()) {
+function renderRow(row: PresetProviderRowModel, onOpenManagedGuide: () => void = () => {}) {
 	const noop = vi.fn(async () => {});
 	return render(
 		<PresetProviderRow
@@ -99,14 +99,17 @@ describe("由 Magpie 管理的预设服务商行", () => {
 	});
 
 	it("接入前后都能打开接入说明", () => {
-		const onOpenManagedGuide = vi.fn();
-		renderRow(magpieRow(false), onOpenManagedGuide);
+		let guidesOpened = 0;
+		const openGuide = () => {
+			guidesOpened += 1;
+		};
+		renderRow(magpieRow(false), openGuide);
 		fireEvent.click(screen.getByRole("button", { name: labels.managedGuide }));
-		expect(onOpenManagedGuide).toHaveBeenCalledOnce();
+		expect(guidesOpened).toBe(1);
 		cleanup();
-		renderRow(magpieRow(true), onOpenManagedGuide);
+		renderRow(magpieRow(true), openGuide);
 		fireEvent.click(screen.getByRole("button", { name: labels.managedGuide }));
-		expect(onOpenManagedGuide).toHaveBeenCalledTimes(2);
+		expect(guidesOpened).toBe(2);
 	});
 
 	it("接入后展示 Magpie 写进来的模型数,仍然没有任何操作", () => {

@@ -11,9 +11,21 @@ vi.mock("react-i18next", () => {
 	return { useTranslation: () => translation };
 });
 
-const takeMagpieHandoverNotice = vi.fn();
-const openExternal = vi.fn(async () => {});
-const writeText = vi.fn(async () => {});
+// 主进程这次要给的提示、界面领取的次数、写进剪贴板的内容、打开的链接,都按事实记下来。
+let nextNotice: { defaultModelCleared: boolean } | null = null;
+let noticesTaken = 0;
+const clipboardWrites: string[] = [];
+const openedUrls: string[] = [];
+const takeMagpieHandoverNotice = async () => {
+	noticesTaken += 1;
+	return nextNotice;
+};
+const openExternal = async (url: string) => {
+	openedUrls.push(url);
+};
+const writeText = async (text: string) => {
+	clipboardWrites.push(text);
+};
 
 vi.stubGlobal(
 	"window",
@@ -30,11 +42,14 @@ function renderModel() {
 
 describe("Magpie 接入方式变化提示", () => {
 	beforeEach(() => {
-		vi.clearAllMocks();
+		nextNotice = null;
+		noticesTaken = 0;
+		clipboardWrites.length = 0;
+		openedUrls.length = 0;
 	});
 
 	it("本次启动删过旧配置时弹出,并说明默认模型被清掉了", async () => {
-		takeMagpieHandoverNotice.mockResolvedValue({ defaultModelCleared: true });
+		nextNotice = { defaultModelCleared: true };
 		const { result } = renderModel();
 		await waitFor(() => expect(result.current.visible).toBe(true));
 		expect(result.current.defaultModelCleared).toBe(true);
@@ -44,31 +59,29 @@ describe("Magpie 接入方式变化提示", () => {
 	});
 
 	it("没有删过旧配置时不弹", async () => {
-		takeMagpieHandoverNotice.mockResolvedValue(null);
 		const { result } = renderModel();
-		await waitFor(() => expect(takeMagpieHandoverNotice).toHaveBeenCalledOnce());
+		await waitFor(() => expect(noticesTaken).toBe(1));
 		expect(result.current.visible).toBe(false);
 	});
 
 	it("复制官方插件名并短暂显示已复制,说明链接指向官方插件仓库", async () => {
-		takeMagpieHandoverNotice.mockResolvedValue({ defaultModelCleared: false });
+		nextNotice = { defaultModelCleared: false };
 		const { result } = renderModel();
 		await waitFor(() => expect(result.current.visible).toBe(true));
 
 		await act(async () => {
 			result.current.onCopyPluginName();
 		});
-		expect(writeText).toHaveBeenCalledWith(MAGPIE_PLUGIN_NAME);
+		expect(clipboardWrites).toEqual([MAGPIE_PLUGIN_NAME]);
 		expect(result.current.copied).toBe(true);
 
 		result.current.onOpenGuide();
-		expect(openExternal).toHaveBeenCalledWith("https://github.com/openvetta/magpie-vetta#readme");
+		expect(openedUrls).toEqual(["https://github.com/openvetta/magpie-vetta#readme"]);
 	});
 
 	it("从设置打开时是接入指南:不提移除,也没有默认模型提示", async () => {
-		takeMagpieHandoverNotice.mockResolvedValue(null);
 		const { result, store } = renderModel();
-		await waitFor(() => expect(takeMagpieHandoverNotice).toHaveBeenCalledOnce());
+		await waitFor(() => expect(noticesTaken).toBe(1));
 
 		act(() => store.set(magpieHandoverDialogAtom, { reason: "guide" }));
 		expect(result.current.visible).toBe(true);

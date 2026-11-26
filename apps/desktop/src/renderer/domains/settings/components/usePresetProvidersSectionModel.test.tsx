@@ -44,7 +44,10 @@ describe("预设服务商启用", () => {
 	});
 
 	it("改 key 重新启用时保留用户手加的请求头", async () => {
-		const saveConfig = vi.fn(async (_next: ModelsConfigData) => {});
+		const saved: ModelsConfigData[] = [];
+		const saveConfig = async (next: ModelsConfigData) => {
+			saved.push(next);
+		};
 		const config: ModelsConfigData = {
 			providers: {
 				deepseek: { source: "template", templateId: "deepseek", apiKey: "old", headers: { "X-Trace": "1" } },
@@ -58,8 +61,8 @@ describe("预设服务商启用", () => {
 		await act(async () => {
 			await result.current.onAdopt(row);
 		});
-		expect(saveConfig).toHaveBeenCalledOnce();
-		expect(saveConfig.mock.calls[0][0].providers.deepseek).toMatchObject({
+		expect(saved).toHaveLength(1);
+		expect(saved[0]?.providers.deepseek).toMatchObject({
 			apiKey: "sk-new",
 			headers: { "X-Trace": "1" },
 		});
