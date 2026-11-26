@@ -69,7 +69,7 @@ export interface ModelSettingsServiceOptions {
 	readonly onConfigChanged?: (providerIds: readonly string[]) => void;
 }
 
-const MODELS_CONFIG_PATH = join(getVettaHomePath(), "agent", "models.json");
+export const MODELS_CONFIG_PATH = join(getVettaHomePath(), "agent", "models.json");
 const DEFAULT_MODELS_CONFIG: ModelsConfig = { providers: {} };
 export const MASKED_MODEL_API_KEY = "***";
 
@@ -84,8 +84,18 @@ function stripLegacyPeripheralFields(config: ModelsConfig): ModelsConfig {
 }
 
 export function readModelsConfigSync(): ModelsConfig {
+	return readModelsConfigFileSync() ?? { providers: {} };
+}
+
+/** 同 readModelsConfigSync，但文件存在却不是合法 JSON 时返回 null，供监听外部改动时跳过写到一半的文件。 */
+export function readModelsConfigFileSync(): ModelsConfig | null {
+	let raw: string;
 	try {
-		const raw = readFileSync(MODELS_CONFIG_PATH, "utf8");
+		raw = readFileSync(MODELS_CONFIG_PATH, "utf8");
+	} catch {
+		return { providers: {} };
+	}
+	try {
 		const parsed = JSON.parse(raw) as Partial<ModelsConfig>;
 		return stripLegacyPeripheralFields({
 			...DEFAULT_MODELS_CONFIG,
@@ -96,7 +106,7 @@ export function readModelsConfigSync(): ModelsConfig {
 					: {},
 		});
 	} catch {
-		return { providers: {} };
+		return null;
 	}
 }
 
@@ -264,6 +274,19 @@ export class ModelSettingsService {
 		await this.runMutation(async () => {
 			await this.ensureLegacyCredentialsMigrated();
 			await this.persist(config, await this.options.readConfig(), "renderer");
+		});
+	}
+
+	/**
+	 * models.json 被应用外的程序改过（如 Magpie 在 Agents 页接入或断开 Vetta）之后调用：
+	 * 不写盘，只让运行时重读并通知各处刷新，否则要重启 Vetta 才看得到。
+	 */
+	async reloadAfterExternalChange(providerIds: readonly string[]): Promise<void> {
+		await this.runMutation(async () => {
+			await this.options.refreshRegistry();
+			if (providerIds.length === 0) return;
+			this.notifyProviderAccessChanged(providerIds);
+			this.options.onConfigChanged?.(providerIds);
 		});
 	}
 

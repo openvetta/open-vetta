@@ -366,3 +366,25 @@ describe("ModelSettingsService", () => {
 		expect(credentials.values).toEqual(new Map());
 	});
 });
+
+describe("ModelSettingsService.reloadAfterExternalChange", () => {
+	it("外部改动后让运行时重读，并只通知改动了的服务商，不写盘", async () => {
+		const refreshRegistry = vi.fn(async () => {});
+		const writeConfig = vi.fn(async () => {});
+		const onConfigChanged = vi.fn();
+		const onProviderAccessChanged = vi.fn();
+		const service = new ModelSettingsService({
+			readConfig: async () => ({ providers: {} }),
+			writeConfig,
+			refreshRegistry,
+			credentials: createCredentialStore(),
+			onConfigChanged,
+			onProviderAccessChanged,
+		});
+		await service.reloadAfterExternalChange(["magpie"]);
+		expect(refreshRegistry).toHaveBeenCalledOnce();
+		expect(onConfigChanged).toHaveBeenCalledWith(["magpie"]);
+		expect(onProviderAccessChanged).toHaveBeenCalledWith(["magpie"]);
+		expect(writeConfig).not.toHaveBeenCalled();
+	});
+});
