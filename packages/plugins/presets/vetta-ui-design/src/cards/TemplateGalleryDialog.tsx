@@ -1,6 +1,7 @@
 import { useTranslation } from "@vetta-org/plugin-sdk";
 import { type ReactNode, useEffect, useState } from "react";
 import { designSystemById, useDesignSystems } from "../design-systems/index";
+import { useDemoDwell } from "../gallery/use-demo-dwell";
 import { PluginPortal } from "../plugin-portal";
 import { DesignSystemTileContent } from "./DesignSystemTileContent";
 
@@ -35,6 +36,8 @@ export function TemplateGalleryDialog({
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const selected = selectedId ? designSystemById(selectedId) : undefined;
 	const applied = appliedId ? designSystemById(appliedId) : undefined;
+	// 和画廊风格墙同一套预算：静止只铺封面，悬停停留够久的那一张才挂 demo iframe。
+	const { demoId, handlersFor } = useDemoDwell();
 
 	// Esc 关闭。捕获阶段拦下，别让宿主把它当别的快捷键消费。
 	useEffect(() => {
@@ -108,6 +111,7 @@ export function TemplateGalleryDialog({
 										key={system.id}
 										type="button"
 										onClick={() => setSelectedId(isSelected ? null : system.id)}
+										{...handlersFor(system.id)}
 										className={`flex aspect-square min-w-0 flex-col gap-1.5 overflow-hidden rounded-xl border p-2 text-left transition-all duration-200 ${
 											isSelected
 												? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary"
@@ -116,6 +120,8 @@ export function TemplateGalleryDialog({
 									>
 										<DesignSystemTileContent
 											system={system}
+											demo={demoId === system.id}
+											demoActive={demoId === system.id}
 											badge={
 												appliedId === system.id ? (
 													<span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-px text-[10px] font-medium text-primary">
