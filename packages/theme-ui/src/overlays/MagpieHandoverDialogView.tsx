@@ -12,7 +12,7 @@ export interface MagpieHandoverDialogViewLabels {
 	readonly stepUse: string;
 	/** 要在 Magpie 插件页搜索的包名，做成可复制的小标签。 */
 	readonly pluginName: string;
-	/** 插件名旁的说明，让用户认准官方发布者（如「认准发布者 openvetta」）。 */
+	/** 插件名旁的说明，让用户认准官方发布者（如「发布者 openvetta」）。 */
 	readonly pluginPublisher: string;
 	readonly copy: string;
 	readonly copied: string;
@@ -39,8 +39,9 @@ export interface MagpieHandoverDialogViewProps {
 const pillClass =
 	"inline-flex h-11 w-full items-center justify-center rounded-full bg-primary px-5 text-[14px] font-medium whitespace-nowrap text-primary-foreground shadow-lg shadow-black/15 transition-all outline-none select-none hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring/50 active:translate-y-px";
 
+// 图标块在任何主题下都是白底，单色图标（跟随文字颜色）要固定成深色，否则深色模式下是浅灰、看不清。
 const iconTileClass =
-	"flex size-16 items-center justify-center overflow-hidden rounded-[18px] bg-white shadow-[0_10px_28px_rgba(15,23,42,0.18),0_2px_6px_rgba(15,23,42,0.12)] ring-1 ring-black/5";
+	"flex size-16 items-center justify-center overflow-hidden rounded-[18px] bg-white text-neutral-900 shadow-[0_10px_28px_rgba(15,23,42,0.18),0_2px_6px_rgba(15,23,42,0.12)] ring-1 ring-black/5";
 
 /**
  * 升级后告诉老用户：Magpie 改由 Magpie 在其 Agents 页接入 Vetta。
