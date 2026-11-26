@@ -12,6 +12,8 @@ export interface MagpieHandoverDialogViewLabels {
 	readonly stepUse: string;
 	/** 要在 Magpie 插件页搜索的包名，做成可复制的小标签。 */
 	readonly pluginName: string;
+	/** 插件名旁的说明，让用户认准官方发布者（如「认准发布者 openvetta」）。 */
+	readonly pluginPublisher: string;
 	readonly copy: string;
 	readonly copied: string;
 	readonly defaultModelCleared: string;
@@ -124,11 +126,12 @@ export function MagpieHandoverDialogView({
 											<div className="min-w-0 flex-1">
 												<p className="text-[13px] leading-6 text-foreground">{step.text}</p>
 												{step.extra && (
+													<div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
 													<button
 														type="button"
 														onClick={onCopyPluginName}
 														title={copied ? labels.copied : labels.copy}
-														className="group mt-1.5 inline-flex h-7 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 font-mono text-[12px] text-foreground transition-colors outline-none hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring/50"
+														className="group inline-flex h-7 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 font-mono text-[12px] text-foreground transition-colors outline-none hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring/50"
 													>
 														{labels.pluginName}
 														<span
@@ -141,6 +144,11 @@ export function MagpieHandoverDialogView({
 														/>
 														<span className="sr-only">{copied ? labels.copied : labels.copy}</span>
 													</button>
+													<span className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
+														<span className="icon-[mdi--check-decagram] h-3.5 w-3.5 text-primary" />
+														{labels.pluginPublisher}
+													</span>
+													</div>
 												)}
 											</div>
 										</li>

@@ -1067,6 +1067,7 @@
 		"stepInstall": "Search for and install the official Vetta plugin on Magpie's Plugins page",
 		"stepConnect": "Switch Vetta on in Magpie's Agents page",
 		"stepUse": "Back in Vetta, pick a Magpie model in the model picker. No restart needed",
+		"pluginPublisher": "Published by openvetta",
 		"copy": "Copy plugin name",
 		"copied": "Copied",
 		"defaultModelCleared": "Your default model was a Magpie model; pick it again after connecting.",

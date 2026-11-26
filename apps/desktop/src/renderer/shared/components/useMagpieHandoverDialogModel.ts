@@ -76,6 +76,7 @@ export function useMagpieHandoverDialogModel(): MagpieHandoverDialogModel {
 			stepConnect: t("magpieHandover.stepConnect"),
 			stepUse: t("magpieHandover.stepUse"),
 			pluginName: MAGPIE_PLUGIN_NAME,
+			pluginPublisher: t("magpieHandover.pluginPublisher"),
 			copy: t("magpieHandover.copy"),
 			copied: t("magpieHandover.copied"),
 			defaultModelCleared: t("magpieHandover.defaultModelCleared"),
