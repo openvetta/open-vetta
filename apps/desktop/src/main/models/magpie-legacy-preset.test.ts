@@ -19,7 +19,10 @@ describe("removeLegacyMagpiePreset", () => {
 		const service = serviceWith({
 			providers: { magpie: { source: "template", templateId: "magpie", apiKey: "magpie", disabled: true } },
 		});
-		await expect(removeLegacyMagpiePreset(service)).resolves.toEqual({ defaultModelCleared: false });
+		await expect(removeLegacyMagpiePreset(service)).resolves.toEqual({
+			defaultModelCleared: false,
+			noProvidersLeft: true,
+		});
 		expect(service.config.providers).toEqual({});
 	});
 
@@ -28,7 +31,36 @@ describe("removeLegacyMagpiePreset", () => {
 			defaultModel: "magpie/codex/gpt-6.1-sol",
 			providers: { magpie: { source: "template", templateId: "magpie" } },
 		});
-		await expect(removeLegacyMagpiePreset(service)).resolves.toEqual({ defaultModelCleared: true });
+		await expect(removeLegacyMagpiePreset(service)).resolves.toEqual({
+			defaultModelCleared: true,
+			noProvidersLeft: true,
+		});
+	});
+
+	it("还有别的启用中的服务商时,不算删光了", async () => {
+		const service = serviceWith({
+			providers: {
+				magpie: { source: "template", templateId: "magpie" },
+				deepseek: { source: "template", templateId: "deepseek", apiKey: "sk" },
+			},
+		});
+		await expect(removeLegacyMagpiePreset(service)).resolves.toEqual({
+			defaultModelCleared: false,
+			noProvidersLeft: false,
+		});
+	});
+
+	it("剩下的服务商全是停用的,也算删光了:用户手上没有能用的模型", async () => {
+		const service = serviceWith({
+			providers: {
+				magpie: { source: "template", templateId: "magpie" },
+				deepseek: { source: "template", templateId: "deepseek", disabled: true },
+			},
+		});
+		await expect(removeLegacyMagpiePreset(service)).resolves.toEqual({
+			defaultModelCleared: false,
+			noProvidersLeft: true,
+		});
 	});
 
 	it("Magpie 自己写进来的条目不动", async () => {

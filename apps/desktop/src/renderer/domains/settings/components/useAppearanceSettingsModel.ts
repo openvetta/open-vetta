@@ -14,10 +14,12 @@ import { THEMES } from "@shared/theme/themes";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { APP_ICON_IDS, type AppIconId } from "@/shared/app-icon";
+import { APP_ICON_GROUPS, type AppIconGroupId, type AppIconId } from "@/shared/app-icon";
 import { isAppearanceUiThemeEnabled } from "@/shared/feature-flags";
 import type { LanguagePreference } from "@/shared/i18n/config";
 import { UI_ZOOM_DEFAULT, UI_ZOOM_STEPS, uiZoomStepIndex } from "@/shared/ui-zoom";
+import appIconArchitectPreview from "../assets/app-icons/architect.png";
+import appIconAuditorPreview from "../assets/app-icons/auditor.png";
 import appIconBinaryPreview from "../assets/app-icons/binary.png";
 import appIconBlackPreview from "../assets/app-icons/black.png";
 import appIconCodingPreview from "../assets/app-icons/coding.png";
@@ -26,13 +28,19 @@ import appIconDarkPreview from "../assets/app-icons/dark.png";
 import appIconDefaultPreview from "../assets/app-icons/default.png";
 import appIconDesignPreview from "../assets/app-icons/design.png";
 import appIconErminePreview from "../assets/app-icons/ermine.png";
+import appIconExecutorPreview from "../assets/app-icons/executor.png";
 import appIconGamePreview from "../assets/app-icons/game.png";
 import appIconLightPreview from "../assets/app-icons/light.png";
+import appIconOptimizerPreview from "../assets/app-icons/optimizer.png";
 import appIconReadPreview from "../assets/app-icons/read.png";
 import appIconRedPreview from "../assets/app-icons/red.png";
+import appIconResearcherPreview from "../assets/app-icons/researcher.png";
+import appIconRouterPreview from "../assets/app-icons/router.png";
 import appIconSleepPreview from "../assets/app-icons/sleep.png";
 import appIconSportPreview from "../assets/app-icons/sport.png";
 import appIconStudyPreview from "../assets/app-icons/study.png";
+import appIconSynthesizerPreview from "../assets/app-icons/synthesizer.png";
+import appIconTranslatorPreview from "../assets/app-icons/translator.png";
 import appIconTravelPreview from "../assets/app-icons/travel.png";
 import appIconWorkPreview from "../assets/app-icons/work.png";
 import defaultThemePreview from "../assets/default.webp";
@@ -96,6 +104,12 @@ export interface AppearanceAppIconOption {
 	preview: string;
 }
 
+export interface AppearanceAppIconGroup {
+	id: AppIconGroupId;
+	label: string;
+	options: AppearanceAppIconOption[];
+}
+
 export interface AppearanceSettingsModel {
 	actions: {
 		changeLanguage: (language: LanguagePreference) => void;
@@ -110,7 +124,7 @@ export interface AppearanceSettingsModel {
 		resetUiZoom: () => void;
 	};
 	activeUiThemeId: string;
-	appIconOptions: AppearanceAppIconOption[];
+	appIconGroups: AppearanceAppIconGroup[];
 	chatBackgroundId: ChatBackgroundId;
 	chatBackgroundOptions: AppearanceChatBackgroundOption[];
 	labels: {
@@ -205,6 +219,14 @@ const APP_ICON_PREVIEWS: Record<AppIconId, string> = {
 	dark: appIconDarkPreview,
 	binary: appIconBinaryPreview,
 	ermine: appIconErminePreview,
+	router: appIconRouterPreview,
+	researcher: appIconResearcherPreview,
+	architect: appIconArchitectPreview,
+	executor: appIconExecutorPreview,
+	auditor: appIconAuditorPreview,
+	optimizer: appIconOptimizerPreview,
+	synthesizer: appIconSynthesizerPreview,
+	translator: appIconTranslatorPreview,
 	coding: appIconCodingPreview,
 	design: appIconDesignPreview,
 	work: appIconWorkPreview,
@@ -277,13 +299,17 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 		[activeThemeId, availableThemes, t, themeRuntimeStatus],
 	);
 
-	const appIconOptions = useMemo<AppearanceAppIconOption[]>(
+	const appIconGroups = useMemo<AppearanceAppIconGroup[]>(
 		() =>
-			APP_ICON_IDS.map((id) => ({
-				id,
-				active: appIconId === id,
-				label: t(`appIcon_${id}`),
-				preview: APP_ICON_PREVIEWS[id],
+			APP_ICON_GROUPS.map((group) => ({
+				id: group.id,
+				label: t(`appIconGroup_${group.id}`),
+				options: group.icons.map((id) => ({
+					id,
+					active: appIconId === id,
+					label: t(`appIcon_${id}`),
+					preview: APP_ICON_PREVIEWS[id],
+				})),
 			})),
 		[appIconId, t],
 	);
@@ -414,7 +440,7 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 	return {
 		actions,
 		activeUiThemeId: activeThemeId,
-		appIconOptions,
+		appIconGroups,
 		chatBackgroundId: backgroundId,
 		chatBackgroundOptions,
 		labels,

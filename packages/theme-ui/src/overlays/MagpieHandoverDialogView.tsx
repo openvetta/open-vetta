@@ -17,6 +17,8 @@ export interface MagpieHandoverDialogViewLabels {
 	readonly copy: string;
 	readonly copied: string;
 	readonly defaultModelCleared: string;
+	/** 删掉的是用户唯一的服务商：讲明接入前发不了消息。 */
+	readonly noProvidersLeft: string;
 	readonly primary: string;
 	readonly guide: string;
 	readonly close: string;
@@ -27,6 +29,8 @@ export interface MagpieHandoverDialogViewProps {
 	readonly labels: MagpieHandoverDialogViewLabels;
 	/** 默认模型原本是 Magpie 的，随旧配置一起被清掉了。 */
 	readonly defaultModelCleared: boolean;
+	/** 删完后没有别的可用服务商：比默认模型被清掉更要紧，两条都成立时只显示这一条。 */
+	readonly noProvidersLeft: boolean;
 	readonly copied: boolean;
 	/** 顶部两枚图标：Vetta 的应用图标与 Magpie 的服务商图标，由宿主提供。 */
 	readonly vettaIcon: ReactNode;
@@ -52,6 +56,7 @@ export function MagpieHandoverDialogView({
 	visible,
 	labels,
 	defaultModelCleared,
+	noProvidersLeft,
 	copied,
 	vettaIcon,
 	magpieIcon,
@@ -156,10 +161,12 @@ export function MagpieHandoverDialogView({
 									))}
 								</ol>
 
-								{defaultModelCleared && (
+								{(noProvidersLeft || defaultModelCleared) && (
 									<div className="mt-3 flex items-start gap-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
 										<span className="mt-0.5 icon-[mdi--information-outline] h-4 w-4 shrink-0 text-amber-500" />
-										<p className="text-[12.5px] leading-relaxed text-foreground/90">{labels.defaultModelCleared}</p>
+										<p className="text-[12.5px] leading-relaxed text-foreground/90">
+											{noProvidersLeft ? labels.noProvidersLeft : labels.defaultModelCleared}
+										</p>
 									</div>
 								)}
 							</div>

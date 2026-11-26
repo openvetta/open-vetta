@@ -13,10 +13,10 @@ describe("Magpie 交接提示", () => {
 	});
 
 	it("删过旧配置时只给界面领取一次,窗口重新加载不再弹", async () => {
-		removeLegacyMagpiePreset.mockResolvedValue({ defaultModelCleared: false });
+		removeLegacyMagpiePreset.mockResolvedValue({ defaultModelCleared: false, noProvidersLeft: false });
 		const { startLegacyMagpieMigration, takeMagpieHandoverNotice } = await import("./magpie-handover.js");
 		startLegacyMagpieMigration();
-		await expect(takeMagpieHandoverNotice()).resolves.toEqual({ defaultModelCleared: false });
+		await expect(takeMagpieHandoverNotice()).resolves.toEqual({ defaultModelCleared: false, noProvidersLeft: false });
 		await expect(takeMagpieHandoverNotice()).resolves.toBeNull();
 	});
 

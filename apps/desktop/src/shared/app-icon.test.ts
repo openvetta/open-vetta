@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { APP_ICON_DEFAULT, APP_ICON_IDS, isAppIconId, normalizeAppIconId } from "./app-icon.js";
+import { APP_ICON_DEFAULT, APP_ICON_GROUPS, APP_ICON_IDS, isAppIconId, normalizeAppIconId } from "./app-icon.js";
 
 describe("app-icon", () => {
 	it("未知或非字符串回落默认，合法 id 原样保留", () => {
@@ -19,6 +19,32 @@ describe("app-icon", () => {
 
 	it("眼镜水滴的红、黑、浅色底版都是可选风格", () => {
 		for (const id of ["red", "black", "light"]) expect(normalizeAppIconId(id)).toBe(id);
+	});
+
+	it("黑底毛绒动物头像都是可选风格，各自带 macOS 与圆角版本", () => {
+		for (const id of [
+			"router",
+			"researcher",
+			"architect",
+			"executor",
+			"auditor",
+			"optimizer",
+			"synthesizer",
+			"translator",
+		]) {
+			expect(normalizeAppIconId(id)).toBe(id);
+			for (const suffix of ["-mac", "-round"]) {
+				expect(existsSync(join(__dirname, `../../build/app-icons/${id}${suffix}.png`)), `${id}${suffix}`).toBe(
+					true,
+				);
+			}
+		}
+	});
+
+	it("每个图标恰好属于一个分组，出厂图标在第一组打头", () => {
+		const ids = APP_ICON_GROUPS.flatMap((group) => [...group.icons]);
+		expect(new Set(ids).size).toBe(ids.length);
+		expect(APP_ICON_GROUPS[0].icons[0]).toBe(APP_ICON_DEFAULT);
 	});
 
 	it("除默认外，每个图标都有打包进应用的图片和设置页预览图", () => {

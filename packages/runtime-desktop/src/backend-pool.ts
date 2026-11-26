@@ -36,6 +36,7 @@ import {
 } from "./coding-agent-tool-environment.js";
 import { resolveProjectExecutionMode } from "./remote-execution-mode.js";
 import { renderRemoteWorkspaceFacts } from "./remote-workspace-facts.js";
+import { createUnavailableModel, guardUnavailableModelStream } from "./unavailable-model.js";
 
 type CompositionFixedOption =
 	| "agentDir"
@@ -82,6 +83,8 @@ export interface DesktopRuntimeBackendPoolOptions {
 	readonly createMcpRuntimeSource?: (scope: DesktopMcpRuntimeScope) => Promise<DesktopManagedMcpRuntimeSource>;
 	readonly resolveMcpRuntimeScope?: (scope: DesktopMcpRuntimeScope) => DesktopMcpRuntimeScope;
 	readonly createCodingToolResultPolicy?: (scope: DesktopMcpRuntimeScope) => CodingToolResultPolicy;
+	/** 没有可用模型时,恢复的旧会话一发请求就报这句;由宿主按界面语言给出。 */
+	readonly readUnavailableModelMessage?: () => string;
 }
 
 export interface DesktopRuntimeHookScope {
@@ -110,6 +113,8 @@ interface DesktopRuntimeScope extends DesktopMcpRuntimeScope {
 interface DesktopRuntimeBackendEntry {
 	readonly composition: CodingAgentRuntimeComposition;
 	readonly mcpKey: string | undefined;
+	/** 建这套 composition 时一个模型都没有,初始模型是占位的;之后的会话要按当下的模型目录重新取。 */
+	readonly usesUnavailableModel: boolean;
 	liveAssemblies: number;
 }
 
@@ -158,14 +163,21 @@ export class DesktopRuntimeBackendPool implements RuntimeHostSessionBackend {
 				`Desktop Coding Agent backend pool cannot execute Agent ${request.agent.id}; expected ${this.agentId}`,
 			);
 		}
+		const model = resolveAvailableModel(request, this.options.compositionDefaults);
+		// 新会话没有模型就没法用,照旧报错;恢复已有会话则放行,让用户至少能看历史(openvetta/open-vetta#91)。
+		if (!model && !request.sessionPath?.trim()) {
+			throw new Error("Desktop Runtime requires at least one available model");
+		}
 		const scope = resolveRuntimeScope(request);
 		const scopeKey = runtimeScopeKey(scope);
 		const entry = await this.getOrCreateEntry(scope, request);
 		if (this.disposed) throw new Error("Desktop Runtime backend pool is disposed");
+		// 这套 composition 是在没有模型时建的:用户随后配好了模型,同一工作区里的会话要用上它,不能沿用占位。
+		const sessionRequest = entry.usesUnavailableModel && !request.model && model ? { ...request, model } : request;
 		entry.liveAssemblies += 1;
 		try {
 			const assembly = await entry.composition.runtimeHostBackend.createAssembly(
-				toCodingAgentRuntimeSessionRequest(entry.composition, scope, request),
+				toCodingAgentRuntimeSessionRequest(entry.composition, scope, sessionRequest),
 			);
 			return attachAssemblyRelease(assembly, () => this.releaseAssembly(scopeKey, entry));
 		} catch (error) {
@@ -247,7 +259,8 @@ export class DesktopRuntimeBackendPool implements RuntimeHostSessionBackend {
 		scope: DesktopRuntimeScope,
 		request: RuntimeSessionCreateRequest,
 	): Promise<DesktopRuntimeBackendEntry> {
-		const initialModel = resolveInitialModel(request, this.options.compositionDefaults);
+		const availableModel = resolveAvailableModel(request, this.options.compositionDefaults);
+		const initialModel = availableModel ?? createUnavailableModel();
 		const initialThinkingLevel =
 			request.thinkingLevel ?? this.options.compositionDefaults.initialThinkingLevel ?? "off";
 		const runtimeSettings = createCodingAgentNodeSettingsRuntime(scope.cwd, scope.agentDir);
@@ -269,6 +282,10 @@ export class DesktopRuntimeBackendPool implements RuntimeHostSessionBackend {
 			createConversationPersistence:
 				this.options.compositionDefaults.createConversationPersistence ??
 				(({ conversationDir }) => createFileConversationPersistence(conversationDir)),
+			streamFn: guardUnavailableModelStream(
+				this.options.compositionDefaults.streamFn,
+				this.options.readUnavailableModelMessage,
+			),
 			createToolEnvironment: createDesktopCodingAgentToolEnvironment,
 			createSessionExecutionEnvironment: createDesktopCodingAgentSessionExecutionEnvironment,
 			codingToolResultPolicy:
@@ -303,7 +320,7 @@ export class DesktopRuntimeBackendPool implements RuntimeHostSessionBackend {
 				},
 			},
 		});
-		return { composition, mcpKey, liveAssemblies: 0 };
+		return { composition, mcpKey, usesUnavailableModel: availableModel === undefined, liveAssemblies: 0 };
 	}
 
 	private async releaseAssembly(scopeKey: string, entry: DesktopRuntimeBackendEntry): Promise<void> {
@@ -488,15 +505,11 @@ function readCodingAgentRequestConfiguration(
 	return parseCodingAgentRuntimeSessionConfiguration(configuration);
 }
 
-function resolveInitialModel(
+function resolveAvailableModel(
 	request: RuntimeSessionCreateRequest,
 	defaults: DesktopCodingAgentRuntimeCompositionDefaults,
-): Model<Api> {
-	const model = request.model ?? defaults.initialModel ?? defaults.modelRegistry.getAvailable()[0];
-	if (!model) {
-		throw new Error("Desktop Runtime requires at least one available model");
-	}
-	return model;
+): Model<Api> | undefined {
+	return request.model ?? defaults.initialModel ?? defaults.modelRegistry.getAvailable()[0];
 }
 
 function resolvePositiveInteger(value: string | undefined): number | undefined {

@@ -41,6 +41,7 @@ import {
 } from "@shared/store/atoms";
 import { setQueueForSessionAtom, setQueuePausedAtom } from "@shared/store/message-queue-atoms";
 import { assignSpace, spacesAtom } from "@shared/store/spaces";
+import { showToast } from "@shared/store/toast-atoms";
 import { useNavigate } from "@tanstack/react-router";
 import { getDefaultStore, useAtomValue, useSetAtom } from "jotai";
 import { type MutableRefObject, startTransition, useCallback, useRef } from "react";
@@ -61,6 +62,7 @@ import {
 	resetConversationFeed,
 } from "../services/conversation-feed-store";
 import { applySessionHydrationStateAtom } from "../services/session-hydration-state";
+import { isNoAvailableModelError, sessionOpenFailureToast } from "./session-open-failure";
 import { useSessionEventController } from "./useSessionEventController";
 
 export interface SessionOpenerController {
@@ -377,7 +379,17 @@ export function useSessionOpener(): SessionOpenerController {
 				activeSessionRef.current = null;
 				setChatStreamOwner(null);
 				clearOwnPendingTransition();
+				const notifyOpenFailure = () =>
+					showToast(
+						sessionOpenFailureToast({
+							message,
+							t: (key) => i18n.t(key),
+							openModelSettings: () =>
+								void navigate({ to: "/settings/$tab", params: { tab: "models" }, search: {} }),
+						}),
+					);
 				if (navigateBeforeCreate) {
+					if (isNoAvailableModelError(message)) notifyOpenFailure();
 					try {
 						options?.onCreateError?.(error);
 					} catch (restoreError) {
@@ -393,6 +405,8 @@ export function useSessionOpener(): SessionOpenerController {
 					if (isUnknownSshHostError(message)) {
 						void navigate({ to: "/new-session", search: { cwd: encodeURIComponent(cwd) } });
 					} else {
+						// 会话流里那条错误会随退回欢迎页清掉,只留它用户会以为「点了没反应」。
+						notifyOpenFailure();
 						void navigate({ to: "/" });
 					}
 				}

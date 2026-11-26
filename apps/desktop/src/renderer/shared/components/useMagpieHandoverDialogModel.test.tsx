@@ -12,7 +12,7 @@ vi.mock("react-i18next", () => {
 });
 
 // 主进程这次要给的提示、界面领取的次数、写进剪贴板的内容、打开的链接,都按事实记下来。
-let nextNotice: { defaultModelCleared: boolean } | null = null;
+let nextNotice: { defaultModelCleared: boolean; noProvidersLeft: boolean } | null = null;
 let noticesTaken = 0;
 const clipboardWrites: string[] = [];
 const openedUrls: string[] = [];
@@ -49,13 +49,22 @@ describe("Magpie 接入方式变化提示", () => {
 	});
 
 	it("本次启动删过旧配置时弹出,并说明默认模型被清掉了", async () => {
-		nextNotice = { defaultModelCleared: true };
+		nextNotice = { defaultModelCleared: true, noProvidersLeft: false };
 		const { result } = renderModel();
 		await waitFor(() => expect(result.current.visible).toBe(true));
 		expect(result.current.defaultModelCleared).toBe(true);
+		expect(result.current.noProvidersLeft).toBe(false);
 
 		act(() => result.current.onClose());
 		expect(result.current.visible).toBe(false);
+	});
+
+	it("删掉的是唯一的服务商时,讲明接入前发不了消息", async () => {
+		nextNotice = { defaultModelCleared: true, noProvidersLeft: true };
+		const { result } = renderModel();
+		await waitFor(() => expect(result.current.visible).toBe(true));
+		expect(result.current.noProvidersLeft).toBe(true);
+		expect(result.current.labels.noProvidersLeft).toBe("magpieHandover.noProvidersLeft");
 	});
 
 	it("没有删过旧配置时不弹", async () => {
@@ -65,7 +74,7 @@ describe("Magpie 接入方式变化提示", () => {
 	});
 
 	it("复制官方插件名并短暂显示已复制,说明链接指向官方插件仓库", async () => {
-		nextNotice = { defaultModelCleared: false };
+		nextNotice = { defaultModelCleared: false, noProvidersLeft: false };
 		const { result } = renderModel();
 		await waitFor(() => expect(result.current.visible).toBe(true));
 
@@ -86,6 +95,7 @@ describe("Magpie 接入方式变化提示", () => {
 		act(() => store.set(magpieHandoverDialogAtom, { reason: "guide" }));
 		expect(result.current.visible).toBe(true);
 		expect(result.current.defaultModelCleared).toBe(false);
+		expect(result.current.noProvidersLeft).toBe(false);
 		expect(result.current.labels.title).toBe("magpieHandover.guideTitle");
 		expect(result.current.labels.description).toBe("magpieHandover.guideDescription");
 	});

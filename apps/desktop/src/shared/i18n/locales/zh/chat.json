@@ -1035,6 +1035,11 @@
 		"sendMessage": "发送消息",
 		"stopGenerating": "停止生成"
 	},
+	"sessionOpenFailed": {
+		"title": "对话没能打开",
+		"noModel": "当前没有可用模型。请在设置里添加模型服务商，或在 Magpie 里接入 Vetta。",
+		"openModelSettings": "去设置模型"
+	},
 	"session": {
 		"emptyMessageLabel": "(图片)"
 	},

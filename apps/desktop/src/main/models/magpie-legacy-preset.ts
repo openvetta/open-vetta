@@ -10,6 +10,11 @@ export function isLegacyMagpiePreset(provider: ProviderConfig | undefined): bool
 export interface LegacyMagpieRemoval {
 	/** 默认模型原本是 Magpie 的模型,随条目一起被清掉了,接入后要重新选。 */
 	readonly defaultModelCleared: boolean;
+	/**
+	 * 删完后没有别的启用中的服务商了:在 Magpie 里接入或另配一个之前发不了消息。
+	 * 只配了 Magpie 的老用户升级后会落到这里,提示要讲明代价,否则用户不会把「对话用不了」和这次迁移联系起来。
+	 */
+	readonly noProvidersLeft: boolean;
 }
 
 /**
@@ -24,6 +29,12 @@ export async function removeLegacyMagpiePreset(
 ): Promise<LegacyMagpieRemoval | null> {
 	const config = await service.getConfig();
 	if (!isLegacyMagpiePreset(config.providers[MAGPIE_PROVIDER_ID])) return null;
+	const othersEnabled = Object.entries(config.providers).some(
+		([providerId, provider]) => providerId !== MAGPIE_PROVIDER_ID && provider.disabled !== true,
+	);
 	await service.removeProvider(MAGPIE_PROVIDER_ID);
-	return { defaultModelCleared: Boolean(config.defaultModel?.startsWith(`${MAGPIE_PROVIDER_ID}/`)) };
+	return {
+		defaultModelCleared: Boolean(config.defaultModel?.startsWith(`${MAGPIE_PROVIDER_ID}/`)),
+		noProvidersLeft: !othersEnabled,
+	};
 }

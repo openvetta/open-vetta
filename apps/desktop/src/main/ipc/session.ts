@@ -34,7 +34,7 @@ import {
 } from "@vetta/coding-agent/session-extensions";
 import type { SessionEvent, SessionExecutionMode, SettingsPatch } from "@vetta/runtime-core";
 import { sessionExtensionObservation } from "@vetta/runtime-core/session-extensions";
-import { assertProjectSupportsExecutionMode } from "@vetta/runtime-desktop";
+import { assertProjectSupportsExecutionMode, isUnavailableModel } from "@vetta/runtime-desktop";
 import { isMcpJsonValue, type McpJsonObject } from "@vetta/runtime-mcp";
 import { BrowserWindow, ipcMain, type WebContents } from "electron";
 import type { DesktopMcpAppResourceRead, DesktopMcpAppToolCall } from "../../shared/mcp-app.js";
@@ -1177,6 +1177,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		);
 		return {
 			...state,
+			// 没有模型时恢复的旧会话挂的是占位模型:不交给界面,免得模型选择器把它当成一个可选的模型显示。
+			model: isUnavailableModel(state.model) ? undefined : state.model,
 			scenario: productState.scenario,
 			...(productState.agentMode !== undefined ? { agentMode: productState.agentMode } : {}),
 		};
