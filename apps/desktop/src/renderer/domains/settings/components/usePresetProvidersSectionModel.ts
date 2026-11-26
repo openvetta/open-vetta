@@ -254,6 +254,8 @@ export function usePresetProvidersSectionModel({
 					return;
 				}
 				setModelsErrors((prev) => withError(prev, row.id, undefined, t));
+				// 改 key 重新启用时整条重写,用户手加的请求头要带过来。
+				const headers = config.providers[row.id]?.headers;
 				await saveConfig({
 					...config,
 					providers: {
@@ -266,6 +268,7 @@ export function usePresetProvidersSectionModel({
 							api: row.api,
 							baseUrl,
 							apiKey: key,
+							...(headers ? { headers } : {}),
 							models: fetched?.models ?? row.models,
 							...(fetched ? { modelsSyncedAt: new Date().toISOString() } : {}),
 						},
