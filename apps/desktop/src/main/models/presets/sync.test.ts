@@ -86,3 +86,35 @@ describe("preset catalog background refresh", () => {
 		expect(mocks.send).toHaveBeenCalledWith("vetta:models:presets-updated");
 	});
 });
+
+describe("backfillPresetDefaultHeaders", () => {
+	it("给启用前没有识别头的 Magpie 老配置补上 User-Agent,停用的也补", async () => {
+		const { backfillPresetDefaultHeaders } = await import("./sync.js");
+		const config = {
+			providers: {
+				magpie: { source: "template" as const, templateId: "magpie", apiKey: "magpie", disabled: true },
+				openai: { source: "template" as const, templateId: "openai", apiKey: "sk-test" },
+				custom: { baseUrl: "http://127.0.0.1:3425/v1", apiKey: "magpie" },
+			},
+		};
+		const next = backfillPresetDefaultHeaders(config);
+		expect(next?.providers.magpie).toMatchObject({ disabled: true, headers: { "User-Agent": "Vetta" } });
+		// 其它预设和用户自建的服务商不动。
+		expect(next?.providers.openai).toBe(config.providers.openai);
+		expect(next?.providers.custom).toBe(config.providers.custom);
+	});
+
+	it("用户自己设过 User-Agent 或已经补过时不再改写", async () => {
+		const { backfillPresetDefaultHeaders } = await import("./sync.js");
+		expect(
+			backfillPresetDefaultHeaders({
+				providers: { magpie: { source: "template", templateId: "magpie", headers: { "user-agent": "Custom" } } },
+			}),
+		).toBeNull();
+		expect(
+			backfillPresetDefaultHeaders({
+				providers: { magpie: { source: "template", templateId: "magpie", headers: { "User-Agent": "Vetta" } } },
+			}),
+		).toBeNull();
+	});
+});
