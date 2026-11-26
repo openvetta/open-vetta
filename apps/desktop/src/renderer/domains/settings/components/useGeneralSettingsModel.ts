@@ -13,6 +13,7 @@ import {
 	sessionExecutionModeAtom,
 	workspacePathAtom,
 } from "@shared/store/atoms";
+import { diagnosticsExportDialogOpenAtom } from "@shared/store/diagnostics-export-atoms";
 import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -23,7 +24,7 @@ import { recordSettingsUsage } from "./recordSettingsUsage";
 export interface GeneralSettingsModel {
 	actions: {
 		changeExecutionMode: (mode: string) => Promise<void>;
-		exportDiagnostics: () => Promise<void>;
+		exportDiagnostics: () => void;
 		resetWorkspace: () => Promise<void>;
 		selectWorkspace: () => Promise<void>;
 		startAppGuide: () => void;
@@ -39,7 +40,6 @@ export interface GeneralSettingsModel {
 	};
 	debugMode: boolean;
 	executionMode: SessionExecutionMode;
-	exportingDiagnostics: boolean;
 	labels: GeneralSettingsLabels;
 	notificationsEnabled: boolean;
 	notificationPreferences: DesktopNotificationPreferences;
@@ -54,7 +54,6 @@ interface GeneralSettingsLabels {
 	export: string;
 	exportDiagnostics: string;
 	exportDiagnosticsDescription: string;
-	exporting: string;
 	fullAccess: string;
 	reset: string;
 	sandboxDescription: string;
@@ -97,10 +96,10 @@ export function useGeneralSettingsModel(): GeneralSettingsModel {
 	const [debugMode, setDebugMode] = useAtom(debugModeAtom);
 	const [executionMode, setExecutionMode] = useAtom(sessionExecutionModeAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
+	const setDiagnosticsExportDialogOpen = useSetAtom(diagnosticsExportDialogOpenAtom);
 	const [sandboxUnavailableReason, setSandboxUnavailableReason] = useState<string | null>(null);
 	const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 	const [notificationPreferences, setNotificationPreferences] = useState(DEFAULT_NOTIFICATION_PREFERENCES);
-	const [exportingDiagnostics, setExportingDiagnostics] = useState(false);
 
 	useEffect(() => {
 		void window.vetta.config.get().then((config) => {
@@ -163,23 +162,7 @@ export function useGeneralSettingsModel(): GeneralSettingsModel {
 		[setConfirmDialog, setDebugMode, t],
 	);
 
-	const exportDiagnostics = useCallback(async () => {
-		if (exportingDiagnostics) return;
-		setExportingDiagnostics(true);
-		try {
-			await window.vetta.diagnostics.exportDiagnosticsPackage();
-		} catch (error) {
-			console.error("[GeneralSettings] failed to export diagnostics:", error);
-			setConfirmDialog({
-				title: t("exportDiagnosticsFailed"),
-				message: error instanceof Error ? error.message : String(error),
-				confirmLabel: t("gotIt"),
-				onConfirm: () => {},
-			});
-		} finally {
-			setExportingDiagnostics(false);
-		}
-	}, [exportingDiagnostics, setConfirmDialog, t]);
+	const exportDiagnostics = useCallback(() => setDiagnosticsExportDialogOpen(true), [setDiagnosticsExportDialogOpen]);
 
 	const toggleNotifications = useCallback((checked: boolean) => {
 		setNotificationsEnabled(checked);
@@ -244,7 +227,6 @@ export function useGeneralSettingsModel(): GeneralSettingsModel {
 			export: t("export"),
 			exportDiagnostics: t("exportDiagnostics"),
 			exportDiagnosticsDescription: t("exportDiagnosticsDescription"),
-			exporting: t("exporting"),
 			fullAccess: t("fullAccess"),
 			reset: t("reset"),
 			sandboxDescription: t("sandboxDescription"),
@@ -318,7 +300,6 @@ export function useGeneralSettingsModel(): GeneralSettingsModel {
 		},
 		debugMode,
 		executionMode,
-		exportingDiagnostics,
 		labels,
 		notificationsEnabled,
 		notificationPreferences,

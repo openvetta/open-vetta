@@ -104,7 +104,7 @@ Vetta 提供不同重量的扩展入口，简单流程不必被做成完整插�
 
 官方安装包可能启用可选的 Vetta Serv 集成，用于账号、订阅和托管市场。该能力在构建期选择，不会在 lite 构建中被静默打开。
 
-本地优先不等于完全没有网络流量。模型 Provider、MCP、插件、Webhook、IM、更新源和可选遥测分别形成自己的数据边界。使用前请阅读：
+本地优先不等于完全没有网络流量。模型 Provider、MCP、插件、Webhook、IM 和更新源分别形成自己的数据边界。使用前请阅读：
 
 - [安全与数据边界](https://docs.openvetta.com/reference/security-and-data/)
 - [配置与数据路径](https://docs.openvetta.com/reference/configuration-paths/)

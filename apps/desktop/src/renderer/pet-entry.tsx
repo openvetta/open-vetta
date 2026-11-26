@@ -2,11 +2,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { PetApp } from "./domains/pet/components/PetApp";
 import { applyInitialTheme, applyStoredTheme, MODE_STORAGE_KEY, THEME_STORAGE_KEY } from "./shared/theme/apply";
-import { initializeRendererErrorMonitoring } from "./telemetry/error-monitoring";
 import "./styles.css";
 import "./pet-shell.css";
-
-initializeRendererErrorMonitoring("pet");
 
 applyInitialTheme();
 

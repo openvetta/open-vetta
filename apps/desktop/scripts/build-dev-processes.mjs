@@ -46,7 +46,6 @@ const tasks = [
 		inputs: [
 			...commonInputs,
 			...envInputs,
-			join(desktopRoot, "sentry-vite.ts"),
 			join(desktopRoot, "vite.preload.config.ts"),
 			join(desktopRoot, "src", "preload"),
 			join(desktopRoot, "src", "shared"),
@@ -83,7 +82,6 @@ const tasks = [
 		inputs: [
 			...commonInputs,
 			...envInputs,
-			join(desktopRoot, "sentry-vite.ts"),
 			join(desktopRoot, "vite.main.config.ts"),
 			join(desktopRoot, "src", "main"),
 			join(desktopRoot, "src", "shared"),

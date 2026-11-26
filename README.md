@@ -133,7 +133,7 @@ A source checkout produces the **lite** build by default. It has no dependency o
 
 Official installers may enable the optional Vetta Serv integration for accounts, subscriptions, and a hosted marketplace. That integration is selected at build time; it is not silently enabled in a lite build.
 
-Local-first does not mean zero network traffic. Model providers, MCP servers, plugins, webhooks, IM integrations, update sources, and optional telemetry can each create their own data boundary. Review:
+Local-first does not mean zero network traffic. Model providers, MCP servers, plugins, webhooks, IM integrations, and update sources can each create their own data boundary. Review:
 
 - [Security and data boundaries](https://docs.openvetta.com/reference/security-and-data/)
 - [Configuration paths](https://docs.openvetta.com/reference/configuration-paths/)

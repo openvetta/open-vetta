@@ -76,7 +76,7 @@ Agent-facing engineering rules (package boundaries, coding-agent layering, Deskt
 
 Please do not open PRs that:
 
-- **Add a new telemetry or analytics destination** that is on by default in a source build. Telemetry is opt-in at build time; see [Network Behavior](README.md#network-behavior).
+- **Add analytics, crash reporting, or any other channel that sends user data to a Vetta-controlled service.** Vetta does not collect user data; see [Network Behavior](README.md#network-behavior).
 - **Commit secrets**, tokens, cookies, user sessions, or production config. Same rule for logs and fixtures.
 - **Depend the other way** — `packages/*` must not import `apps/*`. Use each package’s public `package.json#exports`.
 - **Rewrite the stack** (new package manager, new renderer framework, new agent loop) without a prior Discussion.

@@ -119,15 +119,7 @@ VETTA_UPDATE_URL=https://releases.openvetta.com/desktop/test
 
 | 变量 | 说明 |
 | --- | --- |
-| `VETTA_SENTRY_DSN` | 未配置时 Sentry 为 Noop。DSN 会进入构建产物 |
-| `VETTA_SENTRY_RELEASE` | 不可变 release，运行时与 Source Map 上传必须一致。推荐 `vetta-desktop@<version>+<build-id>` |
-| `VETTA_TELEMETRY_ENVIRONMENT` | `development` / `staging` / `production` |
-| `VETTA_SENTRY_TRACES_SAMPLE_RATE` | 0～1，缺省 0 |
-| `VETTA_SENTRY_ORG` · `VETTA_SENTRY_PROJECT` · `VETTA_SENTRY_URL` | Source Map 上传（仅 CI），`URL` 仅自托管需要 |
 | `VETTA_MAIN_SOURCEMAP` | 仅本地调试 Main 堆栈时单独生成 Source Map |
-| `VETTA_POSTHOG_KEY` | Project API Key（`phc_` 开头），**不是** Personal API Key。会进入 Renderer 产物 |
-| `VETTA_POSTHOG_HOST` | 缺省 PostHog Cloud US |
-| `VETTA_POSTHOG_REPLAY_ENABLED` · `VETTA_POSTHOG_REPLAY_SAMPLE_RATE` | Replay 默认关闭 |
 | `VETTA_TRACING` | 设为 `langfuse` 开启 Agent / LLM / 工具调用全链路 trace |
 | `VETTA_TRACING_TRACE_NAME` · `LANGFUSE_PUBLIC_KEY` · `LANGFUSE_BASE_URL` | Langfuse 配置 |
 | `LANGFUSE_TRACING_ENVIRONMENT` · `LANGFUSE_RELEASE` · `OTEL_SERVICE_NAME` | 可选元数据 |
@@ -142,7 +134,6 @@ VETTA_UPDATE_URL=https://releases.openvetta.com/desktop/test
 - **macOS 签名与公证**：`CSC_LINK`、`CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_TEAM_ID`、`APPLE_API_*`
   CI 变体：`MACOS_CERTIFICATE_P12_BASE64`、`MACOS_CERTIFICATE_PASSWORD`、`APPLE_API_KEY_P8_BASE64`、`APPLE_API_KEY_ID`、`APPLE_API_ISSUER`
   一个都不设则产出未签名包；要签名则必须全部齐全。流程见 [apple-code-signing.md](../deploy/apple-code-signing.md)
-- **Sentry Source Map 上传**：`VETTA_SENTRY_AUTH_TOKEN`
 - **Langfuse**：`LANGFUSE_SECRET_KEY`
 
 `VETTA_REQUIRE_MAC_SIGNATURE=1` 仅供 macOS CI 产物校验步骤使用，不是客户端配置。

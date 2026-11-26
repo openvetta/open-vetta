@@ -1081,5 +1081,30 @@
 		"guideEyebrow": "Magpie 接入指南",
 		"guideTitle": "在 Magpie 里接入 Vetta",
 		"guideDescription": "Magpie 的模型由 Magpie 统一管理：在 Magpie 里打开 Vetta，模型自动出现在这里；关掉即移除。Vetta 这里只展示接入状态。"
+	},
+	"diagnosticsExport": {
+		"eyebrow": "反馈问题",
+		"title": "导出诊断包",
+		"description": "遇到问题时，把诊断包发给开发者，能更快找到原因。",
+		"noCollection": "Vetta 不会收集你的任何数据，也不会自动上传诊断包。只有你自己把它发出去，别人才看得到。",
+		"contentsTitle": "诊断包里有什么",
+		"contentsLogs": "最近的应用日志文件",
+		"contentsRecentLogs": "本次运行期间内存里的最近日志",
+		"contentsSystem": "系统信息：Vetta 版本、操作系统、处理器架构和界面语言",
+		"privacyNote": "注意：诊断包里可能有项目路径、文件名和报错内容，请酌情发送。",
+		"stepsTitle": "怎么反馈",
+		"stepExport": "点下面的按钮，选好位置保存诊断包",
+		"stepDescribe": "写下遇到的问题和复现步骤",
+		"stepAttach": "把诊断包和问题描述一起发给开发者：可以附在 GitHub Issue 里，也可以通过私聊等你们平时沟通的方式发送",
+		"export": "导出诊断包…",
+		"exporting": "正在导出…",
+		"saved": "已保存到 ",
+		"showInFinder": "在访达中显示",
+		"showInExplorer": "在资源管理器中显示",
+		"showInFolder": "在文件夹中显示",
+		"failed": "导出失败",
+		"openIssue": "去 GitHub 反馈问题",
+		"close": "关闭",
+		"saveDialogTitle": "保存诊断包"
 	}
 }

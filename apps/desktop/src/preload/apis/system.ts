@@ -289,7 +289,7 @@ export function createSystemApi(
 			clearDebugDir: () => ipc.invoke("vetta:debug:clear-debug-dir"),
 		},
 		diagnostics: {
-			exportDiagnosticsPackage: () => ipc.invoke("vetta:diagnostics:export"),
+			exportDiagnosticsPackage: (options) => ipc.invoke("vetta:diagnostics:export", options),
 			getLogDir: () => ipc.invoke("vetta:diagnostics:get-log-dir"),
 		},
 		permissions: {

@@ -1081,5 +1081,30 @@
 		"guideEyebrow": "Magpie connection guide",
 		"guideTitle": "Connect Vetta from Magpie",
 		"guideDescription": "Magpie manages its models for Vetta: switch Vetta on in Magpie and its models appear here; switch it off and they're removed. Vetta only shows the connection status."
+	},
+	"diagnosticsExport": {
+		"eyebrow": "Report a problem",
+		"title": "Export diagnostics",
+		"description": "When something goes wrong, send the diagnostics package to the developers so they can find the cause faster.",
+		"noCollection": "Vetta doesn't collect any of your data and never uploads the diagnostics package on its own. Nobody else sees it unless you send it yourself.",
+		"contentsTitle": "What's inside",
+		"contentsLogs": "Recent app log files",
+		"contentsRecentLogs": "Recent in-memory logs from this run",
+		"contentsSystem": "System info: Vetta version, operating system, CPU architecture and UI language",
+		"privacyNote": "Note: the package may contain project paths, file names and error details. Use your judgment before sending it.",
+		"stepsTitle": "How to report",
+		"stepExport": "Click the button below and choose where to save the package",
+		"stepDescribe": "Write down what went wrong and how to reproduce it",
+		"stepAttach": "Send the package along with your description to the developers: attach it to a GitHub issue, or share it through a direct message or however you usually reach them",
+		"export": "Export diagnostics…",
+		"exporting": "Exporting…",
+		"saved": "Saved to ",
+		"showInFinder": "Show in Finder",
+		"showInExplorer": "Show in File Explorer",
+		"showInFolder": "Show in folder",
+		"failed": "Export failed",
+		"openIssue": "Report on GitHub",
+		"close": "Close",
+		"saveDialogTitle": "Save diagnostics package"
 	}
 }

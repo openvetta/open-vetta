@@ -1,4 +1,4 @@
-import { redactSensitiveText } from "../../../../shared/sentry-privacy";
+import { redactSensitiveText } from "../../../../shared/text-redaction";
 
 type PluginRuntimeLogValue = boolean | number | string | readonly string[] | null | undefined;
 

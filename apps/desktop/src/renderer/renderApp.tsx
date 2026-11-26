@@ -10,10 +10,8 @@ import { desktopThemeHost } from "./shared/theme/desktopThemeHost";
 import { ThemeRuntimeProvider } from "./shared/theme/runtime";
 import { ThemeColorOverrideBridge } from "./shared/theme/ThemeColorOverrideBridge";
 import { ThemeController } from "./shared/theme/ThemeController";
-import { initializeProductAnalytics } from "./telemetry/product-analytics";
 
 export function renderApp(root: Root): void {
-	initializeProductAnalytics();
 	initI18n();
 	initializeHostedRoutes();
 

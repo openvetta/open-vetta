@@ -18,13 +18,22 @@ const SUPPORTED_PLATFORM_TAGS = new Set([
 	"win32-arm64",
 	"win32-x64",
 ]);
-const OPTIONAL_BOOLEAN_KEYS = [
-	"VETTA_MAIN_SOURCEMAP",
-	"VETTA_POSTHOG_REPLAY_ENABLED",
-	"VETTA_SHOW_UI_THEME",
-];
+const OPTIONAL_BOOLEAN_KEYS = ["VETTA_MAIN_SOURCEMAP", "VETTA_SHOW_UI_THEME"];
 const OPTIONAL_ZERO_ONE_KEYS = ["VETTA_REQUIRE_MAC_SIGNATURE"];
-const SAMPLE_RATE_KEYS = ["VETTA_POSTHOG_REPLAY_SAMPLE_RATE", "VETTA_SENTRY_TRACES_SAMPLE_RATE"];
+const REMOVED_INTEGRATION_KEYS = [
+	"VETTA_POSTHOG_KEY",
+	"VETTA_POSTHOG_HOST",
+	"VETTA_POSTHOG_REPLAY_ENABLED",
+	"VETTA_POSTHOG_REPLAY_SAMPLE_RATE",
+	"VETTA_SENTRY_DSN",
+	"VETTA_SENTRY_RELEASE",
+	"VETTA_SENTRY_TRACES_SAMPLE_RATE",
+	"VETTA_SENTRY_AUTH_TOKEN",
+	"VETTA_SENTRY_ORG",
+	"VETTA_SENTRY_PROJECT",
+	"VETTA_SENTRY_URL",
+	"VETTA_TELEMETRY_ENVIRONMENT",
+];
 const MARKETPLACE_REF_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$/;
 const GITHUB_COORDINATE_PATTERN = /^[A-Za-z0-9_.-]+$/;
 
@@ -50,7 +59,7 @@ function validateHttpUrl(
 	env,
 	key,
 	errors,
-	{ required = false, httpsOnly = false, allowCredentials = false } = {},
+	{ required = false, httpsOnly = false } = {},
 ) {
 	const value = readValue(env, key);
 	if (value === undefined) {
@@ -62,7 +71,7 @@ function validateHttpUrl(
 		if ((httpsOnly && url.protocol !== "https:") || (!httpsOnly && !["http:", "https:"].includes(url.protocol))) {
 			errors.push(`${key} must use ${httpsOnly ? "https" : "http or https"}`);
 		}
-		if (!allowCredentials && (url.username || url.password)) {
+		if (url.username || url.password) {
 			errors.push(`${key} must not contain credentials`);
 		}
 		return url;
@@ -158,42 +167,10 @@ function validateUpdateConfiguration(updateConfig, productionUrls, errors) {
 	}
 }
 
-function validateTelemetry(env, productionUrls, errors) {
-	for (const key of SAMPLE_RATE_KEYS) {
-		const value = readValue(env, key);
-		if (value === undefined) continue;
-		const parsed = Number(value);
-		if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) errors.push(`${key} must be between 0 and 1`);
-	}
-	if (readValue(env, "VETTA_SENTRY_DSN")) {
-		validateHttpUrl(env, "VETTA_SENTRY_DSN", errors, {
-			httpsOnly: productionUrls,
-			allowCredentials: true,
-		});
-	}
-	if (readValue(env, "VETTA_SENTRY_URL")) {
-		validateHttpUrl(env, "VETTA_SENTRY_URL", errors, { httpsOnly: productionUrls });
-	}
-	if (readValue(env, "VETTA_POSTHOG_HOST")) {
-		validateHttpUrl(env, "VETTA_POSTHOG_HOST", errors, { httpsOnly: productionUrls });
-	}
-	const telemetryEnvironment = readValue(env, "VETTA_TELEMETRY_ENVIRONMENT");
-	if (telemetryEnvironment && !["development", "staging", "production"].includes(telemetryEnvironment)) {
-		errors.push("VETTA_TELEMETRY_ENVIRONMENT must be development, staging, or production");
-	}
-	const posthogKey = readValue(env, "VETTA_POSTHOG_KEY");
-	if (posthogKey && !posthogKey.startsWith("phc_")) {
-		errors.push("VETTA_POSTHOG_KEY must be a PostHog project API key starting with phc_");
-	}
-
-	const uploadKeys = ["VETTA_SENTRY_AUTH_TOKEN", "VETTA_SENTRY_ORG", "VETTA_SENTRY_PROJECT"];
-	if (uploadKeys.some((key) => readValue(env, key))) {
-		for (const key of [...uploadKeys, "VETTA_SENTRY_RELEASE"]) {
-			if (!readValue(env, key)) errors.push(`${key} is required when Sentry source-map upload is configured`);
-		}
-	}
-	if (readValue(env, "VETTA_POSTHOG_REPLAY_ENABLED") === "true" && !readValue(env, "VETTA_POSTHOG_KEY")) {
-		errors.push("VETTA_POSTHOG_KEY is required when VETTA_POSTHOG_REPLAY_ENABLED=true");
+// PostHog / Sentry 接入已移除：残留配置直接报错，避免误以为仍会生效。
+function validateRemovedIntegrations(env, errors) {
+	for (const key of REMOVED_INTEGRATION_KEYS) {
+		if (readValue(env, key)) errors.push(`${key} is no longer supported: the PostHog/Sentry integration was removed`);
 	}
 }
 
@@ -255,7 +232,7 @@ export function validateDesktopBuildEnvironment({
 	}
 	validateMarketplaceRepository(env, errors);
 
-	validateTelemetry(env, productionUrls, errors);
+	validateRemovedIntegrations(env, errors);
 	let macSigning;
 	try {
 		macSigning = resolveMacSigningConfig(env);
