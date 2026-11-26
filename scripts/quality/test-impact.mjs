@@ -75,6 +75,12 @@ const EXPLICIT_SOURCE_TESTS = new Map([
 		"apps/desktop/scripts/app-frame-layout.node-test.mjs",
 	].map((source) => [source, desktopTests("src/renderer/root-layout/AppFrame.layout.test.ts")]),
 	["apps/desktop/src/renderer/remote-desktop-host.ts", desktopTests("src/renderer/remote-desktop-host.test.ts")],
+	// contracts.ts 只导出类型，Vitest 依赖图选不出关联测试；会话历史摘要由 Node 会话目录生产，
+	// 用其合同测试兜底，避免这类纯类型合同变更没有任何测试可跑。
+	[
+		"packages/runtime-core/src/contracts.ts",
+		{ workspaceKey: "runtime-node", tests: ["test/conversation/file-conversation-session-services.test.ts"] },
+	],
 	// 宿主向插件转发的导出清单是手写字符串：漏列会让插件在 load-definition 阶段整份失败
 	// （0.6.9 的 Git 面板即如此），由契约测试比对清单与真实导出的全集。
 	[

@@ -54,6 +54,26 @@ describe("Greenfield runtime session services", () => {
 		]);
 	});
 
+	it("reports the header creation time, unaffected by later replies or file rewrites", async () => {
+		const rootDir = await createTemporaryRoot();
+		const cwd = join(rootDir, "workspace");
+		const repository = new FileConversationRepository({ rootDir });
+		await repository.create({ sessionId: "created-early", createdAt: 10, cwd });
+		await repository.append("created-early", 0, [
+			started("created-early", 500),
+			userMessage("created-early", "late reply", 510),
+			completed("created-early", 520),
+		]);
+		const sessionPath = repository.resolveConversationPath("created-early");
+		await repository.close();
+		const touchedAt = new Date("2030-01-01T00:00:00.000Z");
+		await utimes(sessionPath, touchedAt, touchedAt);
+
+		const [session] = await new FileConversationRuntimeSessionCatalog().listSessions(cwd, rootDir);
+
+		expect(session).toMatchObject({ id: "created-early", createdAt: 10, modifiedAt: 510 });
+	});
+
 	it("falls back to file modification time when a session has no conversation messages", async () => {
 		const rootDir = await createTemporaryRoot();
 		const cwd = join(rootDir, "workspace");

@@ -344,6 +344,11 @@ export interface SessionHistoryInfo {
 	name?: string;
 	firstMessage: string;
 	modifiedAt: number;
+	/**
+	 * 会话创建时间（毫秒）。来自会话文件头，不随消息或文件改写变化；
+	 * 头部缺失或无法解析的历史文件、宿主乐观插入的条目可缺省。
+	 */
+	createdAt?: number;
 	/** Trimmed preview (~120 chars) of the most recent user/assistant message text. */
 	lastMessagePreview?: string;
 	/** Parent session jsonl path when this session was forked. */

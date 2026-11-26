@@ -42,6 +42,7 @@ describe("Legacy session format boundary", () => {
 			parentSessionPath: "parent.jsonl",
 			parentEntryId: "parent-entry",
 			modifiedAt: 300,
+			createdAt: Date.parse("2026-01-01T00:00:00.000Z"),
 		});
 
 		await catalog.renameSession(sessionPath, "  renamed session  ");
