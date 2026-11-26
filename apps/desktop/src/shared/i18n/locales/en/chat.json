@@ -1035,6 +1035,11 @@
 		"sendMessage": "Send message",
 		"stopGenerating": "Stop generating"
 	},
+	"sessionOpenFailed": {
+		"title": "Couldn't open the conversation",
+		"noModel": "No model is available. Add a model provider in Settings, or connect Vetta in Magpie.",
+		"openModelSettings": "Set up models"
+	},
 	"session": {
 		"emptyMessageLabel": "(image)"
 	},
