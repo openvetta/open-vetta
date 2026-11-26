@@ -38,8 +38,6 @@ const labels: PresetProvidersSectionLabels = {
 	testing: "Testing",
 	testOk: "OK",
 	testFailed: "Failed",
-	editBaseUrl: "Change server address",
-	baseUrlPlaceholder: "Server address",
 	toggleProvider: (provider) => `Toggle ${provider}`,
 	managedConnected: "Managed by Magpie",
 	managedNotConnected: "Not connected · switch Vetta on in Magpie",
@@ -58,8 +56,7 @@ function magpieRow(adopted: boolean): PresetProviderRowModel {
 		offline: false,
 		adopted,
 		enabled: adopted,
-		autoKey: false,
-		isOpen: false,
+			isOpen: false,
 		isExpanded: false,
 		refreshing: false,
 		hasApiKey: adopted,
@@ -80,7 +77,6 @@ function renderRow(row: PresetProviderRowModel) {
 			onDraftKeyChange={vi.fn()}
 			onAdopt={noop}
 			onToggleEnabled={noop}
-			onChangeBaseUrl={vi.fn(async () => true)}
 			onRemove={noop}
 			onRefreshModels={noop}
 			onCopyApiKey={noop}

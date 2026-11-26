@@ -183,7 +183,6 @@ describe("Magpie 本机代理预设", () => {
 	it("由 Magpie 接入管理,不再预填密钥;/models 仍按 OpenAI 兼容格式解析", async () => {
 		const magpie = def("magpie");
 		expect(magpie.managedBy).toBe("magpie");
-		expect(magpie.defaultApiKey).toBeUndefined();
 
 		const calls: string[] = [];
 		const result = await fetchPresetModels(

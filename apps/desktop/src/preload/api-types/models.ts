@@ -97,8 +97,6 @@ export interface PresetProviderInfo {
 	baseUrl: string;
 	/** 供应商图标 symbol。 */
 	icon: string;
-	/** 预填的密钥(本机代理类服务商),用户直接点启用即可。 */
-	defaultApiKey?: string;
 	/** 由外部程序接入并管理(如 Magpie 在其 Agents 页写入),Vetta 里只展示状态,不能启用、改 key 或删除。 */
 	managedBy?: "magpie";
 	/** 公共目录(models.dev)里该家的模型,免 key 可见;填 key 后由账号实际可用的列表取代。 */
