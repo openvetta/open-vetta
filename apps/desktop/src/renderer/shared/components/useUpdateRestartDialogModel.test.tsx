@@ -24,12 +24,11 @@ const updater = {
 	getCurrentReleaseNote: vi.fn(),
 	install: vi.fn(),
 };
-const shell = { openExternal: vi.fn() };
 
 beforeEach(() => {
 	vi.clearAllMocks();
 	updater.getCurrentReleaseNote.mockResolvedValue("## 新增\n\n- A");
-	Object.defineProperty(window, "vetta", { configurable: true, value: { updater, shell } });
+	Object.defineProperty(window, "vetta", { configurable: true, value: { updater } });
 });
 
 function setup() {
@@ -108,8 +107,7 @@ describe("useUpdateRestartDialogModel", () => {
 			{ id: "1.1.0", note: "- 1.1", title: "updateDialog.versionHeading" },
 		]);
 		expect(result.current.model.earlierTitle).toBe("updateDialog.earlierTitle");
-		act(() => result.current.model.viewAll?.onClick());
-		expect(shell.openExternal).toHaveBeenCalledWith("https://github.com/openvetta/open-vetta/releases");
+		expect(result.current.model.viewAll?.label).toBe("updateDialog.viewAll");
 	});
 
 	it("只跨一个版本时不显示更早的版本和完整记录入口", () => {
