@@ -10,3 +10,16 @@ export function stripReleaseNoteHeader(markdown: string): string {
 		.replace(/^\s*# [^\n]*\n?/, "")
 		.trim();
 }
+
+/**
+ * 跨多个版本更新时把每一版的说明拼在一起（传入时已按版本从新到旧排好、已去掉各自标题）。
+ * 只有一版时只给正文（对话框已有版本标题）；多版时用版本号分节，否则分不清哪条属于哪一版。
+ */
+export function joinReleaseNotesByVersion(
+	notes: ReadonlyArray<{ readonly version: string; readonly body: string }>,
+): string | undefined {
+	const present = notes.filter((item) => item.body.length > 0);
+	if (present.length === 0) return undefined;
+	if (present.length === 1) return present[0]?.body;
+	return present.map((item) => `# Vetta ${item.version}\n\n${item.body}`).join("\n\n");
+}
