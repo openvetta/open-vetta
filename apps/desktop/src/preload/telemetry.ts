@@ -1,6 +1,6 @@
 import { hookupIpc } from "@sentry/electron/preload-namespaced";
 import * as Sentry from "@sentry/electron/renderer";
-import { redactSensitiveText, redactUrl } from "../shared/sentry-privacy.js";
+import { redactSensitiveText, redactUrl } from "../shared/text-redaction.js";
 
 if (process.env.VETTA_SENTRY_ENABLED === "true") {
 	initializePreloadErrorMonitoring();

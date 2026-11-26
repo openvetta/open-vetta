@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/electron/renderer";
 import type { ErrorInfo } from "react";
-import { redactSensitiveText, redactUrl } from "../../shared/sentry-privacy";
 import type { TelemetryContext } from "../../shared/telemetry";
+import { redactSensitiveText, redactUrl } from "../../shared/text-redaction";
 
 let initialized = false;
 

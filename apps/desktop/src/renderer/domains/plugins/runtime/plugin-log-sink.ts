@@ -1,5 +1,5 @@
 import { __setPluginLogSink, type PluginLogEntry } from "@vetta-org/plugin-sdk";
-import { redactSensitiveText } from "../../../../shared/sentry-privacy.js";
+import { redactSensitiveText } from "../../../../shared/text-redaction.js";
 
 const MAX_MESSAGE_LENGTH = 4_096;
 const MAX_SERIALIZED_FIELDS_LENGTH = 16_384;

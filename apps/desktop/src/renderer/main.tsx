@@ -8,7 +8,7 @@ import { applyPlatformAttribute } from "./shared/lib/platform";
 import { applyInitialTheme } from "./shared/theme/apply";
 import { applyInitialUserBubbleAppearance } from "./shared/theme/user-bubble-appearance";
 import { captureReactError, initializeRendererErrorMonitoring } from "./telemetry/error-monitoring";
-import { initializeViteHmrDiagnostics } from "./telemetry/vite-hmr-diagnostics";
+import { initializeViteHmrDiagnostics } from "./diagnostics/vite-hmr-diagnostics";
 import "./styles.css";
 
 initializeViteHmrDiagnostics();

@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/electron/main";
 import { app } from "electron";
-import { redactSensitiveText, redactUrl } from "../../shared/sentry-privacy.js";
 import type { TelemetryContext } from "../../shared/telemetry.js";
+import { redactSensitiveText, redactUrl } from "../../shared/text-redaction.js";
 
 let initialized = false;
 
