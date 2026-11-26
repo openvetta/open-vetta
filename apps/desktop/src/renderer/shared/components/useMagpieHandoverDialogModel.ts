@@ -12,6 +12,7 @@ const COPIED_RESET_MS = 1600;
 export interface MagpieHandoverDialogModel {
 	readonly visible: boolean;
 	readonly defaultModelCleared: boolean;
+	readonly noProvidersLeft: boolean;
 	readonly copied: boolean;
 	readonly labels: MagpieHandoverDialogViewLabels;
 	readonly onCopyPluginName: () => void;
@@ -35,7 +36,13 @@ export function useMagpieHandoverDialogModel(): MagpieHandoverDialogModel {
 		window.vetta.models
 			.takeMagpieHandoverNotice()
 			.then((next) => {
-				if (!cancelled && next) setState({ reason: "upgrade", defaultModelCleared: next.defaultModelCleared });
+				if (!cancelled && next) {
+					setState({
+						reason: "upgrade",
+						defaultModelCleared: next.defaultModelCleared,
+						noProvidersLeft: next.noProvidersLeft,
+					});
+				}
 			})
 			.catch(() => {
 				// 领不到就不弹:旧配置已经删了,设置页的 Magpie 一行也会提示去 Magpie 里接入。
@@ -67,6 +74,7 @@ export function useMagpieHandoverDialogModel(): MagpieHandoverDialogModel {
 	return {
 		visible: state !== null,
 		defaultModelCleared: state?.reason === "upgrade" && state.defaultModelCleared,
+		noProvidersLeft: state?.reason === "upgrade" && state.noProvidersLeft,
 		copied,
 		labels: {
 			eyebrow: upgrade ? t("magpieHandover.eyebrow") : t("magpieHandover.guideEyebrow"),
@@ -80,6 +88,7 @@ export function useMagpieHandoverDialogModel(): MagpieHandoverDialogModel {
 			copy: t("magpieHandover.copy"),
 			copied: t("magpieHandover.copied"),
 			defaultModelCleared: t("magpieHandover.defaultModelCleared"),
+			noProvidersLeft: t("magpieHandover.noProvidersLeft"),
 			primary: t("magpieHandover.primary"),
 			guide: t("magpieHandover.guide"),
 			close: t("magpieHandover.close"),

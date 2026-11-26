@@ -1074,6 +1074,7 @@
 		"copy": "Copy plugin name",
 		"copied": "Copied",
 		"defaultModelCleared": "Your default model was a Magpie model; pick it again after connecting.",
+		"noProvidersLeft": "Magpie was your only model source. Until you connect it, no model is available: you can still read past conversations but not send messages. You can also add another provider in Settings.",
 		"primary": "Got it",
 		"guide": "View plugin guide",
 		"close": "Close",

@@ -1074,6 +1074,7 @@
 		"copy": "复制插件名",
 		"copied": "已复制",
 		"defaultModelCleared": "你的默认模型原本是 Magpie 的模型，接入后需要重新选一次。",
+		"noProvidersLeft": "Magpie 是你唯一的模型来源。接入之前没有可用模型，旧对话只能查看，不能继续发消息；也可以在设置里另配一个服务商。",
 		"primary": "知道了",
 		"guide": "查看插件说明",
 		"close": "关闭",

@@ -6,7 +6,7 @@ import { atom } from "jotai";
  * - guide:用户在设置的 Magpie 一行主动打开的接入说明。
  */
 export type MagpieHandoverDialogState =
-	| { readonly reason: "upgrade"; readonly defaultModelCleared: boolean }
+	| { readonly reason: "upgrade"; readonly defaultModelCleared: boolean; readonly noProvidersLeft: boolean }
 	| { readonly reason: "guide" };
 
 export const magpieHandoverDialogAtom = atom<MagpieHandoverDialogState | null>(null);
