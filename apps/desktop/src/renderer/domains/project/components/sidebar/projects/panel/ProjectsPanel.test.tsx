@@ -366,6 +366,20 @@ describe("ProjectsPanel session view settings", () => {
 		expect(screen.queryByRole("button", { name: /Loaded project session/ })).toBeNull();
 	});
 
+	it("returns keyboard focus to the view options button when its menu is dismissed", async () => {
+		renderPanel();
+		await screen.findByRole("button", { name: "Existing conversation" });
+		const trigger = screen.getByRole("button", { name: "View options" });
+
+		fireEvent.click(trigger);
+		expect(trigger.getAttribute("aria-expanded")).toBe("true");
+		fireEvent.keyDown(screen.getByRole("menuitem", { name: "Group by" }), { key: "Escape" });
+
+		await waitFor(() => expect(screen.queryByRole("menuitem", { name: "Group by" })).toBeNull());
+		expect(trigger.getAttribute("aria-expanded")).toBe("false");
+		expect(document.activeElement).toBe(trigger);
+	});
+
 	it("opens a project chat from the flat list using that project's session access", async () => {
 		// 只读会话：按所属项目的 cwd 才能查到 access 并进入只读视图；查错 cwd 会退化成交互式恢复。
 		listSessions.mockImplementation(async (cwd: string) =>

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, createRef } from "react";
+import { act, createRef, type JSX } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { SidebarSectionActionButton } from "./SidebarSectionActionButton";
@@ -43,6 +43,25 @@ describe("SidebarSectionActionButton", () => {
 		expect(button.getAttribute("aria-label")).toBe("View options");
 		expect(button.getAttribute("aria-haspopup")).toBe("menu");
 		expect(button.classList.contains("shrink-0")).toBe(true);
+	});
+
+	it("exposes the open state to assistive technology only when it triggers a menu", () => {
+		const menuTrigger = (expanded: boolean) =>
+			mount(
+				<SidebarSectionActionButton
+					aria-haspopup="menu"
+					expanded={expanded}
+					iconClassName="icon-[solar--menu-dots-bold]"
+					label="View options"
+				/>,
+			);
+		expect(menuTrigger(false).getAttribute("aria-expanded")).toBe("false");
+		expect(menuTrigger(true).getAttribute("aria-expanded")).toBe("true");
+		expect(
+			mount(<SidebarSectionActionButton expanded iconClassName="icon-[solar--add-linear]" label="Add" />).hasAttribute(
+				"aria-expanded",
+			),
+		).toBe(false);
 	});
 
 	it("reports whether its menu is open", () => {

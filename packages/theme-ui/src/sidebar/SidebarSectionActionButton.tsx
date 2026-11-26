@@ -11,7 +11,7 @@ export interface SidebarSectionActionButtonProps extends Omit<ComponentPropsWith
 	 * 两者都在自身悬停时提到全亮。
 	 */
 	reveal?: "hover" | "always";
-	/** 关联的菜单或弹层正打开，保持全亮。 */
+	/** 关联的菜单或弹层正打开，保持全亮；作为菜单触发器（`aria-haspopup="menu"`）时同步为 `aria-expanded`。 */
 	expanded?: boolean;
 }
 
@@ -30,9 +30,11 @@ export const SidebarSectionActionButton = forwardRef<HTMLButtonElement, SidebarS
 				type={type}
 				title={label}
 				aria-label={label}
+				aria-expanded={props["aria-haspopup"] === "menu" ? expanded : undefined}
 				data-state={expanded ? "open" : "closed"}
 				className={cn(
-					"flex items-center justify-center rounded-md p-1.5 text-foreground transition-opacity hover:bg-accent",
+					// 键盘聚焦时也要可见，不能只靠悬停才露出。
+					"flex items-center justify-center rounded-md p-1.5 text-foreground transition-opacity hover:bg-accent focus-visible:opacity-100",
 					expanded
 						? "opacity-100"
 						: reveal === "always"

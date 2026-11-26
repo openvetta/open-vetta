@@ -154,12 +154,15 @@ export function useDefaultSessionListModel({
 		: activeSessionPath
 			? `conversation:${activeSessionPath}`
 			: "";
+	// 换了排序方式，正在看的会话位置随之改变，需要按新顺序再判断一次是否要展开；
+	// 同一排序下的普通刷新（运行状态变化等）不再重复展开，尊重用户手动收起。
+	const revealDecisionKey = activeConversationKey ? `${sessionOrder.sort}|${activeConversationKey}` : "";
 	useEffect(() => {
-		if (!activeConversationKey) {
+		if (!revealDecisionKey) {
 			revealedActiveSessionRef.current = null;
 			return;
 		}
-		if (revealedActiveSessionRef.current === activeConversationKey) return;
+		if (revealedActiveSessionRef.current === revealDecisionKey) return;
 		// 正在看的会话藏在会话组里时展开该组，并以组的位置判断是否要「显示更多」。
 		const groupTaskId = activeTeamSessionId
 			? undefined
@@ -171,7 +174,7 @@ export function useDefaultSessionListModel({
 			groupHeadPath ? session.path === groupHeadPath : sidebarConversationKey(session) === activeConversationKey,
 		);
 		if (activeIndex < 0) return;
-		revealedActiveSessionRef.current = activeConversationKey;
+		revealedActiveSessionRef.current = revealDecisionKey;
 		if (groupTaskId) setExpandedTaskIds((prev) => (prev.has(groupTaskId) ? prev : new Set(prev).add(groupTaskId)));
 		const collapsedOrdering = buildSidebarSessionOrdering(
 			collapsed.sessions,
@@ -183,6 +186,7 @@ export function useDefaultSessionListModel({
 		if (activeIndex >= collapsedOrdering.visible.length) setShowAll(true);
 	}, [
 		activeConversationKey,
+		revealDecisionKey,
 		activeSessionPath,
 		activeTeamSessionId,
 		collapsed,
