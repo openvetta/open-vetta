@@ -119,7 +119,7 @@
 	"magpieHandover": {
 		"title": "Magpie",
 		"message": "Magpie is now connected from Magpie",
-		"detail": "The Magpie provider you enabled in Vetta's settings has been removed. Magpie now manages it: search for and install the Vetta plugin on Magpie's Plugins page, then switch Vetta on in the Agents page, and Magpie's models appear in Vetta. Switching it off in Magpie removes them.",
+		"detail": "The Magpie provider you enabled in Vetta's settings has been removed. Magpie now manages it: search for and install magpie-vetta (the official Vetta plugin) on Magpie's Plugins page, then switch Vetta on in the Agents page, and Magpie's models appear in Vetta. Switching it off in Magpie removes them.",
 		"defaultModelCleared": "Your default model was a Magpie model; pick it again after connecting.",
 		"ok": "Got it"
 	}
