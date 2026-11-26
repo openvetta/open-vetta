@@ -146,6 +146,15 @@
 			"scrollToTop": "Scroll to top",
 			"scrollToBottom": "Scroll to bottom"
 		},
+		"view": {
+			"menu": "View options",
+			"grouping": "Group by",
+			"groupByProject": "Project",
+			"flat": "Flat list",
+			"sort": "Sort by",
+			"sortUpdated": "Last reply",
+			"sortCreated": "Created"
+		},
 		"defaultConversation": {
 			"noConversations": "No conversations",
 			"emptyTitle": "No conversations yet",

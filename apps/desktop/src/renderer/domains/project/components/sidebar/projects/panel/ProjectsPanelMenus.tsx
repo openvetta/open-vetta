@@ -2,16 +2,20 @@ import { ProjectsPanelMenusView } from "@vetta-org/theme-ui/project/ProjectsPane
 import { ConversationTagEditorDialog } from "../../../ConversationTagEditorDialog";
 import { ManageSessionsSplash } from "../../../ManageSessionsSplash";
 import { useProjectsPanelMenusModel } from "../../../../hooks/useProjectsPanelMenusModel";
+import { useSidebarSessionViewMenu } from "../../../../hooks/useSidebarSessionViewMenu";
 import { ProjectContextMenu } from "../../../ProjectContextMenu";
 import { SessionContextMenu } from "../../../SessionContextMenu";
 import type { ProjectsPanelModel } from "./types";
 
 interface ProjectsPanelMenusProps {
 	model: ProjectsPanelModel;
+	/** 项目区标题不显示时，会话视图设置改由默认「对话」区的更多菜单提供。 */
+	conversationMenuOwnsViewSettings: boolean;
 }
 
-export function ProjectsPanelMenus({ model }: ProjectsPanelMenusProps): JSX.Element {
+export function ProjectsPanelMenus({ model, conversationMenuOwnsViewSettings }: ProjectsPanelMenusProps): JSX.Element {
 	const menus = useProjectsPanelMenusModel(model);
+	const viewSettingsItems = useSidebarSessionViewMenu(menus.actions.closeProjectMenu);
 
 	return (
 		<ProjectsPanelMenusView
@@ -51,6 +55,9 @@ export function ProjectsPanelMenus({ model }: ProjectsPanelMenusProps): JSX.Elem
 						onOpenClawSettings={menus.actions.openClawSettings}
 						clearConversationDisabled={menus.clearConversationDisabled}
 						clearClawDisabled={menus.clearClawDisabled}
+						extraItems={
+							conversationMenuOwnsViewSettings && menus.projectMenu.project.isDefault ? viewSettingsItems : undefined
+						}
 					/>
 				) : null
 			}

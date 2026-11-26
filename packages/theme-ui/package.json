@@ -822,6 +822,10 @@
 			"types": "./src/sidebar/SidebarFilterSelectView.tsx",
 			"import": "./src/sidebar/SidebarFilterSelectView.tsx"
 		},
+		"./sidebar/SidebarSectionActionButton": {
+			"types": "./src/sidebar/SidebarSectionActionButton.tsx",
+			"import": "./src/sidebar/SidebarSectionActionButton.tsx"
+		},
 		"./sidebar/SidebarTopBar": {
 			"types": "./src/sidebar/SidebarTopBar.tsx",
 			"import": "./src/sidebar/SidebarTopBar.tsx"

@@ -204,6 +204,9 @@ export async function createCliSessionAssembly(options: CliSessionAssemblyOption
 		const sessionOptions: CodingAgentRuntimeSessionOptions = {
 			sessionId: options.sessionId,
 			cwd: bootstrap.cwd,
+			// 显式 --model 要压过恢复会话时按历史回复挑回的模型：IM 桥接改模型后会带新
+			// --model 重启，但同一聊天仍 --session 恢复旧会话。未指定时保留按历史恢复。
+			...(parsed.model ? { model: options.initialModel, thinkingLevel: options.initialThinkingLevel } : {}),
 			memoryMode: parsed.memoryMode || parsed.memoryFile !== undefined,
 			memoryFile: parsed.memoryFile,
 		};

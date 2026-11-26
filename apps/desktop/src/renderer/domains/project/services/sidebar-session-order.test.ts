@@ -2,8 +2,8 @@ import type { SessionInfo } from "@shared/store/atoms";
 import { describe, expect, it } from "vitest";
 import { buildSidebarSessionOrdering, orderSidebarSessions } from "./sidebar-session-order";
 
-function session(path: string, modifiedAt: number): SessionInfo {
-	return { id: path, path, cwd: "C:/workspace", firstMessage: path, modifiedAt };
+function session(path: string, modifiedAt: number, createdAt?: number): SessionInfo {
+	return { id: path, path, cwd: "C:/workspace", firstMessage: path, modifiedAt, createdAt };
 }
 
 describe("sidebar session ordering", () => {
@@ -32,5 +32,30 @@ describe("sidebar session ordering", () => {
 		const ordering = buildSidebarSessionOrdering(sessions, new Map(), 1, true);
 		expect(ordering.visible.map(({ path }) => path)).toEqual(["two", "one"]);
 		expect(ordering.hiddenCount).toBe(0);
+	});
+
+	it("puts running or waiting sessions ahead of idle ones when sorting by latest reply", () => {
+		const sessions = [session("recent", 30), session("running", 10), session("waiting", 20), session("pinned", 1)];
+		const ordered = orderSidebarSessions(sessions, new Map([["pinned", 1]]), {
+			sort: "updated",
+			activePaths: new Set(["running", "waiting"]),
+		});
+
+		expect(ordered.map(({ path }) => path)).toEqual(["pinned", "waiting", "running", "recent"]);
+	});
+
+	it("orders by creation time without lifting active sessions, falling back to activity time", () => {
+		const sessions = [
+			session("created-first", 300, 10),
+			session("created-last", 100, 50),
+			session("no-header", 40),
+			session("running", 500, 20),
+		];
+		const ordered = orderSidebarSessions(sessions, new Map(), {
+			sort: "created",
+			activePaths: new Set(["running"]),
+		});
+
+		expect(ordered.map(({ path }) => path)).toEqual(["created-last", "no-header", "running", "created-first"]);
 	});
 });

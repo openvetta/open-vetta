@@ -89,6 +89,34 @@ describe("useUpdateRestartDialogModel", () => {
 		expect(result.current.updateOpen).toBe(false);
 	});
 
+	it("跨多个版本更新：更早的各版折叠列出，可打开完整更新记录", () => {
+		const { result } = setup();
+		open(result, {
+			phase: "available",
+			currentVersion: "1.0.0",
+			latestVersion: "1.3.0",
+			releaseNote: "- 1.3",
+			earlierReleaseNotes: [
+				{ version: "1.2.0", note: "- 1.2" },
+				{ version: "1.1.0", note: "- 1.1" },
+			],
+		});
+		expect(result.current.model.releaseNote).toBe("- 1.3");
+		expect(result.current.model.earlierReleaseNotes).toEqual([
+			{ id: "1.2.0", note: "- 1.2", title: "updateDialog.versionHeading" },
+			{ id: "1.1.0", note: "- 1.1", title: "updateDialog.versionHeading" },
+		]);
+		expect(result.current.model.earlierTitle).toBe("updateDialog.earlierTitle");
+		expect(result.current.model.viewAll?.label).toBe("updateDialog.viewAll");
+	});
+
+	it("只跨一个版本时不显示更早的版本和完整记录入口", () => {
+		const { result } = setup();
+		open(result, { phase: "available", currentVersion: "1.0.0", latestVersion: "1.1.0", releaseNote: "- 新" });
+		expect(result.current.model.earlierReleaseNotes).toBeUndefined();
+		expect(result.current.model.viewAll).toBeUndefined();
+	});
+
 	it("下载中：进度条随进度变化，可后台继续", () => {
 		const { result } = setup();
 		open(result, { phase: "downloading", currentVersion: "1.0.0", latestVersion: "1.1.0", progress: 0.42 });

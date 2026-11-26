@@ -7,6 +7,7 @@ import {
 	useDefaultSessionListModel,
 } from "../../../../hooks/useDefaultSessionListModel";
 import type { SidebarConversationInfo } from "../../../../services/sidebar-conversation-projection";
+import type { SidebarConversationOrigin } from "../../../../services/sidebar-flat-conversations";
 
 /**
  * 每行一个 memo 组件，per-row 回调在这里用 useCallback 固定住。
@@ -62,6 +63,7 @@ const DefaultSessionRow = memo(function DefaultSessionRow({
 			tagColors={item.tagColors}
 			trailingAvatarUrls={item.trailingAvatarUrls}
 			titleExtra={item.titleExtra}
+			secondaryLabel={item.projectLabel}
 			onOpenContextMenu={handleContextMenu}
 			onRename={handleRename}
 			onRenameDone={onRenameDone}
@@ -80,6 +82,7 @@ interface DefaultSessionListProps {
 	onNewSession?: () => void;
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 	onSelectSession: (cwd: string, session: SidebarConversationInfo) => void;
+	projectOrigins?: ReadonlyMap<string, SidebarConversationOrigin>;
 	scrollParent: HTMLElement | null;
 	sessions: SidebarConversationInfo[];
 }

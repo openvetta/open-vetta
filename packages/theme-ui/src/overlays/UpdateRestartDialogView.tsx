@@ -19,6 +19,12 @@ export interface UpdateRestartDialogAction {
 	readonly onClick: () => void;
 }
 
+export interface UpdateRestartDialogEarlierNote {
+	readonly id: string;
+	readonly title: string;
+	readonly note: string;
+}
+
 export interface UpdateRestartDialogViewProps {
 	readonly bannerSrc: string;
 	/** 无正文时的占位文案（如「暂无版本介绍」）；有 releaseNote 时不显示。 */
@@ -29,6 +35,12 @@ export interface UpdateRestartDialogViewProps {
 	/** 底部唯一的悬浮按钮；省略时不显示底栏，只能用右上角的关闭按钮离开。 */
 	readonly primary?: UpdateRestartDialogAction;
 	readonly releaseNote?: string;
+	/** 跨多个版本更新时更早的各版说明（从新到旧），逐版折叠，点开才显示正文。 */
+	readonly earlierReleaseNotes?: ReadonlyArray<UpdateRestartDialogEarlierNote>;
+	/** 「更早的版本」分组标题，有 earlierReleaseNotes 时显示。 */
+	readonly earlierTitle?: string;
+	/** 正文末尾的「查看全部更新记录」链接。 */
+	readonly viewAll?: UpdateRestartDialogAction;
 	readonly status?: UpdateRestartDialogStatus;
 	readonly subtitle?: string;
 	readonly title: string;
@@ -44,6 +56,8 @@ const pillClass =
 export function UpdateRestartDialogView({
 	bannerSrc,
 	closeLabel,
+	earlierReleaseNotes,
+	earlierTitle,
 	emptyText,
 	loading = false,
 	onClose,
@@ -53,6 +67,7 @@ export function UpdateRestartDialogView({
 	status,
 	subtitle,
 	title,
+	viewAll,
 	visible,
 }: UpdateRestartDialogViewProps): JSX.Element {
 	// 滚动后才显示顶部渐隐，初始位置横幅完整露出。
@@ -124,6 +139,29 @@ export function UpdateRestartDialogView({
 										</div>
 									</div>
 								)}
+								{earlierReleaseNotes && earlierReleaseNotes.length > 0 && (
+									<div className="mt-7">
+										{earlierTitle && (
+											<p className="text-[12px] font-medium text-muted-foreground/80">{earlierTitle}</p>
+										)}
+										<div className="mt-2 divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60">
+											{earlierReleaseNotes.map((item) => (
+												<EarlierReleaseNote key={item.id} item={item} />
+											))}
+										</div>
+									</div>
+								)}
+								{viewAll && (
+									<button
+										type="button"
+										onClick={viewAll.onClick}
+										disabled={viewAll.disabled}
+										className="mt-4 inline-flex items-center gap-1 rounded-sm text-[13px] text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
+									>
+										{viewAll.label}
+										<span className="icon-[mdi--open-in-new] h-3.5 w-3.5" />
+									</button>
+								)}
 								{loading && (
 									<div className="mt-5 flex items-center gap-2 text-[13px] text-muted-foreground">
 										<span className="icon-[mdi--loading] h-4 w-4 animate-spin" />
@@ -165,6 +203,33 @@ export function UpdateRestartDialogView({
 				</motion.div>
 			)}
 		</AnimatePresence>
+	);
+}
+
+function EarlierReleaseNote({ item }: { readonly item: UpdateRestartDialogEarlierNote }): JSX.Element {
+	const [open, setOpen] = useState(false);
+	return (
+		<div>
+			<button
+				type="button"
+				aria-expanded={open}
+				onClick={() => setOpen((value) => !value)}
+				className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-foreground outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50"
+			>
+				{item.title}
+				<span
+					className={cn(
+						"icon-[mdi--chevron-down] h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150",
+						open && "rotate-180",
+					)}
+				/>
+			</button>
+			{open && (
+				<div className="markdown-body px-4 pt-1 pb-4 text-[13px] leading-[1.6] break-words text-muted-foreground">
+					<ReleaseNoteMarkdown>{item.note}</ReleaseNoteMarkdown>
+				</div>
+			)}
+		</div>
 	);
 }
 

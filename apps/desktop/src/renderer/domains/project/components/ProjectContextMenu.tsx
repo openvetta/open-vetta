@@ -1,5 +1,6 @@
 import type { Project } from "@shared/store/atoms";
 import { ProjectContextMenuView } from "@vetta-org/theme-ui/project/ProjectContextMenuView";
+import type { ContextMenuNode } from "@vetta-org/theme-ui/shared";
 import { createPortal } from "react-dom";
 import { useProjectContextMenuModel } from "../hooks/useProjectContextMenuModel";
 
@@ -19,6 +20,8 @@ interface ProjectContextMenuProps {
 	onOpenClawSettings?: () => void;
 	clearConversationDisabled?: boolean;
 	clearClawDisabled?: boolean;
+	/** 由所在面板追加的菜单项，例如默认「对话」区的会话视图设置。 */
+	extraItems?: readonly ContextMenuNode[];
 }
 
 export function ProjectContextMenu({
@@ -35,6 +38,7 @@ export function ProjectContextMenu({
 	onOpenClawSettings,
 	clearConversationDisabled,
 	clearClawDisabled,
+	extraItems = [],
 }: ProjectContextMenuProps): JSX.Element {
 	const model = useProjectContextMenuModel({
 		project,
@@ -50,5 +54,6 @@ export function ProjectContextMenu({
 		clearClawDisabled,
 	});
 	const move = useMoveSpaceMenu(!project.isDefault && project.type !== "batch" ? { kind: "project", key: project.cwd } : undefined, onClose);
-	return createPortal(<ProjectContextMenuView {...model} extraItems={move ? [move] : undefined} x={x} y={y} />, document.body);
+	const items = move ? [...extraItems, move] : extraItems;
+	return createPortal(<ProjectContextMenuView {...model} extraItems={items} x={x} y={y} />, document.body);
 }

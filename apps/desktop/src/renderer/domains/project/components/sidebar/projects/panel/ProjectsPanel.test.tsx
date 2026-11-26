@@ -4,9 +4,11 @@ import { SpaceSwitcher } from "../../SpaceSwitcher";
 import {
 	batchProjectsAtom,
 	defaultConversationCwdAtom,
+	sidebarSessionViewAtom,
 	projectsAtom,
 	projectsInitializedAtom,
 	sessionsMapAtom,
+	type SessionInfo,
 } from "@shared/store/atoms";
 import { pendingInteractionPathsAtom } from "@shared/store/pending-interactions-atoms";
 import { runningSessionPathsAtom } from "@shared/store/running-sessions-atoms";
@@ -20,18 +22,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProjectsPanel } from "./ProjectsPanel";
 
 const STORAGE_KEY = "vetta-sidebar-projects-open";
+const VIEW_STORAGE_KEY = "vetta-sidebar-session-view";
 const DEFAULT_CWD = "/test/conversations";
 const i18n = createInstance();
 await i18n.init({ lng: "en", fallbackLng: "en", resources: { en: { project } } });
 const routedPath = vi.hoisted(() => ({ value: "/settings/spaces" }));
 const navigate = vi.hoisted(() => vi.fn((route?: { to: string }) => { if (route) routedPath.value = route.to; }));
-const listSessions = vi.fn(async (cwd: string) => [{
+const listProjectSession = async (cwd: string): Promise<SessionInfo[]> => [{
 	id: "project-session",
 	path: `${cwd}/session.jsonl`,
 	cwd,
 	firstMessage: "Loaded project session",
 	modifiedAt: 1,
-}]);
+}];
+const listSessions = vi.fn(listProjectSession);
 vi.mock("@tanstack/react-router", () => ({
 	useLocation: () => routedPath.value,
 	useMatches: () => [{ pathname: "/", params: {} }],
@@ -103,7 +107,9 @@ beforeEach(() => {
 	navigate.mockClear();
 	routedPath.value = "/settings/spaces";
 	listSessions.mockClear();
+	listSessions.mockImplementation(listProjectSession);
 	localStorage.removeItem(STORAGE_KEY);
+	localStorage.removeItem(VIEW_STORAGE_KEY);
 	localStorage.removeItem("vetta.desktop-spaces.v1");
 	availableSidebarWidth = undefined;
 	vi.stubGlobal("ResizeObserver", class {
@@ -132,6 +138,7 @@ beforeEach(() => {
 afterEach(() => {
 	cleanup();
 	localStorage.removeItem(STORAGE_KEY);
+	localStorage.removeItem(VIEW_STORAGE_KEY);
 	localStorage.removeItem("vetta.desktop-spaces.v1");
 	vi.unstubAllGlobals();
 });
@@ -255,6 +262,30 @@ it("switches project and chat membership together, preserving the global page", 
 	expect(routedPath.value).toBe("/settings/spaces");
 });
 
+// 标题行按钮：列表为空时常驻引导创建，有内容后只在悬停标题行（或键盘聚焦）时出现。
+it("keeps section header actions visible only while their list is empty", async () => {
+	renderPanel(true, true);
+	// 空列表里另有同名的引导按钮，只看标题行上带显示方式的那个。
+	const reveal = (name: string) =>
+		screen.getAllByRole("button", { name }).find((button) => button.dataset.reveal)?.dataset.reveal;
+
+	// 主空间：有项目，但没有归属这里的对话。
+	await screen.findByRole("button", { name: "My batch project", expanded: false });
+	expect(reveal("New Project")).toBe("hover");
+	expect(reveal("New Session")).toBe("always");
+
+	// Work：项目和对话都有。
+	fireEvent.click(screen.getByRole("button", { name: "Work" }));
+	await screen.findByRole("button", { name: "Existing conversation" });
+	expect(reveal("New Project")).toBe("hover");
+	expect(reveal("New Session")).toBe("hover");
+
+	// Personal：项目和对话都没有。
+	fireEvent.click(screen.getByRole("button", { name: "Personal" }));
+	await waitFor(() => expect(screen.queryByRole("button", { name: "Existing conversation" })).toBeNull());
+	expect(reveal("New Project")).toBe("always");
+});
+
 it("opens an overflow workspace and highlights the grouped trigger in a narrow sidebar", async () => {
 	availableSidebarWidth = 68;
 	renderPanel(true, true);
@@ -322,4 +353,92 @@ it("flips a session row between running and waiting without reselecting it", asy
 	act(() => store.set(pendingInteractionPathsAtom, new Map()));
 	await waitFor(() => expect(leading()?.getAttribute("data-session-waiting")).toBeNull());
 	expect(leading()?.classList.contains("project-running-icon")).toBe(true);
+});
+
+describe("ProjectsPanel session view settings", () => {
+	function chooseViewOption(trigger: HTMLElement, group: string, option: string): void {
+		fireEvent.click(trigger);
+		fireEvent.click(screen.getByRole("menuitem", { name: group }));
+		fireEvent.click(screen.getByRole("menuitem", { name: option }));
+	}
+
+	function rowTitles(): string[] {
+		return screen.getAllByRole("button", { name: /^(Alpha|Beta)$/ }).map((row) => row.textContent ?? "");
+	}
+
+	it("flattens every project's chats into one Chat list and switches back from the chat menu", async () => {
+		renderPanel();
+		await screen.findByRole("button", { name: "Existing conversation" });
+		expect(screen.getByRole("button", { name: "Projects" })).toBeDefined();
+
+		chooseViewOption(screen.getByRole("button", { name: "View options" }), "Group by", "Flat list");
+
+		expect(screen.queryByRole("button", { name: "Projects" })).toBeNull();
+		expect(screen.queryByRole("button", { name: "My batch project", expanded: false })).toBeNull();
+		// 两个项目平时未展开、会话未读取；平铺后各自补读，行内标注所属项目。
+		const projectRows = await screen.findAllByRole("button", { name: /Loaded project session/ });
+		expect(projectRows.map((row) => row.textContent)).toEqual(
+			expect.arrayContaining(["Loaded project sessionnormal-project", "Loaded project sessionsecond-project"]),
+		);
+		expect(screen.getByRole("button", { name: "Existing conversation" }).textContent).toBe("Existing conversation");
+
+		// 项目区收起后，视图设置改由「对话」区的更多菜单提供。
+		// 标题行的「更多」在 DOM 上先于各会话行的「更多」。
+		const [sectionMore] = screen.getAllByRole("button", { name: "More" });
+		chooseViewOption(sectionMore as HTMLElement, "Group by", "Project");
+		expect(await screen.findByRole("button", { name: "Projects" })).toBeDefined();
+		expect(screen.queryByRole("button", { name: /Loaded project session/ })).toBeNull();
+	});
+
+	it("returns keyboard focus to the view options button when its menu is dismissed", async () => {
+		renderPanel();
+		await screen.findByRole("button", { name: "Existing conversation" });
+		const trigger = screen.getByRole("button", { name: "View options" });
+
+		fireEvent.click(trigger);
+		expect(trigger.getAttribute("aria-expanded")).toBe("true");
+		fireEvent.keyDown(screen.getByRole("menuitem", { name: "Group by" }), { key: "Escape" });
+
+		await waitFor(() => expect(screen.queryByRole("menuitem", { name: "Group by" })).toBeNull());
+		expect(trigger.getAttribute("aria-expanded")).toBe("false");
+		expect(document.activeElement).toBe(trigger);
+	});
+
+	it("opens a project chat from the flat list using that project's session access", async () => {
+		// 只读会话：按所属项目的 cwd 才能查到 access 并进入只读视图；查错 cwd 会退化成交互式恢复。
+		listSessions.mockImplementation(async (cwd: string) =>
+			(await listProjectSession(cwd)).map((session) => ({
+				...session,
+				access: { readHistory: true, resume: false, rename: false, delete: false },
+			})),
+		);
+		const { store } = renderPanel();
+		act(() => store.set(sidebarSessionViewAtom, { grouping: "flat" }));
+		const rows = await screen.findAllByRole("button", { name: /Loaded project session/ });
+		const row = rows.find((candidate) => candidate.textContent?.endsWith("normal-project"));
+
+		fireEvent.click(row as HTMLElement);
+
+		await waitFor(() => expect(routedPath.value).toBe("/viewer/$path"));
+	});
+
+	it("sorts by last reply with active chats first, or by creation time", async () => {
+		const { store } = renderPanel();
+		act(() =>
+			store.set(sessionsMapAtom, new Map([[DEFAULT_CWD, [
+				{ id: "a", path: `${DEFAULT_CWD}/a.jsonl`, cwd: DEFAULT_CWD, firstMessage: "Alpha", modifiedAt: 10, createdAt: 1 },
+				{ id: "b", path: `${DEFAULT_CWD}/b.jsonl`, cwd: DEFAULT_CWD, firstMessage: "Beta", modifiedAt: 5, createdAt: 2 },
+			]]])),
+		);
+		await screen.findByRole("button", { name: "Alpha" });
+		expect(rowTitles()).toEqual(["Alpha", "Beta"]);
+
+		act(() => store.set(runningSessionPathsAtom, new Set([`${DEFAULT_CWD}/b.jsonl`])));
+		await waitFor(() => expect(rowTitles()).toEqual(["Beta", "Alpha"]));
+
+		chooseViewOption(screen.getByRole("button", { name: "View options" }), "Sort by", "Created");
+		act(() => store.set(runningSessionPathsAtom, new Set([`${DEFAULT_CWD}/a.jsonl`])));
+		await waitFor(() => expect(rowTitles()).toEqual(["Beta", "Alpha"]));
+		expect(JSON.parse(localStorage.getItem(VIEW_STORAGE_KEY) as string)).toMatchObject({ sort: "created" });
+	});
 });

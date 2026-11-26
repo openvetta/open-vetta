@@ -1058,6 +1058,9 @@
 		"currentTitle": "What's New in Vetta {{version}}",
 		"currentSubtitle": "What this version brings",
 		"currentEmpty": "No release notes for this version.",
+		"earlierTitle": "Earlier versions",
+		"versionHeading": "Vetta {{version}}",
+		"viewAll": "View all release notes",
 		"updateNow": "Update Now"
 	},
 	"magpieHandover": {

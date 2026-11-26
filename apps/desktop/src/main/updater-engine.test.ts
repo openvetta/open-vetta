@@ -201,6 +201,60 @@ describe("ElectronUpdaterEngine", () => {
 		expect(result?.hasUpdate && result.info.releaseNote).toBe("## 新增\n\n- 功能 A");
 	});
 
+	it("跨多个版本更新时最新一版作正文，更早的各版单独列出", async () => {
+		const bilingual = (version: string, en: string, zh: string) =>
+			[
+				`<h1>Vetta ${version}</h1>`,
+				`<h2>English</h2><h3>New</h3><ul><li>${en}</li></ul>`,
+				`<h2>中文</h2><h3>新增</h3><ul><li>${zh}</li></ul>`,
+			].join("");
+		const updateInfo = {
+			version: "0.6.25",
+			files: [],
+			path: "x",
+			sha512: "x",
+			releaseDate: new Date().toISOString(),
+			releaseNotes: [
+				{ version: "0.6.25", note: bilingual("0.6.25", "Feature C", "功能 C") },
+				{ version: "0.6.24", note: null },
+				{ version: "0.6.23", note: bilingual("0.6.23", "Feature B", "功能 B") },
+			],
+		} as unknown as UpdateInfo;
+		const updater = {
+			on: vi.fn(),
+			off: vi.fn(),
+			checkForUpdates: vi.fn().mockResolvedValue({ isUpdateAvailable: true, updateInfo }),
+		} as unknown as AppUpdater;
+
+		const engine = new ElectronUpdaterEngine(updater, undefined, undefined, undefined, () => "zh");
+		expect(updater.fullChangelog).toBe(true);
+		const result = await engine.checkForUpdates();
+		expect(result?.hasUpdate && result.info.releaseNote).toBe("### 新增\n\n- 功能 C");
+		// 没有正文的 0.6.24 跳过。
+		expect(result?.hasUpdate && result.info.earlierReleaseNotes).toEqual([
+			{ version: "0.6.23", note: "### 新增\n\n- 功能 B" },
+		]);
+	});
+
+	it("只有一版说明时不列更早的版本", async () => {
+		const updateInfo = {
+			version: "0.6.25",
+			files: [],
+			path: "x",
+			sha512: "x",
+			releaseDate: new Date().toISOString(),
+			releaseNotes: [{ version: "0.6.25", note: "<h1>Vetta 0.6.25</h1><h2>新增</h2><ul><li>功能 A</li></ul>" }],
+		} as unknown as UpdateInfo;
+		const updater = {
+			on: vi.fn(),
+			off: vi.fn(),
+			checkForUpdates: vi.fn().mockResolvedValue({ isUpdateAvailable: true, updateInfo }),
+		} as unknown as AppUpdater;
+		const result = await new ElectronUpdaterEngine(updater).checkForUpdates();
+		expect(result?.hasUpdate && result.info.releaseNote).toBe("## 新增\n\n- 功能 A");
+		expect(result?.hasUpdate && result.info.earlierReleaseNotes).toBeUndefined();
+	});
+
 	it("双语说明只保留界面语言那一段", async () => {
 		const updateInfo = {
 			version: "1.2.3",

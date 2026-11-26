@@ -111,13 +111,15 @@ export class LegacyRuntimeSessionCatalog implements RuntimeSessionCatalog {
 			const textMessages = messages.filter(({ text }) => text.length > 0);
 			const firstMessage = textMessages.find(({ role }) => role === "user")?.text ?? "(no messages)";
 			const lastMessage = textMessages.at(-1);
+			const createdAt = readTimestamp(document.header.timestamp);
 			return {
 				id: document.header.id,
 				path: sessionPath,
 				cwd: document.header.cwd,
 				name: readSessionName(document.entries),
 				firstMessage,
-				modifiedAt: readLastActivityTime(messages) ?? readTimestamp(document.header.timestamp) ?? modifiedAt,
+				modifiedAt: readLastActivityTime(messages) ?? createdAt ?? modifiedAt,
+				...(createdAt === undefined ? {} : { createdAt }),
 				lastMessagePreview: lastMessage?.text.trim().slice(0, 120) ?? "",
 				parentSessionPath: document.header.parentSession,
 				parentEntryId: document.header.parentEntryId,

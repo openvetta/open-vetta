@@ -3,8 +3,10 @@ import type {
 	Project,
 	SessionContextMenuSession,
 	SessionExecutionMode,
+	SidebarSessionGrouping,
 } from "@shared/store/atoms";
 import type { SidebarConversationInfo } from "../../../../services/sidebar-conversation-projection";
+import type { SidebarConversationOrigin } from "../../../../services/sidebar-flat-conversations";
 
 export interface ProjectsPanelProps {
 	defaultSessionListClassName?: string;
@@ -23,6 +25,8 @@ export interface ProjectsPanelModel {
 	batchProjects: BatchProjectEntry[];
 	defaultConversationFilter: DefaultConversationFilter;
 	defaultProject: Project | undefined;
+	/** 平铺展示时，默认区列表里混入的项目会话及其所属项目；按项目分组时为空。 */
+	defaultProjectOrigins: ReadonlyMap<string, SidebarConversationOrigin> | undefined;
 	defaultSessions: SidebarConversationInfo[];
 	/** 默认区会话真正所属的 cwd：claw 过滤下是 im-gateway 的 cwd，而非 defaultProject.cwd。 */
 	defaultSessionsCwd: string;
@@ -34,6 +38,7 @@ export interface ProjectsPanelModel {
 	projectSessionsLoading: (cwd: string) => boolean;
 	projectsLoading: boolean;
 	defaultSessionsLoading: boolean;
+	sessionGrouping: SidebarSessionGrouping;
 	actions: {
 		archiveProject(cwd: string): void;
 		batchNewSession(cwd: string): void;
