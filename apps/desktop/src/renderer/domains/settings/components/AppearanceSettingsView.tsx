@@ -1,5 +1,6 @@
 import { Button } from "@shared/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
+import { SegmentedControl } from "@shared/components/ui/segmented-control";
 import { SELECT_TRIGGER_CLASS } from "@vetta-org/ui";
 import { StepSlider } from "@shared/components/ui/step-slider";
 import { PixelMarioBlocks } from "@shared/components/mario/PixelMarioBlocks";
@@ -19,7 +20,7 @@ import { MotionSelect, SettingHeading, SettingRow, SettingSection } from "@vetta
 import type { AppIconId } from "@/shared/app-icon";
 import { ChatAppearanceSettings } from "./ChatAppearanceSettings";
 import type {
-	AppearanceAppIconOption,
+	AppearanceAppIconGroup,
 	AppearanceOrnamentOption,
 	AppearanceLanguageOption,
 	AppearanceModeOption,
@@ -343,19 +344,31 @@ function SquircleIcon({ className, src }: { className?: string; src: string }): 
 	);
 }
 
-/** 单个入口：显示当前图标与名字，点开 popover 在里面挑。无背景卡片。 */
+/**
+ * 单个入口：显示当前图标与名字，点开 popover 在里面挑。无背景卡片。
+ * 图标按风格分组，popover 顶部用分段器切换，每次打开先停在当前图标所在的那组。
+ */
 function AppIconPicker({
+	groups,
 	onSelect,
-	options,
 }: {
+	groups: AppearanceAppIconGroup[];
 	onSelect: (id: AppIconId) => void;
-	options: AppearanceAppIconOption[];
 }): JSX.Element | null {
 	const [open, setOpen] = useState(false);
-	const current = options.find((option) => option.active) ?? options[0];
+	const activeGroup = groups.find((group) => group.options.some((option) => option.active)) ?? groups[0];
+	const [tabId, setTabId] = useState(activeGroup?.id);
+	const current = activeGroup?.options.find((option) => option.active) ?? activeGroup?.options[0];
 	if (!current) return null;
+	const shownGroup = groups.find((group) => group.id === tabId) ?? activeGroup;
 	return (
-		<Popover open={open} onOpenChange={setOpen}>
+		<Popover
+			open={open}
+			onOpenChange={(next) => {
+				if (next) setTabId(activeGroup?.id);
+				setOpen(next);
+			}}
+		>
 			<PopoverTrigger asChild>
 				<button
 					type="button"
@@ -369,9 +382,16 @@ function AppIconPicker({
 					<span className="icon-[mdi--chevron-down] ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
 				</button>
 			</PopoverTrigger>
-			<PopoverContent align="end" className="w-[320px] p-3">
-				<div className="grid grid-cols-4 gap-x-3 gap-y-3">
-					{options.map((option) => (
+			<PopoverContent align="end" className="w-[380px] p-3">
+				<SegmentedControl
+					className="mb-3 flex w-full [&>button]:flex-1"
+					items={groups.map((group) => ({ key: group.id, label: group.label }))}
+					value={shownGroup?.id ?? groups[0]?.id ?? "classic"}
+					onChange={setTabId}
+				/>
+				{/* 五列下每组都正好两行，切换分组时 popover 高度不变。 */}
+				<div className="grid grid-cols-5 gap-x-3 gap-y-3">
+					{shownGroup?.options.map((option) => (
 						<button
 							key={option.id}
 							type="button"
@@ -621,7 +641,7 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 					</div>
 					<div id={SETTINGS_SECTION["appearance-app-icon"].id} data-setting-section-id={SETTINGS_SECTION["appearance-app-icon"].id}>
 						<SettingRow title={model.labels.sections.appIcon} border={false}>
-							<AppIconPicker options={model.appIconOptions} onSelect={model.actions.setAppIcon} />
+							<AppIconPicker groups={model.appIconGroups} onSelect={model.actions.setAppIcon} />
 						</SettingRow>
 					</div>
 				</SettingSection>

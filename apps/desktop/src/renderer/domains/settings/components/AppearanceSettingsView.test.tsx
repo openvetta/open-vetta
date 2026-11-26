@@ -49,9 +49,22 @@ function model(
 			overrides.actions,
 		),
 		activeUiThemeId: "default",
-		appIconOptions: [
-			{ active: true, id: "default", label: "默认", preview: "default.png" },
-			{ active: false, id: "coding", label: "编程", preview: "coding.png" },
+		appIconGroups: [
+			{
+				id: "classic",
+				label: "经典",
+				options: [{ active: true, id: "default", label: "默认", preview: "default.png" }],
+			},
+			{
+				id: "animals",
+				label: "动物",
+				options: [{ active: false, id: "router", label: "柯基", preview: "router.png" }],
+			},
+			{
+				id: "pixel",
+				label: "像素",
+				options: [{ active: false, id: "coding", label: "编程", preview: "coding.png" }],
+			},
 		],
 		chatBackgroundId: "none",
 		chatBackgroundOptions: [
@@ -259,9 +272,22 @@ describe("AppearanceSettingsView 的新会话页装饰区域", () => {
 		expect(view.getAllByText("应用图标").length).toBeGreaterThan(0);
 		expect(view.queryByTitle("编程")).toBeNull();
 		await userEvent.click(view.getByText("默认"));
-		await userEvent.click(await view.findByTitle("编程"));
+		await userEvent.click(await view.findByRole("button", { name: "像素" }));
+		await userEvent.click(view.getByTitle("编程"));
 
 		expect(setAppIcon).toHaveBeenCalledWith("coding");
+	});
+
+	it("应用图标 popover 按风格分组，打开时停在当前图标所在的组，切换分组只显示该组", async () => {
+		const view = render(<AppearanceSettingsView model={model()} />);
+
+		await userEvent.click(view.getByText("默认"));
+		expect(await view.findByTitle("默认")).toBeTruthy();
+		expect(view.queryByTitle("柯基")).toBeNull();
+
+		await userEvent.click(view.getByRole("button", { name: "动物" }));
+		expect(view.getByTitle("柯基")).toBeTruthy();
+		expect(view.queryByTitle("默认")).toBeNull();
 	});
 
 	it("界面大小行只显示当前百分比，点开 popover 后恢复默认在默认值时不可点", async () => {
