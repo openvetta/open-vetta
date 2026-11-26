@@ -17,6 +17,12 @@ export type {
 export type { DetailDrawerProps } from "./DetailDrawer";
 export { DetailDrawer } from "./DetailDrawer";
 export { DetailDrawerEnter } from "./DetailDrawerEnter";
+export type {
+	DiagnosticsExportDialogPhase,
+	DiagnosticsExportDialogViewLabels,
+	DiagnosticsExportDialogViewProps,
+} from "./DiagnosticsExportDialogView";
+export { DiagnosticsExportDialogView } from "./DiagnosticsExportDialogView";
 export { shouldCloseDetailDrawer } from "./detail-drawer-guard";
 export type { KnowledgeDropOverlayViewProps } from "./KnowledgeDropOverlayView";
 export { KnowledgeDropOverlayView } from "./KnowledgeDropOverlayView";

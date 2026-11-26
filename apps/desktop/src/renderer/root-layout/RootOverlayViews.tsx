@@ -15,6 +15,7 @@ import { SchedulerDeleteApproval } from "../shared/action-approval/scheduler/Sch
 import { SchedulerExecutionApproval } from "../shared/action-approval/scheduler/SchedulerExecutionApproval";
 import { SchedulerToggleApproval } from "../shared/action-approval/scheduler/SchedulerToggleApproval";
 import { SchedulerUpdateApproval } from "../shared/action-approval/scheduler/SchedulerUpdateApproval";
+import { DiagnosticsExportDialog } from "../shared/components/DiagnosticsExportDialog";
 import { MagpieHandoverDialog } from "../shared/components/MagpieHandoverDialog";
 import { UpdateRestartDialog } from "../shared/components/UpdateRestartDialog";
 import { Toaster } from "../shared/components/ui/Toaster";
@@ -55,6 +56,7 @@ export function RootOverlayViews(): JSX.Element {
 			<ThemedFilePreviewDialog />
 			<ThemedUpdateRestartDialog />
 			<MagpieHandoverDialog />
+			<DiagnosticsExportDialog />
 			<ThemedGenericActionApproval />
 			<DomainManageApprovals />
 			<ThemedAppearancePickerApproval />
