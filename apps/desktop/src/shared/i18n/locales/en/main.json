@@ -115,5 +115,8 @@
 	},
 	"markdown": {
 		"previewTitle": "HTML preview · closes after 30 seconds"
+	},
+	"runtime": {
+		"noAvailableModel": "No model is available, so this conversation can't continue yet. Add a model provider in Settings, or connect Vetta in Magpie, then try again."
 	}
 }

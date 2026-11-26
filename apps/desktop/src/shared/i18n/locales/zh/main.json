@@ -115,5 +115,8 @@
 	},
 	"markdown": {
 		"previewTitle": "HTML 预览 · 30 秒后自动关闭"
+	},
+	"runtime": {
+		"noAvailableModel": "当前没有可用模型，这个对话暂时无法继续。请在设置里添加模型服务商，或在 Magpie 里接入 Vetta 后再试。"
 	}
 }
