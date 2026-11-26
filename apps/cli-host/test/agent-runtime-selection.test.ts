@@ -358,6 +358,68 @@ describe("Agent Runtime production host", () => {
 		expect(await process.waitForExit()).toBe(2);
 		expect(process.frames).toEqual([failure]);
 	});
+
+	it("keeps the explicit --model when resuming a session last answered by another model", async () => {
+		const fixture = await createFixture();
+		// IM 桥接在用户改模型后用新的 --model 重启，但同一聊天会带 --session 恢复旧会话；
+		// 旧会话最后一条回复来自之前的模型，不能把它恢复回来。
+		const modelsPath = join(fixture.agentDir, "models.json");
+		const models = JSON.parse(await readFile(modelsPath, "utf8"));
+		models.providers.previous = {
+			...models.providers.test,
+			models: [{ ...models.providers.test.models[0], id: "previous-model", name: "Previous Model" }],
+		};
+		await writeFile(modelsPath, JSON.stringify(models), "utf8");
+		await writeFile(
+			join(fixture.agentDir, "auth.json"),
+			JSON.stringify({ test: { type: "api_key", key: "test-key" }, previous: { type: "api_key", key: "test-key" } }),
+			"utf8",
+		);
+		const timestamp = new Date().toISOString();
+		const zeroCost = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
+		const sessionPath = join(fixture.conversationDir, "previous-model.jsonl");
+		await writeFile(
+			sessionPath,
+			`${[
+				{ type: "session", version: 3, id: "previous-model-session", timestamp, cwd: fixture.workspace },
+				{
+					type: "message",
+					id: "previous-user",
+					parentId: null,
+					timestamp,
+					message: { role: "user", content: "hi", timestamp: Date.now() },
+				},
+				{
+					type: "message",
+					id: "previous-assistant",
+					parentId: "previous-user",
+					timestamp,
+					message: {
+						role: "assistant",
+						content: [{ type: "text", text: "hello" }],
+						api: "openai-responses",
+						provider: "previous",
+						model: "previous-model",
+						usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: zeroCost },
+						stopReason: "stop",
+						timestamp: Date.now(),
+					},
+				},
+			]
+				.map((entry) => JSON.stringify(entry))
+				.join("\n")}\n`,
+			"utf8",
+		);
+
+		const resumed = await startRpc(fixture, ["--session", sessionPath]);
+		const state = await resumed.request("resumed-model-state", "get_state");
+		expect(state).toMatchObject({
+			command: "get_state",
+			success: true,
+			data: { model: { provider: "test", id: "test-model" } },
+		});
+		await resumed.close();
+	});
 });
 
 async function createFixture(): Promise<AgentRpcFixture> {
