@@ -115,12 +115,5 @@
 	},
 	"markdown": {
 		"previewTitle": "HTML 预览 · 30 秒后自动关闭"
-	},
-	"magpieHandover": {
-		"title": "Magpie",
-		"message": "Magpie 改为在 Magpie 里接入",
-		"detail": "之前在 Vetta 设置里启用的 Magpie 已移除，今后由 Magpie 统一管理：在 Magpie 的插件页搜索并安装 magpie-vetta（Vetta 官方插件），再到 Agents 页打开 Vetta，Magpie 的模型就会出现在 Vetta 里；在 Magpie 里关掉，模型随之移除。",
-		"defaultModelCleared": "你的默认模型原本是 Magpie 的模型，接入后需要重新选一次。",
-		"ok": "知道了"
 	}
 }

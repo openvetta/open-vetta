@@ -147,6 +147,11 @@ export interface DesktopModelsApi {
 	refreshPresetModels(providerId: string, apiKey?: string, baseUrl?: string): Promise<PresetModelsResult>;
 	/** 手动刷新 models.dev 公共目录(清掉失败冷却强制重拉),失败时返回可读的错误原文。 */
 	refreshPresetCatalog(): Promise<{ ok: boolean; error?: PresetError; elapsedMs: number; modelCount: number }>;
+	/**
+	 * 领取「Magpie 改由 Magpie 接入」的提示:本次启动删过旧版在 Vetta 里启用的 Magpie 才返回,
+	 * 且只返回一次;defaultModelCleared 表示默认模型原本是 Magpie 的、随之被清掉了。
+	 */
+	takeMagpieHandoverNotice(): Promise<{ defaultModelCleared: boolean } | null>;
 	/** 公共目录后台刷新到新数据时触发,收到后重新 listPresets 即可。返回取消订阅函数。 */
 	onPresetsUpdated(handler: () => void): () => void;
 	/** 探测某 (provider, model) 的 baseUrl 是否可达(本地 models.json 优先,回退云端目录)。仅判可达性,任何 HTTP 响应都算通。 */

@@ -42,6 +42,7 @@ const labels: PresetProvidersSectionLabels = {
 	toggleProvider: (provider) => `Toggle ${provider}`,
 	managedConnected: "Managed by Magpie",
 	managedNotConnected: "Not connected · switch Vetta on in Magpie",
+	managedGuide: "How to connect",
 };
 
 const row: PresetProviderRow = {

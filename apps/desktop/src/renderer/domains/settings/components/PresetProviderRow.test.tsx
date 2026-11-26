@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PresetProviderRow } from "./PresetProviderRow";
 import type { PresetProviderRow as PresetProviderRowModel, PresetProvidersSectionLabels } from "./usePresetProvidersSectionModel";
@@ -41,6 +41,7 @@ const labels: PresetProvidersSectionLabels = {
 	toggleProvider: (provider) => `Toggle ${provider}`,
 	managedConnected: "Managed by Magpie",
 	managedNotConnected: "Not connected · switch Vetta on in Magpie",
+	managedGuide: "How to connect",
 };
 
 function magpieRow(adopted: boolean): PresetProviderRowModel {
@@ -64,7 +65,7 @@ function magpieRow(adopted: boolean): PresetProviderRowModel {
 	};
 }
 
-function renderRow(row: PresetProviderRowModel) {
+function renderRow(row: PresetProviderRowModel, onOpenManagedGuide = vi.fn()) {
 	const noop = vi.fn(async () => {});
 	return render(
 		<PresetProviderRow
@@ -80,6 +81,7 @@ function renderRow(row: PresetProviderRowModel) {
 			onRemove={noop}
 			onRefreshModels={noop}
 			onCopyApiKey={noop}
+			onOpenManagedGuide={onOpenManagedGuide}
 		/>,
 	);
 }
@@ -94,6 +96,17 @@ describe("由 Magpie 管理的预设服务商行", () => {
 		expect(screen.queryByRole("switch")).toBeNull();
 		expect(screen.queryByLabelText(labels.enable)).toBeNull();
 		expect(screen.queryByLabelText(labels.remove)).toBeNull();
+	});
+
+	it("接入前后都能打开接入说明", () => {
+		const onOpenManagedGuide = vi.fn();
+		renderRow(magpieRow(false), onOpenManagedGuide);
+		fireEvent.click(screen.getByRole("button", { name: labels.managedGuide }));
+		expect(onOpenManagedGuide).toHaveBeenCalledOnce();
+		cleanup();
+		renderRow(magpieRow(true), onOpenManagedGuide);
+		fireEvent.click(screen.getByRole("button", { name: labels.managedGuide }));
+		expect(onOpenManagedGuide).toHaveBeenCalledTimes(2);
 	});
 
 	it("接入后展示 Magpie 写进来的模型数,仍然没有任何操作", () => {

@@ -19,6 +19,7 @@ export function PresetProviderRow({
 	onRemove,
 	onRefreshModels,
 	onCopyApiKey,
+	onOpenManagedGuide,
 }: {
 	row: PresetProviderRowModel;
 	draftKey: string;
@@ -32,6 +33,7 @@ export function PresetProviderRow({
 	onRemove: (row: PresetProviderRowModel) => Promise<void>;
 	onRefreshModels: (row: PresetProviderRowModel) => Promise<void>;
 	onCopyApiKey: (row: PresetProviderRowModel) => Promise<void>;
+	onOpenManagedGuide: () => void;
 }): JSX.Element {
 	return (
 		<PresetProviderRowView
@@ -47,6 +49,7 @@ export function PresetProviderRow({
 			onRemove={() => void onRemove(row)}
 			onRefreshModels={() => void onRefreshModels(row)}
 			onCopyApiKey={() => void onCopyApiKey(row)}
+			onOpenManagedGuide={row.managedBy ? onOpenManagedGuide : undefined}
 			icon={<ProviderIcon symbol={row.icon} className="h-7 w-7 shrink-0" />}
 			modelsList={<PresetProviderModelsList row={row} labels={labels} />}
 		/>

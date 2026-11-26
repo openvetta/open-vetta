@@ -28,6 +28,7 @@ export function PresetProvidersSectionView({ model }: { model: PresetProvidersSe
 					onRemove={model.onRemove}
 					onRefreshModels={model.onRefreshModels}
 					onCopyApiKey={model.onCopyApiKey}
+					onOpenManagedGuide={model.onOpenManagedGuide}
 				/>
 			))}
 		/>

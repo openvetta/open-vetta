@@ -44,6 +44,8 @@ export interface PresetProviderRowViewLabels {
 	readonly managedConnected: string;
 	/** 外部管理但还没接入时的副标题,告诉用户去哪里接入。 */
 	readonly managedNotConnected: string;
+	/** 外部管理的行右侧按钮,打开接入说明。 */
+	readonly managedGuide: string;
 }
 
 export interface PresetProviderRowViewProps {
@@ -59,6 +61,8 @@ export interface PresetProviderRowViewProps {
 	readonly onRemove: () => void;
 	readonly onRefreshModels: () => void;
 	readonly onCopyApiKey: () => void;
+	/** 外部管理的行(如 Magpie)打开接入说明;不传则不显示按钮。 */
+	readonly onOpenManagedGuide?: () => void;
 	readonly icon: ReactNode;
 	readonly modelsList?: ReactNode;
 }
@@ -76,6 +80,7 @@ export function PresetProviderRowView({
 	onRemove,
 	onRefreshModels,
 	onCopyApiKey,
+	onOpenManagedGuide,
 	icon,
 	modelsList,
 }: PresetProviderRowViewProps): JSX.Element {
@@ -134,6 +139,17 @@ export function PresetProviderRowView({
 				</button>
 
 				<div className="flex h-8 items-center justify-end gap-1.5">
+					{managed && onOpenManagedGuide && (
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={onOpenManagedGuide}
+							className="h-7 gap-1 rounded-full px-2.5 text-[12px] text-muted-foreground hover:text-foreground"
+						>
+							<span className="icon-[mdi--help-circle-outline] h-3.5 w-3.5" />
+							{labels.managedGuide}
+						</Button>
+					)}
 					{row.adopted && !row.offline && !managed && (
 						<Button
 							variant="ghost"

@@ -203,6 +203,7 @@ export function createSystemApi(
 			copyApiKey: (providerId) => ipc.invoke("vetta:models:copy-api-key", providerId),
 			fetchRemote: () => ipc.invoke("vetta:models:fetch-remote"),
 			listPresets: () => ipc.invoke("vetta:models:list-presets"),
+			takeMagpieHandoverNotice: () => ipc.invoke("vetta:models:take-magpie-handover-notice"),
 			refreshPresetModels: (providerId, apiKey, baseUrl) =>
 				ipc.invoke("vetta:models:refresh-preset-models", providerId, apiKey, baseUrl),
 			refreshPresetCatalog: () => ipc.invoke("vetta:models:refresh-preset-catalog"),

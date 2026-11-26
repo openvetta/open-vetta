@@ -1,5 +1,6 @@
 import type { ModelsConfigData, PresetError, PresetProviderInfo } from "@preload/api.js";
 import { confirmDialogAtom } from "@shared/store/atoms";
+import { magpieHandoverDialogAtom } from "@shared/store/magpie-handover-atoms";
 import { showToast } from "@shared/store/toast-atoms";
 import type { TFunction } from "i18next";
 import { useSetAtom } from "jotai";
@@ -80,6 +81,7 @@ export interface PresetProvidersSectionLabels {
 	toggleProvider: (provider: string) => string;
 	managedConnected: string;
 	managedNotConnected: string;
+	managedGuide: string;
 }
 
 export interface PresetProvidersSectionModel {
@@ -98,6 +100,8 @@ export interface PresetProvidersSectionModel {
 	onRemove: (row: PresetProviderRow) => Promise<void>;
 	onRefreshModels: (row: PresetProviderRow) => Promise<void>;
 	onCopyApiKey: (row: PresetProviderRow) => Promise<void>;
+	/** 外部管理的行(Magpie)打开接入说明弹窗。 */
+	onOpenManagedGuide: () => void;
 	/** 手动重拉公共目录(models.dev)。 */
 	refreshingCatalog: boolean;
 	onRefreshCatalog: () => Promise<void>;
@@ -112,6 +116,7 @@ export function usePresetProvidersSectionModel({
 }): PresetProvidersSectionModel {
 	const { t, i18n } = useTranslation("settings");
 	const setConfirm = useSetAtom(confirmDialogAtom);
+	const setMagpieHandoverDialog = useSetAtom(magpieHandoverDialogAtom);
 	const [presets, setPresets] = useState<PresetProviderInfo[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -447,6 +452,7 @@ export function usePresetProvidersSectionModel({
 			toggleProvider: (provider: string) => t("toggleProvider", { provider }),
 			managedConnected: t("managedByMagpie"),
 			managedNotConnected: t("connectInMagpie"),
+			managedGuide: t("magpieGuide"),
 		},
 		onToggleExpanded: handleToggleExpanded,
 		onToggleEditor: handleToggleEditor,
@@ -456,6 +462,7 @@ export function usePresetProvidersSectionModel({
 		onRemove: remove,
 		onRefreshModels: refresh,
 		onCopyApiKey: copyApiKey,
+		onOpenManagedGuide: () => setMagpieHandoverDialog({ reason: "guide" }),
 		refreshingCatalog,
 		onRefreshCatalog: refreshCatalog,
 	};

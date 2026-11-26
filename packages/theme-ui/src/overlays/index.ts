@@ -21,6 +21,11 @@ export { shouldCloseDetailDrawer } from "./detail-drawer-guard";
 export type { KnowledgeDropOverlayViewProps } from "./KnowledgeDropOverlayView";
 export { KnowledgeDropOverlayView } from "./KnowledgeDropOverlayView";
 export type {
+	MagpieHandoverDialogViewLabels,
+	MagpieHandoverDialogViewProps,
+} from "./MagpieHandoverDialogView";
+export { MagpieHandoverDialogView } from "./MagpieHandoverDialogView";
+export type {
 	RouteErrorPageViewLabels,
 	RouteErrorPageViewProps,
 } from "./RouteErrorPageView";
