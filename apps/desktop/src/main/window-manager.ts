@@ -5,6 +5,7 @@ import { getWindowIconOverride } from "./app-icon/app-icon-service.js";
 import { setAppMonitorWindowVisible } from "./app-monitor/app-monitor-service.js";
 import { type RendererConsoleLevel, shouldPersistRendererConsoleMessage } from "./logger/renderer-console-policy.js";
 import { getAppLogger } from "./logger.js";
+import { isAppSelfNavigation } from "./main-window-navigation.js";
 import { openExternalUrl } from "./open-external.js";
 import { configureMainWindowMediaPermissions } from "./speech-input/media-permissions.js";
 import { attachUiZoom, getInitialTrafficLightPosition } from "./ui-zoom/ui-zoom-service.js";
@@ -150,6 +151,18 @@ export function createWindow(): BrowserWindow {
 			windowLog.error("open external failed", { url, error });
 		});
 		return { action: "deny" };
+	});
+	const mainContents = mainWindow.webContents;
+	mainContents.on("will-navigate", (event) => {
+		const { url } = event;
+		if (isAppSelfNavigation(url, mainContents.getURL())) return;
+		event.preventDefault();
+		windowLog.warn("blocked main window navigation", { url });
+		if (/^(https?|mailto):/i.test(url)) {
+			void openExternalUrl(url).catch((error: unknown) => {
+				windowLog.error("open external failed", { url, error });
+			});
+		}
 	});
 
 	return mainWindow;
