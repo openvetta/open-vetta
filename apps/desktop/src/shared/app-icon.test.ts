@@ -21,6 +21,26 @@ describe("app-icon", () => {
 		for (const id of ["red", "black", "light"]) expect(normalizeAppIconId(id)).toBe(id);
 	});
 
+	it("黑底毛绒动物头像都是可选风格，各自带 macOS 与圆角版本", () => {
+		for (const id of [
+			"router",
+			"researcher",
+			"architect",
+			"executor",
+			"auditor",
+			"optimizer",
+			"synthesizer",
+			"translator",
+		]) {
+			expect(normalizeAppIconId(id)).toBe(id);
+			for (const suffix of ["-mac", "-round"]) {
+				expect(existsSync(join(__dirname, `../../build/app-icons/${id}${suffix}.png`)), `${id}${suffix}`).toBe(
+					true,
+				);
+			}
+		}
+	});
+
 	it("除默认外，每个图标都有打包进应用的图片和设置页预览图", () => {
 		for (const id of APP_ICON_IDS) {
 			if (id === APP_ICON_DEFAULT) continue;

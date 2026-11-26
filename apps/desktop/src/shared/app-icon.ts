@@ -2,7 +2,7 @@
 
 /**
  * 可选图标：default 是出厂图标（蓝底眼镜水滴），red / black / light 是它的红、黑、浅色底版，dark 是深色底的小圆脸，
- * binary 是二进制背景版，ermine 是旧版出厂的白鼬，
+ * binary 是二进制背景版，ermine 是旧版出厂的白鼬，router … translator 是黑底毛绒动物头像（柯基、猫头鹰、狐狸等），
  * 其余是场景像素图标（图片在 build/app-icons/<id>.png）。
  */
 export const APP_ICON_IDS = [
@@ -13,6 +13,14 @@ export const APP_ICON_IDS = [
 	"dark",
 	"binary",
 	"ermine",
+	"router",
+	"researcher",
+	"architect",
+	"executor",
+	"auditor",
+	"optimizer",
+	"synthesizer",
+	"translator",
 	"coding",
 	"design",
 	"work",
