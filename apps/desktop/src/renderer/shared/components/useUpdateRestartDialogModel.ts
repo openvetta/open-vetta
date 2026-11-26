@@ -8,6 +8,8 @@ import type { UpdateRestartDialogViewProps } from "./UpdateRestartDialogView";
 export type UpdateRestartDialogModel = UpdateRestartDialogViewProps;
 
 const BANNER_SRC = "./update-banner.webp";
+// GitHub 的发布列表只带最近约 10 版说明，落后更多版本时由这里看完整记录。
+const RELEASES_URL = "https://github.com/openvetta/open-vetta/releases";
 
 /**
  * 更新对话框的数据：同一个视图承载两种内容。
@@ -69,6 +71,21 @@ export function useUpdateRestartDialogModel(): UpdateRestartDialogModel {
 	}
 
 	const latest = state.latestVersion ?? "";
+	// 跨多个版本更新：最新一版直接展示，更早的各版折叠，末尾给出完整更新记录的入口。
+	const earlier = state.earlierReleaseNotes?.length
+		? {
+				earlierReleaseNotes: state.earlierReleaseNotes.map((item) => ({
+					id: item.version,
+					note: item.note,
+					title: t("updateDialog.versionHeading", { version: item.version }),
+				})),
+				earlierTitle: t("updateDialog.earlierTitle"),
+				viewAll: {
+					label: t("updateDialog.viewAll"),
+					onClick: () => void window.vetta.shell.openExternal(RELEASES_URL),
+				},
+			}
+		: {};
 
 	switch (state.phase) {
 		case "checking":
@@ -85,6 +102,7 @@ export function useUpdateRestartDialogModel(): UpdateRestartDialogModel {
 					label: t("updateDialog.updateNow"),
 					onClick: () => void window.vetta.updater.download(),
 				},
+				...earlier,
 				releaseNote: state.releaseNote,
 				subtitle: t("updateDialog.versionChange", { currentVersion: state.currentVersion, latestVersion: latest }),
 				title: t("updateDialog.availableTitle", { version: latest }),
@@ -93,6 +111,7 @@ export function useUpdateRestartDialogModel(): UpdateRestartDialogModel {
 			const progress = state.progress ?? 0;
 			return {
 				...base,
+				...earlier,
 				releaseNote: state.releaseNote,
 				status: {
 					kind: "progress",
@@ -113,6 +132,7 @@ export function useUpdateRestartDialogModel(): UpdateRestartDialogModel {
 						void window.vetta.updater.install();
 					},
 				},
+				...earlier,
 				releaseNote: state.releaseNote,
 				subtitle: t("updateDialog.readyMessage", { currentVersion: state.currentVersion, latestVersion: latest }),
 				title: t("updateDialog.readyTitle", { version: latest }),

@@ -201,7 +201,7 @@ describe("ElectronUpdaterEngine", () => {
 		expect(result?.hasUpdate && result.info.releaseNote).toBe("## 新增\n\n- 功能 A");
 	});
 
-	it("跨多个版本更新时列出中间每一版的说明，并以版本号分节", async () => {
+	it("跨多个版本更新时最新一版作正文，更早的各版单独列出", async () => {
 		const bilingual = (version: string, en: string, zh: string) =>
 			[
 				`<h1>Vetta ${version}</h1>`,
@@ -229,12 +229,14 @@ describe("ElectronUpdaterEngine", () => {
 		const engine = new ElectronUpdaterEngine(updater, undefined, undefined, undefined, () => "zh");
 		expect(updater.fullChangelog).toBe(true);
 		const result = await engine.checkForUpdates();
-		expect(result?.hasUpdate && result.info.releaseNote).toBe(
-			"# Vetta 0.6.25\n\n### 新增\n\n- 功能 C\n\n# Vetta 0.6.23\n\n### 新增\n\n- 功能 B",
-		);
+		expect(result?.hasUpdate && result.info.releaseNote).toBe("### 新增\n\n- 功能 C");
+		// 没有正文的 0.6.24 跳过。
+		expect(result?.hasUpdate && result.info.earlierReleaseNotes).toEqual([
+			{ version: "0.6.23", note: "### 新增\n\n- 功能 B" },
+		]);
 	});
 
-	it("中间版本只有一版有说明时，只给正文不加版本标题", async () => {
+	it("只有一版说明时不列更早的版本", async () => {
 		const updateInfo = {
 			version: "0.6.25",
 			files: [],
@@ -250,6 +252,7 @@ describe("ElectronUpdaterEngine", () => {
 		} as unknown as AppUpdater;
 		const result = await new ElectronUpdaterEngine(updater).checkForUpdates();
 		expect(result?.hasUpdate && result.info.releaseNote).toBe("## 新增\n\n- 功能 A");
+		expect(result?.hasUpdate && result.info.earlierReleaseNotes).toBeUndefined();
 	});
 
 	it("双语说明只保留界面语言那一段", async () => {

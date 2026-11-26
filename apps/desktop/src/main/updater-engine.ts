@@ -3,14 +3,21 @@ import { join } from "node:path";
 import type { ProgressInfo, UpdateInfo } from "builder-util-runtime";
 import { CancellationToken, CURRENT_APP_INSTALLER_FILE_NAME } from "builder-util-runtime";
 import type { AppUpdater, ResolvedUpdateFileInfo } from "electron-updater";
-import { joinReleaseNotesByVersion, stripReleaseNoteHeader } from "../shared/release-note-header.js";
+import {
+	splitReleaseNotesByVersion,
+	stripReleaseNoteHeader,
+	type VersionedReleaseNote,
+} from "../shared/release-note-header.js";
 import { type ReleaseNoteLanguage, selectReleaseNoteLanguage } from "../shared/release-note-language.js";
 import type { InnoWindowsUpdateController } from "./inno-windows-update.js";
 import { releaseNotesHtmlToMarkdown } from "./release-notes-markdown.js";
 
 export interface UpdateEngineInfo {
 	version: string;
+	/** 最新一版的说明。 */
 	releaseNote?: string;
+	/** 跨多个版本更新时，当前版本之后、最新版之前的各版说明（从新到旧）。 */
+	earlierReleaseNotes?: VersionedReleaseNote[];
 	assetFileName?: string;
 	totalBytes?: number;
 }
@@ -91,18 +98,18 @@ async function promoteDownloadedInstaller(updater: AppUpdater, installerPath: st
 function normalizeReleaseNotes(
 	releaseNotes: UpdateInfo["releaseNotes"],
 	language: ReleaseNoteLanguage,
-): string | undefined {
-	// 双语说明只留界面语言那一段；正文开头的「# Vetta x.y.z」在取段时一并去掉。
+): Pick<UpdateEngineInfo, "releaseNote" | "earlierReleaseNotes"> {
+	// 双语说明只留界面语言那一段；正文开头的「# Vetta x.y.z」对话框已有，一并去掉。
 	const toMarkdown = (note: string) =>
 		stripReleaseNoteHeader(selectReleaseNoteLanguage(releaseNotesHtmlToMarkdown(note), language));
-	if (typeof releaseNotes === "string") return toMarkdown(releaseNotes) || undefined;
-	if (!Array.isArray(releaseNotes)) return undefined;
+	if (typeof releaseNotes === "string") return { releaseNote: toMarkdown(releaseNotes) || undefined };
+	if (!Array.isArray(releaseNotes)) return {};
 
 	// fullChangelog 下是「当前版本之后到最新版」的每一版，已按版本从新到旧排好。
-	return joinReleaseNotesByVersion(
+	return splitReleaseNotesByVersion(
 		releaseNotes.map((item) => ({
 			version: item.version,
-			body: typeof item.note === "string" ? toMarkdown(item.note) : "",
+			note: typeof item.note === "string" ? toMarkdown(item.note) : "",
 		})),
 	);
 }
@@ -122,7 +129,7 @@ function mapUpdateInfo(info: UpdateInfo, language: ReleaseNoteLanguage): UpdateE
 	const file = info.files[0];
 	return {
 		version: info.version,
-		releaseNote: normalizeReleaseNotes(info.releaseNotes, language),
+		...normalizeReleaseNotes(info.releaseNotes, language),
 		assetFileName: file ? getAssetFileName(file.url) : undefined,
 		totalBytes: file?.size,
 	};

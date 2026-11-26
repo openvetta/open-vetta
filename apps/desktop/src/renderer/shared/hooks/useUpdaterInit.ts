@@ -4,7 +4,7 @@ import { useSetAtom } from "jotai";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { resolveAppLanguageFromLocale } from "../../../shared/i18n/config";
-import { joinReleaseNotesByVersion, stripReleaseNoteHeader } from "../../../shared/release-note-header";
+import { splitReleaseNotesByVersion, stripReleaseNoteHeader } from "../../../shared/release-note-header";
 import { selectReleaseNoteLanguage } from "../../../shared/release-note-language";
 
 /**
@@ -56,15 +56,15 @@ function installDevUpdatePreview(setState: (state: UpdaterState) => void, langua
 			.filter((item) => compareVersions(item.version, state.currentVersion) <= 0)
 			.sort((a, b) => compareVersions(b.version, a.version))
 			.slice(0, count);
-		const releaseNote = joinReleaseNotesByVersion(
+		const notesByVersion = splitReleaseNotesByVersion(
 			await Promise.all(
 				versions.map(async (item) => ({
 					version: item.version,
-					body: stripReleaseNoteHeader(selectReleaseNoteLanguage(await notes[item.path](), language())),
+					note: stripReleaseNoteHeader(selectReleaseNoteLanguage(await notes[item.path](), language())),
 				})),
 			),
 		);
-		setState({ ...state, phase: "ready", latestVersion: state.currentVersion, releaseNote });
+		setState({ ...state, phase: "ready", latestVersion: state.currentVersion, ...notesByVersion });
 	};
 	return () => {
 		delete target.__previewUpdate;

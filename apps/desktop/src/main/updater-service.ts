@@ -23,6 +23,8 @@ export interface UpdaterState {
 	currentVersion: string;
 	latestVersion?: string;
 	releaseNote?: string;
+	/** 跨多个版本更新时，中间各版的说明（从新到旧），对话框里折叠显示。 */
+	earlierReleaseNotes?: Array<{ version: string; note: string }>;
 	/** 0..1 */
 	progress?: number;
 	downloadedBytes?: number;
@@ -158,6 +160,7 @@ export class UpdaterService {
 					phase: "idle",
 					latestVersion: result.info.version,
 					releaseNote: result.info.releaseNote,
+					earlierReleaseNotes: result.info.earlierReleaseNotes,
 					progress: undefined,
 					downloadedBytes: undefined,
 					totalBytes: undefined,
@@ -173,6 +176,7 @@ export class UpdaterService {
 				phase: "available",
 				latestVersion: result.info.version,
 				releaseNote: result.info.releaseNote,
+				earlierReleaseNotes: result.info.earlierReleaseNotes,
 				assetFileName: result.info.assetFileName,
 				totalBytes: result.info.totalBytes,
 				progress: undefined,
@@ -292,6 +296,7 @@ export class UpdaterService {
 			phase: "idle",
 			latestVersion: undefined,
 			releaseNote: undefined,
+			earlierReleaseNotes: undefined,
 			progress: undefined,
 			downloadedBytes: undefined,
 			totalBytes: undefined,

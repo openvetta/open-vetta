@@ -24,11 +24,12 @@ const updater = {
 	getCurrentReleaseNote: vi.fn(),
 	install: vi.fn(),
 };
+const shell = { openExternal: vi.fn() };
 
 beforeEach(() => {
 	vi.clearAllMocks();
 	updater.getCurrentReleaseNote.mockResolvedValue("## 新增\n\n- A");
-	Object.defineProperty(window, "vetta", { configurable: true, value: { updater } });
+	Object.defineProperty(window, "vetta", { configurable: true, value: { updater, shell } });
 });
 
 function setup() {
@@ -87,6 +88,35 @@ describe("useUpdateRestartDialogModel", () => {
 		expect(updater.download).toHaveBeenCalledTimes(1);
 		act(() => result.current.model.onClose());
 		expect(result.current.updateOpen).toBe(false);
+	});
+
+	it("跨多个版本更新：更早的各版折叠列出，可打开完整更新记录", () => {
+		const { result } = setup();
+		open(result, {
+			phase: "available",
+			currentVersion: "1.0.0",
+			latestVersion: "1.3.0",
+			releaseNote: "- 1.3",
+			earlierReleaseNotes: [
+				{ version: "1.2.0", note: "- 1.2" },
+				{ version: "1.1.0", note: "- 1.1" },
+			],
+		});
+		expect(result.current.model.releaseNote).toBe("- 1.3");
+		expect(result.current.model.earlierReleaseNotes).toEqual([
+			{ id: "1.2.0", note: "- 1.2", title: "updateDialog.versionHeading" },
+			{ id: "1.1.0", note: "- 1.1", title: "updateDialog.versionHeading" },
+		]);
+		expect(result.current.model.earlierTitle).toBe("updateDialog.earlierTitle");
+		act(() => result.current.model.viewAll?.onClick());
+		expect(shell.openExternal).toHaveBeenCalledWith("https://github.com/openvetta/open-vetta/releases");
+	});
+
+	it("只跨一个版本时不显示更早的版本和完整记录入口", () => {
+		const { result } = setup();
+		open(result, { phase: "available", currentVersion: "1.0.0", latestVersion: "1.1.0", releaseNote: "- 新" });
+		expect(result.current.model.earlierReleaseNotes).toBeUndefined();
+		expect(result.current.model.viewAll).toBeUndefined();
 	});
 
 	it("下载中：进度条随进度变化，可后台继续", () => {

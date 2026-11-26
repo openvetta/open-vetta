@@ -56,6 +56,7 @@ export type {
 export { UpdateCheckerAction, UpdateCheckerDetail, UpdateCheckerView } from "./UpdateCheckerView";
 export type {
 	UpdateRestartDialogAction,
+	UpdateRestartDialogEarlierNote,
 	UpdateRestartDialogStatus,
 	UpdateRestartDialogViewProps,
 } from "./UpdateRestartDialogView";

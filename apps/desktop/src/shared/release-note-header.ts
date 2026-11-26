@@ -11,15 +11,25 @@ export function stripReleaseNoteHeader(markdown: string): string {
 		.trim();
 }
 
+/** 某一版的发布说明正文（已按界面语言取段、已去掉标题）。 */
+export interface VersionedReleaseNote {
+	readonly version: string;
+	readonly note: string;
+}
+
 /**
- * 跨多个版本更新时把每一版的说明拼在一起（传入时已按版本从新到旧排好、已去掉各自标题）。
- * 只有一版时只给正文（对话框已有版本标题）；多版时用版本号分节，否则分不清哪条属于哪一版。
+ * 跨多个版本更新时，把每一版的说明拆成「最新一版」和「更早的版本」：
+ * 最新一版直接展示，更早的版本在对话框里折叠，逐版点开。
+ * 传入时按版本从新到旧排好；没有正文的版本跳过。
  */
-export function joinReleaseNotesByVersion(
-	notes: ReadonlyArray<{ readonly version: string; readonly body: string }>,
-): string | undefined {
-	const present = notes.filter((item) => item.body.length > 0);
-	if (present.length === 0) return undefined;
-	if (present.length === 1) return present[0]?.body;
-	return present.map((item) => `# Vetta ${item.version}\n\n${item.body}`).join("\n\n");
+export function splitReleaseNotesByVersion(notes: ReadonlyArray<VersionedReleaseNote>): {
+	readonly releaseNote?: string;
+	readonly earlierReleaseNotes?: VersionedReleaseNote[];
+} {
+	const present = notes.filter((item) => item.note.length > 0);
+	const [latest, ...earlier] = present;
+	return {
+		releaseNote: latest?.note,
+		earlierReleaseNotes: earlier.length > 0 ? earlier : undefined,
+	};
 }
