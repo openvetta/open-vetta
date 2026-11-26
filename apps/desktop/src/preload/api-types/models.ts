@@ -14,8 +14,11 @@ export interface ModelsConfigData {
 			authHeader?: boolean;
 			/** 供应商显示名(如 "DeepSeek"),用于 UI 分组标题等;无则回退到 provider 标识 key。 */
 			displayName?: string;
-			/** 来源标记。"template" = 由[[预设服务商]]填 key 采纳而来,模型列表会被定时同步覆写;无标记 = 手搓自定义,任何同步逻辑都不得触碰。 */
-			source?: "template";
+			/**
+			 * 来源标记。"template" = 由[[预设服务商]]填 key 采纳而来,模型列表会被定时同步覆写;
+			 * "magpie" = 由 Magpie 在其 Agents 页写入并负责还原,Vetta 只读不改;无标记 = 手搓自定义,任何同步逻辑都不得触碰。
+			 */
+			source?: "template" | "magpie";
 			/** 对应服务端模板的 provider 标识(= 模板 provider key),仅 source==="template" 时存在。 */
 			templateId?: string;
 			/** 供应商图标 symbol(见 CONTEXT.md「icon symbol」),客户端按此解析内置图标。可选。 */
@@ -94,8 +97,8 @@ export interface PresetProviderInfo {
 	baseUrl: string;
 	/** 供应商图标 symbol。 */
 	icon: string;
-	/** 预填的密钥(本机代理类服务商),用户直接点启用即可。 */
-	defaultApiKey?: string;
+	/** 由外部程序接入并管理(如 Magpie 在其 Agents 页写入),Vetta 里只展示状态,不能启用、改 key 或删除。 */
+	managedBy?: "magpie";
 	/** 公共目录(models.dev)里该家的模型,免 key 可见;填 key 后由账号实际可用的列表取代。 */
 	catalogModels: NonNullable<ModelsConfigData["providers"][string]["models"]>;
 }
@@ -144,6 +147,11 @@ export interface DesktopModelsApi {
 	refreshPresetModels(providerId: string, apiKey?: string, baseUrl?: string): Promise<PresetModelsResult>;
 	/** 手动刷新 models.dev 公共目录(清掉失败冷却强制重拉),失败时返回可读的错误原文。 */
 	refreshPresetCatalog(): Promise<{ ok: boolean; error?: PresetError; elapsedMs: number; modelCount: number }>;
+	/**
+	 * 领取「Magpie 改由 Magpie 接入」的提示:本次启动删过旧版在 Vetta 里启用的 Magpie 才返回,
+	 * 且只返回一次;defaultModelCleared 表示默认模型原本是 Magpie 的、随之被清掉了。
+	 */
+	takeMagpieHandoverNotice(): Promise<{ defaultModelCleared: boolean } | null>;
 	/** 公共目录后台刷新到新数据时触发,收到后重新 listPresets 即可。返回取消订阅函数。 */
 	onPresetsUpdated(handler: () => void): () => void;
 	/** 探测某 (provider, model) 的 baseUrl 是否可达(本地 models.json 优先,回退云端目录)。仅判可达性,任何 HTTP 响应都算通。 */

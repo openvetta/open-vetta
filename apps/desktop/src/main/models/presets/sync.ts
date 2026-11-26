@@ -2,7 +2,7 @@ import { BrowserWindow, net } from "electron";
 import { getAppLogger } from "../../logger.js";
 import { getDesktopModelSettingsService } from "../model-settings-host.js";
 import type { ModelDefinition, ModelsConfig } from "../model-settings-service.js";
-import { getPresetProvider, PRESET_PROVIDERS, type PresetProviderDef } from "./catalog.js";
+import { getPresetProvider, PRESET_PROVIDERS, type PresetProviderDef, presetCatalogId } from "./catalog.js";
 import { type PresetError, toPresetError } from "./errors.js";
 import { fetchPresetModels, type PresetModelsResult } from "./fetch.js";
 import {
@@ -29,8 +29,8 @@ export interface PresetProviderInfo {
 	api: string;
 	baseUrl: string;
 	icon: string;
-	/** 预填的密钥(本机代理类服务商),用户直接点启用即可。 */
-	defaultApiKey?: string;
+	/** 由外部程序接入并管理(如 Magpie),Vetta 里只展示,不能启用。 */
+	managedBy?: "magpie";
 	/** 公共目录里该家的模型(免 key 可见)。填 key 后由账号实际可用的 /models 结果取代。 */
 	catalogModels: ModelDefinition[];
 }
@@ -67,19 +67,19 @@ export async function listPresetProviders(): Promise<PresetProvidersResult> {
 			api: def.api,
 			baseUrl: def.baseUrl,
 			icon: def.icon,
-			...(def.defaultApiKey ? { defaultApiKey: def.defaultApiKey } : {}),
+			...(def.managedBy ? { managedBy: def.managedBy } : {}),
 			catalogModels: catalogModelsFor(catalog, def),
 		})),
 	};
 }
 
 function catalogModelsFor(catalog: ModelsDevCatalog | null, def: PresetProviderDef): ModelDefinition[] {
-	const entries = catalog?.providers[def.id];
+	const entries = catalog?.providers[presetCatalogId(def)];
 	if (!entries) return [];
 	const models = Object.values(entries)
 		.filter((entry) => def.isChatModel(entry.model.id))
 		.map((entry) => entry.model);
-	return enrichModelsFromCatalog(catalog, def.id, models);
+	return enrichModelsFromCatalog(catalog, presetCatalogId(def), models);
 }
 
 /**
@@ -211,7 +211,7 @@ export async function refreshPresetModels(
 	const catalog = await ensureCatalog();
 	// `/models` 是该账号可用模型的事实源；models.dev 只补元数据，不能按第三方 family
 	// 或发布日期把服务商明确返回的档位、预览版或账号专属模型删掉。
-	const models = enrichModelsFromCatalog(catalog, def.id, result.models);
+	const models = enrichModelsFromCatalog(catalog, presetCatalogId(def), result.models);
 	return { ...result, models };
 }
 

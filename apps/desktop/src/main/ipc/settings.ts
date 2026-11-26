@@ -1,6 +1,8 @@
 import { ipcMain } from "electron";
 import { getModelTransport, setModelTransport } from "../agent-settings/model-transport-settings.js";
 import { readAgentSettingsDocument, updateAgentSettingsDocument } from "../agent-settings/settings-document-store.js";
+import { startLegacyMagpieMigration, takeMagpieHandoverNotice } from "../models/magpie-handover.js";
+import { startModelsConfigWatcher } from "../models/model-settings-host.js";
 import {
 	listPresetProviders,
 	refreshPresetCatalog,
@@ -68,11 +70,18 @@ export function registerSettingsIpc(): () => void {
 	// 启动时同步一次已启用预设服务商的模型列表,之后每 12 小时一次。
 	// 即便用户从不打开设置页,ModelSelector 也能拿到上游最新模型。失败静默(保留本地快照)。
 	const stopPresetAutoSync = startPresetModelsAutoSync();
+	// Magpie 这类外部程序会直接改 models.json，盯住它，免得要重启才看得到。
+	const stopModelsConfigWatcher = startModelsConfigWatcher();
+	// Magpie 改为在其 Agents 页接入:旧版在 Vetta 里启用的条目升级后删掉,界面加载好后领取提示弹一次。
+	startLegacyMagpieMigration();
+	ipcMain.handle("vetta:models:take-magpie-handover-notice", () => takeMagpieHandoverNotice());
 
 	return () => {
 		stopPresetAutoSync();
+		stopModelsConfigWatcher();
 		ipcMain.removeHandler("vetta:settings:get-server-url");
 		ipcMain.removeHandler("vetta:models:list-presets");
+		ipcMain.removeHandler("vetta:models:take-magpie-handover-notice");
 		ipcMain.removeHandler("vetta:models:refresh-preset-catalog");
 		ipcMain.removeHandler("vetta:models:refresh-preset-models");
 		ipcMain.removeHandler("vetta:settings:get-model-transport");

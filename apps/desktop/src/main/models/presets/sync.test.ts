@@ -5,6 +5,12 @@ const mocks = vi.hoisted(() => ({
 	fetch: vi.fn(),
 	readFile: vi.fn(),
 	send: vi.fn(),
+	snapshot: {
+		version: 8,
+		fetchedAt: "2020-01-01T00:00:00.000Z",
+		providers: {} as Record<string, unknown>,
+		lookup: {},
+	},
 }));
 
 vi.mock("node:fs/promises", () => ({ readFile: mocks.readFile }));
@@ -25,14 +31,7 @@ vi.mock("../model-settings-host.js", () => ({
 		replaceConfig: vi.fn(),
 	}),
 }));
-vi.mock("./models-dev-snapshot.generated.js", () => ({
-	MODELS_DEV_SNAPSHOT: {
-		version: 8,
-		fetchedAt: "2020-01-01T00:00:00.000Z",
-		providers: {},
-		lookup: {},
-	},
-}));
+vi.mock("./models-dev-snapshot.generated.js", () => ({ MODELS_DEV_SNAPSHOT: mocks.snapshot }));
 
 async function flushBackgroundRefresh(): Promise<void> {
 	await new Promise<void>((resolve) => setImmediate(resolve));
@@ -43,6 +42,7 @@ describe("preset catalog background refresh", () => {
 	beforeEach(() => {
 		vi.resetModules();
 		vi.clearAllMocks();
+		mocks.snapshot.providers = {};
 		mocks.readFile.mockRejectedValue(Object.assign(new Error("missing cache"), { code: "ENOENT" }));
 	});
 
@@ -84,5 +84,30 @@ describe("preset catalog background refresh", () => {
 		expect(mocks.fetch).toHaveBeenCalledTimes(1);
 		expect(mocks.send).toHaveBeenCalledOnce();
 		expect(mocks.send).toHaveBeenCalledWith("vetta:models:presets-updated");
+	});
+});
+
+describe("Kimi 国际站与国内站", () => {
+	beforeEach(() => {
+		vi.resetModules();
+		vi.clearAllMocks();
+		mocks.readFile.mockRejectedValue(Object.assign(new Error("missing cache"), { code: "ENOENT" }));
+		mocks.fetch.mockRejectedValue(new Error("network unavailable"));
+		mocks.snapshot.providers = {
+			kimi: { "kimi-k3": { model: { id: "kimi-k3", name: "Kimi K3" } } },
+		};
+	});
+
+	it("分成两个预设、各连各的站点，未填 key 时都能看到同一份模型目录", async () => {
+		const { listPresetProviders } = await import("./sync.js");
+
+		const { providers } = await listPresetProviders();
+		const global = providers.find((provider) => provider.id === "kimi");
+		const china = providers.find((provider) => provider.id === "kimi-cn");
+
+		expect(global).toMatchObject({ displayName: "Kimi (Global)", baseUrl: "https://api.moonshot.ai/v1" });
+		expect(china).toMatchObject({ displayName: "Kimi (China)", baseUrl: "https://api.moonshot.cn/v1" });
+		expect(china?.catalogModels.map((model) => model.id)).toEqual(["kimi-k3"]);
+		expect(global?.catalogModels.map((model) => model.id)).toEqual(["kimi-k3"]);
 	});
 });

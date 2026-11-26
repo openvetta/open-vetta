@@ -180,10 +180,9 @@ describe("fetchPresetModels", () => {
 });
 
 describe("Magpie 本机代理预设", () => {
-	it("指向本机 3425 端口并预填密钥,按 OpenAI 兼容的 /models 拉取", async () => {
+	it("由 Magpie 接入管理,不再预填密钥;/models 仍按 OpenAI 兼容格式解析", async () => {
 		const magpie = def("magpie");
-		expect(magpie.baseUrl).toBe("http://127.0.0.1:3425/v1");
-		expect(magpie.defaultApiKey).toBe("magpie");
+		expect(magpie.managedBy).toBe("magpie");
 
 		const calls: string[] = [];
 		const result = await fetchPresetModels(

@@ -28,7 +28,11 @@ export interface ProviderConfig {
 	headers?: Record<string, string>;
 	authHeader?: boolean;
 	displayName?: string;
-	source?: "template";
+	/**
+	 * "template" = 由预设服务商采纳而来;"magpie" = 由 Magpie 在其 Agents 页写入并负责还原,
+	 * Vetta 只读不改,密钥也留在文件里(Magpie 以此判断是否仍连接着)。
+	 */
+	source?: "template" | "magpie";
 	templateId?: string;
 	icon?: string;
 	/** 预设服务商模型列表最近一次从上游 /models 同步的时间(ISO)。 */
@@ -69,7 +73,7 @@ export interface ModelSettingsServiceOptions {
 	readonly onConfigChanged?: (providerIds: readonly string[]) => void;
 }
 
-const MODELS_CONFIG_PATH = join(getVettaHomePath(), "agent", "models.json");
+export const MODELS_CONFIG_PATH = join(getVettaHomePath(), "agent", "models.json");
 const DEFAULT_MODELS_CONFIG: ModelsConfig = { providers: {} };
 export const MASKED_MODEL_API_KEY = "***";
 
@@ -84,8 +88,18 @@ function stripLegacyPeripheralFields(config: ModelsConfig): ModelsConfig {
 }
 
 export function readModelsConfigSync(): ModelsConfig {
+	return readModelsConfigFileSync() ?? { providers: {} };
+}
+
+/** 同 readModelsConfigSync，但文件存在却不是合法 JSON 时返回 null，供监听外部改动时跳过写到一半的文件。 */
+export function readModelsConfigFileSync(): ModelsConfig | null {
+	let raw: string;
 	try {
-		const raw = readFileSync(MODELS_CONFIG_PATH, "utf8");
+		raw = readFileSync(MODELS_CONFIG_PATH, "utf8");
+	} catch {
+		return { providers: {} };
+	}
+	try {
 		const parsed = JSON.parse(raw) as Partial<ModelsConfig>;
 		return stripLegacyPeripheralFields({
 			...DEFAULT_MODELS_CONFIG,
@@ -96,7 +110,7 @@ export function readModelsConfigSync(): ModelsConfig {
 					: {},
 		});
 	} catch {
-		return { providers: {} };
+		return null;
 	}
 }
 
@@ -264,6 +278,19 @@ export class ModelSettingsService {
 		await this.runMutation(async () => {
 			await this.ensureLegacyCredentialsMigrated();
 			await this.persist(config, await this.options.readConfig(), "renderer");
+		});
+	}
+
+	/**
+	 * models.json 被应用外的程序改过（如 Magpie 在 Agents 页接入或断开 Vetta）之后调用：
+	 * 不写盘，只让运行时重读并通知各处刷新，否则要重启 Vetta 才看得到。
+	 */
+	async reloadAfterExternalChange(providerIds: readonly string[]): Promise<void> {
+		await this.runMutation(async () => {
+			await this.options.refreshRegistry();
+			if (providerIds.length === 0) return;
+			this.notifyProviderAccessChanged(providerIds);
+			this.options.onConfigChanged?.(providerIds);
 		});
 	}
 
@@ -449,6 +476,7 @@ export class ModelSettingsService {
 				delete provider.credentialRef;
 				continue;
 			}
+			if (isManagedByMagpie(provider)) continue;
 
 			if (!this.options.credentials.isAvailable() && !currentRef && currentProvider?.apiKey === value) {
 				provider.apiKey = value;
@@ -527,7 +555,7 @@ export class ModelSettingsService {
 		const changedProviderIds: string[] = [];
 		try {
 			for (const [providerId, provider] of Object.entries(migrated.providers)) {
-				if (!provider.apiKey) continue;
+				if (!provider.apiKey || isManagedByMagpie(provider)) continue;
 				const externalSource = normalizeExternalApiKeySource(provider.apiKey);
 				if (externalSource) {
 					if (provider.apiKey !== externalSource || provider.credentialRef !== undefined) changed = true;
@@ -588,6 +616,14 @@ export class ModelSettingsService {
 		);
 		return result;
 	}
+}
+
+/**
+ * Magpie 写进来的服务商:密钥必须原样留在文件里。Magpie 以「它写的密钥还在」判断 Vetta 是否仍连接,
+ * 挪进钥匙串会让它认为被手改过;关闭时它还要按原值还原。这把密钥只在本机网关上有效。
+ */
+function isManagedByMagpie(provider: ProviderConfig): boolean {
+	return provider.source === "magpie";
 }
 
 function sameProviderAccess(left: ProviderConfig | undefined, right: ProviderConfig | undefined): boolean {

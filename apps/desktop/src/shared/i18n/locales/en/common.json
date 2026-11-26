@@ -1059,5 +1059,23 @@
 		"currentSubtitle": "What this version brings",
 		"currentEmpty": "No release notes for this version.",
 		"updateNow": "Update Now"
+	},
+	"magpieHandover": {
+		"eyebrow": "Connection updated",
+		"title": "Magpie's models now connect from Magpie",
+		"description": "The Magpie provider you enabled in Vetta's settings has been removed. Magpie manages it from now on: switch Vetta on in Magpie and its models appear here; switch it off and they're removed.",
+		"stepInstall": "Search for and install the official Vetta plugin on Magpie's Plugins page",
+		"stepConnect": "Switch Vetta on in Magpie's Agents page",
+		"stepUse": "Back in Vetta, pick a Magpie model in the model picker. No restart needed",
+		"pluginPublisher": "Published by openvetta",
+		"copy": "Copy plugin name",
+		"copied": "Copied",
+		"defaultModelCleared": "Your default model was a Magpie model; pick it again after connecting.",
+		"primary": "Got it",
+		"guide": "View plugin guide",
+		"close": "Close",
+		"guideEyebrow": "Magpie connection guide",
+		"guideTitle": "Connect Vetta from Magpie",
+		"guideDescription": "Magpie manages its models for Vetta: switch Vetta on in Magpie and its models appear here; switch it off and they're removed. Vetta only shows the connection status."
 	}
 }

@@ -520,7 +520,13 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 
 	const providerNames = useMemo(
 		() =>
-			config ? Object.keys(config.providers).filter((name) => config.providers[name]?.source !== "template") : [],
+			// 预设采纳的和 Magpie 写进来的都在「预设服务商」里展示,这里只列用户自建的。
+			config
+				? Object.keys(config.providers).filter((name) => {
+						const source = config.providers[name]?.source;
+						return source !== "template" && source !== "magpie";
+					})
+				: [],
 		[config],
 	);
 

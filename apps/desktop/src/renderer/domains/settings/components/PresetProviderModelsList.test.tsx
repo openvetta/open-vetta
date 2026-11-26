@@ -39,9 +39,10 @@ const labels: PresetProvidersSectionLabels = {
 	testing: "Testing",
 	testOk: "OK",
 	testFailed: "Failed",
-	editBaseUrl: "Change server address",
-	baseUrlPlaceholder: "Server address",
 	toggleProvider: (provider) => `Toggle ${provider}`,
+	managedConnected: "Managed by Magpie",
+	managedNotConnected: "Not connected · switch Vetta on in Magpie",
+	managedGuide: "How to connect",
 };
 
 const row: PresetProviderRow = {
@@ -75,7 +76,6 @@ const row: PresetProviderRow = {
 	offline: false,
 	adopted: false,
 	enabled: false,
-	autoKey: false,
 	isOpen: false,
 	isExpanded: true,
 	refreshing: false,

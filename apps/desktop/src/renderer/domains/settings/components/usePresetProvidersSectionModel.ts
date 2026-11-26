@@ -1,5 +1,6 @@
 import type { ModelsConfigData, PresetError, PresetProviderInfo } from "@preload/api.js";
 import { confirmDialogAtom } from "@shared/store/atoms";
+import { magpieHandoverDialogAtom } from "@shared/store/magpie-handover-atoms";
 import { showToast } from "@shared/store/toast-atoms";
 import type { TFunction } from "i18next";
 import { useSetAtom } from "jotai";
@@ -27,16 +28,14 @@ export interface PresetProviderRow {
 	api: string;
 	baseUrl?: string;
 	icon?: string;
-	/** 预填密钥:草稿为空时作为输入框初值,点启用即用。 */
-	defaultApiKey?: string;
+	/** 由外部程序接入并管理(如 Magpie):只展示是否已接入与模型,不能启用、改 key 或删除。 */
+	managedBy?: "magpie";
 	models: NonNullable<ProviderEntry["models"]>;
 	modelRows: PresetProviderModelRow[];
 	offline: boolean;
 	adopted: boolean;
 	/** 已采纳且未被用户手动停用:开关的状态。 */
 	enabled: boolean;
-	/** 内置固定密钥(本机代理类):只给开关,不让用户填 key。 */
-	autoKey: boolean;
 	isOpen: boolean;
 	isExpanded: boolean;
 	refreshing: boolean;
@@ -75,13 +74,14 @@ export interface PresetProvidersSectionLabels {
 	refreshingModels: string;
 	refreshCatalog: string;
 	copyApiKey: string;
-	editBaseUrl: string;
-	baseUrlPlaceholder: string;
 	testConnect: string;
 	testing: string;
 	testOk: string;
 	testFailed: string;
 	toggleProvider: (provider: string) => string;
+	managedConnected: string;
+	managedNotConnected: string;
+	managedGuide: string;
 }
 
 export interface PresetProvidersSectionModel {
@@ -97,11 +97,11 @@ export interface PresetProvidersSectionModel {
 	onDraftKeyChange: (rowId: string, key: string) => void;
 	onAdopt: (row: PresetProviderRow) => Promise<void>;
 	onToggleEnabled: (row: PresetProviderRow, next: boolean) => Promise<void>;
-	/** 返回是否已保存,用于输入框决定是否收起。 */
-	onChangeBaseUrl: (row: PresetProviderRow, url: string) => Promise<boolean>;
 	onRemove: (row: PresetProviderRow) => Promise<void>;
 	onRefreshModels: (row: PresetProviderRow) => Promise<void>;
 	onCopyApiKey: (row: PresetProviderRow) => Promise<void>;
+	/** 外部管理的行(Magpie)打开接入说明弹窗。 */
+	onOpenManagedGuide: () => void;
 	/** 手动重拉公共目录(models.dev)。 */
 	refreshingCatalog: boolean;
 	onRefreshCatalog: () => Promise<void>;
@@ -116,6 +116,7 @@ export function usePresetProvidersSectionModel({
 }): PresetProvidersSectionModel {
 	const { t, i18n } = useTranslation("settings");
 	const setConfirm = useSetAtom(confirmDialogAtom);
+	const setMagpieHandoverDialog = useSetAtom(magpieHandoverDialogAtom);
 	const [presets, setPresets] = useState<PresetProviderInfo[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -178,20 +179,25 @@ export function usePresetProvidersSectionModel({
 			api: preset.api,
 			baseUrl: config.providers[preset.id]?.baseUrl ?? preset.baseUrl,
 			icon: preset.icon,
-			defaultApiKey: preset.defaultApiKey,
+			managedBy: preset.managedBy,
 			// 已启用的用账号实际可用的 /models 结果,未启用的展示 models.dev 公共目录。
-			models: config.providers[preset.id]?.models ?? preset.catalogModels,
+			// 外部管理的只认它自己写进来的那一条,没接入就是空的。
+			models: preset.managedBy
+				? config.providers[preset.id]?.source === preset.managedBy
+					? (config.providers[preset.id]?.models ?? [])
+					: []
+				: (config.providers[preset.id]?.models ?? preset.catalogModels),
 			offline: false,
 		}));
 
 		return [...presetRows, ...orphaned].map((row) => {
-			const adopted = config.providers[row.id]?.source === "template";
+			// 外部管理的以它写进来的条目为准,其余以 Vetta 采纳的预设为准。
+			const adopted = config.providers[row.id]?.source === (row.managedBy ?? "template");
 			return {
 				...row,
 				modelRows: row.models.map((model) => toModelRow(model, t)),
 				adopted,
 				enabled: adopted && !config.providers[row.id]?.disabled,
-				autoKey: Boolean(row.defaultApiKey),
 				isOpen: openId === row.id,
 				isExpanded: expandedId === row.id,
 				refreshing: refreshingId === row.id,
@@ -237,8 +243,9 @@ export function usePresetProvidersSectionModel({
 	);
 
 	const adopt = useCallback(
-		async (row: PresetProviderRow, baseUrl: string | undefined = row.baseUrl): Promise<void> => {
-			const key = (draftKeys[row.id] ?? row.defaultApiKey ?? "").trim();
+		async (row: PresetProviderRow): Promise<void> => {
+			const baseUrl = row.baseUrl;
+			const key = (draftKeys[row.id] ?? "").trim();
 			if (!key) return;
 			setSaving(true);
 			try {
@@ -254,6 +261,8 @@ export function usePresetProvidersSectionModel({
 					return;
 				}
 				setModelsErrors((prev) => withError(prev, row.id, undefined, t));
+				// 改 key 重新启用时整条重写,用户手加的请求头要带过来。
+				const headers = config.providers[row.id]?.headers;
 				await saveConfig({
 					...config,
 					providers: {
@@ -266,6 +275,7 @@ export function usePresetProvidersSectionModel({
 							api: row.api,
 							baseUrl,
 							apiKey: key,
+							...(headers ? { headers } : {}),
 							models: fetched?.models ?? row.models,
 							...(fetched ? { modelsSyncedAt: new Date().toISOString() } : {}),
 						},
@@ -284,10 +294,7 @@ export function usePresetProvidersSectionModel({
 		[config, draftKeys, saveConfig, t],
 	);
 
-	/**
-	 * 开关:已采纳的只翻转 disabled,保留密钥与模型;未采纳的——内置密钥直接走启用校验,
-	 * 需要用户自己填 key 的则展开输入框。
-	 */
+	/** 开关:已采纳的只翻转 disabled,保留密钥与模型;未采纳的展开输入框让用户填 key。 */
 	const toggleEnabled = useCallback(
 		async (row: PresetProviderRow, next: boolean): Promise<void> => {
 			const provider = config.providers[row.id];
@@ -299,57 +306,9 @@ export function usePresetProvidersSectionModel({
 				});
 				return;
 			}
-			if (!next) return;
-			if (row.autoKey) await adopt(row);
-			else handleToggleEditor(row);
+			if (next) handleToggleEditor(row);
 		},
-		[adopt, config, handleToggleEditor, saveConfig],
-	);
-
-	/**
-	 * 修改服务地址(如 Magpie 换端口)。先用新地址拉一次模型再落盘,拉不通就不保存;
-	 * 未启用的借道启用流程,等于顺手把它打开。
-	 */
-	const changeBaseUrl = useCallback(
-		async (row: PresetProviderRow, input: string): Promise<boolean> => {
-			const url = input.trim().replace(/\/+$/, "");
-			if (!/^https?:\/\/\S+$/i.test(url)) {
-				showToast({ variant: "error", message: t("baseUrlInvalid") });
-				return false;
-			}
-			const provider = config.providers[row.id];
-			if (!provider || !row.adopted) {
-				await adopt(row, url);
-				return true;
-			}
-			setSaving(true);
-			try {
-				const fetched = await refreshModels(row.id, provider.apiKey, url);
-				if (fetched.error || fetched.models.length === 0) {
-					const error = fetched.error ?? { code: "empty-models" as const };
-					notifyPresetError(row.displayName, error, t);
-					setModelsErrors((prev) => withError(prev, row.id, error, t));
-					return false;
-				}
-				setModelsErrors((prev) => withError(prev, row.id, undefined, t));
-				await saveConfig({
-					...config,
-					providers: {
-						...config.providers,
-						[row.id]: {
-							...provider,
-							baseUrl: url,
-							models: fetched.models,
-							modelsSyncedAt: new Date().toISOString(),
-						},
-					},
-				});
-				return true;
-			} finally {
-				setSaving(false);
-			}
-		},
-		[adopt, config, saveConfig, t],
+		[config, handleToggleEditor, saveConfig],
 	);
 
 	const refresh = useCallback(
@@ -490,19 +449,20 @@ export function usePresetProvidersSectionModel({
 			testing: t("testing"),
 			testOk: t("testOk"),
 			testFailed: t("testFailed"),
-			editBaseUrl: t("editBaseUrl"),
-			baseUrlPlaceholder: t("baseUrlPlaceholder"),
 			toggleProvider: (provider: string) => t("toggleProvider", { provider }),
+			managedConnected: t("managedByMagpie"),
+			managedNotConnected: t("connectInMagpie"),
+			managedGuide: t("magpieGuide"),
 		},
 		onToggleExpanded: handleToggleExpanded,
 		onToggleEditor: handleToggleEditor,
 		onDraftKeyChange: handleDraftKeyChange,
 		onAdopt: adopt,
 		onToggleEnabled: toggleEnabled,
-		onChangeBaseUrl: changeBaseUrl,
 		onRemove: remove,
 		onRefreshModels: refresh,
 		onCopyApiKey: copyApiKey,
+		onOpenManagedGuide: () => setMagpieHandoverDialog({ reason: "guide" }),
 		refreshingCatalog,
 		onRefreshCatalog: refreshCatalog,
 	};
@@ -529,7 +489,7 @@ interface BaseRow {
 	api: string;
 	baseUrl?: string;
 	icon?: string;
-	defaultApiKey?: string;
+	managedBy?: "magpie";
 	models: NonNullable<ProviderEntry["models"]>;
 	offline: boolean;
 }

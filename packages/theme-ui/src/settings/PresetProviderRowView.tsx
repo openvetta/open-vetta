@@ -1,4 +1,4 @@
-import { useState, type JSX, type ReactNode } from "react";
+import type { JSX, ReactNode } from "react";
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Switch, cn } from "@vetta-org/ui";
 import { InputField } from "./SettingsFormFields";
 
@@ -9,13 +9,14 @@ export interface PresetProviderRowModelView {
 	readonly isOpen: boolean;
 	readonly adopted: boolean;
 	readonly enabled: boolean;
-	readonly autoKey: boolean;
 	readonly baseUrl?: string;
 	readonly offline: boolean;
 	readonly models: readonly unknown[];
 	readonly refreshing: boolean;
 	readonly hasApiKey: boolean;
 	readonly modelsError: string | null;
+	/** 由外部程序接入并管理(如 Magpie):只展示是否已接入,没有任何操作按钮。 */
+	readonly managedBy?: string;
 }
 
 export interface PresetProviderRowViewLabels {
@@ -38,9 +39,13 @@ export interface PresetProviderRowViewLabels {
 	readonly refreshModels: string;
 	readonly refreshingModels: string;
 	readonly copyApiKey: string;
-	readonly editBaseUrl: string;
-	readonly baseUrlPlaceholder: string;
 	readonly toggleProvider: (name: string) => string;
+	/** 外部管理且已接入时,副标题里模型数后面的说明,如「由 Magpie 管理」。 */
+	readonly managedConnected: string;
+	/** 外部管理但还没接入时的副标题,告诉用户去哪里接入。 */
+	readonly managedNotConnected: string;
+	/** 外部管理的行右侧按钮,打开接入说明。 */
+	readonly managedGuide: string;
 }
 
 export interface PresetProviderRowViewProps {
@@ -53,11 +58,11 @@ export interface PresetProviderRowViewProps {
 	readonly onDraftKeyChange: (key: string) => void;
 	readonly onAdopt: () => void;
 	readonly onToggleEnabled: (next: boolean) => void;
-	/** 返回是否已保存;保存成功后关闭地址弹窗。 */
-	readonly onChangeBaseUrl: (url: string) => Promise<boolean>;
 	readonly onRemove: () => void;
 	readonly onRefreshModels: () => void;
 	readonly onCopyApiKey: () => void;
+	/** 外部管理的行(如 Magpie)打开接入说明;不传则不显示按钮。 */
+	readonly onOpenManagedGuide?: () => void;
 	readonly icon: ReactNode;
 	readonly modelsList?: ReactNode;
 }
@@ -72,29 +77,21 @@ export function PresetProviderRowView({
 	onDraftKeyChange,
 	onAdopt,
 	onToggleEnabled,
-	onChangeBaseUrl,
 	onRemove,
 	onRefreshModels,
 	onCopyApiKey,
+	onOpenManagedGuide,
 	icon,
 	modelsList,
 }: PresetProviderRowViewProps): JSX.Element {
+	// 外部管理的(如 Magpie)只在对方那边开关,这里不给任何操作。
+	const managed = Boolean(row.managedBy);
 	// 已下线的旧条目不在内置目录里,给不了 key 也拉不到模型。
-	const canEditKey = !row.offline && !row.autoKey;
+	const canEditKey = !managed && !row.offline;
 	const keyDialogOpen = canEditKey && row.isOpen;
-	// 内置密钥的服务（如 Magpie）不填 key，但地址（端口）要能改。
-	const canEditUrl = row.autoKey && !row.offline;
-	const [urlDraft, setUrlDraft] = useState<string | null>(null);
-	const urlDialogOpen = canEditUrl && urlDraft !== null;
 
 	const tryAdopt = (): void => {
 		if (draftKey.trim() && !saving) onAdopt();
-	};
-	// 内置服务（Magpie）只开放端口：主机与路径固定，草稿里只放端口号。
-	const portValid = urlDraft !== null && /^\d{1,5}$/.test(urlDraft) && Number(urlDraft) >= 1 && Number(urlDraft) <= 65535;
-	const submitUrl = async (): Promise<void> => {
-		if (urlDraft === null || !portValid || saving || !row.baseUrl) return;
-		if (await onChangeBaseUrl(withPort(row.baseUrl, urlDraft))) setUrlDraft(null);
 	};
 
 	return (
@@ -129,14 +126,31 @@ export function PresetProviderRowView({
 							)}
 						</div>
 						<div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-							{labels.modelsCount(row.models.length)}
-							{canEditUrl && row.baseUrl ? ` · ${row.baseUrl}` : ""}
+							{managed && !row.adopted ? (
+								labels.managedNotConnected
+							) : (
+								<>
+									{labels.modelsCount(row.models.length)}
+									{managed ? ` · ${labels.managedConnected}` : ""}
+								</>
+							)}
 						</div>
 					</div>
 				</button>
 
 				<div className="flex h-8 items-center justify-end gap-1.5">
-					{row.adopted && !row.offline && (
+					{managed && onOpenManagedGuide && (
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={onOpenManagedGuide}
+							className="h-7 gap-1 rounded-full px-2.5 text-[12px] text-muted-foreground hover:text-foreground"
+						>
+							<span className="icon-[mdi--help-circle-outline] h-3.5 w-3.5" />
+							{labels.managedGuide}
+						</Button>
+					)}
+					{row.adopted && !row.offline && !managed && (
 						<Button
 							variant="ghost"
 							size="icon-sm"
@@ -160,19 +174,7 @@ export function PresetProviderRowView({
 							<span className={cn("h-3.5 w-3.5", row.adopted ? "icon-[mdi--key-outline]" : "icon-[mdi--key-plus]")} />
 						</Button>
 					)}
-					{canEditUrl && (
-						<Button
-							variant="ghost"
-							size="icon-sm"
-							onClick={() => setUrlDraft(portOf(row.baseUrl))}
-							title={labels.editBaseUrl}
-							aria-label={labels.editBaseUrl}
-							className="text-muted-foreground hover:text-foreground"
-						>
-							<span className="icon-[mdi--link-variant] h-3.5 w-3.5" />
-						</Button>
-					)}
-					{row.adopted && !row.autoKey && (
+					{row.adopted && !managed && (
 						<Button
 							variant="ghost"
 							size="icon-sm"
@@ -184,7 +186,7 @@ export function PresetProviderRowView({
 							<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
 						</Button>
 					)}
-					{!row.offline && (
+					{!row.offline && !managed && (
 						<Switch
 							size="sm"
 							checked={row.enabled}
@@ -257,69 +259,6 @@ export function PresetProviderRowView({
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
-
-			<Dialog open={urlDialogOpen} onOpenChange={(next) => !next && !saving && setUrlDraft(null)}>
-				<DialogContent className="sm:max-w-[420px]">
-					<DialogHeader>
-						<DialogTitle>{row.displayName}</DialogTitle>
-						<DialogDescription>{labels.editBaseUrl}</DialogDescription>
-					</DialogHeader>
-					<div className="flex flex-col gap-2">
-						<span className="text-[14px] font-medium text-foreground">
-							{labels.baseUrlPlaceholder}
-						</span>
-						<div className="flex items-center gap-2">
-							<span className="shrink-0 text-[14px] text-muted-foreground">{hostPrefix(row.baseUrl)}</span>
-							<InputField
-								value={urlDraft ?? ""}
-								onChange={(value) => setUrlDraft(value.replace(/\D/g, "").slice(0, 5))}
-								placeholder={labels.baseUrlPlaceholder}
-								disabled={saving}
-								autoFocus
-								aria-label={labels.editBaseUrl}
-								className="h-10 w-28 rounded-xl px-3.5 text-[15px] md:text-[15px]"
-								onKeyDown={(event) => {
-									if (event.key === "Enter") {
-										event.preventDefault();
-										void submitUrl();
-									}
-								}}
-							/>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button variant="ghost" size="sm" onClick={() => setUrlDraft(null)} disabled={saving}>
-							{labels.cancel}
-						</Button>
-						<Button variant="primary" size="sm" onClick={() => void submitUrl()} disabled={!portValid || saving}>
-							{labels.save}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
 		</div>
 	);
-}
-
-function portOf(baseUrl: string | undefined): string {
-	try {
-		return baseUrl ? new URL(baseUrl).port : "";
-	} catch {
-		return "";
-	}
-}
-
-/** 端口输入框左侧的固定前缀，如 `http://127.0.0.1:`。 */
-function hostPrefix(baseUrl: string | undefined): string {
-	try {
-		return baseUrl ? `${new URL(baseUrl).protocol}//${new URL(baseUrl).hostname}:` : "";
-	} catch {
-		return "";
-	}
-}
-
-function withPort(baseUrl: string, port: string): string {
-	const url = new URL(baseUrl);
-	url.port = port;
-	return url.toString().replace(/\/$/, "");
 }
