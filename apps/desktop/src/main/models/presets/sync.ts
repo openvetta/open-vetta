@@ -2,7 +2,7 @@ import { BrowserWindow, net } from "electron";
 import { getAppLogger } from "../../logger.js";
 import { getDesktopModelSettingsService } from "../model-settings-host.js";
 import type { ModelDefinition, ModelsConfig } from "../model-settings-service.js";
-import { getPresetProvider, PRESET_PROVIDERS, type PresetProviderDef } from "./catalog.js";
+import { getPresetProvider, PRESET_PROVIDERS, type PresetProviderDef, presetCatalogId } from "./catalog.js";
 import { type PresetError, toPresetError } from "./errors.js";
 import { fetchPresetModels, type PresetModelsResult } from "./fetch.js";
 import {
@@ -74,12 +74,12 @@ export async function listPresetProviders(): Promise<PresetProvidersResult> {
 }
 
 function catalogModelsFor(catalog: ModelsDevCatalog | null, def: PresetProviderDef): ModelDefinition[] {
-	const entries = catalog?.providers[def.id];
+	const entries = catalog?.providers[presetCatalogId(def)];
 	if (!entries) return [];
 	const models = Object.values(entries)
 		.filter((entry) => def.isChatModel(entry.model.id))
 		.map((entry) => entry.model);
-	return enrichModelsFromCatalog(catalog, def.id, models);
+	return enrichModelsFromCatalog(catalog, presetCatalogId(def), models);
 }
 
 /**
@@ -211,7 +211,7 @@ export async function refreshPresetModels(
 	const catalog = await ensureCatalog();
 	// `/models` 是该账号可用模型的事实源；models.dev 只补元数据，不能按第三方 family
 	// 或发布日期把服务商明确返回的档位、预览版或账号专属模型删掉。
-	const models = enrichModelsFromCatalog(catalog, def.id, result.models);
+	const models = enrichModelsFromCatalog(catalog, presetCatalogId(def), result.models);
 	return { ...result, models };
 }
 
