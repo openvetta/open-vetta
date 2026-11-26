@@ -4,7 +4,7 @@ import { useSetAtom } from "jotai";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { resolveAppLanguageFromLocale } from "../../../shared/i18n/config";
-import { stripReleaseNoteHeader } from "../../../shared/release-note-header";
+import { joinReleaseNotesByVersion, stripReleaseNoteHeader } from "../../../shared/release-note-header";
 import { selectReleaseNoteLanguage } from "../../../shared/release-note-language";
 
 /**
@@ -37,24 +37,46 @@ export function useUpdaterInit(): void {
 
 /**
  * 仅开发期：在控制台执行 `__previewUpdate()`，用当前版本的发布说明模拟「更新已就绪」，
- * 用来查看侧栏更新图标与更新对话框；`__previewUpdate(false)` 还原。生产构建不含此段。
+ * 用来查看侧栏更新图标与更新对话框；`__previewUpdate(5)` 模拟跨 5 个版本更新（取仓库里
+ * 不高于当前版本的最近 5 份说明）；`__previewUpdate(false)` 还原。生产构建不含此段。
  */
 function installDevUpdatePreview(setState: (state: UpdaterState) => void, language: () => "zh" | "en"): () => void {
-	const target = window as unknown as { __previewUpdate?: (on?: boolean) => Promise<void> };
+	const target = window as unknown as { __previewUpdate?: (on?: boolean | number) => Promise<void> };
 	target.__previewUpdate = async (on = true) => {
 		const state = await window.vetta.updater.getState();
-		if (!on) return setState(state);
+		if (on === false) return setState(state);
+		const count = typeof on === "number" ? Math.max(1, Math.floor(on)) : 1;
 		const notes = import.meta.glob("../../../../../../.github/release-notes/*.md", {
 			query: "?raw",
 			import: "default",
 		}) as Record<string, () => Promise<string>>;
-		const entry = Object.entries(notes).find(([path]) => path.endsWith(`v${state.currentVersion}.md`));
-		const releaseNote = entry
-			? stripReleaseNoteHeader(selectReleaseNoteLanguage(await entry[1](), language()))
-			: undefined;
+		const versions = Object.keys(notes)
+			.map((path) => ({ path, version: /v(\d+\.\d+\.\d+)\.md$/.exec(path)?.[1] }))
+			.filter((item): item is { path: string; version: string } => Boolean(item.version))
+			.filter((item) => compareVersions(item.version, state.currentVersion) <= 0)
+			.sort((a, b) => compareVersions(b.version, a.version))
+			.slice(0, count);
+		const releaseNote = joinReleaseNotesByVersion(
+			await Promise.all(
+				versions.map(async (item) => ({
+					version: item.version,
+					body: stripReleaseNoteHeader(selectReleaseNoteLanguage(await notes[item.path](), language())),
+				})),
+			),
+		);
 		setState({ ...state, phase: "ready", latestVersion: state.currentVersion, releaseNote });
 	};
 	return () => {
 		delete target.__previewUpdate;
 	};
+}
+
+function compareVersions(a: string, b: string): number {
+	const pa = a.split(".").map(Number);
+	const pb = b.split(".").map(Number);
+	for (let i = 0; i < 3; i += 1) {
+		const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+		if (diff !== 0) return diff;
+	}
+	return 0;
 }
