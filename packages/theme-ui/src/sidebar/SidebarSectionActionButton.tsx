@@ -32,6 +32,7 @@ export const SidebarSectionActionButton = forwardRef<HTMLButtonElement, SidebarS
 				aria-label={label}
 				aria-expanded={props["aria-haspopup"] === "menu" ? expanded : undefined}
 				data-state={expanded ? "open" : "closed"}
+				data-reveal={reveal}
 				className={cn(
 					// 键盘聚焦时也要可见，不能只靠悬停才露出。
 					"flex items-center justify-center rounded-md p-1.5 text-foreground transition-opacity hover:bg-accent focus-visible:opacity-100",

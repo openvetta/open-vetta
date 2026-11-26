@@ -16,11 +16,12 @@ export interface DefaultConversationSectionViewProps {
 	onNewSession?: () => void;
 	onOpenContextMenu: (event: React.MouseEvent) => void;
 	showNewSession: boolean;
+	/** 对话列表为空时常驻标题行操作，引导开始第一个对话；有对话后只在悬停标题行时出现。 */
+	actionsAlwaysVisible?: boolean;
 }
 
 /**
  * 该区块不再自带滚动容器：项目区与对话区共用侧栏面板的同一个滚动区。
- * 标题行右侧的操作只在悬停标题行时出现；列表为空时由项目区的引导卡片承担「开始新对话」。
  */
 export function DefaultConversationSectionView({
 	className,
@@ -31,7 +32,9 @@ export function DefaultConversationSectionView({
 	onNewSession,
 	onOpenContextMenu,
 	showNewSession,
+	actionsAlwaysVisible = false,
 }: DefaultConversationSectionViewProps): JSX.Element {
+	const reveal = actionsAlwaysVisible ? "always" : "hover";
 	return (
 		<div className={cn("flex flex-col", className)}>
 			<div
@@ -44,12 +47,14 @@ export function DefaultConversationSectionView({
 						iconClassName="icon-[solar--menu-dots-bold]"
 						label={labels.more}
 						onClick={onMoreClick}
+						reveal={reveal}
 					/>
 					{showNewSession && onNewSession && (
 						<SidebarSectionActionButton
 							iconClassName="icon-[solar--add-linear]"
 							label={labels.newSession}
 							onClick={onNewSession}
+							reveal={reveal}
 						/>
 					)}
 				</div>

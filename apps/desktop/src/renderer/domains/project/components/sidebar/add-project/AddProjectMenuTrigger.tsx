@@ -6,6 +6,7 @@ import type { AddProjectMenuProps } from "./types";
 interface AddProjectMenuTriggerProps extends ComponentPropsWithoutRef<"button"> {
 	open: boolean;
 	variant: NonNullable<AddProjectMenuProps["variant"]>;
+	reveal?: AddProjectMenuProps["reveal"];
 }
 
 // PopoverTrigger asChild 会注入 ref 与事件处理，需原样转发给按钮。

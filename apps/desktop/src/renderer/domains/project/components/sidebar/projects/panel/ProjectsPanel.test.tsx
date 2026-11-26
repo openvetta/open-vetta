@@ -262,6 +262,30 @@ it("switches project and chat membership together, preserving the global page", 
 	expect(routedPath.value).toBe("/settings/spaces");
 });
 
+// 标题行按钮：列表为空时常驻引导创建，有内容后只在悬停标题行（或键盘聚焦）时出现。
+it("keeps section header actions visible only while their list is empty", async () => {
+	renderPanel(true, true);
+	// 空列表里另有同名的引导按钮，只看标题行上带显示方式的那个。
+	const reveal = (name: string) =>
+		screen.getAllByRole("button", { name }).find((button) => button.dataset.reveal)?.dataset.reveal;
+
+	// 主空间：有项目，但没有归属这里的对话。
+	await screen.findByRole("button", { name: "My batch project", expanded: false });
+	expect(reveal("New Project")).toBe("hover");
+	expect(reveal("New Session")).toBe("always");
+
+	// Work：项目和对话都有。
+	fireEvent.click(screen.getByRole("button", { name: "Work" }));
+	await screen.findByRole("button", { name: "Existing conversation" });
+	expect(reveal("New Project")).toBe("hover");
+	expect(reveal("New Session")).toBe("hover");
+
+	// Personal：项目和对话都没有。
+	fireEvent.click(screen.getByRole("button", { name: "Personal" }));
+	await waitFor(() => expect(screen.queryByRole("button", { name: "Existing conversation" })).toBeNull());
+	expect(reveal("New Project")).toBe("always");
+});
+
 it("opens an overflow workspace and highlights the grouped trigger in a narrow sidebar", async () => {
 	availableSidebarWidth = 68;
 	renderPanel(true, true);

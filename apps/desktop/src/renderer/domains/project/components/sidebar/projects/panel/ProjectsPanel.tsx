@@ -93,7 +93,7 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 							/>
 							<div className="ml-auto flex shrink-0 items-center">
 								<SessionViewMenuButton />
-								<AddProjectMenu className="shrink-0" />
+								<AddProjectMenu className="shrink-0" reveal={hasUserProjects ? "hover" : "always"} />
 							</div>
 						</div>
 						<SidebarProjectDisclosureContent id={projectsContentId} open={projectsOpen}>

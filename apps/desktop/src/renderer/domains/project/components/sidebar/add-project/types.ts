@@ -1,6 +1,8 @@
 export interface AddProjectMenuProps {
 	className?: string;
 	variant?: "icon" | "navItem" | "primary" | "secondary";
+	/** `icon` 变体的显示方式，见 AddProjectMenuTriggerView。 */
+	reveal?: "hover" | "always";
 }
 
 export type AddProjectMenuAction =

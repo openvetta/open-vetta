@@ -64,6 +64,22 @@ describe("SidebarSectionActionButton", () => {
 		).toBe(false);
 	});
 
+	it("stays hidden until its row is hovered or it takes keyboard focus, unless it is always shown", () => {
+		const hover = mount(<SidebarSectionActionButton iconClassName="icon-[solar--add-linear]" label="Add" />);
+		expect(hover.dataset.reveal).toBe("hover");
+		expect(hover.classList).toContain("opacity-0");
+		expect(hover.classList).toContain("group-hover:opacity-60");
+		expect(hover.classList).toContain("focus-visible:opacity-100");
+
+		const always = mount(<SidebarSectionActionButton iconClassName="icon-[solar--add-linear]" label="Add" reveal="always" />);
+		expect(always.dataset.reveal).toBe("always");
+		expect(always.classList).not.toContain("opacity-0");
+
+		const open = mount(<SidebarSectionActionButton expanded iconClassName="icon-[solar--add-linear]" label="Add" />);
+		expect(open.classList).toContain("opacity-100");
+		expect(open.classList).not.toContain("opacity-0");
+	});
+
 	it("reports whether its menu is open", () => {
 		expect(
 			mount(<SidebarSectionActionButton iconClassName="icon-[solar--add-linear]" label="Add" />).dataset.state,

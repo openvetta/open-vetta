@@ -4,13 +4,13 @@ import { AddProjectSplash } from "./AddProjectSplash";
 import type { AddProjectMenuProps } from "./types";
 import { useAddProjectMenuModel } from "./useAddProjectMenuModel";
 
-export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuProps): JSX.Element {
+export function AddProjectMenu({ className, reveal, variant = "icon" }: AddProjectMenuProps): JSX.Element {
 	const model = useAddProjectMenuModel();
 
 	return (
 		<>
 			<div className={cn("relative", className)}>
-				<AddProjectMenuTrigger open={model.open} onClick={model.openSplash} variant={variant} />
+				<AddProjectMenuTrigger open={model.open} onClick={model.openSplash} reveal={reveal} variant={variant} />
 			</div>
 			<AddProjectSplash
 				open={model.open}

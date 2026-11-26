@@ -38,8 +38,10 @@ export function DefaultConversationSection(
 		defaultConversationFilter: props.defaultConversationFilter,
 		onNewSession: props.onNewSession,
 	});
+	const isEmpty = !props.sessionsLoading && props.sessions.length === 0;
 	return (
 		<DefaultConversationSectionView
+			actionsAlwaysVisible={isEmpty && model.showNewSession}
 			className={props.className}
 			filterSelect={<DefaultConversationFilterSelect />}
 			labels={model.labels}

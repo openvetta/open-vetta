@@ -10,11 +10,13 @@ export interface AddProjectMenuTriggerViewProps extends ComponentPropsWithoutRef
 	label: string;
 	open: boolean;
 	variant: "icon" | "navItem" | "primary" | "secondary";
+	/** 仅 `icon` 变体生效：还没有项目时常驻引导，有项目后改为悬停标题行才出现。 */
+	reveal?: "hover" | "always";
 }
 
 // 作为 PopoverTrigger asChild 的子节点：需要转发 ref 并透传 Radix 注入的属性。
 export const AddProjectMenuTriggerView = forwardRef<HTMLButtonElement, AddProjectMenuTriggerViewProps>(
-	function AddProjectMenuTriggerView({ label, open, variant, ...props }, ref): JSX.Element {
+	function AddProjectMenuTriggerView({ label, open, reveal = "hover", variant, ...props }, ref): JSX.Element {
 	if (variant === "secondary") {
 		return (
 			<Button variant="secondary" size="lg" className="no-drag w-full text-[13px]" ref={ref}
@@ -43,7 +45,6 @@ export const AddProjectMenuTriggerView = forwardRef<HTMLButtonElement, AddProjec
 		);
 	}
 
-	// 「添加项目」是项目区的主入口，常驻显示，不依赖悬停才能发现。
 	return (
 		<SidebarSectionActionButton
 			ref={ref}
@@ -51,7 +52,7 @@ export const AddProjectMenuTriggerView = forwardRef<HTMLButtonElement, AddProjec
 			expanded={open}
 			iconClassName="icon-[solar--add-linear]"
 			label={label}
-			reveal="always"
+			reveal={reveal}
 		/>
 	);
 },
