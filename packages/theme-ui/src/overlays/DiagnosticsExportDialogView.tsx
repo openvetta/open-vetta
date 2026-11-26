@@ -9,17 +9,19 @@ export interface DiagnosticsExportDialogViewLabels {
 	readonly eyebrow: string;
 	readonly title: string;
 	readonly description: string;
+	/** 讲明 Vetta 不收集用户数据、诊断包只在用户主动附上时才被看到。 */
+	readonly noCollection: string;
 	/** 「诊断包里有什么」小标题与三项内容。 */
 	readonly contentsTitle: string;
 	readonly contentsLogs: string;
 	readonly contentsRecentLogs: string;
 	readonly contentsSystem: string;
-	/** 只存在本机、不自动上传；Issue 公开，附上前可先检查。 */
+	/** 提醒诊断包里可能有项目路径、文件名和报错内容，由用户酌情发送。 */
 	readonly privacyNote: string;
-	/** 「怎么反馈」小标题与三步。 */
+	/** 「怎么反馈」小标题与三步；最后一步不限渠道，GitHub Issue 与私聊都行。 */
 	readonly stepsTitle: string;
 	readonly stepExport: string;
-	readonly stepIssue: string;
+	readonly stepDescribe: string;
 	readonly stepAttach: string;
 	readonly export: string;
 	readonly exporting: string;
@@ -27,6 +29,7 @@ export interface DiagnosticsExportDialogViewLabels {
 	readonly saved: string;
 	readonly showInFolder: string;
 	readonly failed: string;
+	/** 次要入口：打开 GitHub 的 Bug 反馈页，只是渠道之一。 */
 	readonly openIssue: string;
 	readonly close: string;
 }
@@ -53,7 +56,7 @@ const iconTileClass =
 	"flex size-16 items-center justify-center overflow-hidden rounded-[18px] bg-white text-neutral-900 shadow-[0_10px_28px_rgba(15,23,42,0.18),0_2px_6px_rgba(15,23,42,0.12)] ring-1 ring-black/5";
 
 /**
- * 「导出诊断包」引导弹窗：说明包里有什么、怎么拿它去 GitHub Issue 反馈。
+ * 「导出诊断包」引导弹窗：说明 Vetta 不收集数据、包里有什么、怎么把它发给开发者。
  * 外观沿用 Magpie 接入弹窗：大圆角面板、静态横幅、编号步骤、通栏胶囊主按钮。
  * 主按钮随阶段变化：导出 → 正在打包 → 在文件夹中显示。
  */
@@ -75,7 +78,7 @@ export function DiagnosticsExportDialogView({
 		{ icon: "icon-[mdi--history]", text: labels.contentsRecentLogs },
 		{ icon: "icon-[mdi--monitor]", text: labels.contentsSystem },
 	];
-	const steps = [labels.stepExport, labels.stepIssue, labels.stepAttach];
+	const steps = [labels.stepExport, labels.stepDescribe, labels.stepAttach];
 	const close = () => {
 		if (!exporting) onClose();
 	};
@@ -130,6 +133,11 @@ export function DiagnosticsExportDialogView({
 								</h3>
 								<p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{labels.description}</p>
 
+								<div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-primary/25 bg-primary/8 px-4 py-3">
+									<span className="mt-0.5 icon-[mdi--shield-check-outline] h-4 w-4 shrink-0 text-primary" />
+									<p className="text-[12.5px] leading-relaxed text-foreground/90">{labels.noCollection}</p>
+								</div>
+
 								<p className="mt-5 text-[12px] font-medium text-muted-foreground">{labels.contentsTitle}</p>
 								<ul className="mt-2 flex flex-col gap-1.5">
 									{contents.map((item) => (
@@ -141,7 +149,7 @@ export function DiagnosticsExportDialogView({
 								</ul>
 
 								<div className="mt-3 flex items-start gap-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-									<span className="mt-0.5 icon-[mdi--shield-lock-outline] h-4 w-4 shrink-0 text-amber-500" />
+									<span className="mt-0.5 icon-[mdi--information-outline] h-4 w-4 shrink-0 text-amber-500" />
 									<p className="text-[12.5px] leading-relaxed text-foreground/90">{labels.privacyNote}</p>
 								</div>
 
@@ -216,7 +224,7 @@ export function DiagnosticsExportDialogView({
 	);
 }
 
-/** 静态横幅：诊断包在左、GitHub 在右，中间箭头表示把诊断包带去 Issue 反馈。 */
+/** 静态横幅：诊断包在左、消息在右，中间箭头表示由用户自己把诊断包发给开发者。 */
 function DiagnosticsBanner(): JSX.Element {
 	return (
 		<div className="relative flex h-[148px] items-center justify-center overflow-hidden bg-[radial-gradient(120%_90%_at_50%_0%,color-mix(in_oklab,var(--primary)_22%,transparent),transparent_70%),linear-gradient(180deg,color-mix(in_oklab,var(--primary)_10%,var(--popover)),var(--popover))]">
@@ -236,7 +244,7 @@ function DiagnosticsBanner(): JSX.Element {
 					<span className="h-px w-6 border-t-2 border-dashed border-primary/45" />
 				</div>
 				<div className={iconTileClass}>
-					<span className="icon-[mdi--github] size-9" />
+					<span className="icon-[mdi--message-text-outline] size-9" />
 				</div>
 			</div>
 		</div>

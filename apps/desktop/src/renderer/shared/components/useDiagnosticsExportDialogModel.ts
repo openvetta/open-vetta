@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { isMac, isWindows } from "../lib/platform";
 
-/** 反馈问题用的 Bug 模板，用户在这里描述问题并附上诊断包。 */
+/** GitHub 的 Bug 反馈模板：反馈渠道之一，用户也可以私下把诊断包发给开发者。 */
 export const DIAGNOSTICS_ISSUE_URL = "https://github.com/openvetta/open-vetta/issues/new?template=bug-report.yml";
 
 export interface DiagnosticsExportDialogModel {
@@ -83,6 +83,7 @@ export function useDiagnosticsExportDialogModel(): DiagnosticsExportDialogModel 
 			eyebrow: t("diagnosticsExport.eyebrow"),
 			title: t("diagnosticsExport.title"),
 			description: t("diagnosticsExport.description"),
+			noCollection: t("diagnosticsExport.noCollection"),
 			contentsTitle: t("diagnosticsExport.contentsTitle"),
 			contentsLogs: t("diagnosticsExport.contentsLogs"),
 			contentsRecentLogs: t("diagnosticsExport.contentsRecentLogs"),
@@ -90,7 +91,7 @@ export function useDiagnosticsExportDialogModel(): DiagnosticsExportDialogModel 
 			privacyNote: t("diagnosticsExport.privacyNote"),
 			stepsTitle: t("diagnosticsExport.stepsTitle"),
 			stepExport: t("diagnosticsExport.stepExport"),
-			stepIssue: t("diagnosticsExport.stepIssue"),
+			stepDescribe: t("diagnosticsExport.stepDescribe"),
 			stepAttach: t("diagnosticsExport.stepAttach"),
 			export: t("diagnosticsExport.export"),
 			exporting: t("diagnosticsExport.exporting"),
