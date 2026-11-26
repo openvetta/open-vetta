@@ -5,7 +5,6 @@ import type { TFunction } from "i18next";
 import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { withPresetDefaultHeaders } from "../../../../shared/preset-provider-headers";
 import { isInvalidKey, translatePresetError } from "./translatePresetError";
 
 type ProviderEntry = ModelsConfigData["providers"][string];
@@ -30,8 +29,6 @@ export interface PresetProviderRow {
 	icon?: string;
 	/** 预填密钥:草稿为空时作为输入框初值,点启用即用。 */
 	defaultApiKey?: string;
-	/** 启用时补进 headers 的默认请求头,已有同名头不覆盖。 */
-	defaultHeaders?: Record<string, string>;
 	models: NonNullable<ProviderEntry["models"]>;
 	modelRows: PresetProviderModelRow[];
 	offline: boolean;
@@ -182,7 +179,6 @@ export function usePresetProvidersSectionModel({
 			baseUrl: config.providers[preset.id]?.baseUrl ?? preset.baseUrl,
 			icon: preset.icon,
 			defaultApiKey: preset.defaultApiKey,
-			defaultHeaders: preset.defaultHeaders,
 			// 已启用的用账号实际可用的 /models 结果,未启用的展示 models.dev 公共目录。
 			models: config.providers[preset.id]?.models ?? preset.catalogModels,
 			offline: false,
@@ -258,8 +254,6 @@ export function usePresetProvidersSectionModel({
 					return;
 				}
 				setModelsErrors((prev) => withError(prev, row.id, undefined, t));
-				// 改 key 重新启用时整条重写,用户手加的请求头要带过来,缺的默认头再补上。
-				const headers = withPresetDefaultHeaders(config.providers[row.id]?.headers, row.defaultHeaders);
 				await saveConfig({
 					...config,
 					providers: {
@@ -272,7 +266,6 @@ export function usePresetProvidersSectionModel({
 							api: row.api,
 							baseUrl,
 							apiKey: key,
-							...(headers ? { headers } : {}),
 							models: fetched?.models ?? row.models,
 							...(fetched ? { modelsSyncedAt: new Date().toISOString() } : {}),
 						},
@@ -537,8 +530,6 @@ interface BaseRow {
 	baseUrl?: string;
 	icon?: string;
 	defaultApiKey?: string;
-	/** 启用时补进 headers 的默认请求头,已有同名头不覆盖。 */
-	defaultHeaders?: Record<string, string>;
 	models: NonNullable<ProviderEntry["models"]>;
 	offline: boolean;
 }

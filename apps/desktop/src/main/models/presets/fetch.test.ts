@@ -235,34 +235,4 @@ describe("Magpie 本机代理预设", () => {
 		expect(byId.get("plain-chat")?.reasoning).toBeUndefined();
 		expect(byId.get("plain-chat")?.reasoningLevels).toBeUndefined();
 	});
-
-	it("拉模型列表时带上 User-Agent: Vetta,让 Magpie 认出请求来自 Vetta", async () => {
-		const seen: Array<Record<string, string>> = [];
-		await fetchPresetModels(
-			def("magpie"),
-			"magpie",
-			async (_url, init) => {
-				seen.push(init?.headers as Record<string, string>);
-				return jsonResponse({ data: [{ id: "gpt-5" }] });
-			},
-			new AbortController().signal,
-			1000,
-		);
-		expect(seen[0]).toMatchObject({ "User-Agent": "Vetta", Authorization: "Bearer magpie" });
-	});
-
-	it("其它预设服务商不带 Vetta 的识别头", async () => {
-		const seen: Array<Record<string, string>> = [];
-		await fetchPresetModels(
-			def("openai"),
-			"sk-test",
-			async (_url, init) => {
-				seen.push(init?.headers as Record<string, string>);
-				return jsonResponse({ data: [{ id: "gpt-5" }] });
-			},
-			new AbortController().signal,
-			1000,
-		);
-		expect(seen[0]).not.toHaveProperty("User-Agent");
-	});
 });

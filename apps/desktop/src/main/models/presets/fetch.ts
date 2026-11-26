@@ -48,7 +48,7 @@ function fetchByAdapter(
 		case "gemini":
 			return fetchGeminiModels(def.baseUrl, apiKey, fetchImpl, signal);
 		default:
-			return fetchOpenAICompatibleModels(def.baseUrl, apiKey, fetchImpl, signal, def.defaultHeaders);
+			return fetchOpenAICompatibleModels(def.baseUrl, apiKey, fetchImpl, signal);
 	}
 }
 
@@ -196,14 +196,12 @@ async function fetchOpenAICompatibleModels(
 	apiKey: string,
 	fetchImpl: FetchImpl,
 	signal?: AbortSignal,
-	extraHeaders?: Readonly<Record<string, string>>,
 ): Promise<ModelDefinition[]> {
 	const url = `${trimSlash(baseUrl)}/models`;
 	const response = await fetchImpl(url, {
 		method: "GET",
 		signal,
-		// 拉模型列表也要带上预设的识别头，网关才不会把这一下记到通用客户端名下。
-		headers: { ...extraHeaders, Accept: "application/json", Authorization: `Bearer ${apiKey}` },
+		headers: { Accept: "application/json", Authorization: `Bearer ${apiKey}` },
 	});
 	const body = (await readJson(response, url, AUTH_STATUSES)) as { data?: unknown; models?: unknown };
 	const list = Array.isArray(body.data) ? body.data : Array.isArray(body.models) ? body.models : [];

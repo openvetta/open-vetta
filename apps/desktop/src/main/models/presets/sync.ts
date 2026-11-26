@@ -1,5 +1,4 @@
 import { BrowserWindow, net } from "electron";
-import { withPresetDefaultHeaders } from "../../../shared/preset-provider-headers.js";
 import { getAppLogger } from "../../logger.js";
 import { getDesktopModelSettingsService } from "../model-settings-host.js";
 import type { ModelDefinition, ModelsConfig } from "../model-settings-service.js";
@@ -32,8 +31,6 @@ export interface PresetProviderInfo {
 	icon: string;
 	/** 预填的密钥(本机代理类服务商),用户直接点启用即可。 */
 	defaultApiKey?: string;
-	/** 启用时默认写入的请求头(用户已设的同名头优先)。 */
-	defaultHeaders?: Record<string, string>;
 	/** 公共目录里该家的模型(免 key 可见)。填 key 后由账号实际可用的 /models 结果取代。 */
 	catalogModels: ModelDefinition[];
 }
@@ -71,7 +68,6 @@ export async function listPresetProviders(): Promise<PresetProvidersResult> {
 			baseUrl: def.baseUrl,
 			icon: def.icon,
 			...(def.defaultApiKey ? { defaultApiKey: def.defaultApiKey } : {}),
-			...(def.defaultHeaders ? { defaultHeaders: { ...def.defaultHeaders } } : {}),
 			catalogModels: catalogModelsFor(catalog, def),
 		})),
 	};
@@ -232,34 +228,13 @@ function adoptedPresetIds(config: ModelsConfig): string[] {
 }
 
 /**
- * 给已采纳的预设条目补上后来才加的默认请求头,没有要补的返回 null。
- *
- * 老用户的条目是在默认头加入前启用的,不会再走一遍启用流程;停用的也补,免得重新打开时缺头。
- * 不依赖拉模型列表成功——Magpie 没开着时同步会整家跳过,头却该照样补上。
- */
-export function backfillPresetDefaultHeaders(config: ModelsConfig): ModelsConfig | null {
-	let providers: ModelsConfig["providers"] | null = null;
-	for (const [id, provider] of Object.entries(config.providers)) {
-		if (provider.source !== "template") continue;
-		const defaults = getPresetProvider(provider.templateId ?? id)?.defaultHeaders;
-		const headers = withPresetDefaultHeaders(provider.headers, defaults);
-		if (headers === provider.headers) continue;
-		providers ??= { ...config.providers };
-		providers[id] = { ...provider, headers };
-	}
-	return providers ? { ...config, providers } : null;
-}
-
-/**
  * 后台同步所有已启用的预设服务商的模型列表并写回 models.json。
  * 单个失败静默跳过(保留本地快照),不影响其它服务商。
  */
 export async function syncAdoptedPresets(): Promise<void> {
-	const service = getDesktopModelSettingsService();
-	const backfilled = backfillPresetDefaultHeaders(await service.getConfig());
-	if (backfilled) await service.replaceConfig(backfilled);
 	// 先热一遍公共目录:即便一家都没启用,设置页也要能免 key 列出各家模型。
 	await ensureCatalog();
+	const service = getDesktopModelSettingsService();
 	const config = await service.getConfig();
 	const ids = adoptedPresetIds(config);
 	if (ids.length === 0) return;
