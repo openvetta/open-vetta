@@ -29,6 +29,8 @@ export interface PresetProviderRow {
 	icon?: string;
 	/** 预填密钥:草稿为空时作为输入框初值,点启用即用。 */
 	defaultApiKey?: string;
+	/** 由外部程序接入并管理(如 Magpie):只展示是否已接入与模型,不能启用、改 key 或删除。 */
+	managedBy?: "magpie";
 	models: NonNullable<ProviderEntry["models"]>;
 	modelRows: PresetProviderModelRow[];
 	offline: boolean;
@@ -82,6 +84,8 @@ export interface PresetProvidersSectionLabels {
 	testOk: string;
 	testFailed: string;
 	toggleProvider: (provider: string) => string;
+	managedConnected: string;
+	managedNotConnected: string;
 }
 
 export interface PresetProvidersSectionModel {
@@ -179,13 +183,20 @@ export function usePresetProvidersSectionModel({
 			baseUrl: config.providers[preset.id]?.baseUrl ?? preset.baseUrl,
 			icon: preset.icon,
 			defaultApiKey: preset.defaultApiKey,
+			managedBy: preset.managedBy,
 			// 已启用的用账号实际可用的 /models 结果,未启用的展示 models.dev 公共目录。
-			models: config.providers[preset.id]?.models ?? preset.catalogModels,
+			// 外部管理的只认它自己写进来的那一条,没接入就是空的。
+			models: preset.managedBy
+				? config.providers[preset.id]?.source === preset.managedBy
+					? (config.providers[preset.id]?.models ?? [])
+					: []
+				: (config.providers[preset.id]?.models ?? preset.catalogModels),
 			offline: false,
 		}));
 
 		return [...presetRows, ...orphaned].map((row) => {
-			const adopted = config.providers[row.id]?.source === "template";
+			// 外部管理的以它写进来的条目为准,其余以 Vetta 采纳的预设为准。
+			const adopted = config.providers[row.id]?.source === (row.managedBy ?? "template");
 			return {
 				...row,
 				modelRows: row.models.map((model) => toModelRow(model, t)),
@@ -496,6 +507,8 @@ export function usePresetProvidersSectionModel({
 			editBaseUrl: t("editBaseUrl"),
 			baseUrlPlaceholder: t("baseUrlPlaceholder"),
 			toggleProvider: (provider: string) => t("toggleProvider", { provider }),
+			managedConnected: t("managedByMagpie"),
+			managedNotConnected: t("connectInMagpie"),
 		},
 		onToggleExpanded: handleToggleExpanded,
 		onToggleEditor: handleToggleEditor,
@@ -533,6 +546,7 @@ interface BaseRow {
 	baseUrl?: string;
 	icon?: string;
 	defaultApiKey?: string;
+	managedBy?: "magpie";
 	models: NonNullable<ProviderEntry["models"]>;
 	offline: boolean;
 }

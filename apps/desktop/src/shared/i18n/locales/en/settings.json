@@ -1443,6 +1443,8 @@
   "baseUrlPlaceholder": "Port",
   "baseUrlInvalid": "The port must be an integer between 1 and 65535",
   "toggleProvider": "Enable or disable {{provider}}",
+  "managedByMagpie": "Managed by Magpie",
+  "connectInMagpie": "Not connected · switch Vetta on in Magpie's Agents page to connect",
   "apiKeyCopied": "API key copied; the clipboard will be cleared in 30 seconds",
   "apiKeyCopyFailed": "No API key is available to copy",
   "replaceApiKeyPlaceholder": "•••••••• (encrypted and stored)",

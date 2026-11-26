@@ -16,6 +16,8 @@ export interface PresetProviderRowModelView {
 	readonly refreshing: boolean;
 	readonly hasApiKey: boolean;
 	readonly modelsError: string | null;
+	/** 由外部程序接入并管理(如 Magpie):只展示是否已接入,没有任何操作按钮。 */
+	readonly managedBy?: string;
 }
 
 export interface PresetProviderRowViewLabels {
@@ -41,6 +43,10 @@ export interface PresetProviderRowViewLabels {
 	readonly editBaseUrl: string;
 	readonly baseUrlPlaceholder: string;
 	readonly toggleProvider: (name: string) => string;
+	/** 外部管理且已接入时,副标题里模型数后面的说明,如「由 Magpie 管理」。 */
+	readonly managedConnected: string;
+	/** 外部管理但还没接入时的副标题,告诉用户去哪里接入。 */
+	readonly managedNotConnected: string;
 }
 
 export interface PresetProviderRowViewProps {
@@ -79,11 +85,13 @@ export function PresetProviderRowView({
 	icon,
 	modelsList,
 }: PresetProviderRowViewProps): JSX.Element {
+	// 外部管理的(如 Magpie)只在对方那边开关,这里不给任何操作。
+	const managed = Boolean(row.managedBy);
 	// 已下线的旧条目不在内置目录里,给不了 key 也拉不到模型。
-	const canEditKey = !row.offline && !row.autoKey;
+	const canEditKey = !managed && !row.offline && !row.autoKey;
 	const keyDialogOpen = canEditKey && row.isOpen;
 	// 内置密钥的服务（如 Magpie）不填 key，但地址（端口）要能改。
-	const canEditUrl = row.autoKey && !row.offline;
+	const canEditUrl = !managed && row.autoKey && !row.offline;
 	const [urlDraft, setUrlDraft] = useState<string | null>(null);
 	const urlDialogOpen = canEditUrl && urlDraft !== null;
 
@@ -129,14 +137,21 @@ export function PresetProviderRowView({
 							)}
 						</div>
 						<div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-							{labels.modelsCount(row.models.length)}
-							{canEditUrl && row.baseUrl ? ` · ${row.baseUrl}` : ""}
+							{managed && !row.adopted ? (
+								labels.managedNotConnected
+							) : (
+								<>
+									{labels.modelsCount(row.models.length)}
+									{managed ? ` · ${labels.managedConnected}` : ""}
+									{canEditUrl && row.baseUrl ? ` · ${row.baseUrl}` : ""}
+								</>
+							)}
 						</div>
 					</div>
 				</button>
 
 				<div className="flex h-8 items-center justify-end gap-1.5">
-					{row.adopted && !row.offline && (
+					{row.adopted && !row.offline && !managed && (
 						<Button
 							variant="ghost"
 							size="icon-sm"
@@ -172,7 +187,7 @@ export function PresetProviderRowView({
 							<span className="icon-[mdi--link-variant] h-3.5 w-3.5" />
 						</Button>
 					)}
-					{row.adopted && !row.autoKey && (
+					{row.adopted && !row.autoKey && !managed && (
 						<Button
 							variant="ghost"
 							size="icon-sm"
@@ -184,7 +199,7 @@ export function PresetProviderRowView({
 							<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
 						</Button>
 					)}
-					{!row.offline && (
+					{!row.offline && !managed && (
 						<Switch
 							size="sm"
 							checked={row.enabled}

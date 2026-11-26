@@ -20,8 +20,18 @@ const deepseekPreset: PresetProviderInfo = {
 	catalogModels: [],
 };
 
+const magpiePreset: PresetProviderInfo = {
+	id: "magpie",
+	displayName: "Magpie",
+	api: "openai-completions",
+	baseUrl: "http://127.0.0.1:3425/v1",
+	icon: "magpie",
+	managedBy: "magpie",
+	catalogModels: [],
+};
+
 const models = {
-	listPresets: vi.fn(async () => ({ providers: [deepseekPreset], catalogSource: "live" as const })),
+	listPresets: vi.fn(async () => ({ providers: [deepseekPreset, magpiePreset], catalogSource: "live" as const })),
 	onPresetsUpdated: vi.fn(() => () => {}),
 	refreshPresetModels: vi.fn(async () => ({ models: [{ id: "deepseek-chat" }] })),
 };
@@ -53,5 +63,24 @@ describe("预设服务商启用", () => {
 			apiKey: "sk-new",
 			headers: { "X-Trace": "1" },
 		});
+	});
+
+	it("Magpie 写进来的条目算已接入并展示它的模型,同名的自建条目不算", async () => {
+		const saveConfig = vi.fn(async (_next: ModelsConfigData) => {});
+		const connected: ModelsConfigData = {
+			providers: { magpie: { source: "magpie", apiKey: "***", models: [{ id: "codex/gpt-6.1-sol" }] } },
+		};
+		const { result, rerender } = renderHook(({ config }) => usePresetProvidersSectionModel({ config, saveConfig }), {
+			initialProps: { config: connected },
+		});
+		await waitFor(() => expect(result.current.rows.some((row) => row.id === "magpie")).toBe(true));
+		expect(result.current.rows.find((row) => row.id === "magpie")).toMatchObject({
+			managedBy: "magpie",
+			adopted: true,
+			models: [{ id: "codex/gpt-6.1-sol" }],
+		});
+
+		rerender({ config: { providers: { magpie: { baseUrl: "http://127.0.0.1:3425/v1", models: [{ id: "x" }] } } } });
+		expect(result.current.rows.find((row) => row.id === "magpie")).toMatchObject({ adopted: false, models: [] });
 	});
 });

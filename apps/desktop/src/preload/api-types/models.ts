@@ -14,8 +14,11 @@ export interface ModelsConfigData {
 			authHeader?: boolean;
 			/** 供应商显示名(如 "DeepSeek"),用于 UI 分组标题等;无则回退到 provider 标识 key。 */
 			displayName?: string;
-			/** 来源标记。"template" = 由[[预设服务商]]填 key 采纳而来,模型列表会被定时同步覆写;无标记 = 手搓自定义,任何同步逻辑都不得触碰。 */
-			source?: "template";
+			/**
+			 * 来源标记。"template" = 由[[预设服务商]]填 key 采纳而来,模型列表会被定时同步覆写;
+			 * "magpie" = 由 Magpie 在其 Agents 页写入并负责还原,Vetta 只读不改;无标记 = 手搓自定义,任何同步逻辑都不得触碰。
+			 */
+			source?: "template" | "magpie";
 			/** 对应服务端模板的 provider 标识(= 模板 provider key),仅 source==="template" 时存在。 */
 			templateId?: string;
 			/** 供应商图标 symbol(见 CONTEXT.md「icon symbol」),客户端按此解析内置图标。可选。 */
@@ -96,6 +99,8 @@ export interface PresetProviderInfo {
 	icon: string;
 	/** 预填的密钥(本机代理类服务商),用户直接点启用即可。 */
 	defaultApiKey?: string;
+	/** 由外部程序接入并管理(如 Magpie 在其 Agents 页写入),Vetta 里只展示状态,不能启用、改 key 或删除。 */
+	managedBy?: "magpie";
 	/** 公共目录(models.dev)里该家的模型,免 key 可见;填 key 后由账号实际可用的列表取代。 */
 	catalogModels: NonNullable<ModelsConfigData["providers"][string]["models"]>;
 }

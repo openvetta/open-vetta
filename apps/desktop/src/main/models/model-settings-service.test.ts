@@ -388,3 +388,49 @@ describe("ModelSettingsService.reloadAfterExternalChange", () => {
 		expect(writeConfig).not.toHaveBeenCalled();
 	});
 });
+
+describe("Magpie 写入的服务商", () => {
+	function setup(initial: ModelsConfig) {
+		let config = initial;
+		const credentials = createCredentialStore();
+		const service = new ModelSettingsService({
+			readConfig: async () => config,
+			writeConfig: async (next) => {
+				config = next;
+			},
+			refreshRegistry: async () => {},
+			credentials,
+		});
+		return { service, credentials, current: () => config };
+	}
+
+	const magpie = {
+		source: "magpie" as const,
+		baseUrl: "http://127.0.0.1:3425/v1",
+		apiKey: "mk-vetta",
+		models: [{ id: "codex/gpt-6.1-sol" }],
+	};
+
+	it("启动迁移不把 Magpie 的密钥挪进钥匙串,其它明文密钥照常迁移", async () => {
+		const { service, credentials, current } = setup({
+			providers: { magpie: { ...magpie }, kimi: { apiKey: "sk-kimi" } },
+		});
+		await service.getConfig();
+		expect(current().providers.magpie).toMatchObject({ apiKey: "mk-vetta" });
+		expect(current().providers.magpie?.credentialRef).toBeUndefined();
+		expect(current().providers.kimi?.apiKey).toBeUndefined();
+		expect([...credentials.values.values()]).toEqual(["sk-kimi"]);
+	});
+
+	it("Vetta 其它保存(如改默认模型、设置页整份写回)也保留 Magpie 的明文密钥", async () => {
+		const { service, current } = setup({ providers: { magpie: { ...magpie } } });
+		await service.setDefault("magpie/codex/gpt-6.1-sol");
+		expect(current().providers.magpie?.apiKey).toBe("mk-vetta");
+
+		const rendererView = await service.getRendererConfig();
+		expect(rendererView.providers.magpie?.apiKey).toBe("***");
+		await service.replaceConfig(rendererView);
+		expect(current().providers.magpie).toMatchObject({ apiKey: "mk-vetta", source: "magpie" });
+		expect(current().providers.magpie?.credentialRef).toBeUndefined();
+	});
+});

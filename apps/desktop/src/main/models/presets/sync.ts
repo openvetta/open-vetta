@@ -31,6 +31,8 @@ export interface PresetProviderInfo {
 	icon: string;
 	/** 预填的密钥(本机代理类服务商),用户直接点启用即可。 */
 	defaultApiKey?: string;
+	/** 由外部程序接入并管理(如 Magpie),Vetta 里只展示,不能启用。 */
+	managedBy?: "magpie";
 	/** 公共目录里该家的模型(免 key 可见)。填 key 后由账号实际可用的 /models 结果取代。 */
 	catalogModels: ModelDefinition[];
 }
@@ -68,6 +70,7 @@ export async function listPresetProviders(): Promise<PresetProvidersResult> {
 			baseUrl: def.baseUrl,
 			icon: def.icon,
 			...(def.defaultApiKey ? { defaultApiKey: def.defaultApiKey } : {}),
+			...(def.managedBy ? { managedBy: def.managedBy } : {}),
 			catalogModels: catalogModelsFor(catalog, def),
 		})),
 	};

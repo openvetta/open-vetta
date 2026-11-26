@@ -12,6 +12,11 @@ export interface PresetProviderDef {
 	readonly fetcher: PresetFetcher;
 	/** 本机代理类服务商的固定密钥:设置页预填,用户一键启用即可。 */
 	readonly defaultApiKey?: string;
+	/**
+	 * 由外部程序接入并管理:Vetta 不能启用、改 key 或删除,只展示它写进 models.json 的那一条。
+	 * Magpie 由其 Vetta 插件在 Agents 页写入 `providers.magpie`(source: "magpie"),关掉即还原。
+	 */
+	readonly managedBy?: "magpie";
 	/** 上游 /models 会混入 embedding / tts / 图像等非对话模型,按此过滤。 */
 	readonly isChatModel: (id: string) => boolean;
 }
@@ -100,14 +105,14 @@ export const PRESET_PROVIDERS: readonly PresetProviderDef[] = [
 		isChatModel: (id) => !NON_CHAT.test(id),
 	},
 	{
-		// Magpie 是用户本机的代理,模型清单以其 /models 为准,不在 models.dev 目录里。
+		// Magpie 是用户本机的代理,由 Magpie 在其 Agents 页接入 Vetta 并写入模型清单,是唯一事实源。
 		id: "magpie",
 		displayName: "Magpie",
 		icon: "magpie",
 		api: "openai-completions",
 		baseUrl: "http://127.0.0.1:3425/v1",
 		fetcher: "openai-compatible",
-		defaultApiKey: "magpie",
+		managedBy: "magpie",
 		isChatModel: (id) => !NON_CHAT.test(id),
 	},
 ];

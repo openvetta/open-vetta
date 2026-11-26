@@ -28,7 +28,11 @@ export interface ProviderConfig {
 	headers?: Record<string, string>;
 	authHeader?: boolean;
 	displayName?: string;
-	source?: "template";
+	/**
+	 * "template" = 由预设服务商采纳而来;"magpie" = 由 Magpie 在其 Agents 页写入并负责还原,
+	 * Vetta 只读不改,密钥也留在文件里(Magpie 以此判断是否仍连接着)。
+	 */
+	source?: "template" | "magpie";
 	templateId?: string;
 	icon?: string;
 	/** 预设服务商模型列表最近一次从上游 /models 同步的时间(ISO)。 */
@@ -472,6 +476,7 @@ export class ModelSettingsService {
 				delete provider.credentialRef;
 				continue;
 			}
+			if (isManagedByMagpie(provider)) continue;
 
 			if (!this.options.credentials.isAvailable() && !currentRef && currentProvider?.apiKey === value) {
 				provider.apiKey = value;
@@ -550,7 +555,7 @@ export class ModelSettingsService {
 		const changedProviderIds: string[] = [];
 		try {
 			for (const [providerId, provider] of Object.entries(migrated.providers)) {
-				if (!provider.apiKey) continue;
+				if (!provider.apiKey || isManagedByMagpie(provider)) continue;
 				const externalSource = normalizeExternalApiKeySource(provider.apiKey);
 				if (externalSource) {
 					if (provider.apiKey !== externalSource || provider.credentialRef !== undefined) changed = true;
@@ -611,6 +616,14 @@ export class ModelSettingsService {
 		);
 		return result;
 	}
+}
+
+/**
+ * Magpie 写进来的服务商:密钥必须原样留在文件里。Magpie 以「它写的密钥还在」判断 Vetta 是否仍连接,
+ * 挪进钥匙串会让它认为被手改过;关闭时它还要按原值还原。这把密钥只在本机网关上有效。
+ */
+function isManagedByMagpie(provider: ProviderConfig): boolean {
+	return provider.source === "magpie";
 }
 
 function sameProviderAccess(left: ProviderConfig | undefined, right: ProviderConfig | undefined): boolean {

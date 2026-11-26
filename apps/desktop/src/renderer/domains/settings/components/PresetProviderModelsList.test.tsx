@@ -42,6 +42,8 @@ const labels: PresetProvidersSectionLabels = {
 	editBaseUrl: "Change server address",
 	baseUrlPlaceholder: "Server address",
 	toggleProvider: (provider) => `Toggle ${provider}`,
+	managedConnected: "Managed by Magpie",
+	managedNotConnected: "Not connected · switch Vetta on in Magpie",
 };
 
 const row: PresetProviderRow = {
