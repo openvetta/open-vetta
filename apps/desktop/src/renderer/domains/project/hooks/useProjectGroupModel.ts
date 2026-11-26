@@ -31,6 +31,7 @@ import {
 } from "../services/sidebar-conversation-projection";
 import { buildSidebarSessionOrdering } from "../services/sidebar-session-order";
 import { reuseUnchangedSessionViews } from "./stableSessionViews";
+import { useSidebarSessionOrder } from "./useSidebarSessionOrder";
 
 export interface ProjectGroupSessionView extends AutomationGroupRowFields {
 	key: string;
@@ -111,10 +112,17 @@ export function useProjectGroupModel({
 		[automationLinks, pinnedSessionPaths, sessions],
 	);
 	const [expandedTaskIds, setExpandedTaskIds] = useState<ReadonlySet<string>>(() => new Set<string>());
+	const sessionOrder = useSidebarSessionOrder();
 	const ordering = useMemo(
 		() =>
-			buildSidebarSessionOrdering(collapsed.sessions, pinnedSessionPaths, DEFAULT_VISIBLE_SESSIONS, showAllSessions),
-		[collapsed.sessions, pinnedSessionPaths, showAllSessions],
+			buildSidebarSessionOrdering(
+				collapsed.sessions,
+				pinnedSessionPaths,
+				DEFAULT_VISIBLE_SESSIONS,
+				showAllSessions,
+				sessionOrder,
+			),
+		[collapsed.sessions, pinnedSessionPaths, sessionOrder, showAllSessions],
 	);
 
 	useEffect(() => {
@@ -150,9 +158,18 @@ export function useProjectGroupModel({
 			pinnedSessionPaths,
 			DEFAULT_VISIBLE_SESSIONS,
 			false,
+			sessionOrder,
 		);
 		if (activeIndex >= collapsedOrdering.visible.length) setShowAllSessions(true);
-	}, [activeConversationKey, activeSessionPath, activeTeamSessionId, collapsed, ordering.all, pinnedSessionPaths]);
+	}, [
+		activeConversationKey,
+		activeSessionPath,
+		activeTeamSessionId,
+		collapsed,
+		ordering.all,
+		pinnedSessionPaths,
+		sessionOrder,
+	]);
 
 	const displayName = project.name ?? pathBasename(project.cwd);
 	const projectType = project.type;

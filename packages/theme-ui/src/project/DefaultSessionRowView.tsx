@@ -25,6 +25,8 @@ export interface DefaultSessionRowViewProps {
 	sessionPath?: string;
 	/** Tooltip / secondary label (e.g. forked-from preview). */
 	titleExtra?: string;
+	/** 标题后的弱化短文本，例如平铺列表中会话所属的项目名。 */
+	secondaryLabel?: string;
 	/** Session was forked from another session. */
 	forked?: boolean;
 	/** Tag colors carried by this conversation; replaces the leading icon when present. */
@@ -57,6 +59,7 @@ export const DefaultSessionRowView = memo(function DefaultSessionRowView({
 	trailingAvatarUrls,
 	sessionPath,
 	titleExtra,
+	secondaryLabel,
 	forked,
 	moreLabel,
 	onOpenContextMenu,
@@ -146,6 +149,11 @@ export const DefaultSessionRowView = memo(function DefaultSessionRowView({
 							label={label}
 							title={title}
 						/>
+						{secondaryLabel ? (
+							<span className="max-w-[45%] shrink-0 truncate text-[11px] text-muted-foreground/60">
+								{secondaryLabel}
+							</span>
+						) : null}
 						{trailingAvatarUrls && trailingAvatarUrls.length > 0 ? (
 							<AvatarStackView avatarUrls={trailingAvatarUrls} />
 						) : null}

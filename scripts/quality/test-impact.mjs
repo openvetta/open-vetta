@@ -62,10 +62,21 @@ const goalTests = {
 		"test/features/goal/goal-session-extension.test.ts",
 	],
 };
+const PROJECTS_PANEL_TEST = "src/renderer/domains/project/components/sidebar/projects/panel/ProjectsPanel.test.tsx";
 const EXPLICIT_SOURCE_TESTS = new Map([
-	[
+	// 侧栏项目区与对话区的视图由桌面侧栏面板测试以真实组件渲染并交互。
+	...[
 		"packages/theme-ui/src/project/SidebarProjectDisclosure.tsx",
-		desktopTests("src/renderer/domains/project/components/sidebar/projects/panel/ProjectsPanel.test.tsx"),
+		"packages/theme-ui/src/project/DefaultConversationSectionView.tsx",
+		"packages/theme-ui/src/sidebar/AddProjectMenuTriggerView.tsx",
+		"packages/theme-ui/src/sidebar/SidebarSectionActionButton.tsx",
+	].map((source) => [source, desktopTests(PROJECTS_PANEL_TEST)]),
+	[
+		"packages/theme-ui/src/project/DefaultSessionRowView.tsx",
+		desktopTests(
+			PROJECTS_PANEL_TEST,
+			"src/renderer/domains/project/components/sidebar/projects/panel/DefaultSessionRowView.test.tsx",
+		),
 	],
 	// Real Electron geometry covers the shared shell together with desktop's macOS background rules.
 	...[

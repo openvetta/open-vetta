@@ -1,5 +1,6 @@
 import { cn } from "@vetta-org/ui/utils";
 import type { JSX, ReactNode } from "react";
+import { SidebarSectionActionButton } from "../sidebar/SidebarSectionActionButton";
 
 export interface DefaultConversationSectionViewLabels {
 	more: string;
@@ -15,15 +16,11 @@ export interface DefaultConversationSectionViewProps {
 	onNewSession?: () => void;
 	onOpenContextMenu: (event: React.MouseEvent) => void;
 	showNewSession: boolean;
-	/**
-	 * When the conversation list is empty, keep header actions visible so users
-	 * can discover “new session” without hovering the row.
-	 */
-	actionsAlwaysVisible?: boolean;
 }
 
 /**
  * 该区块不再自带滚动容器：项目区与对话区共用侧栏面板的同一个滚动区。
+ * 标题行右侧的操作只在悬停标题行时出现；列表为空时由项目区的引导卡片承担「开始新对话」。
  */
 export function DefaultConversationSectionView({
 	className,
@@ -34,12 +31,7 @@ export function DefaultConversationSectionView({
 	onNewSession,
 	onOpenContextMenu,
 	showNewSession,
-	actionsAlwaysVisible = false,
 }: DefaultConversationSectionViewProps): JSX.Element {
-	const actionButtonClass = actionsAlwaysVisible
-		? "flex items-center justify-center rounded-md p-1.5 text-foreground opacity-70 transition-opacity hover:bg-accent hover:opacity-100"
-		: "flex items-center justify-center rounded-md p-1.5 text-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-60 group-hover:hover:opacity-100";
-
 	return (
 		<div className={cn("flex flex-col", className)}>
 			<div
@@ -48,23 +40,17 @@ export function DefaultConversationSectionView({
 			>
 				<div className="flex min-w-0 items-center gap-0.5">{filterSelect}</div>
 				<div className="flex items-center">
-					<button
-						type="button"
-						title={labels.more}
+					<SidebarSectionActionButton
+						iconClassName="icon-[solar--menu-dots-bold]"
+						label={labels.more}
 						onClick={onMoreClick}
-						className={actionButtonClass}
-					>
-						<span className="icon-[solar--menu-dots-bold] h-4 w-4" />
-					</button>
+					/>
 					{showNewSession && onNewSession && (
-						<button
-							type="button"
-							title={labels.newSession}
+						<SidebarSectionActionButton
+							iconClassName="icon-[solar--add-linear]"
+							label={labels.newSession}
 							onClick={onNewSession}
-							className={actionButtonClass}
-						>
-							<span className="icon-[solar--add-linear] h-4 w-4" />
-						</button>
+						/>
 					)}
 				</div>
 			</div>

@@ -1,5 +1,6 @@
 import { Button } from "@vetta-org/ui/button";
 import { forwardRef, type ComponentPropsWithoutRef, type JSX } from "react";
+import { SidebarSectionActionButton } from "./SidebarSectionActionButton";
 
 function cn(...parts: Array<string | false | null | undefined>): string {
 	return parts.filter(Boolean).join(" ");
@@ -42,19 +43,16 @@ export const AddProjectMenuTriggerView = forwardRef<HTMLButtonElement, AddProjec
 		);
 	}
 
+	// 「添加项目」是项目区的主入口，常驻显示，不依赖悬停才能发现。
 	return (
-		<button
-			type="button"
-			title={label}
+		<SidebarSectionActionButton
 			ref={ref}
-{...props}
-			className={cn(
-				"flex items-center justify-center rounded-md p-1.5 text-foreground transition-opacity hover:bg-accent",
-				open ? "opacity-100" : "opacity-0 group-hover:opacity-60 group-hover:hover:opacity-100",
-			)}
-		>
-			<span className="icon-[solar--add-linear] h-4 w-4" />
-		</button>
+			{...props}
+			expanded={open}
+			iconClassName="icon-[solar--add-linear]"
+			label={label}
+			reveal="always"
+		/>
 	);
 },
 );

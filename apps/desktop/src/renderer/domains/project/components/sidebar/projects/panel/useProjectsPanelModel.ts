@@ -13,6 +13,7 @@ import {
 	expandedBatchProjectsAtom,
 	inlineFilePreviewAtom,
 	pendingSessionOpenAtom,
+	sidebarSessionViewAtom,
 } from "@shared/store/atoms";
 import { MAIN_SPACE, spaceOf, spacesAtom } from "@shared/store/spaces";
 import { useMatches, useNavigate } from "@tanstack/react-router";
@@ -22,6 +23,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { resolveProjectGoneCleanup } from "../../../../hooks/project-gone-cleanup";
 import { resolveSessionOpenTarget } from "../../../../hooks/session-open-target";
+import { useFlatSidebarConversations } from "../../../../hooks/useFlatSidebarConversations";
 import { useProjects } from "../../../../hooks/useProjects";
 import { rememberSpaceLocation } from "../../../../hooks/useSpaceNavigation";
 import { useTeamSidebarConversations } from "../../../../hooks/useTeamSidebarConversations";
@@ -106,6 +108,7 @@ export function useProjectsPanelModel({
 	// 标签档只是「对话」的一个子集视图，会话来源仍取普通对话目录。
 	const defaultConversationSource = conversationFilterSource(defaultConversationFilter);
 	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
+	const { grouping: sessionGrouping } = useAtomValue(sidebarSessionViewAtom);
 
 	const expandBatchProject = useCallback(
 		(cwd: string) => {
@@ -553,6 +556,14 @@ export function useProjectsPanelModel({
 		}
 		return result;
 	}, [userProjects, sessionsMap, teamSidebar.conversations]);
+	const flatConversations = useFlatSidebarConversations({
+		enabled: sessionGrouping === "flat" && defaultConversationSource === "conversation",
+		defaultSessions,
+		projects: visibleUserProjects,
+		projectSessions: projectSidebarSessions,
+		sessionsMap,
+		loadSessions,
+	});
 	useEffect(() => {
 		if (!activeTeamSessionId) return;
 		for (const [cwd, sessions] of projectSidebarSessions) {
@@ -572,7 +583,8 @@ export function useProjectsPanelModel({
 		batchProjects: visibleSpaceBatchProjects,
 		defaultConversationFilter,
 		defaultProject,
-		defaultSessions,
+		defaultProjectOrigins: flatConversations?.projectOrigins,
+		defaultSessions: flatConversations?.sessions ?? defaultSessions,
 		defaultSessionsCwd: defaultSessionsCwd ?? "",
 		defaultSessionsLoading:
 			Boolean(
@@ -586,6 +598,7 @@ export function useProjectsPanelModel({
 		projectSessions: (cwd) => projectSidebarSessions.get(cwd) ?? [],
 		projectSessionsLoading: (cwd) => (sessionLoadingCwds.has(cwd) && !sessionsMap.has(cwd)) || teamSidebar.loading,
 		projectsLoading: !projectsInitialized,
+		sessionGrouping,
 		actions: {
 			archiveProject: (cwd) => {
 				void archiveProject(cwd);

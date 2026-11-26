@@ -28,8 +28,10 @@ import {
 	sidebarConversationIdentity,
 	sidebarConversationKey,
 } from "../services/sidebar-conversation-projection";
+import type { SidebarConversationOrigin } from "../services/sidebar-flat-conversations";
 import { buildSidebarSessionOrdering } from "../services/sidebar-session-order";
 import { reuseUnchangedSessionViews } from "./stableSessionViews";
+import { useSidebarSessionOrder } from "./useSidebarSessionOrder";
 
 const DEFAULT_VISIBLE_DEFAULT_SESSIONS = 5;
 
@@ -65,6 +67,8 @@ export interface DefaultSessionListItemView extends AutomationGroupRowFields {
 	trailingAvatarUrls?: readonly string[];
 	titleExtra?: string;
 	tagColors?: readonly string[];
+	/** 平铺展示时项目会话所属的项目名；默认「对话」区的会话为空。 */
+	projectLabel?: string;
 	session: SidebarConversationInfo;
 }
 
@@ -76,8 +80,12 @@ interface UseDefaultSessionListModelArgs {
 	onNewSession?: () => void;
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 	onSelectSession: (cwd: string, session: SidebarConversationInfo) => void;
+	/** 平铺展示时混入的项目会话，按 `sidebarConversationKey` 记录其所属项目；缺省表示全部来自 `cwd`。 */
+	projectOrigins?: ReadonlyMap<string, SidebarConversationOrigin>;
 	sessions: SidebarConversationInfo[];
 }
+
+const NO_PROJECT_ORIGINS: ReadonlyMap<string, SidebarConversationOrigin> = new Map();
 
 export function useDefaultSessionListModel({
 	activeSessionPath,
@@ -87,6 +95,7 @@ export function useDefaultSessionListModel({
 	onNewSession,
 	onRenameSession,
 	onSelectSession,
+	projectOrigins = NO_PROJECT_ORIGINS,
 	sessions,
 }: UseDefaultSessionListModelArgs) {
 	const { t, i18n } = useTranslation("project");
@@ -121,10 +130,17 @@ export function useDefaultSessionListModel({
 		[automationLinks, pinnedSessionPaths, taggedSessions],
 	);
 	const [expandedTaskIds, setExpandedTaskIds] = useState<ReadonlySet<string>>(() => new Set<string>());
+	const sessionOrder = useSidebarSessionOrder();
 	const ordering = useMemo(
 		() =>
-			buildSidebarSessionOrdering(collapsed.sessions, pinnedSessionPaths, DEFAULT_VISIBLE_DEFAULT_SESSIONS, showAll),
-		[collapsed.sessions, pinnedSessionPaths, showAll],
+			buildSidebarSessionOrdering(
+				collapsed.sessions,
+				pinnedSessionPaths,
+				DEFAULT_VISIBLE_DEFAULT_SESSIONS,
+				showAll,
+				sessionOrder,
+			),
+		[collapsed.sessions, pinnedSessionPaths, sessionOrder, showAll],
 	);
 	const revealedActiveSessionRef = useRef<string | null>(null);
 	const [prevFilter, setPrevFilter] = useState(filter);
@@ -162,9 +178,18 @@ export function useDefaultSessionListModel({
 			pinnedSessionPaths,
 			DEFAULT_VISIBLE_DEFAULT_SESSIONS,
 			false,
+			sessionOrder,
 		);
 		if (activeIndex >= collapsedOrdering.visible.length) setShowAll(true);
-	}, [activeConversationKey, activeSessionPath, activeTeamSessionId, collapsed, ordering.all, pinnedSessionPaths]);
+	}, [
+		activeConversationKey,
+		activeSessionPath,
+		activeTeamSessionId,
+		collapsed,
+		ordering.all,
+		pinnedSessionPaths,
+		sessionOrder,
+	]);
 
 	const isClaw = filter === "claw";
 
@@ -198,6 +223,7 @@ export function useDefaultSessionListModel({
 				trailingAvatarUrls: identity.trailingAvatarUrls,
 				titleExtra: identity.titleExtra,
 				tagColors: tagFilterId === null ? sessionTagColors(tags, tagColorById, session.path) : undefined,
+				projectLabel: projectOrigins.get(identity.key)?.projectLabel,
 				session,
 			};
 		};
@@ -240,6 +266,7 @@ export function useDefaultSessionListModel({
 		scheduledBasenames,
 		scheduledSessionPaths,
 		ordering.all,
+		projectOrigins,
 		tagColorById,
 		tagFilterId,
 		tags,
@@ -248,6 +275,11 @@ export function useDefaultSessionListModel({
 
 	const visibleViews = allViews.filter(({ key }) => visibleKeys.has(key));
 
+	// 项目会话的选中、重命名要用项目自己的 cwd 查 access，不能用默认区的 cwd。
+	const sessionCwd = useCallback(
+		(session: SidebarConversationInfo) => projectOrigins.get(sidebarConversationKey(session))?.cwd ?? cwd,
+		[cwd, projectOrigins],
+	);
 	// per-row 回调必须引用稳定，否则行组件的 memo 永远命中不了。
 	const openContextMenu = useCallback(
 		(event: React.MouseEvent, session: SidebarConversationInfo) => {
@@ -257,15 +289,16 @@ export function useDefaultSessionListModel({
 				session,
 				allowMutations: !isClaw,
 				canTag: !isClaw,
-				independent: !isClaw,
+				// 项目会话跟随项目归属工作空间，不能单独移动。
+				independent: !isClaw && !projectOrigins.has(sidebarConversationKey(session)),
 			});
 		},
-		[isClaw, setContextMenu],
+		[isClaw, projectOrigins, setContextMenu],
 	);
 	const rename = useCallback(
 		(session: SidebarConversationInfo, name: string) => {
 			if (session.kind === "conversation") {
-				onRenameSession(cwd, session.path, name);
+				onRenameSession(sessionCwd(session), session.path, name);
 				return;
 			}
 			void window.vetta.agentTeams
@@ -274,12 +307,12 @@ export function useDefaultSessionListModel({
 					notifyTeamSessionsChanged(session.teamId);
 				});
 		},
-		[cwd, onRenameSession],
+		[onRenameSession, sessionCwd],
 	);
 	const renameDone = useCallback(() => setRenamingSessionPath(null), [setRenamingSessionPath]);
 	const select = useCallback(
-		(session: SidebarConversationInfo) => onSelectSession(cwd, session),
-		[cwd, onSelectSession],
+		(session: SidebarConversationInfo) => onSelectSession(sessionCwd(session), session),
+		[onSelectSession, sessionCwd],
 	);
 	const toggleShowAll = useCallback(() => setShowAll((value) => !value), []);
 	const toggleGroup = useCallback((taskId: string) => {

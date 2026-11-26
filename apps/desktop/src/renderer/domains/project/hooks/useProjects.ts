@@ -73,6 +73,7 @@ function sessionListsEqual(a: readonly SessionInfo[], b: readonly SessionInfo[])
 			left.name !== right.name ||
 			left.firstMessage !== right.firstMessage ||
 			left.modifiedAt !== right.modifiedAt ||
+			left.createdAt !== right.createdAt ||
 			left.cwd !== right.cwd
 		) {
 			return false;

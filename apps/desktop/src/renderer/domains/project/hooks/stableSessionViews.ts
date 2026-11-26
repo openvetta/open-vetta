@@ -13,6 +13,7 @@ interface SessionRowViewLike {
 	iconClassName?: string;
 	trailingAvatarUrls?: readonly string[];
 	tagColors?: readonly string[];
+	projectLabel?: string;
 	active: boolean;
 	renaming: boolean;
 	running: boolean;
@@ -43,6 +44,7 @@ export function reuseUnchangedSessionViews<T extends SessionRowViewLike>(cache: 
 			cached.iconClassName === view.iconClassName &&
 			cached.trailingAvatarUrls === view.trailingAvatarUrls &&
 			sameTagColors(cached.tagColors, view.tagColors) &&
+			cached.projectLabel === view.projectLabel &&
 			cached.active === view.active &&
 			cached.renaming === view.renaming &&
 			cached.running === view.running &&
