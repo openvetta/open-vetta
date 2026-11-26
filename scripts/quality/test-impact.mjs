@@ -62,10 +62,21 @@ const goalTests = {
 		"test/features/goal/goal-session-extension.test.ts",
 	],
 };
+const PROJECTS_PANEL_TEST = "src/renderer/domains/project/components/sidebar/projects/panel/ProjectsPanel.test.tsx";
 const EXPLICIT_SOURCE_TESTS = new Map([
-	[
+	// 侧栏项目区与对话区的视图由桌面侧栏面板测试以真实组件渲染并交互。
+	...[
 		"packages/theme-ui/src/project/SidebarProjectDisclosure.tsx",
-		desktopTests("src/renderer/domains/project/components/sidebar/projects/panel/ProjectsPanel.test.tsx"),
+		"packages/theme-ui/src/project/DefaultConversationSectionView.tsx",
+		"packages/theme-ui/src/sidebar/AddProjectMenuTriggerView.tsx",
+		"packages/theme-ui/src/sidebar/SidebarSectionActionButton.tsx",
+	].map((source) => [source, desktopTests(PROJECTS_PANEL_TEST)]),
+	[
+		"packages/theme-ui/src/project/DefaultSessionRowView.tsx",
+		desktopTests(
+			PROJECTS_PANEL_TEST,
+			"src/renderer/domains/project/components/sidebar/projects/panel/DefaultSessionRowView.test.tsx",
+		),
 	],
 	// Real Electron geometry covers the shared shell together with desktop's macOS background rules.
 	...[
@@ -75,6 +86,12 @@ const EXPLICIT_SOURCE_TESTS = new Map([
 		"apps/desktop/scripts/app-frame-layout.node-test.mjs",
 	].map((source) => [source, desktopTests("src/renderer/root-layout/AppFrame.layout.test.ts")]),
 	["apps/desktop/src/renderer/remote-desktop-host.ts", desktopTests("src/renderer/remote-desktop-host.test.ts")],
+	// contracts.ts 只导出类型，Vitest 依赖图选不出关联测试；会话历史摘要由 Node 会话目录生产，
+	// 用其合同测试兜底，避免这类纯类型合同变更没有任何测试可跑。
+	[
+		"packages/runtime-core/src/contracts.ts",
+		{ workspaceKey: "runtime-node", tests: ["test/conversation/file-conversation-session-services.test.ts"] },
+	],
 	// 宿主向插件转发的导出清单是手写字符串：漏列会让插件在 load-definition 阶段整份失败
 	// （0.6.9 的 Git 面板即如此），由契约测试比对清单与真实导出的全集。
 	[

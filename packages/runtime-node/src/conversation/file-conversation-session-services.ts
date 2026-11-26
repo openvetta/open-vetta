@@ -369,6 +369,7 @@ async function readSessionHistoryInfo(
 		name: document.name,
 		firstMessage,
 		modifiedAt,
+		createdAt: document.identity.createdAt,
 		lastMessagePreview,
 		parentSessionPath: document.identity.parentSessionPath,
 		parentEntryId: document.identity.parentEntryId,

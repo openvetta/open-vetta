@@ -17,6 +17,7 @@ import { DefaultConversationSection } from "./DefaultConversationSection";
 import { ProjectGroupsSection } from "./ProjectGroupsSection";
 import { ProjectsPanelEmptyState } from "./ProjectsPanelEmptyState";
 import { ProjectsPanelMenus } from "./ProjectsPanelMenus";
+import { SessionViewMenuButton } from "./SessionViewMenuButton";
 import type { ProjectsPanelProps } from "./types";
 import { useProjectsPanelModel } from "./useProjectsPanelModel";
 
@@ -40,6 +41,8 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 	};
 
 	const showEmptyProjectsSection = spaceId !== MAIN_SPACE && !hasUserProjects;
+	// 平铺时项目会话已并入「对话」列表，项目区整体收起。
+	const showProjectsRegion = model.sessionGrouping === "project" && (hasUserProjects || showEmptyProjectsSection);
 	const showStartCard =
 		!hasUserProjects &&
 		!showEmptyProjectsSection &&
@@ -56,6 +59,7 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 					defaultConversationFilter={model.defaultConversationFilter}
 					listClassName={props.defaultSessionListClassName}
 					project={model.defaultProject}
+					projectOrigins={model.defaultProjectOrigins}
 					scrollParent={scrollEl}
 					sessionsCwd={model.defaultSessionsCwd}
 					sessions={model.defaultSessions}
@@ -74,11 +78,11 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 		<ProjectsPanelView
 			defaultSection={defaultSection}
 			emptyState={<ProjectsPanelEmptyState onNewConversation={newConversation} />}
-			menus={<ProjectsPanelMenus model={model} />}
+			menus={<ProjectsPanelMenus conversationMenuOwnsViewSettings={!showProjectsRegion} model={model} />}
 			onScrollRef={setScrollEl}
 			scrollElement={scrollEl}
 			projectsSection={
-				(hasUserProjects || showEmptyProjectsSection) && (
+				showProjectsRegion && (
 					<>
 						<div className={cn("group relative z-20 flex items-center gap-1 pb-1 pr-1", props.projectsToolbarClassName)}>
 							<SidebarProjectDisclosureTrigger
@@ -87,7 +91,10 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 								open={projectsOpen}
 								onOpenChange={setProjectsOpen}
 							/>
-							<AddProjectMenu className="ml-auto shrink-0" />
+							<div className="ml-auto flex shrink-0 items-center">
+								<SessionViewMenuButton />
+								<AddProjectMenu className="shrink-0" />
+							</div>
 						</div>
 						<SidebarProjectDisclosureContent id={projectsContentId} open={projectsOpen}>
 							<ProjectGroupsSection model={model} scrollParent={scrollEl} />
@@ -101,7 +108,7 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 			}}
 			showDefaultRegion={showDefaultRegion}
 			showEmpty={showEmpty}
-			showProjectsRegion={hasUserProjects || showEmptyProjectsSection}
+			showProjectsRegion={showProjectsRegion}
 		/>
 		</motion.div>
 	);

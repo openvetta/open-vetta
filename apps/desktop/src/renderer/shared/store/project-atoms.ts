@@ -70,6 +70,8 @@ export interface SessionInfo {
 	name?: string;
 	firstMessage: string;
 	modifiedAt: number;
+	/** 会话创建时间；乐观插入的本地条目与无法解析头部的历史会话缺省。 */
+	createdAt?: number;
 	/** 宿主显式声明的访问能力；乐观创建的本地条目可能暂未解析。 */
 	access?: RuntimeSessionAccess;
 	/** Parent session jsonl path when this session was forked. */
@@ -265,6 +267,62 @@ export const defaultConversationFilterAtom = atom(
 		set(defaultConversationFilterStateAtom, next);
 	},
 );
+/** 侧栏会话的分组方式：按项目分区，或把对话与项目会话平铺成一个列表。 */
+export type SidebarSessionGrouping = "project" | "flat";
+/** 侧栏会话的排序依据：最近回复时间（活跃会话靠前）或创建时间。 */
+export type SidebarSessionSort = "updated" | "created";
+
+export interface SidebarSessionView {
+	grouping: SidebarSessionGrouping;
+	sort: SidebarSessionSort;
+}
+
+const SIDEBAR_SESSION_VIEW_STORAGE_KEY = "vetta-sidebar-session-view";
+const SIDEBAR_SESSION_VIEW_SCHEMA_VERSION = 1;
+const DEFAULT_SIDEBAR_SESSION_VIEW: SidebarSessionView = { grouping: "project", sort: "updated" };
+
+/** 逐字段回落：某一项存坏了不连累另一项已保存的选择。 */
+export function parseSidebarSessionView(value: unknown): SidebarSessionView {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) return DEFAULT_SIDEBAR_SESSION_VIEW;
+	const input = value as { schemaVersion?: unknown; grouping?: unknown; sort?: unknown };
+	if (input.schemaVersion !== SIDEBAR_SESSION_VIEW_SCHEMA_VERSION) return DEFAULT_SIDEBAR_SESSION_VIEW;
+	return {
+		grouping: input.grouping === "flat" ? "flat" : "project",
+		sort: input.sort === "created" ? "created" : "updated",
+	};
+}
+
+function loadSidebarSessionView(): SidebarSessionView {
+	try {
+		const raw = localStorage.getItem(SIDEBAR_SESSION_VIEW_STORAGE_KEY);
+		return raw ? parseSidebarSessionView(JSON.parse(raw) as unknown) : DEFAULT_SIDEBAR_SESSION_VIEW;
+	} catch {
+		return DEFAULT_SIDEBAR_SESSION_VIEW;
+	}
+}
+
+function persistSidebarSessionView(view: SidebarSessionView): void {
+	try {
+		localStorage.setItem(
+			SIDEBAR_SESSION_VIEW_STORAGE_KEY,
+			JSON.stringify({ schemaVersion: SIDEBAR_SESSION_VIEW_SCHEMA_VERSION, ...view }),
+		);
+	} catch {
+		// 隐私模式或配额不足时保留当前内存态；视图设置只是本机 UI 偏好。
+	}
+}
+
+const sidebarSessionViewStateAtom = atom<SidebarSessionView>(loadSidebarSessionView());
+/** 写入时只需给出要改的那一项。 */
+export const sidebarSessionViewAtom = atom(
+	(get) => get(sidebarSessionViewStateAtom),
+	(get, set, patch: Partial<SidebarSessionView>) => {
+		const next = { ...get(sidebarSessionViewStateAtom), ...patch };
+		persistSidebarSessionView(next);
+		set(sidebarSessionViewStateAtom, next);
+	},
+);
+
 // Always start expanded on app launch — collapse state is per-session only.
 export const sidebarCollapsedAtom = atom<boolean>(false);
 

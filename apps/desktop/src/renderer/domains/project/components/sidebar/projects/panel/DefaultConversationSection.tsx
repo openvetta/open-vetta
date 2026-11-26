@@ -5,6 +5,7 @@ import { DefaultConversationFilterSelect } from "../../filters/DefaultConversati
 import { useDefaultConversationSectionModel } from "../../../../hooks/useDefaultConversationSectionModel";
 import { DefaultSessionList } from "./DefaultSessionList";
 import type { SidebarConversationInfo } from "../../../../services/sidebar-conversation-projection";
+import type { SidebarConversationOrigin } from "../../../../services/sidebar-flat-conversations";
 
 interface DefaultConversationSectionProps {
 	activeSessionPath: string;
@@ -16,6 +17,8 @@ interface DefaultConversationSectionProps {
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 	onSelectSession: (cwd: string, session: SidebarConversationInfo) => void;
 	project: Project;
+	/** 平铺展示时混入的项目会话来源；按项目分组时缺省。 */
+	projectOrigins?: ReadonlyMap<string, SidebarConversationOrigin>;
 	scrollParent: HTMLElement | null;
 	sessions: SidebarConversationInfo[];
 	/**
@@ -35,11 +38,8 @@ export function DefaultConversationSection(
 		defaultConversationFilter: props.defaultConversationFilter,
 		onNewSession: props.onNewSession,
 	});
-	const isEmpty = !props.sessionsLoading && props.sessions.length === 0;
-
 	return (
 		<DefaultConversationSectionView
-			actionsAlwaysVisible={isEmpty && model.showNewSession}
 			className={props.className}
 			filterSelect={<DefaultConversationFilterSelect />}
 			labels={model.labels}
@@ -51,6 +51,7 @@ export function DefaultConversationSection(
 					cwd={props.sessionsCwd || props.project.cwd}
 					filter={props.defaultConversationFilter}
 					onNewSession={model.actions.newSession}
+					projectOrigins={props.projectOrigins}
 					scrollParent={props.scrollParent}
 					onRenameSession={props.onRenameSession}
 					onSelectSession={props.onSelectSession}

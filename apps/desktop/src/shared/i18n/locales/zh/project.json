@@ -146,6 +146,15 @@
 			"scrollToTop": "滚动到顶部",
 			"scrollToBottom": "滚动到底部"
 		},
+		"view": {
+			"menu": "视图设置",
+			"grouping": "分组方式",
+			"groupByProject": "按项目分组",
+			"flat": "平铺展示",
+			"sort": "排序方式",
+			"sortUpdated": "回复时间",
+			"sortCreated": "创建时间"
+		},
 		"defaultConversation": {
 			"noConversations": "暂无对话",
 			"emptyTitle": "还没有对话",
