@@ -122,15 +122,7 @@ The update source is build configuration and is independent of the operating sys
 
 | Variable | Description |
 | --- | --- |
-| `VETTA_SENTRY_DSN` | Sentry is a no-op when unset. The DSN ends up in the bundle |
-| `VETTA_SENTRY_RELEASE` | Immutable release; must match exactly between runtime and source-map upload. Suggested: `vetta-desktop@<version>+<build-id>` |
-| `VETTA_TELEMETRY_ENVIRONMENT` | `development` / `staging` / `production` |
-| `VETTA_SENTRY_TRACES_SAMPLE_RATE` | 0–1, defaults to 0 |
-| `VETTA_SENTRY_ORG` · `VETTA_SENTRY_PROJECT` · `VETTA_SENTRY_URL` | Source-map upload (CI only); `URL` is for self-hosted Sentry only |
 | `VETTA_MAIN_SOURCEMAP` | Emit a main-process source map for local stack debugging without uploading |
-| `VETTA_POSTHOG_KEY` | Project API Key (starts with `phc_`), **not** a Personal API Key. Ends up in the renderer bundle |
-| `VETTA_POSTHOG_HOST` | Defaults to PostHog Cloud US |
-| `VETTA_POSTHOG_REPLAY_ENABLED` · `VETTA_POSTHOG_REPLAY_SAMPLE_RATE` | Replay is off by default |
 | `VETTA_TRACING` | Set to `langfuse` to trace agent / LLM / tool calls end to end |
 | `VETTA_TRACING_TRACE_NAME` · `LANGFUSE_PUBLIC_KEY` · `LANGFUSE_BASE_URL` | Langfuse configuration |
 | `LANGFUSE_TRACING_ENVIRONMENT` · `LANGFUSE_RELEASE` · `OTEL_SERVICE_NAME` | Optional metadata |
@@ -145,7 +137,6 @@ The update source is build configuration and is independent of the operating sys
 - **macOS signing and notarization**: `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_API_*`
   CI variants: `MACOS_CERTIFICATE_P12_BASE64`, `MACOS_CERTIFICATE_PASSWORD`, `APPLE_API_KEY_P8_BASE64`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`
   Set none of them and you get an unsigned package; to sign, all of them are required. See [apple-code-signing.md](../deploy/apple-code-signing.md)
-- **Sentry source-map upload**: `VETTA_SENTRY_AUTH_TOKEN`
 - **Langfuse**: `LANGFUSE_SECRET_KEY`
 
 `VETTA_REQUIRE_MAC_SIGNATURE=1` is only used by the macOS CI artifact verification step; it is not client configuration.

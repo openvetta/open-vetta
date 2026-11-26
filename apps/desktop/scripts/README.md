@@ -182,7 +182,7 @@ cd apps/desktop && bun run build:main
 - 不再接受 `VETTA_SERVER_URL` / `VETTA_SITE_URL`：vetta 服务端已下线（ADR-0156），配置这些变量会直接报错；
 - 两种版本均注册内置 Vetta 官方 GitHub Marketplace；发行方可通过环境变量替换仓库与 ref，配置必须通过 GitHub URL 校验；
 - Windows、macOS、Linux 目标标签、语音开关、生产插件租户；
-- Sentry / PostHog 的 URL、布尔值、采样率及 Source Map 上传变量组合；
+- 不再接受 `VETTA_POSTHOG_*` / `VETTA_SENTRY_*`：这两项接入已移除，残留配置会直接报错；
 - macOS 签名、公证与强制验签变量组合。
 
 开源版在三种宿主系统上统一执行：

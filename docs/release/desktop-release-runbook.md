@@ -109,8 +109,6 @@ flowchart LR
 | `VETTA_TEST_BUILD_VERSION` | 仅 test 可使用；手动表单的 `build_version` 优先级更高 |
 | `VETTA_OPEN_MARKETPLACE_REPOSITORY` | 仅开源版使用的 Marketplace 地址 |
 
-Sentry 和 PostHog 是可选能力，不是商业版本的强制发布条件。配置其中任一能力时，必须满足对应字段的完整性和 URL/采样率校验；源映射上传凭据只放 Actions Secrets，不放 Variables 或 dispatch 表单。
-
 ### Secrets
 
 R2 发布需要：
@@ -140,7 +138,7 @@ APPLE_TEAM_ID
 
 1. 更新 `apps/desktop/package.json` 版本。
 2. 完成对应版本的双语发布说明 `.github/release-notes/v<version>.md`，它会作为 GitHub Release 的正文；缺失或未定稿时 quality job 直接失败（`node scripts/release/release-notes.mjs --check`）。定稿在发版当天一次完成，规则见 `.github/release-notes/README.md`，素材用 `node scripts/release/collect-release-commits.mjs` 收集。
-3. 确认 `desktop-production` 的 server、更新源、R2、签名和可选遥测配置完整。
+3. 确认 `desktop-production` 的 server、更新源、R2 和签名配置完整。
 4. 合并目标 commit。
 5. 创建并推送完全匹配的 tag：
 
@@ -279,5 +277,5 @@ workflow 不允许用 `--clobber` 修改已公开 Release。只有未公开的 d
   ```
 
 - 真实发布前确认版本、Changelog、公开 URL、R2 prefix、签名身份和测试基线版本。
-- 日志、Issue、Actions 表单和文档中不要记录 R2 Secret、Access Key、证书内容、Sentry Auth Token、Cookie 或用户数据。
+- 日志、Issue、Actions 表单和文档中不要记录 R2 Secret、Access Key、证书内容、Cookie 或用户数据。
 - 不要用手工上传绕过 `verify-update-artifacts` 和发布后的公开 feed 校验。

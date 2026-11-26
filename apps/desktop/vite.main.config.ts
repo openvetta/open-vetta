@@ -1,7 +1,6 @@
 import { builtinModules } from "node:module";
 import { resolve } from "node:path";
 import { defineConfig, loadEnv, type Plugin } from "vite";
-import { createSentryBuildSetup } from "./sentry-vite";
 import { resolveMainBundleExternals } from "./scripts/packaged-native-dependencies.mjs";
 import {
 	resolveSpeechInputBuildConfig,
@@ -38,7 +37,6 @@ export default defineConfig(({ mode }) => {
 			? [/^@vetta\/(?:action-rpc|ai|coding-agent|remote-control|runtime-core)(?:\/|$)/]
 			: [];
 	const sourcemapEnabled = (process.env.VETTA_MAIN_SOURCEMAP ?? env.VETTA_MAIN_SOURCEMAP) === "true";
-	const sentry = createSentryBuildSetup(env, "dist/main");
 
 	console.log(
 		`[vite.main.config] mode=${effectiveMode}, speechInput=${speechInputBuildConfig.enabled}`,
@@ -64,7 +62,7 @@ export default defineConfig(({ mode }) => {
 
 	return {
 		define,
-		plugins: [toolkitSourceAlias(), ...sentry.plugins],
+		plugins: [toolkitSourceAlias()],
 		resolve: {
 			alias: [
 				{
@@ -110,7 +108,7 @@ export default defineConfig(({ mode }) => {
 				],
 			},
 			minify: false,
-			sourcemap: sentry.enabled ? "hidden" : sourcemapEnabled,
+			sourcemap: sourcemapEnabled,
 		},
 	};
 });

@@ -1,6 +1,4 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
-import { createMarkdownApi } from "./apis/markdown.js";
-import "./telemetry.js";
 import type { DesktopApi } from "./api.js";
 import { createAbilitiesApi } from "./apis/abilities.js";
 import { createActionApprovalApi } from "./apis/action-approval.js";
@@ -14,6 +12,7 @@ import { createConversationTagsApi } from "./apis/conversation-tags.js";
 import { createDownloadsApi } from "./apis/downloads.js";
 import { createI18nApi } from "./apis/i18n.js";
 import { createImApi } from "./apis/im.js";
+import { createMarkdownApi } from "./apis/markdown.js";
 import { createMessageAnnotationsApi } from "./apis/message-annotations.js";
 import { createNotificationApi } from "./apis/notification.js";
 import { createPetApi } from "./apis/pet.js";
@@ -27,7 +26,6 @@ import { createSessionPinsApi } from "./apis/session-pins.js";
 import { createSpeechInputApi } from "./apis/speech-input.js";
 import { createSshApi } from "./apis/ssh.js";
 import { createSystemApi } from "./apis/system.js";
-import { createTelemetryApi } from "./apis/telemetry.js";
 import { createTerminalApi } from "./apis/terminal.js";
 import { createThemesApi } from "./apis/themes.js";
 import { createUiZoomApi } from "./apis/ui-zoom.js";
@@ -71,7 +69,6 @@ const rawApi: Omit<DesktopApi, "hostAccess"> = {
 	...createI18nApi(ipcRenderer),
 	...createUiZoomApi(ipcRenderer),
 	...createAppIconApi(ipcRenderer),
-	...createTelemetryApi(ipcRenderer),
 	...createSystemApi(ipcRenderer, webUtils),
 };
 

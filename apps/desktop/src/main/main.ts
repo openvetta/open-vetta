@@ -1,4 +1,3 @@
-import "./telemetry/bootstrap.js";
 import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -84,7 +83,6 @@ import { initializeSandboxCapability } from "./sandbox/capability.js";
 import { createDesktopSchedulerDependencies } from "./scheduler/desktop-scheduler-wiring.js";
 import { initScheduler, shutdownScheduler } from "./scheduler/scheduler.js";
 import { initializeDesktopSchedulerService } from "./scheduler/scheduler-service.js";
-import { initializeMainTelemetry, shutdownMainTelemetry } from "./telemetry/index.js";
 import { registerThemeProtocol, THEME_PROTOCOL_PRIVILEGE } from "./themes/theme-protocol.js";
 import {
 	createTray,
@@ -149,8 +147,6 @@ const isCliMode =
 	actionCliCommand !== null ||
 	helpCliCommand !== null ||
 	agentRpcArgs !== null;
-
-initializeMainTelemetry({ enabled: !isCliMode });
 
 // 给 V8 老生代一个明确上限：超过会抛 `RangeError: Invalid string length` /
 // JS heap out of memory，能被 uncaughtException 接到并落盘栈；否则任 RSS 自然
@@ -946,7 +942,6 @@ setQuitCleanup(async () => {
 	} catch (err) {
 		mainLog.warn("app monitor shutdown failed", err);
 	}
-	await shutdownMainTelemetry();
 	mainLog.info("quit cleanup finished");
 });
 
