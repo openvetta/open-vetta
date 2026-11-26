@@ -807,11 +807,14 @@ describe("DesktopRuntimeBackendPool", () => {
 		}
 
 		function createPoolWithoutModels(registry = mutableModelRegistry([])) {
-			const streamFn = vi.fn();
+			const modelRequests: string[] = [];
 			const pool = new DesktopRuntimeBackendPool({
 				compositionDefaults: {
 					modelRegistry: registry,
-					streamFn,
+					streamFn: (model) => {
+						modelRequests.push(`${model.provider}/${model.id}`);
+						throw new Error("test stream must not be reached");
+					},
 					initialThinkingLevel: "off",
 					resolveSystemPromptOptions: resolveTestSystemPromptOptions,
 				},
@@ -820,7 +823,7 @@ describe("DesktopRuntimeBackendPool", () => {
 			const runtime = new RuntimeHost({ sessionBackend: pool, getDefaultExecutionMode: () => "full-access" });
 			pools.push(pool);
 			runtimes.push(runtime);
-			return { pool, runtime, registry, streamFn };
+			return { pool, runtime, registry, modelRequests };
 		}
 
 		it("仍能打开已有会话查看历史,模型是占位的", async () => {
@@ -837,14 +840,14 @@ describe("DesktopRuntimeBackendPool", () => {
 		it("在已有会话里发消息时明确报没有模型,不会发出任何模型请求", async () => {
 			const cwd = await temporaryDirectory("desktop-runtime-no-model-prompt-");
 			const sessionPath = await createSavedSession(cwd);
-			const { runtime, streamFn } = createPoolWithoutModels();
+			const { runtime, modelRequests } = createPoolWithoutModels();
 			const resumed = await runtime.createSession({ cwd, sessionPath, scenario: "batch" });
 
 			const outcome = await runtime.prompt(resumed.sessionId, { text: "继续" });
 
 			expect(outcome.status).toBe("failed");
 			expect(JSON.stringify(outcome.error)).toContain("请先配置模型");
-			expect(streamFn).not.toHaveBeenCalled();
+			expect(modelRequests).toEqual([]);
 		});
 
 		it("新建会话照旧拒绝", async () => {
