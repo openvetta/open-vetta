@@ -4,6 +4,8 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+## [0.3.18] — 2026-11-27
+
 - 顶栏动作新增 `labelRole: "readout"`，需要 Plugin API `^2.13.0`：把 `label` 标成读数（tok/s、费用这类随时间变化的状态值）后，顶栏超过 4 格时文字仍显示，被 `promoteWhenActive` 露出时也显示，并用等宽数字渲染。此前顶栏一过 4 格所有文字一起收起，读数只剩图标，按钮就失去了意义。收纳和页头挤窄时仍只剩图标，读数照旧要写进 `title`。旧宿主忽略这个字段，不需要为它提高 `pluginApiVersion` 下限。
 
 ## [0.3.17] — 2026-11-27
