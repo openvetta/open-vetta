@@ -1,6 +1,6 @@
-import { type FSWatcher, watch } from "node:fs";
+import { type Stats, unwatchFile, watchFile } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
-import { basename, dirname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import { atomicWriteFileAsync } from "@vetta/toolkit/atomic-write";
 import { BrowserWindow } from "electron";
@@ -9,8 +9,8 @@ import { getAppLogger } from "../logger.js";
 import { SpaceStore, type SpaceStoreFileIo } from "./space-store.js";
 
 const log = getAppLogger("spaces");
-/** 别的进程写完文件后，合并短时间内的多次事件再重读。 */
-const RELOAD_DEBOUNCE_MS = 150;
+/** 跨进程改写的轮询间隔。只 stat 一个文件，开销可以忽略。 */
+const POLL_INTERVAL_MS = 2_000;
 
 export function getSpaceStorePath(): string {
 	return resolve(getVettaHomePath(), "spaces.v1.json");
@@ -43,8 +43,7 @@ function broadcast(snapshot: SpaceStoreSnapshot): void {
 }
 
 let store: SpaceStore | undefined;
-let watcher: FSWatcher | undefined;
-let reloadTimer: ReturnType<typeof setTimeout> | undefined;
+let watching: { path: string; listener: (current: Stats, previous: Stats) => void } | undefined;
 
 /** 进程内唯一的工作空间存储（ADR-0160）。 */
 export function getSpaceStore(): SpaceStore {
@@ -53,28 +52,24 @@ export function getSpaceStore(): SpaceStore {
 }
 
 /**
- * 监听其他进程（共用 `~/.vetta` 的另一个安装）对文件的改写。监听目录而非文件：原子写是
- * 「写临时文件再改名」，文件级 watcher 会在第一次替换后失效。监听失败只影响跨进程的实时性。
+ * 发现其他进程（共用 `~/.vetta` 的另一个安装）对文件的改写。
+ *
+ * 用 stat 轮询而不是 `fs.watch`：`fs.watch` 只能监听整个 `~/.vetta` 目录（原子写会换掉文件），
+ * 那里会话与日志持续高频写入，在 Electron 主进程里触发过 FSEvents 段错误导致启动闪退。
+ * 轮询只看这一个文件的 mtime/大小，文件尚不存在也能工作；`persistent: false` 不阻止退出。
  */
 export function watchSpaceStore(): () => void {
-	if (watcher) return stopWatchingSpaceStore;
+	if (watching) return stopWatchingSpaceStore;
 	const path = getSpaceStorePath();
-	const name = basename(path);
+	const listener = (current: Stats, previous: Stats): void => {
+		if (current.mtimeMs === previous.mtimeMs && current.size === previous.size) return;
+		void getSpaceStore()
+			.reloadFromDisk()
+			.catch((error: unknown) => log.warn("failed to reload space store", error));
+	};
 	try {
-		watcher = watch(dirname(path), (_event, changed) => {
-			if (changed && changed.toString() !== name) return;
-			if (reloadTimer) clearTimeout(reloadTimer);
-			reloadTimer = setTimeout(() => {
-				reloadTimer = undefined;
-				void getSpaceStore()
-					.reloadFromDisk()
-					.catch((error: unknown) => log.warn("failed to reload space store", error));
-			}, RELOAD_DEBOUNCE_MS);
-		});
-		watcher.on("error", (error) => {
-			log.warn("space store watcher stopped", error);
-			stopWatchingSpaceStore();
-		});
+		watchFile(path, { interval: POLL_INTERVAL_MS, persistent: false }, listener);
+		watching = { path, listener };
 	} catch (error) {
 		log.warn("failed to watch space store", error);
 	}
@@ -82,8 +77,7 @@ export function watchSpaceStore(): () => void {
 }
 
 function stopWatchingSpaceStore(): void {
-	if (reloadTimer) clearTimeout(reloadTimer);
-	reloadTimer = undefined;
-	watcher?.close();
-	watcher = undefined;
+	if (!watching) return;
+	unwatchFile(watching.path, watching.listener);
+	watching = undefined;
 }
