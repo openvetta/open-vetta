@@ -1,3 +1,4 @@
+import type { SharedSpaceData, SpaceStoreSnapshot, SpaceSyncRequest } from "../../shared/spaces-ipc.js";
 // ─── Project import / export ───
 //
 // Mirrors `src/main/ipc/project-export.ts`. Both directions can return either
@@ -108,4 +109,10 @@ export interface DesktopProjectApi {
 	remove(path: string): Promise<void>;
 	/** Push the workspace membership mirror so main can resolve sibling projects for every session. */
 	syncSpaceSiblings(mirror: SpaceSiblingMirrorSnapshot): Promise<void>;
+	/** Startup handshake with the workspace store in `~/.vetta` (ADR-0160); main decides import/merge/local/file. */
+	syncSpaces(request: SpaceSyncRequest): Promise<SpaceStoreSnapshot>;
+	/** Replace the shared workspace data (spaces + memberships). */
+	saveSpaces(data: SharedSpaceData): Promise<SpaceStoreSnapshot>;
+	/** The store changed (this or another window, or another app sharing `~/.vetta`). */
+	onSpacesChanged(handler: (snapshot: SpaceStoreSnapshot) => void): () => void;
 }
