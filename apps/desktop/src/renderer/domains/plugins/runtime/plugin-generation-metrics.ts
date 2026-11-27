@@ -156,6 +156,8 @@ export class GenerationMetricsTracker {
 				call.endedAt = at;
 				call.status = event.type === "done" ? "done" : event.reason === "aborted" ? "aborted" : "error";
 				call.streamKind = null;
+				// 近期速度只在生成中有值，结束后样本没用了。
+				call.samples = [];
 				const usage = usageFromMessage(message);
 				// 有些 provider 不报 usage，报回来的是全 0：当作没报，保持估算。
 				call.usage = usage && usage.output > 0 ? usage : null;
@@ -208,6 +210,7 @@ export class GenerationMetricsTracker {
 			this.call.status = "aborted";
 			this.call.endedAt = at;
 			this.call.streamKind = null;
+			this.call.samples = [];
 			changed = true;
 		}
 		if (this.turn && this.turn.endedAt === null && (turnId === null || this.turn.turnId === turnId)) {
@@ -216,6 +219,23 @@ export class GenerationMetricsTracker {
 			changed = true;
 		}
 		return changed;
+	}
+
+	/**
+	 * 「读数含义」的指纹：阶段、调用、轮次状态任一变化都要立即推送。只读几个字段，
+	 * 不构建快照——它在每个流式增量上都要跑一次。
+	 */
+	stateKey(): string {
+		const call = this.call;
+		return `${this.phase()}|${call?.modelCallIndex ?? ""}|${call?.status ?? ""}|${this.turn?.status ?? ""}`;
+	}
+
+	/** 是否值得心跳：首字后仍在生成，且停顿不超过上限（再久多半是漏了结束事件）。 */
+	wantsHeartbeat(now: number): boolean {
+		const call = this.call;
+		return (
+			call?.status === "streaming" && call.lastDeltaAt !== null && now - call.lastDeltaAt < HEARTBEAT_STALL_LIMIT_MS
+		);
 	}
 
 	snapshot(): GenerationMetricsSnapshot {
@@ -337,12 +357,17 @@ const defaultTimers: HubTimers = {
  * 读数（`getSnapshot`）是缓存的不可变对象，只在推送时更新，`useSyncExternalStore` 据此判定是否重渲。
  * 阶段切换、调用结束、切会话这类「读数含义变了」的时刻立即推送，其余增量合并到下一个间隔；
  * 生成中没有事件也按间隔推送（心跳），停顿才看得出来。
+ *
+ * 没有订阅者时（绝大多数用户没装这类插件）只记账：不构建快照、不心跳，
+ * 有人来读时才按需算一次。
  */
 export class GenerationMetricsHub {
 	private readonly trackers = new Map<string, GenerationMetricsTracker>();
 	private active: GenerationMetricsTracker | null = null;
 	private readonly listeners = new Set<(snapshot: GenerationMetricsSnapshot) => void>();
 	private current: GenerationMetricsSnapshot = UNSUPPORTED;
+	/** 记过账但还没重算快照。 */
+	private dirty = false;
 	private timer: unknown = null;
 	private lastPushAt = Number.NEGATIVE_INFINITY;
 
@@ -352,35 +377,50 @@ export class GenerationMetricsHub {
 	setActiveSession(runtimeId: string | null): void {
 		if ((this.active?.sessionId ?? null) === runtimeId) return;
 		this.active = runtimeId ? this.trackerFor(runtimeId) : null;
-		this.push();
+		this.dirty = true;
+		if (this.listeners.size > 0) this.push();
+		else this.cancelTimer();
 	}
 
 	/** 活动会话的一条事件。 */
 	handle(runtimeId: string, event: SessionEvent): void {
-		if (this.active?.sessionId !== runtimeId) return;
-		const previous = this.current;
-		if (!this.active.handle(event)) return;
-		const next = this.active.snapshot();
-		if (
-			next.phase !== previous.phase ||
-			next.call?.status !== previous.call?.status ||
-			next.call?.modelCallIndex !== previous.call?.modelCallIndex ||
-			next.turn?.status !== previous.turn?.status
-		) {
-			this.push(next);
+		const tracker = this.active;
+		if (tracker?.sessionId !== runtimeId) return;
+		if (this.listeners.size === 0) {
+			if (tracker.handle(event)) this.dirty = true;
 			return;
 		}
-		this.schedule();
+		const before = tracker.stateKey();
+		if (!tracker.handle(event)) return;
+		this.dirty = true;
+		if (tracker.stateKey() !== before) this.push();
+		else this.schedule();
 	}
 
-	getSnapshot = (): GenerationMetricsSnapshot => this.current;
+	getSnapshot = (): GenerationMetricsSnapshot => {
+		// 有订阅者时只返回推送过的那份，保证同一帧里多次读取拿到同一个对象。
+		// 没有订阅者（命令式读取、hook 首次渲染）时按需重算：有新账，或生成中距上次已过一个间隔。
+		if (this.listeners.size === 0 && this.isStale()) this.refresh();
+		return this.current;
+	};
 
 	subscribe = (listener: (snapshot: GenerationMetricsSnapshot) => void): (() => void) => {
 		this.listeners.add(listener);
+		if (this.listeners.size === 1) {
+			if (this.isStale()) this.refresh();
+			this.scheduleHeartbeat();
+		}
 		return () => {
 			this.listeners.delete(listener);
+			if (this.listeners.size === 0) this.cancelTimer();
 		};
 	};
+
+	private isStale(): boolean {
+		if (this.dirty) return true;
+		const now = this.timers.now();
+		return this.active?.wantsHeartbeat(now) === true && now - this.lastPushAt >= GENERATION_METRICS_PUSH_INTERVAL_MS;
+	}
 
 	private trackerFor(runtimeId: string): GenerationMetricsTracker {
 		let tracker = this.trackers.get(runtimeId);
@@ -399,7 +439,7 @@ export class GenerationMetricsHub {
 	}
 
 	private schedule(): void {
-		if (this.timer !== null) return;
+		if (this.timer !== null || this.listeners.size === 0) return;
 		const wait = Math.max(0, this.lastPushAt + GENERATION_METRICS_PUSH_INTERVAL_MS - this.timers.now());
 		if (wait === 0) {
 			this.push();
@@ -411,13 +451,26 @@ export class GenerationMetricsHub {
 		}, wait);
 	}
 
-	private push(next?: GenerationMetricsSnapshot): void {
-		if (this.timer !== null) {
-			this.timers.clearTimeout(this.timer);
-			this.timer = null;
-		}
-		this.current = next ?? this.active?.snapshot() ?? UNSUPPORTED;
+	/** 生成中即使没有新事件也按间隔重算：模型停顿时近期速度要降下来，而不是冻在上一个值。首字之前读数不会变，不心跳。 */
+	private scheduleHeartbeat(): void {
+		if (this.active?.wantsHeartbeat(this.timers.now())) this.schedule();
+	}
+
+	private cancelTimer(): void {
+		if (this.timer === null) return;
+		this.timers.clearTimeout(this.timer);
+		this.timer = null;
+	}
+
+	private refresh(): void {
+		this.current = this.active?.snapshot() ?? UNSUPPORTED;
+		this.dirty = false;
 		this.lastPushAt = this.timers.now();
+	}
+
+	private push(): void {
+		this.cancelTimer();
+		this.refresh();
 		for (const listener of this.listeners) {
 			try {
 				listener(this.current);
@@ -425,15 +478,6 @@ export class GenerationMetricsHub {
 				console.error("Plugin generation metrics listener threw", error);
 			}
 		}
-		// 生成中即使没有新事件也按间隔重算：模型停顿时近期速度要降下来，而不是冻在上一个值。
-		// 首字之前读数不会变，不心跳。
-		const call = this.current.call;
-		if (
-			call?.status === "streaming" &&
-			call.lastTokenAt !== null &&
-			this.current.sampledAt - call.lastTokenAt < HEARTBEAT_STALL_LIMIT_MS
-		) {
-			this.schedule();
-		}
+		this.scheduleHeartbeat();
 	}
 }

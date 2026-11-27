@@ -1,6 +1,6 @@
 import type { SessionEvent } from "@vetta/runtime-core";
 import type { GenerationMetricsSnapshot } from "@vetta-org/plugin-sdk";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
 	estimateTokens,
 	GENERATION_METRICS_PUSH_INTERVAL_MS,
@@ -240,6 +240,7 @@ function fakeTimers() {
 	let now = 0;
 	const pending: Array<{ at: number; callback: () => void }> = [];
 	return {
+		pending: () => pending.length,
 		timers: {
 			now: () => now,
 			setTimeout: (callback: () => void, ms: number) => {
@@ -340,6 +341,47 @@ describe("GenerationMetricsHub", () => {
 		const stalled = pushes.length;
 		clock.advance(10_000);
 		expect(pushes.length).toBe(stalled);
+	});
+
+	it("only keeps the books while nobody is subscribed: no snapshots per delta and no heartbeat", () => {
+		const clock = fakeTimers();
+		const hub = new GenerationMetricsHub(clock.timers);
+		const snapshot = vi.spyOn(GenerationMetricsTracker.prototype, "snapshot");
+		try {
+			hub.setActiveSession(SESSION);
+			hub.handle(SESSION, runtimeEvent("conversation.turn.started", 0, { turnId: TURN }));
+			hub.handle(SESSION, runtimeEvent("model.request.started", 0, { turnId: TURN, modelCallIndex: 0 }));
+			for (let at = 100; at <= 2_000; at += 20) {
+				clock.advance(20);
+				hub.handle(SESSION, assistantEvent("text_delta", at, { delta: "a".repeat(40) }));
+			}
+			expect(snapshot).not.toHaveBeenCalled();
+			expect(clock.pending()).toBe(0);
+
+			// 有人来读时按需算一次，读到的是最新的账。
+			expect(hub.getSnapshot()).toMatchObject({ phase: "text", call: { lastTokenAt: 2_000 } });
+			expect(snapshot).toHaveBeenCalledTimes(1);
+		} finally {
+			snapshot.mockRestore();
+		}
+	});
+
+	it("starts the heartbeat when the first plugin subscribes mid-stream and stops it when the last one leaves", () => {
+		const clock = fakeTimers();
+		const hub = new GenerationMetricsHub(clock.timers);
+		hub.setActiveSession(SESSION);
+		hub.handle(SESSION, runtimeEvent("model.request.started", 0, { turnId: TURN, modelCallIndex: 0 }));
+		hub.handle(SESSION, assistantEvent("text_delta", 0, { delta: "a".repeat(400) }));
+		expect(clock.pending()).toBe(0);
+
+		const pushes: GenerationMetricsSnapshot[] = [];
+		const unsubscribe = hub.subscribe((snapshot) => pushes.push(snapshot));
+		expect(clock.pending()).toBe(1);
+		clock.advance(GENERATION_METRICS_PUSH_INTERVAL_MS);
+		expect(pushes).toHaveLength(1);
+
+		unsubscribe();
+		expect(clock.pending()).toBe(0);
 	});
 
 	it("ignores events from a session that is no longer active and restores a session's results when switching back", () => {
