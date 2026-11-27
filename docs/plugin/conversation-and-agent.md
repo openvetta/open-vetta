@@ -73,10 +73,12 @@ import { useGenerationMetrics } from "@vetta-org/plugin-sdk";
 function useSpeedAction() {
   const metrics = useGenerationMetrics();
   if (!metrics.supported || !metrics.call) return null;     // 团队会话、没有会话：不显示
-  const { tokensPerSecond, estimated } = metrics.call;
-  const generating = metrics.phase !== "idle" && metrics.phase !== "between-calls";
-  const text = tokensPerSecond === null ? "—" : `${estimated ? "≈" : ""}${tokensPerSecond.toFixed(0)} tok/s`;
-  return { title: `生成速度 ${text}`, label: text, active: generating, /* ... */ };
+  const { recentTokensPerSecond, tokensPerSecond, estimated, status } = metrics.call;
+  // 生成中看最近 2 秒（停顿会掉到 0），结束后看整次调用的平均（此时已是真实值）。
+  const speed = status === "streaming" ? recentTokensPerSecond : tokensPerSecond;
+  const approx = status === "streaming" || estimated ? "≈" : "";
+  const text = speed === null ? "—" : `${approx}${speed.toFixed(0)} tok/s`;
+  return { title: `生成速度 ${text}`, label: text, active: status === "streaming", /* ... */ };
 }
 ```
 
@@ -92,6 +94,7 @@ const sub = ctx.conversation.onGenerationMetrics((snapshot) => { /* ... */ }); /
 ```ts
 interface GenerationMetricsSnapshot {
   supported: boolean;          // false：没有活动会话 / 团队会话，其余字段为空
+  sampledAt: number;           // 这份快照的计算时刻（ms），与其余时间戳同一时钟
   sessionId: string | null;    // 与 ConversationState.id 相同
   phase: "idle" | "waiting" | "thinking" | "text" | "tool-args" | "between-calls";
   call: GenerationCallMetrics | null;  // 正在进行的模型调用；没有则为最近一次结束的
@@ -100,7 +103,7 @@ interface GenerationMetricsSnapshot {
 ```
 
 - **`phase`**：`waiting` 是请求已发出、还没收到第一个增量；`between-calls` 是轮次进行中但模型没在生成（通常是工具在执行）。只有 `thinking` / `text` / `tool-args` 表示正在出字。
-- **`call`**（一次模型调用；一轮里每次工具调用后模型会再被调一次）：`status`（`streaming` / `done` / `error` / `aborted`）、`requestedAt` / `firstTokenAt` / `endedAt`、`timeToFirstTokenMs`、`outputTokens`、`tokensPerSecond`、`estimated`、`usage`（provider 报回的 `input` / `output` / `cacheRead` / `cacheWrite`，生成中或 provider 不报时为 `null`）、`model`（`{ provider, id }`）。
+- **`call`**（一次模型调用；一轮里每次工具调用后模型会再被调一次）：`status`（`streaming` / `done` / `error` / `aborted`）、`requestedAt` / `firstTokenAt` / `lastTokenAt` / `endedAt`、`timeToFirstTokenMs`、`outputTokens`、`tokensPerSecond`（首字以来的平均）、`recentTokensPerSecond`（最近 2 秒，只在生成中有值）、`estimated`、`usage`（provider 报回的 `input` / `output` / `cacheRead` / `cacheWrite`，生成中或 provider 不报时为 `null`）、`model`（`{ provider, id }`）。
 - **`turn`**（一轮的汇总）：`status`（`running` / `completed` / `cancelled` / `failed`）、`modelCalls`、`outputTokens`、`generationMs`、`tokensPerSecond`、`estimated`。
 
 ### 口径
@@ -108,12 +111,14 @@ interface GenerationMetricsSnapshot {
 - **时间戳来自运行时**，不是插件收到事件的时刻。
 - **首字延迟** = 首个任何类型的增量（思考、正文、工具参数都算）− 请求发出。宿主没观察到请求发出（例如插件在生成中途才激活）时为 `null`。
 - **生成速度** = 输出 token ÷（结束时刻，生成中为此刻 − 首字）。分母不含排队和首字前的等待；轮次的速度只累加各次调用「首字到结束」，不含工具执行。生成时长不到 250ms 时为 `null`，别显示成几千 tok/s。
+- **近期速度** = 最近 2 秒内的输出 token ÷ 2 秒（首字后不足 2 秒按首字以来算，不足 250ms 为 `null`）。它反映「此刻」的快慢：模型停顿时降到 0，而平均速度只会慢慢往下掉。它始终是估算值，调用结束后为 `null`。实时读数用它，结算用 `tokensPerSecond`。
+- **停顿了多久** = `sampledAt − lastTokenAt`。两者同一时钟，别拿插件自己的 `Date.now()` 去减。
 - **估算与真实值**：生成中 provider 还没报 usage，`outputTokens` 按已收到的字符估算（中日韩文字约一字一 token，其余约四字一 token，并用同一会话上一次调用的真实值校准），`estimated: true`；调用结束后换成 provider 报的真实值。provider 不报 usage（报回 0）时一直保持估算。估算值建议加「≈」或「约」。
 - **输出 token 包含思考**：provider 报的 output 通常含推理 token，速度也按它算。
 
 ### 刷新频率
 
-生成中宿主约每 250ms 推一次（hook 也按这个节奏重渲），阶段切换、调用结束、切会话时立即推。插件**不需要也不应该**再自己节流到更快；需要更慢（比如每秒刷新一次文字）在展示层做即可。
+首字之后、调用结束之前，宿主约每 250ms 推一次（hook 也按这个节奏重渲）。**模型停顿、没有新事件时也照推**，所以近期速度会自己降下来，插件不需要自己开定时器；连续 60 秒没有新增量时停止推送。阶段切换、调用结束、切会话时立即推。等首字阶段（`waiting`）读数不变，不推；要显示「已等待 3.2s」这类计时，请用 `requestedAt` 自己计时。插件**不需要也不应该**节流到更快；需要更慢（比如每秒刷新一次文字）在展示层做即可。
 
 团队会话暂不提供指标（`supported: false`）。
 

@@ -186,6 +186,44 @@ describe("GenerationMetricsTracker", () => {
 		expect(tracker.snapshot().call?.tokensPerSecond).toBeNull();
 	});
 
+	it("reports the last two seconds as the recent speed and lets it fall to zero when the model stalls", () => {
+		let now = 0;
+		const tracker = new GenerationMetricsTracker(SESSION, () => now);
+		tracker.handle(runtimeEvent("conversation.turn.started", 0, { turnId: TURN }));
+		tracker.handle(runtimeEvent("model.request.started", 0, { turnId: TURN, modelCallIndex: 0 }));
+		// 1s 起每 250ms 来 10 个估算 token，持续到 5s：稳定 40 tok/s。
+		for (let at = 1_000; at <= 5_000; at += 250) {
+			tracker.handle(assistantEvent("text_delta", at, { delta: "a".repeat(40) }));
+		}
+
+		now = 5_000;
+		expect(tracker.snapshot().call).toMatchObject({ recentTokensPerSecond: 40, lastTokenAt: 5_000 });
+		expect(tracker.snapshot().sampledAt).toBe(5_000);
+
+		// 停了一秒：窗口 (4s, 6s] 里只有 4 批。
+		now = 6_000;
+		expect(tracker.snapshot().call?.recentTokensPerSecond).toBe(20);
+
+		// 停够两秒：实时读数归零，平均速度只是慢慢往下掉。
+		now = 7_500;
+		const stalled = tracker.snapshot().call;
+		expect(stalled?.recentTokensPerSecond).toBe(0);
+		expect(stalled?.tokensPerSecond).toBeCloseTo(170 / 6.5, 5);
+	});
+
+	it("has no recent speed right after the first token or once the call has ended", () => {
+		let now = 1_100;
+		const tracker = new GenerationMetricsTracker(SESSION, () => now);
+		tracker.handle(runtimeEvent("conversation.turn.started", 0, { turnId: TURN }));
+		tracker.handle(runtimeEvent("model.request.started", 0, { turnId: TURN, modelCallIndex: 0 }));
+		tracker.handle(assistantEvent("text_delta", 1_000, { delta: "a".repeat(40) }));
+		expect(tracker.snapshot().call?.recentTokensPerSecond).toBeNull();
+
+		tracker.handle(assistantEvent("done", 3_000, { reason: "stop", message: assistantMessage(10) }));
+		now = 3_000;
+		expect(tracker.snapshot().call?.recentTokensPerSecond).toBeNull();
+	});
+
 	it("starts timing from the first model event when it subscribed after the request went out", () => {
 		const tracker = new GenerationMetricsTracker(SESSION, () => 0);
 		tracker.handle(assistantEvent("text_delta", 1_000, { delta: "late" }));
@@ -257,6 +295,51 @@ describe("GenerationMetricsHub", () => {
 
 		hub.handle(SESSION, assistantEvent("done", 400, { reason: "stop", message: assistantMessage(12) }));
 		expect(pushes.at(-1)?.call).toMatchObject({ status: "done", outputTokens: 12 });
+	});
+
+	it("keeps pushing while the model stalls so the live reading can fall, and stops once the call ends", () => {
+		const clock = fakeTimers();
+		const hub = new GenerationMetricsHub(clock.timers);
+		const pushes: GenerationMetricsSnapshot[] = [];
+		hub.subscribe((snapshot) => pushes.push(snapshot));
+		hub.setActiveSession(SESSION);
+		hub.handle(SESSION, runtimeEvent("conversation.turn.started", 0, { turnId: TURN }));
+		hub.handle(SESSION, runtimeEvent("model.request.started", 0, { turnId: TURN, modelCallIndex: 0 }));
+		hub.handle(SESSION, assistantEvent("text_delta", 0, { delta: "a".repeat(400) }));
+
+		// 之后再没有事件：心跳照样推，读数从有到零。
+		clock.advance(1_000);
+		const duringStall = pushes.length;
+		expect(pushes.at(-1)?.call?.recentTokensPerSecond).toBeGreaterThan(0);
+		clock.advance(2_000);
+		expect(pushes.length).toBeGreaterThan(duringStall);
+		expect(pushes.at(-1)?.call?.recentTokensPerSecond).toBe(0);
+		expect(pushes.at(-1)?.sampledAt).toBe(3_000);
+
+		hub.handle(SESSION, assistantEvent("done", 3_000, { reason: "stop", message: assistantMessage(100) }));
+		const afterEnd = pushes.length;
+		clock.advance(5_000);
+		expect(pushes.length).toBe(afterEnd);
+	});
+
+	it("does not heartbeat before the first token or after a minute without tokens", () => {
+		const clock = fakeTimers();
+		const hub = new GenerationMetricsHub(clock.timers);
+		const pushes: GenerationMetricsSnapshot[] = [];
+		hub.subscribe((snapshot) => pushes.push(snapshot));
+		hub.setActiveSession(SESSION);
+		hub.handle(SESSION, runtimeEvent("conversation.turn.started", 0, { turnId: TURN }));
+		hub.handle(SESSION, runtimeEvent("model.request.started", 0, { turnId: TURN, modelCallIndex: 0 }));
+		const waiting = pushes.length;
+		clock.advance(3_000);
+		expect(pushes.length).toBe(waiting);
+
+		hub.handle(SESSION, assistantEvent("text_delta", 3_000, { delta: "a" }));
+		// 漏了结束事件：一分钟后心跳停下。
+		clock.advance(61_000);
+		const stalled = pushes.length;
+		clock.advance(10_000);
+		expect(pushes.length).toBe(stalled);
 	});
 
 	it("ignores events from a session that is no longer active and restores a session's results when switching back", () => {

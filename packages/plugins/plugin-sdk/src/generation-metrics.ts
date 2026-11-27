@@ -7,6 +7,7 @@
  * 口径（文档 `conversation-and-agent.md#生成指标` 同步维护）：
  * - 首字延迟 = 首个任何类型的增量（正文 / 思考 / 工具参数）− 请求发出；
  * - 生成速度 = 输出 token ÷ （结束或此刻 − 首字），分母不含排队与首字前的等待；
+ * - 近期速度 = 最近 2 秒内的输出 token ÷ 2 秒（不足 2 秒按首字以来算），只在生成中有值，停顿时降到 0；
  * - 生成中 provider 还没报 usage，输出 token 是按已收到的字符估算的（`estimated: true`），
  *   结束后换成 provider 报的真实值；provider 不报 usage 时一直保持估算。
  */
@@ -46,13 +47,20 @@ export interface GenerationCallMetrics {
 	requestedAt: number | null;
 	/** 首个增量到达的时刻（ms）；还没有时为 null。 */
 	firstTokenAt: number | null;
+	/** 最近一个增量到达的时刻（ms）；还没有时为 null。生成中用它判断「停顿了多久」。 */
+	lastTokenAt: number | null;
 	/** 结束时刻（ms）；仍在生成时为 null。 */
 	endedAt: number | null;
 	timeToFirstTokenMs: number | null;
 	/** 输出 token 数；`estimated` 为 true 时是估算值。 */
 	outputTokens: number;
-	/** 生成速度；生成时长太短（< 250ms）或还没有首字时为 null。 */
+	/** 首字以来的平均生成速度；生成时长太短（< 250ms）或还没有首字时为 null。适合做结算。 */
 	tokensPerSecond: number | null;
+	/**
+	 * 最近 2 秒的生成速度（估算），适合做实时读数：模型停顿时会降到 0，而平均速度只会缓慢下降。
+	 * 只在 `status === "streaming"` 且首字后至少 250ms 时有值，其余为 null。
+	 */
+	recentTokensPerSecond: number | null;
 	/** `outputTokens` / `tokensPerSecond` 是否为估算值。 */
 	estimated: boolean;
 	/** provider 报回的完整用量；生成中、或 provider 不报时为 null。 */
@@ -81,6 +89,8 @@ export interface GenerationMetricsSnapshot {
 	 * 此时其余字段为空，插件应隐藏读数而不是显示 0。
 	 */
 	supported: boolean;
+	/** 这份快照的计算时刻（ms），与其余时间戳同一时钟；不支持时为 0。 */
+	sampledAt: number;
 	/** 当前活动会话的 runtime id，与 `ConversationState.id` 一致。 */
 	sessionId: string | null;
 	phase: GenerationPhase;
@@ -93,6 +103,7 @@ export interface GenerationMetricsSnapshot {
 /** 宿主不提供指标时的快照。 */
 export const UNSUPPORTED_GENERATION_METRICS: GenerationMetricsSnapshot = Object.freeze({
 	supported: false,
+	sampledAt: 0,
 	sessionId: null,
 	phase: "idle",
 	call: null,

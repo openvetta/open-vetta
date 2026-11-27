@@ -17,6 +17,8 @@ import type {
 
 /** 生成时长不到这个值时速度没有意义（一两个 chunk 就能除出几千 tok/s）。 */
 const MIN_SPEED_WINDOW_MS = 250;
+/** 近期速度的窗口：两秒足够平滑 chunk 的颗粒，又能在一两秒内反映停顿。 */
+const RECENT_WINDOW_MS = 2_000;
 /** 校准只采信足够长的调用，太短的调用比值噪声大。 */
 const MIN_CALIBRATION_ESTIMATE = 20;
 const CALIBRATION_MIN = 0.25;
@@ -41,6 +43,8 @@ interface CallState {
 	lastDeltaAt: number | null;
 	endedAt: number | null;
 	estimate: number;
+	/** 增量到达时刻与当时的累计估算，只保留近期窗口用得到的那几条。 */
+	samples: Array<{ at: number; estimate: number }>;
 	/** 调用开始那一刻的校准值：同一次调用的读数不会在结束前被别的调用的校准改写。 */
 	calibration: number;
 	usage: GenerationTokenUsage | null;
@@ -136,6 +140,10 @@ export class GenerationMetricsTracker {
 				call.firstTokenAt ??= at;
 				call.lastDeltaAt = at;
 				call.estimate += estimateTokens(event.delta);
+				call.samples.push({ at, estimate: call.estimate });
+				// 留一条落在窗口起点之前的样本，作为窗口内增量的基准。
+				while (call.samples.length > 2 && (call.samples[1]?.at ?? at) <= at - RECENT_WINDOW_MS)
+					call.samples.shift();
 				call.streamKind =
 					event.type === "thinking_delta" ? "thinking" : event.type === "text_delta" ? "text" : "tool-args";
 				return true;
@@ -173,6 +181,7 @@ export class GenerationMetricsTracker {
 			lastDeltaAt: null,
 			endedAt: null,
 			estimate: 0,
+			samples: [],
 			calibration: this.calibration,
 			usage: null,
 			streamKind: null,
@@ -213,6 +222,7 @@ export class GenerationMetricsTracker {
 		const now = this.now();
 		return {
 			supported: true,
+			sampledAt: now,
 			sessionId: this.sessionId,
 			phase: this.phase(),
 			call: this.call ? this.callMetrics(this.call, now) : null,
@@ -230,7 +240,7 @@ export class GenerationMetricsTracker {
 	private callMetrics(call: CallState, now: number): GenerationCallMetrics {
 		const estimated = call.usage === null;
 		const outputTokens = call.usage ? call.usage.output : Math.round(call.estimate * call.calibration);
-		// 生成中以「此刻」为终点：两次增量之间读数会缓慢下降，正好反映「卡住了」。
+		// 生成中以「此刻」为终点：停顿时平均速度缓慢下降、近期速度降到 0（hub 的心跳负责按时重算）。
 		const end = call.endedAt ?? (call.firstTokenAt === null ? null : Math.max(now, call.lastDeltaAt ?? now));
 		return {
 			turnId: call.turnId,
@@ -239,14 +249,33 @@ export class GenerationMetricsTracker {
 			status: call.status,
 			requestedAt: call.requestedAt,
 			firstTokenAt: call.firstTokenAt,
+			lastTokenAt: call.lastDeltaAt,
 			endedAt: call.endedAt,
 			timeToFirstTokenMs:
 				call.requestedAt !== null && call.firstTokenAt !== null ? call.firstTokenAt - call.requestedAt : null,
 			outputTokens,
 			tokensPerSecond: speed(outputTokens, call.firstTokenAt, end),
+			recentTokensPerSecond: this.recentSpeed(call, end),
 			estimated,
 			usage: call.usage,
 		};
+	}
+
+	/** 最近窗口内的估算速度。窗口里没有新增量就是 0，这正是「停住了」该显示的。 */
+	private recentSpeed(call: CallState, end: number | null): number | null {
+		if (call.status !== "streaming" || call.firstTokenAt === null || end === null) return null;
+		const windowStart = Math.max(call.firstTokenAt, end - RECENT_WINDOW_MS);
+		const windowMs = end - windowStart;
+		if (windowMs < MIN_SPEED_WINDOW_MS) return null;
+		let base = 0;
+		for (const sample of call.samples) {
+			if (sample.at > windowStart) break;
+			base = sample.estimate;
+		}
+		// 窗口从首字起算时，首字那一批也算进窗口（与平均速度的口径一致）。
+		if (windowStart === call.firstTokenAt) base = 0;
+		const tokens = (call.estimate - base) * call.calibration;
+		return tokens / (windowMs / 1000);
 	}
 
 	private turnMetrics(turn: TurnState, now: number): GenerationTurnMetrics {
@@ -276,11 +305,14 @@ export class GenerationMetricsTracker {
 
 /** 生成中推送的最小间隔：读数每秒刷新四次足够，再快只是让每个订阅的插件陪着重渲。 */
 export const GENERATION_METRICS_PUSH_INTERVAL_MS = 250;
+/** 停顿超过这么久就不再心跳：多半是漏了结束事件，没必要让订阅的插件一直每秒重渲四次。 */
+const HEARTBEAT_STALL_LIMIT_MS = 60_000;
 /** 切走的会话保留多少个：切回来还能看到它上一轮的结算。 */
 const MAX_REMEMBERED_SESSIONS = 20;
 
 const UNSUPPORTED: GenerationMetricsSnapshot = Object.freeze({
 	supported: false,
+	sampledAt: 0,
 	sessionId: null,
 	phase: "idle",
 	call: null,
@@ -303,7 +335,8 @@ const defaultTimers: HubTimers = {
  * 当前活动会话的指标出口：按会话缓存追踪器，限频后推给插件。
  *
  * 读数（`getSnapshot`）是缓存的不可变对象，只在推送时更新，`useSyncExternalStore` 据此判定是否重渲。
- * 阶段切换、调用结束、切会话这类「读数含义变了」的时刻立即推送，其余增量合并到下一个间隔。
+ * 阶段切换、调用结束、切会话这类「读数含义变了」的时刻立即推送，其余增量合并到下一个间隔；
+ * 生成中没有事件也按间隔推送（心跳），停顿才看得出来。
  */
 export class GenerationMetricsHub {
 	private readonly trackers = new Map<string, GenerationMetricsTracker>();
@@ -391,6 +424,16 @@ export class GenerationMetricsHub {
 			} catch (error) {
 				console.error("Plugin generation metrics listener threw", error);
 			}
+		}
+		// 生成中即使没有新事件也按间隔重算：模型停顿时近期速度要降下来，而不是冻在上一个值。
+		// 首字之前读数不会变，不心跳。
+		const call = this.current.call;
+		if (
+			call?.status === "streaming" &&
+			call.lastTokenAt !== null &&
+			this.current.sampledAt - call.lastTokenAt < HEARTBEAT_STALL_LIMIT_MS
+		) {
+			this.schedule();
 		}
 	}
 }
