@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { type JSX, useRef } from "react";
 import { cn, OVERLAY_BACKDROP_CLASS, PANEL_SHADOW_CLASS } from "@vetta-org/ui/utils";
+import diagnosticsBannerUrl from "./assets/diagnostics-banner.webp";
 
 /** idle：还没导出；exporting：保存对话框已确认，正在打包；done：已写到用户选的位置；error：打包或写盘失败。 */
 export type DiagnosticsExportDialogPhase = "idle" | "exporting" | "done" | "error";
@@ -50,10 +51,6 @@ export interface DiagnosticsExportDialogViewProps {
 
 const pillClass =
 	"inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-[14px] font-medium whitespace-nowrap text-primary-foreground shadow-lg shadow-black/15 transition-all outline-none select-none hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring/50 active:translate-y-px disabled:pointer-events-none disabled:opacity-70";
-
-// 与 Magpie 接入弹窗同一套图标块：任何主题下都是白底深色图标。
-const iconTileClass =
-	"flex size-16 items-center justify-center overflow-hidden rounded-[18px] bg-white text-neutral-900 shadow-[0_10px_28px_rgba(15,23,42,0.18),0_2px_6px_rgba(15,23,42,0.12)] ring-1 ring-black/5";
 
 /**
  * 「导出诊断包」引导弹窗：说明 Vetta 不收集数据、包里有什么、怎么把它发给开发者。
@@ -224,29 +221,16 @@ export function DiagnosticsExportDialogView({
 	);
 }
 
-/** 静态横幅：诊断包在左、消息在右，中间箭头表示由用户自己把诊断包发给开发者。 */
+/** 静态横幅：海底像素风插画，小气泡拿放大镜查找故障。纯装饰，读屏跳过。 */
 function DiagnosticsBanner(): JSX.Element {
 	return (
-		<div className="relative flex h-[148px] items-center justify-center overflow-hidden bg-[radial-gradient(120%_90%_at_50%_0%,color-mix(in_oklab,var(--primary)_22%,transparent),transparent_70%),linear-gradient(180deg,color-mix(in_oklab,var(--primary)_10%,var(--popover)),var(--popover))]">
-			<div
-				aria-hidden
-				className="absolute inset-0 opacity-[0.35] [background-image:linear-gradient(to_right,color-mix(in_oklab,var(--primary)_18%,transparent)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_oklab,var(--primary)_18%,transparent)_1px,transparent_1px)] [background-size:28px_28px] [mask-image:radial-gradient(70%_80%_at_50%_45%,black,transparent)]"
-			/>
-			<div aria-hidden className="relative flex items-center gap-4">
-				<div className={iconTileClass}>
-					<span className="icon-[mdi--folder-zip-outline] size-9" />
-				</div>
-				<div className="flex items-center gap-1.5 text-primary">
-					<span className="h-px w-6 border-t-2 border-dashed border-primary/45" />
-					<span className="inline-flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/30">
-						<span className="icon-[mdi--arrow-right] h-4 w-4" />
-					</span>
-					<span className="h-px w-6 border-t-2 border-dashed border-primary/45" />
-				</div>
-				<div className={iconTileClass}>
-					<span className="icon-[mdi--message-text-outline] size-9" />
-				</div>
-			</div>
-		</div>
+		<img
+			src={diagnosticsBannerUrl}
+			alt=""
+			aria-hidden
+			draggable={false}
+			decoding="async"
+			className="block aspect-[8/3] w-full object-cover select-none"
+		/>
 	);
 }
