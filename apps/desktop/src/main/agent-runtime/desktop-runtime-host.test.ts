@@ -23,12 +23,18 @@ describe("DesktopRuntimeHost", () => {
 		],
 	] as const)("decorates %s before handing it to the runtime", async (method, call) => {
 		const inner = vi.spyOn(RuntimeHost.prototype, method).mockResolvedValue({ status: "completed" } as never);
-		const decorate = vi.fn(async (_sessionId: string, request: PromptRequest) => decorated(request));
-		const host = new DesktopRuntimeHost({ decoratePromptRequest: decorate });
+		const decoratedFor: Array<[string, PromptRequest]> = [];
+		const host = new DesktopRuntimeHost({
+			decoratePromptRequest: async (sessionId, request) => {
+				decoratedFor.push([sessionId, request]);
+				return decorated(request);
+			},
+		});
 
 		await call(host, { text: "hi" });
 
-		expect(decorate).toHaveBeenCalledWith("s1", { text: "hi" });
+		// 装饰器恰好为这个会话、拿原始请求跑了一次，运行时收到的是装饰后的请求。
+		expect(decoratedFor).toEqual([["s1", { text: "hi" }]]);
 		expect(inner.mock.calls[0]?.[1]).toEqual(decorated({ text: "hi" }));
 	});
 

@@ -1,6 +1,6 @@
 import type { SessionEvent } from "@vetta/runtime-core";
 import type { GenerationMetricsSnapshot } from "@vetta-org/plugin-sdk";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
 	estimateTokens,
 	GENERATION_METRICS_PUSH_INTERVAL_MS,
@@ -238,11 +238,17 @@ describe("GenerationMetricsTracker", () => {
 
 function fakeTimers() {
 	let now = 0;
+	// 快照每算一次都要读时钟；只记账的路径不读。读了几次就是「算过没有」的可观察证据。
+	let clockReads = 0;
 	const pending: Array<{ at: number; callback: () => void }> = [];
 	return {
 		pending: () => pending.length,
+		clockReads: () => clockReads,
 		timers: {
-			now: () => now,
+			now: () => {
+				clockReads += 1;
+				return now;
+			},
 			setTimeout: (callback: () => void, ms: number) => {
 				const entry = { at: now + ms, callback };
 				pending.push(entry);
@@ -346,24 +352,22 @@ describe("GenerationMetricsHub", () => {
 	it("only keeps the books while nobody is subscribed: no snapshots per delta and no heartbeat", () => {
 		const clock = fakeTimers();
 		const hub = new GenerationMetricsHub(clock.timers);
-		const snapshot = vi.spyOn(GenerationMetricsTracker.prototype, "snapshot");
-		try {
-			hub.setActiveSession(SESSION);
-			hub.handle(SESSION, runtimeEvent("conversation.turn.started", 0, { turnId: TURN }));
-			hub.handle(SESSION, runtimeEvent("model.request.started", 0, { turnId: TURN, modelCallIndex: 0 }));
-			for (let at = 100; at <= 2_000; at += 20) {
-				clock.advance(20);
-				hub.handle(SESSION, assistantEvent("text_delta", at, { delta: "a".repeat(40) }));
-			}
-			expect(snapshot).not.toHaveBeenCalled();
-			expect(clock.pending()).toBe(0);
-
-			// 有人来读时按需算一次，读到的是最新的账。
-			expect(hub.getSnapshot()).toMatchObject({ phase: "text", call: { lastTokenAt: 2_000 } });
-			expect(snapshot).toHaveBeenCalledTimes(1);
-		} finally {
-			snapshot.mockRestore();
+		hub.setActiveSession(SESSION);
+		hub.handle(SESSION, runtimeEvent("conversation.turn.started", 0, { turnId: TURN }));
+		hub.handle(SESSION, runtimeEvent("model.request.started", 0, { turnId: TURN, modelCallIndex: 0 }));
+		for (let at = 100; at <= 2_000; at += 20) {
+			clock.advance(20);
+			hub.handle(SESSION, assistantEvent("text_delta", at, { delta: "a".repeat(40) }));
 		}
+		expect(clock.clockReads()).toBe(0);
+		expect(clock.pending()).toBe(0);
+
+		// 有人来读时按需算一次，读到的是最新的账；没有新账时再读拿到的是同一份，不重算。
+		const first = hub.getSnapshot();
+		expect(first).toMatchObject({ phase: "text", call: { lastTokenAt: 2_000, outputTokens: 960 } });
+		const readsAfterFirst = clock.clockReads();
+		expect(readsAfterFirst).toBeGreaterThan(0);
+		expect(hub.getSnapshot()).toBe(first);
 	});
 
 	it("starts the heartbeat when the first plugin subscribes mid-stream and stops it when the last one leaves", () => {

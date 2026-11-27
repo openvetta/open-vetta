@@ -78,19 +78,20 @@ function setup(options: { local?: SpaceState; storage?: ReturnType<typeof memory
 			};
 		},
 	};
-	const onError = vi.fn();
+	// 记下报出来的错误原文，断言报了哪几次、各是什么，而不只是「报过」。
+	const errors: string[] = [];
 	const stop = startSpaceStoreSync(store, port, {
 		storage,
 		retryDelayMs: 1_000,
 		createId: () => "source-1",
-		onError,
+		onError: (error) => errors.push(error instanceof Error ? error.message : String(error)),
 	});
 	return {
 		store,
 		storage,
 		syncCalls,
 		saveCalls,
-		onError,
+		errors,
 		stop,
 		emit: (snapshot: SpaceStoreSnapshot) => changed?.(snapshot),
 		hasListener: () => changed !== undefined,
@@ -204,7 +205,7 @@ describe("startup handshake (seamless upgrade)", () => {
 		const ctx = setup();
 		ctx.syncCalls[0]?.reply.reject(new Error("main not ready"));
 		await flush();
-		expect(ctx.onError).toHaveBeenCalledOnce();
+		expect(ctx.errors).toEqual(["main not ready"]);
 		ctx.store.set(spacesAtom, { ...LOCAL, projects: {} });
 		expect(ctx.saveCalls).toEqual([]);
 		await vi.advanceTimersByTimeAsync(1_000);
@@ -236,14 +237,23 @@ describe("startup handshake (seamless upgrade)", () => {
 		};
 		const store = createStore();
 		store.set(spacesAtom, LOCAL);
-		const sync = vi.fn(async (request: SpaceSyncRequest) => ({ revision: 1, data: request.local }));
+		const requests: SpaceSyncRequest[] = [];
 		const stop = startSpaceStoreSync(
 			store,
-			{ sync, save: vi.fn(), onChanged: () => () => {} },
+			{
+				sync: async (request) => {
+					requests.push(request);
+					return { revision: 1, data: request.local };
+				},
+				save: vi.fn(),
+				onChanged: () => () => {},
+			},
 			{ storage: throwing, createId: () => "id" },
 		);
 		await flush();
-		expect(sync).toHaveBeenCalledWith(expect.objectContaining({ sourceId: "id", localDirty: false }));
+		// 存储读写都抛错，握手照样只发起一次，带着本次生成的来源 id，且不当作脱离同步。
+		expect(requests).toHaveLength(1);
+		expect(requests[0]).toMatchObject({ sourceId: "id", localDirty: false });
 		stop();
 	});
 });
@@ -316,7 +326,7 @@ describe("live sync", () => {
 		await vi.advanceTimersByTimeAsync(1_000);
 		expect(ctx.saveCalls).toHaveLength(3);
 		expect(ctx.saveCalls[2]?.data.projects).toEqual({ "/b": "product" });
-		expect(ctx.onError).toHaveBeenCalledTimes(2);
+		expect(ctx.errors).toEqual(["disk full", "disk full"]);
 		ctx.stop();
 	});
 

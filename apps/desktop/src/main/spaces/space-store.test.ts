@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { SharedSpaceData, SpaceStoreSnapshot } from "../../shared/spaces-ipc.js";
 import {
 	EMPTY_SHARED_SPACE_DATA,
@@ -48,12 +48,23 @@ function memoryIo(initial?: string) {
 	};
 }
 
+/** 记下实际发出的告警，断言文案与原因，而不只是「告警过」。 */
+function recordingLog() {
+	const warnings: Array<{ message: string; reason: string }> = [];
+	const log = {
+		warn: (message: string, details?: unknown) => {
+			warnings.push({ message, reason: details instanceof Error ? details.message : String(details) });
+		},
+	};
+	return { log, warnings };
+}
+
 function createStore(initial?: string) {
 	const memory = memoryIo(initial);
 	const changes: SpaceStoreSnapshot[] = [];
-	const log = { warn: vi.fn() };
+	const { log, warnings } = recordingLog();
 	const store = new SpaceStore({ io: memory.io, onChanged: (snapshot) => changes.push(snapshot), log });
-	return { store, changes, log, ...memory };
+	return { store, changes, warnings, ...memory };
 }
 
 function fileWith(data: SharedSpaceData, importedSources: string[], extra: Record<string, unknown> = {}) {
@@ -158,14 +169,16 @@ describe("SpaceStore.sync (upgrade handshake)", () => {
 
 	it("never overwrites a store written by a newer version", async () => {
 		const future = JSON.stringify({ schemaVersion: 2, whatever: true });
-		const { store, writes, file, log } = createStore(future);
+		const { store, writes, file, warnings } = createStore(future);
 		const synced = await store.sync({ sourceId: "prod", local: PRODUCT, localDirty: true });
 		expect(synced).toEqual({ revision: 0, data: PRODUCT, readOnly: true });
 		const saved = await store.save(CLIENT);
 		expect(saved.readOnly).toBe(true);
 		expect(writes).toEqual([]);
 		expect(file()).toEqual({ schemaVersion: 2, whatever: true });
-		expect(log.warn).toHaveBeenCalled();
+		expect(warnings.map((warning) => warning.message)).toEqual([
+			"space store was written by a newer version; keeping it read-only",
+		]);
 		expect(await store.read()).toMatchObject({ readOnly: true });
 	});
 
@@ -182,14 +195,18 @@ describe("SpaceStore.sync (upgrade handshake)", () => {
 	});
 
 	it("still recovers when the corrupt backup cannot be written", async () => {
-		const { store, io, log } = createStore("{oops");
+		const { store, io, warnings } = createStore("{oops");
 		io.backupCorrupt = async () => {
 			throw new Error("read-only dir");
 		};
 		await expect(store.sync({ sourceId: "prod", local: PRODUCT, localDirty: false })).resolves.toMatchObject({
 			data: PRODUCT,
 		});
-		expect(log.warn).toHaveBeenCalledWith("failed to back up corrupt space store", expect.any(Error));
+		// 先说明文件坏了，再说明备份失败；恢复照样完成。
+		expect(warnings).toEqual([
+			{ message: "space store file is corrupt; backing it up and starting over", reason: "undefined" },
+			{ message: "failed to back up corrupt space store", reason: "read-only dir" },
+		]);
 	});
 
 	it("sanitizes the stored data and source list it reads back", async () => {
@@ -244,7 +261,7 @@ describe("SpaceStore.save", () => {
 
 	it("isolates listener failures", async () => {
 		const memory = memoryIo();
-		const log = { warn: vi.fn() };
+		const { log, warnings } = recordingLog();
 		const store = new SpaceStore({
 			io: memory.io,
 			log,
@@ -253,7 +270,7 @@ describe("SpaceStore.save", () => {
 			},
 		});
 		await expect(store.save(PRODUCT)).resolves.toMatchObject({ data: PRODUCT });
-		expect(log.warn).toHaveBeenCalledWith("space store change listener failed", expect.any(Error));
+		expect(warnings).toEqual([{ message: "space store change listener failed", reason: "window gone" }]);
 	});
 });
 

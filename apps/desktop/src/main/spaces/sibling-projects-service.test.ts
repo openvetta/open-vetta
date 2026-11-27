@@ -1,6 +1,6 @@
 import type { ConversationDocument, PromptRequest } from "@vetta/runtime-core";
 import type { SessionContextRecord } from "@vetta/runtime-core/kernel";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { SIBLING_PROJECTS_CONTEXT_TYPE } from "./sibling-projects.js";
 import {
 	type SiblingProjectsRuntimePort,
@@ -57,7 +57,13 @@ function createRuntime(overrides: Partial<SiblingProjectsRuntimePort> = {}) {
 }
 
 function createService(overrides: Partial<SiblingProjectsServiceDependencies> = {}) {
-	const log = { warn: vi.fn() };
+	// 记下实际发出的告警，断言文案与原因，而不只是「告警过」。
+	const warnings: Array<{ message: string; reason: string }> = [];
+	const log = {
+		warn: (message: string, details?: unknown) => {
+			warnings.push({ message, reason: details instanceof Error ? details.message : String(details) });
+		},
+	};
 	let projects = [CODE, DOCS, DESIGN];
 	let spaces: unknown;
 	const service = new SiblingProjectsService({
@@ -69,7 +75,7 @@ function createService(overrides: Partial<SiblingProjectsServiceDependencies> = 
 	});
 	return {
 		service,
-		log,
+		warnings,
 		setProjects: (next: typeof projects) => {
 			projects = next;
 		},
@@ -181,7 +187,7 @@ describe("SiblingProjectsService.decoratePrompt", () => {
 	});
 
 	it("sends the prompt unchanged when resolving fails or no runtime is attached", async () => {
-		const { service, log, setSpaces } = createService({
+		const { service, warnings, setSpaces } = createService({
 			readActiveProjects: async () => {
 				throw new Error("config unreadable");
 			},
@@ -191,12 +197,17 @@ describe("SiblingProjectsService.decoratePrompt", () => {
 		service.attachRuntime(createRuntime().runtime);
 		await setSpaces(MIRROR);
 		expect(await service.decoratePrompt("s1", request)).toBe(request);
-		expect(log.warn).toHaveBeenCalled();
+		expect(warnings).toEqual([{ message: "failed to attach sibling project context", reason: "config unreadable" }]);
 	});
 
 	it("resolves Team member sessions through the ownership lookup", async () => {
-		const readTeamSessionId = vi.fn(async () => "team-1");
-		const { service, setSpaces } = createService({ readTeamSessionId });
+		const lookedUp: string[] = [];
+		const { service, setSpaces } = createService({
+			readTeamSessionId: async (sessionPath: string) => {
+				lookedUp.push(sessionPath);
+				return "team-1";
+			},
+		});
 		const { runtime } = createRuntime({
 			getSessionPath: () => "/teams/member.jsonl",
 			readSessionWorkingDirectory: () => "/teams/workspace",
@@ -204,7 +215,7 @@ describe("SiblingProjectsService.decoratePrompt", () => {
 		service.attachRuntime(runtime);
 		await setSpaces({ ...MIRROR, conversations: { "team-1": "product" } });
 		expect(await service.readRoots("member")).toEqual([CODE.path, DOCS.path]);
-		expect(readTeamSessionId).toHaveBeenCalledWith("/teams/member.jsonl");
+		expect(lookedUp).toEqual(["/teams/member.jsonl"]);
 	});
 });
 
@@ -219,7 +230,7 @@ describe("SiblingProjectsService.readRoots", () => {
 	});
 
 	it("returns no roots (and logs) when resolution fails", async () => {
-		const { service, log, setSpaces } = createService({
+		const { service, warnings, setSpaces } = createService({
 			readTeamSessionId: async () => {
 				throw new Error("catalog corrupt");
 			},
@@ -227,7 +238,9 @@ describe("SiblingProjectsService.readRoots", () => {
 		service.attachRuntime(createRuntime().runtime);
 		await setSpaces(MIRROR);
 		expect(await service.readRoots("s1")).toEqual([]);
-		expect(log.warn).toHaveBeenCalled();
+		expect(warnings).toEqual([
+			{ message: "failed to resolve sibling project read roots", reason: "catalog corrupt" },
+		]);
 	});
 
 	it("returns no roots for an empty session id", async () => {
@@ -240,12 +253,12 @@ describe("SiblingProjectsService.readRoots", () => {
 
 describe("SiblingProjectsService workspace store", () => {
 	it("reads the workspace store on every call so changes apply immediately", async () => {
-		const readSpaces = vi.fn(async () => MIRROR);
-		const { service } = createService({ readSpaces });
+		// 存储每读一次给出下一份内容：第二次的结果变了，说明没有拿第一次的缓存。
+		const stored = [MIRROR, { ...MIRROR, projects: { [CODE.path]: "product" } }];
+		const { service } = createService({ readSpaces: async () => stored.shift() });
 		service.attachRuntime(createRuntime().runtime);
-		await service.readRoots("s1");
-		await service.readRoots("s1");
-		expect(readSpaces).toHaveBeenCalledTimes(2);
+		expect(await service.readRoots("s1")).toEqual([CODE.path, DOCS.path]);
+		expect(await service.readRoots("s1")).toEqual([CODE.path]);
 	});
 
 	it("accepts the stored shape with names and icons", async () => {
@@ -260,14 +273,14 @@ describe("SiblingProjectsService workspace store", () => {
 	});
 
 	it("returns no roots (and logs) when the store cannot be read", async () => {
-		const { service, log } = createService({
+		const { service, warnings } = createService({
 			readSpaces: async () => {
 				throw new Error("EACCES");
 			},
 		});
 		service.attachRuntime(createRuntime().runtime);
 		expect(await service.readRoots("s1")).toEqual([]);
-		expect(log.warn).toHaveBeenCalled();
+		expect(warnings).toEqual([{ message: "failed to resolve sibling project read roots", reason: "EACCES" }]);
 	});
 
 	it("sees nothing before any workspace exists", async () => {
