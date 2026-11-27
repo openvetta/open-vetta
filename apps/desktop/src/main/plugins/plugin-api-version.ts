@@ -11,8 +11,10 @@
  * - 2.11.0：顶栏动作可自定义的声明：`label` / `tone` / `disabledReason` / `promoteWhenActive`，
  *   菜单项类型（checkbox / radio / label / loading / empty / submenu），气泡宽度与 `dialog` 容器，
  *   以及新会话页表面（`surfaces`）与「优先上栏」建议（`pin`）。
+ * - 2.12.0：生成指标（`useGenerationMetrics`、`conversation.getGenerationMetrics` / `onGenerationMetrics`）
+ *   与只读权限 `agent.session.metrics`。
  *
  * 清单校验对未知字段 fail-closed。作者把 `pluginApiVersion` 写成用到的那一档，
  * 旧宿主才能给出明确的版本错误。
  */
-export const PLUGIN_API_VERSION = "2.11.0";
+export const PLUGIN_API_VERSION = "2.12.0";

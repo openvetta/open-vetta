@@ -15,6 +15,7 @@ description: 按目标查找 ctx 上的界面、对话、Agent、文件、网络
 | 增加界面与页面 | `ctx.ui.register*` | 各槽位独立权限 | 注册返回的 `Disposable` 要在停用时释放 |
 | 扩展文件浏览器 | `ctx.fileExplorer.*` | `ui.file-explorer.*`、`workspace.read` | 解析失败要返回可理解的错误状态 |
 | 读对话与订阅事件 | `ctx.conversation.on` 及对话 hook | `agent.session.read` | 事件是宿主状态的只读视图 |
+| 读生成速度与用量 | `useGenerationMetrics`、`ctx.conversation.onGenerationMetrics` | `agent.session.metrics` | 数字由宿主按统一口径算好，看不到对话内容；生成中为估算值 |
 | 驾驶当前对话 | `ctx.conversation.sendPrompt`、`insertText`、`abort` | `agent.session.write` | 不要在用户没有触发的情况下自动发起提问 |
 | 注册工具与 Hook | `ctx.agent.registerTool`、`registerHook` | `agent.tools.register` / `agent.hooks.register` 及对应 execute | 输入使用结构化 schema，执行错误要稳定返回 |
 | 干预系统提示词与续跑 | `registerSystemPromptProvider`、`registerContinuationProvider` | `agent.systemPrompt.write`、`agent.continuation.register` | Provider 每个 Turn 开始时求值一次，本 Turn 内不会因插件状态变化重跑 |

@@ -47,6 +47,7 @@ import {
 	sidebarWidthAtom,
 } from "../shared/store/atoms";
 import { recordRecentSessionVisitAtom } from "../shared/store/recent-sessions-atoms";
+import { startSpaceStoreSync } from "../shared/store/space-store-sync";
 import { showToast } from "../shared/store/toast-atoms";
 import { shouldShowChatRoutePending } from "./chat-route-pending";
 import { syncPendingInteractions } from "./pending-interaction-sync";
@@ -316,6 +317,21 @@ export function useRootLayoutModel(): RootLayoutModel {
 			unsubCaptureError();
 		};
 	}, [currentPath, defaultConversationCwd, navigate]);
+
+	// 工作空间的事实源在主进程的 ~/.vetta（ADR-0160）；本地 localStorage 只作首帧缓存与降级兼容。
+	useEffect(
+		() =>
+			startSpaceStoreSync(
+				getDefaultStore(),
+				{
+					sync: (request) => window.vetta.project.syncSpaces(request),
+					save: (data) => window.vetta.project.saveSpaces(data),
+					onChanged: (handler) => window.vetta.project.onSpacesChanged(handler),
+				},
+				{ onError: (error) => console.warn("[RootLayout] sync workspace store failed", error) },
+			),
+		[],
+	);
 
 	// 主进程持有「等待用户处理」的真相源；三类请求共用同一套订阅 + 快照收敛。
 	const setPendingQuestions = useSetAtom(pendingQuestionsAtom);

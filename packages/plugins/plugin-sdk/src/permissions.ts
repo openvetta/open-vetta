@@ -19,6 +19,7 @@ export const PLUGIN_PERMISSIONS = [
 	"ui.file-explorer.toolbar",
 	"workspace.read",
 	"agent.session.read",
+	"agent.session.metrics",
 	"agent.session.write",
 	"agent.command.run",
 	"agent.command.spawn",

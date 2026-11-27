@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createInstance } from "i18next";
 import { createStore, Provider } from "jotai";
 import { I18nextProvider } from "react-i18next";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SpaceEditorDialog } from "./SpaceEditorDialog";
 
 const i18n = createInstance();
@@ -30,9 +30,21 @@ function renderDialog(initial: typeof INITIAL_SPACES = INITIAL_SPACES, editor = 
 	return store;
 }
 
+// Radix Switch 测量自身尺寸；jsdom 没有 ResizeObserver。
+class ResizeObserverStub {
+	observe(): void {}
+	unobserve(): void {}
+	disconnect(): void {}
+}
+
+beforeEach(() => {
+	vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+});
+
 afterEach(() => {
 	cleanup();
 	localStorage.clear();
+	vi.unstubAllGlobals();
 });
 
 it("shows the full icon set with a selected state and saves the chosen icon", () => {
@@ -64,4 +76,54 @@ it("keeps the icon of an existing workspace selected while editing its name", ()
 	fireEvent.change(screen.getByRole("textbox", { name: "Workspace name" }), { target: { value: "Studio" } });
 	fireEvent.click(screen.getByRole("button", { name: "Save" }));
 	expect(store.get(spacesAtom).spaces).toEqual([{ ...existing, name: "Studio" }]);
+});
+
+it("turns sibling project visibility on by default for a new workspace", () => {
+	const store = renderDialog();
+	const toggle = screen.getByRole("switch", { name: "Conversations can see projects in this space" });
+	expect(toggle.getAttribute("aria-checked")).toBe("true");
+	expect(screen.getByText(/SSH remote projects aren't included/)).toBeTruthy();
+
+	fireEvent.change(screen.getByRole("textbox", { name: "Workspace name" }), { target: { value: "Launch" } });
+	fireEvent.click(screen.getByRole("button", { name: "Save" }));
+	expect(store.get(spacesAtom).spaces[0]).not.toHaveProperty("siblingProjects");
+});
+
+it("saves a workspace with sibling project visibility turned off", () => {
+	const store = renderDialog();
+	fireEvent.change(screen.getByRole("textbox", { name: "Workspace name" }), { target: { value: "Client" } });
+	fireEvent.click(screen.getByRole("switch", { name: "Conversations can see projects in this space" }));
+	fireEvent.click(screen.getByRole("button", { name: "Save" }));
+	expect(store.get(spacesAtom).spaces[0]).toMatchObject({ name: "Client", siblingProjects: false });
+});
+
+it("shows and re-enables the switch of an existing workspace that had it off", () => {
+	const existing = {
+		id: "client",
+		name: "Client",
+		icon: { kind: "solar" as const, value: "case" as const },
+		siblingProjects: false,
+	};
+	const store = renderDialog({ ...INITIAL_SPACES, spaces: [existing] }, { space: existing });
+	const toggle = screen.getByRole("switch", { name: "Conversations can see projects in this space" });
+	expect(toggle.getAttribute("aria-checked")).toBe("false");
+
+	fireEvent.click(toggle);
+	fireEvent.click(screen.getByRole("button", { name: "Save" }));
+	expect(store.get(spacesAtom).spaces).toEqual([
+		{ id: "client", name: "Client", icon: { kind: "solar", value: "case" } },
+	]);
+});
+
+it("keeps sibling project visibility off when only the name of a workspace changes", () => {
+	const existing = {
+		id: "client",
+		name: "Client",
+		icon: { kind: "solar" as const, value: "case" as const },
+		siblingProjects: false,
+	};
+	const store = renderDialog({ ...INITIAL_SPACES, spaces: [existing] }, { space: existing });
+	fireEvent.change(screen.getByRole("textbox", { name: "Workspace name" }), { target: { value: "Client A" } });
+	fireEvent.click(screen.getByRole("button", { name: "Save" }));
+	expect(store.get(spacesAtom).spaces).toEqual([{ ...existing, name: "Client A" }]);
 });

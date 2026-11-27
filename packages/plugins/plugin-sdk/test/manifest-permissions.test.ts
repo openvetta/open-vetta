@@ -26,6 +26,15 @@ describe("plugin manifest permissions", () => {
 		expect(manifest.permissions).toEqual(["ui.slot.header-action", "agent.command.run"]);
 	});
 
+	it("accepts the read-only generation metrics permission at Plugin API 2.12", () => {
+		const manifest = parsePluginManifest({
+			...baseManifest,
+			pluginApiVersion: "^2.12.0",
+			permissions: ["agent.session.metrics", "ui.slot.header-action"],
+		});
+		expect(manifest.permissions).toEqual(["agent.session.metrics", "ui.slot.header-action"]);
+	});
+
 	it("rejects permission strings the host does not know", () => {
 		expect(() => parsePluginManifest({ ...baseManifest, permissions: ["terminal.exec"] })).toThrow();
 	});

@@ -53,6 +53,7 @@ ctx.permissions.require("fs.read");  // 缺则抛 Plugin permission denied: fs.r
 | `ui.file-explorer.toolbar` | `ctx.fileExplorer.registerToolbarAction()` | [file-explorer](./file-explorer.md#工具栏动作) |
 | `workspace.read` | 文件列表查询、定位、刷新与事件 | [file-explorer](./file-explorer.md#工作区选择与定位) |
 | `agent.session.read` | `ctx.conversation.on()` + 对话 hook | [conversation-and-agent](./conversation-and-agent.md#对话读状态) |
+| `agent.session.metrics` | `ctx.conversation.getGenerationMetrics()` / `onGenerationMetrics()` + `useGenerationMetrics`（只读速度与用量，看不到对话内容；已有 `agent.session.read` 则无需再声明） | [conversation-and-agent](./conversation-and-agent.md#生成指标) |
 | `agent.session.write` | `sendPrompt` / `insertText` / `abort` | [conversation-and-agent](./conversation-and-agent.md#对话驾驶) |
 | `agent.command.run` | `ctx.command.run` + 清单 `commands` | [conversation-and-agent](./conversation-and-agent.md#命令执行-command) |
 | `agent.command.spawn` | `ctx.command.spawn`（长驻进程）+ 清单 `commands` | [conversation-and-agent](./conversation-and-agent.md#长驻进程-commandspawn) |

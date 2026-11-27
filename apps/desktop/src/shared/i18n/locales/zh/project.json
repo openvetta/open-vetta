@@ -10,6 +10,8 @@
 		"name": "工作空间名称",
 		"icon": "工作空间图标",
 		"editorDescription": "为工作空间选择名称和图标。",
+		"siblingProjects": "对话能看见同空间的项目",
+		"siblingProjectsDescription": "这个空间里的会话会知道同空间还有哪些项目，读取其中的文件不再逐次确认，修改仍需你同意。关闭后不再告知，但这不是隔离。SSH 远程项目不在此列。",
 		"cancel": "取消",
 		"save": "保存",
 		"move": "移动到工作空间",

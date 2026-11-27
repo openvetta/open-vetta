@@ -863,6 +863,8 @@ function useStatus({ cwd }) {
 
 所以：不要依赖自己在顶栏上的位置，不要依赖相邻的是谁，也不要在文案里写「左边的按钮」。
 
+**状态读数（tok/s、费用、上下文占用这类）**：`label` 只在顶栏不超过 4 格、页头不拥挤时显示，被收纳或挤窄时只剩图标。所以读数要同时写进 `title`（悬浮提示里也看得到），需要细节的放进 `popover`；想默认就被看见再加 `pin: "prefer"`。生成速度的数据源见 [生成指标](./conversation-and-agent.md#生成指标)。
+
 官方示例：`packages/plugins/presets/open-in-app`（最小动作）与 `packages/plugins/presets/git`（状态 + 快捷操作气泡）。
 
 ## 工具行内渲染 registerToolCallSlot

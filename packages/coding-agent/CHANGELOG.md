@@ -2,6 +2,8 @@
 
 ### Added
 
+- 沙箱宿主合同新增可选 `findSessionReadRoot`：`read` 越过 cwd 时，若目标落在本会话的额外可读根目录（如同空间兄弟项目）内则免确认读取；`write`/`edit` 仍逐次确认（ADR-0159）。
+
 - Runtime Session 新增可选的 `automaticRetry` 策略输入；由外层持久任务调度器负责重试的宿主可以关闭 Runtime Host 内层自动重试，默认行为保持开启。
 
 - Plugin Runtime 的 Skill 路径贡献可携带独立展示策略，宿主能够保留运行时 Skill 的同时控制各产品入口的呈现（ADR-0110）。

@@ -6,6 +6,8 @@ All notable changes to `@vetta/runtime-node` are documented in this file.
 
 ### Added
 
+- Node 沙箱新增会话级额外可读根目录：宿主经 `setSandboxSessionReadRootResolver` 按会话给出根目录，
+  `findSessionReadRoot` 以 realpath 比较并排除敏感 deny 路径；解析失败按不放行处理（ADR-0159）。
 - 新增本地模型网关会话亲和性 Stream 适配器，由 Node 宿主显式把 Runtime Session 映射为
   `X-Session-ID`；远程 Provider 请求与调用方已有 Header 保持不变。
 - HTTP MCP Client 在 initialize 时调用 runtime-only `resolveUrl`，后续鉴权错误使用解析后的地址。

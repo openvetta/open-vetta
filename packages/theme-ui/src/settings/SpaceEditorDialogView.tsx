@@ -8,6 +8,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
+	Switch,
 } from "@vetta-org/ui";
 import spaceEditorIllustrationUrl from "./assets/space-editor-illustration.webp";
 import { InputField } from "./SettingsFormFields";
@@ -24,6 +25,8 @@ export interface SpaceEditorDialogViewLabels {
 	readonly name: string;
 	readonly namePlaceholder: string;
 	readonly icon: string;
+	readonly siblingProjects: string;
+	readonly siblingProjectsDescription: string;
 	readonly cancel: string;
 	readonly save: string;
 }
@@ -33,9 +36,12 @@ export interface SpaceEditorDialogViewProps {
 	readonly name: string;
 	readonly icons: readonly SpaceEditorIconOption[];
 	readonly selectedIcon: string;
+	/** 空间内的会话能否看见同空间的兄弟项目（ADR-0159）。 */
+	readonly siblingProjects: boolean;
 	readonly canSave: boolean;
 	readonly onNameChange: (name: string) => void;
 	readonly onSelectIcon: (value: string) => void;
+	readonly onSiblingProjectsChange: (enabled: boolean) => void;
 	readonly onCancel: () => void;
 	readonly onSave: () => void;
 }
@@ -45,9 +51,11 @@ export function SpaceEditorDialogView({
 	name,
 	icons,
 	selectedIcon,
+	siblingProjects,
 	canSave,
 	onNameChange,
 	onSelectIcon,
+	onSiblingProjectsChange,
 	onCancel,
 	onSave,
 }: SpaceEditorDialogViewProps): JSX.Element {
@@ -117,6 +125,22 @@ export function SpaceEditorDialogView({
 									);
 								})}
 							</div>
+						</div>
+						<div className="flex items-start justify-between gap-4 rounded-lg border border-border/60 px-3 py-2.5">
+							<div className="grid gap-0.5">
+								<span id="space-editor-sibling-projects" className="text-[13px] font-medium text-foreground">
+									{labels.siblingProjects}
+								</span>
+								<span className="text-[12px] leading-relaxed text-muted-foreground">
+									{labels.siblingProjectsDescription}
+								</span>
+							</div>
+							<Switch
+								className="mt-0.5 shrink-0"
+								checked={siblingProjects}
+								onCheckedChange={onSiblingProjectsChange}
+								aria-labelledby="space-editor-sibling-projects"
+							/>
 						</div>
 						<DialogFooter>
 							<Button type="button" variant="ghost" onClick={onCancel}>

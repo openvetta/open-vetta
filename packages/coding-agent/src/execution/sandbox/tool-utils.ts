@@ -64,7 +64,15 @@ export function wrapWorkspaceGuard<TInput extends object>(
 				const access = await options.toolSet.hostServices.resolveWorkspacePathAccess(requestedPath, options.cwd);
 				options.toolSet.hostServices.assertPathNotDenied(access.targetBoundary, tool.name);
 				options.toolSet.hostServices.assertPathNotDenied(access.targetPath, tool.name);
-				if (!access.allowed) {
+				if (
+					!access.allowed &&
+					!(await isSessionReadableTarget(
+						tool.name,
+						sessionId,
+						access.targetBoundary,
+						options.toolSet.hostServices,
+					))
+				) {
 					const capability: SandboxPermissionRequest["capability"] =
 						tool.name === "read" ? "file.read" : "file.write";
 					const permissionRequest: SandboxPermissionRequest = {
@@ -110,6 +118,21 @@ export function wrapWorkspaceGuard<TInput extends object>(
 			return tool.execute(request);
 		},
 	};
+}
+
+/** 只有 read 享受会话级额外可读根目录；write/edit 仍逐次确认。 */
+async function isSessionReadableTarget(
+	toolName: string,
+	sessionId: string | undefined,
+	targetBoundary: string,
+	hostServices: CodingAgentSandboxToolSet["hostServices"],
+): Promise<boolean> {
+	if (toolName !== "read" || !sessionId || !hostServices.findSessionReadRoot) return false;
+	try {
+		return (await hostServices.findSessionReadRoot(sessionId, targetBoundary)) !== undefined;
+	} catch {
+		return false;
+	}
 }
 
 export function wrapShellPermissionGuard<TInput extends object>(

@@ -4,6 +4,13 @@ All notable changes to `@vetta-org/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+- 文档：手册补 `@vetta-org/theme-ui/plugin-ui` 的 `SegmentedControl`（分段控件）与 `@vetta-org/ui` `ButtonGroup` 的 `variant`（`glass` / `flat` / `ghost`）。组件随宿主发布，分别需要 Desktop 0.6.21+ 与 0.6.23+；插件工程要把 `@vetta-org/theme-ui` 升到 `^0.2.0`、`@vetta-org/ui` 升到 `^0.1.2` 才拿得到类型。theme-ui 0.2.0 同时删掉了成就相关组件（宿主自 0.6.20 起已不提供），升级前请确认插件没有在用。
+
+- 新增生成指标，需要 Plugin API `^2.12.0`：`useGenerationMetrics()` hook，以及 `ctx.conversation.getGenerationMetrics()` / `onGenerationMetrics()`。快照给出当前活动会话的阶段（等待首字 / 思考 / 正文 / 工具参数 / 两次调用之间）、本次模型调用与本轮的首字延迟、输出 token、tok/s 和 provider 报回的用量。此前插件只能从 `message-updated` 的正文增量数字符、自己打时间戳：思考和工具参数的生成期间收不到任何事件，量到的是跨进程派发的节奏，字符换算 token 在中英文之间能差好几倍，不同插件各算各的。现在时间戳取自运行时、token 取自 provider，生成中的估算值带 `estimated: true`，结束后换成真实值，口径写在 `docs/plugin/conversation-and-agent.md#生成指标`。
+  - 实时读数用 `recentTokensPerSecond`（最近 2 秒）：首字以来的平均速度生成越久越迟钝，模型停顿时也只会慢慢下降，做不了实时表。生成中宿主即使没有新事件也按 250ms 心跳重算，停顿时近期速度会降到 0；快照带 `sampledAt` 与 `lastTokenAt`，用同一时钟算停顿时长。
+  - 新权限 `agent.session.metrics`：只读速度与用量，看不到对话内容，安装时给用户的提示也是这个意思；已声明 `agent.session.read` 的插件不必再加。
+  - 用 `useGenerationMetrics` 的插件要声明 `^2.12.0`：插件运行时 import 的是宿主的 SDK 模块，旧宿主没有这个导出，插件会整个加载失败。要兼容旧宿主只能用命令式方法，并先判断它是否存在。团队会话和没有活动会话时为 `supported: false`。
+
 - 顶栏动作从「只有图标 + 红色角标」扩成能表达状态的入口，需要 Plugin API `^2.11.0`：
   - `label`：图标右侧的文字（≤ 24 字），给分支名、落后数这类「状态本身就是文字」的动作用；只在顶栏上、不超过 4 格且页头不拥挤时显示，收纳与窄屏自动退回纯图标。
   - `tone`：角标与图标的语义色（`info` / `success` / `warning` / `danger`），避免所有数字都是红色。

@@ -43,6 +43,7 @@ export {
 	clearSessionGrants,
 	collectShellWritePermissionRequests,
 	findSessionGrant,
+	findSessionReadRoot,
 	getSandboxDenyRoots,
 	getSandboxShellGrant,
 	isDeniedSandboxPath,
@@ -53,6 +54,8 @@ export {
 	revokeAllSessionGrants,
 	revokeSessionGrant,
 	runWithSandboxShellGrant,
+	type SandboxSessionReadRootResolver,
+	setSandboxSessionReadRootResolver,
 } from "./sandbox-permissions.js";
 export {
 	type NodeWorkspacePathAccess,

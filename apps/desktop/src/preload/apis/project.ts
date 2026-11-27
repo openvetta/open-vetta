@@ -1,5 +1,7 @@
 import type { IpcRenderer } from "electron";
+import { SPACES_CHANNELS, type SpaceStoreSnapshot } from "../../shared/spaces-ipc.js";
 import type { DesktopApi } from "../api.js";
+import { onIpcEvent } from "./helper.js";
 
 const CHANNELS = {
 	EXPORT: "vetta:project:export",
@@ -31,6 +33,9 @@ export function createProjectApi(ipc: IpcRenderer): Pick<DesktopApi, "project"> 
 			archive: (path) => ipc.invoke(CHANNELS.ARCHIVE, path),
 			unarchive: (path) => ipc.invoke(CHANNELS.UNARCHIVE, path),
 			remove: (path) => ipc.invoke(CHANNELS.REMOVE, path),
+			syncSpaces: (request) => ipc.invoke(SPACES_CHANNELS.SYNC, request),
+			saveSpaces: (data) => ipc.invoke(SPACES_CHANNELS.SAVE, data),
+			onSpacesChanged: (handler) => onIpcEvent<SpaceStoreSnapshot>(ipc, SPACES_CHANNELS.CHANGED, handler),
 		},
 	};
 }

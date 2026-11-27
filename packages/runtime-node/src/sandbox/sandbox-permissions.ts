@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
+import { realpath } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve as resolvePath } from "node:path";
 import { getVettaConfigDirName } from "@vetta/action-rpc";
@@ -109,6 +110,55 @@ export const nodeSandboxGrantStore: RuntimeSandboxGrantStore = {
 	revokeAll: revokeAllSessionGrants,
 	clear: clearSessionGrants,
 };
+
+// =============================================================================
+// Session-scoped extra read roots (e.g. sibling projects in the same workspace)
+// =============================================================================
+
+/**
+ * 按会话给出「read 越过 cwd 时免确认」的额外根目录。由宿主在工具执行时实时解析，
+ * 不做缓存：归属一变，下一次 read 就按新结果判定。
+ */
+export type SandboxSessionReadRootResolver = (sessionId: string) => Promise<readonly string[]> | readonly string[];
+
+let sessionReadRootResolver: SandboxSessionReadRootResolver | undefined;
+
+/** 安装（或以 `undefined` 卸下）会话额外可读根目录的解析器。进程内只有一个宿主。 */
+export function setSandboxSessionReadRootResolver(resolver: SandboxSessionReadRootResolver | undefined): void {
+	sessionReadRootResolver = resolver;
+}
+
+async function realpathOrResolved(path: string): Promise<string> {
+	try {
+		return await realpath(path);
+	} catch {
+		return resolvePath(path);
+	}
+}
+
+/**
+ * 目标（已取 realpath 的边界路径）是否落在本会话的额外可读根目录里；命中返回该根目录。
+ *
+ * 失败一律按「不放行」处理：解析器抛错、根目录不是绝对路径、目标在敏感 deny 路径内，
+ * 调用方都会回到原有的授权弹窗，而不是静默放行。
+ */
+export async function findSessionReadRoot(sessionId: string, targetBoundary: string): Promise<string | undefined> {
+	const resolver = sessionReadRootResolver;
+	if (!sessionId || !resolver) return undefined;
+	if (isDeniedSandboxPath(targetBoundary)) return undefined;
+	let roots: readonly string[];
+	try {
+		roots = await resolver(sessionId);
+	} catch {
+		return undefined;
+	}
+	for (const root of roots) {
+		if (typeof root !== "string" || !isAbsolute(root)) continue;
+		const boundary = await realpathOrResolved(root);
+		if (isPathInsideRoot(targetBoundary, boundary)) return root;
+	}
+	return undefined;
+}
 
 function expandHome(inputPath: string): string {
 	if (inputPath === "~") return homedir();
