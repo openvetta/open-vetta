@@ -6,6 +6,10 @@ All notable changes to `@vetta-org/ui` are documented in this file.
 
 ### Added
 
+- `ButtonGroup` 新增 `variant`（`"glass"` 默认 / `"flat"` / `"ghost"`，类型 `ButtonGroupVariant`）：`flat` 去掉玻璃边、阴影和模糊，只留半透明底；`ghost` 连容器底和分隔线都不画，只有悬停与选中的按钮有底色。组件不判断平台，Windows 这类玻璃效果不好看的地方由调用方传 `variant`，或在样式里按 `data-variant` 覆盖。
+- `SessionTopItem` 的 `menuItems` 支持菜单项类型 `kind`（`item` / `checkbox` / `radio` / `label` / `loading` / `empty` / `submenu`，子菜单只支持一层），并新增 `checked`、`disabledReason`；气泡可设 `popoverSize`（`sm` / `md` / `lg`）与 `popoverHost: "dialog"`（配 `dialogTitle`）。`onSelect` 改为可选，因为分组标题与占位行不可点。新增导出 `SessionTopMenuItems`，在已有弹层里复用同一份菜单渲染。
+- `./utils` 新增 `GLASS_PANEL_CLASS`：命令面板这类大块玻璃面板的外观，与 `ButtonGroup` 同一套玻璃语言，叠层更厚、模糊更重，保证上面的正文可读。
+
 - 新增 `ColorSwatchPicker` / `ColorPickerPanel`（`./color-swatch-picker` 入口，根入口同时导出）：色点选择器 + 宿主取色面板。预设色点用同色描边标出选中态，`allowCustom` 时末尾多一枚彩虹色点可点开面板——支持吸管取屏幕色（`EyeDropper` 不可用时按钮不渲染）、明度/饱和度拖拽（含方向键）、色相滑轨，以及粘贴 hex / `rgb()` / `hsl()`。面板按「去线留白」做：无边框，靠圆角、留白与底色分层。`defaultOption` 可在最前面多一枚空心色点表示「跟随主题」，选中时回传 `null`——`value: string | null` 里的 null 终于有了产出它的入口；`showLabel={false}` 供外层已有标题的场景去掉色点下方的颜色名。
 - 新增 `./color` 颜色纯函数（根入口同时导出）：`parseColor` / `normalizeColor` / `toHex` / `isSameColor` / `rgbToHsv` / `hsvToRgb` / `hueColor`。只做无状态换算，不碰 DOM；alpha 一律忽略，输出统一为 `#rrggbb`。
 - 新增 `Stepper`（`./stepper` 入口，根入口同时导出）：数字步进器，`− 数值 +` 三段式，受控 `value` / `onValueChange` 配 `min` / `max` / `step`，数值可点进去直接改（回车或失焦提交、Esc 撤销，非法输入按撤销处理），按住加减号连续变化，到边界时按钮禁用。`precision` 缺省按 `step` 推断小数位，避开浮点尾巴。

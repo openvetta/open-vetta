@@ -181,7 +181,7 @@ vettaPluginFederation({
 | 组件 | 用途 |
 | --- | --- |
 | `Button` | 按钮。`variant`：`default` / `primary` / `outline` / `secondary` / `ghost` / `destructive` / `link`，以及 **`field`**（设置页里设置项右侧的操作按钮：muted 底、无边框、12px，与下拉 / 输入框同皮）；`size`：`xs` / `sm` / `default` / `lg` / `icon-xs` / `icon-sm` / `icon` / `icon-lg` |
-| `ButtonGroup` + `ButtonGroupItem` | **按钮组**：半透明胶囊里并排若干操作按钮，用于悬浮在内容之上的工具条（如页头右上角）。胶囊外缘用内阴影做出玻璃边：只在深色里上沿亮、下沿淡并带投影；浅色没有投影和高亮。没有跟随指针的高光。`ButtonGroup` 属性：`shape`（`"pill"` 胶囊，默认 / `"square"` 圆角方形）、`blur`（背景模糊，默认开；贴在纯色背景上可关）。`ButtonGroupItem` 属性：`icon`、`label`（不传即纯图标按钮，须配 `title` / `aria-label`）、`badge`（数字计数，超过 99 显示 `99+`；`true` 为小红点；也可传节点）、`active`（选中态，同时设 `aria-pressed`），其余同原生 `button`。选中项两侧的分隔线会自动隐藏 |
+| `ButtonGroup` + `ButtonGroupItem` | **按钮组**：半透明胶囊里并排若干操作按钮，用于悬浮在内容之上的工具条（如页头右上角）。胶囊外缘用内阴影做出玻璃边：只在深色里上沿亮、下沿淡并带投影；浅色没有投影和高亮。没有跟随指针的高光。`ButtonGroup` 属性：`shape`（`"pill"` 胶囊，默认 / `"square"` 圆角方形）、`variant`（`"glass"` 默认 / `"flat"` 只留半透明底，不加阴影和模糊 / `"ghost"` 不画容器底和分隔线；需要 Desktop 0.6.23+ 与 `@vetta-org/ui` `^0.1.2`）、`blur`（背景模糊，只对 `glass` 生效，默认开；贴在纯色背景上可关）。`ButtonGroupItem` 属性：`icon`、`label`（不传即纯图标按钮，须配 `title` / `aria-label`）、`badge`（数字计数，超过 99 显示 `99+`；`true` 为小红点；也可传节点）、`active`（选中态，同时设 `aria-pressed`），其余同原生 `button`。选中项两侧的分隔线会自动隐藏 |
 | `SessionTopItem` / `SessionTopGroup` | 宿主内部用的顶栏按钮：`ButtonGroupItem` 外观，点击向下弹出气泡（`popoverContent`）或下拉菜单（`menuItems`）。插件**不用**它来做顶栏动作——`registerHeaderAction` 是声明式的，宿主统一渲染并管理收纳与排序，详见 [ui-slots](./ui-slots.md#会话页顶栏动作-registerheaderaction)；它仍可用于你自己页面里的同款按钮 |
 | `DropdownMenu*` | 菜单（`DropdownMenuTrigger` / `Content` / `Item` / `Separator` / `RadioGroup` / `Sub` …） |
 | `Select*`、`SELECT_TRIGGER_CLASS`、`SELECT_PANEL_CLASS` | 下拉选择（Radix）；后两个常量是设置页下拉的触发器 / 面板皮肤，自拼触发器时用 |
@@ -238,7 +238,7 @@ vettaPluginFederation({
 | `SettingSection` | 设置分组卡片：可选标题 / 说明 + 圆角边框容器。`section` 传 `{ id, title? }`，`id` 用作锚点 |
 | `SettingRow` | 分组卡片里的一行设置项卡片：左侧 `title` / `description`，右侧放控件（`children`）；`border={false}` 去掉底部分隔线（最后一行） |
 | `SettingHeading` | 与分组同款的 15px 小节标题。**必填 `section={{ id, title? }}`**（与 `SettingSection` 同形）：只传 `title` 会在渲染期读 `section.id` 而抛错 |
-| `SegmentedControl` | **分段控件**：胶囊里并排若干互斥选项，选中项带滑动指示器（弹簧动画），与宿主设置页、能力页同一套。`items` 传 `{ key, label, icon?, count?, badge? }[]`（`count` 是跟在标题后的灰字计数，0 不显示；`badge` 是红色未读徽标）、`value` / `onChange` 受控，泛型推断 `key` 联合类型；`className` 加在容器上，`suppressLayoutAnimation` 在容器尺寸动画期间关掉指示器滑动以免抖动 |
+| `SegmentedControl` | **分段控件**：胶囊里并排若干互斥选项，选中项带滑动指示器（弹簧动画），与宿主设置页、能力页同一套。`items` 传 `{ key, label, icon?, count?, badge? }[]`（`count` 是跟在标题后的灰字计数，0 不显示；`badge` 是红色未读徽标）、`value` / `onChange` 受控，泛型推断 `key` 联合类型；`className` 加在容器上，`suppressLayoutAnimation` 在容器尺寸动画期间关掉指示器滑动以免抖动。需要 Desktop 0.6.21+ 与 `@vetta-org/theme-ui` `^0.2.0` |
 | `VettaKbd` | **快捷键键帽**：`keys` 传快捷键串（`"mod+shift+k"`）或键位数组，渲染成一组浮雕键帽，与设置页快捷键、应用快照的键盘预览同一套质感。`mod` 在 macOS 显示 ⌘、Windows 显示 Ctrl；`ctrl` 始终是物理 Control 键（mac 上 ⌃）；需要完全分系统时把该项写成 `{ mac, windows, linux }`。另有 `size`（`xs` 默认 / `sm`）、`separator`（键之间显示 `+`）、`platform`（强制平台，缺省按窗口判断）。键帽整体带读屏文案（「⌘ K」读作「Command K」） |
 
 ```tsx
