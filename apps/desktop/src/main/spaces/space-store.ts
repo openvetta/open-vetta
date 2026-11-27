@@ -1,4 +1,12 @@
-import type { SharedSpaceData, SpaceStoreSnapshot, SpaceSyncRequest, StoredSpace } from "../../shared/spaces-ipc.js";
+import {
+	type SharedSpaceData,
+	type SpaceStoreSnapshot,
+	type SpaceSyncRequest,
+	type StoredSpace,
+	sharedSpaceDataKey,
+} from "../../shared/spaces-ipc.js";
+
+export { sharedSpaceDataKey };
 
 /**
  * 工作空间存储（ADR-0160）：`~/.vetta/spaces.v1.json` 的唯一写入方。
@@ -104,13 +112,6 @@ export function mergeSharedSpaceData(base: SharedSpaceData, incoming: SharedSpac
 		projects: merge(base.projects, incoming.projects),
 		conversations: merge(base.conversations, incoming.conversations),
 	});
-}
-
-/** 内容等价判断用的稳定键：空间保序，归属按键排序。 */
-export function sharedSpaceDataKey(data: SharedSpaceData): string {
-	const sorted = (entries: Readonly<Record<string, string>>) =>
-		Object.entries(entries).sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
-	return JSON.stringify([data.spaces, sorted(data.projects), sorted(data.conversations)]);
 }
 
 function parseDocument(raw: string): LoadedState | "corrupt" {

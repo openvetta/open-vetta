@@ -72,6 +72,7 @@ export type SpaceIcon = { kind: "solar"; value: SpaceIconValue } | { kind: "emoj
 /** 新建/编辑工作空间时可选的图标：主工作空间专用的 `home` 不在其中。 */
 export const SPACE_ICON_VALUES = (Object.keys(SPACE_ICONS) as SpaceIconValue[]).filter((value) => value !== "home");
 export const MAIN_SPACE_ICON: SpaceIcon = { kind: "solar", value: "home" };
+const FALLBACK_SPACE_ICON: SpaceIcon = { kind: "solar", value: "folder" };
 export interface Space {
 	id: string;
 	name: string;
@@ -168,15 +169,16 @@ export function readSpaces(value: unknown): SpaceState {
 			!item.id ||
 			ids.has(item.id) ||
 			typeof item.name !== "string" ||
-			!item.name.trim() ||
-			!isIcon(item.icon)
+			!item.name.trim()
 		)
 			continue;
 		ids.add(item.id);
 		spaces.push({
 			id: item.id,
 			name: item.name,
-			icon: item.icon,
+			// 不认识的图标（例如更新版本新增的）回退为文件夹而不是丢掉整个空间：空间数据
+			// 跨版本共享（ADR-0160），丢弃会在下次保存时把它从共享存储里删掉。
+			icon: isIcon(item.icon) ? item.icon : FALLBACK_SPACE_ICON,
 			...(item.siblingProjects === false ? { siblingProjects: false } : {}),
 		});
 	}

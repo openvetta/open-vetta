@@ -48,6 +48,7 @@ import {
 } from "../shared/store/atoms";
 import { recordRecentSessionVisitAtom } from "../shared/store/recent-sessions-atoms";
 import { syncSpaceSiblingMirror } from "../shared/store/space-sibling-mirror";
+import { startSpaceStoreSync } from "../shared/store/space-store-sync";
 import { showToast } from "../shared/store/toast-atoms";
 import { shouldShowChatRoutePending } from "./chat-route-pending";
 import { syncPendingInteractions } from "./pending-interaction-sync";
@@ -317,6 +318,21 @@ export function useRootLayoutModel(): RootLayoutModel {
 			unsubCaptureError();
 		};
 	}, [currentPath, defaultConversationCwd, navigate]);
+
+	// 工作空间的事实源在主进程的 ~/.vetta（ADR-0160）；本地 localStorage 只作首帧缓存与降级兼容。
+	useEffect(
+		() =>
+			startSpaceStoreSync(
+				getDefaultStore(),
+				{
+					sync: (request) => window.vetta.project.syncSpaces(request),
+					save: (data) => window.vetta.project.saveSpaces(data),
+					onChanged: (handler) => window.vetta.project.onSpacesChanged(handler),
+				},
+				{ onError: (error) => console.warn("[RootLayout] sync workspace store failed", error) },
+			),
+		[],
+	);
 
 	// 工作空间归属的只读镜像推给主进程，供它推导会话可见的同空间兄弟项目（ADR-0159）。
 	useEffect(

@@ -44,6 +44,26 @@ export interface SpaceSyncRequest {
 	readonly localDirty: boolean;
 }
 
+/**
+ * 内容等价判断用的稳定键，主进程与 Renderer 共用同一算法：空间保序且字段顺序固定，
+ * 归属按键排序。两侧对象的字段书写顺序不同也不会误判为变化。
+ */
+export function sharedSpaceDataKey(data: SharedSpaceData): string {
+	const sorted = (entries: Readonly<Record<string, string>>) =>
+		Object.entries(entries).sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
+	return JSON.stringify([
+		data.spaces.map((space) => [
+			space.id,
+			space.name,
+			space.icon.kind,
+			space.icon.value,
+			space.siblingProjects === false,
+		]),
+		sorted(data.projects),
+		sorted(data.conversations),
+	]);
+}
+
 export const SPACES_CHANNELS = {
 	SYNC: "vetta:spaces:sync",
 	SAVE: "vetta:spaces:save",
