@@ -5,6 +5,7 @@ import {
 	activeInputDraftKeyAtom,
 	appshotAttachmentAtom,
 	attachedImagesAtom,
+	browserCapturesAtom,
 	clearCurrentSessionInputDraft,
 	inputSegmentsAtom,
 	inputValueAtom,
@@ -43,10 +44,18 @@ function stageSessionSend(
 	const attachedImages = store.get(attachedImagesAtom).slice();
 	const mentionedFiles = store.get(mentionedFilesAtom).slice();
 	const appshot = store.get(appshotAttachmentAtom);
+	const browserCaptures = store.get(browserCapturesAtom).slice();
 	const selectedModel = store.get(selectedModelAtom);
 	const override = typeof overrideText === "string" ? overrideText.trim() : "";
 	const hasOverride = override.length > 0;
-	if (!hasOverride && !inputValue.trim() && attachedImages.length === 0 && mentionedFiles.length === 0 && !appshot) {
+	if (
+		!hasOverride &&
+		!inputValue.trim() &&
+		attachedImages.length === 0 &&
+		mentionedFiles.length === 0 &&
+		!appshot &&
+		browserCaptures.length === 0
+	) {
 		return null;
 	}
 
@@ -73,7 +82,10 @@ function stageSessionSend(
 		}
 	}
 
+	for (const capture of hasOverride ? [] : browserCaptures)
+		attachmentsByPath.set(toTokenPath(capture.imagePath), { kind: "image", path: capture.imagePath });
 	const optimisticMessage = createConversationUserMessage({
+		browserCaptures: hasOverride ? [] : browserCaptures,
 		id: nextId("user"),
 		deliveryPhase: "pending",
 		text: hasOverride ? rawText : preparedInput.text,
@@ -109,6 +121,7 @@ function stageSessionSend(
 		attachedImages,
 		mentionedFiles,
 		appshot,
+		browserCaptures,
 		selectedModel,
 		optimisticMessage,
 	};
@@ -150,6 +163,7 @@ export function restoreStagedNewSessionSend(staged: StagedSendInput): void {
 	store.set(attachedImagesAtom, staged.attachedImages.slice());
 	store.set(mentionedFilesAtom, staged.mentionedFiles.slice());
 	store.set(appshotAttachmentAtom, staged.appshot);
+	store.set(browserCapturesAtom, staged.browserCaptures ?? []);
 	persistCurrentSessionInputDraft();
 }
 
@@ -172,6 +186,7 @@ export function restoreStagedPendingSessionSend(
 			text: staged.rawText,
 			segments: staged.inputSegments.slice(),
 			appshot: staged.appshot,
+			captures: staged.browserCaptures,
 		});
 		return;
 	}
@@ -179,12 +194,14 @@ export function restoreStagedPendingSessionSend(
 		store.get(inputValueAtom).trim().length === 0 &&
 		store.get(attachedImagesAtom).length === 0 &&
 		store.get(mentionedFilesAtom).length === 0 &&
-		store.get(appshotAttachmentAtom) === null;
+		store.get(appshotAttachmentAtom) === null &&
+		store.get(browserCapturesAtom).length === 0;
 	if (!composerUntouched && options?.overwriteComposer !== true) return;
 	store.set(inputSegmentsAtom, staged.inputSegments.slice());
 	store.set(inputValueAtom, staged.rawText);
 	store.set(attachedImagesAtom, staged.attachedImages.slice());
 	store.set(mentionedFilesAtom, staged.mentionedFiles.slice());
 	store.set(appshotAttachmentAtom, staged.appshot);
+	store.set(browserCapturesAtom, staged.browserCaptures ?? []);
 	persistCurrentSessionInputDraft();
 }

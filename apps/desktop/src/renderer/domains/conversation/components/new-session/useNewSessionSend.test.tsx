@@ -140,6 +140,7 @@ describe("useNewSessionSend", () => {
 		expect(sendMessage).toHaveBeenCalledWith(undefined, {
 			interactionId: "00000000-0000-4000-8000-000000000001",
 			stagedInput: expect.objectContaining({ optimisticMessage: expect.objectContaining({ id: "user-staged" }) }),
+			stagedInputOrigin: "new-session",
 		});
 
 		await act(async () => {

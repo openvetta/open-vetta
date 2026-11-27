@@ -1,3 +1,4 @@
+import { BrowserCaptureDraftCards } from "@shared/components/BrowserCaptures";
 import type { AppshotAttachment } from "@shared/store/atoms";
 import { AppshotCard } from "../AppshotCard";
 
@@ -63,9 +64,8 @@ export function InputBarAttachmentPreview({
 							</div>
 						) : null}
 
-						{appshotAttachment ? (
-							<AppshotCard data={appshotAttachment} onRemove={onRemoveAppshot} />
-						) : null}
+						<BrowserCaptureDraftCards />
+						{appshotAttachment ? <AppshotCard data={appshotAttachment} onRemove={onRemoveAppshot} /> : null}
 
 						{/* 图片缩略图行：文本流里对应「图 N」胶囊，编号在角标上复现 */}
 						{images.length > 0 ? (

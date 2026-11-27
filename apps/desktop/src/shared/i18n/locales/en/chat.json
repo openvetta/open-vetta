@@ -1199,5 +1199,26 @@
 		"actionCreate": "Create page",
 		"actionUpdate": "Update page",
 		"originalLocation": "Original: {{path}}"
+	},
+	"browserCapture": {
+		"select": "Select and capture",
+		"restartRequired": "Screenshot support is not loaded. Fully restart the desktop app and try again. In development, restart Electron; refreshing the page does not update the screenshot bridge.",
+		"element": "Select element",
+		"region": "Select region",
+		"confirm": "Confirm screenshot",
+		"cancel": "Cancel",
+		"expand": "Expand selection",
+		"shrink": "Shrink selection",
+		"add": "Add to conversation",
+		"note": "Annotation (optional)",
+		"preview": "Preview screenshot",
+		"remove": "Remove screenshot",
+		"unavailable": "Image unavailable",
+		"busy": "Capturing…",
+		"failed": "Could not capture the page. Please try again.",
+		"cancelled": "Screenshot selection cancelled because the conversation or workspace changed.",
+		"budget": "These screenshots are too large to send together. Remove some and try again.",
+		"hint": "Hover to highlight, click to select, or drag with the left mouse button to draw a region. Escape cancels.",
+		"changed": "The page changed. Select the target again."
 	}
 }

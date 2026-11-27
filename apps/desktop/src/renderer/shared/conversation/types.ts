@@ -1,6 +1,7 @@
 import type { InputSegment } from "@shared/lib/input-tokens";
 import type { Usage } from "@vetta/ai";
 import type { PromptAttachmentRef, PromptResourceRef } from "@vetta/runtime-core";
+import type { BrowserCapture } from "../../../shared/browser-capture";
 import type { ContentBlock } from "./content-blocks";
 
 export interface ConversationMessageViewModelBase {
@@ -29,6 +30,7 @@ export interface ConversationUserMessageViewModel extends ConversationMessageVie
 	settingsAssistTabId?: string;
 	promptRef?: PromptResourceRef;
 	attachments?: PromptAttachmentRef[];
+	browserCaptures?: BrowserCapture[];
 	memberMentions?: ConversationMemberMentionViewModel[];
 }
 

@@ -6,7 +6,7 @@ import {
 } from "@shared/store/atoms";
 import type { BrowserPanelLabels } from "@vetta-org/theme-ui/activity";
 import { useAtomValue, useSetAtom } from "jotai";
-import { type FormEvent, type Ref, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useActivityWorkspace } from "../registry/context";
 import { browserThemeCss } from "../services/browser-theme-css";
@@ -24,6 +24,7 @@ interface WebviewElement extends HTMLElement {
 	stop(): void;
 	loadURL(url: string): Promise<void>;
 	getURL(): string;
+	getWebContentsId(): number;
 	insertCSS(css: string): Promise<string>;
 	removeInsertedCSS(key: string): Promise<void>;
 }
@@ -47,7 +48,7 @@ export interface BrowserPanelModel {
 	hasPage: boolean;
 	currentUrl: string;
 	partition: string;
-	webviewRef: Ref<HTMLElement>;
+	webviewRef: RefObject<WebviewElement | null>;
 	onAddressChange: (value: string) => void;
 	onAddressSubmit: (event: FormEvent) => void;
 	onBack: () => void;
@@ -233,7 +234,7 @@ export function useBrowserPanelModel(): BrowserPanelModel {
 		hasPage: currentUrl !== "" || targetUrl != null,
 		currentUrl,
 		partition: BROWSER_PARTITION,
-		webviewRef: webviewRef as Ref<HTMLElement>,
+		webviewRef,
 		onAddressChange: setAddress,
 		onAddressSubmit,
 		onBack: () => webviewRef.current?.goBack(),

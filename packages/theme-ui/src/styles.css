@@ -66,6 +66,11 @@ textarea::placeholder {
 	opacity: 0.5;
 }
 
+/* Capture markers must stay vivid over guest pages, independently of the app theme. */
+@theme {
+	--color-browser-selection: #008cff;
+}
+
 @theme inline {
 	--color-accent: var(--accent);
 	--color-accent-foreground: var(--accent-foreground);

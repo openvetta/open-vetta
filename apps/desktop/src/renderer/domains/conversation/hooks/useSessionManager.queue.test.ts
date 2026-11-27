@@ -13,6 +13,11 @@ const mocks = vi.hoisted(() => ({
 	loadSessions: vi.fn(async () => undefined),
 	navigate: vi.fn(async () => undefined),
 	prompt: vi.fn(async (): Promise<unknown> => ({ status: "completed" })),
+	loadBrowserCaptureImages: vi.fn(async () => []),
+}));
+
+vi.mock("@shared/lib/browser-capture-input", () => ({
+	loadBrowserCaptureImages: mocks.loadBrowserCaptureImages,
 }));
 
 vi.mock("@tanstack/react-router", () => ({
@@ -54,7 +59,10 @@ vi.mock("../services/context-composition-cache", () => ({
 interface SessionManagerProbe {
 	sendMessage(
 		overrideText?: string,
-		options?: { stagedInput?: import("@shared/store/atoms").StagedSendInput },
+		options?: {
+			stagedInput?: import("@shared/store/atoms").StagedSendInput;
+			stagedInputOrigin?: "new-session";
+		},
 	): Promise<{ status: "sent" | "queued" | "failed"; error?: { message: string }; queueItemId?: string } | undefined>;
 	openSession(
 		cwd: string,
@@ -113,6 +121,7 @@ beforeEach(() => {
 	installStorage();
 	vi.resetModules();
 	vi.clearAllMocks();
+	mocks.loadBrowserCaptureImages.mockResolvedValue([]);
 	mocks.prompt.mockImplementation(async () => ({ status: "completed" }));
 	(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 	container = document.createElement("div");
@@ -271,6 +280,60 @@ it("新会话首条消息的 prompt 被主进程拒绝时退出流式态，停�
 		await vi.waitFor(() => expect(result?.status).toBe("failed"));
 	});
 
+	expect(store.get(activeSessionStreamingAtom)).toBe(false);
+});
+
+it("新会话截图读取失败时把正文和截图恢复到已切换的会话草稿", { timeout: 30_000 }, async () => {
+	const store = await mount("检查这个页面", false);
+	const {
+		activeInputDraftKeyAtom,
+		activeSessionStreamingAtom,
+		browserCapturesAtom,
+		claimNewSessionInputDraft,
+		inputValueAtom,
+		modelSupportsImagesAtom,
+		newSessionInputDraftKey,
+		pendingSessionSendAtom,
+	} = await import("@shared/store/atoms");
+	const { stageNewSessionSend } = await import("../services/staged-new-session-send");
+	const draftKey = newSessionInputDraftKey(cwd);
+	store.set(activeInputDraftKeyAtom, draftKey);
+	const capture = {
+		version: 1 as const,
+		id: "capture-1",
+		imagePath: "/cache/capture-1.png",
+		url: "https://example.test/",
+		title: "Example",
+		mode: "region" as const,
+		width: 600,
+		height: 400,
+		viewport: { width: 600, height: 400 },
+		rect: { x: 10, y: 20, width: 100, height: 80 },
+		note: "",
+	};
+	store.set(browserCapturesAtom, [capture]);
+	store.set(modelSupportsImagesAtom, true);
+	const stagedInput = stageNewSessionSend(undefined, "capture-read-failure");
+	if (!stagedInput) throw new Error("New-session send should have been staged");
+	claimNewSessionInputDraft(sessionPath, draftKey);
+	store.set(pendingSessionSendAtom, {
+		messageId: stagedInput.optimisticMessage.id,
+		interactionId: "capture-read-failure",
+	});
+	store.set(activeSessionStreamingAtom, true);
+	mocks.loadBrowserCaptureImages.mockRejectedValueOnce(new Error("Browser screenshot is unavailable"));
+
+	await act(async () => {
+		await manager?.sendMessage(undefined, {
+			stagedInput,
+			stagedInputOrigin: "new-session",
+		});
+	});
+
+	expect(store.get(activeInputDraftKeyAtom)).toBe(sessionPath);
+	expect(store.get(inputValueAtom)).toBe("检查这个页面");
+	expect(store.get(browserCapturesAtom)).toEqual([capture]);
+	expect(store.get(pendingSessionSendAtom)).toBeNull();
 	expect(store.get(activeSessionStreamingAtom)).toBe(false);
 });
 

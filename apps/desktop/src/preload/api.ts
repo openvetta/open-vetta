@@ -1,3 +1,4 @@
+import type { BrowserCaptureApi } from "../shared/browser-capture.js";
 import type { DesktopMarkdownApi } from "../shared/markdown-ipc.js";
 import type { MessageAnnotationsApi } from "../shared/message-annotations.js";
 import type { DesktopAbilitiesApi } from "./api-types/abilities.js";
@@ -91,6 +92,7 @@ export interface DesktopHostAccessApi {
 }
 
 export interface DesktopApi {
+	browserCapture: BrowserCaptureApi;
 	markdown: DesktopMarkdownApi;
 	messageAnnotations: MessageAnnotationsApi;
 	hostAccess: DesktopHostAccessApi;
