@@ -63,6 +63,50 @@ function vetdThemeSource() {
 	};
 }
 
+const FRAMES_MODULE_ID = "virtual:vetd-frames";
+const RESOLVED_FRAMES_MODULE_ID = `\0${FRAMES_MODULE_ID}`;
+
+/**
+ * The frame table (`virtual:vetd-frames`): one lazy loader per `frames/*.tsx`.
+ *
+ * This used to be `import.meta.glob("@design/frames/*.tsx")` in main.tsx, but
+ * vite turns each matched file into a POSIX path RELATIVE to the importer. On
+ * Windows, with the engine on C: and the design on D:, that comes out as
+ * `../../../D:/…/frames/x.tsx`, which resolves nowhere: main.tsx 500s and every
+ * frame renders blank. Here each import goes through the `@design` alias
+ * instead, which resolves to an absolute path and is served as `/@fs/D:/…` —
+ * no relative path between drives is ever computed.
+ *
+ * Keys keep the old glob's shape (`…/frames/<name>.tsx`); main.tsx only reads
+ * the file name.
+ */
+function vetdFrames() {
+	const listFrames = () => {
+		try {
+			return readdirSync(resolve(designRoot, "frames"), { withFileTypes: true })
+				.filter((entry) => entry.isFile() && !entry.name.startsWith(".") && entry.name.endsWith(".tsx"))
+				.map((entry) => entry.name)
+				.sort();
+		} catch {
+			return []; // no frames dir yet
+		}
+	};
+	return {
+		name: "vetd-frames",
+		resolveId(id) {
+			return id === FRAMES_MODULE_ID ? RESOLVED_FRAMES_MODULE_ID : null;
+		},
+		load(id) {
+			if (id !== RESOLVED_FRAMES_MODULE_ID) return null;
+			const entries = listFrames().map((name) => {
+				const spec = JSON.stringify(`@design/frames/${name}`);
+				return `\t${spec}: () => import(${spec}),`;
+			});
+			return `export const frameLoaders = {\n${entries.join("\n")}\n};\n`;
+		},
+	};
+}
+
 /**
  * Reload when a design source file is ADDED or REMOVED (anywhere under the
  * design dir — frames/, components/, assets/, the root files).
@@ -71,9 +115,9 @@ function vetdThemeSource() {
  * one at a time as they are served (`ensureWatchedFile`). A brand-new file is
  * therefore watched by nobody, and two things go stale at once:
  *
- * - src/main.tsx collects frames with `import.meta.glob`, which vite only
- *   re-evaluates when a create/delete event reaches its watcher. Without one,
- *   every freshly loaded iframe keeps getting the stale frame table
+ * - The frame table (`virtual:vetd-frames`, see {@link vetdFrames}) is built
+ *   once and cached in the module graph. Without an invalidation, every
+ *   freshly loaded iframe keeps getting the stale frame table
  *   ("Frame not found") until the server restarts.
  * - src/styles.css rescans the whole `@source` dir on every re-transform, but
  *   nothing asks it to re-transform: no HMR update ever names the stylesheet.
@@ -90,7 +134,6 @@ function vetdThemeSource() {
  * untouched, and that path already rebuilds the stylesheet.
  */
 function vetdWatchDesign() {
-	const mainId = `${engineRoot.replaceAll("\\", "/")}/src/main.tsx`;
 	const stylesId = `${engineRoot.replaceAll("\\", "/")}/src/styles.css`;
 	/**
 	 * Dot-prefixed entries are skipped on purpose: `.snapshots/` is written on
@@ -165,7 +208,7 @@ function vetdWatchDesign() {
 						known = next;
 						const environment = server.environments.client;
 						if (framesChanged) {
-							const mod = environment.moduleGraph.getModuleById(mainId);
+							const mod = environment.moduleGraph.getModuleById(RESOLVED_FRAMES_MODULE_ID);
 							if (mod) environment.moduleGraph.invalidateModule(mod);
 						}
 						// ?direct / ?inline variants each get their own module node.
@@ -190,6 +233,7 @@ export default defineConfig(({ command }) => ({
 	plugins: [
 		react(command === "serve" ? { babel: { plugins: [vetdSourceAttr] } } : {}),
 		vetdThemeSource(),
+		vetdFrames(),
 		vetdWatchDesign(),
 		tailwindcss(),
 	],
