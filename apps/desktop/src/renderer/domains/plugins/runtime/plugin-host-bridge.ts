@@ -22,6 +22,7 @@ import type {
 	ConversationState,
 	CreateSessionOptions,
 	Disposable,
+	GenerationMetricsSnapshot,
 	OcrProgress,
 	OcrProviderRegistration,
 	OcrProviderResult,
@@ -45,8 +46,9 @@ import type {
 } from "@vetta-org/plugin-sdk";
 import { __setPluginHostBridge, PluginAppActionError } from "@vetta-org/plugin-sdk";
 import { getDefaultStore, useAtomValue } from "jotai";
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { PluginModelPicker } from "./PluginModelPicker";
+import { GenerationMetricsHub } from "./plugin-generation-metrics.js";
 import { pluginHandlerGenerationKey as handlerKey } from "./plugin-handler-generation-key.js";
 import {
 	getPluginHostBridgeRuntimeState,
@@ -104,6 +106,14 @@ function createAgentActions(): {
 
 type Listener = (event: ConversationEvent) => void;
 const listeners = runtimeState.conversationListeners;
+
+// 生成指标与事件桥同源（同一个 session.subscribe），单独挂一个全局键，HMR 重新求值模块时不丢读数。
+const GENERATION_METRICS_KEY = "__vettaPluginGenerationMetricsHub_v1";
+const generationMetrics: GenerationMetricsHub = (() => {
+	const holder = globalThis as unknown as Record<string, GenerationMetricsHub | undefined>;
+	holder[GENERATION_METRICS_KEY] ??= new GenerationMetricsHub();
+	return holder[GENERATION_METRICS_KEY];
+})();
 
 function emit(event: ConversationEvent): void {
 	for (const listener of listeners) {
@@ -251,9 +261,13 @@ function startTranslator(): void {
 		runtimeState.currentConversationUnsubscribe?.();
 		runtimeState.currentConversationUnsubscribe = null;
 		emit({ type: "conversation-changed", conversation: snapshot() });
+		generationMetrics.setActiveSession(runtimeId);
 		if (!runtimeId) return;
 		void window.vetta.session
-			.subscribe(runtimeId, translate)
+			.subscribe(runtimeId, (event) => {
+				generationMetrics.handle(runtimeId, event);
+				translate(event);
+			})
 			.then((unsub) => {
 				// The active session may have changed again before subscribe resolved.
 				if (runtimeState.currentRuntimeId === runtimeId) runtimeState.currentConversationUnsubscribe = unsub;
@@ -767,6 +781,26 @@ const conversation: PluginConversationApi = {
 		const active = store.get(activeSessionAtom);
 		if (active?.runtimeId) await window.vetta.session.abort(active.runtimeId);
 	},
+	getGenerationMetrics: (): GenerationMetricsSnapshot => generationMetrics.getSnapshot(),
+	onGenerationMetrics: (listener: (snapshot: GenerationMetricsSnapshot) => void): Disposable => {
+		const unsubscribe = generationMetrics.subscribe(listener);
+		// 与 on() 一样订阅即回放：插件 activate 时这一轮可能早就在生成了。
+		let disposed = false;
+		void Promise.resolve().then(() => {
+			if (disposed) return;
+			try {
+				listener(generationMetrics.getSnapshot());
+			} catch (error) {
+				console.error("Plugin generation metrics listener threw", error);
+			}
+		});
+		return {
+			dispose: () => {
+				disposed = true;
+				unsubscribe();
+			},
+		};
+	},
 	on: (listener: Listener): Disposable => {
 		listeners.add(listener);
 		// 订阅即回放一次当前会话状态：插件在 activate 里订阅时，本轮的
@@ -817,6 +851,10 @@ function useConversationMessages(): ConversationMessage[] {
 	);
 }
 
+function useGenerationMetrics(): GenerationMetricsSnapshot {
+	return useSyncExternalStore(generationMetrics.subscribe, generationMetrics.getSnapshot);
+}
+
 function usePromptAttachment(): PluginPromptAttachment | null {
 	return useAtomValue(promptAttachmentAtom);
 }
@@ -829,6 +867,7 @@ function useLocale(): string {
 export const pluginHostBridge: PluginHostBridge = {
 	useActiveConversation,
 	useConversationMessages,
+	useGenerationMetrics,
 	usePromptAttachment,
 	useLocale,
 	useSidebarState,

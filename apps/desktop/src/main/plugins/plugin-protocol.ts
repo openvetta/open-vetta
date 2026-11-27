@@ -109,6 +109,7 @@ export const PLUGIN_PERMISSIONS = sdk.PLUGIN_PERMISSIONS;
 export const definePlugin = sdk.definePlugin;
 export const useActiveConversation = sdk.useActiveConversation;
 export const useConversationMessages = sdk.useConversationMessages;
+export const useGenerationMetrics = sdk.useGenerationMetrics;
 export const usePromptAttachment = sdk.usePromptAttachment;
 export const useActivityTab = sdk.useActivityTab;
 export const useBottomPanel = sdk.useBottomPanel;

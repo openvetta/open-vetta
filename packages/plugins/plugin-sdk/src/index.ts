@@ -55,6 +55,13 @@ export type {
 	PluginConversationApi,
 	SendPromptResult,
 } from "./conversation.js";
+export type {
+	GenerationCallMetrics,
+	GenerationMetricsSnapshot,
+	GenerationPhase,
+	GenerationTokenUsage,
+	GenerationTurnMetrics,
+} from "./generation-metrics.js";
 
 // UI slots
 export type {
@@ -454,6 +461,7 @@ export {
 	useTranslation,
 	useActiveConversation,
 	useConversationMessages,
+	useGenerationMetrics,
 	usePromptAttachment,
 	useSidebarState,
 } from "./hooks.js";

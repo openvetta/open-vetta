@@ -59,6 +59,64 @@ const sub = ctx.conversation.on((event) => {
 // 之后：sub.dispose();
 ```
 
+## 生成指标
+
+做 tok/s 读数、首字延迟、本轮用量这类插件时，**不要自己从 `message-updated` 数字符、打时间戳**：那样量到的是事件跨进程、批量派发的节奏，数字会抖，字符换算 token 中英文能差好几倍，而且 `message-updated` 只有正文，思考与工具参数的生成期间什么都收不到。宿主把这些算好了，插件只管展示。
+
+- Plugin API：`^2.12.0`。**用 `useGenerationMetrics` 必须声明这一档**：插件运行时 import 的是宿主提供的 SDK 模块，旧宿主上没有这个导出，插件会整个加载失败；声明了 `^2.12.0`，旧宿主给出的才是明确的版本错误
+- 权限：`agent.session.metrics`（只读速度与用量，看不到对话内容）；已声明 `agent.session.read` 的插件不用再加
+- 作用于当前活动会话；切会话时读数跟着换，切回来还能看到那个会话上一轮的结算
+
+```tsx
+import { useGenerationMetrics } from "@vetta-org/plugin-sdk";
+
+function useSpeedAction() {
+  const metrics = useGenerationMetrics();
+  if (!metrics.supported || !metrics.call) return null;     // 团队会话、没有会话：不显示
+  const { tokensPerSecond, estimated } = metrics.call;
+  const generating = metrics.phase !== "idle" && metrics.phase !== "between-calls";
+  const text = tokensPerSecond === null ? "—" : `${estimated ? "≈" : ""}${tokensPerSecond.toFixed(0)} tok/s`;
+  return { title: `生成速度 ${text}`, label: text, active: generating, /* ... */ };
+}
+```
+
+不在 React 里的逻辑用命令式接口。要兼容旧宿主（插件声明低于 `^2.12.0`）也只能走这条：旧宿主上这两个方法是 `undefined`，用前判断：
+
+```ts
+const snapshot = ctx.conversation.getGenerationMetrics();
+const sub = ctx.conversation.onGenerationMetrics((snapshot) => { /* ... */ }); // 订阅即回放一次
+```
+
+### 快照里有什么
+
+```ts
+interface GenerationMetricsSnapshot {
+  supported: boolean;          // false：没有活动会话 / 团队会话，其余字段为空
+  sessionId: string | null;    // 与 ConversationState.id 相同
+  phase: "idle" | "waiting" | "thinking" | "text" | "tool-args" | "between-calls";
+  call: GenerationCallMetrics | null;  // 正在进行的模型调用；没有则为最近一次结束的
+  turn: GenerationTurnMetrics | null;  // 正在进行的轮次；没有则为最近一次结束的
+}
+```
+
+- **`phase`**：`waiting` 是请求已发出、还没收到第一个增量；`between-calls` 是轮次进行中但模型没在生成（通常是工具在执行）。只有 `thinking` / `text` / `tool-args` 表示正在出字。
+- **`call`**（一次模型调用；一轮里每次工具调用后模型会再被调一次）：`status`（`streaming` / `done` / `error` / `aborted`）、`requestedAt` / `firstTokenAt` / `endedAt`、`timeToFirstTokenMs`、`outputTokens`、`tokensPerSecond`、`estimated`、`usage`（provider 报回的 `input` / `output` / `cacheRead` / `cacheWrite`，生成中或 provider 不报时为 `null`）、`model`（`{ provider, id }`）。
+- **`turn`**（一轮的汇总）：`status`（`running` / `completed` / `cancelled` / `failed`）、`modelCalls`、`outputTokens`、`generationMs`、`tokensPerSecond`、`estimated`。
+
+### 口径
+
+- **时间戳来自运行时**，不是插件收到事件的时刻。
+- **首字延迟** = 首个任何类型的增量（思考、正文、工具参数都算）− 请求发出。宿主没观察到请求发出（例如插件在生成中途才激活）时为 `null`。
+- **生成速度** = 输出 token ÷（结束时刻，生成中为此刻 − 首字）。分母不含排队和首字前的等待；轮次的速度只累加各次调用「首字到结束」，不含工具执行。生成时长不到 250ms 时为 `null`，别显示成几千 tok/s。
+- **估算与真实值**：生成中 provider 还没报 usage，`outputTokens` 按已收到的字符估算（中日韩文字约一字一 token，其余约四字一 token，并用同一会话上一次调用的真实值校准），`estimated: true`；调用结束后换成 provider 报的真实值。provider 不报 usage（报回 0）时一直保持估算。估算值建议加「≈」或「约」。
+- **输出 token 包含思考**：provider 报的 output 通常含推理 token，速度也按它算。
+
+### 刷新频率
+
+生成中宿主约每 250ms 推一次（hook 也按这个节奏重渲），阶段切换、调用结束、切会话时立即推。插件**不需要也不应该**再自己节流到更快；需要更慢（比如每秒刷新一次文字）在展示层做即可。
+
+团队会话暂不提供指标（`supported: false`）。
+
 ## 对话：驾驶
 
 需要 `agent.session.write`。

@@ -25,6 +25,7 @@ export const PLUGIN_PERMISSION_LABEL_KEYS = {
 	"ui.file-explorer.toolbar": "permission.uiFileExplorerToolbar",
 	"workspace.read": "permission.workspaceRead",
 	"agent.session.read": "permission.agentSessionRead",
+	"agent.session.metrics": "permission.agentSessionMetrics",
 	"agent.session.write": "permission.agentSessionWrite",
 	"agent.command.run": "permission.agentCommandRun",
 	"agent.command.spawn": "permission.agentCommandSpawn",
@@ -274,6 +275,12 @@ export const PLUGIN_PERMISSION_PRESENTATIONS = {
 		descriptionKey: "permission.description.agentSessionRead",
 		group: "agent",
 		risk: "medium",
+		visual: "agent",
+	},
+	"agent.session.metrics": {
+		descriptionKey: "permission.description.agentSessionMetrics",
+		group: "agent",
+		risk: "low",
 		visual: "agent",
 	},
 	"agent.session.write": {

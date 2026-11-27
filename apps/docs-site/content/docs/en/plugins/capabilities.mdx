@@ -15,6 +15,7 @@ The `ctx` passed to `activate(ctx)` is the single outlet for every capability. O
 | Add UI and pages | `ctx.ui.register*` | one per slot | Dispose the returned `Disposable` on deactivate |
 | Extend the file explorer | `ctx.fileExplorer.*` | `ui.file-explorer.*`, `workspace.read` | Return a recoverable parse error |
 | Read conversation state and events | `ctx.conversation.on` and conversation hooks | `agent.session.read` | Events are a read-only view of host state |
+| Read generation speed and usage | `useGenerationMetrics`, `ctx.conversation.onGenerationMetrics` | `agent.session.metrics` | The host computes the numbers with one shared definition and exposes no conversation content; values are estimates while generating |
 | Drive the current conversation | `ctx.conversation.sendPrompt`, `insertText`, `abort` | `agent.session.write` | Never start a turn the user did not ask for |
 | Register tools and hooks | `ctx.agent.registerTool`, `registerHook` | `agent.tools.register` / `agent.hooks.register` plus the matching execute | Use structured schemas and stable errors |
 | Shape system prompts and continuation | `registerSystemPromptProvider`, `registerContinuationProvider` | `agent.systemPrompt.write`, `agent.continuation.register` | A provider is evaluated once per Turn and does not re-run when plugin state changes mid-Turn |

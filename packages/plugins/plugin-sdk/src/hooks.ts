@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext } from "react";
 import type { ConversationMessage, ConversationState } from "./conversation.js";
+import { type GenerationMetricsSnapshot, UNSUPPORTED_GENERATION_METRICS } from "./generation-metrics.js";
 import { requireBridge } from "./host-bridge.js";
 import type { PluginLocales, PluginTranslate } from "./i18n.js";
 import { resolveCatalogKey } from "./i18n.js";
@@ -55,6 +56,25 @@ export function useActiveConversation(): ConversationState {
 /** Reactive: the active conversation's messages. */
 export function useConversationMessages(): ConversationMessage[] {
 	return requireBridge().useConversationMessages();
+}
+
+function useUnsupportedGenerationMetrics(): GenerationMetricsSnapshot {
+	return UNSUPPORTED_GENERATION_METRICS;
+}
+
+/**
+ * Reactive: 当前活动会话的生成指标（首字延迟、tok/s、token 用量），由宿主限频刷新。
+ * 口径见 {@link GenerationMetricsSnapshot}。
+ *
+ * 用到它的插件要声明 Plugin API `^2.12.0`：插件运行时 import 的是宿主提供的 SDK 模块，
+ * 旧宿主上没有这个导出，插件会整个加载失败。要兼容旧宿主请改用
+ * `ctx.conversation.getGenerationMetrics`，并先判断方法是否存在。
+ */
+export function useGenerationMetrics(): GenerationMetricsSnapshot {
+	// 宿主桥没有实现时退回空快照（例如插件在测试里自己装了一个最小桥）。
+	// 同一个宿主上这个分支恒定，不违反 hook 调用顺序。
+	const useHostMetrics = requireBridge().useGenerationMetrics ?? useUnsupportedGenerationMetrics;
+	return useHostMetrics();
 }
 
 /**

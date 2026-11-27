@@ -34,6 +34,12 @@ import { logPluginRuntimeError } from "./plugin-runtime-log";
 import { subscribePluginSecretsChanged } from "./plugin-secrets-subscription";
 import { createPluginStorageApi } from "./plugin-storage-api";
 
+/** 读生成指标只需要 `agent.session.metrics`；能读整个会话（`agent.session.read`）的插件自然也能读指标。 */
+function requireGenerationMetricsPermission(permissions: ReturnType<typeof createPermissionApi>): void {
+	if (permissions.has("agent.session.read")) return;
+	permissions.require("agent.session.metrics");
+}
+
 export function createConversationApi(plugin: InstalledPlugin, disposers: Array<() => void>): PluginConversationApi {
 	const permissions = createPermissionApi(plugin);
 	return {
@@ -53,6 +59,32 @@ export function createConversationApi(plugin: InstalledPlugin, disposers: Array<
 		abort: async () => {
 			permissions.require("agent.session.write");
 			await pluginHostBridge.conversation.abort();
+		},
+		getGenerationMetrics: () => {
+			requireGenerationMetricsPermission(permissions);
+			return pluginHostBridge.conversation.getGenerationMetrics();
+		},
+		onGenerationMetrics: (listener) => {
+			requireGenerationMetricsPermission(permissions);
+			return trackActivationDisposable(
+				pluginHostBridge.conversation.onGenerationMetrics((snapshot) => {
+					try {
+						listener(snapshot);
+					} catch (error) {
+						logPluginRuntimeError(
+							"generation metrics listener failed",
+							{
+								pluginId: plugin.id,
+								pluginVersion: plugin.activeVersion,
+								stage: "conversation-event",
+								eventType: "generation-metrics",
+							},
+							error,
+						);
+					}
+				}),
+				disposers,
+			);
 		},
 		on: (listener) => {
 			permissions.require("agent.session.read");

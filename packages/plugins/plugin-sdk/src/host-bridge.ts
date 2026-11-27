@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import type { ConversationMessage, ConversationState, PluginConversationApi } from "./conversation.js";
+import type { GenerationMetricsSnapshot } from "./generation-metrics.js";
 import type { PluginModelPickerProps } from "./model-picker.js";
 import type { PluginPromptAttachment } from "./prompt-attachment.js";
 import type { PluginSidebarState } from "./ui.js";
@@ -15,6 +16,8 @@ import type { PluginSidebarState } from "./ui.js";
 export interface PluginHostBridge {
 	useActiveConversation(): ConversationState;
 	useConversationMessages(): ConversationMessage[];
+	/** Plugin API 2.12 起提供。 */
+	useGenerationMetrics?(): GenerationMetricsSnapshot;
 	usePromptAttachment(): PluginPromptAttachment | null;
 	/** Reactive: the host's current locale code (e.g. "zh"). */
 	useLocale(): string;

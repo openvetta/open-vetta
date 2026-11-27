@@ -1,4 +1,5 @@
 import type { Disposable } from "./disposable.js";
+import type { GenerationMetricsSnapshot } from "./generation-metrics.js";
 
 export interface ConversationState {
 	/** Active session runtimeId, or null when no conversation is active. */
@@ -95,4 +96,14 @@ export interface PluginConversationApi {
 	 * waiting for the next session switch.
 	 */
 	on(listener: (event: ConversationEvent) => void): Disposable;
+	/**
+	 * 当前活动会话的生成指标快照（首字延迟、tok/s、token 用量），口径见 {@link GenerationMetricsSnapshot}。
+	 * 需要 `agent.session.metrics`（或 `agent.session.read`）。Plugin API `^2.12.0`；旧宿主上为 `undefined`。
+	 */
+	getGenerationMetrics(): GenerationMetricsSnapshot;
+	/**
+	 * 订阅生成指标。生成中宿主限频推送（约每 250ms 一次），阶段切换、调用结束、切换会话时立即推送；
+	 * 订阅后在微任务里回放一次当前快照。权限与版本要求同 {@link getGenerationMetrics}。
+	 */
+	onGenerationMetrics(listener: (snapshot: GenerationMetricsSnapshot) => void): Disposable;
 }
