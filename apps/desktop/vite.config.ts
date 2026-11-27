@@ -64,6 +64,7 @@ export default defineConfig(({ mode }) => {
 	const showUiTheme = process.env.VETTA_SHOW_UI_THEME ?? env.VETTA_SHOW_UI_THEME ?? "";
 
 	return {
+		esbuild: { target: "chrome132" },
 		define: {
 			"process.env.VETTA_SHOW_UI_THEME": JSON.stringify(showUiTheme),
 			// 云服务构建期开关：默认 false（lite）；只有 VETTA_CLOUD_ENABLED=true 才产出完全体。
