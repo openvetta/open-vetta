@@ -4,6 +4,8 @@ All notable changes to `@vetta-org/theme-ui` are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-11-27
+
 > 升到 0.2.0：下面「Removed」里的导出已删除，依赖改为 `@vetta-org/ui` `^0.1.2`、`@vetta-org/theme-sdk` `^0.2.0`。
 
 ### Removed
@@ -14,6 +16,10 @@ All notable changes to `@vetta-org/theme-ui` are documented in this file.
 ### Added
 
 - `./plugin-ui` 新增 `SegmentedControl`（及 `SegmentedControlItem` / `SegmentedControlProps` 类型）：宿主设置页、能力页同款的分段控件开放给插件，选项可带中性计数 `count`（灰字，0 不显示），与红色未读徽标 `badge` 分开。运行时随 Desktop 0.6.21 起提供。
+
+## [0.1.2] — 2026-11-20
+
+### Added
 
 - `./plugin-ui` 新增 `VettaKbd`（及 `VettaKbdProps` / `VettaKbdSize` / `VettaKbdKey` / `VettaKbdPlatform` 类型）：插件可以把快捷键绑定渲染成宿主同款浮雕键帽，平台符号由组件自己处理，插件不必自己维护 ⌘ / Ctrl 映射。按「只开放组件」的约定，键位解析函数（`resolveKbdKeys` / `describeKbdKeys`）仍在 `./shared`，不进插件合同。
 - `./plugin-ui` 新增 `MotionSelect`、`SettingSection`、`SettingRow`、`SettingHeading`（及相应类型）：设置页同款的下拉与设置项卡片开放给插件，与已有的模型选择器视图一样是纯展示组件。

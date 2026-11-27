@@ -4,6 +4,8 @@ All notable changes to `@vetta-org/theme-sdk` are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-11-27
+
 ### Added
 
 - `PageHeaderModel.leftActions`：与「展开侧边栏」按钮合成同一个按钮组的动作（如会话页的新会话），只在侧边栏触发器可见时渲染；不传时触发器仍是独立按钮。
