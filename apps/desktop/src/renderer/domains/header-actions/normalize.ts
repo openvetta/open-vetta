@@ -59,6 +59,8 @@ export interface NormalizedHeaderAction {
 	title: string;
 	icon: ReactNode;
 	label?: string;
+	/** 只有 `"readout"` 一种取值；其他值与不传同义（按钮名称的补充）。没有 `label` 时无意义，不保留。 */
+	labelRole?: "readout";
 	badge?: number | true;
 	tone?: HeaderActionTone;
 	active: boolean;
@@ -189,6 +191,7 @@ export function normalizeHeaderAction(raw: unknown): { value: NormalizedHeaderAc
 			title: clip(state.title, HEADER_ACTION_LIMITS.title),
 			icon: state.icon as ReactNode,
 			...(label ? { label } : {}),
+			...(label && state.labelRole === "readout" ? { labelRole: "readout" as const } : {}),
 			badge,
 			...(tone && tone !== "neutral" ? { tone } : {}),
 			active: state.active === true,
@@ -243,6 +246,7 @@ export function headerActionSignature(
 	return [
 		action.title,
 		action.label ?? "",
+		action.labelRole ?? "",
 		iconSignature(action.icon, () => `i${fallbackCounter++}`),
 		action.badge ?? "",
 		action.tone ?? "",

@@ -64,6 +64,11 @@ export interface HeaderActionBarItem {
 	readonly icon: ReactNode;
 	/** 图标右侧的文字：只在顶栏上、且顶栏不拥挤时显示（见 `LABELED_TOP_ACTIONS_MAX`）。 */
 	readonly label?: string;
+	/**
+	 * `"readout"`：文字本身就是要展示的状态值（tok/s、费用），顶栏超过 4 格也照样显示，
+	 * 被露出到活动面板开关旁时同样显示。默认（不传）是按钮名称的补充，格子一多就收起。
+	 */
+	readonly labelRole?: "readout";
 	readonly badge?: number | true;
 	/** 角标与图标的语义色；`neutral` 与不传同义。 */
 	readonly tone?: HeaderActionTone;
@@ -229,7 +234,12 @@ function BarItem({
 	const common = {
 		title: tooltip,
 		"aria-label": item.title,
-		label: showLabel ? item.label : undefined,
+		// 读数用等宽数字：数字一变，按钮宽度不跟着抖。
+		label: showLabel
+			? item.labelRole === "readout" && item.label
+				? <span className="tabular-nums">{item.label}</span>
+				: item.label
+			: undefined,
 		icon: (
 			<IconBox jiggle={jiggle} tone={item.tone}>
 				{item.icon}
@@ -534,7 +544,9 @@ export function HeaderActionBarView({
 
 	const topFull = top.length >= maxTop;
 	// 文字比图标宽一倍：顶栏格子多了或页头已挤窄时只留图标，免得整排被推进「更多」。
-	const showLabel = !crowded && top.length <= LABELED_TOP_ACTIONS_MAX;
+	// 读数例外：它的文字就是内容，退回图标就没有意义了；放不下时由挤窄收进「更多」兜底。
+	const roomy = !crowded && top.length <= LABELED_TOP_ACTIONS_MAX;
+	const showLabelFor = (item: HeaderActionBarItem): boolean => !crowded && (roomy || item.labelRole === "readout");
 	// 收纳里的角标不能被藏起来：汇总到小白条上（红色）。
 	const trayAlert = tray.some((item) => item.badge !== undefined && item.badge !== 0);
 	const draggingFromTop = dragKey !== null && top.some((item) => item.key === dragKey);
@@ -647,7 +659,7 @@ export function HeaderActionBarView({
 					<BarItem
 						key={item.key}
 						item={item}
-						showLabel={showLabel}
+						showLabel={showLabelFor(item)}
 						jiggle={editing ? index : undefined}
 						stowLabel={labels.moveToTray}
 						onStow={() => onMove(item.key, "tray", Number.MAX_SAFE_INTEGER)}
@@ -796,7 +808,7 @@ export function HeaderActionBarView({
 		{pinned || beside.length > 0 ? (
 			<ButtonGroup blur={false} variant={chromeButtonGroupVariant}>
 				{beside.map((item) => (
-					<BarItem key={item.key} item={item} />
+					<BarItem key={item.key} item={item} showLabel={!crowded && item.labelRole === "readout"} />
 				))}
 				{pinned}
 			</ButtonGroup>

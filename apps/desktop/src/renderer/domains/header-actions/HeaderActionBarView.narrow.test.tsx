@@ -96,5 +96,17 @@ describe("会话顶栏在极窄时收成下拉菜单", () => {
 		expect(screen.getByRole("button", { name: "窗口置顶" })).toBeTruthy();
 		expect(screen.queryByRole("button", { name: "导出" })).toBeNull();
 	});
+
+	it("收起时读数也一起收进更多菜单，菜单里显示的是悬浮提示", async () => {
+		const user = userEvent.setup();
+		renderBar(true, [
+			action("builtin:export", "导出", () => undefined),
+			action("p:speed", "生成速度 ≈123 tok/s", () => undefined, { label: "≈123 tok/s", labelRole: "readout" }),
+		]);
+
+		expect(screen.queryByText("≈123 tok/s")).toBeNull();
+		await user.click(screen.getByRole("button", { name: "更多操作" }));
+		expect(screen.getByRole("menuitem", { name: "生成速度 ≈123 tok/s" })).toBeTruthy();
+	});
 });
 

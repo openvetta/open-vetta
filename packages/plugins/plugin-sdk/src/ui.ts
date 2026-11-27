@@ -771,9 +771,17 @@ export interface PluginHeaderActionState {
 	icon: ReactNode;
 	/**
 	 * 图标右侧的文字，用于「状态本身就是文字」的动作（分支名、当前模型、同步落后数）。
-	 * 最长 24 字；顶栏有位置时显示，被收纳、页头挤窄、顶栏超过 4 格时自动退回纯图标。
+	 * 最长 24 字；顶栏有位置时显示，被收纳、页头挤窄、顶栏超过 4 格时自动退回纯图标
+	 * （`labelRole: "readout"` 不受 4 格限制，见下）。
 	 */
 	label?: string;
+	/**
+	 * 文字的角色。默认 `"caption"`：文字是按钮名称的补充，顶栏超过 4 格时收起。
+	 * `"readout"`：文字就是要展示的、随时间变化的状态值（如 `≈123 tok/s`），顶栏超过 4 格时仍显示，
+	 * 被 `promoteWhenActive` 露出时也显示；被收纳或页头挤窄时照样只剩图标，所以读数仍要写进 `title`。
+	 * 只给读数用，命令名称不要标成 readout。Plugin API `^2.13.0`；旧宿主忽略此字段，表现与 `"caption"` 相同。
+	 */
+	labelRole?: "caption" | "readout";
 	/** 角标：数字显示计数，`true` 显示红点。被收纳时宿主会把它汇总到收纳入口上。 */
 	badge?: number | boolean;
 	/** 角标与图标的语义色，默认 `neutral`（灰色数字 / 本色图标）。 */

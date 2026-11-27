@@ -67,6 +67,12 @@ describe("headerActionSignature", () => {
 		return headerActionSignature(value, ids);
 	};
 
+	it("republishes when an action switches between a plain label and a readout", () => {
+		expect(sig({ ...base(), label: "≈12 tok/s" })).not.toBe(
+			sig({ ...base(), label: "≈12 tok/s", labelRole: "readout" }),
+		);
+	});
+
 	it("is stable across re-renders that only produce new callbacks and element objects", () => {
 		expect(sig(base())).toBe(sig(base()));
 	});
@@ -98,6 +104,16 @@ describe("2.11.0 declarations", () => {
 		const { value } = normalizeHeaderAction({ ...base, label: "x".repeat(60) });
 		expect(value?.label).toHaveLength(HEADER_ACTION_LIMITS.label);
 		expect(normalizeHeaderAction({ ...base, label: "   " }).value?.label).toBeUndefined();
+	});
+
+	it("keeps labelRole only as a readout that has a label to show", () => {
+		expect(normalizeHeaderAction({ ...base, label: "≈12 tok/s", labelRole: "readout" }).value?.labelRole).toBe(
+			"readout",
+		);
+		// caption 就是默认语义，非法值同样按默认处理；没有文字时这个角色无从谈起。
+		expect(normalizeHeaderAction({ ...base, label: "main", labelRole: "caption" }).value?.labelRole).toBeUndefined();
+		expect(normalizeHeaderAction({ ...base, label: "main", labelRole: "loud" }).value?.labelRole).toBeUndefined();
+		expect(normalizeHeaderAction({ ...base, labelRole: "readout" }).value?.labelRole).toBeUndefined();
 	});
 
 	it("accepts only known tones", () => {

@@ -292,6 +292,60 @@ describe("ConversationHeaderActions", () => {
 		expect(app.querySelector("[data-header-action-bar]")?.textContent).not.toContain("L0");
 	});
 
+	it("keeps a readout's text in a full bar while the other labels fold back to icons", async () => {
+		const captions = Array.from({ length: 5 }, (_, index) =>
+			action(`a${index}`, () => ({ title: `a${index}`, label: `L${index}`, icon: <i />, onClick: () => {} })),
+		);
+		const speed = action("speed", () => ({
+			title: "speed",
+			label: "≈123 tok/s",
+			labelRole: "readout",
+			icon: <i />,
+			onClick: () => {},
+		}));
+		const { app } = await render([...captions, speed]);
+		const bar = app.querySelector("[data-header-action-bar]") as HTMLElement;
+		expect(bar.textContent).toContain("≈123 tok/s");
+		expect(bar.textContent).not.toContain("L0");
+		// 读数用等宽数字，数字变化时按钮宽度不跟着抖。
+		expect(bar.querySelector("button[title=speed] .tabular-nums")?.textContent).toBe("≈123 tok/s");
+	});
+
+	it("treats an unknown labelRole like a plain label, so it folds away in a full bar", async () => {
+		const many = Array.from({ length: 5 }, (_, index) =>
+			action(`a${index}`, () => ({
+				title: `a${index}`,
+				label: `L${index}`,
+				labelRole: index === 0 ? "loud" : undefined,
+				icon: <i />,
+				onClick: () => {},
+			})),
+		);
+		const { app } = await render(many);
+		expect(app.querySelector("[data-header-action-bar]")?.textContent).not.toContain("L0");
+	});
+
+	it("shows a readout's text when it is promoted next to the panel toggle, but not a plain label", async () => {
+		const promoted = (id: string, labelRole?: string) =>
+			action(id, () => ({
+				title: id,
+				label: `${id}-text`,
+				labelRole,
+				icon: <i />,
+				active: true,
+				promoteWhenActive: true,
+				onClick: () => {},
+			}));
+		const { app } = await render(
+			[promoted("speed", "readout"), promoted("rec")],
+			[builtin("export")],
+			{ top: ["builtin:export"], tray: ["p:speed", "p:rec"] },
+		);
+		const group = app.querySelector("[data-testid=pinned]")?.closest("[data-slot=button-group]") as HTMLElement;
+		expect(group.querySelector("button[title=speed]")?.textContent).toContain("speed-text");
+		expect(group.querySelector("button[title=rec]")?.textContent).not.toContain("rec-text");
+	});
+
 	it("only shows actions that declared the current surface", async () => {
 		const onlyNewSession = {
 			...action("init", () => ({ title: "init", icon: <i />, onClick: () => {} })),

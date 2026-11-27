@@ -13,8 +13,9 @@
  *   以及新会话页表面（`surfaces`）与「优先上栏」建议（`pin`）。
  * - 2.12.0：生成指标（`useGenerationMetrics`、`conversation.getGenerationMetrics` / `onGenerationMetrics`）
  *   与只读权限 `agent.session.metrics`。
+ * - 2.13.0：顶栏动作的 `labelRole: "readout"`：读数文字在顶栏超过 4 格时仍显示。
  *
  * 清单校验对未知字段 fail-closed。作者把 `pluginApiVersion` 写成用到的那一档，
  * 旧宿主才能给出明确的版本错误。
  */
-export const PLUGIN_API_VERSION = "2.12.0";
+export const PLUGIN_API_VERSION = "2.13.0";

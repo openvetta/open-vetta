@@ -36,6 +36,7 @@ function toBarItem(
 		title: value.title,
 		icon: value.icon,
 		...(value.label ? { label: value.label } : {}),
+		...(value.labelRole ? { labelRole: value.labelRole } : {}),
 		badge: value.badge,
 		...(value.tone ? { tone: value.tone } : {}),
 		active: value.active,

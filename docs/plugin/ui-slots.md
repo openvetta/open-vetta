@@ -739,7 +739,7 @@ interface PluginNewSessionContext {
 
 - 权限：`ui.slot.header-action`（缺权限 = warn + noop）
 - 需要 Plugin API `^2.9.0`；`label` / `tone` / `disabledReason` / `promoteWhenActive`、菜单项类型、
-  气泡尺寸与 `dialog` 容器、`surfaces`、`pin` 需要 `^2.11.0`
+  气泡尺寸与 `dialog` 容器、`surfaces`、`pin` 需要 `^2.11.0`；`labelRole` 需要 `^2.13.0`
 - 出现在会话页与新会话页（由 `surfaces` 决定）
 
 ### 它是声明式的：你只决定「是什么」，不决定「长什么样」
@@ -751,6 +751,7 @@ interface PluginNewSessionContext {
 | `title`（必填） | 悬浮提示与无障碍名称。**默认按钮上没有文字**，用户靠图标 + 这条提示认出它；最长 40 字，超出截断 |
 | `icon`（必填） | 图标节点。宿主放进 16px 固定方框、忽略指针事件，建议用 iconify：`<span className="icon-[solar--folder-linear]" />` |
 | `label` | 图标右侧的文字（最长 24 字）。给「状态本身就是文字」的动作用，比如分支名、落后几个提交。只在顶栏上、且顶栏不超过 4 格、页头不拥挤时显示；被收纳或挤窄时自动退回纯图标 |
+| `labelRole` | `"caption"`（默认）/ `"readout"`。标成 `readout` 表示文字就是随时间变化的状态值（tok/s、费用、上下文占用），顶栏超过 4 格时仍显示，被 `promoteWhenActive` 露出时也显示；收纳与挤窄时照样只剩图标。**只给读数用**，把命令名称标成读数会挤占顶栏，用户会把你收起来 |
 | `badge` | 数字（≥ 1，超过 99 显示 `99+`）或 `true`（红点）；其它值被忽略 |
 | `tone` | `neutral`（默认）/ `info` / `success` / `warning` / `danger`，作用于角标与图标颜色。**别把所有数字都染成红色**：红色留给真正需要人处理的状态（冲突、失败） |
 | `active` / `disabled` | 选中态 / 禁用态 |
@@ -863,7 +864,7 @@ function useStatus({ cwd }) {
 
 所以：不要依赖自己在顶栏上的位置，不要依赖相邻的是谁，也不要在文案里写「左边的按钮」。
 
-**状态读数（tok/s、费用、上下文占用这类）**：`label` 只在顶栏不超过 4 格、页头不拥挤时显示，被收纳或挤窄时只剩图标。所以读数要同时写进 `title`（悬浮提示里也看得到），需要细节的放进 `popover`；想默认就被看见再加 `pin: "prefer"`。生成速度的数据源见 [生成指标](./conversation-and-agent.md#生成指标)。
+**状态读数（tok/s、费用、上下文占用这类）**：给 `label` 配上 `labelRole: "readout"`，顶栏超过 4 格时读数也不会收起（宿主用等宽数字渲染，数字变化时按钮不抖）。读数没有个数限制，顶栏真放不下时整排收进「更多」，由用户自己决定收起哪些。被收纳或挤窄时仍只剩图标，所以读数要同时写进 `title`（悬浮提示和「更多」菜单里看得到），需要细节的放进 `popover`；想默认就被看见再加 `pin: "prefer"`。旧宿主（低于 2.13.0）忽略 `labelRole`，读数按普通文字处理。生成速度的数据源见 [生成指标](./conversation-and-agent.md#生成指标)。
 
 官方示例：`packages/plugins/presets/open-in-app`（最小动作）与 `packages/plugins/presets/git`（状态 + 快捷操作气泡）。
 
