@@ -3,6 +3,11 @@ import { z } from "zod";
 import { type BrowserCaptureApi, captureElementSchema, captureRectSchema } from "../../shared/browser-capture.js";
 
 const pointSchema = z.object({ x: z.number().finite().nonnegative(), y: z.number().finite().nonnegative() });
+const scrollSchema = z.object({
+	x: z.number().finite().min(-12000).max(12000),
+	y: z.number().finite().min(-12000).max(12000),
+	point: pointSchema,
+});
 const inspectionSchema = z.object({
 	url: z.string().max(8192),
 	title: z.string().max(500),
@@ -72,14 +77,14 @@ export class BrowserCaptureService implements BrowserCaptureApi {
 		private readonly owner: WebContents,
 		private readonly resolve = webContents.fromId,
 	) {}
-	private guest(id: number): WebContents {
-		if (!Number.isSafeInteger(id)) throw new Error("Invalid browser guest");
+	private guest(id: unknown): WebContents {
+		if (typeof id !== "number" || !Number.isSafeInteger(id)) throw new Error("Invalid browser guest");
 		const guest = this.resolve(id);
 		if (!guest || guest.isDestroyed() || guest.hostWebContents !== this.owner || guest.getType() !== "webview")
 			throw new Error("Untrusted browser guest");
 		return guest;
 	}
-	async inspect(id: number, point: { x: number; y: number }) {
+	async inspect(id: unknown, point: unknown) {
 		const { x, y } = pointSchema.parse(point);
 		const guest = this.guest(id);
 		const result: unknown = await guest.executeJavaScriptInIsolatedWorld(999, [
@@ -87,7 +92,7 @@ export class BrowserCaptureService implements BrowserCaptureApi {
 		]);
 		return inspectionSchema.parse(result);
 	}
-	async capture(id: number, expectedUrl: string) {
+	async capture(id: unknown, expectedUrl: unknown) {
 		const guest = this.guest(id);
 		if (typeof expectedUrl !== "string" || guest.getURL() !== expectedUrl) throw new Error("Browser page changed");
 		const image = await guest.capturePage();
@@ -97,13 +102,8 @@ export class BrowserCaptureService implements BrowserCaptureApi {
 			throw new Error("Browser screenshot is too large or empty");
 		return { data: image.toPNG().toString("base64"), ...size };
 	}
-	async scroll(id: number, delta: { x: number; y: number; point: { x: number; y: number } }) {
-		const schema = z.object({
-			x: z.number().finite().min(-12000).max(12000),
-			y: z.number().finite().min(-12000).max(12000),
-			point: pointSchema,
-		});
-		const { x, y, point } = schema.parse(delta);
+	async scroll(id: unknown, delta: unknown) {
+		const { x, y, point } = scrollSchema.parse(delta);
 		const guest = this.guest(id);
 		const zoom = guest.getZoomFactor();
 		guest.sendInputEvent({

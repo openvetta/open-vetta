@@ -9,6 +9,7 @@ import {
 	clearCurrentSessionInputDraft,
 	inputSegmentsAtom,
 	inputValueAtom,
+	loadSessionInputDraft,
 	mentionedFilesAtom,
 	persistCurrentSessionInputDraft,
 	persistSessionInputDraft,
@@ -16,11 +17,32 @@ import {
 	selectedModelAtom,
 } from "@shared/store/atoms";
 import type { PromptAttachmentRef } from "@vetta/runtime-core";
-import { getDefaultStore } from "jotai";
+import { atom, getDefaultStore } from "jotai";
 import { isUserImageFile, nextId } from "./chat-service";
 import { dispatchConversationFeed, resetConversationFeed } from "./conversation-feed-store";
 
 const pendingSessionSends = new Map<string, StagedSendInput>();
+
+/** Failed snapshots stay available even when a newer composer draft owns the scope. */
+export const stagedSendRecoveriesAtom = atom<ReadonlyMap<string, StagedSendInput>>(new Map());
+
+function retainForRecovery(staged: StagedSendInput): void {
+	const store = getDefaultStore();
+	const recoveries = new Map(store.get(stagedSendRecoveriesAtom));
+	recoveries.set(staged.optimisticMessage.id, staged);
+	store.set(stagedSendRecoveriesAtom, recoveries);
+}
+
+function composerIsUntouched(): boolean {
+	const store = getDefaultStore();
+	return (
+		store.get(inputValueAtom).trim().length === 0 &&
+		store.get(attachedImagesAtom).length === 0 &&
+		store.get(mentionedFilesAtom).length === 0 &&
+		store.get(appshotAttachmentAtom) === null &&
+		store.get(browserCapturesAtom).length === 0
+	);
+}
 
 function modelKeyToParts(key: string | null | undefined): { provider: string; id: string } | undefined {
 	if (!key) return undefined;
@@ -157,7 +179,14 @@ export function cancelStagedPendingSessionSend(messageId: string): StagedSendInp
 export function restoreStagedNewSessionSend(staged: StagedSendInput): void {
 	const store = getDefaultStore();
 	resetConversationFeed(store);
-	if (staged.hasOverride) return;
+	if (staged.hasOverride) {
+		return;
+	}
+	if (!composerIsUntouched()) {
+		retainForRecovery(staged);
+		persistCurrentSessionInputDraft();
+		return;
+	}
 	store.set(inputSegmentsAtom, staged.inputSegments.slice());
 	store.set(inputValueAtom, staged.rawText);
 	store.set(attachedImagesAtom, staged.attachedImages.slice());
@@ -182,6 +211,11 @@ export function restoreStagedPendingSessionSend(
 	if (staged.hasOverride || !staged.draftKey) return;
 	const activeDraftKey = store.get(activeInputDraftKeyAtom);
 	if (activeDraftKey !== staged.draftKey) {
+		const targetDraft = loadSessionInputDraft(staged.draftKey);
+		if (targetDraft.text || targetDraft.captures?.length || targetDraft.appshot) {
+			retainForRecovery(staged);
+			return;
+		}
 		persistSessionInputDraft(staged.draftKey, {
 			text: staged.rawText,
 			segments: staged.inputSegments.slice(),
@@ -190,13 +224,10 @@ export function restoreStagedPendingSessionSend(
 		});
 		return;
 	}
-	const composerUntouched =
-		store.get(inputValueAtom).trim().length === 0 &&
-		store.get(attachedImagesAtom).length === 0 &&
-		store.get(mentionedFilesAtom).length === 0 &&
-		store.get(appshotAttachmentAtom) === null &&
-		store.get(browserCapturesAtom).length === 0;
-	if (!composerUntouched && options?.overwriteComposer !== true) return;
+	if (!composerIsUntouched() && options?.overwriteComposer !== true) {
+		retainForRecovery(staged);
+		return;
+	}
 	store.set(inputSegmentsAtom, staged.inputSegments.slice());
 	store.set(inputValueAtom, staged.rawText);
 	store.set(attachedImagesAtom, staged.attachedImages.slice());

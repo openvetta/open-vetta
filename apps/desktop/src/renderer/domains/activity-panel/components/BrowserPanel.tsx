@@ -115,7 +115,7 @@ export function BrowserPanel(): JSX.Element {
 					if (!open) capture.cancel();
 				}}
 			>
-				<DialogContent className="sm:max-w-3xl">
+				<DialogContent className="sm:max-w-3xl" showCloseButton={false}>
 					<DialogHeader>
 						<DialogTitle>{t("browserCapture.preview")}</DialogTitle>
 						<DialogDescription>{t("browserCapture.note")}</DialogDescription>

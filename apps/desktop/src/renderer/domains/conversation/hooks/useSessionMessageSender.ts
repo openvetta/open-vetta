@@ -33,6 +33,7 @@ import {
 	pendingSessionCreationAtom,
 	pendingSessionOpenAtom,
 	pendingSessionSendAtom,
+	persistCurrentSessionInputDraft,
 	pluginInputActionsAtom,
 	projectsAtom,
 	promptAttachmentAtom,
@@ -115,7 +116,7 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 	const defaultConversationCwdRef = useRef(defaultConversationCwd);
 	defaultConversationCwdRef.current = defaultConversationCwd;
 
-	const preparingCaptureSends = useRef(new Set<string>());
+	const preparingCaptureSends = useRef(new Map<string, symbol>());
 	const sendMessage = useCallback(
 		async (overrideText?: string, options?: SendMessageOptions): Promise<SendMessageResult | undefined> => {
 			const interactionId = options?.interactionId;
@@ -180,7 +181,17 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 			}
 			const captureSendKey = !hasOverride && browserCaptures.length ? session.runtimeId : null;
 			if (captureSendKey && preparingCaptureSends.current.has(captureSendKey)) return;
-			if (captureSendKey) preparingCaptureSends.current.add(captureSendKey);
+			const captureSendToken = captureSendKey ? Symbol("capture-send") : null;
+			if (captureSendKey && captureSendToken) preparingCaptureSends.current.set(captureSendKey, captureSendToken);
+			const releaseCapturePreparation = (): void => {
+				if (
+					captureSendKey &&
+					captureSendToken &&
+					preparingCaptureSends.current.get(captureSendKey) === captureSendToken
+				) {
+					preparingCaptureSends.current.delete(captureSendKey);
+				}
+			};
 			try {
 				let captureImages: Awaited<ReturnType<typeof loadBrowserCaptureImages>> = [];
 				if (!hasOverride && browserCaptures.length && store.get(modelSupportsImagesAtom)) {
@@ -454,9 +465,33 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 				}
 
 				if (pausedBatch) {
+					if (browserCaptures.length > 0) {
+						const message = i18n.t("chat:browserCapture.failed");
+						showToast({ variant: "error", message });
+						if (stagedInput) {
+							restoreStagedPendingSessionSend(stagedInput);
+						} else {
+							if (store.get(inputValueAtom).length === 0 && store.get(browserCapturesAtom).length === 0) {
+								store.set(inputSegmentsAtom, inputSegments.slice());
+								store.set(inputValueAtom, inputValue);
+								setAttachedImages(attachedImages);
+								setMentionedFiles(mentionedFiles);
+								store.set(appshotAttachmentAtom, appshot);
+								store.set(browserCapturesAtom, browserCaptures);
+								persistCurrentSessionInputDraft();
+							}
+							if (optimisticUserMsgId) {
+								dispatchConversationFeed({
+									type: "user.failed",
+									runtimeId: session.runtimeId,
+									id: optimisticUserMsgId,
+								});
+							}
+						}
+						return { status: "failed", error: { message } };
+					}
 					try {
-						// The batch resume contract still accepts text only. Preserve attachment
-						// behavior there through the legacy prefix format until that API is migrated.
+						// The batch resume contract accepts text only, so captures cannot be resumed safely.
 						const legacyText = attachments.length
 							? `${attachments.map((attachment) => `@${attachment.path}`).join("\n")}\n${text}`
 							: text;
@@ -653,6 +688,7 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 					// 不再让插件集合变化把每次发送挡住最长 5 秒。
 					await waitForPluginHostFirstReady();
 					perfSendMark("prompt-ipc-start", interactionId);
+					releaseCapturePreparation();
 					const promptPromise = window.vetta.session.prompt(
 						session.runtimeId,
 						promptReq,
@@ -755,7 +791,7 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 				});
 				return sendResult;
 			} finally {
-				if (captureSendKey) preparingCaptureSends.current.delete(captureSendKey);
+				releaseCapturePreparation();
 			}
 		},
 		[

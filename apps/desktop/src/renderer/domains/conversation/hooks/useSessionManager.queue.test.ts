@@ -13,11 +13,6 @@ const mocks = vi.hoisted(() => ({
 	loadSessions: vi.fn(async () => undefined),
 	navigate: vi.fn(async () => undefined),
 	prompt: vi.fn(async (): Promise<unknown> => ({ status: "completed" })),
-	loadBrowserCaptureImages: vi.fn(async () => []),
-}));
-
-vi.mock("@shared/lib/browser-capture-input", () => ({
-	loadBrowserCaptureImages: mocks.loadBrowserCaptureImages,
 }));
 
 vi.mock("@tanstack/react-router", () => ({
@@ -121,7 +116,6 @@ beforeEach(() => {
 	installStorage();
 	vi.resetModules();
 	vi.clearAllMocks();
-	mocks.loadBrowserCaptureImages.mockResolvedValue([]);
 	mocks.prompt.mockImplementation(async () => ({ status: "completed" }));
 	(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 	container = document.createElement("div");
@@ -321,7 +315,10 @@ it("新会话截图读取失败时把正文和截图恢复到已切换的会话�
 		interactionId: "capture-read-failure",
 	});
 	store.set(activeSessionStreamingAtom, true);
-	mocks.loadBrowserCaptureImages.mockRejectedValueOnce(new Error("Browser screenshot is unavailable"));
+	vi.stubGlobal(
+		"fetch",
+		vi.fn(async () => new Response(null, { status: 404 })),
+	);
 
 	await act(async () => {
 		await manager?.sendMessage(undefined, {
@@ -335,6 +332,173 @@ it("新会话截图读取失败时把正文和截图恢复到已切换的会话�
 	expect(store.get(browserCapturesAtom)).toEqual([capture]);
 	expect(store.get(pendingSessionSendAtom)).toBeNull();
 	expect(store.get(activeSessionStreamingAtom)).toBe(false);
+});
+
+it("截图读取等待期间用户继续输入时保留新草稿并单独留存失败发送", async () => {
+	const store = await mount("检查这个页面", false);
+	const {
+		activeInputDraftKeyAtom,
+		browserCapturesAtom,
+		claimNewSessionInputDraft,
+		inputSegmentsAtom,
+		inputValueAtom,
+		modelSupportsImagesAtom,
+		newSessionInputDraftKey,
+	} = await import("@shared/store/atoms");
+	const { stageNewSessionSend, stagedSendRecoveriesAtom } = await import("../services/staged-new-session-send");
+	const capture = {
+		version: 1 as const,
+		id: "capture-racing",
+		imagePath: "/cache/capture-racing.png",
+		url: "https://example.test/",
+		title: "Example",
+		mode: "region" as const,
+		width: 600,
+		height: 400,
+		viewport: { width: 600, height: 400 },
+		rect: { x: 10, y: 20, width: 100, height: 80 },
+		note: "original note",
+	};
+	const response = deferred<Response>();
+	const fetchStarted = deferred<void>();
+	vi.stubGlobal("fetch", () => {
+		fetchStarted.resolve(undefined);
+		return response.promise;
+	});
+	const draftKey = newSessionInputDraftKey(cwd);
+	store.set(activeInputDraftKeyAtom, draftKey);
+	store.set(browserCapturesAtom, [capture]);
+	store.set(modelSupportsImagesAtom, true);
+	const stagedInput = stageNewSessionSend(undefined, "capture-edit-during-load");
+	if (!stagedInput) throw new Error("New-session send should have been staged");
+	claimNewSessionInputDraft(sessionPath, draftKey);
+	const send = manager?.sendMessage(undefined, { stagedInput, stagedInputOrigin: "new-session" });
+	await fetchStarted.promise;
+	store.set(inputValueAtom, "newer text");
+	store.set(inputSegmentsAtom, [{ kind: "text", text: "newer text" }]);
+	response.resolve(new Response(null, { status: 404 }));
+
+	await act(async () => {
+		await send;
+	});
+
+	expect(store.get(inputValueAtom)).toBe("newer text");
+	expect(store.get(browserCapturesAtom)).toEqual([]);
+	expect(store.get(stagedSendRecoveriesAtom).get(stagedInput.optimisticMessage.id)).toBe(stagedInput);
+});
+
+it("暂停批任务不续跑无法承载的截图，并保留带备注的编辑器草稿", async () => {
+	const store = await mount("检查这个页面", false);
+	const { batchProjectsAtom, browserCapturesAtom, chatMessagesAtom, inputValueAtom, modelSupportsImagesAtom } =
+		await import("@shared/store/atoms");
+	const capture = {
+		version: 1 as const,
+		id: "capture-paused",
+		imagePath: "/cache/capture-paused.png",
+		url: "https://example.test/",
+		title: "Example",
+		mode: "region" as const,
+		width: 600,
+		height: 400,
+		viewport: { width: 600, height: 400 },
+		rect: { x: 10, y: 20, width: 100, height: 80 },
+		note: "关注右上角的错误提示",
+	};
+	await act(async () => {
+		store.set(batchProjectsAtom, [
+			{
+				id: "project-1",
+				name: "Batch",
+				prompt: "",
+				concurrency: 1,
+				tasks: [
+					{
+						id: "task-1",
+						name: "Task",
+						cwd,
+						sourcePath: "",
+						status: "paused",
+						sessionId: runtimeId,
+						createdAt: 0,
+						updatedAt: 0,
+					},
+				],
+				createdAt: 0,
+				updatedAt: 0,
+			},
+		]);
+	});
+	store.set(browserCapturesAtom, [capture]);
+	store.set(modelSupportsImagesAtom, false);
+
+	let result: Awaited<ReturnType<SessionManagerProbe["sendMessage"]>>;
+	await act(async () => {
+		result = await manager?.sendMessage();
+	});
+
+	expect(result?.status).toBe("failed");
+	expect(store.get(inputValueAtom)).toBe("检查这个页面");
+	expect(store.get(browserCapturesAtom)).toEqual([capture]);
+	expect(store.get(chatMessagesAtom).at(-1)).toMatchObject({
+		kind: "user",
+		deliveryPhase: "failed",
+		browserCaptures: [capture],
+	});
+});
+
+it("截图准备锁在 prompt 开始后释放，允许同一会话提交下一条截图", async () => {
+	const store = await mount("第一条", false);
+	const { browserCapturesAtom, inputValueAtom, inputSegmentsAtom, modelSupportsImagesAtom } = await import(
+		"@shared/store/atoms"
+	);
+	const capture = {
+		version: 1 as const,
+		id: "capture-lock",
+		imagePath: "/cache/capture-lock.png",
+		url: "https://example.test/",
+		title: "Example",
+		mode: "region" as const,
+		width: 600,
+		height: 400,
+		viewport: { width: 600, height: 400 },
+		rect: { x: 10, y: 20, width: 100, height: 80 },
+		note: "note",
+	};
+	const firstPrompt = deferred<unknown>();
+	const firstPromptStarted = deferred<void>();
+	let promptCount = 0;
+	mocks.prompt.mockImplementation(async () => {
+		promptCount += 1;
+		if (promptCount === 1) {
+			firstPromptStarted.resolve(undefined);
+			return firstPrompt.promise;
+		}
+		return { status: "completed" };
+	});
+	store.set(browserCapturesAtom, [capture]);
+	store.set(modelSupportsImagesAtom, true);
+	vi.stubGlobal(
+		"fetch",
+		vi.fn(async () => ({ ok: true, blob: async () => new Blob([new Uint8Array([1])]) })),
+	);
+
+	let firstSend: Promise<unknown>;
+	firstSend = manager?.sendMessage() ?? Promise.resolve();
+	await firstPromptStarted.promise;
+	store.set(inputValueAtom, "第二条");
+	store.set(inputSegmentsAtom, [{ kind: "text", text: "第二条" }]);
+	store.set(browserCapturesAtom, [{ ...capture, id: "capture-second", note: "second" }]);
+
+	let secondResult: Awaited<ReturnType<SessionManagerProbe["sendMessage"]>>;
+	await act(async () => {
+		secondResult = await manager?.sendMessage();
+	});
+
+	expect(secondResult).toEqual({ status: "sent" });
+	firstPrompt.resolve({ status: "completed" });
+	await act(async () => {
+		await firstSend;
+	});
 });
 
 it(
