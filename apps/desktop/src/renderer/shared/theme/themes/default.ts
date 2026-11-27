@@ -3,7 +3,9 @@ import type { ThemeDef } from "../tokens";
 // 与 styles.css 中原 [data-theme="dark"] / [data-theme="light"] 字节级一致。
 // 这是存量用户升级后的默认外观。
 
-const FONT_SANS = '-apple-system, "SF Pro Text", "SF Pro Display", "Helvetica Neue", sans-serif';
+// 与 styles.css 的 --font-sans 一致；Windows 字体放在 macOS 字体之后，Mac 上不受影响。
+const FONT_SANS =
+	'-apple-system, "SF Pro Text", "SF Pro Display", "Helvetica Neue", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif';
 const FONT_SERIF = "Georgia, serif";
 const FONT_MONO = '"SF Mono", "Fira Code", monospace';
 
