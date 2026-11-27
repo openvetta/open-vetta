@@ -25,7 +25,6 @@ import {
 	RUNTIME_HOST_LIFECYCLE_OBSERVATION,
 	RUNTIME_TURN_RETRY_LIFECYCLE_OBSERVATION,
 	type RuntimeAgentRuntime,
-	RuntimeHost,
 	type RuntimeHostSessionBackendRouteDecision,
 	RuntimeObservationHub,
 	type RuntimeObservationPublisher,
@@ -51,6 +50,7 @@ import {
 	NodeTextFileStorage,
 } from "@vetta/runtime-node/host";
 import { loadVettaCredentials } from "@vetta/runtime-node/mcp";
+import { setSandboxSessionReadRootResolver } from "@vetta/runtime-node/sandbox";
 import { getModePrompt } from "../agent-modes/index.js";
 import { createDesktopAgentObservability } from "../agent-observability/composition.js";
 import {
@@ -71,8 +71,10 @@ import { getDesktopCodingAgentPluginRuntimeSource } from "../plugins/plugin-runt
 import { getDesktopRuntimeConfigurationService } from "../runtime-configuration/runtime-configuration-composition.js";
 import { getAvailableLinuxBubblewrapPath, getAvailableMacosSandboxExecPath } from "../sandbox/capability.js";
 import { resolveWindowsSandboxHostBinary } from "../sandbox/windows-binary-resolver.js";
+import { getSiblingProjectsService } from "../spaces/sibling-projects-instance.js";
 import { getSshConnection } from "../ssh/ssh-runtime.js";
 import { createCodingAgentObservationLogPort } from "./coding-agent-observation-log-port.js";
+import { DesktopRuntimeHost } from "./desktop-runtime-host.js";
 import { createDesktopCodingAgentFunctionSource } from "./function-extension-source.js";
 import { getOrCreateSharedModelRuntime, readDesktopMcpDebug } from "./host-services.js";
 import { DesktopMcpResourceManager } from "./mcp-resource-manager.js";
@@ -250,8 +252,10 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 		});
 		return { mcpResources, runtimeBackendPool };
 	};
-	const runtime = new RuntimeHost({
+	const siblingProjects = getSiblingProjectsService();
+	const runtime = new DesktopRuntimeHost({
 		...platformServices,
+		decoratePromptRequest: (sessionId, request) => siblingProjects.decoratePrompt(sessionId, request),
 		getDefaultExecutionMode,
 		linuxBubblewrapPath,
 		macosSandboxExecPath,
@@ -333,6 +337,9 @@ export function createDesktopRuntimeComposition(): DesktopRuntimeComposition {
 		sessionErrorObserver: (event) => logRuntimeSessionError(event, log),
 		sessionCompactionObserver: createRuntimeSessionCompactionLogger(log),
 	});
+	// 同空间兄弟项目（ADR-0159）：prompt 前按变化告知，read 越界时实时放行。
+	siblingProjects.attachRuntime(runtime);
+	setSandboxSessionReadRootResolver((sessionId) => siblingProjects.readRoots(sessionId));
 	return { runtime };
 }
 
