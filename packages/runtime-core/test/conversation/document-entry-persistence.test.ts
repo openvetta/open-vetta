@@ -57,3 +57,26 @@ describe("conversationDocumentEntryPersistence", () => {
 		expect(legacy && conversationDocumentEntryPersistence(legacy)).toBe("none");
 	});
 });
+
+describe("context record projection", () => {
+	it("maps a context record onto a custom_message entry the host can read back", () => {
+		const record = {
+			type: "space_sibling_projects",
+			content: [{ type: "text" as const, text: "projects" }],
+			modelVisible: true,
+			display: false,
+			metadata: { projects: [{ name: "docs", path: "/work/docs" }] },
+		};
+		const document = createEmptyConversationDocument({ sessionId: SESSION_ID, createdAt: 0 });
+		const next = applyStoredEventToConversationDocument(document, { ...base, type: "context.appended", record }, 1);
+		expect(next.entries[0]).toMatchObject({
+			type: "custom_message",
+			customType: "space_sibling_projects",
+			content: record.content,
+			details: record.metadata,
+			display: false,
+			modelVisible: true,
+		});
+		expect(next.activeLeafId).toBe(next.entries[0]?.id);
+	});
+});
