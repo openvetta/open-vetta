@@ -1201,6 +1201,12 @@
 		"originalLocation": "原位置：{{path}}"
 	},
 	"browserCapture": {
+		"unsentDraft": "未发送的草稿",
+		"restoreWhenEmpty": "发送或清空当前输入后即可恢复整条草稿。",
+		"restoreDraft": "恢复整条草稿",
+		"restoreScreenshots": "将截图和说明加入当前输入",
+		"discardDraft": "丢弃这条未发送的草稿",
+		"save": "保存说明",
 		"select": "选择并截图",
 		"restartRequired": "截图功能尚未加载，请完整重启桌面应用后重试。开发环境需要重新启动 Electron，仅刷新页面无法更新截图接口。",
 		"element": "选择元素",

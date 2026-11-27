@@ -34,6 +34,7 @@ export type { ScrollFadeProps } from "./ScrollFade";
 export { ScrollFade } from "./ScrollFade";
 export type { SegmentedControlItem, SegmentedControlProps } from "./SegmentedControl";
 export { SegmentedControl } from "./SegmentedControl";
+export { StageDialogContent } from "./StageDialogContent";
 export type { SyntaxHighlightedCodeProps } from "./SyntaxHighlightedCode";
 export { SyntaxHighlightedCode } from "./SyntaxHighlightedCode";
 export type { TabBarDragEvent, TabBarItem, TabBarProps } from "./TabBar";

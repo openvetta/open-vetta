@@ -40,13 +40,16 @@ movement does not block capture or move the rectangle. Main-frame navigation and
 conversation changes cancel an active capture. Viewport layout changes, capture feedback
 resizing the toolbar, and iframe navigation do not cancel the requested screenshot.
 Add an optional note, then choose **Add to conversation**. Each screenshot has its own note
-and can be previewed or removed before sending. Multiple screenshots stay with the current
+and appears beside image attachments as a thumbnail. Click it to edit the note before sending. Multiple screenshots stay with the current
 conversation draft when switching conversations. Switching conversations or workspaces before
 adding a capture cancels that capture operation.
 
 Vision models receive images directly; other models receive file references and the notes.
 The existing image policy still applies. Direct screenshot input is limited to 12 MiB of
-base64 data per send; failed reads or oversized input preserve the draft. Screenshots use the
+base64 data per send; failed reads or oversized input preserve the draft. If a staged send
+fails while you are writing another message, you can open the unsent message from the composer
+to review its text, screenshots and notes. Once the composer is empty, restore it to edit or retry.
+Screenshots use the
 existing temporary image cache, so old image files may become unavailable. Unsent screenshot
 drafts are not restored after restarting the app. External browsers are not supported.
 
@@ -55,7 +58,7 @@ normal development entry point, which rebuilds main/preload artifacts. Renderer 
 page refresh alone cannot load a new preload API. A window using an older preload displays
 a restart message instead of leaving an inactive selection surface.
 
-See [ADR-0159](../../docs/adr/0159-browser-capture-message-context.md) for the message contract.
+See [ADR-0161](../../docs/adr/0161-browser-capture-message-context.md) for the message contract.
 
 ## Windows Voice Input
 

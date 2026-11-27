@@ -249,10 +249,9 @@ export function useBrowserCapture(guestRef: RefObject<CaptureGuest | null>, work
 		},
 		expand: () => setLevel((value) => Math.min(value + 1, (inspection?.elements.length ?? 1) - 1)),
 		shrink: () => setLevel((value) => Math.max(0, value - 1)),
-		setNote: (note: string) => setPreview((value) => (value ? { ...value, note } : null)),
-		add: () => {
+		add: (note: string) => {
 			if (preview) {
-				addCaptures((items) => [...items, preview]);
+				addCaptures((items) => [...items, { ...preview, note }]);
 				cancel();
 			}
 		},

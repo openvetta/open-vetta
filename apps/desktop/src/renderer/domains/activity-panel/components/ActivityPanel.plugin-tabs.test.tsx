@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,6 +8,7 @@ import {
 	activityPanelOpenAtom,
 	attachedPluginTabsAtom,
 	floatingActivityTabsByProjectAtom,
+	hiddenActivityTabsAtom,
 	pluginActivityTabsAtom,
 	type RegisteredActivityTab,
 } from "@shared/store/atoms";
@@ -72,6 +73,25 @@ function pluginTab(): RegisteredActivityTab {
 }
 
 const workspace = createActivityWorkspace("agent-team:workspace", "/tmp/team-cwd", ["member-runtime"]);
+
+it("restores the browser from the tab menu before a project is selected", async () => {
+	const store = createStore();
+	const unbound = createActivityWorkspace("new-session:unbound", null, []);
+	store.set(activityPanelOpenAtom, true);
+	store.set(floatingActivityTabsByProjectAtom, new Map([[unbound.id, [{ key: "file", x: 20, y: 20, width: 480, height: 360, zIndex: 1 }]]]));
+	store.set(hiddenActivityTabsAtom, new Map([[unbound.id, ["browser"]]]));
+	render(
+		<Provider store={store}>
+			<ActivityPanel workspace={unbound} pluginScenario="conversation" />
+		</Provider>,
+	);
+	expect(document.querySelector('[data-floating-activity-tab] [data-tabkey="file"]')).toBeTruthy();
+	const menu = screen.getByRole("button", { name: /tabPicker.menu|标签页菜单|Tab menu/i });
+	fireEvent.click(menu);
+	fireEvent.click(await screen.findByRole("button", { name: /browser|浏览器/i }));
+	expect(document.querySelector('[data-tabkey="browser"]')).toBeTruthy();
+	expect(store.get(hiddenActivityTabsAtom).get(unbound.id)).toEqual([]);
+});
 
 function renderPanel(scenario: "conversation" | undefined, open = true) {
 	const store = createStore();

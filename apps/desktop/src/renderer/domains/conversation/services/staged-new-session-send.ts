@@ -24,24 +24,50 @@ import { dispatchConversationFeed, resetConversationFeed } from "./conversation-
 const pendingSessionSends = new Map<string, StagedSendInput>();
 
 /** Failed snapshots stay available even when a newer composer draft owns the scope. */
-export const stagedSendRecoveriesAtom = atom<ReadonlyMap<string, StagedSendInput>>(new Map());
+export const stagedSendRecoveriesAtom = atom<ReadonlyMap<string, { draftKey: string | null; staged: StagedSendInput }>>(
+	new Map(),
+);
 
-function retainForRecovery(staged: StagedSendInput): void {
+function retainForRecovery(staged: StagedSendInput, draftKey = staged.draftKey): void {
 	const store = getDefaultStore();
 	const recoveries = new Map(store.get(stagedSendRecoveriesAtom));
-	recoveries.set(staged.optimisticMessage.id, staged);
+	recoveries.set(staged.optimisticMessage.id, { draftKey, staged });
 	store.set(stagedSendRecoveriesAtom, recoveries);
 }
 
-function composerIsUntouched(): boolean {
-	const store = getDefaultStore();
+export const recoveryComposerEmptyAtom = atom((get) => {
 	return (
-		store.get(inputValueAtom).trim().length === 0 &&
-		store.get(attachedImagesAtom).length === 0 &&
-		store.get(mentionedFilesAtom).length === 0 &&
-		store.get(appshotAttachmentAtom) === null &&
-		store.get(browserCapturesAtom).length === 0
+		get(inputValueAtom).length === 0 &&
+		get(inputSegmentsAtom).every((segment) => segment.kind === "text" && segment.text === "") &&
+		get(attachedImagesAtom).length === 0 &&
+		get(mentionedFilesAtom).length === 0 &&
+		get(appshotAttachmentAtom) === null &&
+		get(browserCapturesAtom).length === 0
 	);
+});
+
+export function restoreRetainedSend(messageId: string, mode: "full" | "captures" | "dismiss"): void {
+	const store = getDefaultStore();
+	const recoveries = store.get(stagedSendRecoveriesAtom);
+	const recovery = recoveries.get(messageId);
+	if (!recovery || recovery.draftKey !== store.get(activeInputDraftKeyAtom)) return;
+	if (mode === "captures") {
+		const existing = store.get(browserCapturesAtom);
+		const ids = new Set(existing.map((capture) => capture.id));
+		const additions = recovery.staged.browserCaptures?.filter((capture) => !ids.has(capture.id));
+		if (additions?.length) {
+			store.set(browserCapturesAtom, [...existing, ...additions]);
+			persistCurrentSessionInputDraft();
+		}
+		return;
+	}
+	if (mode === "full") {
+		if (!store.get(recoveryComposerEmptyAtom)) return;
+		applyStagedDraft(recovery.staged);
+	}
+	const next = new Map(recoveries);
+	next.delete(messageId);
+	store.set(stagedSendRecoveriesAtom, next);
 }
 
 function modelKeyToParts(key: string | null | undefined): { provider: string; id: string } | undefined {
@@ -176,17 +202,26 @@ export function cancelStagedPendingSessionSend(messageId: string): StagedSendInp
 }
 
 /** Restores a staged draft when runtime creation fails before dispatch. */
-export function restoreStagedNewSessionSend(staged: StagedSendInput): void {
+export function restoreStagedNewSessionSend(staged: StagedSendInput, draftKey = staged.draftKey): void {
 	const store = getDefaultStore();
+	if (draftKey !== store.get(activeInputDraftKeyAtom)) {
+		if (!staged.hasOverride) retainForRecovery(staged, draftKey);
+		return;
+	}
 	resetConversationFeed(store);
 	if (staged.hasOverride) {
 		return;
 	}
-	if (!composerIsUntouched()) {
-		retainForRecovery(staged);
+	if (!store.get(recoveryComposerEmptyAtom)) {
+		retainForRecovery(staged, draftKey);
 		persistCurrentSessionInputDraft();
 		return;
 	}
+	applyStagedDraft(staged);
+}
+
+function applyStagedDraft(staged: StagedSendInput): void {
+	const store = getDefaultStore();
 	store.set(inputSegmentsAtom, staged.inputSegments.slice());
 	store.set(inputValueAtom, staged.rawText);
 	store.set(attachedImagesAtom, staged.attachedImages.slice());
@@ -208,9 +243,13 @@ export function restoreStagedPendingSessionSend(
 	pendingSessionSends.delete(staged.optimisticMessage.id);
 	const store = getDefaultStore();
 	dispatchConversationFeed({ type: "user.discarded", id: staged.optimisticMessage.id }, store);
-	if (staged.hasOverride || !staged.draftKey) return;
+	if (staged.hasOverride) return;
 	const activeDraftKey = store.get(activeInputDraftKeyAtom);
 	if (activeDraftKey !== staged.draftKey) {
+		if (!staged.draftKey || staged.attachedImages.length > 0) {
+			retainForRecovery(staged);
+			return;
+		}
 		const targetDraft = loadSessionInputDraft(staged.draftKey);
 		if (targetDraft.text || targetDraft.captures?.length || targetDraft.appshot) {
 			retainForRecovery(staged);
@@ -224,15 +263,9 @@ export function restoreStagedPendingSessionSend(
 		});
 		return;
 	}
-	if (!composerIsUntouched() && options?.overwriteComposer !== true) {
+	if (!store.get(recoveryComposerEmptyAtom) && options?.overwriteComposer !== true) {
 		retainForRecovery(staged);
 		return;
 	}
-	store.set(inputSegmentsAtom, staged.inputSegments.slice());
-	store.set(inputValueAtom, staged.rawText);
-	store.set(attachedImagesAtom, staged.attachedImages.slice());
-	store.set(mentionedFilesAtom, staged.mentionedFiles.slice());
-	store.set(appshotAttachmentAtom, staged.appshot);
-	store.set(browserCapturesAtom, staged.browserCaptures ?? []);
-	persistCurrentSessionInputDraft();
+	applyStagedDraft(staged);
 }

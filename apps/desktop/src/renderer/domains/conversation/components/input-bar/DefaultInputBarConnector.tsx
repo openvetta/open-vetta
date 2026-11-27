@@ -1,4 +1,5 @@
 import { InputBarToolbar } from "./InputBarToolbarActions";
+import { StagedSendRecovery } from "./StagedSendRecovery";
 import { InputBarModelAction } from "./InputBarToolbar";
 import { useBottomPanelPills } from "@domains/bottom-panel/hooks/useBottomPanelPills";
 import { pathBasename, toVettaFileUrl } from "@shared/lib/utils";
@@ -36,9 +37,7 @@ import { usePlanModeModel } from "../../hooks/usePlanModeModel";
 import { useGoalModeModel } from "../../hooks/useGoalModeModel";
 
 /** 普通 Chat 的默认配方；每项能力由独立 source/model 提供，其他 Connector 可自行取舍。 */
-export const DefaultInputBarConnector = memo(function DefaultInputBarConnector(
-	props: ConnectedInputBarProps,
-): JSX.Element {
+export const DefaultInputBarConnector = memo(function DefaultInputBarConnector(props: ConnectedInputBarProps): JSX.Element {
 	const { t } = useTranslation("chat");
 	const session = useInputBarSessionSource(props.cwdOverride);
 	const draft = useInputBarDraftSource();
@@ -56,10 +55,13 @@ export const DefaultInputBarConnector = memo(function DefaultInputBarConnector(
 	const todoItems = useInputBarTodoSource(runtimeId);
 	const currentScenario = useAtomValue(currentScenarioAtom);
 	const goalMode = useGoalModeModel(props.startNewSessionGoal);
-	const goalVisible = currentScenario === null || currentScenario === "conversation" || currentScenario === "project";
+	const goalVisible =
+		currentScenario === null || currentScenario === "conversation" || currentScenario === "project";
 	const composingGoal = goalVisible && goalMode.composing;
 	const actionBar = useInputActionBarModel(
-		goalVisible && goalMode.canCompose ? { active: composingGoal, onToggle: goalMode.onToggleCompose } : undefined,
+		goalVisible && goalMode.canCompose
+			? { active: composingGoal, onToggle: goalMode.onToggleCompose }
+			: undefined,
 	);
 	const speechInput = useSpeechInput(session.hasSession);
 	const executionModeModel = useDefaultExecutionModeSelectorModel();
@@ -94,13 +96,7 @@ export const DefaultInputBarConnector = memo(function DefaultInputBarConnector(
 		onSend: handleSend,
 	});
 	const imageAttachments = useMemo(
-		() =>
-			draft.imagePaths.map((path, index) => ({
-				path,
-				name: pathBasename(path),
-				url: toVettaFileUrl(path),
-				label: t("inputBar.capsule.imageBadge", { index: index + 1 }),
-			})),
+		() => draft.imagePaths.map((path, index) => ({ path, name: pathBasename(path), url: toVettaFileUrl(path), label: t("inputBar.capsule.imageBadge", { index: index + 1 }) })),
 		[draft.imagePaths, t],
 	);
 	const attachments = useInputBarAttachmentModel({
@@ -123,61 +119,25 @@ export const DefaultInputBarConnector = memo(function DefaultInputBarConnector(
 		() => [
 			...actionBar.builtins
 				.filter((builtin) => builtin.active)
-				.map((builtin) => ({
-					id: builtin.id,
-					label: builtin.label,
-					icon: <span className={`${builtin.iconClass} h-3 w-3`} />,
-					onToggle: builtin.onToggle,
-				})),
-			...actionBar.items
-				.filter((item) => item.active)
-				.map((item) => ({
-					id: item.id,
-					label: item.label,
-					icon: item.icon,
-					onToggle: () => actionBar.actions.toggleItem(item.id),
-				})),
+				.map((builtin) => ({ id: builtin.id, label: builtin.label, icon: <span className={`${builtin.iconClass} h-3 w-3`} />, onToggle: builtin.onToggle })),
+			...actionBar.items.filter((item) => item.active).map((item) => ({ id: item.id, label: item.label, icon: item.icon, onToggle: () => actionBar.actions.toggleItem(item.id) })),
 		],
 		[actionBar],
 	);
-	const hasCapsules =
-		captures.length > 0 ||
-		imageAttachments.length > 0 ||
-		Boolean(draft.appshotAttachment) ||
-		Boolean(draft.pendingMessageEdit);
+	const hasCapsules = captures.length > 0 || imageAttachments.length > 0 || Boolean(draft.appshotAttachment) || Boolean(draft.pendingMessageEdit);
 	const drawerItems = useMemo<InputBarDrawerItem[]>(() => {
 		const items: InputBarDrawerItem[] = [];
 		if (interactions.sandboxPermission) {
-			items.push({
-				kind: "sandbox-permission",
-				id: "sandbox-permission",
-				label: t("inputBar.drawer.permissionLabel"),
-				desc: t("inputBar.drawer.permissionDesc"),
-				pulsing: true,
-				request: interactions.sandboxPermission,
-			});
+			items.push({ kind: "sandbox-permission", id: "sandbox-permission", label: t("inputBar.drawer.permissionLabel"), desc: t("inputBar.drawer.permissionDesc"), pulsing: true, request: interactions.sandboxPermission });
 		}
 		if (queue.items.length > 0 && session.activeSession) {
 			const runtimeId = session.activeSession.runtimeId;
-			items.push({
-				kind: "queue",
-				id: "queue",
-				label: t("inputBar.drawer.queueLabel"),
-				desc: queue.paused
-					? t("inputBar.drawer.queuePausedDesc", { count: queue.items.length })
-					: t("inputBar.drawer.queueDesc", { count: queue.items.length }),
-				pulsing: queue.paused,
-				runtimeId,
-				onSendNow: (id) => props.onSendQueued?.(runtimeId, id),
-			});
+			items.push({ kind: "queue", id: "queue", label: t("inputBar.drawer.queueLabel"), desc: queue.paused ? t("inputBar.drawer.queuePausedDesc", { count: queue.items.length }) : t("inputBar.drawer.queueDesc", { count: queue.items.length }), pulsing: queue.paused, runtimeId, onSendNow: (id) => props.onSendQueued?.(runtimeId, id) });
 		}
 		return items;
 	}, [props.onSendQueued, session.activeSession, queue.items.length, queue.paused, interactions.sandboxPermission, t]);
 	const bottomPanelPills = useBottomPanelPills(props.workSurface ?? null);
-	const todo = useMemo<InputBarTodoModel | null>(
-		() => (todoItems.length > 0 ? { items: todoItems, onOpenPanel: trigger.openTodoPanel } : null),
-		[todoItems, trigger.openTodoPanel],
-	);
+	const todo = useMemo<InputBarTodoModel | null>(() => todoItems.length > 0 ? { items: todoItems, onOpenPanel: trigger.openTodoPanel } : null, [todoItems, trigger.openTodoPanel]);
 	const goal = useMemo<InputBarGoalModel | null>(
 		() =>
 			goalVisible && goalMode.state
@@ -193,44 +153,19 @@ export const DefaultInputBarConnector = memo(function DefaultInputBarConnector(
 	);
 	const defaultPlaceholders = useMemo(() => {
 		const raw = t("inputBar.placeholder.defaults", { returnObjects: true });
-		return (Array.isArray(raw) ? raw : []).filter(
-			(item): item is string => typeof item === "string" && item.length > 0,
-		);
+		return (Array.isArray(raw) ? raw : []).filter((item): item is string => typeof item === "string" && item.length > 0);
 	}, [t]);
 	const placeholderModel = useMemo(() => {
-		if (!session.hasSession)
-			return { placeholderTexts: [t("inputBar.placeholder.noSession")], placeholderRotating: false };
-		if (session.isStreaming)
-			return { placeholderTexts: [t("inputBar.placeholder.thinking")], placeholderRotating: false };
-		if (firstSuggestion)
-			return {
-				placeholderTexts: [t("inputBar.placeholder.suggestion", { suggestion: firstSuggestion })],
-				placeholderRotating: false,
-			};
+		if (!session.hasSession) return { placeholderTexts: [t("inputBar.placeholder.noSession")], placeholderRotating: false };
+		if (session.isStreaming) return { placeholderTexts: [t("inputBar.placeholder.thinking")], placeholderRotating: false };
+		if (firstSuggestion) return { placeholderTexts: [t("inputBar.placeholder.suggestion", { suggestion: firstSuggestion })], placeholderRotating: false };
 		return { placeholderTexts: defaultPlaceholders, placeholderRotating: defaultPlaceholders.length > 1 };
 	}, [defaultPlaceholders, firstSuggestion, session.hasSession, session.isStreaming, t]);
-	const labels = useMemo<InputBarModel["labels"]>(
-		() => ({
-			capsule: {
-				removeDefault: t("inputBar.capsule.removeDefault"),
-				removeImage: t("inputBar.capsule.removeImage"),
-				removeTooltip: (path) => t("inputBar.capsule.removeTooltip", { path }),
-				activeGroup: (count) => t("inputBar.capsule.activeGroup", { count }),
-			},
-			permission: {
-				deny: t("inputBar.permission.deny"),
-				allow: t("inputBar.permission.allow"),
-				allowSession: t("inputBar.permission.allowSession"),
-			},
-			toolbar: {
-				skills: t("inputBar.toolbar.skills"),
-				addImage: t("inputBar.toolbar.addImage"),
-				attachFile: t("inputBar.toolbar.attachFile"),
-				queue: t("inputBar.drawer.queueLabel"),
-			},
-		}),
-		[t],
-	);
+	const labels = useMemo<InputBarModel["labels"]>(() => ({
+		capsule: { removeDefault: t("inputBar.capsule.removeDefault"), removeImage: t("inputBar.capsule.removeImage"), removeTooltip: (path) => t("inputBar.capsule.removeTooltip", { path }), activeGroup: (count) => t("inputBar.capsule.activeGroup", { count }) },
+		permission: { deny: t("inputBar.permission.deny"), allow: t("inputBar.permission.allow"), allowSession: t("inputBar.permission.allowSession") },
+		toolbar: { skills: t("inputBar.toolbar.skills"), addImage: t("inputBar.toolbar.addImage"), attachFile: t("inputBar.toolbar.attachFile"), queue: t("inputBar.drawer.queueLabel") },
+	}), [t]);
 	const contextMenu: InputBarContextMenuViewProps | null = contextMenuModel.contextMenu;
 
 	const handleKeyDown = useCallback(
@@ -275,9 +210,9 @@ export const DefaultInputBarConnector = memo(function DefaultInputBarConnector(
 			onConnectorSelect: trigger.handleConnectorSelect,
 			onAtClose: trigger.handleAtClose,
 			onAtSelect: trigger.handleAtSelect,
-			onOpen: trigger.handlePlusClick,
-			allowCompaction: Boolean(session.activeSession),
-		},
+				onOpen: trigger.handlePlusClick,
+				allowCompaction: Boolean(session.activeSession),
+			},
 		drawerItems,
 		drawerActiveTab: trigger.drawerActiveTab,
 		todo,
@@ -288,13 +223,10 @@ export const DefaultInputBarConnector = memo(function DefaultInputBarConnector(
 		promptAttachmentIcon: draft.promptAttachment?.icon,
 		promptAttachmentIconUrl: draft.promptAttachment?.ownerPluginIconUrl,
 		promptAttachmentLabel: draft.promptAttachment?.label,
-		promptAttachmentLabels:
-			draft.promptAttachment?.labels ?? (draft.promptAttachment ? [draft.promptAttachment.label] : undefined),
+		promptAttachmentLabels: draft.promptAttachment?.labels ?? (draft.promptAttachment ? [draft.promptAttachment.label] : undefined),
 		pendingMessageEdit: Boolean(draft.pendingMessageEdit),
 		pendingEditHint: t(
-			draft.pendingMessageEdit?.mode === "branch"
-				? "messageList.edit.pendingBranchHint"
-				: "messageList.edit.pendingHint",
+			draft.pendingMessageEdit?.mode === "branch" ? "messageList.edit.pendingBranchHint" : "messageList.edit.pendingHint",
 		),
 		cancelPendingEditLabel: t("messageList.interrupt.cancel"),
 		contextMenu,
@@ -323,10 +255,13 @@ export const DefaultInputBarConnector = memo(function DefaultInputBarConnector(
 	};
 
 	return (
-		<InputBar model={model}>
-			<InputBarToolbar model={model}>
-				<InputBarModelAction visible={!model.commands?.slashOpen} />
-			</InputBarToolbar>
-		</InputBar>
+		<>
+			<StagedSendRecovery />
+			<InputBar model={model}>
+				<InputBarToolbar model={model}>
+					<InputBarModelAction visible={!model.commands?.slashOpen} />
+				</InputBarToolbar>
+			</InputBar>
+		</>
 	);
 });

@@ -5,11 +5,12 @@ import { useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { activeInputDraftKeyAtom, browserCapturesAtom, toastsAtom } from "@shared/store/atoms";
 import { BrowserCaptureDraftCards } from "@shared/components/BrowserCaptures";
+import { BrowserCaptureDialog } from "@shared/components/BrowserCaptureDialog";
 import { BrowserSelectionView } from "@vetta-org/theme-ui/activity";
 import type { DesktopApi } from "@preload/api";
 import { useBrowserCapture, type CaptureGuest } from "./useBrowserCapture";
 
-const translated = vi.hoisted(() => ({ t: (key: string) => key }));
+const translated = vi.hoisted(() => ({ t: (key: string) => key === "browserCapture.add" ? "Add screenshot" : key === "browserCapture.note" ? "Preview note" : key }));
 vi.mock("react-i18next", () => ({ useTranslation: () => translated }));
 
 const inspection = {
@@ -51,14 +52,7 @@ function Harness() {
 			) : null}
 			{capture.busy ? <span>Capturing</span> : null}
 			{capture.preview ? (
-				<>
-					<textarea
-						aria-label="Preview note"
-						value={capture.preview.note}
-						onChange={(event) => capture.setNote(event.target.value)}
-					/>
-					<button onClick={capture.add}>Add screenshot</button>
-				</>
+				<BrowserCaptureDialog capture={capture.preview} onCancel={capture.cancel} onSave={capture.add} />
 			) : null}
 			<BrowserCaptureDraftCards />
 		</>
@@ -358,8 +352,14 @@ describe("browser screenshot workflow", () => {
 		fireEvent.click(await screen.findByText("Draw region"));
 		fireEvent.click(screen.getByText("Confirm screenshot"));
 		fireEvent.click(await screen.findByText("Add screenshot"));
-		const notes = screen.getAllByLabelText("browserCapture.note");
-		fireEvent.change(notes[1], { target: { value: "Change spacing" } });
+		expect(screen.queryByRole("textbox")).toBeNull();
+		fireEvent.click(screen.getAllByRole("button", {name: "Demo"})[1]);
+		fireEvent.change(screen.getByRole("textbox"), {target: {value: "Discard this"}});
+		fireEvent.click(screen.getByRole("button", {name:"browserCapture.cancel"}));
+		fireEvent.click(screen.getAllByRole("button", {name: "Demo"})[1]);
+		expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("");
+		fireEvent.change(screen.getByRole("textbox"), { target: { value: "Change spacing" } });
+		fireEvent.click(screen.getByRole("button", {name:"browserCapture.save"}));
 		expect(store.get(browserCapturesAtom).map((item) => item.note)).toEqual(["Move the toolbar", "Change spacing"]);
 		fireEvent.click(screen.getAllByRole("button", { name: "browserCapture.remove" })[0]);
 		expect(store.get(browserCapturesAtom)).toHaveLength(1);

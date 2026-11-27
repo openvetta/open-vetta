@@ -1201,6 +1201,12 @@
 		"originalLocation": "Original: {{path}}"
 	},
 	"browserCapture": {
+		"unsentDraft": "Unsent draft",
+		"restoreWhenEmpty": "Send or clear your current input to restore the full draft.",
+		"restoreDraft": "Restore full draft",
+		"restoreScreenshots": "Add screenshots and notes to current input",
+		"discardDraft": "Discard unsent draft",
+		"save": "Save annotation",
 		"select": "Select and capture",
 		"restartRequired": "Screenshot support is not loaded. Fully restart the desktop app and try again. In development, restart Electron; refreshing the page does not update the screenshot bridge.",
 		"element": "Select element",

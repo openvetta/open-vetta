@@ -103,87 +103,87 @@ export function BrowserSelectionView({
 		});
 	};
 	return (
-		<div
-			ref={surface}
-			role="application"
-			aria-label={label}
-			tabIndex={0}
-			className="absolute inset-0 z-10 cursor-crosshair touch-none select-none"
-			onPointerDown={(event) => {
-				if (disabled || event.button !== 0) return;
-				event.preventDefault();
-				const current = point(event);
-				const action =
-					mode === "region" && event.target instanceof HTMLElement
-						? (event.target.dataset.captureAction ?? "new")
-						: "new";
-				drag.current = {
-					...current,
-					clientX: event.clientX,
-					clientY: event.clientY,
-					rect,
-					action,
-					pending: mode === "element",
-				};
-				event.currentTarget.setPointerCapture(event.pointerId);
-			}}
-			onPointerMove={move}
-			onPointerUp={(event) => {
-				if (drag.current) move(event);
-				if (!disabled && drag.current?.pending) {
+			<div
+				ref={surface}
+				role="application"
+				aria-label={label}
+				tabIndex={0}
+				className="absolute inset-0 z-10 cursor-crosshair touch-none select-none"
+				onPointerDown={(event) => {
+					if (disabled || event.button !== 0) return;
+					event.preventDefault();
 					const current = point(event);
-					void onInspect(current.x, current.y, true);
-				}
-				drag.current = null;
-				if (event.currentTarget.hasPointerCapture(event.pointerId))
-					event.currentTarget.releasePointerCapture(event.pointerId);
-			}}
-			onPointerCancel={() => {
-				drag.current = null;
-			}}
-		>
-			{rect ? (
-				<svg
-					aria-hidden="true"
-					className="pointer-events-none absolute inset-0 h-full w-full fill-background/60"
-					viewBox={`0 0 ${viewport.width} ${viewport.height}`}
-					preserveAspectRatio="none"
-				>
-					<path
-						fillRule="evenodd"
-						d={`M0 0H${viewport.width}V${viewport.height}H0Z M${rect.x} ${rect.y}h${rect.width}v${rect.height}h${-rect.width}Z`}
-					/>
-				</svg>
-			) : null}
-			{rect ? (
-				<div
-					data-capture-action="move"
-					className={`absolute border-3 border-browser-selection ${mode === "region" ? "cursor-move" : "cursor-crosshair"}`}
-					style={{
-						left: `${(rect.x / viewport.width) * 100}%`,
-						top: `${(rect.y / viewport.height) * 100}%`,
-						width: `${(rect.width / viewport.width) * 100}%`,
-						height: `${(rect.height / viewport.height) * 100}%`,
-					}}
-				>
-					{mode === "region"
-						? ["nw", "ne", "sw", "se"].map((corner) => (
-								<span
-									key={corner}
-									data-capture-action={corner}
-									className="absolute h-3 w-3 rounded-full border border-browser-selection bg-background"
-									style={{
-										left: corner.includes("w") ? -6 : undefined,
-										right: corner.includes("e") ? -6 : undefined,
-										top: corner.includes("n") ? -6 : undefined,
-										bottom: corner.includes("s") ? -6 : undefined,
-										cursor: `${corner}-resize`,
-									}}
-								/>
-							))
-						: null}
-				</div>
-			) : null}
-		</div>
+					const action =
+						mode === "region" && event.target instanceof HTMLElement
+							? (event.target.dataset.captureAction ?? "new")
+							: "new";
+					drag.current = {
+						...current,
+						clientX: event.clientX,
+						clientY: event.clientY,
+						rect,
+						action,
+						pending: mode === "element",
+					};
+					event.currentTarget.setPointerCapture(event.pointerId);
+				}}
+				onPointerMove={move}
+				onPointerUp={(event) => {
+					if (drag.current) move(event);
+					if (!disabled && drag.current?.pending) {
+						const current = point(event);
+						void onInspect(current.x, current.y, true);
+					}
+					drag.current = null;
+					if (event.currentTarget.hasPointerCapture(event.pointerId))
+						event.currentTarget.releasePointerCapture(event.pointerId);
+				}}
+				onPointerCancel={() => {
+					drag.current = null;
+				}}
+			>
+				{rect ? (
+					<svg
+						aria-hidden="true"
+						className="pointer-events-none absolute inset-0 h-full w-full fill-background/60"
+						viewBox={`0 0 ${viewport.width} ${viewport.height}`}
+						preserveAspectRatio="none"
+					>
+						<path
+							fillRule="evenodd"
+							d={`M0 0H${viewport.width}V${viewport.height}H0Z M${rect.x} ${rect.y}h${rect.width}v${rect.height}h${-rect.width}Z`}
+						/>
+					</svg>
+				) : null}
+				{rect ? (
+					<div
+						data-capture-action="move"
+						className={`absolute border-3 border-browser-selection ${mode === "region" ? "cursor-move" : "cursor-crosshair"}`}
+						style={{
+							left: `${(rect.x / viewport.width) * 100}%`,
+							top: `${(rect.y / viewport.height) * 100}%`,
+							width: `${(rect.width / viewport.width) * 100}%`,
+							height: `${(rect.height / viewport.height) * 100}%`,
+						}}
+					>
+						{mode === "region"
+							? ["nw", "ne", "sw", "se"].map((corner) => (
+									<span
+										key={corner}
+										data-capture-action={corner}
+										className="absolute h-3 w-3 rounded-full border border-browser-selection bg-background"
+										style={{
+											left: corner.includes("w") ? -6 : undefined,
+											right: corner.includes("e") ? -6 : undefined,
+											top: corner.includes("n") ? -6 : undefined,
+											bottom: corner.includes("s") ? -6 : undefined,
+											cursor: `${corner}-resize`,
+										}}
+									/>
+								))
+							: null}
+					</div>
+				) : null}
+			</div>
 	);
 }

@@ -1,6 +1,9 @@
 import type { BrowserCapture } from "../../../shared/browser-capture";
 import { BrowserCaptureCardView } from "@vetta-org/theme-ui/chat";
 import { useAtom, useSetAtom } from "jotai";
+import { useState } from "react";
+import { BrowserCaptureDialog } from "./BrowserCaptureDialog";
+import { AttachmentThumbnail } from "./AttachmentThumbnail";
 import { useTranslation } from "react-i18next";
 import { toVettaFileUrl } from "@shared/lib/utils";
 import { browserCapturesAtom, filePreviewAtom } from "@shared/store/atoms";
@@ -44,5 +47,57 @@ export function BrowserCaptureCards({
 
 export function BrowserCaptureDraftCards() {
 	const [captures, setCaptures] = useAtom(browserCapturesAtom);
-	return <BrowserCaptureCards captures={captures} onChange={setCaptures} />;
+	const { t } = useTranslation("chat");
+	return (
+		<>
+			{captures.map((capture) => (
+				<DraftThumbnail
+					key={capture.id}
+					capture={capture}
+					removeLabel={t("browserCapture.remove")}
+					onRemove={() => setCaptures((items) => items.filter((item) => item.id !== capture.id))}
+					onSave={(note) =>
+						setCaptures((items) => items.map((item) => (item.id === capture.id ? { ...item, note } : item)))
+					}
+				/>
+			))}
+		</>
+	);
+}
+
+function DraftThumbnail({
+	capture,
+	removeLabel,
+	onRemove,
+	onSave,
+}: {
+	capture: BrowserCapture;
+	removeLabel: string;
+	onRemove: () => void;
+	onSave: (note: string) => void;
+}) {
+	const [editing, setEditing] = useState(false);
+	return (
+		<>
+			<AttachmentThumbnail
+				name={capture.title || capture.url}
+				src={toVettaFileUrl(capture.imagePath)}
+				badge={<span className="icon-[mdi--web] size-3" />}
+				removeLabel={removeLabel}
+				onRemove={onRemove}
+				onOpen={() => setEditing(true)}
+			/>
+			{editing && (
+				<BrowserCaptureDialog
+					editing
+					capture={capture}
+					onCancel={() => setEditing(false)}
+					onSave={(note) => {
+						onSave(note);
+						setEditing(false);
+					}}
+				/>
+			)}
+		</>
+	);
 }

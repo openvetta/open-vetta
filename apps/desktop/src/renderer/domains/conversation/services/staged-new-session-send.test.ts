@@ -11,6 +11,7 @@ const atoms = await import("@shared/store/atoms");
 const {
 	cancelStagedPendingSessionSend,
 	restoreStagedNewSessionSend,
+	restoreRetainedSend,
 	restoreStagedPendingSessionSend,
 	stageNewSessionSend,
 	stagePendingSessionSend,
@@ -109,7 +110,7 @@ describe("staged new-session send", () => {
 		restoreStagedNewSessionSend(staged);
 
 		expect(store.get(atoms.inputValueAtom)).toBe("newer edits");
-		expect(store.get(stagedSendRecoveriesAtom).get(staged.optimisticMessage.id)).toBe(staged);
+		expect(store.get(stagedSendRecoveriesAtom).get(staged.optimisticMessage.id)?.staged).toBe(staged);
 	});
 
 	it("appends an accepted pending-session send without replacing visible history", () => {
@@ -121,6 +122,18 @@ describe("staged new-session send", () => {
 
 		expect(store.get(atoms.chatMessagesAtom)).toEqual([history, staged?.optimisticMessage]);
 		expect(store.get(atoms.inputValueAtom)).toBe("");
+	});
+	it("recovers annotated screenshots into a newer draft without consuming either text", () => {
+		const store = getDefaultStore();
+		store.set(atoms.browserCapturesAtom, [capture]);
+		const staged = stageNewSessionSend(undefined, "capture-send");
+		if (!staged) throw new Error("Expected a staged send");
+		store.set(atoms.inputValueAtom, "newer text");
+		restoreStagedNewSessionSend(staged);
+		restoreRetainedSend(staged.optimisticMessage.id, "captures");
+		expect(store.get(atoms.inputValueAtom)).toBe("newer text");
+		expect(store.get(atoms.browserCapturesAtom)).toEqual([capture]);
+		expect(store.get(stagedSendRecoveriesAtom).get(staged.optimisticMessage.id)?.staged.rawText).toBe("inspect this");
 	});
 
 	it("does not overwrite newer composer input when a deferred send is cancelled", () => {
@@ -134,7 +147,7 @@ describe("staged new-session send", () => {
 
 		expect(store.get(atoms.chatMessagesAtom)).toEqual([]);
 		expect(store.get(atoms.inputValueAtom)).toBe("newer draft");
-		expect(store.get(stagedSendRecoveriesAtom).get(staged.optimisticMessage.id)).toBe(staged);
+		expect(store.get(stagedSendRecoveriesAtom).get(staged.optimisticMessage.id)?.staged).toBe(staged);
 	});
 
 	it("switching away preserves a newer saved capture draft and retains the failed send separately", () => {
@@ -158,7 +171,7 @@ describe("staged new-session send", () => {
 			text: "newer draft",
 			captures: [newerCapture],
 		});
-		expect(store.get(stagedSendRecoveriesAtom).get(staged.optimisticMessage.id)).toBe(staged);
+		expect(store.get(stagedSendRecoveriesAtom).get(staged.optimisticMessage.id)?.staged).toBe(staged);
 	});
 
 	it("lets message editing cancel a send before Runtime dispatch", () => {

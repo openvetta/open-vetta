@@ -277,6 +277,63 @@ it("新会话首条消息的 prompt 被主进程拒绝时退出流式态，停�
 	expect(store.get(activeSessionStreamingAtom)).toBe(false);
 });
 
+it.each(["读取截图", "保存图片"])(
+	"%s期间添加图片时，保留完整草稿供用户重新发送",
+	{ timeout: 30_000 },
+	async (phase) => {
+		const store = await mount("检查页面", false);
+		const { attachedImagesAtom, browserCapturesAtom, chatMessagesAtom, inputValueAtom, modelSupportsImagesAtom } =
+			await import("@shared/store/atoms");
+		const captures = [
+			{
+				version: 1 as const,
+				id: "capture-edit",
+				imagePath: "/cache/selection.png",
+				url: "https://example.test/",
+				title: "Example",
+				mode: "region" as const,
+				width: 100,
+				height: 100,
+				viewport: { width: 100, height: 100 },
+				rect: { x: 0, y: 0, width: 20, height: 20 },
+				note: "check this",
+			},
+		];
+		const image = { id: "pasted", data: "aW1n", mimeType: "image/png", name: "pasted.png" };
+		const existingImages = phase === "保存图片" ? [{ ...image, id: "initial" }] : [];
+		await act(async () => {
+			store.set(attachedImagesAtom, existingImages);
+			store.set(browserCapturesAtom, captures);
+			store.set(modelSupportsImagesAtom, true);
+		});
+		const started = deferred<void>();
+		const release = deferred<void>();
+		const waitForEdit = async () => {
+			started.resolve(undefined);
+			await release.promise;
+		};
+		vi.stubGlobal("fetch", async () => {
+			if (phase === "读取截图") await waitForEdit();
+			return { ok: true, blob: async () => new Blob(["png"]) };
+		});
+		vi.mocked(window.vetta.dialog.persistImages).mockImplementation(async () => {
+			if (phase === "保存图片") await waitForEdit();
+			return [];
+		});
+		await act(async () => {
+			const pendingSend = manager!.sendMessage();
+			await started.promise;
+			store.set(attachedImagesAtom, [...existingImages, image]);
+			release.resolve(undefined);
+			await pendingSend;
+		});
+		expect(store.get(attachedImagesAtom)).toEqual([...existingImages, image]);
+		expect(store.get(browserCapturesAtom)).toEqual(captures);
+		expect(store.get(inputValueAtom)).toBe("检查页面");
+		expect(store.get(chatMessagesAtom)).toEqual([]);
+	},
+);
+
 it("新会话截图读取失败时把正文和截图恢复到已切换的会话草稿", { timeout: 30_000 }, async () => {
 	const store = await mount("检查这个页面", false);
 	const {
@@ -334,13 +391,15 @@ it("新会话截图读取失败时把正文和截图恢复到已切换的会话�
 	expect(store.get(activeSessionStreamingAtom)).toBe(false);
 });
 
-it("截图读取等待期间用户继续输入时保留新草稿并单独留存失败发送", async () => {
+it.each([false, true])("截图准备期间保护新输入并在所属会话恢复（切走：%s）", async (switchAway) => {
 	const store = await mount("检查这个页面", false);
 	const {
 		activeInputDraftKeyAtom,
 		browserCapturesAtom,
 		claimNewSessionInputDraft,
 		inputSegmentsAtom,
+		activeSessionAtom,
+		switchSessionInputDraftScope,
 		inputValueAtom,
 		modelSupportsImagesAtom,
 		newSessionInputDraftKey,
@@ -376,15 +435,28 @@ it("截图读取等待期间用户继续输入时保留新草稿并单独留存�
 	await fetchStarted.promise;
 	store.set(inputValueAtom, "newer text");
 	store.set(inputSegmentsAtom, [{ kind: "text", text: "newer text" }]);
+	if (switchAway) {
+		switchSessionInputDraftScope("other-session");
+		store.set(activeSessionAtom, { cwd, runtimeId: "other-runtime", sessionPath: "other-session" });
+	}
 	response.resolve(new Response(null, { status: 404 }));
 
 	await act(async () => {
 		await send;
 	});
 
+	if (switchAway) {
+		expect(store.get(inputValueAtom)).toBe("");
+		switchSessionInputDraftScope(draftKey);
+		expect(store.get(browserCapturesAtom)).toEqual([]);
+		switchSessionInputDraftScope(sessionPath);
+	}
 	expect(store.get(inputValueAtom)).toBe("newer text");
 	expect(store.get(browserCapturesAtom)).toEqual([]);
-	expect(store.get(stagedSendRecoveriesAtom).get(stagedInput.optimisticMessage.id)).toBe(stagedInput);
+	expect(store.get(stagedSendRecoveriesAtom).get(stagedInput.optimisticMessage.id)).toMatchObject({
+		draftKey: sessionPath,
+		staged: { browserCaptures: [capture] },
+	});
 });
 
 it("暂停批任务不续跑无法承载的截图，并保留带备注的编辑器草稿", async () => {
@@ -444,6 +516,14 @@ it("暂停批任务不续跑无法承载的截图，并保留带备注的编辑�
 		deliveryPhase: "failed",
 		browserCaptures: [capture],
 	});
+	await act(async () => {
+		await manager?.sendMessage("continue");
+	});
+	expect(vi.mocked(window.vetta.batchTasks.resumeTaskWithText).mock.calls).toEqual([
+		["project-1", "task-1", "continue"],
+	]);
+	expect(store.get(inputValueAtom)).toBe("检查这个页面");
+	expect(store.get(browserCapturesAtom)).toEqual([capture]);
 });
 
 it("截图准备锁在 prompt 开始后释放，允许同一会话提交下一条截图", async () => {
@@ -897,4 +977,69 @@ it("失败收尾：agent_end 的落后历史快照不会清掉刚显示的错误
 		blocks: [expect.objectContaining({ type: "error", turnId: "turn-failed-1", text: "供应商额度已用完" })],
 	});
 	expect(autoTitle).not.toHaveBeenCalled();
+});
+
+it("运行时创建期间连续暂存的两条截图在首次图片读取延迟时仍按顺序发送", { timeout: 30_000 }, async () => {
+	const store = await mount("first", false);
+	const {
+		activeInputDraftKeyAtom,
+		browserCapturesAtom,
+		inputValueAtom,
+		modelSupportsImagesAtom,
+		pendingSessionCreationAtom,
+		chatMessagesAtom,
+	} = await import("@shared/store/atoms");
+	const capture = {
+		version: 1 as const,
+		id: "first",
+		imagePath: "/cache/first.png",
+		url: "https://example.test/",
+		title: "Example",
+		mode: "region" as const,
+		width: 20,
+		height: 20,
+		viewport: { width: 20, height: 20 },
+		rect: { x: 0, y: 0, width: 10, height: 10 },
+		note: "first note",
+	};
+	const started = deferred<void>();
+	const release = deferred<void>();
+	vi.stubGlobal("fetch", async () => {
+		started.resolve(undefined);
+		await release.promise;
+		return { ok: true, blob: async () => new Blob([new Uint8Array([1])]) };
+	});
+	await act(async () => {
+		store.set(activeInputDraftKeyAtom, sessionPath);
+		store.set(modelSupportsImagesAtom, true);
+		store.set(pendingSessionCreationAtom, { cwd, interactionId: "two-sends" });
+		store.set(browserCapturesAtom, [capture]);
+		const first = manager?.sendMessage();
+		store.set(inputValueAtom, "second");
+		store.set(browserCapturesAtom, [
+			{ ...capture, id: "second", imagePath: "/cache/second.png", note: "second note" },
+		]);
+		const second = manager?.sendMessage();
+		store.set(pendingSessionCreationAtom, null);
+		await started.promise;
+		expect(store.get(chatMessagesAtom).map((message) => message.kind)).toEqual(["user", "user"]);
+		release.resolve(undefined);
+		await Promise.all([first, second]);
+	});
+	for (const [index, text] of ["first", "second"].entries()) {
+		expect(mocks.prompt.mock.calls[index]).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					text,
+					context: [
+						expect.objectContaining({
+							metadata: expect.objectContaining({
+								captures: [expect.objectContaining({ id: text, note: `${text} note` })],
+							}),
+						}),
+					],
+				}),
+			]),
+		);
+	}
 });

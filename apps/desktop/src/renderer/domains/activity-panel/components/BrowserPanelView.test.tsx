@@ -51,6 +51,13 @@ function renderView(overrides: Partial<BrowserPanelViewProps> = {}): void {
 afterEach(cleanup);
 
 describe("browser panel toolbar", () => {
+	it("keeps capture actions outside the guest viewport", () => {
+		renderView({ captureToolbar: <button>Confirm selection</button> });
+		const action = elementByLabel("Confirm selection");
+		const guest = document.querySelector("webview");
+		expect(guest).toBeTruthy();
+		expect(guest?.parentElement?.contains(action)).toBe(false);
+	});
 	// 工具条必须复用设计系统的按钮组，而不是各画一套图标按钮。
 	it("builds navigation and actions from the shared button groups", () => {
 		renderView();

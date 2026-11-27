@@ -89,9 +89,8 @@ function getProjects() {
 
 export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageSenderOptions): SessionMessageSender {
 	const activeSession = useAtomValue(activeSessionAtom);
-	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
-	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
-	const appshotAttachment = useAtomValue(appshotAttachmentAtom);
+	const setAttachedImages = useSetAtom(attachedImagesAtom);
+	const setMentionedFiles = useSetAtom(mentionedFilesAtom);
 	const [selectedModel] = useAtom(selectedModelAtom);
 	const todoItemsMap = useAtomValue(todoItemsBySessionAtom);
 	const batchProjects = useAtomValue(batchProjectsAtom);
@@ -101,12 +100,6 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 	const setRetryProgress = useSetAtom(retryProgressAtom);
 	const { loadSessions, ensureLocalSession } = useProjectActions();
 
-	const attachedImagesRef = useRef(attachedImages);
-	attachedImagesRef.current = attachedImages;
-	const mentionedFilesRef = useRef(mentionedFiles);
-	mentionedFilesRef.current = mentionedFiles;
-	const appshotRef = useRef(appshotAttachment);
-	appshotRef.current = appshotAttachment;
 	const selectedModelRef = useRef(selectedModel);
 	selectedModelRef.current = selectedModel;
 	const todoItemsMapRef = useRef(todoItemsMap);
@@ -116,7 +109,7 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 	const defaultConversationCwdRef = useRef(defaultConversationCwd);
 	defaultConversationCwdRef.current = defaultConversationCwd;
 
-	const preparingCaptureSends = useRef(new Map<string, symbol>());
+	const preparingCaptureSends = useRef(new Map<string, Promise<void>>());
 	const sendMessage = useCallback(
 		async (overrideText?: string, options?: SendMessageOptions): Promise<SendMessageResult | undefined> => {
 			const interactionId = options?.interactionId;
@@ -148,9 +141,9 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 			// 不订阅输入 atom；调用时读取还能覆盖“先写草稿、同一流程立即发送”的场景。
 			const inputValue = stagedInput?.rawText ?? store.get(inputValueAtom);
 			const inputSegments = stagedInput?.inputSegments ?? store.get(inputSegmentsAtom);
-			const attachedImages = stagedInput?.attachedImages ?? attachedImagesRef.current;
-			const mentionedFiles = stagedInput?.mentionedFiles ?? mentionedFilesRef.current;
-			const appshot = stagedInput ? stagedInput.appshot : appshotRef.current;
+			const attachedImages = stagedInput?.attachedImages ?? store.get(attachedImagesAtom);
+			const mentionedFiles = stagedInput?.mentionedFiles ?? store.get(mentionedFilesAtom);
+			const appshot = stagedInput ? stagedInput.appshot : store.get(appshotAttachmentAtom);
 			const browserCaptures = stagedInput?.browserCaptures ?? store.get(browserCapturesAtom);
 			const selectedModel = stagedInput ? stagedInput.selectedModel : selectedModelRef.current;
 			// overrideText：来自输入预测建议（点击 bubble / 空输入回车按 placeholder 发送），
@@ -180,577 +173,357 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 				});
 			}
 			const captureSendKey = !hasOverride && browserCaptures.length ? session.runtimeId : null;
-			if (captureSendKey && preparingCaptureSends.current.has(captureSendKey)) return;
-			const captureSendToken = captureSendKey ? Symbol("capture-send") : null;
-			if (captureSendKey && captureSendToken) preparingCaptureSends.current.set(captureSendKey, captureSendToken);
-			const releaseCapturePreparation = (): void => {
-				if (
-					captureSendKey &&
-					captureSendToken &&
-					preparingCaptureSends.current.get(captureSendKey) === captureSendToken
-				) {
-					preparingCaptureSends.current.delete(captureSendKey);
-				}
-			};
-			try {
-				let captureImages: Awaited<ReturnType<typeof loadBrowserCaptureImages>> = [];
-				if (!hasOverride && browserCaptures.length && store.get(modelSupportsImagesAtom)) {
-					try {
-						captureImages = await loadBrowserCaptureImages(browserCaptures);
-					} catch (error) {
-						showToast({
-							variant: "error",
-							message: i18n.t(
-								error instanceof Error && error.message === "BROWSER_CAPTURE_BUDGET"
-									? "chat:browserCapture.budget"
-									: "chat:browserCapture.failed",
-							),
-						});
-						if (stagedInput) {
-							if (
-								options?.stagedInputOrigin === "new-session" &&
-								store.get(activeSessionAtom)?.runtimeId === session.runtimeId
-							) {
-								restoreStagedNewSessionSend(stagedInput);
-								if (store.get(pendingSessionSendAtom)?.messageId === stagedInput.optimisticMessage.id) {
-									store.set(pendingSessionSendAtom, null);
+			if (stagedInput && options?.stagedInputOrigin === "new-session") {
+				stagedInput = { ...stagedInput, draftKey: session.sessionPath };
+			}
+			const previousPreparation = captureSendKey ? preparingCaptureSends.current.get(captureSendKey) : undefined;
+			if (previousPreparation && !stagedInput) return;
+			let finishPreparation: (() => void) | undefined;
+			const preparation = captureSendKey
+				? new Promise<void>((resolve) => {
+						finishPreparation = resolve;
+					})
+				: null;
+			if (captureSendKey && preparation) preparingCaptureSends.current.set(captureSendKey, preparation);
+			using capturePreparation =
+				captureSendKey && preparation
+					? {
+							[Symbol.dispose]() {
+								finishPreparation?.();
+								if (preparingCaptureSends.current.get(captureSendKey) === preparation) {
+									preparingCaptureSends.current.delete(captureSendKey);
 								}
-								setActiveSessionStreaming(false);
-								setRetryProgress(null);
-							} else {
-								restoreStagedPendingSessionSend(stagedInput);
-							}
+							},
 						}
-						return;
-					}
-					if (store.get(activeSessionAtom)?.runtimeId !== session.runtimeId) {
-						if (stagedInput) restoreStagedPendingSessionSend(stagedInput);
-						return;
-					}
-					if (
-						!stagedInput &&
-						(store.get(inputValueAtom) !== inputValue ||
-							store.get(inputSegmentsAtom) !== inputSegments ||
-							store.get(browserCapturesAtom) !== browserCaptures)
-					)
-						return;
-				}
-				perfSendMark("sender-enter", interactionId);
-				claimUnboundConversationFeed(session.runtimeId);
-				const rawText = stagedInput?.rawText ?? (hasOverride ? override : inputValue.trim());
-				const preparedInput = prepareInputPrompt(rawText, hasOverride ? undefined : inputSegments);
-				const images = !hasOverride && attachedImages.length > 0 ? attachedImages : undefined;
-				// 把附图落盘到会话图片缓存，改用 @路径 引用而非把 base64 塞进上下文：
-				// 视觉模型经 Read 工具即可看到图，不支持视觉的模型也能用工具对图做 OCR/改图等。
-				let imagePaths: string[] = [];
-				let persistedImages: PersistedImageResult[] = [];
-				if (images) {
-					try {
-						persistedImages = await window.vetta.dialog.persistImages(
-							session.runtimeId,
-							images.map((img) => ({ id: img.id, data: img.data, mimeType: img.mimeType })),
-						);
-						imagePaths = persistedImages.map((image) => image.path);
-					} catch (err) {
-						console.error("[useSessionManager.sendMessage] persistImages failed:", err);
-					}
-				}
-				const attachmentsByPath = new Map<string, PromptAttachmentRef>();
-				if (!hasOverride) {
-					for (const attachment of deriveAttachments(preparedInput.segments)) {
-						attachmentsByPath.set(toTokenPath(attachment.path), attachment);
-					}
-					for (const file of mentionedFiles) {
-						const key = toTokenPath(file.path);
-						if (attachmentsByPath.has(key)) continue;
-						attachmentsByPath.set(key, {
-							kind: file.isDirectory ? "directory" : isUserImageFile(file.path) ? "image" : "file",
-							path: file.path,
-						});
-					}
-					if (appshot?.imagePath) {
-						attachmentsByPath.set(toTokenPath(appshot.imagePath), { kind: "image", path: appshot.imagePath });
-					}
-					if (appshot?.textPath) {
-						attachmentsByPath.set(toTokenPath(appshot.textPath), { kind: "file", path: appshot.textPath });
-					}
-					for (const path of imagePaths) {
-						attachmentsByPath.set(toTokenPath(path), { kind: "image", path });
-					}
-				}
-				for (const capture of hasOverride ? [] : browserCaptures)
-					attachmentsByPath.set(toTokenPath(capture.imagePath), { kind: "image", path: capture.imagePath });
-				const attachments = [...attachmentsByPath.values()];
-				const text = hasOverride ? rawText : preparedInput.text;
-				if (stagedInput) {
-					// The staged bubble is already on screen; it gains the final attachment references.
-					dispatchConversationFeed({
-						type: "user.updated",
-						runtimeId: session.runtimeId,
-						id: stagedInput.optimisticMessage.id,
-						patch: { attachments, ...(imagePaths.length > 0 ? { images: undefined } : {}) },
-					});
-				}
-				recordInputContextUsed({
-					files: hasOverride ? [] : mentionedFiles,
-					images: hasOverride ? [] : persistedImages,
-				});
-				// 行内 skill 是软引用，不进 promptRef，但调用次数仍要计入 app-monitor
-				// （命令面板按使用频次排序依赖这份统计）。每个被引用的 skill 记一次。
-				if (!hasOverride) {
-					for (const name of deriveSkillNames(preparedInput.segments)) {
-						recordInputContextUsed({ promptRef: { kind: "skill", name } });
-					}
-				}
-				if (!hasOverride) {
-					// 普通发送清理当前草稿；提前上屏的新会话首条只补记历史。
-					perfSendMark("clear-draft-start", interactionId);
-					if (stagedInput) {
-						// 用户可能已在 Runtime 创建期间输入下一条消息。首条只补记历史，
-						// 不得清掉当前编辑器中后来产生的新草稿与附件。
-						pushSessionInputHistory(getDefaultStore().get(activeInputDraftKeyAtom), rawText);
-					} else {
-						recordSentInputAndClearDraft(rawText);
-						setAttachedImages([]);
-						setMentionedFiles([]);
-					}
-					perfSendMark("clear-draft-end", interactionId);
-				}
-				// 用户消息重编辑：提交时先中止当前生成，再把会话退回到被编辑消息之前，随后的正常
-				// prompt 从原 parent 继续。最后一条原地替换（删掉旧消息与回复）；更早的长出同级
-				// 分支，原消息及其后续留在旧分支上可切回。只动对话，工作区文件保持原样。
-				const pendingEdit = store.get(pendingMessageEditAtom);
-				if (pendingEdit) {
-					if (store.get(isStreamingAtom)) {
-						await new Promise<void>((resolve) => {
-							let settled = false;
-							let unsubscribe: () => void = () => {};
-							const finish = (): void => {
-								if (settled) return;
-								settled = true;
-								unsubscribe();
-								clearTimeout(timer);
-								resolve();
-							};
-							const timer = setTimeout(finish, 8000);
-							unsubscribe = window.vetta.session.onRunningChanged((p) => {
-								if (p.sessionId === session.runtimeId && p.running === false) finish();
-							});
-							if (!store.get(isStreamingAtom)) {
-								finish();
-								return;
-							}
-							void window.vetta.session.abort(session.runtimeId).catch((err) => {
-								console.error("[useSessionManager.sendMessage] abort before edit failed:", err);
-							});
-						});
-					}
-					try {
-						await rewindForMessageEdit(window.vetta.session, session.runtimeId, pendingEdit);
-						const history = await window.vetta.session.getFullHistory(session.runtimeId);
-						dispatchConversationFeed({ type: "feed.replaced", items: fullHistoryToChat(history) });
-						store.set(pendingMessageEditAtom, null);
-					} catch (err) {
-						const message = err instanceof Error ? err.message : String(err);
-						console.error("[useSessionManager.sendMessage] rewind for message edit failed:", err);
-						store.set(pendingMessageEditAtom, null);
-						dispatchConversationFeed({
-							type: "error.appended",
-							runtimeId: session.runtimeId,
-							message,
-							timestamp: Date.now(),
-						});
-						return;
-					}
-				}
-
-				// streaming 期间发送 = 排队等下一轮：跳过「用户气泡 / 清产物列表 / 乐观侧边栏 /
-				// 清 todo」这些开启新一轮才该有的副作用，仅在下方组装好 promptReq 快照后入队。
-				// （输入框已在上方清空，符合「入队后清空输入框」语义。）
-				const streaming = pendingEdit ? false : getDefaultStore().get(isStreamingAtom);
-				const createUserSnapshot = (id: string): ConversationUserMessageViewModel => {
-					if (stagedInput) {
-						return {
-							...stagedInput.optimisticMessage,
-							id,
-							attachments,
-							...(imagePaths.length > 0 ? { images: undefined } : {}),
-						};
-					}
-					const userMessage = createConversationUserMessage({
-						id,
-						deliveryPhase: "pending",
-						text,
-						...(hasOverride ? {} : { inputSegments: preparedInput.segments }),
-						timestamp: Date.now(),
-						model: modelKeyToParts(selectedModel),
-						attachments,
-					});
-					// Base64 preview only when persistence failed; structured image paths
-					// are otherwise the canonical source for optimistic and restored UI.
-					if (images && imagePaths.length === 0) {
-						userMessage.images = images.map((image) => ({
-							data: image.data,
-							mimeType: image.mimeType,
-							name: image.name,
-						}));
-					}
-					if (appshot) userMessage.appshot = appshot;
-					if (!hasOverride) userMessage.browserCaptures = browserCaptures;
-					userMessage.mentionedFiles = mentionedFiles.slice();
-					const settingsAssistTabId = options?.settingsAssistTabId?.trim();
-					if (settingsAssistTabId) userMessage.settingsAssistTabId = settingsAssistTabId;
-					return userMessage;
-				};
-				let optimisticUserMsgId: string | undefined;
-				if (!streaming && stagedInput) {
-					optimisticUserMsgId = stagedInput.optimisticMessage.id;
-				} else if (!streaming) {
-					// 失败重发去重（ADR-0060）：上一轮在 prompt 前置阶段就失败、什么都没产出，
-					// 且本次原样重发时，先 replaceLastUserMessage 回退再发，避免 jsonl 双份
-					// user 记录、也避免下一轮模型上下文里出现两条相同消息。
-					// 判据见 planFailedResendRollback——后端是硬删子树，收不紧会连带销毁
-					// 「跑了很久才失败」那一轮的全部产出。
-					if (!pendingEdit) {
-						const messages = store.get(chatMessagesAtom);
-						const rollback = planFailedResendRollback(messages, text);
-						if (rollback) {
-							try {
-								await window.vetta.session.replaceLastUserMessage(session.runtimeId, rollback.entryId);
-								const fromId = messages[rollback.truncateFrom]?.id;
-								if (fromId) {
-									dispatchConversationFeed({ type: "items.truncated", runtimeId: session.runtimeId, fromId });
-								}
-							} catch (err) {
-								// 回退失败就按普通追加发送；宁可重复也不丢消息。
-								console.warn("[useSessionManager.sendMessage] resend dedupe failed:", err);
-							}
-						}
-					}
-					const userMsg = createUserSnapshot(nextId("user"));
-					perfSendMark("optimistic-append", interactionId);
-					dispatchConversationFeed({ type: "user.sent", runtimeId: session.runtimeId, message: userMsg });
-					optimisticUserMsgId = userMsg.id;
-				}
-
-				// Optimistically expose this session in the sidebar before the disk file
-				// has been flushed (SessionManager only writes after the assistant's
-				// first message). Use the user's prompt prefix as a temporary label;
-				// auto-title or the next loadSessions will overwrite as appropriate.
-				const sp = session.sessionPath;
-				if (!streaming && sp) {
-					// ADR-0007：「对话」session 的 cwd 是默认项目根下的 per-session 子目录，
-					// 但侧边栏 sessionsMap / 默认列表都挂在项目根 bucket 上。乐观行必须落到根
-					// bucket，否则既不在「会话」列表显示，auto-title 的 applyLocalRename(root,…)
-					// 也会因 bucket 不匹配而落空，导致改名要等下一次磁盘刷新才生效。
-					const bucketCwd = conversationBucketCwd(session.cwd, defaultConversationCwdRef.current);
-					ensureLocalSession(bucketCwd, {
-						id: session.runtimeId,
-						path: sp,
-						cwd: session.cwd,
-						firstMessage: text.slice(0, 80) || i18n.t("chat:session.emptyMessageLabel"),
-						modifiedAt: Date.now(),
-					});
-				}
-
-				// 检查当前 session 是否归属一个 paused 的 batch-task 子任务。命中则改走
-				// resume 路径（入队首，由调度器按并发数放行），跳过 session.prompt。
-				let pausedBatch: { projectId: string; taskId: string } | undefined;
-				for (const p of batchProjectsRef.current) {
-					const matched = p.tasks.find((t) => t.sessionId === session.runtimeId && t.status === "paused");
-					if (matched) {
-						pausedBatch = { projectId: p.id, taskId: matched.id };
-						break;
-					}
-				}
-
-				if (pausedBatch) {
-					if (browserCaptures.length > 0) {
-						const message = i18n.t("chat:browserCapture.failed");
-						showToast({ variant: "error", message });
-						if (stagedInput) {
-							restoreStagedPendingSessionSend(stagedInput);
-						} else {
-							if (store.get(inputValueAtom).length === 0 && store.get(browserCapturesAtom).length === 0) {
-								store.set(inputSegmentsAtom, inputSegments.slice());
-								store.set(inputValueAtom, inputValue);
-								setAttachedImages(attachedImages);
-								setMentionedFiles(mentionedFiles);
-								store.set(appshotAttachmentAtom, appshot);
-								store.set(browserCapturesAtom, browserCaptures);
-								persistCurrentSessionInputDraft();
-							}
-							if (optimisticUserMsgId) {
-								dispatchConversationFeed({
-									type: "user.failed",
-									runtimeId: session.runtimeId,
-									id: optimisticUserMsgId,
-								});
-							}
-						}
-						return { status: "failed", error: { message } };
-					}
-					try {
-						// The batch resume contract accepts text only, so captures cannot be resumed safely.
-						const legacyText = attachments.length
-							? `${attachments.map((attachment) => `@${attachment.path}`).join("\n")}\n${text}`
-							: text;
-						await window.vetta.batchTasks.resumeTaskWithText(
-							pausedBatch.projectId,
-							pausedBatch.taskId,
-							legacyText,
-						);
-						// The resumed Turn appends this text under its own message id; the bubble
-						// is shown again from that durable message instead of being matched by text.
-						if (optimisticUserMsgId) {
-							dispatchConversationFeed({
-								type: "user.discarded",
-								runtimeId: session.runtimeId,
-								id: optimisticUserMsgId,
-							});
-						}
-					} catch (err) {
-						const message = err instanceof Error ? err.message : String(err);
-						console.error("[useSessionManager.sendMessage] resumeTaskWithText rejected:", err);
-						if (optimisticUserMsgId) {
-							dispatchConversationFeed({
-								type: "user.failed",
-								runtimeId: session.runtimeId,
-								id: optimisticUserMsgId,
-							});
-						}
-						dispatchConversationFeed({
-							type: "error.appended",
-							runtimeId: session.runtimeId,
-							message,
-							timestamp: Date.now(),
-						});
-					}
-					await loadSessions(session.cwd);
+					: null;
+			if (previousPreparation && stagedInput) {
+				await previousPreparation;
+				if (store.get(activeSessionAtom)?.runtimeId !== session.runtimeId) {
+					restoreStagedPendingSessionSend(stagedInput);
 					return;
 				}
-
-				// 非批量任务项目：若该 session 已有 todo 且全部 done，在发起下一个
-				// prompt 前先清空 todo 列表，让用户开启新一轮工作时面板回到干净状态。
-				// 批量任务依赖严格 todo 机制，不在此清空；锁定状态后端会自行拒绝。
-				// streaming 入队时不清：当前正在跑的回合仍拥有这些 todo。
-				if (!streaming) {
-					const projectType = getProjects().find((p) => p.cwd === session.cwd)?.type;
-					if (projectType !== "batch") {
-						const items = todoItemsMapRef.current.get(session.runtimeId) ?? [];
-						if (items.length > 0 && items.every((i) => i.status === "done")) {
-							try {
-								await window.vetta.session.clearTodos(session.runtimeId);
-							} catch (err) {
-								console.error("[useSessionManager.sendMessage] clearTodos failed:", err);
+			}
+			let captureImages: Awaited<ReturnType<typeof loadBrowserCaptureImages>> = [];
+			if (!hasOverride && browserCaptures.length && store.get(modelSupportsImagesAtom)) {
+				try {
+					captureImages = await loadBrowserCaptureImages(browserCaptures);
+				} catch (error) {
+					showToast({
+						variant: "error",
+						message: i18n.t(
+							error instanceof Error && error.message === "BROWSER_CAPTURE_BUDGET"
+								? "chat:browserCapture.budget"
+								: "chat:browserCapture.failed",
+						),
+					});
+					if (stagedInput) {
+						if (
+							options?.stagedInputOrigin === "new-session" &&
+							store.get(activeSessionAtom)?.runtimeId === session.runtimeId
+						) {
+							restoreStagedNewSessionSend(stagedInput);
+							if (store.get(pendingSessionSendAtom)?.messageId === stagedInput.optimisticMessage.id) {
+								store.set(pendingSessionSendAtom, null);
 							}
+							setActiveSessionStreaming(false);
+							setRetryProgress(null);
+						} else {
+							restoreStagedPendingSessionSend(stagedInput);
 						}
 					}
+					return;
 				}
-
-				// 新会话页上选的计划模式要赶在第一条消息之前落到 Runtime；落不上就不发，
-				// 不能把「先出计划」静默降级成直接执行。
+			}
+			perfSendMark("sender-enter", interactionId);
+			const rawText = stagedInput?.rawText ?? (hasOverride ? override : inputValue.trim());
+			const preparedInput = prepareInputPrompt(rawText, hasOverride ? undefined : inputSegments);
+			const images = !hasOverride && attachedImages.length > 0 ? attachedImages : undefined;
+			// 把附图落盘到会话图片缓存，改用 @路径 引用而非把 base64 塞进上下文：
+			// 视觉模型经 Read 工具即可看到图，不支持视觉的模型也能用工具对图做 OCR/改图等。
+			let imagePaths: string[] = [];
+			let persistedImages: PersistedImageResult[] = [];
+			if (images) {
 				try {
-					await applyDraftPlanMode(session.runtimeId);
+					persistedImages = await window.vetta.dialog.persistImages(
+						session.runtimeId,
+						images.map((img) => ({ id: img.id, data: img.data, mimeType: img.mimeType })),
+					);
+					imagePaths = persistedImages.map((image) => image.path);
 				} catch (err) {
-					console.error("[useSessionManager.sendMessage] applyDraftPlanMode failed:", err);
+					console.error("[useSessionManager.sendMessage] persistImages failed:", err);
+				}
+			}
+			if (captureSendKey) {
+				if (store.get(activeSessionAtom)?.runtimeId !== session.runtimeId) {
+					if (stagedInput) restoreStagedPendingSessionSend(stagedInput);
+					return;
+				}
+				if (
+					!stagedInput &&
+					(store.get(inputValueAtom) !== inputValue ||
+						store.get(inputSegmentsAtom) !== inputSegments ||
+						store.get(attachedImagesAtom) !== attachedImages ||
+						store.get(mentionedFilesAtom) !== mentionedFiles ||
+						store.get(appshotAttachmentAtom) !== appshot ||
+						store.get(browserCapturesAtom) !== browserCaptures)
+				) {
+					return;
+				}
+			}
+			claimUnboundConversationFeed(session.runtimeId);
+			const attachmentsByPath = new Map<string, PromptAttachmentRef>();
+			if (!hasOverride) {
+				for (const attachment of deriveAttachments(preparedInput.segments)) {
+					attachmentsByPath.set(toTokenPath(attachment.path), attachment);
+				}
+				for (const file of mentionedFiles) {
+					const key = toTokenPath(file.path);
+					if (attachmentsByPath.has(key)) continue;
+					attachmentsByPath.set(key, {
+						kind: file.isDirectory ? "directory" : isUserImageFile(file.path) ? "image" : "file",
+						path: file.path,
+					});
+				}
+				if (appshot?.imagePath) {
+					attachmentsByPath.set(toTokenPath(appshot.imagePath), { kind: "image", path: appshot.imagePath });
+				}
+				if (appshot?.textPath) {
+					attachmentsByPath.set(toTokenPath(appshot.textPath), { kind: "file", path: appshot.textPath });
+				}
+				for (const path of imagePaths) {
+					attachmentsByPath.set(toTokenPath(path), { kind: "image", path });
+				}
+			}
+			for (const capture of hasOverride ? [] : browserCaptures)
+				attachmentsByPath.set(toTokenPath(capture.imagePath), { kind: "image", path: capture.imagePath });
+			const attachments = [...attachmentsByPath.values()];
+			const text = hasOverride ? rawText : preparedInput.text;
+			if (stagedInput) {
+				// The staged bubble is already on screen; it gains the final attachment references.
+				dispatchConversationFeed({
+					type: "user.updated",
+					runtimeId: session.runtimeId,
+					id: stagedInput.optimisticMessage.id,
+					patch: { attachments, ...(imagePaths.length > 0 ? { images: undefined } : {}) },
+				});
+			}
+			recordInputContextUsed({
+				files: hasOverride ? [] : mentionedFiles,
+				images: hasOverride ? [] : persistedImages,
+			});
+			// 行内 skill 是软引用，不进 promptRef，但调用次数仍要计入 app-monitor
+			// （命令面板按使用频次排序依赖这份统计）。每个被引用的 skill 记一次。
+			if (!hasOverride) {
+				for (const name of deriveSkillNames(preparedInput.segments)) {
+					recordInputContextUsed({ promptRef: { kind: "skill", name } });
+				}
+			}
+			if (!hasOverride) {
+				// 普通发送清理当前草稿；提前上屏的新会话首条只补记历史。
+				perfSendMark("clear-draft-start", interactionId);
+				if (stagedInput) {
+					// 用户可能已在 Runtime 创建期间输入下一条消息。首条只补记历史，
+					// 不得清掉当前编辑器中后来产生的新草稿与附件。
+					pushSessionInputHistory(getDefaultStore().get(activeInputDraftKeyAtom), rawText);
+				} else {
+					recordSentInputAndClearDraft(rawText);
+					setAttachedImages([]);
+					setMentionedFiles([]);
+				}
+				perfSendMark("clear-draft-end", interactionId);
+			}
+			// 用户消息重编辑：提交时先中止当前生成，再把会话退回到被编辑消息之前，随后的正常
+			// prompt 从原 parent 继续。最后一条原地替换（删掉旧消息与回复）；更早的长出同级
+			// 分支，原消息及其后续留在旧分支上可切回。只动对话，工作区文件保持原样。
+			const pendingEdit = store.get(pendingMessageEditAtom);
+			if (pendingEdit) {
+				if (store.get(isStreamingAtom)) {
+					await new Promise<void>((resolve) => {
+						let settled = false;
+						let unsubscribe: () => void = () => {};
+						const finish = (): void => {
+							if (settled) return;
+							settled = true;
+							unsubscribe();
+							clearTimeout(timer);
+							resolve();
+						};
+						const timer = setTimeout(finish, 8000);
+						unsubscribe = window.vetta.session.onRunningChanged((p) => {
+							if (p.sessionId === session.runtimeId && p.running === false) finish();
+						});
+						if (!store.get(isStreamingAtom)) {
+							finish();
+							return;
+						}
+						void window.vetta.session.abort(session.runtimeId).catch((err) => {
+							console.error("[useSessionManager.sendMessage] abort before edit failed:", err);
+						});
+					});
+				}
+				try {
+					await rewindForMessageEdit(window.vetta.session, session.runtimeId, pendingEdit);
+					const history = await window.vetta.session.getFullHistory(session.runtimeId);
+					dispatchConversationFeed({ type: "feed.replaced", items: fullHistoryToChat(history) });
+					store.set(pendingMessageEditAtom, null);
+				} catch (err) {
+					const message = err instanceof Error ? err.message : String(err);
+					console.error("[useSessionManager.sendMessage] rewind for message edit failed:", err);
+					store.set(pendingMessageEditAtom, null);
 					dispatchConversationFeed({
 						type: "error.appended",
 						runtimeId: session.runtimeId,
-						message: err instanceof Error ? err.message : String(err),
+						message,
 						timestamp: Date.now(),
 					});
 					return;
 				}
+			}
 
-				const promptMessageId = optimisticUserMsgId ?? nextId("user");
-				const promptReq: PromptRequest = {
-					text: text || "(see attached content)",
-					messageId: promptMessageId,
-				};
-				if (!hasOverride && browserCaptures.length) {
-					promptReq.context = [buildBrowserCaptureContext(browserCaptures, promptMessageId)];
-					promptReq.images = captureImages;
+			// streaming 期间发送 = 排队等下一轮：跳过「用户气泡 / 清产物列表 / 乐观侧边栏 /
+			// 清 todo」这些开启新一轮才该有的副作用，仅在下方组装好 promptReq 快照后入队。
+			// （输入框已在上方清空，符合「入队后清空输入框」语义。）
+			const streaming = pendingEdit ? false : getDefaultStore().get(isStreamingAtom);
+			const createUserSnapshot = (id: string): ConversationUserMessageViewModel => {
+				if (stagedInput) {
+					return {
+						...stagedInput.optimisticMessage,
+						id,
+						attachments,
+						...(imagePaths.length > 0 ? { images: undefined } : {}),
+					};
 				}
-				let hiddenOptimisticMessageId: string | undefined;
-				if (streaming) {
-					// Queued messages stay out of the timeline until the Kernel appends them,
-					// but their editor-only metadata must survive that wait under the same ID.
-					hiddenOptimisticMessageId = promptMessageId;
-					dispatchConversationFeed({
-						type: "user.queued",
-						runtimeId: session.runtimeId,
-						message: createUserSnapshot(hiddenOptimisticMessageId),
-					});
-				}
-				if (attachments.length > 0 || pendingEdit) {
-					promptReq.attachments = attachments;
-				}
+				const userMessage = createConversationUserMessage({
+					id,
+					deliveryPhase: "pending",
+					text,
+					...(hasOverride ? {} : { inputSegments: preparedInput.segments }),
+					timestamp: Date.now(),
+					model: modelKeyToParts(selectedModel),
+					attachments,
+				});
+				// Base64 preview only when persistence failed; structured image paths
+				// are otherwise the canonical source for optimistic and restored UI.
 				if (images && imagePaths.length === 0) {
-					promptReq.images = [
-						...captureImages,
-						...images.map((image) => ({
-							type: "image" as const,
-							data: image.data,
-							mimeType: image.mimeType,
-						})),
-					];
+					userMessage.images = images.map((image) => ({
+						data: image.data,
+						mimeType: image.mimeType,
+						name: image.name,
+					}));
 				}
-				if (selectedModel) {
-					promptReq.modelKey = selectedModel;
-					// Per-model reasoning level rides alongside modelKey (see reasoning-level design).
-					const level = getDefaultStore().get(reasoningByModelAtom)[selectedModel];
-					if (level) promptReq.reasoning = level;
-				}
-				// Caller-supplied metadata first (e.g. settings AI assist model-only instruction).
-				if (options?.metadata && Object.keys(options.metadata).length > 0) {
-					promptReq.metadata = { ...options.metadata };
-				}
-				// Merge metadata and hidden instructions contributed by active plugin
-				// input actions.
-				const pluginStore = getDefaultStore();
-				const usedInputActions: Parameters<typeof recordInputActionsUsed>[0] = [];
-				const pluginInstructions: string[] = [];
-				const pluginPromptContexts: Array<PluginPromptContext & { pluginId: string }> = [];
-				const activeActionIds = pluginStore.get(activeInputActionIdsAtom);
-				if (activeActionIds.size > 0) {
-					for (const action of pluginStore.get(pluginInputActionsAtom)) {
-						if (!activeActionIds.has(action.actionId)) continue;
-						const decoration = action.decoratePrompt?.();
-						if (decoration?.metadata) {
-							promptReq.metadata = { ...promptReq.metadata, ...decoration.metadata };
-						}
-						if (decoration?.instructions) {
-							pluginInstructions.push(
-								...decoration.instructions.filter(
-									(instruction) => typeof instruction === "string" && instruction.trim().length > 0,
-								),
-							);
-						}
-						if (decoration?.metadata || decoration?.instructions) {
-							usedInputActions.push({ actionId: action.actionId, actionKind: "plugin" });
+				if (appshot) userMessage.appshot = appshot;
+				if (!hasOverride) userMessage.browserCaptures = browserCaptures;
+				userMessage.mentionedFiles = mentionedFiles.slice();
+				const settingsAssistTabId = options?.settingsAssistTabId?.trim();
+				if (settingsAssistTabId) userMessage.settingsAssistTabId = settingsAssistTabId;
+				return userMessage;
+			};
+			let optimisticUserMsgId: string | undefined;
+			if (!streaming && stagedInput) {
+				optimisticUserMsgId = stagedInput.optimisticMessage.id;
+			} else if (!streaming) {
+				// 失败重发去重（ADR-0060）：上一轮在 prompt 前置阶段就失败、什么都没产出，
+				// 且本次原样重发时，先 replaceLastUserMessage 回退再发，避免 jsonl 双份
+				// user 记录、也避免下一轮模型上下文里出现两条相同消息。
+				// 判据见 planFailedResendRollback——后端是硬删子树，收不紧会连带销毁
+				// 「跑了很久才失败」那一轮的全部产出。
+				if (!pendingEdit) {
+					const messages = store.get(chatMessagesAtom);
+					const rollback = planFailedResendRollback(messages, text);
+					if (rollback) {
+						try {
+							await window.vetta.session.replaceLastUserMessage(session.runtimeId, rollback.entryId);
+							const fromId = messages[rollback.truncateFrom]?.id;
+							if (fromId) {
+								dispatchConversationFeed({ type: "items.truncated", runtimeId: session.runtimeId, fromId });
+							}
+						} catch (err) {
+							// 回退失败就按普通追加发送；宁可重复也不丢消息。
+							console.warn("[useSessionManager.sendMessage] resend dedupe failed:", err);
 						}
 					}
 				}
-				// 原生「知识检索」开关（硬隔离）：开启后本轮携带 knowledgeMode——
-				// input-pipeline 暴露 kb-read 工具并注入仅模型可见的「优先查询知识库」提示。
-				if (pluginStore.get(knowledgeRetrievalActiveAtom)) {
-					promptReq.metadata = { ...promptReq.metadata, knowledgeMode: true };
-					usedInputActions.push({
-						actionId: BUILTIN_KNOWLEDGE_RETRIEVAL_ACTION_ID,
-						actionKind: "builtin",
-					});
+				const userMsg = createUserSnapshot(nextId("user"));
+				perfSendMark("optimistic-append", interactionId);
+				dispatchConversationFeed({ type: "user.sent", runtimeId: session.runtimeId, message: userMsg });
+				optimisticUserMsgId = userMsg.id;
+			}
+
+			// Optimistically expose this session in the sidebar before the disk file
+			// has been flushed (SessionManager only writes after the assistant's
+			// first message). Use the user's prompt prefix as a temporary label;
+			// auto-title or the next loadSessions will overwrite as appropriate.
+			const sp = session.sessionPath;
+			if (!streaming && sp) {
+				// ADR-0007：「对话」session 的 cwd 是默认项目根下的 per-session 子目录，
+				// 但侧边栏 sessionsMap / 默认列表都挂在项目根 bucket 上。乐观行必须落到根
+				// bucket，否则既不在「会话」列表显示，auto-title 的 applyLocalRename(root,…)
+				// 也会因 bucket 不匹配而落空，导致改名要等下一次磁盘刷新才生效。
+				const bucketCwd = conversationBucketCwd(session.cwd, defaultConversationCwdRef.current);
+				ensureLocalSession(bucketCwd, {
+					id: session.runtimeId,
+					path: sp,
+					cwd: session.cwd,
+					firstMessage: text.slice(0, 80) || i18n.t("chat:session.emptyMessageLabel"),
+					modifiedAt: Date.now(),
+				});
+			}
+
+			// 检查当前 session 是否归属一个 paused 的 batch-task 子任务。命中则改走
+			// resume 路径（入队首，由调度器按并发数放行），跳过 session.prompt。
+			let pausedBatch: { projectId: string; taskId: string } | undefined;
+			for (const p of batchProjectsRef.current) {
+				const matched = p.tasks.find((t) => t.sessionId === session.runtimeId && t.status === "paused");
+				if (matched) {
+					pausedBatch = { projectId: p.id, taskId: matched.id };
+					break;
 				}
-				// Plugin-owned attachment data stays structured until the coding-agent
-				// input boundary. Legacy metadata/instructions remain supported.
-				// 插件 sendPrompt 不消费：promptAttachment 是用户为下一条手动消息挂的，
-				// 被插件静默发送吃掉会既丢附件又让用户困惑（ADR-0060）。
-				const promptAttachment = options?.source === "plugin" ? null : pluginStore.get(promptAttachmentAtom);
-				if (promptAttachment) {
-					if (promptAttachment.metadata) {
-						promptReq.metadata = { ...promptReq.metadata, ...promptAttachment.metadata };
-					}
-					pluginInstructions.push(
-						...(promptAttachment.instructions ?? []).filter(
-							(instruction) => typeof instruction === "string" && instruction.trim().length > 0,
-						),
-					);
-					if (promptAttachment.context) {
-						pluginPromptContexts.push({
-							pluginId: promptAttachment.ownerPluginId,
-							...structuredClone(promptAttachment.context),
-						});
-					}
-					if (promptAttachment.lifecycle !== "sticky") {
-						pluginStore.set(promptAttachmentAtom, null);
-					}
-				}
-				if (pluginInstructions.length > 0) {
-					promptReq.metadata = { ...promptReq.metadata, pluginInstructions };
-				}
-				if (pluginPromptContexts.length > 0) {
-					promptReq.metadata = { ...promptReq.metadata, pluginPromptContexts };
-				}
-				recordInputActionsUsed(usedInputActions);
-				// 恒置 followUp（ADR-0060）：streaming 中入 kernel 队列、立即收 queued 回执；
-				// 空闲时 kernel 忽略该字段直接开 turn。即便 isStreamingAtom 与主进程真实状态
-				// 失步，最坏结果也是入队而非 SESSION_BUSY 丢消息。
-				promptReq.streamingBehavior = options?.streamingBehavior ?? "followUp";
-				let sendResult: SendMessageResult | undefined;
-				try {
+			}
+
+			if (pausedBatch) {
+				if (!hasOverride && browserCaptures.length > 0) {
+					const message = i18n.t("chat:browserCapture.failed");
+					showToast({ variant: "error", message });
 					if (stagedInput) {
-						getDefaultStore().set(pendingSessionSendAtom, null);
-						dispatchConversationFeed({ type: "turn.pending", startedAt: Date.now() });
-						setActiveSessionStreaming(true);
-					}
-					perfSendMark("await-plugin-host", interactionId);
-					// 只等首次激活：热重载期间旧工具注册仍有效（last-known-good），
-					// 不再让插件集合变化把每次发送挡住最长 5 秒。
-					await waitForPluginHostFirstReady();
-					perfSendMark("prompt-ipc-start", interactionId);
-					releaseCapturePreparation();
-					const promptPromise = window.vetta.session.prompt(
-						session.runtimeId,
-						promptReq,
-						interactionId ? { interactionId } : undefined,
-					);
-					perfSendComplete("prompt-dispatched", interactionId);
-					const outcome = await promptPromise;
-					perfSendMark("prompt-ipc-end", interactionId);
-					if (outcome?.status === "queued") {
+						restoreStagedPendingSessionSend(stagedInput);
+					} else {
+						if (store.get(inputValueAtom).length === 0 && store.get(browserCapturesAtom).length === 0) {
+							store.set(inputSegmentsAtom, inputSegments.slice());
+							store.set(inputValueAtom, inputValue);
+							setAttachedImages(attachedImages);
+							setMentionedFiles(mentionedFiles);
+							store.set(appshotAttachmentAtom, appshot);
+							store.set(browserCapturesAtom, browserCaptures);
+							persistCurrentSessionInputDraft();
+						}
 						if (optimisticUserMsgId) {
-							// 以为空闲实则已在跑：消息已入 kernel 队列，撤掉抢先的乐观气泡，
-							// 待 Kernel 追加同一 id 的消息时重新上屏，保证顺序与模型可见一致。
-							dispatchConversationFeed({
-								type: "user.deferred",
-								runtimeId: session.runtimeId,
-								id: optimisticUserMsgId,
-							});
-						}
-						sendResult = { status: "queued", queueItemId: outcome.queueItemId };
-					} else if (outcome?.status === "failed") {
-						if (hiddenOptimisticMessageId) {
-							dispatchConversationFeed({
-								type: "user.discarded",
-								runtimeId: session.runtimeId,
-								id: hiddenOptimisticMessageId,
-							});
-						}
-						if (optimisticUserMsgId && !outcome.turnId) {
 							dispatchConversationFeed({
 								type: "user.failed",
 								runtimeId: session.runtimeId,
 								id: optimisticUserMsgId,
 							});
 						}
-						// A terminal failure is a normal prompt receipt, not a rejected IPC call.
-						// Render it here as the authoritative fallback when the event stream is
-						// delayed or lost. The feed merges the later error event by turnId.
-						const message =
-							outcome.error?.message?.trim() || i18n.t("chat:messageList.errorBlock.kinds.unknown.title");
-						dispatchConversationFeed({
-							type: "error.appended",
-							runtimeId: session.runtimeId,
-							message,
-							timestamp: Date.now(),
-							...(outcome.turnId ? { turnId: outcome.turnId } : {}),
-							details: toChatErrorDetails(outcome.error),
-						});
-						setActiveSessionStreaming(false);
-						setRetryProgress(null);
-						sendResult = { status: "failed", error: { message } };
-					} else {
-						sendResult = { status: "sent" };
 					}
-				} catch (err) {
-					if (hiddenOptimisticMessageId) {
+					return { status: "failed", error: { message } };
+				}
+				try {
+					// The batch resume contract accepts text only, so captures cannot be resumed safely.
+					const legacyText = attachments.length
+						? `${attachments.map((attachment) => `@${attachment.path}`).join("\n")}\n${text}`
+						: text;
+					await window.vetta.batchTasks.resumeTaskWithText(pausedBatch.projectId, pausedBatch.taskId, legacyText);
+					// The resumed Turn appends this text under its own message id; the bubble
+					// is shown again from that durable message instead of being matched by text.
+					if (optimisticUserMsgId) {
 						dispatchConversationFeed({
 							type: "user.discarded",
 							runtimeId: session.runtimeId,
-							id: hiddenOptimisticMessageId,
+							id: optimisticUserMsgId,
 						});
 					}
-					// The rejected send never reached the Runtime; it must not come back as unconfirmed.
+				} catch (err) {
+					const message = err instanceof Error ? err.message : String(err);
+					console.error("[useSessionManager.sendMessage] resumeTaskWithText rejected:", err);
 					if (optimisticUserMsgId) {
 						dispatchConversationFeed({
 							type: "user.failed",
@@ -758,41 +531,277 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 							id: optimisticUserMsgId,
 						});
 					}
-					// RuntimeHost.prompt 现在会先把 prompt 期同步抛错（"No model
-					// selected" / "No API key found" / "Agent is already processing"
-					// 等）转换成 error 事件广播给所有订阅者，再把异常向上抛——所以
-					// 正常情况下这里 catch 到的时候 chat 里已经多了一条 error block。
-					// 但保留这层兜底是因为：(1) 旧版 RuntimeHost 或其它 host 实现未
-					// 必有合成事件机制；(2) IPC 链路自身（preload / electron）出错
-					// 时不会经过 RuntimeHost。任何 reject 在这里直接落成一条 error
-					// 气泡，杜绝「按了发送但屏幕完全没反应」的死寂体验。
-					const message = err instanceof Error ? err.message : String(err);
-					console.error("[useSessionManager.sendMessage] prompt rejected:", err);
-					// The feed shows a failure reported by both this rejection and its error event once.
 					dispatchConversationFeed({
 						type: "error.appended",
 						runtimeId: session.runtimeId,
 						message,
 						timestamp: Date.now(),
 					});
-					// 被拒绝的 prompt 没有开启 turn，也就不会有 agent_end 来收尾。本次发送开启的
-					// 流式态（新会话暂存发送会抢先置为 true）必须在这里退出，否则界面一直“处理中”，
-					// 停止按钮对着一个并不存在的 turn 调 abort，永远停不下来。
-					if (!streaming) {
-						setActiveSessionStreaming(false);
-						setRetryProgress(null);
-					}
-					sendResult = { status: "failed", error: { message } };
 				}
-				// ADR-0007：归一回项目根 bucket，否则「对话」session 刷的是没用的子目录桶，
-				// 侧边栏默认列表（挂在根 bucket）拿不到这一轮的对账更新。
-				void loadSessions(conversationBucketCwd(session.cwd, defaultConversationCwdRef.current)).catch((err) => {
-					console.warn("[useSessionManager.sendMessage] background session list refresh failed", err);
-				});
-				return sendResult;
-			} finally {
-				releaseCapturePreparation();
+				await loadSessions(session.cwd);
+				return;
 			}
+
+			// 非批量任务项目：若该 session 已有 todo 且全部 done，在发起下一个
+			// prompt 前先清空 todo 列表，让用户开启新一轮工作时面板回到干净状态。
+			// 批量任务依赖严格 todo 机制，不在此清空；锁定状态后端会自行拒绝。
+			// streaming 入队时不清：当前正在跑的回合仍拥有这些 todo。
+			if (!streaming) {
+				const projectType = getProjects().find((p) => p.cwd === session.cwd)?.type;
+				if (projectType !== "batch") {
+					const items = todoItemsMapRef.current.get(session.runtimeId) ?? [];
+					if (items.length > 0 && items.every((i) => i.status === "done")) {
+						try {
+							await window.vetta.session.clearTodos(session.runtimeId);
+						} catch (err) {
+							console.error("[useSessionManager.sendMessage] clearTodos failed:", err);
+						}
+					}
+				}
+			}
+
+			// 新会话页上选的计划模式要赶在第一条消息之前落到 Runtime；落不上就不发，
+			// 不能把「先出计划」静默降级成直接执行。
+			try {
+				await applyDraftPlanMode(session.runtimeId);
+			} catch (err) {
+				console.error("[useSessionManager.sendMessage] applyDraftPlanMode failed:", err);
+				dispatchConversationFeed({
+					type: "error.appended",
+					runtimeId: session.runtimeId,
+					message: err instanceof Error ? err.message : String(err),
+					timestamp: Date.now(),
+				});
+				return;
+			}
+
+			const promptMessageId = optimisticUserMsgId ?? nextId("user");
+			const promptReq: PromptRequest = {
+				text: text || "(see attached content)",
+				messageId: promptMessageId,
+			};
+			if (!hasOverride && browserCaptures.length) {
+				promptReq.context = [buildBrowserCaptureContext(browserCaptures, promptMessageId)];
+				promptReq.images = captureImages;
+			}
+			let hiddenOptimisticMessageId: string | undefined;
+			if (streaming) {
+				// Queued messages stay out of the timeline until the Kernel appends them,
+				// but their editor-only metadata must survive that wait under the same ID.
+				hiddenOptimisticMessageId = promptMessageId;
+				dispatchConversationFeed({
+					type: "user.queued",
+					runtimeId: session.runtimeId,
+					message: createUserSnapshot(hiddenOptimisticMessageId),
+				});
+			}
+			if (attachments.length > 0 || pendingEdit) {
+				promptReq.attachments = attachments;
+			}
+			if (images && imagePaths.length === 0) {
+				promptReq.images = [
+					...captureImages,
+					...images.map((image) => ({
+						type: "image" as const,
+						data: image.data,
+						mimeType: image.mimeType,
+					})),
+				];
+			}
+			if (selectedModel) {
+				promptReq.modelKey = selectedModel;
+				// Per-model reasoning level rides alongside modelKey (see reasoning-level design).
+				const level = getDefaultStore().get(reasoningByModelAtom)[selectedModel];
+				if (level) promptReq.reasoning = level;
+			}
+			// Caller-supplied metadata first (e.g. settings AI assist model-only instruction).
+			if (options?.metadata && Object.keys(options.metadata).length > 0) {
+				promptReq.metadata = { ...options.metadata };
+			}
+			// Merge metadata and hidden instructions contributed by active plugin
+			// input actions.
+			const pluginStore = getDefaultStore();
+			const usedInputActions: Parameters<typeof recordInputActionsUsed>[0] = [];
+			const pluginInstructions: string[] = [];
+			const pluginPromptContexts: Array<PluginPromptContext & { pluginId: string }> = [];
+			const activeActionIds = pluginStore.get(activeInputActionIdsAtom);
+			if (activeActionIds.size > 0) {
+				for (const action of pluginStore.get(pluginInputActionsAtom)) {
+					if (!activeActionIds.has(action.actionId)) continue;
+					const decoration = action.decoratePrompt?.();
+					if (decoration?.metadata) {
+						promptReq.metadata = { ...promptReq.metadata, ...decoration.metadata };
+					}
+					if (decoration?.instructions) {
+						pluginInstructions.push(
+							...decoration.instructions.filter(
+								(instruction) => typeof instruction === "string" && instruction.trim().length > 0,
+							),
+						);
+					}
+					if (decoration?.metadata || decoration?.instructions) {
+						usedInputActions.push({ actionId: action.actionId, actionKind: "plugin" });
+					}
+				}
+			}
+			// 原生「知识检索」开关（硬隔离）：开启后本轮携带 knowledgeMode——
+			// input-pipeline 暴露 kb-read 工具并注入仅模型可见的「优先查询知识库」提示。
+			if (pluginStore.get(knowledgeRetrievalActiveAtom)) {
+				promptReq.metadata = { ...promptReq.metadata, knowledgeMode: true };
+				usedInputActions.push({
+					actionId: BUILTIN_KNOWLEDGE_RETRIEVAL_ACTION_ID,
+					actionKind: "builtin",
+				});
+			}
+			// Plugin-owned attachment data stays structured until the coding-agent
+			// input boundary. Legacy metadata/instructions remain supported.
+			// 插件 sendPrompt 不消费：promptAttachment 是用户为下一条手动消息挂的，
+			// 被插件静默发送吃掉会既丢附件又让用户困惑（ADR-0060）。
+			const promptAttachment = options?.source === "plugin" ? null : pluginStore.get(promptAttachmentAtom);
+			if (promptAttachment) {
+				if (promptAttachment.metadata) {
+					promptReq.metadata = { ...promptReq.metadata, ...promptAttachment.metadata };
+				}
+				pluginInstructions.push(
+					...(promptAttachment.instructions ?? []).filter(
+						(instruction) => typeof instruction === "string" && instruction.trim().length > 0,
+					),
+				);
+				if (promptAttachment.context) {
+					pluginPromptContexts.push({
+						pluginId: promptAttachment.ownerPluginId,
+						...structuredClone(promptAttachment.context),
+					});
+				}
+				if (promptAttachment.lifecycle !== "sticky") {
+					pluginStore.set(promptAttachmentAtom, null);
+				}
+			}
+			if (pluginInstructions.length > 0) {
+				promptReq.metadata = { ...promptReq.metadata, pluginInstructions };
+			}
+			if (pluginPromptContexts.length > 0) {
+				promptReq.metadata = { ...promptReq.metadata, pluginPromptContexts };
+			}
+			recordInputActionsUsed(usedInputActions);
+			// 恒置 followUp（ADR-0060）：streaming 中入 kernel 队列、立即收 queued 回执；
+			// 空闲时 kernel 忽略该字段直接开 turn。即便 isStreamingAtom 与主进程真实状态
+			// 失步，最坏结果也是入队而非 SESSION_BUSY 丢消息。
+			promptReq.streamingBehavior = options?.streamingBehavior ?? "followUp";
+			let sendResult: SendMessageResult | undefined;
+			try {
+				if (stagedInput) {
+					getDefaultStore().set(pendingSessionSendAtom, null);
+					dispatchConversationFeed({ type: "turn.pending", startedAt: Date.now() });
+					setActiveSessionStreaming(true);
+				}
+				perfSendMark("await-plugin-host", interactionId);
+				// 只等首次激活：热重载期间旧工具注册仍有效（last-known-good），
+				// 不再让插件集合变化把每次发送挡住最长 5 秒。
+				await waitForPluginHostFirstReady();
+				perfSendMark("prompt-ipc-start", interactionId);
+				capturePreparation?.[Symbol.dispose]();
+				const promptPromise = window.vetta.session.prompt(
+					session.runtimeId,
+					promptReq,
+					interactionId ? { interactionId } : undefined,
+				);
+				perfSendComplete("prompt-dispatched", interactionId);
+				const outcome = await promptPromise;
+				perfSendMark("prompt-ipc-end", interactionId);
+				if (outcome?.status === "queued") {
+					if (optimisticUserMsgId) {
+						// 以为空闲实则已在跑：消息已入 kernel 队列，撤掉抢先的乐观气泡，
+						// 待 Kernel 追加同一 id 的消息时重新上屏，保证顺序与模型可见一致。
+						dispatchConversationFeed({
+							type: "user.deferred",
+							runtimeId: session.runtimeId,
+							id: optimisticUserMsgId,
+						});
+					}
+					sendResult = { status: "queued", queueItemId: outcome.queueItemId };
+				} else if (outcome?.status === "failed") {
+					if (hiddenOptimisticMessageId) {
+						dispatchConversationFeed({
+							type: "user.discarded",
+							runtimeId: session.runtimeId,
+							id: hiddenOptimisticMessageId,
+						});
+					}
+					if (optimisticUserMsgId && !outcome.turnId) {
+						dispatchConversationFeed({
+							type: "user.failed",
+							runtimeId: session.runtimeId,
+							id: optimisticUserMsgId,
+						});
+					}
+					// A terminal failure is a normal prompt receipt, not a rejected IPC call.
+					// Render it here as the authoritative fallback when the event stream is
+					// delayed or lost. The feed merges the later error event by turnId.
+					const message =
+						outcome.error?.message?.trim() || i18n.t("chat:messageList.errorBlock.kinds.unknown.title");
+					dispatchConversationFeed({
+						type: "error.appended",
+						runtimeId: session.runtimeId,
+						message,
+						timestamp: Date.now(),
+						...(outcome.turnId ? { turnId: outcome.turnId } : {}),
+						details: toChatErrorDetails(outcome.error),
+					});
+					setActiveSessionStreaming(false);
+					setRetryProgress(null);
+					sendResult = { status: "failed", error: { message } };
+				} else {
+					sendResult = { status: "sent" };
+				}
+			} catch (err) {
+				if (hiddenOptimisticMessageId) {
+					dispatchConversationFeed({
+						type: "user.discarded",
+						runtimeId: session.runtimeId,
+						id: hiddenOptimisticMessageId,
+					});
+				}
+				// The rejected send never reached the Runtime; it must not come back as unconfirmed.
+				if (optimisticUserMsgId) {
+					dispatchConversationFeed({
+						type: "user.failed",
+						runtimeId: session.runtimeId,
+						id: optimisticUserMsgId,
+					});
+				}
+				// RuntimeHost.prompt 现在会先把 prompt 期同步抛错（"No model
+				// selected" / "No API key found" / "Agent is already processing"
+				// 等）转换成 error 事件广播给所有订阅者，再把异常向上抛——所以
+				// 正常情况下这里 catch 到的时候 chat 里已经多了一条 error block。
+				// 但保留这层兜底是因为：(1) 旧版 RuntimeHost 或其它 host 实现未
+				// 必有合成事件机制；(2) IPC 链路自身（preload / electron）出错
+				// 时不会经过 RuntimeHost。任何 reject 在这里直接落成一条 error
+				// 气泡，杜绝「按了发送但屏幕完全没反应」的死寂体验。
+				const message = err instanceof Error ? err.message : String(err);
+				console.error("[useSessionManager.sendMessage] prompt rejected:", err);
+				// The feed shows a failure reported by both this rejection and its error event once.
+				dispatchConversationFeed({
+					type: "error.appended",
+					runtimeId: session.runtimeId,
+					message,
+					timestamp: Date.now(),
+				});
+				// 被拒绝的 prompt 没有开启 turn，也就不会有 agent_end 来收尾。本次发送开启的
+				// 流式态（新会话暂存发送会抢先置为 true）必须在这里退出，否则界面一直“处理中”，
+				// 停止按钮对着一个并不存在的 turn 调 abort，永远停不下来。
+				if (!streaming) {
+					setActiveSessionStreaming(false);
+					setRetryProgress(null);
+				}
+				sendResult = { status: "failed", error: { message } };
+			}
+			// ADR-0007：归一回项目根 bucket，否则「对话」session 刷的是没用的子目录桶，
+			// 侧边栏默认列表（挂在根 bucket）拿不到这一轮的对账更新。
+			void loadSessions(conversationBucketCwd(session.cwd, defaultConversationCwdRef.current)).catch((err) => {
+				console.warn("[useSessionManager.sendMessage] background session list refresh failed", err);
+			});
+			return sendResult;
 		},
 		[
 			// 输入文本调用时读 store，其余输入相关值读 ref，不再入依赖，保证
