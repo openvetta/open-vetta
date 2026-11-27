@@ -21,8 +21,10 @@ import {
 	onBuildError,
 } from "./bridge";
 import { type Preloadable, preloadable } from "./preloadable";
-import { HOME_FRAME_ID, frameOfPath, homeFrameId, isFrameFile, pathOfFrame } from "./routes";
+import { HOME_FRAME_ID, LAYOUT_FILE, frameOfPath, homeFrameId, isFrameFile, pathOfFrame } from "./routes";
 import { applyStorageSeed } from "./storage-sync";
+// 由 vite.config 的 vetdFrames 插件生成；不用 import.meta.glob 的原因见那里（Windows 跨盘符）。
+import { frameLoaders } from "virtual:vetd-frames";
 
 /**
  * 离屏截图窗口带着画布那侧的 localStorage 快照来（见 storage-sync.ts）。frame 与外壳
@@ -41,7 +43,7 @@ interface FrameModule {
  * 模块里，任意一处语法错都会让入口整体编译失败，画布上每一帧一起变红。
  * 导出快照仍是单 chunk——由 vite.config 的 inlineDynamicImports 保证。
  */
-const loaders = import.meta.glob<FrameModule>("@design/frames/*.tsx");
+const loaders = frameLoaders as Record<string, () => Promise<FrameModule>>;
 
 const frames = new Map<string, () => Promise<FrameModule>>();
 for (const [path, load] of Object.entries(loaders)) {
@@ -57,7 +59,7 @@ for (const [path, load] of Object.entries(loaders)) {
  * 外壳不重新挂载，展开的菜单、选中态、滚动位置都留着，这才是真实产品的手感。
  * 设计稿不需要外壳时（海报、幻灯片、单屏）不建这个文件即可，链路对它们无感。
  */
-const layoutLoad = Object.values(import.meta.glob<FrameModule>("@design/frames/_layout.tsx"))[0] ?? null;
+const layoutLoad = Object.entries(loaders).find(([path]) => path.endsWith(`/${LAYOUT_FILE}`))?.[1] ?? null;
 const layout = layoutLoad
 	? preloadable(async () => {
 			const mod = await layoutLoad();

@@ -71,8 +71,10 @@
 	--context-segment-4: oklch(0.72 0.12 95);
 	--context-segment-5: oklch(0.72 0.12 25);
 
-	--font-sans: -apple-system, "SF Pro Text", "SF Pro Display", "Helvetica Neue",
-		sans-serif;
+	/* Windows 上前面的 macOS 字体都不存在：不显式写 Segoe UI / 微软雅黑 UI 的话会退回通用 sans-serif，
+	   Electron 没有中文版 Chrome 的地区默认字体，中英文可能落到发虚的字体上。 */
+	--font-sans: -apple-system, "SF Pro Text", "SF Pro Display", "Helvetica Neue", "Segoe UI",
+		"Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
 	--font-serif: Georgia, serif;
 	--font-mono: "SF Mono", "Fira Code", monospace;
 	--radius: 0.5rem;
