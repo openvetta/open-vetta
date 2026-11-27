@@ -47,7 +47,6 @@ import {
 	sidebarWidthAtom,
 } from "../shared/store/atoms";
 import { recordRecentSessionVisitAtom } from "../shared/store/recent-sessions-atoms";
-import { syncSpaceSiblingMirror } from "../shared/store/space-sibling-mirror";
 import { startSpaceStoreSync } from "../shared/store/space-store-sync";
 import { showToast } from "../shared/store/toast-atoms";
 import { shouldShowChatRoutePending } from "./chat-route-pending";
@@ -331,15 +330,6 @@ export function useRootLayoutModel(): RootLayoutModel {
 				},
 				{ onError: (error) => console.warn("[RootLayout] sync workspace store failed", error) },
 			),
-		[],
-	);
-
-	// 工作空间归属的只读镜像推给主进程，供它推导会话可见的同空间兄弟项目（ADR-0159）。
-	useEffect(
-		() =>
-			syncSpaceSiblingMirror(getDefaultStore(), (mirror) => window.vetta.project.syncSpaceSiblings(mirror), {
-				onError: (error) => console.warn("[RootLayout] sync space sibling mirror failed", error),
-			}),
 		[],
 	);
 

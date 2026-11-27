@@ -1,6 +1,5 @@
 import { ipcMain } from "electron";
 import { getDesktopProjectService } from "../projects/project-service-instance.js";
-import { getSiblingProjectsService } from "../spaces/sibling-projects-instance.js";
 
 const CHANNELS = {
 	LIST: "vetta:projects:list",
@@ -10,7 +9,6 @@ const CHANNELS = {
 	ARCHIVE: "vetta:projects:archive",
 	UNARCHIVE: "vetta:projects:unarchive",
 	REMOVE: "vetta:projects:remove",
-	SYNC_SPACE_SIBLINGS: "vetta:projects:sync-space-siblings",
 } as const;
 
 function asString(value: unknown): string {
@@ -51,11 +49,6 @@ export function registerProjectsIpc(): () => void {
 	ipcMain.handle(CHANNELS.UNARCHIVE, (_event, path: unknown) => getDesktopProjectService().unarchive(asString(path)));
 
 	ipcMain.handle(CHANNELS.REMOVE, (_event, path: unknown) => getDesktopProjectService().remove(asString(path)));
-
-	// 工作空间归属的只读镜像（ADR-0159）。Renderer 仍是唯一写入方，这里只接收、校验、落盘。
-	ipcMain.handle(CHANNELS.SYNC_SPACE_SIBLINGS, (_event, mirror: unknown) =>
-		getSiblingProjectsService().updateMirror(mirror),
-	);
 
 	return () => {
 		for (const channel of Object.values(CHANNELS)) ipcMain.removeHandler(channel);

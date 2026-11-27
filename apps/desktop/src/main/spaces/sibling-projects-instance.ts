@@ -1,43 +1,14 @@
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
-import { getVettaHomePath } from "@vetta/action-rpc";
-import { atomicWriteJSONAsync } from "@vetta/toolkit/atomic-write";
 import { readDesktopConfig } from "../config/desktop-config-store.js";
 import { conversationOwnershipCatalog } from "../conversations/conversation-ownership-catalog.js";
 import { getAppLogger } from "../logger.js";
-import type { ProjectRegistryEntry, SpaceSiblingMirror } from "./sibling-projects.js";
+import type { ProjectRegistryEntry } from "./sibling-projects.js";
 import { SiblingProjectsService } from "./sibling-projects-service.js";
+import { getSpaceStore } from "./space-store-instance.js";
 
-const MIRROR_PATH = resolve(getVettaHomePath(), "space-sibling-projects.v1.json");
 /** read 可能密集触发；项目列表与「不属于 Team」的结论最多陈旧这么久。 */
 const CACHE_TTL_MS = 2_000;
 
 const log = getAppLogger("spaces");
-
-function isMissingFile(error: unknown): boolean {
-	return typeof error === "object" && error !== null && (error as { code?: unknown }).code === "ENOENT";
-}
-
-export async function loadSpaceSiblingMirror(path = MIRROR_PATH): Promise<unknown> {
-	try {
-		const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
-		if (
-			typeof parsed === "object" &&
-			parsed !== null &&
-			(parsed as { schemaVersion?: unknown }).schemaVersion === 1
-		) {
-			return (parsed as { mirror?: unknown }).mirror;
-		}
-		return undefined;
-	} catch (error) {
-		if (isMissingFile(error)) return undefined;
-		throw error;
-	}
-}
-
-export function saveSpaceSiblingMirror(mirror: SpaceSiblingMirror, path = MIRROR_PATH): Promise<void> {
-	return atomicWriteJSONAsync(path, { schemaVersion: 1, mirror });
-}
 
 function createActiveProjectsReader(now: () => number = Date.now): () => Promise<readonly ProjectRegistryEntry[]> {
 	let cached: { at: number; value: Promise<readonly ProjectRegistryEntry[]> } | undefined;
@@ -82,8 +53,7 @@ export function getSiblingProjectsService(): SiblingProjectsService {
 	instance ??= new SiblingProjectsService({
 		readActiveProjects: createActiveProjectsReader(),
 		readTeamSessionId: createTeamSessionReader(),
-		loadMirror: () => loadSpaceSiblingMirror(),
-		saveMirror: (mirror) => saveSpaceSiblingMirror(mirror),
+		readSpaces: async () => (await getSpaceStore().read()).data,
 		log,
 	});
 	return instance;

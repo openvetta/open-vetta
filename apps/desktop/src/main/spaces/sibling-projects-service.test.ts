@@ -1,12 +1,13 @@
 import type { ConversationDocument, PromptRequest } from "@vetta/runtime-core";
 import type { SessionContextRecord } from "@vetta/runtime-core/kernel";
 import { describe, expect, it, vi } from "vitest";
-import { SIBLING_PROJECTS_CONTEXT_TYPE, type SpaceSiblingMirror } from "./sibling-projects.js";
+import { SIBLING_PROJECTS_CONTEXT_TYPE } from "./sibling-projects.js";
 import {
 	type SiblingProjectsRuntimePort,
 	SiblingProjectsService,
 	type SiblingProjectsServiceDependencies,
 } from "./sibling-projects-service.js";
+import { SpaceStore } from "./space-store.js";
 
 const CODE = { path: "/work/openvetta", name: "openvetta" };
 const DOCS = { path: "/work/docs", name: "文档" };
@@ -56,25 +57,25 @@ function createRuntime(overrides: Partial<SiblingProjectsRuntimePort> = {}) {
 }
 
 function createService(overrides: Partial<SiblingProjectsServiceDependencies> = {}) {
-	const saved: SpaceSiblingMirror[] = [];
 	const log = { warn: vi.fn() };
 	let projects = [CODE, DOCS, DESIGN];
+	let spaces: unknown;
 	const service = new SiblingProjectsService({
 		readActiveProjects: async () => projects,
 		readTeamSessionId: async () => undefined,
-		loadMirror: async () => undefined,
-		saveMirror: async (mirror) => {
-			saved.push(mirror);
-		},
+		readSpaces: async () => spaces,
 		log,
 		...overrides,
 	});
 	return {
 		service,
-		saved,
 		log,
 		setProjects: (next: typeof projects) => {
 			projects = next;
+		},
+		/** 模拟主进程工作空间存储的当前内容（ADR-0160）。 */
+		setSpaces: async (next: unknown) => {
+			spaces = next;
 		},
 	};
 }
@@ -90,10 +91,10 @@ function recordText(record: SessionContextRecord | undefined): string {
 
 describe("SiblingProjectsService.decoratePrompt", () => {
 	it("tells the agent about sibling projects on the first turn, hidden from the UI", async () => {
-		const { service } = createService();
+		const { service, setSpaces } = createService();
 		const { runtime } = createRuntime();
 		service.attachRuntime(runtime);
-		await service.updateMirror(MIRROR);
+		await setSpaces(MIRROR);
 
 		const request = await service.decoratePrompt("s1", { text: "hi" });
 		const [record] = siblingRecords(request);
@@ -107,28 +108,28 @@ describe("SiblingProjectsService.decoratePrompt", () => {
 	});
 
 	it("adds nothing while the list is unchanged, then appends when it changes", async () => {
-		const { service } = createService();
+		const { service, setSpaces } = createService();
 		const { runtime, commit } = createRuntime();
 		service.attachRuntime(runtime);
-		await service.updateMirror(MIRROR);
+		await setSpaces(MIRROR);
 
 		const first = await service.decoratePrompt("s1", { text: "1" });
 		commit(first);
 		expect(siblingRecords(await service.decoratePrompt("s1", { text: "2" }))).toEqual([]);
 
-		await service.updateMirror({ ...MIRROR, projects: { ...MIRROR.projects, [DESIGN.path]: "product" } });
+		await setSpaces({ ...MIRROR, projects: { ...MIRROR.projects, [DESIGN.path]: "product" } });
 		const third = await service.decoratePrompt("s1", { text: "3" });
 		expect(siblingRecords(third)[0]?.metadata).toEqual({ projects: [CODE, DOCS, DESIGN] });
 	});
 
 	it("tells the agent when the list becomes empty because the switch was turned off", async () => {
-		const { service } = createService();
+		const { service, setSpaces } = createService();
 		const { runtime, commit } = createRuntime();
 		service.attachRuntime(runtime);
-		await service.updateMirror(MIRROR);
+		await setSpaces(MIRROR);
 		commit(await service.decoratePrompt("s1", { text: "1" }));
 
-		await service.updateMirror({ ...MIRROR, spaces: [{ id: "product", siblingProjects: false }] });
+		await setSpaces({ ...MIRROR, spaces: [{ id: "product", siblingProjects: false }] });
 		const next = await service.decoratePrompt("s1", { text: "2" });
 		const [record] = siblingRecords(next);
 		expect(record?.metadata).toEqual({ projects: [] });
@@ -138,29 +139,29 @@ describe("SiblingProjectsService.decoratePrompt", () => {
 	});
 
 	it("re-tells after a project is renamed", async () => {
-		const { service, setProjects } = createService();
+		const { service, setProjects, setSpaces } = createService();
 		const { runtime, commit } = createRuntime();
 		service.attachRuntime(runtime);
-		await service.updateMirror(MIRROR);
+		await setSpaces(MIRROR);
 		commit(await service.decoratePrompt("s1", { text: "1" }));
 		setProjects([CODE, { ...DOCS, name: "Docs" }, DESIGN]);
 		expect(siblingRecords(await service.decoratePrompt("s1", { text: "2" }))).toHaveLength(1);
 	});
 
 	it("adds nothing for sessions outside any custom space", async () => {
-		const { service } = createService();
+		const { service, setSpaces } = createService();
 		const { runtime } = createRuntime({ getSessionPath: () => "/c/.vetta/sessions/other.jsonl" });
 		service.attachRuntime(runtime);
-		await service.updateMirror(MIRROR);
+		await setSpaces(MIRROR);
 		const request: PromptRequest = { text: "hi" };
 		expect(await service.decoratePrompt("s1", request)).toBe(request);
 	});
 
 	it("keeps context supplied by the caller and appends after it", async () => {
-		const { service } = createService();
+		const { service, setSpaces } = createService();
 		const { runtime } = createRuntime();
 		service.attachRuntime(runtime);
-		await service.updateMirror(MIRROR);
+		await setSpaces(MIRROR);
 		const existing: SessionContextRecord = { type: "other", content: "x", modelVisible: false };
 		const request = await service.decoratePrompt("s1", { text: "hi", context: [existing] });
 		expect(request.context?.[0]).toBe(existing);
@@ -168,19 +169,19 @@ describe("SiblingProjectsService.decoratePrompt", () => {
 	});
 
 	it("re-tells when the session document cannot be read", async () => {
-		const { service } = createService();
+		const { service, setSpaces } = createService();
 		const { runtime } = createRuntime({
 			readSessionDocument: () => {
 				throw new Error("not loaded");
 			},
 		});
 		service.attachRuntime(runtime);
-		await service.updateMirror(MIRROR);
+		await setSpaces(MIRROR);
 		expect(siblingRecords(await service.decoratePrompt("s1", { text: "hi" }))).toHaveLength(1);
 	});
 
 	it("sends the prompt unchanged when resolving fails or no runtime is attached", async () => {
-		const { service, log } = createService({
+		const { service, log, setSpaces } = createService({
 			readActiveProjects: async () => {
 				throw new Error("config unreadable");
 			},
@@ -188,20 +189,20 @@ describe("SiblingProjectsService.decoratePrompt", () => {
 		const request: PromptRequest = { text: "hi" };
 		expect(await service.decoratePrompt("s1", request)).toBe(request);
 		service.attachRuntime(createRuntime().runtime);
-		await service.updateMirror(MIRROR);
+		await setSpaces(MIRROR);
 		expect(await service.decoratePrompt("s1", request)).toBe(request);
 		expect(log.warn).toHaveBeenCalled();
 	});
 
 	it("resolves Team member sessions through the ownership lookup", async () => {
 		const readTeamSessionId = vi.fn(async () => "team-1");
-		const { service } = createService({ readTeamSessionId });
+		const { service, setSpaces } = createService({ readTeamSessionId });
 		const { runtime } = createRuntime({
 			getSessionPath: () => "/teams/member.jsonl",
 			readSessionWorkingDirectory: () => "/teams/workspace",
 		});
 		service.attachRuntime(runtime);
-		await service.updateMirror({ ...MIRROR, conversations: { "team-1": "product" } });
+		await setSpaces({ ...MIRROR, conversations: { "team-1": "product" } });
 		expect(await service.readRoots("member")).toEqual([CODE.path, DOCS.path]);
 		expect(readTeamSessionId).toHaveBeenCalledWith("/teams/member.jsonl");
 	});
@@ -209,61 +210,59 @@ describe("SiblingProjectsService.decoratePrompt", () => {
 
 describe("SiblingProjectsService.readRoots", () => {
 	it("follows the latest mirror immediately", async () => {
-		const { service } = createService();
+		const { service, setSpaces } = createService();
 		service.attachRuntime(createRuntime().runtime);
-		await service.updateMirror(MIRROR);
+		await setSpaces(MIRROR);
 		expect(await service.readRoots("s1")).toEqual([CODE.path, DOCS.path]);
-		await service.updateMirror({ ...MIRROR, projects: { [CODE.path]: "product" } });
+		await setSpaces({ ...MIRROR, projects: { [CODE.path]: "product" } });
 		expect(await service.readRoots("s1")).toEqual([CODE.path]);
 	});
 
 	it("returns no roots (and logs) when resolution fails", async () => {
-		const { service, log } = createService({
+		const { service, log, setSpaces } = createService({
 			readTeamSessionId: async () => {
 				throw new Error("catalog corrupt");
 			},
 		});
 		service.attachRuntime(createRuntime().runtime);
-		await service.updateMirror(MIRROR);
+		await setSpaces(MIRROR);
 		expect(await service.readRoots("s1")).toEqual([]);
 		expect(log.warn).toHaveBeenCalled();
 	});
 
 	it("returns no roots for an empty session id", async () => {
-		const { service } = createService();
+		const { service, setSpaces } = createService();
 		service.attachRuntime(createRuntime().runtime);
-		await service.updateMirror(MIRROR);
+		await setSpaces(MIRROR);
 		expect(await service.readRoots("")).toEqual([]);
 	});
 });
 
-describe("SiblingProjectsService mirror persistence", () => {
-	it("uses the persisted mirror until the renderer pushes one", async () => {
-		const { service } = createService({ loadMirror: async () => MIRROR });
+describe("SiblingProjectsService workspace store", () => {
+	it("reads the workspace store on every call so changes apply immediately", async () => {
+		const readSpaces = vi.fn(async () => MIRROR);
+		const { service } = createService({ readSpaces });
 		service.attachRuntime(createRuntime().runtime);
+		await service.readRoots("s1");
+		await service.readRoots("s1");
+		expect(readSpaces).toHaveBeenCalledTimes(2);
+	});
+
+	it("accepts the stored shape with names and icons", async () => {
+		const { service, setSpaces } = createService();
+		service.attachRuntime(createRuntime().runtime);
+		await setSpaces({
+			spaces: [{ id: "product", name: "Product", icon: { kind: "solar", value: "code" } }],
+			projects: MIRROR.projects,
+			conversations: MIRROR.conversations,
+		});
 		expect(await service.readRoots("s1")).toEqual([CODE.path, DOCS.path]);
 	});
 
-	it("never lets a slow disk load overwrite a mirror the renderer already pushed", async () => {
-		let releaseLoad: (value: unknown) => void = () => {};
-		const { service } = createService({
-			loadMirror: () =>
-				new Promise((resolve) => {
-					releaseLoad = resolve;
-				}),
-		});
-		service.attachRuntime(createRuntime().runtime);
-		const pending = service.readRoots("s1");
-		await service.updateMirror({ ...MIRROR, projects: { [CODE.path]: "product" } });
-		releaseLoad(MIRROR);
-		await pending;
-		expect(await service.readRoots("s1")).toEqual([CODE.path]);
-	});
-
-	it("survives a corrupt persisted mirror", async () => {
+	it("returns no roots (and logs) when the store cannot be read", async () => {
 		const { service, log } = createService({
-			loadMirror: async () => {
-				throw new SyntaxError("bad json");
+			readSpaces: async () => {
+				throw new Error("EACCES");
 			},
 		});
 		service.attachRuntime(createRuntime().runtime);
@@ -271,24 +270,35 @@ describe("SiblingProjectsService mirror persistence", () => {
 		expect(log.warn).toHaveBeenCalled();
 	});
 
-	it("persists sanitized mirrors in push order and keeps going after a failed write", async () => {
-		const writes: string[] = [];
-		let fail = true;
-		const { service, log } = createService({
-			saveMirror: async (mirror) => {
-				if (fail) {
-					fail = false;
-					throw new Error("disk full");
-				}
-				writes.push(Object.keys(mirror.projects).join(","));
+	it("sees nothing before any workspace exists", async () => {
+		const { service } = createService();
+		service.attachRuntime(createRuntime().runtime);
+		expect(await service.readRoots("s1")).toEqual([]);
+	});
+
+	it("follows a real workspace store from the upgrade handshake through a later toggle", async () => {
+		let file: string | undefined;
+		const store = new SpaceStore({
+			io: {
+				read: async () => file,
+				write: async (content) => {
+					file = content;
+				},
+				backupCorrupt: async () => {},
 			},
 		});
-		await Promise.all([
-			service.updateMirror({ ...MIRROR, projects: { "/a": "product" } }),
-			service.updateMirror({ ...MIRROR, projects: { "/b": "product", "/x": "ghost" } }),
-		]);
-		expect(writes).toEqual(["/b"]);
-		expect(log.warn).toHaveBeenCalledWith("failed to persist space sibling mirror", expect.any(Error));
-		expect((await service.readMirror()).projects).toEqual({ "/b": "product" });
+		const { service } = createService({ readSpaces: async () => (await store.read()).data });
+		service.attachRuntime(createRuntime().runtime);
+		const icon = { kind: "solar", value: "code" };
+		const local = {
+			spaces: [{ id: "product", name: "Product", icon }],
+			projects: MIRROR.projects,
+			conversations: MIRROR.conversations,
+		};
+		expect(await service.readRoots("s1")).toEqual([]);
+		await store.sync({ sourceId: "prod", local, localDirty: false });
+		expect(await service.readRoots("s1")).toEqual([CODE.path, DOCS.path]);
+		await store.save({ ...local, spaces: [{ id: "product", name: "Product", icon, siblingProjects: false }] });
+		expect(await service.readRoots("s1")).toEqual([]);
 	});
 });

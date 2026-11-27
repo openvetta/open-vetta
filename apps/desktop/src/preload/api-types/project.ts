@@ -72,18 +72,6 @@ export interface ProjectListSnapshot {
 	archivedProjects: readonly ProjectEntrySnapshot[];
 }
 
-/**
- * 工作空间归属的只读镜像（ADR-0159）：主进程据此推导会话能看见哪些同空间兄弟项目。
- * 只含自定义空间；主空间不出现。Renderer 仍是空间配置的唯一写入方。
- */
-export interface SpaceSiblingMirrorSnapshot {
-	spaces: readonly { id: string; siblingProjects: boolean }[];
-	/** 项目路径 → 空间 id。 */
-	projects: Readonly<Record<string, string>>;
-	/** 独立会话文件路径或独立 Team 会话 id → 空间 id。 */
-	conversations: Readonly<Record<string, string>>;
-}
-
 export interface DesktopProjectApi {
 	/** Export a project to a zip via native save dialog. */
 	export(projectDir: string): Promise<ProjectExportSuccess | ProjectExportError>;
@@ -107,8 +95,6 @@ export interface DesktopProjectApi {
 	unarchive(path: string): Promise<void>;
 	/** Forget the project. The directory on disk is left alone. */
 	remove(path: string): Promise<void>;
-	/** Push the workspace membership mirror so main can resolve sibling projects for every session. */
-	syncSpaceSiblings(mirror: SpaceSiblingMirrorSnapshot): Promise<void>;
 	/** Startup handshake with the workspace store in `~/.vetta` (ADR-0160); main decides import/merge/local/file. */
 	syncSpaces(request: SpaceSyncRequest): Promise<SpaceStoreSnapshot>;
 	/** Replace the shared workspace data (spaces + memberships). */

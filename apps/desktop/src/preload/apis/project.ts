@@ -16,7 +16,6 @@ const CHANNELS = {
 	ARCHIVE: "vetta:projects:archive",
 	UNARCHIVE: "vetta:projects:unarchive",
 	REMOVE: "vetta:projects:remove",
-	SYNC_SPACE_SIBLINGS: "vetta:projects:sync-space-siblings",
 } as const;
 
 export function createProjectApi(ipc: IpcRenderer): Pick<DesktopApi, "project"> {
@@ -34,7 +33,6 @@ export function createProjectApi(ipc: IpcRenderer): Pick<DesktopApi, "project"> 
 			archive: (path) => ipc.invoke(CHANNELS.ARCHIVE, path),
 			unarchive: (path) => ipc.invoke(CHANNELS.UNARCHIVE, path),
 			remove: (path) => ipc.invoke(CHANNELS.REMOVE, path),
-			syncSpaceSiblings: (mirror) => ipc.invoke(CHANNELS.SYNC_SPACE_SIBLINGS, mirror),
 			syncSpaces: (request) => ipc.invoke(SPACES_CHANNELS.SYNC, request),
 			saveSpaces: (data) => ipc.invoke(SPACES_CHANNELS.SAVE, data),
 			onSpacesChanged: (handler) => onIpcEvent<SpaceStoreSnapshot>(ipc, SPACES_CHANNELS.CHANGED, handler),
