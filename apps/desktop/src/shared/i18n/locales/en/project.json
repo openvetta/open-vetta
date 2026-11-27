@@ -10,6 +10,8 @@
 		"name": "Workspace name",
 		"icon": "Workspace icon",
 		"editorDescription": "Choose a name and icon for this workspace.",
+		"siblingProjects": "Conversations can see projects in this space",
+		"siblingProjectsDescription": "Sessions in this space know which other projects share it and can read their files without asking each time; changes still need your approval. Turning this off stops that, but doesn't isolate projects. SSH remote projects aren't included.",
 		"cancel": "Cancel",
 		"save": "Save",
 		"move": "Move to workspace",

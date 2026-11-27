@@ -47,6 +47,7 @@ import {
 	sidebarWidthAtom,
 } from "../shared/store/atoms";
 import { recordRecentSessionVisitAtom } from "../shared/store/recent-sessions-atoms";
+import { syncSpaceSiblingMirror } from "../shared/store/space-sibling-mirror";
 import { showToast } from "../shared/store/toast-atoms";
 import { shouldShowChatRoutePending } from "./chat-route-pending";
 import { syncPendingInteractions } from "./pending-interaction-sync";
@@ -316,6 +317,15 @@ export function useRootLayoutModel(): RootLayoutModel {
 			unsubCaptureError();
 		};
 	}, [currentPath, defaultConversationCwd, navigate]);
+
+	// 工作空间归属的只读镜像推给主进程，供它推导会话可见的同空间兄弟项目（ADR-0159）。
+	useEffect(
+		() =>
+			syncSpaceSiblingMirror(getDefaultStore(), (mirror) => window.vetta.project.syncSpaceSiblings(mirror), {
+				onError: (error) => console.warn("[RootLayout] sync space sibling mirror failed", error),
+			}),
+		[],
+	);
 
 	// 主进程持有「等待用户处理」的真相源；三类请求共用同一套订阅 + 快照收敛。
 	const setPendingQuestions = useSetAtom(pendingQuestionsAtom);

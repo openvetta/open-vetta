@@ -76,6 +76,16 @@ export interface Space {
 	id: string;
 	name: string;
 	icon: SpaceIcon;
+	/**
+	 * 空间内的会话能否看见同空间的兄弟项目（ADR-0159）。缺省视为开启，旧配置无需迁移；
+	 * 只有明确关闭时才写 `false`。
+	 */
+	siblingProjects?: boolean;
+}
+
+/** 空间是否开启「会话能看见同空间的项目」。主空间不支持。 */
+export function spaceShowsSiblingProjects(space: Pick<Space, "siblingProjects">): boolean {
+	return space.siblingProjects !== false;
 }
 
 export type SpaceItem = { kind: "project" | "conversation"; key: string };
@@ -163,7 +173,12 @@ export function readSpaces(value: unknown): SpaceState {
 		)
 			continue;
 		ids.add(item.id);
-		spaces.push({ id: item.id, name: item.name, icon: item.icon });
+		spaces.push({
+			id: item.id,
+			name: item.name,
+			icon: item.icon,
+			...(item.siblingProjects === false ? { siblingProjects: false } : {}),
+		});
 	}
 	const memberships = (entries: unknown) =>
 		Object.fromEntries(

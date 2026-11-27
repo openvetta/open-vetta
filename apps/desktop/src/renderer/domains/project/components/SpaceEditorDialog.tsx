@@ -1,5 +1,11 @@
-import { SPACE_ICON_VALUES, SPACE_ICONS, spaceEditorAtom, spacesAtom } from "@shared/store/spaces";
-import type { SpaceIconValue } from "@shared/store/spaces";
+import {
+	SPACE_ICON_VALUES,
+	SPACE_ICONS,
+	spaceEditorAtom,
+	spaceShowsSiblingProjects,
+	spacesAtom,
+} from "@shared/store/spaces";
+import type { Space, SpaceIconValue } from "@shared/store/spaces";
 import { SpaceEditorDialogView } from "@vetta-org/theme-ui/settings";
 import { useLocation } from "@tanstack/react-router";
 import { useAtom, useStore } from "jotai";
@@ -23,17 +29,24 @@ function SpaceEditor({ editor, onClose }: { editor: SpaceEditor; onClose: () => 
 	const [icon, setIcon] = useState<SpaceIconValue>(
 		editor.space?.icon.kind === "solar" ? editor.space.icon.value : SPACE_ICON_VALUES[0],
 	);
+	const [siblingProjects, setSiblingProjects] = useState(editor.space ? spaceShowsSiblingProjects(editor.space) : true);
 	const id = editor.space?.id;
 	const canSave = Boolean(name.trim());
 	const save = (): void => {
 		if (!canSave) return;
-		const space = { id: id ?? crypto.randomUUID(), name: name.trim(), icon: { kind: "solar" as const, value: icon } };
+		const space: Space = {
+			id: id ?? crypto.randomUUID(),
+			name: name.trim(),
+			icon: { kind: "solar" as const, value: icon },
+			...(siblingProjects ? {} : { siblingProjects: false }),
+		};
 		store.set(spacesAtom, (state) => ({
 			...state,
 			spaces: id
 				? state.spaces.map((item) => {
 						if (item.id !== id) return item;
-						return { ...item, name: space.name, icon: space.icon };
+						const { siblingProjects: _previous, ...rest } = item;
+						return { ...rest, name: space.name, icon: space.icon, ...(siblingProjects ? {} : { siblingProjects: false }) };
 					})
 				: [...state.spaces, space],
 		}));
@@ -49,6 +62,8 @@ function SpaceEditor({ editor, onClose }: { editor: SpaceEditor; onClose: () => 
 				name: t("spaces.name"),
 				namePlaceholder: t("spaces.name"),
 				icon: t("spaces.icon"),
+				siblingProjects: t("spaces.siblingProjects"),
+				siblingProjectsDescription: t("spaces.siblingProjectsDescription"),
 				cancel: t("spaces.cancel"),
 				save: t("spaces.save"),
 			}}
@@ -59,9 +74,11 @@ function SpaceEditor({ editor, onClose }: { editor: SpaceEditor; onClose: () => 
 				iconClassName: SPACE_ICONS[value],
 			}))}
 			selectedIcon={icon}
+			siblingProjects={siblingProjects}
 			canSave={canSave}
 			onNameChange={setName}
 			onSelectIcon={(value) => setIcon(value as SpaceIconValue)}
+			onSiblingProjectsChange={setSiblingProjects}
 			onCancel={onClose}
 			onSave={save}
 		/>
