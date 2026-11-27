@@ -24,6 +24,11 @@ export interface CodingAgentSandboxHostServices {
 	isDeniedPath(targetPath: string): boolean;
 	findSessionGrant(sessionId: string, request: SandboxPermissionRequest): SandboxSessionGrantEntry | undefined;
 	addSessionGrant(sessionId: string, request: SandboxPermissionRequest): SandboxSessionGrantEntry;
+	/**
+	 * read 越过 cwd 时，目标边界是否落在本会话额外可读的根目录里（如同空间兄弟项目，ADR-0159）。
+	 * 命中则免确认读取；未实现或未命中时走原有授权流程。
+	 */
+	findSessionReadRoot?(sessionId: string, targetBoundary: string): Promise<string | undefined>;
 	runWithShellGrant<T>(cwd: string, grant: SandboxShellGrant, callback: () => Promise<T>): Promise<T>;
 }
 

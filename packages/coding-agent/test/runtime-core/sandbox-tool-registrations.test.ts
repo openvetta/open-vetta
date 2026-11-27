@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { RuntimeToolDefinition } from "@vetta/runtime-core/kernel";
@@ -12,17 +12,28 @@ import {
 	createNodeSandboxCodingToolEnvironment,
 	type ForegroundCommandOperations,
 } from "@vetta/runtime-node/coding";
-import { clearSessionGrants, getSandboxShellGrant, type NodeSandboxPlatform } from "@vetta/runtime-node/sandbox";
+import {
+	clearSessionGrants,
+	getSandboxShellGrant,
+	type NodeSandboxPlatform,
+	setSandboxSessionReadRootResolver,
+} from "@vetta/runtime-node/sandbox";
 import { afterEach, describe, expect, it } from "vitest";
 import type { CodingAgentSandboxAuthorizationPort } from "../../src/execution/sandbox/authorization-contract.js";
 import { createCodingAgentSandboxToolRegistrations } from "../../src/execution/sandbox/tool-registrations.js";
 import { ALL_SCENARIOS } from "../../src/profiles/index.js";
 import { declareCodingAgentPlatformTools } from "../../src/tool-policy/platform-tool-declarations.js";
 
-const SESSION_IDS = ["sandbox-read-session", "sandbox-deny-session", "sandbox-shell-session"] as const;
+const SESSION_IDS = [
+	"sandbox-read-session",
+	"sandbox-deny-session",
+	"sandbox-shell-session",
+	"sandbox-sibling-session",
+] as const;
 
 afterEach(() => {
 	for (const sessionId of SESSION_IDS) clearSessionGrants(sessionId);
+	setSandboxSessionReadRootResolver(undefined);
 });
 
 describe("Coding Agent sandbox tool registrations", () => {
@@ -167,6 +178,145 @@ describe("Coding Agent sandbox tool registrations", () => {
 			});
 		} finally {
 			await rm(cwd, { recursive: true, force: true });
+		}
+	});
+});
+
+describe("session read roots (sibling projects, ADR-0159)", () => {
+	async function setup() {
+		const cwd = await mkdtemp(join(tmpdir(), "vetta-sibling-cwd-"));
+		const sibling = await mkdtemp(join(tmpdir(), "vetta-sibling-project-"));
+		const outside = await mkdtemp(join(tmpdir(), "vetta-sibling-outside-"));
+		await mkdir(join(sibling, "docs"), { recursive: true });
+		await writeFile(join(sibling, "docs", "guide.md"), "sibling guide", "utf8");
+		await writeFile(join(outside, "secret.txt"), "outside secret", "utf8");
+		const prompts: RecordedAuthorizationRequest[] = [];
+		const registrations = createRegistrations({
+			cwd,
+			platform: "win32",
+			decision: "deny",
+			sessionId: "sandbox-sibling-session",
+			prompts,
+		});
+		const cleanup = async () => {
+			await Promise.all([cwd, sibling, outside].map((path) => rm(path, { recursive: true, force: true })));
+		};
+		return { cwd, sibling, outside, prompts, registrations, cleanup };
+	}
+
+	it("reads inside a sibling root without asking", async () => {
+		const ctx = await setup();
+		try {
+			setSandboxSessionReadRootResolver((sessionId) =>
+				sessionId === "sandbox-sibling-session" ? [ctx.sibling] : [],
+			);
+			const result = await requireTool(ctx.registrations, "read").execute(
+				createRequest("sandbox-sibling-session", { path: join(ctx.sibling, "docs", "guide.md") }),
+			);
+			expect(result.content[0]).toMatchObject({ type: "text", text: expect.stringContaining("sibling guide") });
+			expect(ctx.prompts).toEqual([]);
+		} finally {
+			await ctx.cleanup();
+		}
+	});
+
+	it("still asks before writing into a sibling root", async () => {
+		const ctx = await setup();
+		try {
+			setSandboxSessionReadRootResolver(() => [ctx.sibling]);
+			await expect(
+				requireTool(ctx.registrations, "write").execute(
+					createRequest("sandbox-sibling-session", { path: join(ctx.sibling, "new.md"), content: "x" }),
+				),
+			).rejects.toThrow(/outside workspace root/);
+			expect(ctx.prompts).toHaveLength(1);
+			expect(ctx.prompts[0]).toMatchObject({ toolName: "write", capability: "file.write" });
+		} finally {
+			await ctx.cleanup();
+		}
+	});
+
+	it("asks for paths outside every sibling root", async () => {
+		const ctx = await setup();
+		try {
+			setSandboxSessionReadRootResolver(() => [ctx.sibling]);
+			await expect(
+				requireTool(ctx.registrations, "read").execute(
+					createRequest("sandbox-sibling-session", { path: join(ctx.outside, "secret.txt") }),
+				),
+			).rejects.toThrow(/outside workspace root/);
+			expect(ctx.prompts).toHaveLength(1);
+		} finally {
+			await ctx.cleanup();
+		}
+	});
+
+	it("does not follow a symlink inside a sibling root to a path outside it", async () => {
+		const ctx = await setup();
+		try {
+			await symlink(join(ctx.outside, "secret.txt"), join(ctx.sibling, "link.txt"));
+			setSandboxSessionReadRootResolver(() => [ctx.sibling]);
+			await expect(
+				requireTool(ctx.registrations, "read").execute(
+					createRequest("sandbox-sibling-session", { path: join(ctx.sibling, "link.txt") }),
+				),
+			).rejects.toThrow(/outside workspace root/);
+			expect(ctx.prompts).toHaveLength(1);
+		} finally {
+			await ctx.cleanup();
+		}
+	});
+
+	it("matches a sibling root given through a symlinked path", async () => {
+		const ctx = await setup();
+		const alias = join(ctx.outside, "alias");
+		try {
+			await symlink(ctx.sibling, alias);
+			setSandboxSessionReadRootResolver(() => [alias]);
+			const result = await requireTool(ctx.registrations, "read").execute(
+				createRequest("sandbox-sibling-session", { path: join(ctx.sibling, "docs", "guide.md") }),
+			);
+			expect(result.content[0]).toMatchObject({ type: "text", text: expect.stringContaining("sibling guide") });
+			expect(ctx.prompts).toEqual([]);
+		} finally {
+			await ctx.cleanup();
+		}
+	});
+
+	it.each([
+		{ name: "the resolver throws", resolver: () => Promise.reject(new Error("boom")) },
+		{ name: "the resolver returns relative roots", resolver: () => ["relative/project"] },
+		{ name: "no resolver is installed", resolver: undefined },
+	])("falls back to the authorization prompt when $name", async ({ resolver }) => {
+		const ctx = await setup();
+		try {
+			setSandboxSessionReadRootResolver(resolver);
+			await expect(
+				requireTool(ctx.registrations, "read").execute(
+					createRequest("sandbox-sibling-session", { path: join(ctx.sibling, "docs", "guide.md") }),
+				),
+			).rejects.toThrow(/outside workspace root/);
+			expect(ctx.prompts).toHaveLength(1);
+		} finally {
+			await ctx.cleanup();
+		}
+	});
+
+	it("re-evaluates roots on every read so a removed sibling is asked for again", async () => {
+		const ctx = await setup();
+		try {
+			let roots: string[] = [ctx.sibling];
+			setSandboxSessionReadRootResolver(() => roots);
+			const read = requireTool(ctx.registrations, "read");
+			const path = join(ctx.sibling, "docs", "guide.md");
+			await read.execute(createRequest("sandbox-sibling-session", { path }));
+			roots = [];
+			await expect(read.execute(createRequest("sandbox-sibling-session", { path }))).rejects.toThrow(
+				/outside workspace root/,
+			);
+			expect(ctx.prompts).toHaveLength(1);
+		} finally {
+			await ctx.cleanup();
 		}
 	});
 });

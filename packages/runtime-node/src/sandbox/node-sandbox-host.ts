@@ -13,6 +13,7 @@ import {
 	assertSandboxPathNotDenied,
 	collectShellWritePermissionRequests,
 	findSessionGrant,
+	findSessionReadRoot,
 	isDeniedSandboxPath,
 	runWithSandboxShellGrant,
 } from "./sandbox-permissions.js";
@@ -36,6 +37,8 @@ export interface NodeSandboxHost {
 	isDeniedPath(targetPath: string): boolean;
 	findSessionGrant(sessionId: string, request: SandboxPermissionRequest): SandboxSessionGrantEntry | undefined;
 	addSessionGrant(sessionId: string, request: SandboxPermissionRequest): SandboxSessionGrantEntry;
+	/** read 越过 cwd 时，目标是否落在本会话额外可读的根目录里（如同空间兄弟项目）。 */
+	findSessionReadRoot(sessionId: string, targetBoundary: string): Promise<string | undefined>;
 	runWithShellGrant<T>(cwd: string, grant: SandboxShellGrant, callback: () => Promise<T>): Promise<T>;
 }
 
@@ -52,6 +55,7 @@ export function createNodeSandboxHost(options: NodeSandboxHostOptions = {}): Nod
 		isDeniedPath: isDeniedSandboxPath,
 		findSessionGrant,
 		addSessionGrant,
+		findSessionReadRoot,
 		runWithShellGrant: runWithSandboxShellGrant,
 	};
 }
