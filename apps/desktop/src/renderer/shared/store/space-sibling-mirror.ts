@@ -26,8 +26,10 @@ export interface SpaceSiblingMirrorSyncOptions {
 /**
  * 把空间归属镜像推给主进程：启动时推一次，之后每次归属或开关变化再推。
  *
- * 推送串行进行，只发最新一份；内容未变不重复发送；失败后延时重试，直到成功或被更新的
- * 内容取代。Renderer 仍是空间配置的唯一写入方，主进程只读。
+ * 变化即发、不排队：Electron 按发送顺序投递 invoke，主进程收到即同步生效，所以新建会话
+ * 时先写归属、后发 prompt 的顺序在主进程侧得以保持；若等上一次推送返回再发，归属就可能
+ * 晚于首轮 prompt 到达。内容未变不重复发送；失败后延时重试最新内容，直到成功或被取代。
+ * Renderer 仍是空间配置的唯一写入方，主进程只读。
  */
 export function syncSpaceSiblingMirror(
 	store: MirrorStore,
@@ -36,32 +38,25 @@ export function syncSpaceSiblingMirror(
 ): () => void {
 	const retryDelayMs = options.retryDelayMs ?? 3_000;
 	let active = true;
-	let delivered: string | undefined;
-	let inFlight = false;
+	let sent: string | undefined;
 	let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
 	const flush = (): void => {
-		if (!active || inFlight) return;
+		if (!active) return;
 		if (retryTimer !== undefined) {
 			clearTimeout(retryTimer);
 			retryTimer = undefined;
 		}
 		const mirror = toSpaceSiblingMirror(store.get(spacesAtom));
 		const key = JSON.stringify(mirror);
-		if (key === delivered) return;
-		inFlight = true;
-		push(mirror).then(
-			() => {
-				inFlight = false;
-				delivered = key;
-				flush();
-			},
-			(error: unknown) => {
-				inFlight = false;
-				options.onError?.(error);
-				if (active) retryTimer = setTimeout(flush, retryDelayMs);
-			},
-		);
+		if (key === sent) return;
+		sent = key;
+		push(mirror).catch((error: unknown) => {
+			options.onError?.(error);
+			if (!active || sent !== key) return;
+			sent = undefined;
+			retryTimer ??= setTimeout(flush, retryDelayMs);
+		});
 	};
 
 	const unsubscribe = store.sub(spacesAtom, flush);

@@ -97,23 +97,34 @@ describe("syncSpaceSiblingMirror", () => {
 		stop();
 	});
 
-	it("sends only the latest mirror after an in-flight push settles", async () => {
-		let release: () => void = () => {};
-		const gate = new Promise<void>((resolve) => {
-			release = resolve;
-		});
-		let first = true;
-		const { store, calls, stop } = setup(async () => {
-			if (first) {
-				first = false;
-				await gate;
+	it("sends a change immediately even while an earlier push is still pending", async () => {
+		const pending: Array<() => void> = [];
+		const { store, calls, stop } = setup(
+			() =>
+				new Promise<void>((resolve) => {
+					pending.push(resolve);
+				}),
+		);
+		store.set(spacesAtom, { ...STATE, conversations: { ...STATE.conversations, "/c/new.jsonl": "product" } });
+		expect(calls).toHaveLength(2);
+		expect(calls[1]).toMatchObject({ conversations: { "/c/new.jsonl": "product" } });
+		for (const resolve of pending) resolve();
+		await vi.runAllTimersAsync();
+		expect(calls).toHaveLength(2);
+		stop();
+	});
+
+	it("does not let an older failed push re-send over a newer delivered one", async () => {
+		let failFirst = true;
+		const { store, calls, onError, stop } = setup(async () => {
+			if (failFirst) {
+				failFirst = false;
+				throw new Error("main not ready");
 			}
 		});
-		store.set(spacesAtom, { ...STATE, projects: { "/a": "product" } });
 		store.set(spacesAtom, { ...STATE, projects: { "/b": "product" } });
-		expect(calls).toHaveLength(1);
-		release();
-		await vi.runAllTimersAsync();
+		await vi.advanceTimersByTimeAsync(5_000);
+		expect(onError).toHaveBeenCalledOnce();
 		expect(calls).toHaveLength(2);
 		expect(calls[1]).toMatchObject({ projects: { "/b": "product" } });
 		stop();
