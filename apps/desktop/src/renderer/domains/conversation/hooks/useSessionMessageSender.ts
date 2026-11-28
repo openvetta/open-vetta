@@ -148,6 +148,7 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 			const selectedModel = stagedInput ? stagedInput.selectedModel : selectedModelRef.current;
 			// 图片能力必须和 selectedModel 出自同一快照：暂存期间切换模型不能改变这条消息的载荷。
 			const modelSupportsImages = stagedInput?.modelSupportsImages ?? store.get(modelSupportsImagesAtom);
+			const sendDraftKey = store.get(activeInputDraftKeyAtom);
 			// overrideText：来自输入预测建议（点击 bubble / 空输入回车按 placeholder 发送），
 			// 作为独立 prompt 直发，不带技能 / @文件前缀，也不消费当前草稿与附图。
 			const override = typeof overrideText === "string" ? overrideText.trim() : "";
@@ -587,6 +588,23 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 				promptReq.images = captureImages;
 			}
 			let hiddenOptimisticMessageId: string | undefined;
+			// 排队消息发出前输入框已清空；失败时撤下排队快照，并把正文、附件和截图交回
+			// 现有恢复路径：输入框为空就直接还原，否则进入可找回列表，不覆盖新草稿。
+			const recoverQueuedSend = (id: string): void => {
+				restoreStagedPendingSessionSend({
+					draftKey: stagedInput?.draftKey ?? sendDraftKey,
+					rawText: inputValue,
+					inputSegments: inputSegments.slice(),
+					hasOverride,
+					attachedImages,
+					mentionedFiles,
+					appshot,
+					browserCaptures,
+					selectedModel,
+					modelSupportsImages,
+					optimisticMessage: createUserSnapshot(id),
+				});
+			};
 			if (streaming) {
 				// Queued messages stay out of the timeline until the Kernel appends them,
 				// but their editor-only metadata must survive that wait under the same ID.
@@ -723,13 +741,7 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 					}
 					sendResult = { status: "queued", queueItemId: outcome.queueItemId };
 				} else if (outcome?.status === "failed") {
-					if (hiddenOptimisticMessageId) {
-						dispatchConversationFeed({
-							type: "user.discarded",
-							runtimeId: session.runtimeId,
-							id: hiddenOptimisticMessageId,
-						});
-					}
+					if (hiddenOptimisticMessageId) recoverQueuedSend(hiddenOptimisticMessageId);
 					if (optimisticUserMsgId && !outcome.turnId) {
 						dispatchConversationFeed({
 							type: "user.failed",
@@ -757,13 +769,7 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 					sendResult = { status: "sent" };
 				}
 			} catch (err) {
-				if (hiddenOptimisticMessageId) {
-					dispatchConversationFeed({
-						type: "user.discarded",
-						runtimeId: session.runtimeId,
-						id: hiddenOptimisticMessageId,
-					});
-				}
+				if (hiddenOptimisticMessageId) recoverQueuedSend(hiddenOptimisticMessageId);
 				// The rejected send never reached the Runtime; it must not come back as unconfirmed.
 				if (optimisticUserMsgId) {
 					dispatchConversationFeed({

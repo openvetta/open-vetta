@@ -1088,3 +1088,97 @@ it.each([
 		expect(request.images ?? []).toHaveLength(stagedSupport ? 1 : 0);
 	},
 );
+
+it.each(["rejected", "failed"] as const)(
+	"排队中的截图消息发送失败（%s）后，正文、截图和备注回到输入框",
+	async (failure) => {
+		if (failure === "rejected") {
+			mocks.prompt.mockImplementation(async () => {
+				throw new Error("IPC 断开");
+			});
+		} else {
+			mocks.prompt.mockImplementation(async () => ({ status: "failed", error: { message: "队列已满" } }));
+		}
+		const store = await mount("排队消息", true);
+		const {
+			activeInputDraftKeyAtom,
+			browserCapturesAtom,
+			conversationFeedAtom,
+			inputValueAtom,
+			modelSupportsImagesAtom,
+		} = await import("@shared/store/atoms");
+		const capture = {
+			version: 1 as const,
+			id: "capture-queued",
+			imagePath: "/cache/capture-queued.png",
+			url: "https://example.test/",
+			title: "Example",
+			mode: "region" as const,
+			width: 20,
+			height: 20,
+			viewport: { width: 20, height: 20 },
+			rect: { x: 0, y: 0, width: 10, height: 10 },
+			note: "看右上角",
+		};
+		store.set(activeInputDraftKeyAtom, sessionPath);
+		store.set(modelSupportsImagesAtom, false);
+		store.set(browserCapturesAtom, [capture]);
+
+		let result: Awaited<ReturnType<SessionManagerProbe["sendMessage"]>>;
+		await act(async () => {
+			result = await manager?.sendMessage();
+		});
+
+		expect(result?.status).toBe("failed");
+		expect(store.get(conversationFeedAtom).queuedUsers).toEqual([]);
+		expect(store.get(inputValueAtom)).toBe("排队消息");
+		expect(store.get(browserCapturesAtom)).toEqual([capture]);
+	},
+);
+
+it("排队消息失败时用户已在写下一条，新草稿保留、失败的消息进入可找回列表", async () => {
+	const promptStarted = deferred<void>();
+	const promptResult = deferred<unknown>();
+	mocks.prompt.mockImplementation(async () => {
+		promptStarted.resolve(undefined);
+		return promptResult.promise;
+	});
+	const store = await mount("排队消息", true);
+	const { activeInputDraftKeyAtom, browserCapturesAtom, inputSegmentsAtom, inputValueAtom, modelSupportsImagesAtom } =
+		await import("@shared/store/atoms");
+	const { stagedSendRecoveriesAtom } = await import("../services/staged-new-session-send");
+	const capture = {
+		version: 1 as const,
+		id: "capture-queued-newer",
+		imagePath: "/cache/capture-queued-newer.png",
+		url: "https://example.test/",
+		title: "Example",
+		mode: "region" as const,
+		width: 20,
+		height: 20,
+		viewport: { width: 20, height: 20 },
+		rect: { x: 0, y: 0, width: 10, height: 10 },
+		note: "看右上角",
+	};
+	store.set(activeInputDraftKeyAtom, sessionPath);
+	store.set(modelSupportsImagesAtom, false);
+	store.set(browserCapturesAtom, [capture]);
+
+	const send = manager?.sendMessage();
+	await promptStarted.promise;
+	store.set(inputValueAtom, "下一条");
+	store.set(inputSegmentsAtom, [{ kind: "text", text: "下一条" }]);
+	promptResult.resolve({ status: "failed", error: { message: "队列已满" } });
+	await act(async () => {
+		await send;
+	});
+
+	expect(store.get(inputValueAtom)).toBe("下一条");
+	expect(store.get(browserCapturesAtom)).toEqual([]);
+	expect([...store.get(stagedSendRecoveriesAtom).values()]).toEqual([
+		expect.objectContaining({
+			draftKey: sessionPath,
+			staged: expect.objectContaining({ rawText: "排队消息", browserCaptures: [capture] }),
+		}),
+	]);
+});
