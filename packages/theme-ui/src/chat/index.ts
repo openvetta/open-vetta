@@ -70,6 +70,7 @@ export {
 	BashTerminalRoot,
 	BashTerminalStatusDot,
 } from "./BashTerminalCard";
+export { BrowserCaptureCardView } from "./BrowserCaptureCardView.js";
 export type { ChatExportHostViewProps } from "./ChatExportHostView";
 export { ChatExportHostView } from "./ChatExportHostView";
 export {

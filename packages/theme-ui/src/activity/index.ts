@@ -41,6 +41,7 @@ export type { BatchProgressTabPanelViewProps } from "./BatchProgressTabPanelView
 export { BatchProgressTabPanelView } from "./BatchProgressTabPanelView";
 export type { BrowserPanelLabels, BrowserPanelViewProps } from "./BrowserPanelView";
 export { BrowserPanelView } from "./BrowserPanelView";
+export { BrowserSelectionView } from "./BrowserSelectionView.js";
 export type { ChatTabPanelViewProps } from "./ChatTabPanelView";
 export { ChatTabPanelView } from "./ChatTabPanelView";
 export type { CodePreviewProps } from "./CodePreview";

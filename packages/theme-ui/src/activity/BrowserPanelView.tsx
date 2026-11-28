@@ -1,5 +1,5 @@
 import { Button, ButtonGroup, ButtonGroupItem } from "@vetta-org/ui";
-import type { FormEvent, JSX, Ref } from "react";
+import type { FormEvent, JSX, Ref, ReactNode } from "react";
 
 export interface BrowserPanelLabels {
 	noSession: string;
@@ -16,6 +16,8 @@ export interface BrowserPanelLabels {
 }
 
 export interface BrowserPanelViewProps {
+	children?: ReactNode;
+	captureAction?: { label: string; disabled: boolean; onClick: () => void };
 	/** Null when the host has no bound workspace — show empty state. */
 	workspaceId: string | null;
 	labels: BrowserPanelLabels;
@@ -46,6 +48,8 @@ function toolbarIcon(icon: string): JSX.Element {
  * Session-scoped built-in browser shell. Host owns webview event wiring via ref.
  */
 export function BrowserPanelView({
+	children,
+	captureAction,
 	workspaceId,
 	labels,
 	address,
@@ -120,6 +124,15 @@ export function BrowserPanelView({
 					/>
 				</form>
 				<ButtonGroup blur={false} className="shrink-0">
+					{captureAction && (
+						<ButtonGroupItem
+							icon={toolbarIcon("icon-[mdi--camera-outline]")}
+							title={captureAction.label}
+							aria-label={captureAction.label}
+							disabled={captureAction.disabled}
+							onClick={captureAction.onClick}
+						/>
+					)}
 					<ButtonGroupItem
 						icon={toolbarIcon("icon-[mdi--open-in-new]")}
 						title={labels.openExternal}
@@ -141,6 +154,7 @@ export function BrowserPanelView({
 					allowpopups={true}
 					className="h-full w-full"
 				/>
+				{children}
 				{!hasPage && (
 					<div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted p-6 text-center">
 						<span className="icon-[mdi--web] h-8 w-8 text-muted-foreground/30" />

@@ -1,8 +1,9 @@
 import { InputBarToolbar } from "./InputBarToolbarActions";
+import { StagedSendRecovery } from "./StagedSendRecovery";
 import { InputBarModelAction } from "./InputBarToolbar";
 import { useBottomPanelPills } from "@domains/bottom-panel/hooks/useBottomPanelPills";
 import { pathBasename, toVettaFileUrl } from "@shared/lib/utils";
-import { currentScenarioAtom } from "@shared/store/atoms";
+import { browserCapturesAtom, currentScenarioAtom } from "@shared/store/atoms";
 import type { InputBarContextMenuViewProps } from "@vetta-org/theme-ui/chat";
 import { useAtomValue } from "jotai";
 import { memo, useCallback, useMemo } from "react";
@@ -40,6 +41,7 @@ export const DefaultInputBarConnector = memo(function DefaultInputBarConnector(p
 	const { t } = useTranslation("chat");
 	const session = useInputBarSessionSource(props.cwdOverride);
 	const draft = useInputBarDraftSource();
+	const captures = useAtomValue(browserCapturesAtom);
 	const runtimeId = session.activeSession?.runtimeId;
 	const interactions = useInputBarInteractionSource(runtimeId);
 	const inlineSuggestion = useInlinePromptSuggestion({
@@ -69,7 +71,7 @@ export const DefaultInputBarConnector = memo(function DefaultInputBarConnector(p
 		? session.hasSession && !session.isStreaming && !session.isBlank && !goalMode.busy
 		: session.hasSession &&
 			!session.isStreaming &&
-			(!session.isBlank || Boolean(draft.appshotAttachment));
+			(!session.isBlank || captures.length > 0 || Boolean(draft.appshotAttachment));
 	const handleSend = useCallback(
 		async (overrideText?: string, context?: Parameters<ConnectedInputBarProps["onSend"]>[1]): Promise<void> => {
 			if (composingGoal) {
@@ -87,7 +89,7 @@ export const DefaultInputBarConnector = memo(function DefaultInputBarConnector(p
 		firstSuggestion: firstSuggestion,
 		focusInputRequest: session.focusInputRequest,
 		hasSession: session.hasSession,
-		isEmpty: session.isBlank,
+		isEmpty: session.isBlank && captures.length === 0,
 		isStreaming: session.isStreaming,
 		onAbort: props.onAbort,
 		onExpandedChange: props.onExpandedChange,
@@ -122,7 +124,7 @@ export const DefaultInputBarConnector = memo(function DefaultInputBarConnector(p
 		],
 		[actionBar],
 	);
-	const hasCapsules = imageAttachments.length > 0 || Boolean(draft.appshotAttachment) || Boolean(draft.pendingMessageEdit);
+	const hasCapsules = captures.length > 0 || imageAttachments.length > 0 || Boolean(draft.appshotAttachment) || Boolean(draft.pendingMessageEdit);
 	const drawerItems = useMemo<InputBarDrawerItem[]>(() => {
 		const items: InputBarDrawerItem[] = [];
 		if (interactions.sandboxPermission) {
@@ -188,7 +190,7 @@ export const DefaultInputBarConnector = memo(function DefaultInputBarConnector(p
 		appshotAttachment: draft.appshotAttachment,
 		hasSession: session.hasSession,
 		canSend: canSend,
-		isEmpty: session.isBlank,
+		isEmpty: session.isBlank && captures.length === 0,
 		showPlaceholder: session.placeholderVisible,
 		hasCapsules,
 		effectiveCwd: session.effectiveCwd,
@@ -253,10 +255,13 @@ export const DefaultInputBarConnector = memo(function DefaultInputBarConnector(p
 	};
 
 	return (
-		<InputBar model={model}>
-			<InputBarToolbar model={model}>
-				<InputBarModelAction visible={!model.commands?.slashOpen} />
-			</InputBarToolbar>
-		</InputBar>
+		<>
+			<StagedSendRecovery />
+			<InputBar model={model}>
+				<InputBarToolbar model={model}>
+					<InputBarModelAction visible={!model.commands?.slashOpen} />
+				</InputBarToolbar>
+			</InputBar>
+		</>
 	);
 });

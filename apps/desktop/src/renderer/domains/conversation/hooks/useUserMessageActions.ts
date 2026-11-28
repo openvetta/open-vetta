@@ -4,6 +4,7 @@ import {
 	type ActiveSession,
 	activeSessionAtom,
 	appshotAttachmentAtom,
+	browserCapturesAtom,
 	confirmDialogAtom,
 	inputValueAtom,
 	isStreamingAtom,
@@ -40,7 +41,11 @@ function fillInputFromUserMessage(message: ConversationUserMessageViewModel): vo
 		restored.flatMap((segment) => (segment.kind === "file" || segment.kind === "image" ? [segment.path] : [])),
 	);
 	for (const attachment of message.attachments ?? []) {
-		if (covered.has(attachment.path)) continue;
+		if (
+			covered.has(attachment.path) ||
+			message.browserCaptures?.some((capture) => capture.imagePath === attachment.path)
+		)
+			continue;
 		covered.add(attachment.path);
 		restored.push(
 			attachment.kind === "image" || isUserImageFile(attachment.path)
@@ -54,6 +59,7 @@ function fillInputFromUserMessage(message: ConversationUserMessageViewModel): vo
 	}
 	store.set(inputValueAtom, segmentsToText(restored));
 	store.set(appshotAttachmentAtom, null);
+	store.set(browserCapturesAtom, message.browserCaptures?.map((capture) => ({ ...capture })) ?? []);
 }
 
 function inputHasDraft(): boolean {
@@ -61,7 +67,8 @@ function inputHasDraft(): boolean {
 	return (
 		store.get(inputValueAtom).trim().length > 0 ||
 		store.get(mentionedFilesAtom).length > 0 ||
-		store.get(appshotAttachmentAtom) !== null
+		store.get(appshotAttachmentAtom) !== null ||
+		store.get(browserCapturesAtom).length > 0
 	);
 }
 

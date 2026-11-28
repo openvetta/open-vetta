@@ -1,3 +1,5 @@
+import { AttachmentThumbnail } from "@shared/components/AttachmentThumbnail";
+import { BrowserCaptureDraftCards } from "@shared/components/BrowserCaptures";
 import type { AppshotAttachment } from "@shared/store/atoms";
 import { AppshotCard } from "../AppshotCard";
 
@@ -63,43 +65,23 @@ export function InputBarAttachmentPreview({
 							</div>
 						) : null}
 
-						{appshotAttachment ? (
-							<AppshotCard data={appshotAttachment} onRemove={onRemoveAppshot} />
-						) : null}
+						{appshotAttachment ? <AppshotCard data={appshotAttachment} onRemove={onRemoveAppshot} /> : null}
 
 						{/* 图片缩略图行：文本流里对应「图 N」胶囊，编号在角标上复现 */}
-						{images.length > 0 ? (
-							<div className="flex flex-wrap items-center gap-1.5">
-								{images.map((image, index) => (
-									<div key={image.path} className="group relative">
-										<button
-											type="button"
-											onClick={() => onOpenImagePreview(index)}
-											className="block h-12 w-12 overflow-hidden rounded-lg border border-border ring-1 ring-border/40"
-											title={image.name}
-										>
-											<img
-												src={image.url}
-												alt={image.name}
-												className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-											/>
-										</button>
-										<span className="pointer-events-none absolute bottom-0.5 right-0.5 rounded bg-foreground/45 px-1 text-[9px] font-medium leading-[1.4] text-background/90">
-											{image.label}
-										</span>
-										<button
-											type="button"
-											onClick={() => onRemoveImage(image.path)}
-											className="absolute -right-1.5 -top-1.5 flex items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 hover:text-destructive"
-											title={removeImageLabel}
-											style={{ height: 18, width: 18 }}
-										>
-											<span className="icon-[solar--close-circle-linear] h-3 w-3" />
-										</button>
-									</div>
-								))}
-							</div>
-						) : null}
+						<div className="flex flex-wrap items-center gap-1.5">
+							{images.map((image, index) => (
+								<AttachmentThumbnail
+									key={image.path}
+									name={image.name}
+									src={image.url}
+									badge={image.label}
+									removeLabel={removeImageLabel}
+									onOpen={() => onOpenImagePreview(index)}
+									onRemove={() => onRemoveImage(image.path)}
+								/>
+							))}
+							<BrowserCaptureDraftCards />
+						</div>
 					</div>
 				) : null}
 			</div>

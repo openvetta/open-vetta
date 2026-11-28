@@ -1,3 +1,4 @@
+import { BrowserCaptureCards } from "@shared/components/BrowserCaptures";
 import type { ConversationParticipantViewModel, ConversationUserMessageViewModel } from "@shared/conversation";
 import { toTokenPath } from "@shared/lib/input-tokens";
 import { pathBasename } from "@shared/lib/utils";
@@ -73,7 +74,13 @@ export const UserMessage = memo(function UserMessage({
 	const hasImages = projection.imageItems.length > 0;
 	const hasFileBadges = projection.fileBadges.length > 0;
 	const hasAppshot = Boolean(projection.appshot);
-	const empty = !projection.displayText && !hasSettingsAssistBadge && !hasFileBadges && !hasImages && !hasAppshot;
+	const empty =
+		!message.browserCaptures?.length &&
+		!projection.displayText &&
+		!hasSettingsAssistBadge &&
+		!hasFileBadges &&
+		!hasImages &&
+		!hasAppshot;
 	const hasBubble = Boolean(projection.displayText) || empty;
 
 	return (
@@ -86,6 +93,9 @@ export const UserMessage = memo(function UserMessage({
 						onActionsVisibleChange={onActionsVisibleChange}
 					>
 						<MessageLayout.OutgoingContent>
+							{message.browserCaptures?.length ? (
+								<BrowserCaptureCards captures={message.browserCaptures} />
+							) : null}
 							{hasSettingsAssistBadge ? <SettingsAssistBadgeView label={settingsLabel} /> : null}
 							{hasImages ? (
 								<div className="flex max-w-full justify-end gap-2 overflow-x-auto">

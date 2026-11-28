@@ -8,6 +8,7 @@ import { registerActionApprovalIpc } from "./action-approval.js";
 import { registerAgentTeamsIpc } from "./agent-teams.js";
 import { registerAppMonitorIpc } from "./app-monitor.js";
 import { registerAppshotIpc } from "./appshot.js";
+import { registerBrowserCaptureIpc } from "./browser-capture.js";
 import { registerClipboardIpc } from "./clipboard.js";
 import { registerConversationTagsIpc } from "./conversation-tags.js";
 import { registerDebugIpc } from "./debug.js";
@@ -46,6 +47,7 @@ import { registerUpdaterIpc } from "./updater.js";
 import { registerWebhookIpc } from "./webhook.js";
 
 interface IpcTeardown {
+	teardownBrowserCapture: () => void;
 	teardownMessageAnnotations: () => void;
 	teardownAbilities: () => void;
 	teardownMarkdown: () => void;
@@ -99,6 +101,7 @@ export function registerAllIpc(
 	},
 ): IpcTeardown {
 	return {
+		teardownBrowserCapture: registerBrowserCaptureIpc(webContents),
 		teardownMessageAnnotations: registerMessageAnnotationsIpc(webContents, getMessageAnnotationService()),
 		teardownAbilities: registerAbilitiesIpc(),
 		teardownMarkdown: registerMarkdownIpc(webContents),
@@ -145,6 +148,7 @@ export function registerAllIpc(
 }
 
 export function teardownAllIpc(teardown: IpcTeardown): void {
+	teardown.teardownBrowserCapture();
 	teardown.teardownMessageAnnotations();
 	teardown.teardownAbilities();
 	teardown.teardownMarkdown();

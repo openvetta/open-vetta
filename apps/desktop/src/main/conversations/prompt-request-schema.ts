@@ -2,6 +2,7 @@ import { isAbsolute } from "node:path";
 import type { PromptRequest } from "@vetta/runtime-core";
 import { isSshProjectUri, parseProjectLocation } from "@vetta/ssh-transport";
 import { z } from "zod";
+import { BROWSER_CAPTURE_CONTEXT, parseBrowserCaptureContext } from "../../shared/browser-capture.js";
 
 export const promptResourceRefSchema = z
 	.object({
@@ -41,6 +42,26 @@ const promptImageSchema = z
 	})
 	.passthrough();
 
+const contextSchema = z
+	.object({
+		type: z.string().min(1),
+		content: z.union([
+			z.string(),
+			z.array(z.union([z.object({ type: z.literal("text"), text: z.string() }), promptImageSchema])),
+		]),
+		modelVisible: z.boolean(),
+		display: z.boolean().optional(),
+		metadata: z.unknown().optional(),
+		timestamp: z.number().optional(),
+	})
+	.superRefine((record, ctx) => {
+		if (record.type !== BROWSER_CAPTURE_CONTEXT) return;
+		const parsed = parseBrowserCaptureContext(record.metadata);
+		if (!parsed || parsed.captures.some((capture) => !isAbsolute(capture.imagePath))) {
+			ctx.addIssue({ code: "custom", message: "Invalid browser screenshot context" });
+		}
+	});
+
 export const promptRequestSchema: z.ZodType<PromptRequest> = z
 	.object({
 		text: z.string().min(1),
@@ -48,6 +69,7 @@ export const promptRequestSchema: z.ZodType<PromptRequest> = z
 		promptRef: promptResourceRefSchema.optional(),
 		attachments: z.array(promptAttachmentRefSchema).optional(),
 		images: z.array(promptImageSchema).optional(),
+		context: z.array(contextSchema).optional(),
 		streamingBehavior: z.enum(["steer", "followUp"]).optional(),
 		modelKey: z.string().min(1).optional(),
 		reasoning: z.string().min(1).optional(),
@@ -57,7 +79,16 @@ export const promptRequestSchema: z.ZodType<PromptRequest> = z
 
 export function parsePromptRequest(value: unknown): PromptRequest {
 	const result = promptRequestSchema.safeParse(value);
-	if (result.success) return result.data;
+	if (result.success) {
+		for (const record of result.data.context ?? []) {
+			if (
+				record.type === BROWSER_CAPTURE_CONTEXT &&
+				parseBrowserCaptureContext(record.metadata)?.messageId !== result.data.messageId
+			)
+				throw new Error("Invalid browser screenshot message identity");
+		}
+		return result.data;
+	}
 	const issue = result.error.issues[0];
 	const path = issue?.path.map(String).join(".");
 	throw new Error(`Invalid prompt request${path ? ` ${path}` : ""}${issue ? `: ${issue.message}` : ""}`);

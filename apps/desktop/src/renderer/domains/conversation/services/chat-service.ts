@@ -22,6 +22,7 @@ import type { Usage } from "@vetta/ai";
 import type { HistoryEntry, PromptAttachmentRef, PromptResourceRef } from "@vetta/runtime-core";
 import { readMcpAppAttachment, selectMcpMediaCandidates } from "@vetta/runtime-mcp/browser";
 import type { CardDescriptor } from "@vetta-org/plugin-sdk";
+import { BROWSER_CAPTURE_CONTEXT, parseBrowserCaptureContext } from "../../../../shared/browser-capture";
 import { classifyChatError } from "./classifyChatError";
 import { conversationAssistantMessageId } from "./conversation-message-identity";
 
@@ -627,6 +628,7 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatConversationItem
 	let pendingPromptRef: PromptResourceRef | undefined;
 	/** Next user message carries structured filesystem attachments. */
 	let pendingAttachments: PromptAttachmentRef[] | undefined;
+	let pendingCaptures: ReturnType<typeof parseBrowserCaptureContext> = null;
 
 	for (const entry of entries) {
 		if (entry.type === "compaction" && entry.turnId) {
@@ -652,6 +654,7 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatConversationItem
 			pendingSettingsAssistTabId = undefined;
 			pendingPromptRef = undefined;
 			pendingAttachments = undefined;
+			pendingCaptures = null;
 			messages.push({
 				kind: "event",
 				id: entry.entryId ?? `hist-compact-${messages.length}`,
@@ -669,6 +672,10 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatConversationItem
 					? details.tabId
 					: undefined;
 			pendingSettingsAssistTabId = typeof tabId === "string" ? tabId.trim() || "unknown" : "unknown";
+			continue;
+		}
+		if (entry.type === "custom_marker" && entry.customType === BROWSER_CAPTURE_CONTEXT) {
+			pendingCaptures = parseBrowserCaptureContext(entry.details);
 			continue;
 		}
 		if (entry.type === "custom_marker") continue;
@@ -777,6 +784,10 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatConversationItem
 				text,
 				promptRef: pendingPromptRef ?? legacyPromptRef,
 				attachments: pendingAttachments,
+				browserCaptures:
+					pendingCaptures && pendingCaptures.messageId === (entry.type === "message" ? entry.messageId : undefined)
+						? pendingCaptures.captures
+						: undefined,
 				timestamp: m.timestamp,
 				// Only absolute (panel/system) prefixes; hand-typed @text stays in body.
 				// Exclude image-cache so system images/appshot don't become file badges.
@@ -788,12 +799,14 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatConversationItem
 			}
 			pendingPromptRef = undefined;
 			pendingAttachments = undefined;
+			pendingCaptures = null;
 			messages.push(userMsg);
 		} else if (m.role === "assistant") {
 			if (m.stopReason !== "error" && m.stopReason !== "aborted") historyErrors.recover();
 			pendingSettingsAssistTabId = undefined;
 			pendingPromptRef = undefined;
 			pendingAttachments = undefined;
+			pendingCaptures = null;
 			const entryId = entry.type === "message" ? entry.entryId : undefined;
 			const turnId = entry.type === "message" ? entry.turnId : undefined;
 			const target = currentAssistant(turnId);

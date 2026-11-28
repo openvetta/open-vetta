@@ -8,6 +8,7 @@ import {
 	recordInputActionsUsed,
 	recordInputContextUsed,
 } from "@shared/lib/app-monitor-events";
+import { loadBrowserCaptureImages } from "@shared/lib/browser-capture-input";
 import { deriveAttachments, deriveSkillNames, prepareInputPrompt, toTokenPath } from "@shared/lib/input-tokens";
 import { perfSendComplete, perfSendMark } from "@shared/lib/perf-send";
 import {
@@ -18,6 +19,7 @@ import {
 	appshotAttachmentAtom,
 	attachedImagesAtom,
 	batchProjectsAtom,
+	browserCapturesAtom,
 	chatMessagesAtom,
 	conversationBucketCwd,
 	defaultConversationCwdAtom,
@@ -26,10 +28,12 @@ import {
 	isStreamingAtom,
 	knowledgeRetrievalActiveAtom,
 	mentionedFilesAtom,
+	modelSupportsImagesAtom,
 	pendingMessageEditAtom,
 	pendingSessionCreationAtom,
 	pendingSessionOpenAtom,
 	pendingSessionSendAtom,
+	persistCurrentSessionInputDraft,
 	pluginInputActionsAtom,
 	projectsAtom,
 	promptAttachmentAtom,
@@ -41,12 +45,14 @@ import {
 	type SendMessageOptions,
 	type SendMessageResult,
 	selectedModelAtom,
+	showToast,
 	todoItemsBySessionAtom,
 } from "@shared/store/atoms";
 import type { PromptAttachmentRef, PromptRequest } from "@vetta/runtime-core";
 import type { PluginPromptContext } from "@vetta-org/plugin-sdk";
 import { getDefaultStore, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useRef } from "react";
+import { buildBrowserCaptureContext } from "../../../../shared/browser-capture";
 import { fullHistoryToChat, isUserImageFile, nextId, toChatErrorDetails } from "../services/chat-service";
 import { claimUnboundConversationFeed, dispatchConversationFeed } from "../services/conversation-feed-store";
 import { planFailedResendRollback } from "../services/failed-resend-rollback";
@@ -54,6 +60,7 @@ import { rewindForMessageEdit } from "../services/message-edit";
 import { applyDraftPlanMode } from "../services/plan-mode-draft";
 import { getSessionRuntimeWhenReady } from "../services/session-runtime-readiness";
 import {
+	restoreStagedNewSessionSend,
 	restoreStagedPendingSessionSend,
 	stagePendingSessionSend,
 	takeStagedPendingSessionSend,
@@ -82,9 +89,8 @@ function getProjects() {
 
 export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageSenderOptions): SessionMessageSender {
 	const activeSession = useAtomValue(activeSessionAtom);
-	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
-	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
-	const appshotAttachment = useAtomValue(appshotAttachmentAtom);
+	const setAttachedImages = useSetAtom(attachedImagesAtom);
+	const setMentionedFiles = useSetAtom(mentionedFilesAtom);
 	const [selectedModel] = useAtom(selectedModelAtom);
 	const todoItemsMap = useAtomValue(todoItemsBySessionAtom);
 	const batchProjects = useAtomValue(batchProjectsAtom);
@@ -94,12 +100,6 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 	const setRetryProgress = useSetAtom(retryProgressAtom);
 	const { loadSessions, ensureLocalSession } = useProjectActions();
 
-	const attachedImagesRef = useRef(attachedImages);
-	attachedImagesRef.current = attachedImages;
-	const mentionedFilesRef = useRef(mentionedFiles);
-	mentionedFilesRef.current = mentionedFiles;
-	const appshotRef = useRef(appshotAttachment);
-	appshotRef.current = appshotAttachment;
 	const selectedModelRef = useRef(selectedModel);
 	selectedModelRef.current = selectedModel;
 	const todoItemsMapRef = useRef(todoItemsMap);
@@ -109,6 +109,7 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 	const defaultConversationCwdRef = useRef(defaultConversationCwd);
 	defaultConversationCwdRef.current = defaultConversationCwd;
 
+	const preparingCaptureSends = useRef(new Map<string, Promise<void>>());
 	const sendMessage = useCallback(
 		async (overrideText?: string, options?: SendMessageOptions): Promise<SendMessageResult | undefined> => {
 			const interactionId = options?.interactionId;
@@ -140,10 +141,14 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 			// 不订阅输入 atom；调用时读取还能覆盖“先写草稿、同一流程立即发送”的场景。
 			const inputValue = stagedInput?.rawText ?? store.get(inputValueAtom);
 			const inputSegments = stagedInput?.inputSegments ?? store.get(inputSegmentsAtom);
-			const attachedImages = stagedInput?.attachedImages ?? attachedImagesRef.current;
-			const mentionedFiles = stagedInput?.mentionedFiles ?? mentionedFilesRef.current;
-			const appshot = stagedInput ? stagedInput.appshot : appshotRef.current;
+			const attachedImages = stagedInput?.attachedImages ?? store.get(attachedImagesAtom);
+			const mentionedFiles = stagedInput?.mentionedFiles ?? store.get(mentionedFilesAtom);
+			const appshot = stagedInput ? stagedInput.appshot : store.get(appshotAttachmentAtom);
+			const browserCaptures = stagedInput?.browserCaptures ?? store.get(browserCapturesAtom);
 			const selectedModel = stagedInput ? stagedInput.selectedModel : selectedModelRef.current;
+			// 图片能力必须和 selectedModel 出自同一快照：暂存期间切换模型不能改变这条消息的载荷。
+			const modelSupportsImages = stagedInput?.modelSupportsImages ?? store.get(modelSupportsImagesAtom);
+			const sendDraftKey = store.get(activeInputDraftKeyAtom);
 			// overrideText：来自输入预测建议（点击 bubble / 空输入回车按 placeholder 发送），
 			// 作为独立 prompt 直发，不带技能 / @文件前缀，也不消费当前草稿与附图。
 			const override = typeof overrideText === "string" ? overrideText.trim() : "";
@@ -154,7 +159,8 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 					!inputValue.trim() &&
 					attachedImages.length === 0 &&
 					mentionedFiles.length === 0 &&
-					!appshot)
+					!appshot &&
+					browserCaptures.length === 0)
 			) {
 				return;
 			}
@@ -169,8 +175,69 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 					return next;
 				});
 			}
+			const captureSendKey = !hasOverride && browserCaptures.length ? session.runtimeId : null;
+			if (stagedInput && options?.stagedInputOrigin === "new-session") {
+				stagedInput = { ...stagedInput, draftKey: session.sessionPath };
+			}
+			const previousPreparation = captureSendKey ? preparingCaptureSends.current.get(captureSendKey) : undefined;
+			if (previousPreparation && !stagedInput) return;
+			let finishPreparation: (() => void) | undefined;
+			const preparation = captureSendKey
+				? new Promise<void>((resolve) => {
+						finishPreparation = resolve;
+					})
+				: null;
+			if (captureSendKey && preparation) preparingCaptureSends.current.set(captureSendKey, preparation);
+			using capturePreparation =
+				captureSendKey && preparation
+					? {
+							[Symbol.dispose]() {
+								finishPreparation?.();
+								if (preparingCaptureSends.current.get(captureSendKey) === preparation) {
+									preparingCaptureSends.current.delete(captureSendKey);
+								}
+							},
+						}
+					: null;
+			if (previousPreparation && stagedInput) {
+				await previousPreparation;
+				if (store.get(activeSessionAtom)?.runtimeId !== session.runtimeId) {
+					restoreStagedPendingSessionSend(stagedInput);
+					return;
+				}
+			}
+			let captureImages: Awaited<ReturnType<typeof loadBrowserCaptureImages>> = [];
+			if (!hasOverride && browserCaptures.length && modelSupportsImages) {
+				try {
+					captureImages = await loadBrowserCaptureImages(browserCaptures);
+				} catch (error) {
+					showToast({
+						variant: "error",
+						message: i18n.t(
+							error instanceof Error && error.message === "BROWSER_CAPTURE_BUDGET"
+								? "chat:browserCapture.budget"
+								: "chat:browserCapture.failed",
+						),
+					});
+					if (stagedInput) {
+						if (
+							options?.stagedInputOrigin === "new-session" &&
+							store.get(activeSessionAtom)?.runtimeId === session.runtimeId
+						) {
+							restoreStagedNewSessionSend(stagedInput);
+							if (store.get(pendingSessionSendAtom)?.messageId === stagedInput.optimisticMessage.id) {
+								store.set(pendingSessionSendAtom, null);
+							}
+							setActiveSessionStreaming(false);
+							setRetryProgress(null);
+						} else {
+							restoreStagedPendingSessionSend(stagedInput);
+						}
+					}
+					return;
+				}
+			}
 			perfSendMark("sender-enter", interactionId);
-			claimUnboundConversationFeed(session.runtimeId);
 			const rawText = stagedInput?.rawText ?? (hasOverride ? override : inputValue.trim());
 			const preparedInput = prepareInputPrompt(rawText, hasOverride ? undefined : inputSegments);
 			const images = !hasOverride && attachedImages.length > 0 ? attachedImages : undefined;
@@ -189,6 +256,24 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 					console.error("[useSessionManager.sendMessage] persistImages failed:", err);
 				}
 			}
+			if (captureSendKey) {
+				if (store.get(activeSessionAtom)?.runtimeId !== session.runtimeId) {
+					if (stagedInput) restoreStagedPendingSessionSend(stagedInput);
+					return;
+				}
+				if (
+					!stagedInput &&
+					(store.get(inputValueAtom) !== inputValue ||
+						store.get(inputSegmentsAtom) !== inputSegments ||
+						store.get(attachedImagesAtom) !== attachedImages ||
+						store.get(mentionedFilesAtom) !== mentionedFiles ||
+						store.get(appshotAttachmentAtom) !== appshot ||
+						store.get(browserCapturesAtom) !== browserCaptures)
+				) {
+					return;
+				}
+			}
+			claimUnboundConversationFeed(session.runtimeId);
 			const attachmentsByPath = new Map<string, PromptAttachmentRef>();
 			if (!hasOverride) {
 				for (const attachment of deriveAttachments(preparedInput.segments)) {
@@ -212,6 +297,8 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 					attachmentsByPath.set(toTokenPath(path), { kind: "image", path });
 				}
 			}
+			for (const capture of hasOverride ? [] : browserCaptures)
+				attachmentsByPath.set(toTokenPath(capture.imagePath), { kind: "image", path: capture.imagePath });
 			const attachments = [...attachmentsByPath.values()];
 			const text = hasOverride ? rawText : preparedInput.text;
 			if (stagedInput) {
@@ -328,6 +415,7 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 					}));
 				}
 				if (appshot) userMessage.appshot = appshot;
+				if (!hasOverride) userMessage.browserCaptures = browserCaptures;
 				userMessage.mentionedFiles = mentionedFiles.slice();
 				const settingsAssistTabId = options?.settingsAssistTabId?.trim();
 				if (settingsAssistTabId) userMessage.settingsAssistTabId = settingsAssistTabId;
@@ -396,9 +484,33 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 			}
 
 			if (pausedBatch) {
+				if (!hasOverride && browserCaptures.length > 0) {
+					const message = i18n.t("chat:browserCapture.failed");
+					showToast({ variant: "error", message });
+					if (stagedInput) {
+						restoreStagedPendingSessionSend(stagedInput);
+					} else {
+						if (store.get(inputValueAtom).length === 0 && store.get(browserCapturesAtom).length === 0) {
+							store.set(inputSegmentsAtom, inputSegments.slice());
+							store.set(inputValueAtom, inputValue);
+							setAttachedImages(attachedImages);
+							setMentionedFiles(mentionedFiles);
+							store.set(appshotAttachmentAtom, appshot);
+							store.set(browserCapturesAtom, browserCaptures);
+							persistCurrentSessionInputDraft();
+						}
+						if (optimisticUserMsgId) {
+							dispatchConversationFeed({
+								type: "user.failed",
+								runtimeId: session.runtimeId,
+								id: optimisticUserMsgId,
+							});
+						}
+					}
+					return { status: "failed", error: { message } };
+				}
 				try {
-					// The batch resume contract still accepts text only. Preserve attachment
-					// behavior there through the legacy prefix format until that API is migrated.
+					// The batch resume contract accepts text only, so captures cannot be resumed safely.
 					const legacyText = attachments.length
 						? `${attachments.map((attachment) => `@${attachment.path}`).join("\n")}\n${text}`
 						: text;
@@ -471,7 +583,28 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 				text: text || "(see attached content)",
 				messageId: promptMessageId,
 			};
+			if (!hasOverride && browserCaptures.length) {
+				promptReq.context = [buildBrowserCaptureContext(browserCaptures, promptMessageId)];
+				promptReq.images = captureImages;
+			}
 			let hiddenOptimisticMessageId: string | undefined;
+			// 排队消息发出前输入框已清空；失败时撤下排队快照，并把正文、附件和截图交回
+			// 现有恢复路径：输入框为空就直接还原，否则进入可找回列表，不覆盖新草稿。
+			const recoverQueuedSend = (id: string): void => {
+				restoreStagedPendingSessionSend({
+					draftKey: stagedInput?.draftKey ?? sendDraftKey,
+					rawText: inputValue,
+					inputSegments: inputSegments.slice(),
+					hasOverride,
+					attachedImages,
+					mentionedFiles,
+					appshot,
+					browserCaptures,
+					selectedModel,
+					modelSupportsImages,
+					optimisticMessage: createUserSnapshot(id),
+				});
+			};
 			if (streaming) {
 				// Queued messages stay out of the timeline until the Kernel appends them,
 				// but their editor-only metadata must survive that wait under the same ID.
@@ -486,11 +619,14 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 				promptReq.attachments = attachments;
 			}
 			if (images && imagePaths.length === 0) {
-				promptReq.images = images.map((image) => ({
-					type: "image",
-					data: image.data,
-					mimeType: image.mimeType,
-				}));
+				promptReq.images = [
+					...captureImages,
+					...images.map((image) => ({
+						type: "image" as const,
+						data: image.data,
+						mimeType: image.mimeType,
+					})),
+				];
 			}
 			if (selectedModel) {
 				promptReq.modelKey = selectedModel;
@@ -584,6 +720,7 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 				// 不再让插件集合变化把每次发送挡住最长 5 秒。
 				await waitForPluginHostFirstReady();
 				perfSendMark("prompt-ipc-start", interactionId);
+				capturePreparation?.[Symbol.dispose]();
 				const promptPromise = window.vetta.session.prompt(
 					session.runtimeId,
 					promptReq,
@@ -604,13 +741,7 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 					}
 					sendResult = { status: "queued", queueItemId: outcome.queueItemId };
 				} else if (outcome?.status === "failed") {
-					if (hiddenOptimisticMessageId) {
-						dispatchConversationFeed({
-							type: "user.discarded",
-							runtimeId: session.runtimeId,
-							id: hiddenOptimisticMessageId,
-						});
-					}
+					if (hiddenOptimisticMessageId) recoverQueuedSend(hiddenOptimisticMessageId);
 					if (optimisticUserMsgId && !outcome.turnId) {
 						dispatchConversationFeed({
 							type: "user.failed",
@@ -638,16 +769,14 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 					sendResult = { status: "sent" };
 				}
 			} catch (err) {
-				if (hiddenOptimisticMessageId) {
-					dispatchConversationFeed({
-						type: "user.discarded",
-						runtimeId: session.runtimeId,
-						id: hiddenOptimisticMessageId,
-					});
-				}
+				if (hiddenOptimisticMessageId) recoverQueuedSend(hiddenOptimisticMessageId);
 				// The rejected send never reached the Runtime; it must not come back as unconfirmed.
 				if (optimisticUserMsgId) {
-					dispatchConversationFeed({ type: "user.failed", runtimeId: session.runtimeId, id: optimisticUserMsgId });
+					dispatchConversationFeed({
+						type: "user.failed",
+						runtimeId: session.runtimeId,
+						id: optimisticUserMsgId,
+					});
 				}
 				// RuntimeHost.prompt 现在会先把 prompt 期同步抛错（"No model
 				// selected" / "No API key found" / "Agent is already processing"

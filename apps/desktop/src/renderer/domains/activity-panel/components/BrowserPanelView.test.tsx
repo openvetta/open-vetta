@@ -51,6 +51,26 @@ function renderView(overrides: Partial<BrowserPanelViewProps> = {}): void {
 afterEach(cleanup);
 
 describe("browser panel toolbar", () => {
+	// 截图入口是工具栏右侧按钮组里的一个图标按钮，不在工具栏下面另占一行。
+	it("puts the screenshot action beside open-in-browser in the same button group", () => {
+		let captureStarts = 0;
+		renderView({
+			captureAction: {
+				label: "capture",
+				disabled: false,
+				onClick: () => {
+					captureStarts += 1;
+				},
+			},
+		});
+		const capture = elementByLabel("capture");
+
+		expect(capture.closest('[data-slot="button-group"]')).toBe(
+			elementByLabel("open-external").closest('[data-slot="button-group"]'),
+		);
+		fireEvent.click(capture);
+		expect(captureStarts).toBe(1);
+	});
 	// 工具条必须复用设计系统的按钮组，而不是各画一套图标按钮。
 	it("builds navigation and actions from the shared button groups", () => {
 		renderView();

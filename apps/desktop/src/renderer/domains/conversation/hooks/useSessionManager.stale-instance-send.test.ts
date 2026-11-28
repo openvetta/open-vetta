@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 
+import type { PromptRequest } from "@vetta/runtime-core";
 import { getDefaultStore } from "jotai";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { browserCaptureSchema, parseBrowserCaptureContext } from "../../../../shared/browser-capture";
 import { withSessionAttach } from "./session-attach.fixture";
 
 const mocks = vi.hoisted(() => ({
@@ -98,7 +100,14 @@ afterEach(async () => {
 it("陈旧实例的 sendMessage 仍应发给当前激活会话，而不是该实例最后打开的会话", { timeout: 30_000 }, async () => {
 	// 生产路径只在 RootLayout 挂一份；本测试仍双挂载，证明即便 pluginSendMessageRef
 	// 被后渲染实例改写，陈旧实例的 sendMessage 也必须落进 activeSessionAtom 当前会话。
-	const { activeSessionAtom, chatMessagesAtom } = await import("@shared/store/atoms");
+	const {
+		activeSessionAtom,
+		chatMessagesAtom,
+		browserCapturesAtom,
+		inputValueAtom,
+		inputSegmentsAtom,
+		modelSupportsImagesAtom,
+	} = await import("@shared/store/atoms");
 	const { useSessionManager } = await import("./useSessionManager");
 	const store = getDefaultStore();
 	store.set(activeSessionAtom, null);
@@ -173,4 +182,57 @@ it("陈旧实例的 sendMessage 仍应发给当前激活会话，而不是该实
 
 	expect(mocks.prompt).toHaveBeenCalledTimes(1);
 	expect(mocks.prompt.mock.calls[0][0]).toBe("runtime-pet");
+
+	const capture = browserCaptureSchema.parse({
+		version: 1,
+		id: "capture",
+		imagePath: "/tmp/screenshot.png",
+		url: "http://localhost:3000/",
+		title: "App",
+		mode: "region",
+		width: 800,
+		height: 600,
+		viewport: { width: 800, height: 600 },
+		rect: { x: 10, y: 20, width: 100, height: 40 },
+		note: "Move this region",
+	});
+	vi.stubGlobal("fetch", async () => ({ ok: false }));
+	await act(async () => {
+		store.set(browserCapturesAtom, [capture]);
+		store.set(inputValueAtom, "Keep this draft");
+		store.set(inputSegmentsAtom, [{ kind: "text", text: "Keep this draft" }]);
+		store.set(modelSupportsImagesAtom, true);
+		await freshInstance.sendMessage();
+	});
+	expect(store.get(browserCapturesAtom)).toEqual([capture]);
+	expect(store.get(inputValueAtom)).toBe("Keep this draft");
+	vi.stubGlobal("fetch", async () => ({ ok: true, blob: async () => new Blob([new Uint8Array(10 * 1024 * 1024)]) }));
+	await act(async () => {
+		await freshInstance.sendMessage();
+	});
+	expect(store.get(browserCapturesAtom)).toEqual([capture]);
+	expect(store.get(inputValueAtom)).toBe("Keep this draft");
+	vi.stubGlobal("fetch", async () => ({ ok: true, blob: async () => new Blob(["png"], { type: "image/png" }) }));
+	await act(async () => {
+		store.set(browserCapturesAtom, [capture]);
+		store.set(inputValueAtom, "Review this screenshot");
+		store.set(inputSegmentsAtom, [{ kind: "text", text: "Review this screenshot" }]);
+		store.set(modelSupportsImagesAtom, true);
+		await freshInstance.sendMessage();
+	});
+	const visionRequest = mocks.prompt.mock.calls.at(-1)?.[1] as PromptRequest;
+	expect(visionRequest.images).toEqual([{ type: "image", data: "cG5n", mimeType: "image/png" }]);
+	expect(visionRequest.attachments).toContainEqual({ kind: "image", path: capture.imagePath });
+	expect(parseBrowserCaptureContext(visionRequest.context?.[0].metadata)?.captures).toEqual([capture]);
+	expect(store.get(browserCapturesAtom)).toEqual([]);
+
+	await act(async () => {
+		store.set(browserCapturesAtom, [capture]);
+		store.set(modelSupportsImagesAtom, false);
+		await freshInstance.sendMessage();
+	});
+	const textRequest = mocks.prompt.mock.calls.at(-1)?.[1] as PromptRequest;
+	expect(textRequest.images).toEqual([]);
+	expect(textRequest.attachments).toContainEqual({ kind: "image", path: capture.imagePath });
+	expect(textRequest.context?.[0].content).toContain("Move this region");
 });

@@ -69,7 +69,11 @@ export function projectUserMessage(message: ConversationUserMessageViewModel): U
 	const appshotImage =
 		attachmentRefs.find((attachment) => isAppshotPath(attachment.path) && /\.png$/i.test(attachment.path))?.path ??
 		null;
-	const displayAttachments = attachmentRefs.filter((attachment) => !isAppshotPath(attachment.path));
+	const displayAttachments = attachmentRefs.filter(
+		(attachment) =>
+			!isAppshotPath(attachment.path) &&
+			!message.browserCaptures?.some((capture) => capture.imagePath === attachment.path),
+	);
 	const inlineImagePaths = bodySegments.flatMap((segment) => (segment.kind === "image" ? [segment.path] : []));
 	const inlineImageKeys = new Set(inlineImagePaths.map(toTokenPath));
 	const imageFiles = [
@@ -102,12 +106,15 @@ export function projectUserMessage(message: ConversationUserMessageViewModel): U
 	const copyImageSources = [
 		...imageItems.map(userMessagePreviewSource).filter((source) => source.length > 0),
 		...(appshot?.imagePath ? [toVettaFileUrl(appshot.imagePath)] : []),
+		...(message.browserCaptures ?? []).map((capture) => toVettaFileUrl(capture.imagePath)),
 	];
 
 	return {
 		appshot,
 		copyImageSources,
-		copyText: displayText.trim(),
+		copyText: [displayText.trim(), ...(message.browserCaptures ?? []).map((capture) => capture.note.trim())]
+			.filter(Boolean)
+			.join("\n\n"),
 		displayText,
 		fileBadges,
 		imageIndexByPath,

@@ -1,9 +1,37 @@
 import { createConversationUserMessage } from "@shared/conversation";
 import { type InputSegment, segmentsToText } from "@shared/lib/input-tokens";
 import { describe, expect, it } from "vitest";
+import { browserCaptureSchema } from "../../../../../shared/browser-capture";
 import { projectUserMessage } from "./userMessageProjection";
 
 describe("projectUserMessage", () => {
+	it("copies browser screenshot notes and images without duplicating the ordinary attachment strip", () => {
+		const capture = browserCaptureSchema.parse({
+			version: 1,
+			id: "capture",
+			imagePath: "C:/capture.png",
+			url: "https://example.test",
+			title: "Demo",
+			mode: "region",
+			width: 800,
+			height: 600,
+			viewport: { width: 800, height: 600 },
+			rect: { x: 10, y: 20, width: 100, height: 40 },
+			note: "Move this area",
+		});
+		const projection = projectUserMessage(
+			createConversationUserMessage({
+				id: "capture-message",
+				text: "Please adjust",
+				attachments: [{ kind: "image", path: capture.imagePath }],
+				browserCaptures: [capture],
+			}),
+		);
+		expect(projection.copyText).toBe("Please adjust\n\nMove this area");
+		expect(projection.copyImageSources).toHaveLength(1);
+		expect(projection.copyImageSources[0]).toContain("capture.png");
+		expect(projection.imageItems).toEqual([]);
+	});
 	it("发送后的气泡沿用编辑器结构，不把普通 png 文件重新解析成图片", () => {
 		const inputSegments: InputSegment[] = [
 			{ kind: "text", text: "检查 " },

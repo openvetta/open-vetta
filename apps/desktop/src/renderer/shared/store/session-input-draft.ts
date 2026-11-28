@@ -1,3 +1,5 @@
+import type { BrowserCapture } from "../../../shared/browser-capture";
+import { browserCapturesAtom } from "./browser-capture-atoms";
 import { selectedSpaceAtom } from "./spaces";
 /**
  * 按作用域隔离的输入草稿 + 已发送历史。
@@ -39,6 +41,7 @@ export {
 } from "./session-input-draft-logic";
 
 export interface SessionInputDraft {
+	captures?: BrowserCapture[];
 	text: string;
 	/** Structured editor snapshot; absent on legacy/programmatic text-only drafts. */
 	segments?: InputSegment[];
@@ -79,6 +82,7 @@ export function captureSessionInputDraft(): SessionInputDraft {
 	const store = getDefaultStore();
 	return {
 		text: store.get(inputValueAtom),
+		captures: store.get(browserCapturesAtom),
 		segments: store.get(inputSegmentsAtom),
 		appshot: store.get(appshotAttachmentAtom),
 	};
@@ -86,6 +90,7 @@ export function captureSessionInputDraft(): SessionInputDraft {
 
 export function applySessionInputDraft(draft: SessionInputDraft): void {
 	const store = getDefaultStore();
+	store.set(browserCapturesAtom, draft.captures ?? []);
 	store.set(inputSegmentsAtom, draft.segments ?? parseInputSegments(draft.text).segments);
 	store.set(inputValueAtom, draft.text);
 	store.set(appshotAttachmentAtom, draft.appshot);
@@ -116,6 +121,7 @@ export function persistSessionInputDraft(key: string, draft: SessionInputDraft):
 	const existing = prev[key];
 	if (
 		existing &&
+		existing.captures === draft.captures &&
 		existing.text === draft.text &&
 		existing.segments === draft.segments &&
 		existing.appshot === draft.appshot

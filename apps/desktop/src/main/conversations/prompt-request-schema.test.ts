@@ -1,9 +1,32 @@
 import { describe, expect, it } from "vitest";
+import { browserCaptureSchema, buildBrowserCaptureContext } from "../../shared/browser-capture.js";
 import { parsePromptRequest } from "./prompt-request-schema.js";
 
 const absolute = process.platform === "win32" ? "C:\\work\\app\\a.ts" : "/work/app/a.ts";
 
 describe("提示请求里的附件路径", () => {
+	it("validates screenshot context and keeps the image-note association at admission", () => {
+		const capture = browserCaptureSchema.parse({
+			version: 1,
+			id: "capture-a",
+			imagePath: absolute,
+			url: "http://localhost:3000/",
+			title: "App",
+			mode: "region",
+			width: 800,
+			height: 600,
+			viewport: { width: 800, height: 600 },
+			rect: { x: 10, y: 20, width: 100, height: 40 },
+			note: "Move this region",
+		});
+		const context = buildBrowserCaptureContext([capture], "message-a");
+		expect(parsePromptRequest({ text: "Review", messageId: "message-a", context: [context] }).context).toEqual([
+			context,
+		]);
+		expect(() =>
+			parsePromptRequest({ text: "Review", context: [{ ...context, metadata: { version: 99 } }] }),
+		).toThrow("Invalid browser screenshot");
+	});
 	it("保留 Renderer 分配的稳定消息身份", () => {
 		expect(parsePromptRequest({ text: "hello", messageId: "user-123" }).messageId).toBe("user-123");
 	});

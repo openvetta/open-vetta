@@ -418,9 +418,7 @@ export function useActivityPanelModel({
 		[tabItems, overflowKeys],
 	);
 	const showTabPicker =
-		!knowledgeHistory &&
-		cwd !== null &&
-		(restorableTabs.length > 0 || overflowTabs.length > 0 || availablePluginTabs.length > 0);
+		!knowledgeHistory && (restorableTabs.length > 0 || overflowTabs.length > 0 || availablePluginTabs.length > 0);
 
 	const actions = useMemo<ActivityPanelActions>(
 		() => ({

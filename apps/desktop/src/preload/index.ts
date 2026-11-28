@@ -8,6 +8,7 @@ import { createAppLifecycleApi } from "./apis/app-lifecycle.js";
 import { createAppMonitorApi } from "./apis/app-monitor.js";
 import { createAppshotApi } from "./apis/appshot.js";
 import { createBatchTasksApi } from "./apis/batch-tasks.js";
+import { createBrowserCaptureApi } from "./apis/browser-capture.js";
 import { createConversationTagsApi } from "./apis/conversation-tags.js";
 import { createDownloadsApi } from "./apis/downloads.js";
 import { createI18nApi } from "./apis/i18n.js";
@@ -40,6 +41,7 @@ for (const eventName of ["keydown", "mousedown", "mousemove", "touchstart", "whe
 }
 
 const rawApi: Omit<DesktopApi, "hostAccess"> = {
+	...createBrowserCaptureApi(ipcRenderer),
 	...createMessageAnnotationsApi(ipcRenderer),
 	...createAbilitiesApi(ipcRenderer),
 	...createMarkdownApi(ipcRenderer),

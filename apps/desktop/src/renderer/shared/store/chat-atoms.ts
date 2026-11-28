@@ -12,6 +12,7 @@ import type { InputSegment } from "@shared/lib/input-tokens";
 import type { ContextCompactionEligibility, ContextCompositionReport } from "@vetta/runtime-core";
 import { atom } from "jotai";
 import { selectAtom } from "jotai/utils";
+import type { BrowserCapture } from "../../../shared/browser-capture";
 import type { LastActiveSession } from "./last-active-session-storage";
 import { LAST_ACTIVE_SESSION_STORAGE_KEY, readLastActiveSession } from "./last-active-session-storage";
 import { runningSessionPathsAtom } from "./running-sessions-atoms";
@@ -525,6 +526,7 @@ export interface OpenSessionOptions {
 
 /** Immutable input captured before a new session has a runtimeId. */
 export interface StagedSendInput {
+	browserCaptures?: BrowserCapture[];
 	/** Draft scope that owned the input when the user submitted it. */
 	draftKey: string | null;
 	rawText: string;
@@ -535,6 +537,8 @@ export interface StagedSendInput {
 	mentionedFiles: MentionedFile[];
 	appshot: AppshotAttachment | null;
 	selectedModel: string | null;
+	/** Image support of `selectedModel`, captured with it so a later model switch cannot change the payload. */
+	modelSupportsImages?: boolean;
 	optimisticMessage: ConversationUserMessageViewModel;
 }
 
@@ -568,6 +572,8 @@ export interface SendMessageOptions {
 	source?: "plugin";
 	/** New-session input already rendered optimistically before runtime creation. */
 	stagedInput?: StagedSendInput;
+	/** Identifies staged input whose owner is the newly-created session draft. */
+	stagedInputOrigin?: "new-session";
 	/** 用户发送意图：Ctrl+Enter 走 steer，Enter 走 followUp。 */
 	streamingBehavior?: "steer" | "followUp";
 }

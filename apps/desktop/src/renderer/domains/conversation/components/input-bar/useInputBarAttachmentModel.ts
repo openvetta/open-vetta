@@ -2,7 +2,9 @@ import { recordInputFilesAdded } from "@shared/lib/app-monitor-events";
 import { isImagePath } from "@shared/lib/input-tokens";
 import { pathBasename } from "@shared/lib/utils";
 import type { MentionedFile } from "@shared/store/atoms";
+import { browserCapturesAtom } from "@shared/store/atoms";
 import type { FilePreviewContext, FilePreviewItem } from "@shared/store/file-preview-atoms";
+import { useSetAtom } from "jotai";
 import { useCallback } from "react";
 import { focusInputEditor, insertFileToken, insertImageToken, removeImageToken } from "./editor/inputEditorHandle";
 import { persistBase64Images } from "./editor/persistImages";
@@ -35,6 +37,7 @@ export function useInputBarAttachmentModel({
 	setPendingMessageEdit: (value: null) => void;
 	setPromptAttachment: (value: null) => void;
 }) {
+	const setCaptures = useSetAtom(browserCapturesAtom);
 	const handleSelectImages = useCallback(async () => {
 		if (!hasSession) return;
 		const selected = await window.vetta.dialog.selectImages();
@@ -73,11 +76,12 @@ export function useInputBarAttachmentModel({
 	const removePromptAttachment = useCallback(() => setPromptAttachment(null), [setPromptAttachment]);
 	const removeAppshot = useCallback(() => setAppshotAttachment(null), [setAppshotAttachment]);
 	const cancelPendingEdit = useCallback(() => {
+		setCaptures([]);
 		setPendingMessageEdit(null);
 		setInputValue("");
 		setMentionedFiles([]);
 		setAppshotAttachment(null);
-	}, [setAppshotAttachment, setInputValue, setMentionedFiles, setPendingMessageEdit]);
+	}, [setCaptures, setAppshotAttachment, setInputValue, setMentionedFiles, setPendingMessageEdit]);
 
 	return {
 		cancelPendingEdit,
