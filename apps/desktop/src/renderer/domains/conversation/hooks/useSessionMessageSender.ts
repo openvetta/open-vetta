@@ -146,6 +146,8 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 			const appshot = stagedInput ? stagedInput.appshot : store.get(appshotAttachmentAtom);
 			const browserCaptures = stagedInput?.browserCaptures ?? store.get(browserCapturesAtom);
 			const selectedModel = stagedInput ? stagedInput.selectedModel : selectedModelRef.current;
+			// 图片能力必须和 selectedModel 出自同一快照：暂存期间切换模型不能改变这条消息的载荷。
+			const modelSupportsImages = stagedInput?.modelSupportsImages ?? store.get(modelSupportsImagesAtom);
 			// overrideText：来自输入预测建议（点击 bubble / 空输入回车按 placeholder 发送），
 			// 作为独立 prompt 直发，不带技能 / @文件前缀，也不消费当前草稿与附图。
 			const override = typeof overrideText === "string" ? overrideText.trim() : "";
@@ -204,7 +206,7 @@ export function useSessionMessageSender({ bumpSuggestionToken }: SessionMessageS
 				}
 			}
 			let captureImages: Awaited<ReturnType<typeof loadBrowserCaptureImages>> = [];
-			if (!hasOverride && browserCaptures.length && store.get(modelSupportsImagesAtom)) {
+			if (!hasOverride && browserCaptures.length && modelSupportsImages) {
 				try {
 					captureImages = await loadBrowserCaptureImages(browserCaptures);
 				} catch (error) {

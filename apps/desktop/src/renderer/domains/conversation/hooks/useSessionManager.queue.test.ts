@@ -1043,3 +1043,48 @@ it("运行时创建期间连续暂存的两条截图在首次图片读取延迟�
 		);
 	}
 });
+
+it.each([
+	{ stagedSupport: true, currentSupport: false },
+	{ stagedSupport: false, currentSupport: true },
+])(
+	"暂存发送按暂存时所选模型的图片能力决定是否附带截图（暂存 $stagedSupport，当前 $currentSupport）",
+	{ timeout: 30_000 },
+	async ({ stagedSupport, currentSupport }) => {
+		const store = await mount("检查这个页面", false);
+		const { activeInputDraftKeyAtom, browserCapturesAtom, modelSupportsImagesAtom, newSessionInputDraftKey } =
+			await import("@shared/store/atoms");
+		const { stageNewSessionSend } = await import("../services/staged-new-session-send");
+		const capture = {
+			version: 1 as const,
+			id: "capture-model",
+			imagePath: "/cache/capture-model.png",
+			url: "https://example.test/",
+			title: "Example",
+			mode: "region" as const,
+			width: 20,
+			height: 20,
+			viewport: { width: 20, height: 20 },
+			rect: { x: 0, y: 0, width: 10, height: 10 },
+			note: "note",
+		};
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => ({ ok: true, blob: async () => new Blob([new Uint8Array([1])]) })),
+		);
+		store.set(activeInputDraftKeyAtom, newSessionInputDraftKey(cwd));
+		store.set(browserCapturesAtom, [capture]);
+		store.set(modelSupportsImagesAtom, stagedSupport);
+		const stagedInput = stageNewSessionSend(undefined, "model-switch");
+		if (!stagedInput) throw new Error("New-session send should have been staged");
+		// 运行时创建期间用户切到另一个模型，选择器把图片能力同步成新模型的值。
+		store.set(modelSupportsImagesAtom, currentSupport);
+
+		await act(async () => {
+			await manager?.sendMessage(undefined, { stagedInput, stagedInputOrigin: "new-session" });
+		});
+
+		const [, request] = mocks.prompt.mock.calls[0] as unknown as [string, { images?: unknown[] }];
+		expect(request.images ?? []).toHaveLength(stagedSupport ? 1 : 0);
+	},
+);

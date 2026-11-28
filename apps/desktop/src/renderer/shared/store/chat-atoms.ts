@@ -537,6 +537,8 @@ export interface StagedSendInput {
 	mentionedFiles: MentionedFile[];
 	appshot: AppshotAttachment | null;
 	selectedModel: string | null;
+	/** Image support of `selectedModel`, captured with it so a later model switch cannot change the payload. */
+	modelSupportsImages?: boolean;
 	optimisticMessage: ConversationUserMessageViewModel;
 }
 

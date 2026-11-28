@@ -11,6 +11,7 @@ import {
 	inputValueAtom,
 	loadSessionInputDraft,
 	mentionedFilesAtom,
+	modelSupportsImagesAtom,
 	persistCurrentSessionInputDraft,
 	persistSessionInputDraft,
 	type StagedSendInput,
@@ -94,6 +95,7 @@ function stageSessionSend(
 	const appshot = store.get(appshotAttachmentAtom);
 	const browserCaptures = store.get(browserCapturesAtom).slice();
 	const selectedModel = store.get(selectedModelAtom);
+	const modelSupportsImages = store.get(modelSupportsImagesAtom);
 	const override = typeof overrideText === "string" ? overrideText.trim() : "";
 	const hasOverride = override.length > 0;
 	if (
@@ -171,6 +173,7 @@ function stageSessionSend(
 		appshot,
 		browserCaptures,
 		selectedModel,
+		modelSupportsImages,
 		optimisticMessage,
 	};
 }
