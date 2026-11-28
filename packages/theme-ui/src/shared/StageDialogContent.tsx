@@ -7,11 +7,14 @@ export function StageDialogContent({
 	artwork,
 	children,
 	onOpenAutoFocus,
+	onCloseAutoFocus,
 }: {
 	artwork: ReactNode;
 	children: ReactNode;
 	/** Call `preventDefault()` to keep focus off the first control when the stage opens. */
 	onOpenAutoFocus?: ContentProps["onOpenAutoFocus"];
+	/** Needed when the dialog is opened without a `Dialog.Trigger`, so focus can return to the opener. */
+	onCloseAutoFocus?: ContentProps["onCloseAutoFocus"];
 }) {
 	return (
 		<Dialog.Portal>
@@ -22,6 +25,7 @@ export function StageDialogContent({
 			<Dialog.Content
 				data-slot="dialog-stage"
 				onOpenAutoFocus={onOpenAutoFocus}
+				onCloseAutoFocus={onCloseAutoFocus}
 				className="no-drag fixed inset-0 z-50 overflow-y-auto outline-none"
 			>
 				<Dialog.Close asChild>

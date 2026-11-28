@@ -12,11 +12,13 @@ export function BrowserCaptureDialog({
 	onCancel,
 	onSave,
 	editing,
+	onCloseAutoFocus,
 }: {
 	capture: BrowserCapture;
 	onCancel: () => void;
 	onSave: (note: string) => void;
 	editing?: boolean;
+	onCloseAutoFocus?: (event: Event) => void;
 }) {
 	const { t } = useTranslation("chat");
 	const [note, setNote] = useState(capture.note);
@@ -28,6 +30,7 @@ export function BrowserCaptureDialog({
 			}}
 		>
 			<StageDialogContent
+				onCloseAutoFocus={onCloseAutoFocus}
 				artwork={
 					<img
 						className="max-h-[75vh] w-[min(60vw,900px)] max-w-full rounded-xl object-contain"

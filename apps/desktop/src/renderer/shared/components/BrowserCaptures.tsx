@@ -1,7 +1,7 @@
 import type { BrowserCapture } from "../../../shared/browser-capture";
 import { BrowserCaptureCardView } from "@vetta-org/theme-ui/chat";
 import { useAtom, useSetAtom } from "jotai";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { BrowserCaptureDialog } from "./BrowserCaptureDialog";
 import { AttachmentThumbnail } from "./AttachmentThumbnail";
 import { useTranslation } from "react-i18next";
@@ -77,6 +77,7 @@ function DraftThumbnail({
 	onSave: (note: string) => void;
 }) {
 	const [editing, setEditing] = useState(false);
+	const thumbnailRef = useRef<HTMLButtonElement>(null);
 	return (
 		<>
 			<AttachmentThumbnail
@@ -84,6 +85,7 @@ function DraftThumbnail({
 				src={toVettaFileUrl(capture.imagePath)}
 				badge={<span className="icon-[mdi--web] size-3" />}
 				removeLabel={removeLabel}
+				openRef={thumbnailRef}
 				onRemove={onRemove}
 				onOpen={() => setEditing(true)}
 			/>
@@ -91,6 +93,11 @@ function DraftThumbnail({
 				<BrowserCaptureDialog
 					editing
 					capture={capture}
+					// 浮层不是由 Dialog.Trigger 打开的，Radix 不知道该把焦点还给谁。
+					onCloseAutoFocus={(event) => {
+						event.preventDefault();
+						thumbnailRef.current?.focus();
+					}}
 					onCancel={() => setEditing(false)}
 					onSave={(note) => {
 						onSave(note);

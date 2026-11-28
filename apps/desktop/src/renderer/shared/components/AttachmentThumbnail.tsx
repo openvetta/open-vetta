@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { Button } from "./ui/button";
 
 export function AttachmentThumbnail({
@@ -8,6 +8,7 @@ export function AttachmentThumbnail({
 	removeLabel,
 	onOpen,
 	onRemove,
+	openRef,
 }: {
 	src: string;
 	name: string;
@@ -15,11 +16,13 @@ export function AttachmentThumbnail({
 	removeLabel: string;
 	onOpen: () => void;
 	onRemove: () => void;
+	openRef?: Ref<HTMLButtonElement>;
 }) {
 	return (
 		<div className="group relative">
 			<Button
 				variant="ghost"
+				ref={openRef}
 				onClick={onOpen}
 				className="block h-12 w-12 overflow-hidden rounded-lg border border-border p-0 ring-1 ring-border/40"
 				title={name}
