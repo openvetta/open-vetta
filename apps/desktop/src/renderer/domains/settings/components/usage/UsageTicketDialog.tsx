@@ -71,6 +71,7 @@ export function UsageTicketDialog({
 				</Button>
 			</DialogPrimitive.Trigger>
 			<StageDialogContent
+				onOpenAutoFocus={(event) => event.preventDefault()}
 				artwork={
 					<div
 						className="w-[min(420px,calc(100vw-64px))] overflow-hidden rounded-2xl"

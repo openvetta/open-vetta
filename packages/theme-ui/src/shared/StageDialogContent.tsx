@@ -1,14 +1,29 @@
 import { Dialog } from "radix-ui";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
-export function StageDialogContent({ artwork, children }: { artwork: ReactNode; children: ReactNode }) {
+type ContentProps = ComponentProps<typeof Dialog.Content>;
+
+export function StageDialogContent({
+	artwork,
+	children,
+	onOpenAutoFocus,
+}: {
+	artwork: ReactNode;
+	children: ReactNode;
+	/** Call `preventDefault()` to keep focus off the first control when the stage opens. */
+	onOpenAutoFocus?: ContentProps["onOpenAutoFocus"];
+}) {
 	return (
 		<Dialog.Portal>
 			<Dialog.Overlay
 				data-slot="dialog-overlay"
 				className="no-drag fixed inset-0 z-50 bg-background/80 backdrop-blur-md"
 			/>
-			<Dialog.Content data-slot="dialog-stage" className="no-drag fixed inset-0 z-50 overflow-y-auto outline-none">
+			<Dialog.Content
+				data-slot="dialog-stage"
+				onOpenAutoFocus={onOpenAutoFocus}
+				className="no-drag fixed inset-0 z-50 overflow-y-auto outline-none"
+			>
 				<Dialog.Close asChild>
 					<button type="button" tabIndex={-1} aria-hidden="true" className="fixed inset-0 cursor-default" />
 				</Dialog.Close>

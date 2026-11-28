@@ -146,6 +146,17 @@ describe("用量设置页", () => {
 		expect(screen.queryByText("用量加载失败")).toBeNull();
 	});
 
+	it("打开制作小票浮层时不把焦点抢到按钮上，避免一打开就出现焦点框", async () => {
+		mockReport(async () => REPORT);
+		renderPage();
+		await screen.findByRole("table");
+
+		await userEvent.click(screen.getByRole("button", { name: "制作小票" }));
+		const dialog = await screen.findByRole("dialog");
+
+		expect(within(dialog).queryAllByRole("button")).not.toContain(document.activeElement);
+	});
+
 	it("制作小票：多天显示起止日期，只选今天时顶部只显示今天", async () => {
 		mockReport(async () => REPORT);
 		renderPage();
