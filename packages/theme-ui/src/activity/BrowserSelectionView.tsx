@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { PointerEvent } from "react";
+import type { PointerEvent, ReactNode } from "react";
 
 interface Rect {
 	x: number;
@@ -16,6 +16,8 @@ interface BrowserSelectionViewProps {
 	onInspect: (x: number, y: number, lock: boolean) => void;
 	onRegionChange: (rect: Rect) => void;
 	onScroll: (x: number, y: number, point: { x: number; y: number }) => void;
+	/** Floats above the page while selecting; a sibling of the surface so its clicks never start a selection. */
+	toolbar?: ReactNode;
 }
 
 /** Host overlay intercepts pointer input; selecting never clicks the guest page. */
@@ -28,6 +30,7 @@ export function BrowserSelectionView({
 	onInspect,
 	onRegionChange,
 	onScroll,
+	toolbar,
 }: BrowserSelectionViewProps) {
 	const surface = useRef<HTMLDivElement>(null);
 	const drag = useRef<{
@@ -103,6 +106,7 @@ export function BrowserSelectionView({
 		});
 	};
 	return (
+		<>
 			<div
 				ref={surface}
 				role="application"
@@ -185,5 +189,11 @@ export function BrowserSelectionView({
 					</div>
 				) : null}
 			</div>
+			{toolbar ? (
+				<div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center px-3">
+					<div className="pointer-events-auto max-w-full">{toolbar}</div>
+				</div>
+			) : null}
+		</>
 	);
 }

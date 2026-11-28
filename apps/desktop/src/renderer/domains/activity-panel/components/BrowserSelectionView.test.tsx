@@ -119,3 +119,39 @@ it("hovers an element then drags a region from its highlight in the same selecti
 	fireEvent.pointerMove(surface, { clientX: 400, clientY: 300 });
 	expect(screen.getByRole("status").textContent).toBe('{"x":20,"y":30,"width":200,"height":100}');
 });
+
+it("floats the selection toolbar over the page without starting a selection from it", () => {
+	const inspected: string[] = [];
+	let confirmed = 0;
+	render(
+		<BrowserSelectionView
+			mode="element"
+			viewport={{ width: 600, height: 400 }}
+			rect={null}
+			disabled={false}
+			label="Select element"
+			onInspect={(x, y, lock) => inspected.push(`${x},${y}:${lock}`)}
+			onRegionChange={() => undefined}
+			onScroll={() => undefined}
+			toolbar={
+				<button
+					type="button"
+					onClick={() => {
+						confirmed += 1;
+					}}
+				>
+					Confirm
+				</button>
+			}
+		/>,
+	);
+	const confirm = screen.getByRole("button", { name: "Confirm" });
+
+	expect(screen.getByRole("application").contains(confirm)).toBe(false);
+	fireEvent.pointerMove(confirm, { clientX: 20, clientY: 30 });
+	fireEvent.pointerDown(confirm, { button: 0, clientX: 20, clientY: 30 });
+	fireEvent.pointerUp(confirm, { clientX: 20, clientY: 30 });
+	fireEvent.click(confirm);
+	expect(inspected).toEqual([]);
+	expect(confirmed).toBe(1);
+});

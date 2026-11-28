@@ -17,7 +17,6 @@ export interface BrowserPanelLabels {
 
 export interface BrowserPanelViewProps {
 	children?: ReactNode;
-	captureToolbar?: ReactNode;
 	captureAction?: { label: string; disabled: boolean; onClick: () => void };
 	/** Null when the host has no bound workspace — show empty state. */
 	workspaceId: string | null;
@@ -50,7 +49,6 @@ function toolbarIcon(icon: string): JSX.Element {
  */
 export function BrowserPanelView({
 	children,
-	captureToolbar,
 	captureAction,
 	workspaceId,
 	labels,
@@ -145,7 +143,6 @@ export function BrowserPanelView({
 				</ButtonGroup>
 			</div>
 
-			{captureToolbar}
 			<div className="relative flex min-h-0 flex-1">
 				{/* src 用静态 about:blank 让 guest 立即挂载（dom-ready 才会触发），
 				    真实地址由 effect 通过 loadURL 加载；src 不绑 targetUrl 以免页内跳转触发重载。 */}
